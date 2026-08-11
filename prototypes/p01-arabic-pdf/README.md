@@ -21,7 +21,27 @@ npm install
 node render.js
 ```
 
-Outputs to `out/`: `QT-2026-0001.pdf`, `preview.png`, `quotation.embedded.html`.
+Outputs to `out/`, per locale: `QT-2026-0001.{ar,en}.pdf`, `preview.{ar,en}.png`,
+`quotation.{ar,en}.html`. The script fails the build if either locale renders
+more than one page.
+
+## House style
+
+Visual language taken from the company's Purchase Order #226. The logo and
+footer band are the real assets, extracted from that PDF. Brand colours sampled
+from it directly: `#5B9BD5` headers, `#DEEAF6` row tint, `#4472C4` title rules,
+`#112131` footer band.
+
+Arabic and English render from one template (`template.js`) with no duplicated
+markup and no hard-coded user-facing strings, per the Module 0 requirement.
+
+## Two deliberate departures from the reference
+
+1. **"UNIT COST" is "UNIT PRICE" here.** The reference is a purchase order to a
+   supplier, where cost is correct. This is a customer-facing quotation, and
+   3.12 rule 2 forbids exposing cost or margin to a customer.
+2. **Discount is applied before VAT**, per the documented chain in 5.2. The
+   reference applies it *after* VAT. See the open question below.
 
 ## Why headless Chrome
 

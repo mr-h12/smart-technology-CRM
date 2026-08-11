@@ -4,64 +4,84 @@
  * Success criterion: a PDF containing a full Arabic paragraph, an items table
  * and numbers, correctly shaped, with no broken glyphs and embedded fonts.
  *
- * Renders through headless Chrome. This is the same engine Laravel's
- * Browsershot drives, so a pass here transfers directly to the Laravel
- * implementation in Module 9 — only the wrapper changes.
+ * Renders in the Smart Technology house style, in both Arabic (RTL) and
+ * English (LTR), from a single template — proving the R-02 shaping question
+ * and the RTL/LTR parity requirement at the same time.
+ *
+ * Uses headless Chrome, the same engine Laravel's Browsershot drives, so this
+ * transfers to Module 9 with only the wrapper changing.
  */
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
+const { render } = require('./template');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ARABIC_DIR = path.join(__dirname, 'node_modules/@fontsource/noto-sans-arabic/files');
-const LATIN_DIR = path.join(__dirname, 'node_modules/@fontsource/inter/files');
 const OUT = path.join(__dirname, 'out');
+const f = (p) => fs.readFileSync(path.join(__dirname, p)).toString('base64');
 
-const b64 = (dir, f) => fs.readFileSync(path.join(dir, f)).toString('base64');
+// Every font is embedded. The on-premise Linux server has no Arabic system
+// fonts, and `sans-serif` resolves differently there than on macOS — an
+// unembedded face would change metrics between dev and production.
+const assets = {
+  ar400: f('node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2'),
+  ar700: f('node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2'),
+  la400: f('node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2'),
+  la700: f('node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2'),
+  se700: f('node_modules/@fontsource/noto-serif/files/noto-serif-latin-700-normal.woff2'),
+  logo: f('assets/logo.jpg'),
+  band: f('assets/footer-band.jpg'),
+};
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-
-  // Embed fonts. Never rely on OS fonts: the on-premise Linux server has none.
-  const html = fs
-    .readFileSync(path.join(__dirname, 'template.html'), 'utf8')
-    .replace('__FONT_400__', b64(ARABIC_DIR, 'noto-sans-arabic-arabic-400-normal.woff2'))
-    .replace('__FONT_700__', b64(ARABIC_DIR, 'noto-sans-arabic-arabic-700-normal.woff2'))
-    .replace('__INTER_400__', b64(LATIN_DIR, 'inter-latin-400-normal.woff2'))
-    .replace('__INTER_700__', b64(LATIN_DIR, 'inter-latin-700-normal.woff2'));
-
-  const selfContained = path.join(OUT, 'quotation.embedded.html');
-  fs.writeFileSync(selfContained, html);
-
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: 'new',
     args: ['--no-sandbox', '--font-render-hinting=none'],
   });
 
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
-  await page.evaluateHandle('document.fonts.ready');
+  const report = [];
 
-  // Confirm the embedded face actually loaded rather than silently falling back.
-  const fontStatus = await page.evaluate(() => {
-    const loaded = [...document.fonts].map((f) => `${f.family} ${f.weight} ${f.status}`);
-    return { count: document.fonts.size, loaded, ready: document.fonts.status };
-  });
+  for (const locale of ['ar', 'en']) {
+    const html = render(locale, assets);
+    fs.writeFileSync(path.join(OUT, `quotation.${locale}.html`), html);
 
-  await page.pdf({
-    path: path.join(OUT, 'QT-2026-0001.pdf'),
-    format: 'A4',
-    printBackground: true,
-    preferCSSPageSize: true,
-  });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluateHandle('document.fonts.ready');
 
-  await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 2 });
-  await page.screenshot({ path: path.join(OUT, 'preview.png'), fullPage: true });
+    const fonts = await page.evaluate(() =>
+      [...document.fonts].filter((x) => x.status === 'loaded').length
+    );
+
+    await page.pdf({
+      path: path.join(OUT, `QT-2026-0001.${locale}.pdf`),
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+
+    await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 2 });
+    await page.screenshot({ path: path.join(OUT, `preview.${locale}.png`), fullPage: true });
+
+    // A blank trailing page is the classic silent failure here: 3mm of
+    // overflow costs a whole sheet. Assert it rather than trusting the eye.
+    const buf = fs.readFileSync(path.join(OUT, `QT-2026-0001.${locale}.pdf`));
+    const m = /\/Type\s*\/Pages[\s\S]*?\/Count\s+(\d+)/.exec(buf.toString('latin1'));
+    const pages = m ? +m[1] : -1;
+
+    report.push({ locale, fontsLoaded: fonts, pages, ok: pages === 1 });
+    await page.close();
+  }
 
   await browser.close();
-
-  console.log(JSON.stringify({ fonts: fontStatus, out: OUT }, null, 2));
+  console.table(report);
+  if (report.some((r) => !r.ok)) {
+    console.error('FAIL: expected exactly 1 page per locale');
+    process.exit(1);
+  }
+  console.log('P-01 PASS — output in', OUT);
 })().catch((e) => {
   console.error('P-01 FAILED:', e.message);
   process.exit(1);

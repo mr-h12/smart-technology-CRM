@@ -36,14 +36,16 @@
 
 المستندات الكبيرة اللي في `docs/` — دي **لسه محتاجة نسخة عربية** والمستندات نفسها بتطلبها بالاسم:
 
-| الإنجليزي الموجود | العربي المطلوب | الحالة |
+| الإنجليزي | العربي | الحالة |
 |---|---|---|
-| `docs/CRM_Documentation_EN.md` | `CRM_Documentation.md` | ❌ مش موجود |
-| `docs/MVP_Build_Plan_EN.md` | `MVP_Build_Plan.md` | ❌ مش موجود |
-| `docs/Design_System_EN.md` | `Design_System_AR.md` | ❌ مش موجود |
-| `docs/OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | ❌ مش موجود |
-| `docs/Documentation_Map_EN.md` | `Documentation_Map_AR.md` | ❌ مش موجود |
+| `docs/CRM_Documentation_EN.md` | `CRM_Documentation.md` | ✅ |
+| `docs/MVP_Build_Plan_EN.md` | `MVP_Build_Plan.md` | ✅ |
+| `docs/Design_System_EN.md` | `Design_System_AR.md` | ✅ |
+| `docs/OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | ✅ |
+| `docs/Documentation_Map_EN.md` | `Documentation_Map_AR.md` | ✅ |
 
-دي حوالي 2900 سطر، وفيها أرقام ومعادلات مالية وقانونية دقيقة. محتاجة جلسة لوحدها ومراجعة منك بعدها.
+**✅ خلصت كلها** (2026-08-12) وموجودة في `docs/` جنب توأمها الإنجليزي، بالأسماء اللي المستندات نفسها بتطلبها. وزودنا كمان `Coding_Standards_AR.md` و `User_Personas_AR.md` اللي مكانوش مطلوبين بالاسم.
+
+⚠️ **محتاجة مراجعتك:** الملفات دي فيها أرقام ومعادلات مالية وضريبية دقيقة. راجع الأرقام في القسم 5 (التسعير) والقسم 3 (الصلاحيات) بنفسك قبل ما الفريق يعتمد عليها.
 
 </div>

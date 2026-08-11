@@ -19,7 +19,12 @@ The documentation set declares several pairs that must stay semantically synchro
 | `docs/OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | Line 5 |
 | `docs/Documentation_Map_EN.md` | `Documentation_Map_AR.md` | Line 4 |
 
-Several Arabic companions may not exist yet. A missing twin is a reportable gap, not a silent pass.
+All six pairs now exist. A missing twin is a reportable gap, not a silent pass.
+
+The project also carries Arabic translations of the working files in `arabic/`
+(README, CHECKLIST, both agent guides, both subagents, both skills, P-01 notes).
+Those are reference copies, but a rule that differs there is still a divergence
+worth reporting.
 
 ## What to compare
 

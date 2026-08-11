@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (56 decisions) |
+| 2 | Decision Log (57 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -150,6 +150,7 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
+| D-57 | **Backend framework is Laravel** (recorded 2026-08-11). The documented stack in 14.2 — PostgreSQL, Redis, Meilisearch — is unchanged; this decision only names the application framework, which the documentation had deliberately left open. Chosen for its queue, scheduler and migration tooling, which map directly to the four queues (15.1), J-01…J-14, and the Queue Monitor and Scheduler screens (OBS-02, OBS-03). PDF generation uses headless Chrome via Browsershot, proven by prototype P-01 |
 
 ---
 
@@ -905,6 +906,7 @@ Completely hidden from all users.
 
 | Layer | Technology |
 |---|---|
+| Application | Laravel (D-57) — modular monolith, queues, scheduler, managed migrations |
 | Database | PostgreSQL — ACID · JSONB · partitioning |
 | Cache/Queue | Redis — cache · sessions · queue · rate limiting · locks |
 | Search | Meilisearch (D-48) — Arabic search with hamza, taa marbuta and yaa normalisation |

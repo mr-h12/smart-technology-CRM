@@ -8,7 +8,7 @@ Build the CRM MVP described by the project documentation. This is an internal, o
 
 Update this section whenever it stops being true.
 
-- No application code yet. Stack decided: **Laravel** (PostgreSQL, Redis, Meilisearch are mandated by §14.2). Record this in §2 as a new decision before Module 0 starts.
+- No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 not run** — needs server access and VPN from the server administrator.
 - **OD-01 and OD-03 remain unresolved** and still block Module 0.
@@ -66,6 +66,23 @@ Do not advance a module until its acceptance criteria, tests, permissions, audit
 - Use `Decimal`/database decimal types for all money. Floating point is forbidden.
 - Store timestamps in UTC and display them in the user's timezone.
 - Build `SearchService` in Module 3 with a PostgreSQL/ILIKE driver. All search calls must use it so Meilisearch can replace the driver later; fall back to ILIKE if Meilisearch fails.
+
+## Laravel Conventions (D-57)
+
+Framework choices that satisfy a documented requirement. Where a Laravel default conflicts with the documentation, the documentation wins.
+
+- **Modules are directories with their own layers**, not Eloquent models carrying business rules. A module owns its domain rules, use cases, persistence interface, and API surface; cross-module work goes through interfaces or events, never another module's models.
+- **Money uses `decimal:` casts backed by NUMERIC columns**, with BCMath for arithmetic. PHP floats are forbidden anywhere near a price (`DB-07`). Never use `round()` on an intermediate value — only the final total, by the configured currency unit.
+- **Migrations always implement `down()`.** `migrate:rollback` must actually work before a module is done (`DEV-03`). Never edit an applied migration; add a correcting one.
+- **`SoftDeletes` on every business table** satisfies `DB-01`. No `forceDelete()` on business data, ever.
+- **Queues use the four documented names** — `critical`, `pdf`, `reports`, `maintenance`. Horizon supplies Queue Monitor (`OBS-02`) and the Scheduler view (`OBS-03`); prefer it over hand-built admin screens.
+- **Scheduled jobs J-01…J-14 live in the scheduler**, each idempotent, with a retry limit and the documented startup catch-up (`D-55`, `ST-05`).
+- **Permissions come from the database, not from hard-coded `Gate::define` calls.** Dynamic RBAC is `resource.action.scope` (`SEC-07`); a policy may read the database but must never embed the matrix in code.
+- **Validate at the boundary with Form Requests; serialize with API Resources.** Controllers stay thin: validate, invoke a use case, serialize.
+- **Set the application timezone to UTC** and convert for display only (`DB-08`).
+- **Optimistic locking is not built in.** Quotations need an explicit version column plus `If-Match`, returning `409` on a stale write (`DB-12`, `API-12`).
+- **PDFs render through Browsershot** (headless Chrome), asynchronously on the `pdf` queue, with fonts embedded — the approach proven by P-01.
+- **All user-facing text lives in lang files.** No string literals in Blade, controllers, or components.
 
 ## Internationalization and UI
 
@@ -152,10 +169,3 @@ Pricing calculations are the highest testing priority. Test the full lifecycle b
 - Cite the relevant decision (`D-xx`), database rule (`DB-xx`), architecture/security requirement, scheduled job (`J-xx`), or MVP module acceptance criterion in implementation notes, tests, or pull-request descriptions.
 - If no authoritative source supports a proposed behavior, treat it as a new requirement and request a decision before building it.
 - `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to an Arabic counterpart once one exists.
-
-## Working Style
-
-- Inspect the relevant source sections before modifying a module.
-- Make the smallest coherent change; do not introduce unrelated refactors.
-- Do not claim completion without running the applicable tests and reporting their result.
-- When a requirement is unclear or conflicts with the source, stop and request a documented decision instead of guessing.

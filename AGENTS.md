@@ -10,7 +10,7 @@ This is the tool-neutral execution contract for every coding agent working on th
 
 Update this section whenever it stops being true. It must stay identical in meaning to the same section in `CLAUDE.md`.
 
-- No application code yet. Stack decided: **Laravel** (PostgreSQL, Redis, Meilisearch are mandated by §14.2). Record this in §2 as a new decision before Module 0 starts.
+- No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 not run** — needs server access and VPN from the server administrator.
 - **OD-01 and OD-03 remain unresolved** and still block Module 0.
@@ -59,6 +59,23 @@ Complete a module's acceptance criteria, tests, API authorization, audit coverag
 - Create `SearchService` in Module 3 with a PostgreSQL/ILIKE driver. All searches use it; Meilisearch later replaces the driver and failures fall back to ILIKE.
 - Each table has soft delete and audit columns (`created_by`, `created_at`, `updated_by`, `updated_at`), plus database foreign keys and constraints.
 - Use managed enum tables, never hard-coded enums. Version quotations and reports using `parent_id` and `version`.
+
+## Laravel Conventions (D-57)
+
+Framework choices that satisfy a documented requirement. Where a Laravel default conflicts with the documentation, the documentation wins.
+
+- **Modules are directories with their own layers**, not Eloquent models carrying business rules. A module owns its domain rules, use cases, persistence interface, and API surface; cross-module work goes through interfaces or events, never another module's models.
+- **Money uses `decimal:` casts backed by NUMERIC columns**, with BCMath for arithmetic. PHP floats are forbidden anywhere near a price (`DB-07`). Never use `round()` on an intermediate value — only the final total, by the configured currency unit.
+- **Migrations always implement `down()`.** `migrate:rollback` must actually work before a module is done (`DEV-03`). Never edit an applied migration; add a correcting one.
+- **`SoftDeletes` on every business table** satisfies `DB-01`. No `forceDelete()` on business data, ever.
+- **Queues use the four documented names** — `critical`, `pdf`, `reports`, `maintenance`. Horizon supplies Queue Monitor (`OBS-02`) and the Scheduler view (`OBS-03`); prefer it over hand-built admin screens.
+- **Scheduled jobs J-01…J-14 live in the scheduler**, each idempotent, with a retry limit and the documented startup catch-up (`D-55`, `ST-05`).
+- **Permissions come from the database, not from hard-coded `Gate::define` calls.** Dynamic RBAC is `resource.action.scope` (`SEC-07`); a policy may read the database but must never embed the matrix in code.
+- **Validate at the boundary with Form Requests; serialize with API Resources.** Controllers stay thin: validate, invoke a use case, serialize.
+- **Set the application timezone to UTC** and convert for display only (`DB-08`).
+- **Optimistic locking is not built in.** Quotations need an explicit version column plus `If-Match`, returning `409` on a stale write (`DB-12`, `API-12`).
+- **PDFs render through Browsershot** (headless Chrome), asynchronously on the `pdf` queue, with fonts embedded — the approach proven by P-01.
+- **All user-facing text lives in lang files.** No string literals in Blade, controllers, or components.
 
 ## Internationalization and UI
 

@@ -31,7 +31,7 @@ does not create requirements. If a box here disagrees with the build plan, the b
 - [ ] **OD-03** — Server specifications — **Server administrator**
 - [ ] **VAT ordering** — is VAT charged before or after the discount? The company's PO charges it on
       the pre-discount amount; `§5.2` discounts first. Different tax base. — **Accountant**
-- [ ] Stack decision (Laravel) recorded as a new decision in `§2`
+- [x] Stack decision (Laravel) recorded as **D-57** in `§2` and `§14.2`
 
 ### Required during the build 🟡
 

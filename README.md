@@ -12,7 +12,7 @@ for the field team.
 | **Devices** | Desktop for office roles · Mobile PWA for Outdoor Sales |
 | **Mode** | Online only — no offline mode |
 | **Working days** | Sunday → Thursday |
-| **Stack** | Laravel · PostgreSQL · Redis · Meilisearch · REST `/api/v1` · WebSockets · SPA + PWA |
+| **Stack** | Laravel (D-57) · PostgreSQL · Redis · Meilisearch · REST `/api/v1` · WebSockets · SPA + PWA |
 
 ---
 

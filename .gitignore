@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — SEC-17: secrets never live in source
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code — personal, not shared with the team
+.claude.local.md
+.claude/settings.local.json
+
+# Logs and temp
+*.log
+tmp/
+temp/
+
+# Uploaded files — D-38/§17: stored outside the web root, never committed
+storage/
+uploads/
+
+# Backups — §16.3: kept on a separate machine/disk, never in git
+backups/
+*.dump
+*.sql.gz

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Checking authoritative sources...",
+            "command": "jq -r '.tool_input.file_path' | grep -qE '(CRM_Documentation_EN|MVP_Build_Plan_EN|Coding_Standards_EN)\\.md$' && { echo 'BLOCKED: this is an authoritative source. Per CLAUDE.md Change Discipline, a documented decision may not be silently reinterpreted or edited. Record the change as a new decision and get approval, or disable this hook via /hooks.' >&2; exit 2; } || exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

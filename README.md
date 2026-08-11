@@ -40,6 +40,7 @@ Full progress tracking lives in **[CHECKLIST.md](CHECKLIST.md)**.
 ├── AGENTS.md              Same rules, tool-neutral          (must stay at root)
 ├── CHECKLIST.md           Detailed MVP progress checklist
 ├── docs/                  The specifications
+├── arabic/                Arabic translations (English remains authoritative)
 └── prototypes/
     └── p01-arabic-pdf/    Arabic PDF prototype — retires risk R-02
 ```
@@ -64,6 +65,10 @@ Read in this precedence order. When two sources disagree, the higher one wins.
 
 Start with the Documentation Map. It exists so you load the few sections a task actually needs
 instead of reading three thousand lines every time.
+
+**Arabic:** translations of the project files live in [`arabic/`](arabic/README.md), written in
+Egyptian Arabic. They are for reading — the English files remain authoritative, and the copies of
+`.claude/` content there are reference only, not active configuration.
 
 ## Build order
 

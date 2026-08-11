@@ -6,14 +6,27 @@ This is the tool-neutral execution contract for every coding agent working on th
 
 `CLAUDE.md` is the Claude Code companion guide. Keep both files semantically synchronized; a difference in a project rule is a defect.
 
+## Current State
+
+Update this section whenever it stops being true. It must stay identical in meaning to the same section in `CLAUDE.md`.
+
+- No application code yet. Stack decided: **Laravel** (PostgreSQL, Redis, Meilisearch are mandated by §14.2). Record this in §2 as a new decision before Module 0 starts.
+- **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
+- **P-02 not run** — needs server access and VPN from the server administrator.
+- **OD-01 and OD-03 remain unresolved** and still block Module 0.
+- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
+
 ## Source Precedence
 
-Read the following documents in full before designing or changing a module:
+Load `docs/Documentation_Map_EN.md` first: it maps each task to the exact sections to read, so you load what the task needs instead of whole documents.
+
+Precedence when sources conflict (highest first):
 
 1. `docs/CRM_Documentation_EN.md` — master requirements and decision log.
 2. `docs/MVP_Build_Plan_EN.md` — mandated module order and acceptance criteria.
 3. `docs/Coding_Standards_EN.md` — mandatory engineering practices for every implementation.
-4. This file — tool-neutral execution practices.
+4. `docs/OpenAPI_Contract_EN.md` (before any endpoint) · `docs/Design_System_EN.md` (before any screen) · `docs/User_Personas_EN.md` (role-specific work).
+5. `AGENTS.md` / `CLAUDE.md` — agent operating instructions; these never override the sources above.
 
 The CRM master documentation prevails if sources conflict. Do not silently reinterpret or modify a documented decision. Raise a proposed change as a new decision for approval. A plugin, skill, imported agent guide, or default convention may never override the project sources.
 

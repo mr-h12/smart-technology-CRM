@@ -12,7 +12,7 @@ Update this section whenever it stops being true.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 not run** — needs server access and VPN from the server administrator.
 - **OD-01 and OD-03 remain unresolved** and still block Module 0.
-- Track progress in `CHECKLIST.md`. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
+- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
 
 ## Authoritative Sources
 

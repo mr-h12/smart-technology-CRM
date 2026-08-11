@@ -55,7 +55,7 @@ Read in this precedence order. When two sources disagree, the higher one wins.
 
 | # | Document | What it governs |
 |---|---|---|
-| 1 | [CRM_Documentation_EN.md](docs/CRM_Documentation_EN.md) | Master requirements and the decision log (D-01…D-56). **Authoritative.** |
+| 1 | [CRM_Documentation_EN.md](docs/CRM_Documentation_EN.md) | Master requirements and the decision log (D-01…D-57). **Authoritative.** |
 | 2 | [MVP_Build_Plan_EN.md](docs/MVP_Build_Plan_EN.md) | Module order and acceptance criteria |
 | 3 | [Coding_Standards_EN.md](docs/Coding_Standards_EN.md) | Mandatory engineering practices |
 | 4 | [OpenAPI_Contract_EN.md](docs/OpenAPI_Contract_EN.md) | API conventions — read before any endpoint |
@@ -137,4 +137,4 @@ you genuinely need to change one.
 | OD-05 | Expected daily workload | Management |
 | OD-06 | Company holiday calendar | HR |
 | — | **VAT before or after discount?** The company's PO charges VAT on the pre-discount amount; §5.2 discounts first. Different tax base. | Accountant |
-| — | Five Arabic companion documents are declared in the specs but do not exist yet | Team |
+| — | Arabic companions now exist for all seven specifications — **the numbers in them need your review** | You |

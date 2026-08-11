@@ -48,8 +48,10 @@ does not create requirements. If a box here disagrees with the build plan, the b
 - [x] User personas — 8 roles
 - [x] Design system
 - [x] OpenAPI contract
-- [ ] Arabic companions: `CRM_Documentation.md`, `MVP_Build_Plan.md`, `Design_System_AR.md`,
-      `OpenAPI_Contract_AR.md`, `Documentation_Map_AR.md`
+- [x] Arabic companions: `CRM_Documentation.md`, `MVP_Build_Plan.md`, `Design_System_AR.md`,
+      `OpenAPI_Contract_AR.md`, `Documentation_Map_AR.md` — plus `Coding_Standards_AR.md`
+      and `User_Personas_AR.md`. **Needs your review**: they carry tax rates, rounding units,
+      and permission scopes where a wrong number would propagate into the build.
 
 ---
 

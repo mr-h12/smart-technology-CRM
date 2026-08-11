@@ -8,21 +8,22 @@ Build the CRM MVP described by the project documentation. This is an internal, o
 
 Update this section whenever it stops being true.
 
-- Repository is **documentation only** — no code yet, and no stack chosen. Coding standards are deliberately framework-neutral.
-- **P-01 (Arabic PDF) and P-02 (real-server deploy) have not been run.** No feature module may begin until both pass.
-- **OD-01 and OD-03 are unresolved** and block the start.
-- First actions in order: P-01 prototype → P-02 trial deployment → Module 0.
+- No application code yet. Stack decided: **Laravel** (PostgreSQL, Redis, Meilisearch are mandated by §14.2). Record this in §2 as a new decision before Module 0 starts.
+- **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
+- **P-02 not run** — needs server access and VPN from the server administrator.
+- **OD-01 and OD-03 remain unresolved** and still block Module 0.
+- Track progress in `CHECKLIST.md`. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
 
 ## Authoritative Sources
 
-Load `Documentation_Map_EN.md` first: it maps each task to the exact sections to read, so you load what the task needs instead of whole documents.
+Load `docs/Documentation_Map_EN.md` first: it maps each task to the exact sections to read, so you load what the task needs instead of whole documents.
 
 Precedence when sources conflict (highest first):
 
-1. `CRM_Documentation_EN.md` — master requirements and decision log.
-2. `MVP_Build_Plan_EN.md` — required build sequence and module acceptance criteria.
-3. `Coding_Standards_EN.md` — mandatory engineering practices for every implementation.
-4. `OpenAPI_Contract_EN.md` (before any endpoint) · `Design_System_EN.md` (before any screen) · `User_Personas_EN.md` (role-specific work).
+1. `docs/CRM_Documentation_EN.md` — master requirements and decision log.
+2. `docs/MVP_Build_Plan_EN.md` — required build sequence and module acceptance criteria.
+3. `docs/Coding_Standards_EN.md` — mandatory engineering practices for every implementation.
+4. `docs/OpenAPI_Contract_EN.md` (before any endpoint) · `docs/Design_System_EN.md` (before any screen) · `docs/User_Personas_EN.md` (role-specific work).
 5. `CLAUDE.md` / `AGENTS.md` — agent operating instructions; these never override the sources above.
 
 The master documentation is authoritative when sources conflict. Never silently reinterpret or edit a documented decision. Record a proposed change as a new decision and flag it for approval.

@@ -1,17 +1,17 @@
 ---
 name: pricing-invariant-reviewer
-description: Reviews any change touching price, cost, margin, discount, tax, FX, rounding, saving, or profit against CRM_Documentation_EN.md §5 and Coding_Standards §6. Use before merging quotation, supplier-quotation, or procurement calculation code. Pricing is the project's highest-priority test surface.
+description: Reviews any change touching price, cost, margin, discount, tax, FX, rounding, saving, or profit against docs/CRM_Documentation_EN.md §5 and Coding_Standards §6. Use before merging quotation, supplier-quotation, or procurement calculation code. Pricing is the project's highest-priority test surface.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
 
-You verify money code against the documented calculation rules. `CRM_Documentation_EN.md` §5 is the source of truth; a formula that differs from it is a defect regardless of how reasonable it looks.
+You verify money code against the documented calculation rules. `docs/CRM_Documentation_EN.md` §5 is the source of truth; a formula that differs from it is a defect regardless of how reasonable it looks.
 
 ## Read before judging
 
-- `CRM_Documentation_EN.md` §5 in full, plus §6.1–6.3 when quotations are involved
-- `Coding_Standards_EN.md` §6 — money, currency, calculations
-- `OpenAPI_Contract_EN.md` §8.1 — money serialization
+- `docs/CRM_Documentation_EN.md` §5 in full, plus §6.1–6.3 when quotations are involved
+- `docs/Coding_Standards_EN.md` §6 — money, currency, calculations
+- `docs/OpenAPI_Contract_EN.md` §8.1 — money serialization
 
 ## The documented chain (§5.1–5.2)
 

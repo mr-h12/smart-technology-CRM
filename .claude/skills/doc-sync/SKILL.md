@@ -13,11 +13,11 @@ The documentation set declares several pairs that must stay semantically synchro
 | English | Twin | Declared in |
 |---|---|---|
 | `CLAUDE.md` | `AGENTS.md` | Both files' own text |
-| `CRM_Documentation_EN.md` | `CRM_Documentation.md` | Master header |
-| `MVP_Build_Plan_EN.md` | `MVP_Build_Plan.md` | Build-plan header |
-| `Design_System_EN.md` | `Design_System_AR.md` | Line 5 |
-| `OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | Line 5 |
-| `Documentation_Map_EN.md` | `Documentation_Map_AR.md` | Line 4 |
+| `docs/CRM_Documentation_EN.md` | `CRM_Documentation.md` | Master header |
+| `docs/MVP_Build_Plan_EN.md` | `MVP_Build_Plan.md` | Build-plan header |
+| `docs/Design_System_EN.md` | `Design_System_AR.md` | Line 5 |
+| `docs/OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | Line 5 |
+| `docs/Documentation_Map_EN.md` | `Documentation_Map_AR.md` | Line 4 |
 
 Several Arabic companions may not exist yet. A missing twin is a reportable gap, not a silent pass.
 
@@ -52,4 +52,4 @@ These have all occurred at least once — check them first:
 
 ## Guardrail
 
-The three authoritative sources — `CRM_Documentation_EN.md`, `MVP_Build_Plan_EN.md`, `Coding_Standards_EN.md` — are protected by a `PreToolUse` hook. If a fix requires editing one of them, that is a documented decision change: record it as a new decision and get explicit approval first.
+The three authoritative sources — `docs/CRM_Documentation_EN.md`, `docs/MVP_Build_Plan_EN.md`, `docs/Coding_Standards_EN.md` — are protected by a `PreToolUse` hook. If a fix requires editing one of them, that is a documented decision change: record it as a new decision and get explicit approval first.

@@ -1,7 +1,7 @@
 # P-01 — Arabic PDF Prototype
 
 Retires risk **R-02** (Arabic glyph shaping), the highest technical risk in
-`CRM_Documentation_EN.md` §19.2. Required by `MVP_Build_Plan_EN.md` §0.1 before
+`docs/CRM_Documentation_EN.md` §19.2. Required by `docs/MVP_Build_Plan_EN.md` §0.1 before
 any feature module begins.
 
 ## Result: PASS
@@ -55,7 +55,7 @@ changes, not the rendering.
 1. **Fonts are embedded as base64, never referenced from the OS.** The
    on-premise Linux server has no Arabic system fonts. A template relying on
    system fonts passes on macOS and fails in production.
-2. **Inter is embedded for Latin/digits** (`Design_System_EN.md` §4.1). Without
+2. **Inter is embedded for Latin/digits** (`docs/Design_System_EN.md` §4.1). Without
    it, `sans-serif` resolves to Helvetica on macOS and DejaVu/Liberation on
    Ubuntu — same template, different metrics in dev vs production. Embedding it
    cut the PDF from 11 font faces to 4.

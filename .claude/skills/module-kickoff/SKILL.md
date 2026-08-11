@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Module Kickoff
 
-Produces the pre-code scaffold required by `Documentation_Map_EN.md` §7 and `MVP_Build_Plan_EN.md` §1. Emits a plan — it does not write implementation code.
+Produces the pre-code scaffold required by `docs/Documentation_Map_EN.md` §7 and `docs/MVP_Build_Plan_EN.md` §1. Emits a plan — it does not write implementation code.
 
 ## Step 1 — Refuse to start if the gates are closed
 
@@ -20,7 +20,7 @@ If any gate is open, say so and stop. Do not scaffold around a blocker.
 
 ## Step 2 — Load exactly the right context
 
-Open `Documentation_Map_EN.md` §4 and find this module's row. Load precisely what the row names — its CRM sections, its build-plan module, its "Also load" column — and nothing more. §3.3 forbids reading the whole master document for a narrowly scoped task.
+Open `docs/Documentation_Map_EN.md` §4 and find this module's row. Load precisely what the row names — its CRM sections, its build-plan module, its "Also load" column — and nothing more. §3.3 forbids reading the whole master document for a narrowly scoped task.
 
 Then read the row's "Must verify before coding" cell. Those are the traps for this module specifically.
 

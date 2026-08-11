@@ -1,5 +1,5 @@
 /**
- * P-01 — Arabic PDF prototype (MVP_Build_Plan_EN.md §0.1, risk R-02)
+ * P-01 — Arabic PDF prototype (docs/MVP_Build_Plan_EN.md §0.1, risk R-02)
  *
  * Success criterion: a PDF containing a full Arabic paragraph, an items table
  * and numbers, correctly shaped, with no broken glyphs and embedded fonts.

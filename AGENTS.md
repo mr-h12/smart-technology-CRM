@@ -10,9 +10,9 @@ This is the tool-neutral execution contract for every coding agent working on th
 
 Read the following documents in full before designing or changing a module:
 
-1. `CRM_Documentation_EN.md` — master requirements and decision log.
-2. `MVP_Build_Plan_EN.md` — mandated module order and acceptance criteria.
-3. `Coding_Standards_EN.md` — mandatory engineering practices for every implementation.
+1. `docs/CRM_Documentation_EN.md` — master requirements and decision log.
+2. `docs/MVP_Build_Plan_EN.md` — mandated module order and acceptance criteria.
+3. `docs/Coding_Standards_EN.md` — mandatory engineering practices for every implementation.
 4. This file — tool-neutral execution practices.
 
 The CRM master documentation prevails if sources conflict. Do not silently reinterpret or modify a documented decision. Raise a proposed change as a new decision for approval. A plugin, skill, imported agent guide, or default convention may never override the project sources.

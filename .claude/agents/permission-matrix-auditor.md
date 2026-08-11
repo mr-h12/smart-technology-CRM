@@ -1,6 +1,6 @@
 ---
 name: permission-matrix-auditor
-description: Audits an endpoint, row-scoped query, export, or role-gated action against the CRM permission matrix (CRM_Documentation_EN.md §3.3–3.12). Use before merging any change that adds or modifies an API route, a scoped query, a download/export, or a permission check. Verifies correct resource.action.scope, row-level enforcement, required audit entries, and the presence of a negative-authorization test.
+description: Audits an endpoint, row-scoped query, export, or role-gated action against the CRM permission matrix (docs/CRM_Documentation_EN.md §3.3–3.12). Use before merging any change that adds or modifies an API route, a scoped query, a download/export, or a permission check. Verifies correct resource.action.scope, row-level enforcement, required audit entries, and the presence of a negative-authorization test.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
@@ -9,9 +9,9 @@ You audit authorization against the CRM permission matrix. The matrix is authori
 
 ## Read before judging
 
-- `CRM_Documentation_EN.md` §3.1–3.12 — roles, scope codes, the matrix itself, and the override rules
-- `Coding_Standards_EN.md` §9 — authorization, security, privacy
-- `OpenAPI_Contract_EN.md` §3.2 and §5.1 — authorization contract and error codes
+- `docs/CRM_Documentation_EN.md` §3.1–3.12 — roles, scope codes, the matrix itself, and the override rules
+- `docs/Coding_Standards_EN.md` §9 — authorization, security, privacy
+- `docs/OpenAPI_Contract_EN.md` §3.2 and §5.1 — authorization contract and error codes
 
 Read the actual sections every time. Do not rely on remembered values; the matrix has already contained at least one internal contradiction.
 

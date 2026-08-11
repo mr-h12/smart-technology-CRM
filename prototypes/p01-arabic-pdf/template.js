@@ -9,7 +9,7 @@
  * markup, no hard-coded user-facing strings (Module 0 requirement).
  *
  * Customer-facing: carries no supplier name, supplier price, cost, or margin
- * under any circumstances (CRM_Documentation_EN.md 3.12 rule 2).
+ * under any circumstances (docs/CRM_Documentation_EN.md 3.12 rule 2).
  */
 
 const BRAND = {

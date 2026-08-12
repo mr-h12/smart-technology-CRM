@@ -8,23 +8,28 @@ disable-model-invocation: true
 
 The documentation set declares several pairs that must stay semantically synchronized. Divergence is a defect, not a style difference — `AGENTS.md` says so explicitly.
 
-## The declared pairs
+## The pairs this skill checks
 
-| English | Twin | Declared in |
+| File | Twin | Declared in |
 |---|---|---|
 | `CLAUDE.md` | `AGENTS.md` | Both files' own text |
-| `docs/CRM_Documentation_EN.md` | `CRM_Documentation.md` | Master header |
-| `docs/MVP_Build_Plan_EN.md` | `MVP_Build_Plan.md` | Build-plan header |
-| `docs/Design_System_EN.md` | `Design_System_AR.md` | Line 5 |
-| `docs/OpenAPI_Contract_EN.md` | `OpenAPI_Contract_AR.md` | Line 5 |
-| `docs/Documentation_Map_EN.md` | `Documentation_Map_AR.md` | Line 4 |
 
-All six pairs now exist. A missing twin is a reportable gap, not a silent pass.
+That is the only binding pair. A rule that differs between them is a defect.
 
-The project also carries Arabic translations of the working files in `arabic/`
-(README, CHECKLIST, both agent guides, both subagents, both skills, P-01 notes).
-Those are reference copies, but a rule that differs there is still a divergence
-worth reporting.
+## Not checked: the Arabic translations
+
+`arabic/` holds Arabic translations of the specifications and working files.
+**They are reading copies for the project owner. They are not part of the
+system, are not authoritative, and no agent should load them as a source.**
+
+Do not diff them, do not report drift in them, and do not update them as part
+of a sync. If the owner wants a translation refreshed, they will ask.
+
+Note that five English documents still carry header lines declaring an Arabic
+companion (for example `CRM_Documentation_EN.md` line 6). Those lines predate
+this decision and now overstate the requirement. Three of those files are
+hook-protected, so correcting the headers needs an explicit decision — flag it,
+do not edit around it.
 
 ## What to compare
 

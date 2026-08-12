@@ -40,7 +40,7 @@ Full progress tracking lives in **[CHECKLIST.md](CHECKLIST.md)**.
 ├── AGENTS.md              Same rules, tool-neutral          (must stay at root)
 ├── CHECKLIST.md           Detailed MVP progress checklist
 ├── docs/                  The specifications
-├── arabic/                Arabic translations (English remains authoritative)
+├── arabic/                Arabic reading copies (not part of the system)
 └── prototypes/
     └── p01-arabic-pdf/    Arabic PDF prototype — retires risk R-02
 ```
@@ -66,9 +66,11 @@ Read in this precedence order. When two sources disagree, the higher one wins.
 Start with the Documentation Map. It exists so you load the few sections a task actually needs
 instead of reading three thousand lines every time.
 
-**Arabic:** translations of the project files live in [`arabic/`](arabic/README.md), written in
-Egyptian Arabic. They are for reading — the English files remain authoritative, and the copies of
-`.claude/` content there are reference only, not active configuration.
+**Arabic:** [`arabic/`](arabic/README.md) holds Egyptian-Arabic translations of the
+specifications and working files. **They are reading copies only — not part of the system, not
+authoritative, and not maintained in step with the English.** Everything the project runs on is
+the English set above. Some English headers still name an Arabic companion; those lines predate
+this decision.
 
 ## Build order
 
@@ -137,4 +139,4 @@ you genuinely need to change one.
 | OD-05 | Expected daily workload | Management |
 | OD-06 | Company holiday calendar | HR |
 | — | **VAT before or after discount?** The company's PO charges VAT on the pre-discount amount; §5.2 discounts first. Different tax base. | Accountant |
-| — | Arabic companions now exist for all seven specifications — **the numbers in them need your review** | You |
+| — | Five English headers still declare an Arabic companion, but Arabic is now reading-only. Correcting them touches hook-protected files. | You |

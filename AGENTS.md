@@ -12,7 +12,7 @@ Update this section whenever it stops being true. It must stay identical in mean
 
 - No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
-- **P-02 not run** — needs server access and VPN from the server administrator.
+- **P-02 not run** — needs a server plus a Cloudflare Tunnel (D-59); no VPN required.
 - **OD-01 and OD-03 remain unresolved** and still block Module 0.
 - Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
 
@@ -39,7 +39,7 @@ Read only source sections relevant to the task after the initial review. Before 
 No feature module begins until both mandatory prototypes pass:
 
 1. **P-01 Arabic PDF:** a full Arabic paragraph, item table, and numbers render with correct Arabic shaping and embedded fonts.
-2. **P-02 Real-server deployment:** a Hello page works on the on-premise server and opens from a phone through VPN.
+2. **P-02 Real-server deployment:** a Hello page works on the on-premise server and opens from a phone through Cloudflare (D-59).
 
 Track these blockers explicitly: **OD-01** (taxability of quotation additional items) and **OD-03** (server specifications). Do not settle either silently.
 
@@ -82,7 +82,7 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - No hard-coded user-facing strings. Arabic and English are supported from Module 0.
 - Every screen works correctly in RTL and LTR, including forms, tables, validation, numbers, and loading/empty/error states.
 - Desktop is primary for office roles. Outdoor flows are mobile-first PWA flows, online-only, preserving a local draft during a short connection drop without presenting the system as offline-capable.
-- External access requires VPN. When it is unavailable, show a specific VPN-disconnected message, never a generic failure.
+- External access uses Cloudflare Tunnel + Access for five named users (D-59); the LAN is primary for everyone else. Access gates identity but never replaces system authentication or the permission matrix. When external access is unavailable, show a specific message, never a generic failure.
 
 ## Security, Permissions, and Files
 

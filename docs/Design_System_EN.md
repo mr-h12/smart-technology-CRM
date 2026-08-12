@@ -235,7 +235,7 @@ Use the documented supplier rating colors (green, yellow, red, white) as supplie
 
 - Mobile-first; the only mandatory fields are company name, contact person, and outcome.
 - Use simple controls for yes/no, checkboxes, and dropdowns. Keep optional free-text intentional.
-- Show a specific VPN-disconnected state and preserve the form draft during a brief connection drop.
+- Show a specific connection-unavailable state and preserve the form draft during a brief connection drop.
 - Outcomes use clear text plus icon: Rejected requires a reason, Open retains a follow-up date, Successful shows the handover state.
 
 ## 8. Accessibility and Quality Gates

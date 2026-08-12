@@ -11,7 +11,7 @@ Use it before creating the design system and any role-specific screen. It does n
 - The CRM is internal, on-premise, and used by tens to hundreds of employees.
 - Arabic and English, including RTL/LTR, are required from the first release.
 - Office roles primarily use desktop web. Outdoor Sales uses mobile PWA as well as desktop.
-- The system is online-only. External access requires VPN; a clear VPN-disconnected state is required.
+- The system is online-only. External access uses Cloudflare Tunnel + Access for five named users (D-59); a clear connection-unavailable state is required.
 - Working days are Sunday through Thursday.
 
 ---
@@ -92,7 +92,7 @@ Use it before creating the design system and any role-specific screen. It does n
 | Key information needed | Assigned visits, visit form status, own customers/deals/quotations, supplier offers, product availability and warnings, and current quotation state. |
 | Critical actions | Complete visit forms; create/edit own records; submit own quotations for approval; send approved quotations; record customer responses; delete own Draft quotation only. |
 | Guardrails | Visit form has exactly three mandatory fields: company name, contact person, outcome. A successful request routes to the Team Leader and is marked done for the outdoor employee. No quotation access outside Own scope. |
-| Design implications | Mobile-first task flow, concise form controls, clear connection/VPN status, local draft protection during a brief drop, and prominent price/product validation. |
+| Design implications | Mobile-first task flow, concise form controls, clear connection status, local draft protection during a brief drop, and prominent price/product validation. |
 
 ## P-07 — Indoor Sales
 

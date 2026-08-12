@@ -10,7 +10,7 @@ Update this section whenever it stops being true.
 
 - No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
-- **P-02 not run** — needs server access and VPN from the server administrator.
+- **P-02 not run** — needs a server plus a Cloudflare Tunnel (D-59); no VPN required.
 - **OD-01 and OD-03 remain unresolved** and still block Module 0.
 - Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
 
@@ -41,7 +41,7 @@ Before a session's first edit, read this file and only the source sections neede
 Do not begin feature-module implementation until these two prototypes pass:
 
 1. **P-01 Arabic PDF:** a full Arabic paragraph, item table, and numbers render with correct Arabic shaping and embedded fonts.
-2. **P-02 Real-server deployment:** a Hello page works on the actual on-premise server and is reachable from a phone through VPN.
+2. **P-02 Real-server deployment:** a Hello page works on the actual on-premise server and is reachable from a phone through Cloudflare (D-59).
 
 Before code is written, explicitly track these blockers:
 
@@ -89,7 +89,7 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - No hard-coded user-facing strings. Support Arabic and English from Module 0.
 - Every screen must work correctly in RTL and LTR, including forms, tables, validation, numbers, and loading/empty/error states.
 - Desktop is primary for office roles. Outdoor flows must be mobile-first PWA flows, online-only, with local draft preservation during a short connection drop.
-- External access requires VPN. When unavailable, show a specific VPN-disconnected message, not a generic failure.
+- External access uses Cloudflare Tunnel + Access for five named users (D-59); the LAN is primary for everyone else. Access gates identity but never replaces system authentication or the permission matrix. When external access is unavailable, show a specific message, not a generic failure.
 
 ## Security and Authorization
 

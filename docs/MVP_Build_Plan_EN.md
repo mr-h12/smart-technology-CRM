@@ -13,7 +13,7 @@
 | # | Prototype | Why now | Success criterion |
 |---|---|---|---|
 | P-01 | **Arabic PDF** | Highest technical risk (R-02). If the library can't shape Arabic correctly, you need to know before building 15 modules | A PDF with a full Arabic paragraph, an items table and numbers — correctly shaped, no broken glyphs |
-| P-02 | **Deploy to the real server** | VPN, permissions and fonts are what surprise you, and the worst time to discover them is after you've finished | A "Hello" page running on the server, opened from a phone over VPN |
+| P-02 | **Deploy to the real server** | External access, permissions and fonts are what surprise you, and the worst time to discover them is after you've finished | A "Hello" page running on the server, opened from a phone over Cloudflare (D-59) |
 
 > **Do not start any module until both succeed.**
 
@@ -279,7 +279,7 @@ GET   /api/v1/quotations?group_by=employee|customer
 - Given typing while the connection drops → Then the draft is saved locally and not lost
 - Given a "successful" outcome with a request → Then the request routes automatically to the Team Leader and is marked "done"
 - Given a rejection → Then a mandatory reason, feeding the rejected-companies report
-- Given the VPN is disconnected → Then **a clear, specific message**, not a generic error
+- Given external access is unavailable → Then **a clear, specific message**, not a generic error (D-59)
 - Given the Supervisor → Then they see visits only, and **cannot see** any deal after handover
 
 ---
@@ -414,11 +414,11 @@ That isn't failure — it's a prompt to find the **cause**: slowness? insufficie
 | Design system | First screen |
 | OpenAPI contract | First endpoint |
 | PDF template (OD-02) | Module 9 |
-| VPN configuration (OD-04) | Module 12 |
+| ~~VPN configuration (OD-04)~~ — closed by D-59 | — |
 | Company holiday calendar (OD-06) | Module 13 |
 
 ### First three steps after sign-off
 
 1. **Arabic PDF prototype** (P-01) — highest risk, before any other code
-2. **Trial deployment to the server** (P-02) — so VPN and font issues surface early
+2. **Trial deployment to the server** (P-02) — so external-access and font issues surface early
 3. **Module 0** — foundation + i18n + audit + queue + seed

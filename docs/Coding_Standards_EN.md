@@ -127,7 +127,7 @@ Keep code within the documented modules: Identity, Customers, Deals, Quotations,
 - Use the design tokens and component rules in `Design_System_EN.md`. Do not hard-code colors, spacing, radii, shadows, direction, or user-facing strings in feature code.
 - All visible text is localized from day one. Arabic and English must have equivalent meaning; RTL/LTR is controlled by locale, not by duplicated screens.
 - Use logical layout properties (start/end) instead of left/right assumptions. Preserve numeric, date, currency, and table reading order in RTL.
-- Build loading, empty, validation, error, disabled, permission-denied, and connection/VPN-disconnected states for every screen where relevant.
+- Build loading, empty, validation, error, disabled, permission-denied, and connection-unavailable states for every screen where relevant.
 - Do not compute money, permission, status-transition, or audit decisions in the client. Display backend results and use client state only for safe presentation/interactions.
 - Maintain accessible keyboard behavior, visible focus, semantic labels, error associations, and theme contrast across all three themes.
 - For Outdoor Sales, prioritize touch-friendly, minimal-typing flows and preserve a draft across a brief connectivity loss without presenting the system as offline-capable.

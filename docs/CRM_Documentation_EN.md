@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (58 decisions) |
+| 2 | Decision Log (59 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -41,7 +41,7 @@
 | System type | CRM for the Sales and Procurement teams |
 | Future path | Expansion into a full ERP (inventory · accounting · HR · production) |
 | Hosting | Physical server on company premises (on-premise) |
-| External access | VPN mandatory |
+| External access | Cloudflare Tunnel + Access, limited to 5 named users (D-59) |
 | Expected users | Tens → hundreds (internal only) |
 | Languages | Arabic + English from day one (RTL / LTR) |
 | Devices | Desktop for office staff · Mobile (PWA) for the field team |
@@ -150,6 +150,7 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
+| D-59 | **External access uses Cloudflare Tunnel + Access, not a VPN** (recorded 2026-08-12). The company LAN remains the primary access path for every role. External access is limited to five named users — CEO, Manager, and Outdoor Sales. The server opens no inbound port; the tunnel connection is outbound from the server. Cloudflare Access is an identity gate **in front of** the application and **never replaces** the system's own authentication or its permission matrix (`SEC-07`, `SEC-09`); its session lifetime is at least 8 hours so field staff are not forced through two logins a day (`D-29`). **Supersedes `OD-04`**, revises §1 and §14.4, changes the `P-02` criterion from "through VPN" to "through Cloudflare", and reframes the Module 12 message from "VPN disconnected" to "connection unavailable" |
 | D-58 | **Arabic documentation is reading-only** (recorded 2026-08-12). Translations live in `arabic/` for the project owner's reading. They are not maintained companions, carry no synchronization requirement, and are never loaded as a source. This supersedes the companion declarations previously carried in the headers of this document, the build plan, the documentation map, the design system, and the OpenAPI contract. **The product requirement for Arabic in the running system is unchanged**: the application itself ships Arabic and English from Module 0 (§1, §14.2), and this decision governs the specification documents only |
 | D-57 | **Backend framework is Laravel** (recorded 2026-08-11). The documented stack in 14.2 — PostgreSQL, Redis, Meilisearch — is unchanged; this decision only names the application framework, which the documentation had deliberately left open. Chosen for its queue, scheduler and migration tooling, which map directly to the four queues (15.1), J-01…J-14, and the Queue Monitor and Scheduler screens (OBS-02, OBS-03). PDF generation uses headless Chrome via Browsershot, proven by prototype P-01 |
 
@@ -938,9 +939,11 @@ Completely hidden from all users.
 | SEC-16 | IP blacklist + failed login log |
 | SEC-17 | Secrets kept out of code and encrypted |
 
-### 14.4 Network & VPN
+### 14.4 Network & External Access (D-59)
 
-VPN mandatory for any external access · the server is **not exposed to the internet** · VPN client on Outdoor phones · **a clear, specific message** when the VPN is disconnected — not a generic error · session persistence so a brief drop does not force a logout · lightweight payloads for mobile.
+The **company LAN is the primary access path** for every role · the server opens **no inbound port**; external reach is provided by an **outbound Cloudflare Tunnel** · **Cloudflare Access** gates identity before the application and is limited to five named users (CEO · Manager · Outdoor Sales) · Access is a gate, **not** a substitute for system authentication or the permission matrix (`SEC-07`, `SEC-09`) · Access session lifetime **≥ 8 hours** to match `D-29` and avoid a double login for field staff · **a clear, specific message** when external access is unavailable — not a generic error · session persistence so a brief drop does not force a logout · lightweight payloads for mobile.
+
+> A Cloudflare outage stops **external** access only; the LAN keeps working, satisfying `AP-10`.
 
 ### 14.5 Performance
 
@@ -1083,7 +1086,7 @@ The single reference list. All appear in **Queue Monitor** and **Scheduler**, wi
 
 | Responsibility | Owner |
 |---|---|
-| Hardware · UPS · RAID · standby machine · network · VPN | **Server administrator** — outside the development scope |
+| Hardware · UPS · RAID · standby machine · network · Cloudflare Tunnel setup | **Server administrator** — outside the development scope |
 | The system comes back up correctly after any restart | **The system** ✅ |
 | Scheduled backups from within the system | **The system** ✅ |
 | Storing backups on a separate machine/disk | **Server administrator** |
@@ -1196,7 +1199,7 @@ Priorities: Critical (banner) · High (toast + badge) · Normal (badge) · Low (
 | **OD-01** 🔴 | Are additional items taxable? (assumption: yes) | Accountant | Quotations |
 | **OD-03** 🔴 | Server specifications | Server administrator | Resource sizing |
 | OD-02 🟡 | PDF template | You | PDF module |
-| OD-04 🟡 | VPN type and concurrent connection capacity | Server administrator | Visits module |
+| ~~OD-04~~ ✅ | ~~VPN type and concurrent connection capacity~~ — **closed by D-59**: Cloudflare Tunnel + Access, 5 users | — | — |
 | OD-05 🟡 | Expected daily workload | Management | Queue and storage sizing |
 | OD-06 🟡 | Company holiday calendar | HR | Reports |
 | OD-07 ⬜ | Criteria for automatic red supplier rating | Procurement | Post-MVP |
@@ -1213,7 +1216,7 @@ Priorities: Critical (banner) · High (toast + badge) · Normal (badge) · Low (
 | R-03 | Free-text regions → unreliable Sales by Area | **High** | Medium | Auto-suggestions + feature flag + convert to a managed list later |
 | R-04 | Excel import with missing data | Certain | Medium | "Incomplete" flag + filter + exclusion from financial reports |
 | R-05 | Failure alerts sent from the failed server itself | Medium | High | **External heartbeat** (OBS-07) |
-| R-06 | Outdoor team on VPN over weak connectivity | **High** | Medium | Local auto-save · image compression · retry · connection indicator |
+| R-06 | Outdoor team on weak connectivity (no VPN client since D-59, which lowers this) | Medium | Medium | Local auto-save · image compression · retry · connection indicator |
 | R-07 | No approval escalation → stalled quotations | Medium | Medium | Red badge + "days waiting" column |
 | R-08 | Catalog quality with open editing | Medium | Medium | Audit + monthly review + tighten by configuration if needed |
 | R-09 | Deferring search to the end | Medium | Medium | **SearchService** from the Customers module (details in the build plan) |

@@ -2,7 +2,7 @@
 
 > **Single reference:** `CRM_Documentation_EN.md`
 > **Status:** Final — ready for sign-off
-> **Arabic version:** `MVP_Build_Plan.md` — module and decision numbers are identical in both
+> **Arabic:** reading-only translation in `arabic/`; not a maintained companion (D-58)
 
 ---
 

@@ -1,7 +1,7 @@
 # CRM System — Documentation Map
 
 > **Purpose:** Load only the authoritative context needed for the current task.  
-> **Companion:** `Documentation_Map_AR.md` — both files must remain semantically synchronized.
+> **Arabic:** reading-only translation in `arabic/`; not a maintained companion (D-58).
 
 ## 1. Why This Map Exists
 

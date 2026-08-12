@@ -2,7 +2,7 @@
 
 > **Status:** Design baseline for implementation.  
 > **Applies to:** Desktop web and the Outdoor Sales PWA, Arabic/English, RTL/LTR.  
-> **Companion:** `Design_System_AR.md` — both files must remain semantically synchronized.
+> **Arabic:** reading-only translation in `arabic/`; not a maintained companion (D-58).
 
 ## 1. Purpose and Boundaries
 

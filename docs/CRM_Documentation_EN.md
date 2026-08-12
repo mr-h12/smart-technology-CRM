@@ -3,7 +3,7 @@
 > **Status:** Final — ready for sign-off · August 2026
 > **Supersedes:** all previous drafts and appendices
 > **Companion file:** `MVP_Build_Plan_EN.md`
-> **Arabic version:** `CRM_Documentation.md` — decision numbers (D-xx) are identical in both
+> **Arabic:** reading-only translations live in `arabic/`. They are not maintained companions and carry no requirement (D-58).
 
 ---
 
@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (57 decisions) |
+| 2 | Decision Log (58 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -150,6 +150,7 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
+| D-58 | **Arabic documentation is reading-only** (recorded 2026-08-12). Translations live in `arabic/` for the project owner's reading. They are not maintained companions, carry no synchronization requirement, and are never loaded as a source. This supersedes the companion declarations previously carried in the headers of this document, the build plan, the documentation map, the design system, and the OpenAPI contract. **The product requirement for Arabic in the running system is unchanged**: the application itself ships Arabic and English from Module 0 (§1, §14.2), and this decision governs the specification documents only |
 | D-57 | **Backend framework is Laravel** (recorded 2026-08-11). The documented stack in 14.2 — PostgreSQL, Redis, Meilisearch — is unchanged; this decision only names the application framework, which the documentation had deliberately left open. Chosen for its queue, scheduler and migration tooling, which map directly to the four queues (15.1), J-01…J-14, and the Queue Monitor and Scheduler screens (OBS-02, OBS-03). PDF generation uses headless Chrome via Browsershot, proven by prototype P-01 |
 
 ---

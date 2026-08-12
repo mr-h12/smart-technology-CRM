@@ -2,7 +2,7 @@
 
 > **Status:** Required baseline before the first endpoint.  
 > **Version:** `v1`  
-> **Companion:** `OpenAPI_Contract_AR.md` — both files must remain semantically synchronized.
+> **Arabic:** reading-only translation in `arabic/`; not a maintained companion (D-58).
 
 ## 1. Purpose and Authority
 

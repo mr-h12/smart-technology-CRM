@@ -7,8 +7,8 @@ role: المحاسب
 
 ## مستني منه
 
-- [[../questions/OD-01-additional-items-tax|OD-01 — البنود الإضافية عليها ضريبة؟]]
-- [[../questions/vat-before-or-after-discount|الضريبة قبل الخصم ولا بعده؟]]
+- [[memory/questions/OD-01-additional-items-tax|OD-01 — البنود الإضافية عليها ضريبة؟]]
+- [[memory/questions/vat-before-or-after-discount|الضريبة قبل الخصم ولا بعده؟]]
 
 **الاتنين في مكالمة واحدة** — نفس الموضوع.
 

@@ -36,7 +36,7 @@ type: index
 
 - [[questions/Q-1-primary-key-type|Q-1 — المفتاح الأساسي UUID ولا BIGSERIAL؟]] ← **أخطرهم، بيمس كل جدول**
 
-باقي أسئلة التصميم (Q-2 … Q-6) في [[../design/DATABASE.md|design/DATABASE.md]] قسم 12.
+باقي أسئلة التصميم (Q-2 … Q-6) في [[design/DATABASE|design/DATABASE.md]] قسم 12.
 
 ## الناس
 

@@ -26,3 +26,14 @@ uploads/
 backups/
 *.dump
 *.sql.gz
+
+# Obsidian — الإعدادات المشتركة بتترفع، وحالة النافذة لأ
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# ملفات حالة plugins — مش جزء من المشروع
+.claude-flow/
+.claude/proven-config.json
+.claude/.proven-config-version

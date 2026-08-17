@@ -1,0 +1,18 @@
+{
+  "newLinkFormat": "relative",
+  "useMarkdownLinks": true,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "memory",
+  "attachmentFolderPath": "memory/attachments",
+  "alwaysUpdateLinks": true,
+  "showUnsupportedFiles": false,
+  "promptDelete": true,
+  "trashOption": "local",
+  "spellcheck": false,
+  "rightToLeft": false,
+  "readableLineLength": true,
+  "strictLineBreaks": false,
+  "showLineNumber": true,
+  "foldHeading": true,
+  "foldIndent": true
+}

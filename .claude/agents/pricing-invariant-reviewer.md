@@ -24,12 +24,12 @@ line_total          = unit_price × quantity
 line_cost           = unit_cost_base × quantity
 
 subtotal            = Σ line_total
-discount_amount     = subtotal × discount_percent / 100                   (D-07)
-net_amount          = subtotal − discount_amount
 additional_total    = Σ additional items
-tax_base            = net_amount + additional_total                       ⚠️ OD-01
-tax_amount          = tax_base × tax_percent / 100
-total_before_round  = tax_base + tax_amount
+tax_base            = subtotal + additional_total                         ⚠️ OD-01
+tax_amount          = tax_base × tax_percent / 100        ← tax BEFORE discount (D-60)
+discount_amount     = subtotal × discount_percent / 100                   (D-07)
+net_amount          = subtotal + additional_total − discount_amount
+total_before_round  = tax_base + tax_amount − discount_amount             (D-60)
 final_total         = round(total_before_round, currency unit)            (D-06, D-52)
 rounding_diff       = final_total − total_before_round                    ← stored
 ```
@@ -38,7 +38,7 @@ Profit (§5.4–5.5), where tax is explicitly **not** profit:
 
 ```
 total_cost   = Σ line_cost
-gross_profit = (net_amount + additional_total) − total_cost
+gross_profit = net_amount − total_cost
 saving       = old_total_cost − new_total_cost
 final_profit = gross_profit + saving
 ```
@@ -50,7 +50,7 @@ Rounding units (D-52, configurable): EGP `1` · USD `0.01` · EUR `0.01`.
 1. **Float anywhere near money.** DB-07 — `Decimal`/NUMERIC in storage and exact decimal types in code. No `float`, `double`, or IEEE-754 arithmetic.
 2. **Rounding an intermediate value.** D-06 — only `final_total` is rounded, by the configured unit for its currency. Rounding `line_total`, `subtotal`, or `tax_amount` is a defect.
 3. **`rounding_diff` not stored.**
-4. **Discount applied anywhere but `subtotal`.** D-07 — never per line, never to additional items, never to tax.
+4. **Discount applied to the wrong base or at the wrong point.** D-07 sets the base: `subtotal` only, never per line and never on additional items. D-60 sets the point: subtracted **after** tax, never before. Reducing the tax base by the discount is the defect this pairing exists to catch.
 5. **A historical quotation recomputed with a current FX rate or current supplier price.** D-09 and §10.3 — a sent quotation is a fixed snapshot; changing an FX rate never alters an existing quotation.
 6. **Calculation performed client-side.** AP-04 and §5.6 — the UI may preview a server-confirmed result but is never the source of truth.
 7. **Money serialized as a JSON number.** OpenAPI §8.1 — decimal strings, with `amount`, `currency`, `fx_rate_at_time`, and `base_amount`.
@@ -59,7 +59,7 @@ Rounding units (D-52, configurable): EGP `1` · USD `0.01` · EUR `0.01`.
 
 ## Open decision that gates this file
 
-**OD-01** — whether additional items are taxable — is unresolved. `tax_base = net_amount + additional_total` encodes the provisional assumption "yes." If the code depends on it, say so explicitly and confirm the assumption was approved rather than silently inherited.
+**OD-01** — whether additional items are taxable — is unresolved. `tax_base = subtotal + additional_total` encodes the provisional assumption "yes." If the code depends on it, say so explicitly and confirm the assumption was approved rather than silently inherited. The owner has chosen to proceed on the assumption, so it must surface in the Super Admin settings marked unconfirmed rather than sit invisible in a formula.
 
 ## Tests
 
@@ -68,6 +68,7 @@ Coding_Standards §6 requires focused unit tests for every pricing formula, roun
 - cost `1000`, margin `20%` → `1200`
 - quotation margin `20%`, line margin `30%` → line uses `30%`
 - `1234.67 EGP` → final `1235`, `rounding_diff` `0.33`
+- **PO #226 regression** — `subtotal 7368.42`, tax `14%`, discount `1%` → tax `1031.58`, discount `73.68`, total `8326.32`. Discounting first yields `8316.00` and is wrong (D-60)
 - `1234.678 USD` → final `1234.68` (unit `0.01`)
 - negotiation `1000 → 900` → saving `100` added to final profit
 

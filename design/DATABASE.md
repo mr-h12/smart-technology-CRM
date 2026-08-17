@@ -51,10 +51,10 @@ tables only.
 Every business table carries these unless stated otherwise:
 
 ```sql
-id           BIGSERIAL PRIMARY KEY   -- or UUID; see open question Q-1
-created_by   BIGINT REFERENCES users(id)
+id           UUID PRIMARY KEY         -- D-61, time-ordered (Str::orderedUuid)
+created_by   UUID REFERENCES users(id)
 created_at   TIMESTAMPTZ NOT NULL
-updated_by   BIGINT REFERENCES users(id)
+updated_by   UUID REFERENCES users(id)
 updated_at   TIMESTAMPTZ NOT NULL
 deleted_at   TIMESTAMPTZ NULL         -- DB-01
 ```
@@ -111,7 +111,7 @@ permission inherited from the parent entity (`D-38`).
 | `uuid` | UUID | storage filename |
 | `original_name` | VARCHAR | 📗 kept for display |
 | `entity_type` | VARCHAR | 📙 polymorphic parent |
-| `entity_id` | BIGINT | 📙 |
+| `entity_id` | UUID | 📙 |
 | `mime_type` | VARCHAR | 📗 true type, not extension |
 | `size_bytes` | BIGINT | 📗 |
 | `storage_path` | VARCHAR | 📗 |
@@ -310,7 +310,7 @@ before the migrations they affect.
 
 | # | Question | Blocks |
 |---|---|---|
-| **Q-1** | `BIGSERIAL` or `UUID` for primary keys? `OpenAPI §2` says resource IDs are "opaque UUID identifiers" — that may mean UUID PKs, or a separate public UUID column. | Every table |
+| ~~Q-1~~ ✅ | ~~`BIGSERIAL` or `UUID`?~~ **Closed by `D-61`: UUID, time-ordered.** One key rather than a numeric key plus a public UUID. | — |
 | **Q-2** | Attachments hang off deals, supplier quotations, POs, reports and visits. Polymorphic `files` table, or a join table per parent? | Module 0 |
 | **Q-3** | Is `audit_log` partitioned by month or by year? `DB-10` says partition, not how. | Module 0 |
 | **Q-4** | Does `users` keep Laravel's `email_verified_at`? `SEC-01` forbids public sign-up, so nothing verifies an email at registration. | Module 1 |

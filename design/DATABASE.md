@@ -203,6 +203,7 @@ Documented behaviours:
 | `notes` | includes communication history (`D-16`) |
 | `is_archived` | manual archive, Manager + TL only |
 | `is_incomplete` | imported with missing fields (`D-31`) |
+| `is_tax_exempt` | 📗 default for new quotations (`D-63`) |
 
 **`customer_status` derivation** (`§4.5`) — first match wins:
 
@@ -276,7 +277,7 @@ The most constrained table in the system.
 | Group | Columns |
 |---|---|
 | Core | `code` (`QT-`) · `deal_id` · `customer_id` · `quotation_date` · `valid_until` · `status` (9 — `§6.1`) |
-| Financial | `currency` · `default_margin` · `discount_percent` · `tax_percent` |
+| Financial | `currency` · `default_margin` · `discount_percent` · `tax_percent` **NULLABLE** (`D-63`) |
 | Totals | `subtotal` · `discount_amount` · `net_amount` · `additional_total` · `tax_base` · `tax_amount` · `total_before_round` · `final_total` · **`rounding_diff`** |
 | Terms | `payment_terms` (free text — `D-26`) · `warranty` · `delivery` · `show_delivery_terms` |
 | Versioning | `version` · `parent_id` · `rejection_reason` |

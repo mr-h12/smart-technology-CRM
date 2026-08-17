@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (61 decisions) |
+| 2 | Decision Log (63 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -150,8 +150,10 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
+| D-63 | **Tax is optional per quotation, defaulting from the customer** (recorded 2026-08-12). Some customers are not taxed at all, so `tax_percent` is nullable rather than always present. The customer record carries the default (`is_tax_exempt`); a new quotation inherits it and the preparer may override per quotation. A quotation with no tax shows no tax line at all — not a zero line |
+| D-62 | **Supplier cost is taken as recorded; the company's own tax is added on the selling price** (recorded 2026-08-12). Whatever tax the supplier charges is part of their price and is not decomposed. The system never extracts VAT out of a supplier cost. Tax in this system means only the tax the company adds when selling |
 | D-61 | **Primary keys are UUID** (recorded 2026-08-12). Every business table uses a UUID primary key, generated application-side as a time-ordered UUID so inserts stay sequential and indexes do not fragment. This satisfies `OpenAPI §2` ("opaque UUID identifiers") with one key rather than a numeric key plus a public UUID, keeps IDs non-enumerable — which matters in a system whose permissions are row-scoped — and lets a module be extracted later without ID collisions (`ERP-01`). Human-readable business codes (`DL-…`, `QT-…`) stay separate fields as the contract requires. Cost accepted: 16 bytes against 8, and slightly slower joins; at this system's scale neither is the bottleneck |
-| D-60 | **Tax is calculated before the discount is applied** (recorded 2026-08-12). The tax base is `subtotal + additional_total`, tax is computed on it, and the discount is subtracted afterwards — matching the company's actual purchase orders, verified against PO #226 to the piastre. This **supersedes the ordering in the previous §5.2**, where the discount reduced the base before tax. `D-07` is unchanged in what the discount is a percentage *of* (the subtotal); only where it is subtracted has moved. ⚠️ The source document labels this line **إشعار خصم** (credit note), which in accounting is a separate instrument adjusting an already-issued invoice rather than a discount on the sale. If that is what it is, the discount does not belong on the quotation at all — confirm with the accountant |
+| D-60 | **Tax is calculated before the discount is applied** (recorded 2026-08-12). The tax base is the `subtotal`, tax is computed on it, and the discount is subtracted afterwards — matching the company's actual purchase orders, verified against PO #226 to the piastre. This **supersedes the ordering in the previous §5.2**, where the discount reduced the base before tax. `D-07` is unchanged in what the discount is a percentage *of* (the subtotal); only where it is subtracted has moved. ⚠️ The source document labels this line **إشعار خصم** (credit note), which in accounting is a separate instrument adjusting an already-issued invoice rather than a discount on the sale. If that is what it is, the discount does not belong on the quotation at all — confirm with the accountant |
 | D-59 | **External access uses Cloudflare Tunnel + Access, not a VPN** (recorded 2026-08-12). The company LAN remains the primary access path for every role. External access is limited to five named users — CEO, Manager, and Outdoor Sales. The server opens no inbound port; the tunnel connection is outbound from the server. Cloudflare Access is an identity gate **in front of** the application and **never replaces** the system's own authentication or its permission matrix (`SEC-07`, `SEC-09`); its session lifetime is at least 8 hours so field staff are not forced through two logins a day (`D-29`). **Supersedes `OD-04`**, revises §1 and §14.4, changes the `P-02` criterion from "through VPN" to "through Cloudflare", and reframes the Module 12 message from "VPN disconnected" to "connection unavailable" |
 | D-58 | **Arabic documentation is reading-only** (recorded 2026-08-12). Translations live in `arabic/` for the project owner's reading. They are not maintained companions, carry no synchronization requirement, and are never loaded as a source. This supersedes the companion declarations previously carried in the headers of this document, the build plan, the documentation map, the design system, and the OpenAPI contract. **The product requirement for Arabic in the running system is unchanged**: the application itself ships Arabic and English from Module 0 (§1, §14.2), and this decision governs the specification documents only |
 | D-57 | **Backend framework is Laravel** (recorded 2026-08-11). The documented stack in 14.2 — PostgreSQL, Redis, Meilisearch — is unchanged; this decision only names the application framework, which the documentation had deliberately left open. Chosen for its queue, scheduler and migration tooling, which map directly to the four queues (15.1), J-01…J-14, and the Queue Monitor and Scheduler screens (OBS-02, OBS-03). PDF generation uses headless Chrome via Browsershot, proven by prototype P-01 |
@@ -468,13 +470,14 @@ line_cost         = unit_cost_base × quantity
 subtotal            = Σ line_total
 additional_total    = Σ additional items (delivery / installation)
 
-tax_base            = subtotal + additional_total      ⚠️ open decision OD-01
+tax_base            = subtotal                         ← additional items are NOT taxed (OD-01)
 tax_amount          = tax_base × tax_percent / 100     ← tax BEFORE discount (D-60)
+                                                          zero when the customer is exempt (D-63)
 
 discount_amount     = subtotal × discount_percent / 100          ← (D-07)
 net_amount          = subtotal + additional_total − discount_amount   ← revenue excl. tax
 
-total_before_round  = tax_base + tax_amount − discount_amount    ← (D-60)
+total_before_round  = net_amount + tax_amount                    ← (D-60)
 
 final_total         = round(total_before_round, currency unit)   ← (D-06, D-52)
 rounding_diff       = final_total − total_before_round           ← stored
@@ -1204,7 +1207,7 @@ Priorities: Critical (banner) · High (toast + badge) · Normal (badge) · Low (
 
 | # | Decision | Owner | Blocks |
 |---|---|---|---|
-| **OD-01** 🔴 | Are additional items taxable? (assumption: yes) | Accountant | Quotations |
+| ~~OD-01~~ ✅ | ~~Are additional items taxable?~~ **Closed 2026-08-12: no.** Delivery and installation are outside the tax base; only the item subtotal is taxed | — | — |
 | **OD-03** 🔴 | Server specifications | Server administrator | Resource sizing |
 | OD-02 🟡 | PDF template | You | PDF module |
 | ~~OD-04~~ ✅ | ~~VPN type and concurrent connection capacity~~ — **closed by D-59**: Cloudflare Tunnel + Access, 5 users | — | — |
@@ -1213,7 +1216,7 @@ Priorities: Critical (banner) · High (toast + badge) · Normal (badge) · Low (
 | OD-07 ⬜ | Criteria for automatic red supplier rating | Procurement | Post-MVP |
 | OD-08 ⬜ | Fuzzy-match threshold for customer names | Empirical | Tuned after the first 100 customers |
 
-> **Only OD-01 and OD-03 actually block the start.**
+> **Only OD-03 still blocks the start.** OD-01 is closed.
 
 ### 19.2 Risks
 

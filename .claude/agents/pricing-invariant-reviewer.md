@@ -25,11 +25,12 @@ line_cost           = unit_cost_base × quantity
 
 subtotal            = Σ line_total
 additional_total    = Σ additional items
-tax_base            = subtotal + additional_total                         ⚠️ OD-01
+tax_base            = subtotal              ← additional items NOT taxed (OD-01, closed: no)
 tax_amount          = tax_base × tax_percent / 100        ← tax BEFORE discount (D-60)
+                                               null/zero when customer is exempt (D-63)
 discount_amount     = subtotal × discount_percent / 100                   (D-07)
 net_amount          = subtotal + additional_total − discount_amount
-total_before_round  = tax_base + tax_amount − discount_amount             (D-60)
+total_before_round  = net_amount + tax_amount                             (D-60)
 final_total         = round(total_before_round, currency unit)            (D-06, D-52)
 rounding_diff       = final_total − total_before_round                    ← stored
 ```
@@ -59,7 +60,9 @@ Rounding units (D-52, configurable): EGP `1` · USD `0.01` · EUR `0.01`.
 
 ## Open decision that gates this file
 
-**OD-01** — whether additional items are taxable — is unresolved. `tax_base = subtotal + additional_total` encodes the provisional assumption "yes." If the code depends on it, say so explicitly and confirm the assumption was approved rather than silently inherited. The owner has chosen to proceed on the assumption, so it must surface in the Super Admin settings marked unconfirmed rather than sit invisible in a formula.
+**OD-01 is closed: additional items are not taxed.** `tax_base = subtotal`. Any code that adds `additional_total` into the tax base is a defect — on a quotation with 10,000 of items and 1,000 of delivery it over-charges the customer 140.
+
+**Tax is optional** (`D-63`). A quotation for an exempt customer has no tax line at all, not a zero one. Code that assumes `tax_percent` is always present will break on those.
 
 ## Tests
 
@@ -69,6 +72,8 @@ Coding_Standards §6 requires focused unit tests for every pricing formula, roun
 - quotation margin `20%`, line margin `30%` → line uses `30%`
 - `1234.67 EGP` → final `1235`, `rounding_diff` `0.33`
 - **PO #226 regression** — `subtotal 7368.42`, tax `14%`, discount `1%` → tax `1031.58`, discount `73.68`, total `8326.32`. Discounting first yields `8316.00` and is wrong (D-60)
+- **Additional items excluded from tax** — items `10,000` + delivery `1,000` at `14%` → tax `1400.00`, not `1540.00` (OD-01)
+- **Exempt customer** — no tax line rendered, total equals `net_amount` (D-63)
 - `1234.678 USD` → final `1234.68` (unit `0.01`)
 - negotiation `1000 → 900` → saving `100` added to final profit
 

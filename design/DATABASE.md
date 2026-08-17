@@ -129,9 +129,9 @@ timestamp · IP · device, plus correlation ID from `Coding_Standards §10`.
 
 | Column | Type | Note |
 |---|---|---|
-| `user_id` | BIGINT | actor |
+| `user_id` | UUID | actor (D-61) |
 | `event` | VARCHAR | `SELF_APPROVAL`, `LOGIN_AS`, … (`§3.12` rule 4) |
-| `entity_type` · `entity_id` | VARCHAR · BIGINT | subject |
+| `entity_type` · `entity_id` | VARCHAR · UUID | subject (D-61) |
 | `old_values` · `new_values` | JSONB | |
 | `ip_address` · `device` | INET · VARCHAR | |
 | `request_id` · `correlation_id` | VARCHAR | |

@@ -25,5 +25,9 @@
   "audio-recorder": false,
   "workspaces": false,
   "publish": false,
-  "sync": false
+  "sync": false,
+  "footnotes": false,
+  "slash-command": false,
+  "bases": true,
+  "webviewer": false
 }

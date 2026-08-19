@@ -151,7 +151,7 @@ somewhere. Steps below; each step's points are approved before it starts.
       `PRF-04` puts PDF generation on the `pdf` queue, so only that worker needs Chromium.
       Two build targets, `app` (~810 MB) for web, API and three workers, and `pdf` (~2.08 GB)
       for one. Architecture, not a size trick
-- [ ] **0.8** Storage volume outside the web root (`§17`) + complete `.env.example`
+- [x] **0.8** Storage volume outside the web root (`§17`) + complete `.env.example`
 - [ ] **0.9** Full `ST-01`…`ST-09` boot-order verification + a written runbook (`DEV-11`)
 - [x] **0.10** Build the amd64 image on amd64 hardware in CI, verify it, publish to GHCR.
       Done out of order so 0.4 and 0.5 — the most architecture-sensitive points — were

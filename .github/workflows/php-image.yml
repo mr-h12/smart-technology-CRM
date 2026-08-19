@@ -40,6 +40,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A variable used by compose but absent from .env.example surfaces at
+      # runtime as an empty value, not an error. Cheap to assert, and it keeps
+      # the template honest as services are added.
+      - name: Assert .env.example declares every variable compose reads
+        run: |
+          grep -oE '\$\{[A-Z_]+' docker-compose.yml | sed 's/\${//' | sort -u > /tmp/used
+          grep -oE '^[A-Z_]+' .env.example | sort -u > /tmp/declared
+          missing=$(comm -23 /tmp/used /tmp/declared)
+          if [ -n "$missing" ]; then
+            echo "Used by docker-compose.yml but missing from .env.example:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "every compose variable is declared"
+
       - uses: docker/setup-buildx-action@v3
 
       # Registry names must be lowercase; this repository's name is not

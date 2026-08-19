@@ -196,6 +196,25 @@ RUN { \
 # cache, npm's cache, and — found the hard way — Chromium, which cannot create
 # its user-data directory and refuses to start at all.
 RUN chown www-data:www-data /var/www /var/www/html && chmod 0755 /var/www /var/www/html
+
+# ── File storage (§17) ───────────────────────────────────────────────────────
+#
+# Deliberately outside the application directory, which §17 states in as many
+# words. Two consequences follow from that one line: nginx serves only
+# /var/www/html/public, so nothing here is reachable by URL no matter how the
+# web server is configured, and §17's "no direct access — every file served
+# through a permission-checking API" becomes structural rather than a rule
+# somebody has to remember.
+#
+# Created here, owned by www-data, so that when Docker first mounts an empty
+# named volume over it the volume inherits this ownership. A volume mounted onto
+# a path that does not exist is created root-owned, and the runtime user then
+# cannot write attachments.
+#
+# The layout underneath is §17's:
+#   /{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext
+RUN mkdir -p /var/crm-files && chown www-data:www-data /var/crm-files && chmod 0750 /var/crm-files
+
 WORKDIR /var/www/html
 USER www-data
 

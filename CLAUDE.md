@@ -156,6 +156,36 @@ For every module, provide and verify:
 
 Pricing calculations are the highest testing priority. Test the full lifecycle before release: lead → supplier offer → quotation → approval → PDF → purchase order → procurement → delivery.
 
+## Working Rhythm — One Point at a Time
+
+This governs every module and overrides any default urge to batch work.
+
+**Module → Step → Point.** Every module is broken into steps, and every step into points.
+A point is the smallest unit that can be verified on its own.
+
+1. **Do exactly one point per turn. Never two.** Finishing a point early is not a reason to
+   start the next one.
+2. **Stop and wait for review after every point.** The owner reviews everything. Do not
+   proceed on assumed approval, and do not treat silence as approval.
+3. **Before starting a step, publish its point list** and get it approved. The decomposition
+   itself is reviewable — an unapproved point list is an unapproved plan.
+4. **After every point, report as a checklist** with all six parts below. All six, every time,
+   even when the point was trivial.
+
+### The report after every point
+
+| Part | What it must contain |
+|---|---|
+| **What was done** | One or two lines. The change, not the intention. |
+| **Why it is correct** | Cited to `D-xx`, `§x`, `DB-xx`, `SEC-xx`, `ST-xx`, or an acceptance criterion. A claim of correctness with no citation is an opinion, and this project does not run on opinions. |
+| **Checks run** | The actual command and its actual output. Pass or fail. Never "should work" — run it. |
+| **Problems found** | Everything that went wrong, including what was hit and fixed mid-point. A point that reports no problems must say so explicitly rather than omitting the row. |
+| **What this does NOT cover** | The honest gap. What a reader might wrongly assume is now handled. |
+| **Next point** | Named, then stop. |
+
+**Never report a point as complete on the strength of reasoning.** Run the check and paste the
+output. If a check cannot be run, say that plainly instead of substituting confidence for evidence.
+
 ## Change Discipline
 
 - Restate the requested change as observable success criteria before coding. For multi-file work, present `step → verification` and wait for approval before editing.

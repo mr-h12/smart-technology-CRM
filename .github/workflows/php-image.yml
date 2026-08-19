@@ -29,8 +29,6 @@ on:
       - '.github/workflows/php-image.yml'
   workflow_dispatch:
 
-env:
-  IMAGE: ghcr.io/${{ github.repository }}/php
 
 jobs:
   build:
@@ -43,6 +41,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3
+
+      # Registry names must be lowercase; this repository's name is not
+      # (smart-technology-CRM). Computed rather than hardcoded so a rename or a
+      # move to another owner cannot silently reintroduce the same failure.
+      - name: Derive the lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/php" >> "$GITHUB_OUTPUT"
 
       # Build first, verify second, publish last. A broken image must never
       # reach the registry, because DEV-04 treats a published tag as the
@@ -87,6 +92,6 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
           cache-from: type=gha

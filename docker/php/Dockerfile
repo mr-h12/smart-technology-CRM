@@ -20,7 +20,28 @@
 # instruction set. Carried on the deployment-debt register in CHECKLIST.md.
 # The switch is `docker build --platform linux/amd64`.
 
-FROM php:8.4-fpm-bookworm
+# Pinned by digest, not by tag. A tag moves: `composer:2` silently becomes any
+# new 2.x, and even `php:8.4-fpm-bookworm` is rebuilt for base-image security
+# updates. That makes the same commit produce different images on different
+# days, which undermines DEV-04 — rolling back to a previous release is only
+# meaningful if the release is reproducible.
+#
+# Both digests are manifest-list (OCI image index) digests, not per-platform
+# ones, so the same pin resolves correctly for amd64 in CI and arm64 locally.
+# Pinning a platform-specific digest here would break one of the two.
+#
+# To update deliberately:
+#   docker buildx imagetools inspect php:8.4-fpm-bookworm
+#   docker buildx imagetools inspect composer:2
+# then replace the digests below and let CI rebuild. Updating is now a decision
+# rather than something that happens on its own.
+#
+# What this does NOT make reproducible: `apt-get install` below still resolves
+# against whatever Debian publishes today, and `pecl install redis` takes the
+# current release. Pinning the base closes the largest source of drift, not all
+# of it. Full reproducibility would need pinned package versions and a PECL
+# version, which is a deliberate later step, not an oversight here.
+FROM php:8.4-fpm-bookworm@sha256:c5fb7a0c02f4efe280691910c8b734995fa83598cdcf3115ef5dcb2e4617681c
 
 # Build-time only. Removed in the same layer so they never reach the runtime
 # image; the matching runtime libraries are installed separately below.
@@ -57,7 +78,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* /tmp/pear
 
 # Composer, copied from its official image rather than curl | php.
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 
 # DB-08 — timestamps are stored UTC and converted for display only.
 ENV TZ=UTC

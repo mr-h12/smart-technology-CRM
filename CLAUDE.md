@@ -186,6 +186,20 @@ A point is the smallest unit that can be verified on its own.
 **Never report a point as complete on the strength of reasoning.** Run the check and paste the
 output. If a check cannot be run, say that plainly instead of substituting confidence for evidence.
 
+### End every message with what to search
+
+Close **every** message — not only point reports — with a short "What to search"
+section: the exact terms the owner can look up to understand the topic on their own,
+without this conversation.
+
+- Give searchable terms, not a summary. `docker compose depends_on condition
+  service_healthy` is useful; "Docker startup stuff" is not.
+- Name the specific technology, flag, or concept actually used, so the results match
+  what was built rather than the general subject area.
+- Three to six entries. Order them by what matters most for judging the work.
+- Include the term for anything asserted as a constraint, so the claim can be checked
+  independently rather than taken on trust.
+
 ## Change Discipline
 
 - Restate the requested change as observable success criteria before coding. For multi-file work, present `step → verification` and wait for approval before editing.

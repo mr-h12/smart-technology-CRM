@@ -73,5 +73,21 @@ foreach ([
 $arabicFonts = (int) trim(shell_exec('fc-list :lang=ar 2>/dev/null | wc -l') ?? '0');
 check('font: Arabic coverage present', $arabicFonts > 0, "$arabicFonts fonts declare lang=ar");
 
+// Generic families, not just explicit names. This is the gap that let DejaVu
+// Sans become the Arabic fallback: `fc-match "Noto Sans Arabic"` passed while
+// `fc-match sans-serif:lang=ar` quietly resolved somewhere else. A renderer
+// falling back on a missing glyph asks the generic way, so that is the path
+// that has to be right.
+foreach ([
+    'sans-serif:lang=ar' => 'NotoSansArabic',   // §4.1 Arabic UI face
+    'serif:lang=ar'      => 'NotoSansArabic',
+    'monospace:lang=ar'  => 'NotoSansArabic',   // Noto Sans Mono carries no Arabic
+    'sans-serif'         => 'Inter-',           // §4.1 Latin and numerals
+    'monospace'          => 'NotoSansMono',     // §4.1 codes, IDs, audit metadata
+] as $pattern => $expectedFile) {
+    $match = trim(shell_exec('fc-match ' . escapeshellarg($pattern) . ' 2>/dev/null') ?? '');
+    check("fallback: $pattern", str_contains($match, $expectedFile), explode(':', $match)[0]);
+}
+
 echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
 exit($fail);

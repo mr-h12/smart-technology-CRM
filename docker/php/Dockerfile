@@ -106,8 +106,14 @@ RUN set -eux; \
         fonts-noto-core \
         fonts-noto-mono \
         fonts-inter; \
-    fc-cache -f; \
     rm -rf /var/lib/apt/lists/*
+
+# Installing the fonts is not enough. A request by explicit family name resolved
+# correctly, but a generic one — what a renderer falls back to, and what Chrome
+# uses by default — sent Arabic to DejaVu Sans, which arrives as a dependency of
+# fontconfig-config and outranks Noto by default. See the file for the detail.
+COPY fonts.conf /etc/fonts/conf.d/60-crm-fonts.conf
+RUN fc-cache -f
 
 # Composer, copied from its official image rather than curl | php.
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer

@@ -122,7 +122,7 @@ From `§4.1`. This is the shape the whole system hangs off.
 > disagree, regenerate rather than hand-editing the diagram.
 
 The mermaid map below is the abbreviated version, kept inline because it renders
-in Obsidian and on GitHub without leaving the page.
+on GitHub without leaving the page.
 
 ```mermaid
 erDiagram

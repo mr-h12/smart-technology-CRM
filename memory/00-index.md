@@ -6,6 +6,23 @@ type: index
 
 نقطة البداية. الملاحظات هنا **مش مصدر** — المصدر هو `docs/`.
 
+## شكل الملاحظة
+
+كل سؤال في `memory/questions/` بيبدأ بـ frontmatter بالشكل ده:
+
+```yaml
+---
+type: question
+id: OD-03
+status: open | resolved
+owner: مين المسؤول
+blocks: إيه اللي متوقف عليه
+opened: YYYY-MM-DD
+---
+```
+
+وبعدين: السؤال · ليه مهم · بيمنع إيه · الإجابة لما تيجي.
+
 ## ⚠️ القاعدة اللي لو اتكسرت المنظومة بتقع
 
 | النوع | مكانه | مين بيشوفه |
@@ -29,7 +46,7 @@ type: index
 
 ### بتمنع البداية 🔴
 
-- [[questions/OD-03-server-specs|OD-03 — مواصفات السيرفر]] · مسؤول السيرفر ← **الوحيد الفاضل**
+- [OD-03 — مواصفات السيرفر](questions/OD-03-server-specs.md) · مسؤول السيرفر ← **الوحيد الفاضل**
 
 ### لسه محتاج المحاسب 🟡
 
@@ -38,22 +55,22 @@ type: index
 
 ### اتقفلت ✅ (2026-08-19)
 
-- [[questions/OD-01-additional-items-tax|OD-01 — البنود الإضافية عليها ضريبة؟]] → **لأ** (`D-62`)
-- [[questions/vat-before-or-after-discount|الضريبة قبل الخصم ولا بعده؟]] → **بعده** (`D-64`، بيلغي `D-60`)
+- [OD-01 — البنود الإضافية عليها ضريبة؟](questions/OD-01-additional-items-tax.md) → **لأ** (`D-62`)
+- [الضريبة قبل الخصم ولا بعده؟](questions/vat-before-or-after-discount.md) → **بعده** (`D-64`، بيلغي `D-60`)
 - **التقريب** → اختياري لكل عملة، ممكن يتقفل خالص (`D-65`)
 - **نسبة الضريبة** → تتغيّر لكل عرض على حدة (`D-63`)
 - **الدخول الخارجي** → Cloudflare مش VPN (`D-59`)
-- [[questions/Q-1-primary-key-type|Q-1 — المفتاح الأساسي]] → **UUID** (`D-61`)
+- [Q-1 — المفتاح الأساسي](questions/Q-1-primary-key-type.md) → **UUID** (`D-61`)
 
 ### تصميم الداتابيز 🟡
 
-باقي أسئلة التصميم (Q-2 … Q-6) في [[design/DATABASE|design/DATABASE.md]] قسم 12.
+باقي أسئلة التصميم (Q-2 … Q-6) في [design/DATABASE.md](../design/DATABASE.md) قسم 12.
 
 ## الناس
 
-- [[people/accountant|المحاسب]]
-- [[people/server-admin|مسؤول السيرفر]]
-- [[people/mohanadmm|mohanadmm]]
+- [المحاسب](people/accountant.md)
+- [مسؤول السيرفر](people/server-admin.md)
+- [mohanadmm](people/mohanadmm.md)
 
 ## الأماكن
 
@@ -62,15 +79,19 @@ type: index
 | `docs/` | المواصفات — **مرجع، متعدّلش من هنا** |
 | `design/` | الـ ERD والـ schema قبل الكود |
 | `prompts/` | البرومبتات اللي Codex بيكتبها |
-| `memory/` | الملاحظات دي |
+| `memory/` | الملاحظات دي — ماركداون عادي |
 | `arabic/` | ترجمة للقراءة بس |
 
 ## دورة الشغل
 
 ```
-فكرة → [Obsidian] سياق وسؤال
+فكرة → [هنا] سياق وسؤال في memory/questions/
      → [Codex] برومبت → prompts/
      → [Claude Code] تنفيذ ← بيقرا CLAUDE.md
-     → [Obsidian] نتيجة وقرار
+     → [هنا] نتيجة وقرار
      → القرار المعتمد → docs/ كـ D-xx
 ```
+
+الملفات دي **ماركداون عادي**. اتقرا في أي محرر وعلى GitHub، والروابط بينها
+روابط ماركداون عادية. Obsidian اتشال من المشروع — مكانش بيضيف حاجة على
+الوصول المباشر للملفات.

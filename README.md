@@ -32,10 +32,10 @@ for the field team.
 Full progress tracking lives in **[CHECKLIST.md](CHECKLIST.md)**. Schema design and the
 decisions it still needs are in **[design/DATABASE.md](design/DATABASE.md)**.
 
-The repository doubles as an Obsidian vault. Open the repo root as a vault and start at
-[`memory/00-index.md`](memory/00-index.md). Notes there are working context — **a decision that
-lives only in `memory/` is a decision the agents cannot see.** Approved decisions belong in
-`docs/` as `D-xx`.
+Working notes live in [`memory/`](memory/00-index.md) as plain markdown — open questions,
+the people who own them, and the reasoning behind decisions. Start at
+[`memory/00-index.md`](memory/00-index.md). **A decision that lives only in `memory/` is a
+decision the agents cannot see.** Approved decisions belong in `docs/` as `D-xx`.
 
 ---
 
@@ -47,7 +47,7 @@ lives only in `memory/` is a decision the agents cannot see.** Approved decision
 ├── CHECKLIST.md           Detailed MVP progress checklist
 ├── docs/                  The specifications — authoritative
 ├── design/                Schema and ERD, before any migration
-├── memory/                Obsidian vault — working notes, not a source
+├── memory/                Working notes — not a source
 ├── prompts/               Prompts authored for the coding agent
 ├── arabic/                Arabic reading copies (not part of the system)
 └── prototypes/

@@ -7,7 +7,7 @@ role: مسؤول السيرفر
 
 ## مستني منه
 
-- [[memory/questions/OD-03-server-specs|OD-03 — مواصفات السيرفر]]
+- [OD-03 — مواصفات السيرفر](../questions/OD-03-server-specs.md)
 - دخول على السيرفر لعمل **P-02**
 - تأكيد: **Linux ولا Windows؟**
 

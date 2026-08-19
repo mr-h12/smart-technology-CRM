@@ -130,6 +130,33 @@ every "are we ready to ship" conversation — not at the end.
 
 *Infrastructure — no user story.*
 
+The build plan names seven items. `D-66` adds an eighth that comes first: a
+production-matched local environment, because every later item has to be built
+somewhere. Steps below; each step's points are approved before it starts.
+
+### Step 0 — production-matched Docker environment (`D-66`)
+
+- [x] **0.1** PostgreSQL + Redis, healthchecks, `ST-03` wait-for-healthy proven
+- [x] **0.2** Meilisearch at `ST-02` position 3 (behind a profile since — ~95 MB idle,
+      unused before Module 15)
+- [x] **0.3** PHP 8.4 image with the extensions this system needs, `bcmath` included (`DB-07`)
+- [x] **0.4** Arabic fonts (`§4.1`) + the UTF-8 locale the base image lacked
+- [x] **0.5** Headless Chromium — Arabic PDF rendered and inspected inside the container,
+      which is what `P-01` proved on macOS and `D-66` required on Linux
+- [ ] **0.6** PHP-FPM + Nginx + self-signed TLS (`SEC-14`), plus the `USER` directive and
+      `storage/` ownership deferred from 0.3
+- [ ] **0.7** The four queue workers by priority (`§15.1`) — **and the image split**:
+      `PRF-04` puts PDF generation on the `pdf` queue, so only that worker needs Chromium.
+      Two build targets, `app` (~810 MB) for web, API and three workers, and `pdf` (~2.08 GB)
+      for one. Architecture, not a size trick
+- [ ] **0.8** Storage volume outside the web root (`§17`) + complete `.env.example`
+- [ ] **0.9** Full `ST-01`…`ST-09` boot-order verification + a written runbook (`DEV-11`)
+- [x] **0.10** Build the amd64 image on amd64 hardware in CI, verify it, publish to GHCR.
+      Done out of order so 0.4 and 0.5 — the most architecture-sensitive points — were
+      verified on amd64 as they landed
+
+### Steps 1–7 — the build plan's own items
+
 - [ ] Project structure (backend + frontend)
 - [ ] Database connection + migration tooling
 - [ ] **i18n layer from day one** — no hard-coded strings, Arabic + English

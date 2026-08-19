@@ -84,6 +84,7 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - **Optimistic locking is not built in.** Quotations need an explicit version column plus `If-Match`, returning `409` on a stale write (`DB-12`, `API-12`).
 - **PDFs render through Browsershot** (headless Chrome), asynchronously on the `pdf` queue, with fonts embedded — the approach proven by P-01.
 - **All user-facing text lives in lang files.** No string literals in Blade, controllers, or components.
+- **The frontend is a Vue 3 + TypeScript SPA on Vite consuming `/api/v1` (`D-67`).** **Never introduce Inertia or Livewire** — they bind the UI to controllers instead of the documented REST contract and break `AP-07`. The SPA displays backend results and may preview; it never owns a calculation, a permission decision, or a state transition.
 
 ## Internationalization and UI
 

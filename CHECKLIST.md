@@ -96,7 +96,10 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
 - [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
 - [ ] **Queue and storage sizing** — blocked on `OD-03` and `OD-05`
-- [ ] **Nginx + SSL, process manager, `/health` per service**
+- [ ] **Nginx + SSL, process manager, `/health` per service** — nginx, TLS termination and the
+      HTTP→HTTPS redirect now work locally against a self-signed certificate (point 0.6). What the
+      server still has to prove: a real certificate, the process manager starting everything on
+      boot, and `/health` reporting each service, which belongs to the application (`ST-08`)
 - [ ] **CPU architecture** — the local stack is `linux/arm64` (Apple Silicon); the server is almost
       certainly `linux/amd64`. Decided 2026-08-19 to continue on arm64 and switch when `OD-03`
       names the architecture. Container parity therefore covers the OS, libraries, locale and
@@ -109,10 +112,9 @@ every "are we ready to ship" conversation — not at the end.
       `Off`). What remains is a deployment actually mounting it: written, not yet proven in place.
       Affects `PRF-01`, and for `display_errors` also `Coding_Standards §9` — a fatal before
       Laravel boots prints raw to the response
-- [ ] **Container runs as root** — php-fpm's master process is root and only its workers drop to
-      `www-data`, which is the official image's behaviour. A `USER` directive plus ownership of
-      `storage/` and `bootstrap/cache` lands in point 0.6, once an application directory exists.
-      Until then the image is more privileged than it needs to be
+- [x] ~~**Container runs as root**~~ — closed in point 0.6. The image now sets `USER www-data`;
+      php-fpm runs its master as www-data too, verified over a real request (`"user":"www-data"`).
+      Ownership of `storage/` and `bootstrap/cache` still has to be set when step 1 creates them
 - [ ] **Inter embeds as Type 3 in PDF output** — Debian's `fonts-inter` ships OTF/CFF outlines
       (`OTTO`), and Chrome converts CFF to unnamed Type 3 fonts when writing PDF. Verified not to
       be a functional defect: Latin, Arabic and every money figure render correctly and extract and

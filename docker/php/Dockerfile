@@ -204,12 +204,21 @@ RUN { \
         echo 'error_log=/proc/self/fd/2'; \
     } > /usr/local/etc/php/conf.d/zz-app.ini
 
-# The container still runs as root by default, which is the official image's
-# behaviour — php-fpm's master process is root and only its workers drop to
-# www-data. That is deliberate here rather than overlooked: Laravel must be able
-# to write to storage/ and bootstrap/cache, and setting USER before those
-# directories exist would fix ownership to a tree that has not been created yet.
-# The USER directive and the ownership of those paths land in point 0.6, when
-# the image is wired into compose and an application directory exists.
-# Carried on the deployment-debt register meanwhile.
+# ── Run as www-data, not root ────────────────────────────────────────────────
+#
+# The official image leaves the php-fpm master as root and drops only its
+# workers to www-data. Verified that dropping the master too works: php-fpm
+# listens on TCP 9000, which needs no privilege, and simply ignores its own
+# user/group directives with a notice.
+#
+# The reason is not only attack surface. Anything run with `docker exec` —
+# composer install, artisan — would otherwise write root-owned files into the
+# application tree, and the www-data workers could then not write to them. That
+# is the most common way a Laravel container breaks, and it is prevented here
+# rather than debugged later.
+#
+# The base image leaves /var/www/html at 1777 — world-writable with a sticky
+# bit. Narrowed to www-data ownership and 0755.
+RUN chown www-data:www-data /var/www/html && chmod 0755 /var/www/html
 WORKDIR /var/www/html
+USER www-data

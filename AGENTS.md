@@ -150,6 +150,47 @@ A point is the smallest unit that can be verified on its own.
 **Never report a point as complete on the strength of reasoning.** Run the check and paste the
 output. If a check cannot be run, say that plainly instead of substituting confidence for evidence.
 
+### Never assume — open it and look
+
+Do not state, rely on, or build against what a file, image, package, or system
+contains until you have checked it **in this session**. Reading is cheap; the
+failures this prevents are not.
+
+This rule exists because it was broken three times in one session, each time the
+same way — assuming a binary was present in a container image:
+
+| Assumed | Reality | How it surfaced |
+|---|---|---|
+| the probe image had `curl` | it ships `psql`, not `curl` | the CI probe failed mid-run |
+| `nginx:alpine` had `openssl` | it has neither | the container restart-looped on exit 127 |
+| a grep for `opcache` would match | it is listed as `Zend OPcache` | a false "MISSING" in a report |
+
+None of these were knowledge gaps. Each was a check that took one command and
+was skipped.
+
+**Check before you depend on it:**
+
+- A tool inside an image → `command -v`, in that image, before writing the line
+  that calls it.
+- A package's contents → query it (`dpkg -c`, `apt-cache show`), do not infer
+  from its name.
+- A configuration default → print it (`php -i`, `show <setting>`, `locale`), do
+  not recall it.
+- A documented rule → open the section and read it. Cite the line, not the
+  memory of it.
+- An external fact — a version, a requirement, an API — fetch the current
+  source. Training data goes stale, and this project already outran it once.
+- A file you are about to edit → read the exact text first; anchor edits on
+  strings you have seen, and verify the anchor matches once and only once.
+
+**The tell:** if you are about to write "should", "presumably", "it must have",
+or "typically", stop. That sentence is a check you have not run. Either run it,
+or say plainly that it is unverified and mark it as such.
+
+**A verifier is not verified until it has failed.** A check that has only ever
+passed proves nothing about whether it can detect the defect. Break the thing on
+purpose, watch the check fail, then fix it back.
+
 ### End every message with what to search
 
 Close **every** message — not only point reports — with a short "What to search"

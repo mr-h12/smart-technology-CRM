@@ -85,9 +85,18 @@ services:
     container_name: crm-meilisearch
     restart: unless-stopped
     # D-48 defers Meilisearch to Module 15, but ST-02 puts it in the boot order
-    # and BK-01 puts it in the backup set. It runs from day one and stays unused
-    # until Module 15 swaps SearchService's driver; adding a service to the
-    # stack late is exactly the surprise D-66 exists to prevent.
+    # and BK-01 puts it in the backup set. It is defined from day one so that
+    # adding a service to the stack late — the surprise D-66 exists to prevent —
+    # never happens.
+    #
+    # It does not run by default. Measured idle, it holds ~95 MB for a service
+    # nothing will call before Module 15, and OD-03's floor for this server is
+    # 8 GB. Two profiles rather than one:
+    #   verify — the boot-order probe asserts the full ST-02 chain, so the proof
+    #            still covers all three services
+    #   search — Module 15 work, and any time the real driver is wanted
+    # Neither profile changes its position in the chain.
+    profiles: [search, verify]
     depends_on:
       # Meilisearch has no real dependency on Redis. The chain is declared
       # anyway so the compose file matches ST-02 literally and the server's

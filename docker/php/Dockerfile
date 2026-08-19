@@ -152,11 +152,22 @@ RUN { \
 # §17 sets the configurable file-size ceiling at 10 MB (D-39). PHP must not
 # reject an upload before the application can apply its own documented rule and
 # error message, so its limits sit just above and the application enforces.
+# No php.ini is active in the official image — verified: `php --ini` reports
+# "Loaded Configuration File: (none)". That leaves PHP's built-in defaults, and
+# two of them are wrong here in every environment:
+#   log_errors=0  — errors go nowhere at all, which makes AUD-06's error centre
+#                   impossible to feed.
+#   error_log unset — with log_errors on, output must go to stderr so the
+#                   container runtime collects it.
+# display_errors is left at PHP's default here and turned off by
+# zzz-production.ini at deployment; showing errors is useful while developing.
 RUN { \
         echo 'upload_max_filesize=12M'; \
         echo 'post_max_size=16M'; \
         echo 'memory_limit=256M'; \
         echo 'expose_php=Off'; \
+        echo 'log_errors=On'; \
+        echo 'error_log=/proc/self/fd/2'; \
     } > /usr/local/etc/php/conf.d/zz-app.ini
 
 # The container still runs as root by default, which is the official image's

@@ -86,9 +86,18 @@ RUN printf 'date.timezone=UTC\n' > /usr/local/etc/php/conf.d/zz-timezone.ini
 
 # opcache ships enabled in the base image but unconfigured. PRF-01 targets an
 # API P95 under 500 ms; running without a primed opcode cache forfeits that
-# before a single query is written. validate_timestamps is left on here because
-# this image is also the development image — the production override belongs to
-# the deployment-debt register (D-66).
+# before a single query is written.
+#
+# validate_timestamps=1 is a DEVELOPMENT setting: it stats every file on every
+# request so edits appear without a restart. In production it discards most of
+# the benefit opcache exists for, and the symptom is diffuse slowness that gets
+# blamed on the database. Production must override it with 0.
+#
+# The override is a file, not a rebuild: the base image reads every .ini in
+# /usr/local/etc/php/conf.d, and later files win. Deployment drops in
+# zzz-production.ini with `opcache.validate_timestamps=0` and
+# `opcache.revalidate_freq=0`. Carried on the deployment-debt register until a
+# real deployment proves it.
 RUN { \
         echo 'opcache.enable=1'; \
         echo 'opcache.enable_cli=0'; \
@@ -109,4 +118,12 @@ RUN { \
         echo 'expose_php=Off'; \
     } > /usr/local/etc/php/conf.d/zz-app.ini
 
+# The container still runs as root by default, which is the official image's
+# behaviour — php-fpm's master process is root and only its workers drop to
+# www-data. That is deliberate here rather than overlooked: Laravel must be able
+# to write to storage/ and bootstrap/cache, and setting USER before those
+# directories exist would fix ownership to a tree that has not been created yet.
+# The USER directive and the ownership of those paths land in point 0.6, when
+# the image is wired into compose and an application directory exists.
+# Carried on the deployment-debt register meanwhile.
 WORKDIR /var/www/html

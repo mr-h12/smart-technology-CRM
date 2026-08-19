@@ -104,6 +104,15 @@ every "are we ready to ship" conversation — not at the end.
       natively-compiled PHP extensions, the headless Chrome build behind Browsershot (`§14.6`),
       and any performance figure measured locally (`PRF-01`…`PRF-03` are not comparable).
       Rebuilding with `--platform linux/amd64` is the switch, at the cost of emulated build speed.
+- [ ] **opcache in production** — the image ships `opcache.validate_timestamps=1`, a development
+      setting that stats every file on every request. Production must override it to `0` by
+      dropping `zzz-production.ini` into `/usr/local/etc/php/conf.d`. Left on locally on purpose;
+      unverified until a real deployment runs with it off. Directly affects `PRF-01` (API P95
+      under 500 ms), and the symptom of getting it wrong is diffuse slowness blamed on the database
+- [ ] **Container runs as root** — php-fpm's master process is root and only its workers drop to
+      `www-data`, which is the official image's behaviour. A `USER` directive plus ownership of
+      `storage/` and `bootstrap/cache` lands in point 0.6, once an application directory exists.
+      Until then the image is more privileged than it needs to be
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.

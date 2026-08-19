@@ -1,0 +1,92 @@
+# Builds the CRM application image on amd64 hardware.
+#
+# Why this exists: the development machine is Apple Silicon, so every image
+# built locally is linux/arm64 while the on-premise server is almost certainly
+# linux/amd64 (D-66 deployment-debt register). GitHub's runners are amd64, so
+# the build here is native rather than emulated — building amd64 locally would
+# run under QEMU at roughly a 2-4x penalty on interpreted work and worse on
+# compilation, and this image compiles nine PHP extensions from source.
+#
+# The workflow is deliberately Dockerfile-agnostic: it builds whatever the
+# Dockerfile currently declares, so later points that add Arabic fonts and
+# headless Chrome get their amd64 build verified without touching this file.
+#
+# arm64 is not built here. It is produced natively on the development machine,
+# and building it on an amd64 runner would be the same emulation penalty in
+# reverse.
+
+name: PHP image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docker/php/**'
+      - '.github/workflows/php-image.yml'
+  pull_request:
+    paths:
+      - 'docker/php/**'
+      - '.github/workflows/php-image.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/php
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build first, verify second, publish last. A broken image must never
+      # reach the registry, because DEV-04 treats a published tag as the
+      # rollback target.
+      - name: Build (amd64, native on this runner)
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/php
+          file: docker/php/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: crm-php:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The point of the exercise. Extensions that merely load prove nothing —
+      # this runs the D-64 money chain, the Arabic locale and multibyte checks,
+      # and the gd capabilities on the amd64 build itself.
+      - name: Verify the amd64 image behaves correctly
+        run: |
+          docker run --rm -v "$PWD/docker/php/verify.php:/verify.php:ro" \
+            crm-php:ci php /verify.php
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tagged with the commit SHA as well as latest: DEV-04 wants a rollback
+      # to the previous release in under 15 minutes, and pulling a known tag is
+      # faster and more certain than rebuilding.
+      - name: Push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/php
+          file: docker/php/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha

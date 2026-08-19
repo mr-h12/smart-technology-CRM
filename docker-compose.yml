@@ -145,7 +145,8 @@ services:
     build:
       context: docker/php
       dockerfile: Dockerfile
-    image: crm-php:local
+      target: app          # no browser here — see the Dockerfile's pdf stage
+    image: crm-php:app
     container_name: crm-php
     restart: unless-stopped
     depends_on:
@@ -174,6 +175,93 @@ services:
       start_period: 20s
     networks: [crm]
 
+  # ── ST-02 position 5 — queue workers (§15.1) ─────────────────────────────────
+  #
+  # Four queues, four services, in the documented priority order:
+  #   1 critical     recovery and system health
+  #   2 pdf          document generation
+  #   3 reports      report generation
+  #   4 maintenance  cleanup, indexing, aggregates
+  #
+  # Separate services rather than one worker consuming all four, because a
+  # single worker draining `maintenance` cannot also be answering `critical`.
+  # Priority in §15.1 is only real if the capacity is separated.
+  #
+  # Only `pdf` gets the browser image. That is the whole point of the split:
+  # PRF-04 puts PDF generation on this queue and nowhere else, so the other
+  # three run ~1.3 GB lighter.
+  #
+  # ⚠️ Profile-gated until step 1. The commands below are the real ones, and
+  # `artisan` does not exist yet — without the profile these would crash-loop
+  # against a missing file and make the stack look broken. Remove `profiles`
+  # when the application lands.
+
+  worker-critical:
+    build: { context: docker/php, dockerfile: Dockerfile, target: app }
+    image: crm-php:app
+    container_name: crm-worker-critical
+    profiles: [workers]
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment: &worker-env
+      DB_HOST: postgres
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./docker/app-placeholder:/var/www/html:ro
+    command: ["php", "artisan", "queue:work", "redis", "--queue=critical", "--tries=3"]
+    networks: [crm]
+
+  worker-pdf:
+    build: { context: docker/php, dockerfile: Dockerfile, target: pdf }
+    image: crm-php:pdf
+    container_name: crm-worker-pdf
+    profiles: [workers]
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment: *worker-env
+    volumes:
+      - ./docker/app-placeholder:/var/www/html:ro
+    command: ["php", "artisan", "queue:work", "redis", "--queue=pdf", "--tries=3"]
+    networks: [crm]
+
+  worker-reports:
+    build: { context: docker/php, dockerfile: Dockerfile, target: app }
+    image: crm-php:app
+    container_name: crm-worker-reports
+    profiles: [workers]
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment: *worker-env
+    volumes:
+      - ./docker/app-placeholder:/var/www/html:ro
+    command: ["php", "artisan", "queue:work", "redis", "--queue=reports", "--tries=3"]
+    networks: [crm]
+
+  worker-maintenance:
+    build: { context: docker/php, dockerfile: Dockerfile, target: app }
+    image: crm-php:app
+    container_name: crm-worker-maintenance
+    profiles: [workers]
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment: *worker-env
+    volumes:
+      - ./docker/app-placeholder:/var/www/html:ro
+    command: ["php", "artisan", "queue:work", "redis", "--queue=maintenance", "--tries=3"]
+    networks: [crm]
+
   # ── One-shot: local TLS certificate ──────────────────────────────────────────
   # Runs, writes, exits. nginx waits for it to succeed.
   #
@@ -186,7 +274,7 @@ services:
   # committed: an image carrying a private key ships the same key to every
   # environment that pulls it (SEC-17).
   certs:
-    image: crm-php:local
+    image: crm-php:app
     container_name: crm-certs
     # Root only for this one-shot, to own a fresh named volume. Everything that
     # serves traffic runs as www-data.

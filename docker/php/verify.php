@@ -94,6 +94,16 @@ foreach ([
 // re-proves it inside the container on whichever architecture is building,
 // which is what D-66 asks for and what the deployment-debt register tracks.
 $chrome = getenv('PUPPETEER_EXECUTABLE_PATH') ?: '/usr/bin/chromium';
+
+// The image is built in two targets (point 0.7). `app` carries no browser by
+// design — only the pdf worker renders — so its absence is correct there and a
+// defect nowhere else. Reported as skipped rather than passed, so a browser
+// that goes missing from the pdf target cannot hide behind a green line.
+if (!is_executable($chrome)) {
+    printf("  %-46s %s\n", 'chrome: not in this image', 'SKIP  app target carries no browser');
+    echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
+    exit($fail);
+}
 check('chrome: binary present', is_executable($chrome), $chrome);
 
 $tmp  = sys_get_temp_dir() . '/crm-verify-' . getmypid();

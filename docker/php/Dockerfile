@@ -41,7 +41,7 @@
 # current release. Pinning the base closes the largest source of drift, not all
 # of it. Full reproducibility would need pinned package versions and a PECL
 # version, which is a deliberate later step, not an oversight here.
-FROM php:8.4-fpm-bookworm@sha256:c5fb7a0c02f4efe280691910c8b734995fa83598cdcf3115ef5dcb2e4617681c
+FROM php:8.4-fpm-bookworm@sha256:c5fb7a0c02f4efe280691910c8b734995fa83598cdcf3115ef5dcb2e4617681c AS app
 
 # Build-time only. Removed in the same layer so they never reach the runtime
 # image; the matching runtime libraries are installed separately below.
@@ -114,34 +114,6 @@ RUN set -eux; \
 # fontconfig-config and outranks Noto by default. See the file for the detail.
 COPY fonts.conf /etc/fonts/conf.d/60-crm-fonts.conf
 RUN fc-cache -f
-
-# ── Headless browser for PDF generation (§14.6, D-57) ────────────────────────
-#
-# Chromium from Debian, not google-chrome-stable. Google publishes no arm64
-# Linux build at all, so google-chrome-stable would build on the CI runner and
-# fail on the development machine — the exact split D-66 is trying to keep
-# visible rather than accidental.
-#
-# Node and Puppeteer are here because Browsershot needs them: it is a PHP
-# wrapper that drives Chrome through Puppeteer's Node API. P-01 proved the
-# rendering with this same engine, so only the wrapper changes for Module 9.
-#
-# PUPPETEER_SKIP_DOWNLOAD matters. Puppeteer otherwise downloads its own
-# Chromium build on install — a second browser, hundreds of megabytes, and on
-# arm64 an amd64 binary that cannot run.
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    CHROME_PATH=/usr/bin/chromium
-
-RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        chromium \
-        nodejs \
-        npm; \
-    npm install -g --omit=dev puppeteer@23; \
-    npm cache clean --force; \
-    rm -rf /var/lib/apt/lists/* /root/.npm
 
 # Composer, copied from its official image rather than curl | php.
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
@@ -219,6 +191,67 @@ RUN { \
 #
 # The base image leaves /var/www/html at 1777 — world-writable with a sticky
 # bit. Narrowed to www-data ownership and 0755.
-RUN chown www-data:www-data /var/www/html && chmod 0755 /var/www/html
+# /var/www is www-data's HOME and the base image leaves it root-owned. Anything
+# the runtime user needs to write into a home directory then fails: Composer's
+# cache, npm's cache, and — found the hard way — Chromium, which cannot create
+# its user-data directory and refuses to start at all.
+RUN chown www-data:www-data /var/www /var/www/html && chmod 0755 /var/www /var/www/html
 WORKDIR /var/www/html
+USER www-data
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Stage: pdf — the app image plus a browser
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# Two images, not one, and the reason is architectural rather than cosmetic.
+# §15.1 defines four queues and PRF-04 puts PDF generation on the `pdf` queue,
+# so exactly one worker ever renders a document. The web tier, the API and the
+# other three workers never launch a browser.
+#
+# Carrying Chromium in the image all of them run would put roughly 1.3 GB into
+# every container for the benefit of one:
+#
+#     --target app   ~810 MB   web · api · critical · reports · maintenance
+#     --target pdf   ~2.1 GB   the pdf worker, alone
+#
+# Build with `docker build --target app` or `--target pdf`. Building with no
+# target produces `pdf`, because a missing browser fails at render time in
+# production while an oversized image only costs disk.
+
+FROM app AS pdf
+
+# Back to root to install, then down to www-data again. The app stage already
+# dropped privileges, and this stage must not silently hand them back.
+USER root
+
+# ── Headless browser for PDF generation (§14.6, D-57) ────────────────────────
+#
+# Chromium from Debian, not google-chrome-stable. Google publishes no arm64
+# Linux build at all, so google-chrome-stable would build on the CI runner and
+# fail on the development machine — the exact split D-66 is trying to keep
+# visible rather than accidental.
+#
+# Node and Puppeteer are here because Browsershot needs them: it is a PHP
+# wrapper that drives Chrome through Puppeteer's Node API. P-01 proved the
+# rendering with this same engine, so only the wrapper changes for Module 9.
+#
+# PUPPETEER_SKIP_DOWNLOAD matters. Puppeteer otherwise downloads its own
+# Chromium build on install — a second browser, hundreds of megabytes, and on
+# arm64 an amd64 binary that cannot run.
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROME_PATH=/usr/bin/chromium
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        chromium \
+        nodejs \
+        npm; \
+    npm install -g --omit=dev puppeteer@23; \
+    npm cache clean --force; \
+    rm -rf /var/lib/apt/lists/* /root/.npm
+
+RUN chown -R www-data:www-data /usr/local/lib/node_modules 2>/dev/null || true
 USER www-data

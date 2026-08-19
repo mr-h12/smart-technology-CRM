@@ -147,7 +147,7 @@ somewhere. Steps below; each step's points are approved before it starts.
       which is what `P-01` proved on macOS and `D-66` required on Linux
 - [ ] **0.6** PHP-FPM + Nginx + self-signed TLS (`SEC-14`), plus the `USER` directive and
       `storage/` ownership deferred from 0.3
-- [ ] **0.7** The four queue workers by priority (`§15.1`) — **and the image split**:
+- [x] **0.7** The four queue workers by priority (`§15.1`) — **and the image split**:
       `PRF-04` puts PDF generation on the `pdf` queue, so only that worker needs Chromium.
       Two build targets, `app` (~810 MB) for web, API and three workers, and `pdf` (~2.08 GB)
       for one. Architecture, not a size trick

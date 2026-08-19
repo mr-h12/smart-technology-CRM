@@ -12,6 +12,17 @@
 # so these are a recorded assumption, not a verified match — revisit when it
 # closes.
 
+# Everyday use starts PostgreSQL and Redis only:
+#     docker compose up -d
+#
+# Meilisearch sits behind profiles (see its comment):
+#     docker compose --profile search up -d                  # Module 15 work
+#     docker compose --profile verify up boot-order-probe    # prove the ST-02 chain
+#
+# WARNING: `docker compose down` does NOT stop services whose profile is
+# inactive, so a profiled container survives a teardown and is easy to mistake
+# for a fresh one. Tear the whole stack down with every profile named:
+#     docker compose --profile search --profile verify down
 name: crm
 
 services:

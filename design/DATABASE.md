@@ -115,6 +115,15 @@ truncated is not.
 
 From `§4.1`. This is the shape the whole system hangs off.
 
+> **Full diagram:** [`ERD.drawio`](ERD.drawio) — all 31 tables with columns, keys and
+> relationships, editable at [diagrams.net](https://app.diagrams.net). [`ERD.svg`](ERD.svg) is the
+> rendered view for reading without an editor. Both are generated from the tables
+> below, so **this file stays the source and the diagram follows it** — if they
+> disagree, regenerate rather than hand-editing the diagram.
+
+The mermaid map below is the abbreviated version, kept inline because it renders
+in Obsidian and on GitHub without leaving the page.
+
 ```mermaid
 erDiagram
     CUSTOMERS ||--o{ DEALS : "has concurrent (D-01)"

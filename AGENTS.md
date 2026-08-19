@@ -12,7 +12,7 @@ Update this section whenever it stops being true. It must stay identical in mean
 
 - No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
-- **P-02 not run** — needs a server plus a Cloudflare Tunnel (D-59); no VPN required.
+- **P-02 deferred, not cancelled (`D-66`)** — development runs on a production-matched Docker environment (Linux containers, §14.2 stack) until the on-premise server is available. `P-02` still runs before the pilot rollout, and the deployment-debt register in `CHECKLIST.md` carries everything it would have proven.
 - **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved** and still blocks Module 0.
 - Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
@@ -39,15 +39,15 @@ Read only source sections relevant to the task after the initial review. Before 
 No feature module begins until both mandatory prototypes pass:
 
 1. **P-01 Arabic PDF:** a full Arabic paragraph, item table, and numbers render with correct Arabic shaping and embedded fonts.
-2. **P-02 Real-server deployment:** a Hello page works on the on-premise server and opens from a phone through Cloudflare (D-59).
+2. **P-02 Real-server deployment:** a Hello page works on the on-premise server and opens from a phone through Cloudflare (D-59). **Deferred under `D-66`** — build locally on Linux containers matching §14.2, never on the host OS directly, because developing on the host hides the Linux font gap `P-01` found.
 
-Track this blocker explicitly: **OD-03** (server specifications). Do not settle it silently. **OD-01** is closed — additional items are **not** taxable (`D-62`), and no provisional assumption survives.
+Track this blocker explicitly: **OD-03** (server specifications). It no longer blocks starting development (`D-66`) but still blocks the server, `P-02`, and the deployment-debt register in `CHECKLIST.md`. Do not settle it silently. **OD-01** is closed — additional items are **not** taxable (`D-62`), and no provisional assumption survives.
 
 Implement modules in this strict order:
 
 `0 Foundation → 1 Identity & Dynamic RBAC → 2 Settings/Currencies → 3 Customers → 4 Catalog/Suppliers → 5 Deals → 6 Supplier Quotations → 7 Customer Quotations → 8 Approvals → 9 PDF → 10 Customer Response & POs → 11 Procurement → 12 Outdoor Visits → 13 Reports → 14 Dashboard → 15 Meilisearch`.
 
-Complete a module's acceptance criteria, tests, API authorization, audit coverage, RTL/LTR states, and reversible migration before advancing.
+Complete a module's acceptance criteria, tests, API authorization, audit coverage, RTL/LTR states, and reversible migration before advancing. While `P-02` is deferred, the deployment item means the production-matched local environment plus a recorded deployment debt (`D-66`).
 
 ## Architecture and Data Rules
 

@@ -18,18 +18,20 @@ does not create requirements. If a box here disagrees with the build plan, the b
   - [x] Numbers render correctly and are not reversed in RTL
   - [x] Fonts are embedded, not referenced from the OS
   - [x] Verified visually, not merely produced
-- [ ] **P-02 — Deploy to the real server**
+- [ ] **P-02 — Deploy to the real server** · ⏸ **deferred under `D-66`**, not cancelled
   - [ ] Hello page runs on the on-premise server
   - [ ] Page opens from a phone over Cloudflare Tunnel + Access (D-59)
   - [ ] Fonts render correctly on the Linux server (not just macOS)
 
-> No module begins until both prototypes pass.
+> P-01 has passed. `P-02` waits for the server; development runs on a production-matched Docker
+> environment in the meantime (`D-66`). `P-02` must still pass before the pilot rollout.
 
 ### Sign-off — required before writing code 🔴
 
 - [x] **OD-01** — Are additional items taxable? **No** — delivery and installation are outside the tax
       base (`D-62`, confirmed 2026-08-19)
-- [ ] **OD-03** — Server specifications — **Server administrator**
+- [ ] **OD-03** — Server specifications — **Server administrator** · no longer blocks the start of
+      development (`D-66`); still blocks the server, `P-02`, and everything on the deployment-debt list
 - [x] **VAT ordering** — tax is calculated **after** the discount (`D-64`, confirmed 2026-08-19).
       Supersedes `D-60`; the company's PO #226 is no longer a reconciliation target for tax ordering
 - [x] **Rounding** — optional per currency, can be switched off entirely (`D-65`)
@@ -67,7 +69,34 @@ Copy this block per module. A module is not complete until all seven pass.
 - [ ] Loading / empty / error states on every screen
 - [ ] Screen works in both RTL and LTR
 - [ ] Migration runs and reverses cleanly (up + down)
-- [ ] Deployed to the server and the smoke test passes
+- [ ] Passes on the production-matched local environment, and its deployment debt is recorded (`D-66`)
+
+> While `P-02` is deferred, the seventh item is the local environment. It reverts to "deployed to the
+> server and the smoke test passes" the moment the server exists — and every module already marked done
+> gets that item re-opened, not grandfathered.
+
+---
+
+## Deployment debt — `D-66`
+
+Everything below is unverifiable without the real server. Nothing here counts as done until it has
+actually run there. This list is the price of starting locally, and it is meant to be read before
+every "are we ready to ship" conversation — not at the end.
+
+- [ ] **P-02 itself** — hello page on the server, reachable from a phone
+- [ ] **Arabic fonts on Linux** — `P-01` proved the server has none; container parity is evidence, the
+      server is proof
+- [ ] **Cloudflare Tunnel + Access** (`D-59`) — the whole external path, 5 named users, outbound-only
+      tunnel, ≥8h Access session
+- [ ] **Module 12 connection-unavailable message** — cannot be exercised without real external access
+- [ ] **Boot order** `ST-01`…`ST-09` — PostgreSQL → Redis → Meilisearch → app → workers → Nginx,
+      enabled on boot, health check logged
+- [ ] **Missed-job catch-up on startup** (`D-55`, `ST-05`)
+- [ ] **Restart recovery** (`D-54`) — power down, power up, everything returns on its own
+- [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
+- [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
+- [ ] **Queue and storage sizing** — blocked on `OD-03` and `OD-05`
+- [ ] **Nginx + SSL, process manager, `/health` per service**
 
 ---
 

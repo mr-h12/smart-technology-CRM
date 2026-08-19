@@ -18,16 +18,18 @@ for the field team.
 
 ## Status
 
-**Not yet started on Module 0.** Two gates are still closed, and neither of them is technical.
+**Module 0 can start.** `D-66` moves development onto a production-matched Docker environment while the
+company server is unavailable, so the remaining gates block deployment rather than development.
 
 | Gate | Owner | Status |
 |---|---|---|
 | P-01 — Arabic PDF renders correctly | — | ✅ Passed |
-| P-02 — Deploy to the real server, reachable over Cloudflare | Server administrator | ⬜ Blocked |
+| P-02 — Deploy to the real server, reachable over Cloudflare | Server administrator | ⏸ Deferred (D-66) |
 | OD-01 — Are additional items taxable? | Accountant | ✅ Closed — no |
-| OD-03 — Server specifications | Server administrator | ⬜ Blocked |
+| OD-03 — Server specifications | Server administrator | ⬜ Blocks the server, not the code |
 
-`docs/MVP_Build_Plan_EN.md` §6 lists OD-03 as required *before writing code*. OD-01 is closed.
+Everything the server would have proven is tracked as **deployment debt** in
+[CHECKLIST.md](CHECKLIST.md) — paid off when the server arrives, not written off.
 
 Full progress tracking lives in **[CHECKLIST.md](CHECKLIST.md)**. Schema design and the
 decisions it still needs are in **[design/DATABASE.md](design/DATABASE.md)**.

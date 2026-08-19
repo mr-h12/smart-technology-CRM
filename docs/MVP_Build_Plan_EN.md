@@ -15,7 +15,10 @@
 | P-01 | **Arabic PDF** | Highest technical risk (R-02). If the library can't shape Arabic correctly, you need to know before building 15 modules | A PDF with a full Arabic paragraph, an items table and numbers — correctly shaped, no broken glyphs |
 | P-02 | **Deploy to the real server** | External access, permissions and fonts are what surprise you, and the worst time to discover them is after you've finished | A "Hello" page running on the server, opened from a phone over Cloudflare (D-59) |
 
-> **Do not start any module until both succeed.**
+> **P-01 has passed. `P-02` is deferred under `D-66`** — development runs on a production-matched
+> Docker environment until the on-premise server is available. `P-02` still runs before the pilot
+> rollout (§4.3), and everything it would have proven is carried on the deployment-debt register
+> in `CHECKLIST.md` until then.
 
 ### 0.2 One-Time Documents
 
@@ -56,7 +59,8 @@ Then   [expected result]
 - [ ] Loading / empty / error states on every screen
 - [ ] Screen works in both RTL and LTR
 - [ ] Migration runs and reverses cleanly (up + down)
-- [ ] Deployed to the server and the smoke test passes
+- [ ] Passes on the production-matched local environment, and its deployment debt is recorded (`D-66`)
+      — restored to "deployed to the server and the smoke test passes" once `P-02` runs
 
 ---
 
@@ -101,7 +105,9 @@ CRUD /api/v1/roles · /api/v1/permissions · /api/v1/users
 - Given a password under 8 characters or digits only → Then rejected with a clear message
 - Given a deactivated employee → Then "Account suspended, please contact administration"
 
-🚀 **First deployment point:** deploy to the real server here — not at the end.
+🚀 **First deployment point.** Under `D-66` this is the production-matched Docker environment, not the
+company server — but it is still *here*, not at the end. The moment the server exists, Module 1 is what
+gets deployed to it first.
 
 ---
 
@@ -408,7 +414,7 @@ That isn't failure — it's a prompt to find the **cause**: slowness? insufficie
 | # | Item | Owner |
 |---|---|---|
 | ~~OD-01~~ ✅ | ~~**Are additional items taxable?**~~ **Closed 2026-08-12, reconfirmed by the owner 2026-08-19: no.** Delivery and installation sit outside the tax base (`D-62`) | — |
-| OD-03 🔴 | **Server specifications** | Server administrator |
+| OD-03 🟡 | **Server specifications** — no longer blocks the start of development (`D-66`); still blocks the server, `P-02`, and the deployment-debt register | Server administrator |
 
 ### Required during the build 🟡
 

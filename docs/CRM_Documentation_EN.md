@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (65 decisions) |
+| 2 | Decision Log (66 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -150,6 +150,7 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
+| D-66 | **Development starts locally on a production-matched stack; the real-server gate is deferred, not removed** (recorded 2026-08-19). Access to the on-premise server depends on the manager and the team, and on `OD-03`, so work begins without waiting for it. **The local environment must be Docker with Linux containers matching §14.2** — PostgreSQL, Redis, Meilisearch, Nginx, PHP — and never the developer's host OS directly. That condition is the whole point: `P-01` proved the on-premise Linux server carries no Arabic system fonts, so a template that relies on host fonts passes on macOS and fails in production. Developing on the host would hide exactly the class of defect `P-02` exists to catch. **`P-02` is deferred, not cancelled** — it runs the moment the server exists, and before the pilot rollout in the build plan §4.3. While it is open, the seventh definition-of-done item reads *"passes on the production-matched local environment, and its deployment debt is recorded"*; the original wording returns when the server does. A **deployment-debt register** in `CHECKLIST.md` lists every requirement that cannot be verified locally, and nothing on it counts as verified until it has run on the server: Cloudflare Tunnel and Access (`D-59`), boot order (`ST-01`…`ST-09`), missed-job catch-up (`D-55`), restart recovery (`D-54`), backup and restore (`BK-01`…`BK-08`), the external heartbeat (`OBS-07`), and queue/storage sizing (`OD-03`, `OD-05`). ⚠️ **Risk accepted knowingly:** the build plan put `P-02` first because "external access, permissions and fonts are what surprise you." Container parity answers the fonts, locale and database half of that. Cloudflare and the hardware stay unverified until the server is real, and that gap is carried openly on the register rather than discovered at rollout |
 | D-65 | **Rounding is optional** (recorded 2026-08-19). Rounding the final total is a configurable behaviour per currency, not a mandatory step. It may be switched off entirely, in which case `final_total = total_before_round` and `rounding_diff = 0`. When it is on, `D-06` and `D-52` apply unchanged — the final total only, by that currency's configured unit. The on/off setting lives in `System Settings → Currencies` beside the unit (`AP-08`), and changing either one affects new quotations only, never an issued one |
 | D-64 | **Tax is calculated after the discount is applied** (recorded 2026-08-19). The discount is subtracted from the `subtotal` first and the tax is computed on what remains: `tax_base = subtotal − discount_amount`. Additional items stay outside the tax base (`OD-01`, `D-62`). This **supersedes `D-60`** and restores the ordering §5.2 carried before it. ⚠️ Consequence accepted by the owner: the company's PO #226 applies its 14% to the pre-discount amount and prints `8,326.32`; under this decision the same figures give `8,316.00` — a difference of `10.32`. **PO #226 is therefore no longer a reconciliation target for tax ordering.** The related question — whether the PO's **إشعار خصم** line is a sale discount or a separate credit note — remains open with the accountant and may change *what* the discount is, not *where* it is applied |
 | D-63 | **Tax is optional per quotation, defaulting from the customer** (recorded 2026-08-12; confirmed by the owner 2026-08-19 — a preparer may enter a different tax percentage on any quotation). Some customers are not taxed at all, so `tax_percent` is nullable rather than always present. The customer record carries the default (`is_tax_exempt`); a new quotation inherits it and the preparer may override per quotation. A quotation with no tax shows no tax line at all — not a zero line |
@@ -1227,7 +1228,8 @@ Priorities: Critical (banner) · High (toast + badge) · Normal (badge) · Low (
 | OD-07 ⬜ | Criteria for automatic red supplier rating | Procurement | Post-MVP |
 | OD-08 ⬜ | Fuzzy-match threshold for customer names | Empirical | Tuned after the first 100 customers |
 
-> **Only OD-03 still blocks the start.** OD-01 is closed.
+> **OD-01 is closed.** `OD-03` no longer blocks the *start* of development — `D-66` moves work onto a production-matched
+> local environment — but it still blocks the server itself, and with it `P-02` and every item on the deployment-debt register.
 
 ### 19.2 Risks
 

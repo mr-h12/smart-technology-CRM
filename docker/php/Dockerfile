@@ -12,6 +12,13 @@
 # PHP 8.4 satisfies Laravel 12 (>= 8.2) and Laravel 13 (>= 8.3), verified
 # against laravel.com rather than assumed. OD-03 is still open, so the exact
 # version is a recorded assumption.
+#
+# ARCHITECTURE: this builds for the host's architecture, which on Apple Silicon
+# means linux/arm64 while the server is almost certainly linux/amd64. Decided on
+# 2026-08-19 to continue on arm64 and switch when OD-03 names the architecture.
+# Parity therefore covers the OS, libraries, locale and fonts — not the
+# instruction set. Carried on the deployment-debt register in CHECKLIST.md.
+# The switch is `docker build --platform linux/amd64`.
 
 FROM php:8.4-fpm-bookworm
 

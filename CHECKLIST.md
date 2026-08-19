@@ -97,6 +97,16 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
 - [ ] **Queue and storage sizing** — blocked on `OD-03` and `OD-05`
 - [ ] **Nginx + SSL, process manager, `/health` per service**
+- [ ] **CPU architecture** — the local stack is `linux/arm64` (Apple Silicon); the server is almost
+      certainly `linux/amd64`. Decided 2026-08-19 to continue on arm64 and switch when `OD-03`
+      names the architecture. Container parity therefore covers the OS, libraries, locale and
+      fonts, **but not the instruction set**. Specifically unproven until the server runs it:
+      natively-compiled PHP extensions, the headless Chrome build behind Browsershot (`§14.6`),
+      and any performance figure measured locally (`PRF-01`…`PRF-03` are not comparable).
+      Rebuilding with `--platform linux/amd64` is the switch, at the cost of emulated build speed.
+- [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
+      `autoconf`. Harmless in development, but a compiler inside a production container is
+      avoidable attack surface. Strip it in the production image build.
 
 ---
 

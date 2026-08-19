@@ -55,5 +55,23 @@ foreach (['JPEG Support','FreeType Support','WebP Support','PNG Support'] as $k)
     check("gd: $k", !empty($gd[$k]));
 }
 
+// --- locale: the base image defaults to ASCII, which corrupts Arabic ---------
+check('locale: UTF-8 charmap', stripos(trim(shell_exec('locale charmap 2>/dev/null') ?? ''), 'utf') !== false,
+    trim(shell_exec('locale charmap 2>/dev/null') ?? ''));
+
+// --- fonts: Design System §4.1, and the defect P-01 found on the server ------
+// The base image ships no fonts at all. These must resolve to the real family,
+// not to a fallback, or Arabic renders as tofu.
+foreach ([
+    'Noto Sans Arabic' => 'NotoSansArabic',
+    'Inter'            => 'Inter-',
+    'Noto Sans Mono'   => 'NotoSansMono',
+] as $family => $expectedFile) {
+    $match = trim(shell_exec('fc-match ' . escapeshellarg($family) . ' 2>/dev/null') ?? '');
+    check("font: $family resolves", str_contains($match, $expectedFile), $match);
+}
+$arabicFonts = (int) trim(shell_exec('fc-list :lang=ar 2>/dev/null | wc -l') ?? '0');
+check('font: Arabic coverage present', $arabicFonts > 0, "$arabicFonts fonts declare lang=ar");
+
 echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
 exit($fail);

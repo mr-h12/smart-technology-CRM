@@ -77,8 +77,49 @@ RUN set -eux; \
     apt-get purge -y --auto-remove $BUILD_DEPS; \
     rm -rf /var/lib/apt/lists/* /tmp/pear
 
+# ── Fonts (Design System §4.1) ───────────────────────────────────────────────
+#
+# The base image ships NO fonts and not even fontconfig — verified, and it is
+# exactly the condition P-01 found on the on-premise server. A template that
+# resolves `sans-serif` gets nothing here, and Arabic renders as tofu boxes.
+#
+# Two defences, deliberately both:
+#   1. P-01's rule stands — the PDF template embeds its faces as base64 and
+#      never references an OS font. That is the authoritative path (§14.6).
+#   2. These packages are the fallback. Any glyph outside the embedded subset,
+#      and anything rendering text server-side that is not the PDF template,
+#      lands here instead of on a missing-font box.
+#
+# Installing them also changes what P-01's finding means: the application ships
+# as this image, so "the server has no Arabic fonts" stops being true of the
+# server that matters. That closes the risk at the infrastructure layer while
+# embedding closes it at the document layer.
+#
+# fonts-noto-core is 41.6 MB and carries far more scripts than Arabic. Extracting
+# only NotoSansArabic would save roughly 40 MB at the cost of hand-managing font
+# files; against the headless Chrome layer arriving in point 0.5 that saving does
+# not justify the fragility. Note the Debian package is the 2020 Noto release.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        fontconfig \
+        fonts-noto-core \
+        fonts-noto-mono \
+        fonts-inter; \
+    fc-cache -f; \
+    rm -rf /var/lib/apt/lists/*
+
 # Composer, copied from its official image rather than curl | php.
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
+
+# The base image sets no locale, so the default charmap is ANSI_X3.4-1968 —
+# plain ASCII. Verified, not assumed: HarfBuzz refused Arabic input with
+# "Invalid byte sequence in conversion input" until this was set. Anything that
+# passes Arabic through a locale-aware C library — shell tooling, filenames,
+# Chrome's own text handling in point 0.5 — is affected by this, and the failure
+# mode is corruption rather than an error.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 # DB-08 — timestamps are stored UTC and converted for display only.
 ENV TZ=UTC

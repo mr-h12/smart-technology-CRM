@@ -114,6 +114,7 @@ CRUD /api/v1/roles · /api/v1/permissions · /api/v1/users
 - Given an FX rate edit → Then the old rate remains in history + a mandatory audit entry
 - Given a new sector added in settings → Then it appears in the customer form **without a deployment**
 - Given a currency's rounding unit changes → Then only new quotations are affected
+- Given rounding is switched off for a currency (`D-65`) → Then the final total is stored unrounded and `rounding_diff` is `0`
 
 ---
 
@@ -207,8 +208,11 @@ GET   /api/v1/quotations?group_by=employee|customer
 - Given cost 1000 and margin 20% → Then selling price is 1200 automatically
 - Given quotation margin 20% and line margin 30% → Then the line uses 30%
 - Given suppliers in different currencies → Then conversion at the current FX rate and one quotation currency
-- Given a total of 1234.67 EGP → Then the final total is 1235 and `rounding_diff` = 0.33
-- Given a total of 1234.678 USD → Then the final total is 1234.68 (rounding unit 0.01)
+- Given rounding is on and a total of 1234.67 EGP → Then the final total is 1235 and `rounding_diff` = 0.33
+- Given rounding is on and a total of 1234.678 USD → Then the final total is 1234.68 (rounding unit 0.01)
+- Given rounding is off for the currency (`D-65`) → Then the final total keeps its full precision and `rounding_diff` = 0
+- Given subtotal 10,000, delivery 1,000, discount 1% and tax 14% → Then the tax base is 9,900 (discount first, delivery excluded — `D-64`, `OD-01`) and the tax is 1,386
+- Given a customer flagged tax-exempt or a null `tax_percent` → Then the quotation shows **no tax line at all**, not a zero line (`D-63`)
 - Given a quantity above the supplier's recorded amount → Then an **inline red warning**
 - Given a product with no recorded price → Then **save is blocked**
 - Given the supplier price changed after the quotation was built (Draft) → Then a warning + a "refresh prices" button
@@ -403,8 +407,8 @@ That isn't failure — it's a prompt to find the **cause**: slowness? insufficie
 
 | # | Item | Owner |
 |---|---|---|
-| OD-01 | **Are additional items taxable?** — assumption: yes | Accountant |
-| OD-03 | **Server specifications** | Server administrator |
+| ~~OD-01~~ ✅ | ~~**Are additional items taxable?**~~ **Closed 2026-08-12, reconfirmed by the owner 2026-08-19: no.** Delivery and installation sit outside the tax base (`D-62`) | — |
+| OD-03 🔴 | **Server specifications** | Server administrator |
 
 ### Required during the build 🟡
 

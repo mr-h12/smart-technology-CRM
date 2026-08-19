@@ -40,8 +40,10 @@ markup and no hard-coded user-facing strings, per the Module 0 requirement.
 1. **"UNIT COST" is "UNIT PRICE" here.** The reference is a purchase order to a
    supplier, where cost is correct. This is a customer-facing quotation, and
    3.12 rule 2 forbids exposing cost or margin to a customer.
-2. **Discount is applied before VAT**, per the documented chain in 5.2. The
-   reference applies it *after* VAT. See the open question below.
+2. **Discount is applied before VAT**, per the documented chain in 5.2 and now
+   confirmed as `D-64`. The reference purchase order applies it *after* VAT;
+   that `10.32` difference is recorded as accepted in `D-64`, so PO #226 is no
+   longer a reconciliation target for tax ordering.
 
 ## Why headless Chrome
 

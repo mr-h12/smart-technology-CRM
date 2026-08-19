@@ -77,7 +77,8 @@ Keep code within the documented modules: Identity, Customers, Deals, Quotations,
 - **Float is forbidden for money.** Use Decimal/NUMERIC in storage and exact decimal types in application code.
 - Serialize money as decimal strings at the API boundary, as defined by `OpenAPI_Contract_EN.md`.
 - Perform all calculations in the backend/domain layer. The frontend may preview a server-confirmed result but never becomes the source of truth.
-- Apply documented calculation order exactly. Do not round intermediate values; round the final quotation total only by the configured unit for its currency.
+- Apply documented calculation order exactly (`CRM_Documentation_EN.md` §5.2). Do not round intermediate values. Round the final quotation total only, by the configured unit for its currency, and only when rounding is enabled for that currency — rounding is optional (`D-65`).
+- The discount reduces the tax base: it is subtracted from the subtotal before tax is computed (`D-64`). Additional items are never part of the tax base (`OD-01`, `D-62`). A quotation with no tax renders no tax line rather than a zero one (`D-63`).
 - Store amount, currency, `fx_rate_at_time`, and base amount where required. Never recompute a historical quotation using a newer FX rate or catalog/supplier price.
 - Keep supplier cost, margin, saving, profit, and customer selling price semantically separate in code, schema, responses, and UI models.
 - Create focused unit tests for every pricing formula, rounding boundary, currency conversion, discount, tax, additional item, and procurement saving rule before changing calculation code.

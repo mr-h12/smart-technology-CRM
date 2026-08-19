@@ -176,7 +176,9 @@ the columns must support:
 Documented behaviours:
 
 - **`currencies` carries a rounding unit per currency** (`D-52`): EGP `1`,
-  USD `0.01`, EUR `0.01` — configurable.
+  USD `0.01`, EUR `0.01` — configurable. It also carries an **on/off flag**,
+  because rounding is optional (`D-65`). With it off, `final_total =
+  total_before_round` and `rounding_diff = 0`.
 - **`fx_rates` keeps history** (`§13` screen 5). Editing a rate preserves the
   old row and writes an audit entry. Rates are captured onto quotations at
   creation and **never recomputed** (`D-09`).
@@ -279,6 +281,7 @@ The most constrained table in the system.
 | Core | `code` (`QT-`) · `deal_id` · `customer_id` · `quotation_date` · `valid_until` · `status` (9 — `§6.1`) |
 | Financial | `currency` · `default_margin` · `discount_percent` · `tax_percent` **NULLABLE** (`D-63`) |
 | Totals | `subtotal` · `discount_amount` · `net_amount` · `additional_total` · `tax_base` · `tax_amount` · `total_before_round` · `final_total` · **`rounding_diff`** |
+| Rounding | the currency's unit and on/off flag are **captured onto the quotation** at creation (`D-65`), the same way `fx_rate_at_time` is (`D-09`) — changing the setting later must not move an issued total |
 | Terms | `payment_terms` (free text — `D-26`) · `warranty` · `delivery` · `show_delivery_terms` |
 | Versioning | `version` · `parent_id` · `rejection_reason` |
 | Tracking | `created_by` · `sent_at` · `is_self_approved` (`D-50`) |
@@ -288,7 +291,11 @@ The most constrained table in the system.
 `margin_percent` · `unit_price` · `line_total` · `line_cost`.
 
 > Every money column is `NUMERIC`, never `float` (`DB-07`). `rounding_diff` is
-> **stored, not computed on read** (`D-06`).
+> **stored, not computed on read** (`D-06`), and is `0` when rounding is off.
+>
+> `tax_base` is `subtotal − discount_amount` (`D-64`) — the discount is applied
+> before tax, and `additional_total` never enters the base (`OD-01`, `D-62`).
+> `tax_percent` is nullable: an exempt quotation has no tax line at all (`D-63`).
 
 ---
 

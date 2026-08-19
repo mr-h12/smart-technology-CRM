@@ -11,8 +11,8 @@ Update this section whenever it stops being true.
 - No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 not run** — needs a server plus a Cloudflare Tunnel (D-59); no VPN required.
-- **OD-01 and OD-03 remain unresolved** and still block Module 0.
-- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
+- **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved** and still blocks Module 0.
+- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
 ## Authoritative Sources
 
@@ -45,8 +45,9 @@ Do not begin feature-module implementation until these two prototypes pass:
 
 Before code is written, explicitly track these blockers:
 
-- **OD-01:** whether additional quotation items are taxable. Use the documented provisional assumption (`yes`) only when explicitly approved.
-- **OD-03:** server specifications.
+- **OD-03:** server specifications. This is the only remaining pre-code blocker.
+
+`OD-01` is closed: additional items are **not** taxable (`D-62`). No provisional assumption survives — code that taxes delivery or installation is a defect.
 
 ## Required Delivery Order
 
@@ -113,7 +114,9 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 
 - Calculate all prices in the backend. The UI may preview but never be the source of truth.
 - Selling price = converted supplier unit cost × `(1 + margin / 100)`; a line margin overrides quotation margin.
-- Discount is percentage of subtotal only. Apply rounding to the final total only, using the configured currency unit. Store `rounding_diff`.
+- Discount is a percentage of the subtotal only, and it is subtracted **before** tax so it reduces the tax base (`D-64`). Additional items are never taxed (`D-62`).
+- Tax is optional and its percentage is per quotation, defaulting from the customer (`D-63`). An exempt quotation renders **no tax line at all**, not a zero line.
+- Rounding is **optional per currency** (`D-65`). When it is on, apply it to the final total only, using that currency's configured unit. Store `rounding_diff` — it is `0` when rounding is off.
 - A quotation uses one currency and captures the FX rate at creation. Later FX edits never change existing quotations.
 - Supplier prices belong to supplier quotations; catalog items are descriptive only.
 - Block saving when a selected supplier product has no recorded price. Warn, but do not block, when requested quantity exceeds the supplier-recorded quantity.

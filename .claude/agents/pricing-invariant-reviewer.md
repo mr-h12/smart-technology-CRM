@@ -25,14 +25,16 @@ line_cost           = unit_cost_base × quantity
 
 subtotal            = Σ line_total
 additional_total    = Σ additional items
-tax_base            = subtotal              ← additional items NOT taxed (OD-01, closed: no)
-tax_amount          = tax_base × tax_percent / 100        ← tax BEFORE discount (D-60)
-                                               null/zero when customer is exempt (D-63)
 discount_amount     = subtotal × discount_percent / 100                   (D-07)
+tax_base            = subtotal − discount_amount          ← tax AFTER discount (D-64)
+                                               additional items NOT taxed (OD-01 closed: no, D-62)
+tax_amount          = tax_base × tax_percent / 100
+                                               null when customer is exempt (D-63)
 net_amount          = subtotal + additional_total − discount_amount
-total_before_round  = net_amount + tax_amount                             (D-60)
-final_total         = round(total_before_round, currency unit)            (D-06, D-52)
-rounding_diff       = final_total − total_before_round                    ← stored
+total_before_round  = net_amount + tax_amount
+final_total         = round(total_before_round, currency unit)  ← rounding ON  (D-06, D-52)
+                    = total_before_round                        ← rounding OFF (D-65)
+rounding_diff       = final_total − total_before_round                    ← stored; 0 when off
 ```
 
 Profit (§5.4–5.5), where tax is explicitly **not** profit:
@@ -45,13 +47,15 @@ final_profit = gross_profit + saving
 ```
 
 Rounding units (D-52, configurable): EGP `1` · USD `0.01` · EUR `0.01`.
+**Rounding is optional** (D-65): a currency may have it switched off, and then `final_total = total_before_round` with `rounding_diff = 0`.
+Code that always rounds, or treats the unit as a constant, is a defect.
 
 ## Blocking defects
 
 1. **Float anywhere near money.** DB-07 — `Decimal`/NUMERIC in storage and exact decimal types in code. No `float`, `double`, or IEEE-754 arithmetic.
-2. **Rounding an intermediate value.** D-06 — only `final_total` is rounded, by the configured unit for its currency. Rounding `line_total`, `subtotal`, or `tax_amount` is a defect.
+2. **Rounding an intermediate value.** D-06 — only `final_total` is rounded, by the configured unit for its currency, and only when rounding is enabled (D-65). Rounding `line_total`, `subtotal`, `discount_amount`, `tax_base`, or `tax_amount` is a defect.
 3. **`rounding_diff` not stored.**
-4. **Discount applied to the wrong base or at the wrong point.** D-07 sets the base: `subtotal` only, never per line and never on additional items. D-60 sets the point: subtracted **after** tax, never before. Reducing the tax base by the discount is the defect this pairing exists to catch.
+4. **Discount applied to the wrong base or at the wrong point.** D-07 sets the base: `subtotal` only, never per line and never on additional items. **D-64 sets the point: subtracted from the subtotal *before* tax, so it reduces the tax base.** Taxing the full subtotal and subtracting the discount afterwards is the old D-60 ordering and is now a defect.
 5. **A historical quotation recomputed with a current FX rate or current supplier price.** D-09 and §10.3 — a sent quotation is a fixed snapshot; changing an FX rate never alters an existing quotation.
 6. **Calculation performed client-side.** AP-04 and §5.6 — the UI may preview a server-confirmed result but is never the source of truth.
 7. **Money serialized as a JSON number.** OpenAPI §8.1 — decimal strings, with `amount`, `currency`, `fx_rate_at_time`, and `base_amount`.
@@ -60,7 +64,7 @@ Rounding units (D-52, configurable): EGP `1` · USD `0.01` · EUR `0.01`.
 
 ## Open decision that gates this file
 
-**OD-01 is closed: additional items are not taxed.** `tax_base = subtotal`. Any code that adds `additional_total` into the tax base is a defect — on a quotation with 10,000 of items and 1,000 of delivery it over-charges the customer 140.
+**OD-01 is closed: additional items are not taxed.** `tax_base = subtotal − discount_amount`. Any code that adds `additional_total` into the tax base is a defect — on a quotation with 10,000 of items and 1,000 of delivery it over-charges the customer 140.
 
 **Tax is optional** (`D-63`). A quotation for an exempt customer has no tax line at all, not a zero one. Code that assumes `tax_percent` is always present will break on those.
 
@@ -70,9 +74,10 @@ Coding_Standards §6 requires focused unit tests for every pricing formula, roun
 
 - cost `1000`, margin `20%` → `1200`
 - quotation margin `20%`, line margin `30%` → line uses `30%`
-- `1234.67 EGP` → final `1235`, `rounding_diff` `0.33`
-- **PO #226 regression** — `subtotal 7368.42`, tax `14%`, discount `1%` → tax `1031.58`, discount `73.68`, total `8326.32`. Discounting first yields `8316.00` and is wrong (D-60)
-- **Additional items excluded from tax** — items `10,000` + delivery `1,000` at `14%` → tax `1400.00`, not `1540.00` (OD-01)
+- rounding on, `1234.67 EGP` → final `1235`, `rounding_diff` `0.33`
+- rounding off for the currency → final keeps full precision, `rounding_diff` `0` (D-65)
+- **Discount-before-tax regression** — `subtotal 7368.42`, discount `1%` → `73.6842`, tax base `7294.7358`, tax `14%` → `1021.2630`, `total_before_round 8315.9988` (D-64). The company's PO #226 prints `8326.32` because it taxes the pre-discount amount; that `10.32` difference is accepted and **PO #226 is no longer a reconciliation target for tax ordering**
+- **Additional items excluded from tax** — items `10,000` + delivery `1,000`, discount `1%`, tax `14%` → tax base `9,900`, tax `1386.00`. Neither `1540.00` (delivery taxed) nor `1400.00` (discount ignored) is correct (OD-01, D-64)
 - **Exempt customer** — no tax line rendered, total equals `net_amount` (D-63)
 - `1234.678 USD` → final `1234.68` (unit `0.01`)
 - negotiation `1000 → 900` → saving `100` added to final profit

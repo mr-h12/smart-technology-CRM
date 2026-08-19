@@ -6,7 +6,7 @@ for the field team.
 
 | | |
 |---|---|
-| **Hosting** | Physical server on company premises · VPN required for external access |
+| **Hosting** | Physical server on company premises · Cloudflare Tunnel + Access for external reach (D-59) |
 | **Users** | Tens to hundreds, internal only |
 | **Languages** | Arabic + English (RTL / LTR) from day one |
 | **Devices** | Desktop for office roles · Mobile PWA for Outdoor Sales |
@@ -18,16 +18,16 @@ for the field team.
 
 ## Status
 
-**Not yet started on Module 0.** Three gates are still closed, and none of them are technical.
+**Not yet started on Module 0.** Two gates are still closed, and neither of them is technical.
 
 | Gate | Owner | Status |
 |---|---|---|
 | P-01 — Arabic PDF renders correctly | — | ✅ Passed |
-| P-02 — Deploy to the real server over VPN | Server administrator | ⬜ Blocked |
-| OD-01 — Are additional items taxable? | Accountant | ⬜ Blocked |
+| P-02 — Deploy to the real server, reachable over Cloudflare | Server administrator | ⬜ Blocked |
+| OD-01 — Are additional items taxable? | Accountant | ✅ Closed — no |
 | OD-03 — Server specifications | Server administrator | ⬜ Blocked |
 
-`docs/MVP_Build_Plan_EN.md` §6 lists OD-01 and OD-03 as required *before writing code*.
+`docs/MVP_Build_Plan_EN.md` §6 lists OD-03 as required *before writing code*. OD-01 is closed.
 
 Full progress tracking lives in **[CHECKLIST.md](CHECKLIST.md)**. Schema design and the
 decisions it still needs are in **[design/DATABASE.md](design/DATABASE.md)**.
@@ -64,7 +64,7 @@ Read in this precedence order. When two sources disagree, the higher one wins.
 
 | # | Document | What it governs |
 |---|---|---|
-| 1 | [CRM_Documentation_EN.md](docs/CRM_Documentation_EN.md) | Master requirements and the decision log (D-01…D-57). **Authoritative.** |
+| 1 | [CRM_Documentation_EN.md](docs/CRM_Documentation_EN.md) | Master requirements and the decision log (D-01…D-65). **Authoritative.** |
 | 2 | [MVP_Build_Plan_EN.md](docs/MVP_Build_Plan_EN.md) | Module order and acceptance criteria |
 | 3 | [Coding_Standards_EN.md](docs/Coding_Standards_EN.md) | Mandatory engineering practices |
 | 4 | [OpenAPI_Contract_EN.md](docs/OpenAPI_Contract_EN.md) | API conventions — read before any endpoint |
@@ -100,7 +100,8 @@ coverage, RTL/LTR states, and a reversible migration all pass.
 
 - **Money is `Decimal`.** Floating point is forbidden anywhere near a price.
 - **All calculations run in the backend.** The UI may preview; it is never the source of truth.
-- **Rounding applies to the final total only**, by the configured unit for that currency.
+- **Rounding applies to the final total only**, by the configured unit for that currency — and rounding is optional per currency (D-65).
+- **The discount is subtracted before tax** (D-64), and delivery/installation are never taxed (D-62).
 - **Permissions are enforced at the API and row level.** Hiding a button is not authorization.
 - **Nothing is hard-deleted.** Deactivate or archive.
 - **Customer PDFs never show supplier names, supplier prices, costs, or margins.**
@@ -141,11 +142,12 @@ you genuinely need to change one.
 
 | # | Question | Owner |
 |---|---|---|
-| OD-01 | Are additional items taxable? | Accountant |
 | OD-03 | Server specifications | Server administrator |
 | OD-02 | PDF template | Effectively answered by P-01 — confirm |
-| OD-04 | VPN type and concurrent capacity | Server administrator |
 | OD-05 | Expected daily workload | Management |
 | OD-06 | Company holiday calendar | HR |
-| — | **VAT before or after discount?** The company's PO charges VAT on the pre-discount amount; §5.2 discounts first. Different tax base. | Accountant |
+| — | **Is the PO's «إشعار خصم» line a sale discount or a separate credit note?** If it is a credit note it does not belong on the quotation at all. Raised by D-60, still open under D-64. | Accountant |
 | — | Five English headers still declare an Arabic companion, but Arabic is now reading-only. Correcting them touches hook-protected files. | You |
+
+Closed: **OD-01** (additional items are not taxed — D-62) · **OD-04** (Cloudflare instead of VPN — D-59) ·
+**VAT ordering** (tax is calculated after the discount — D-64) · **rounding** (optional per currency — D-65).

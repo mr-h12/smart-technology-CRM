@@ -20,23 +20,26 @@ does not create requirements. If a box here disagrees with the build plan, the b
   - [x] Verified visually, not merely produced
 - [ ] **P-02 — Deploy to the real server**
   - [ ] Hello page runs on the on-premise server
-  - [ ] Page opens from a phone over VPN
+  - [ ] Page opens from a phone over Cloudflare Tunnel + Access (D-59)
   - [ ] Fonts render correctly on the Linux server (not just macOS)
 
 > No module begins until both prototypes pass.
 
 ### Sign-off — required before writing code 🔴
 
-- [ ] **OD-01** — Are additional items taxable? *(assumption: yes)* — **Accountant**
+- [x] **OD-01** — Are additional items taxable? **No** — delivery and installation are outside the tax
+      base (`D-62`, confirmed 2026-08-19)
 - [ ] **OD-03** — Server specifications — **Server administrator**
-- [ ] **VAT ordering** — is VAT charged before or after the discount? The company's PO charges it on
-      the pre-discount amount; `§5.2` discounts first. Different tax base. — **Accountant**
+- [x] **VAT ordering** — tax is calculated **after** the discount (`D-64`, confirmed 2026-08-19).
+      Supersedes `D-60`; the company's PO #226 is no longer a reconciliation target for tax ordering
+- [x] **Rounding** — optional per currency, can be switched off entirely (`D-65`)
+- [ ] **«إشعار خصم»** — is the PO line a sale discount or a separate credit note? Still open — **Accountant**
 - [x] Stack decision (Laravel) recorded as **D-57** in `§2` and `§14.2`
 
 ### Required during the build 🟡
 
 - [ ] **OD-02** — PDF template *(before Module 9 — effectively answered by P-01, needs confirmation)*
-- [ ] **OD-04** — VPN type and concurrent capacity *(before Module 12)*
+- [x] ~~**OD-04** — VPN type and concurrent capacity~~ — closed by `D-59`: Cloudflare Tunnel + Access, 5 named users
 - [ ] **OD-06** — Company holiday calendar *(before Module 13)*
 - [ ] **OD-05** — Expected daily workload *(queue and storage sizing)*
 
@@ -130,6 +133,7 @@ Copy this block per module. A module is not complete until all seven pass.
 - [ ] New sector added in settings → appears in the customer form **without a deployment**
 - [ ] Currency rounding unit changes → **only new quotations** are affected
 - [ ] Rounding units default correctly: EGP `1` · USD `0.01` · EUR `0.01`
+- [ ] Rounding can be switched **off** per currency → final total stored unrounded, `rounding_diff` = `0` (`D-65`)
 
 ---
 
@@ -233,8 +237,12 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Quotation margin 20%, line margin 30% → line uses **30%**
 - [ ] Suppliers in different currencies → converted at the FX rate captured at creation, one
       quotation currency
-- [ ] Total 1234.67 EGP → final total **1235**, `rounding_diff` **0.33**
-- [ ] Total 1234.678 USD → final total **1234.68** (rounding unit 0.01)
+- [ ] Rounding on: total 1234.67 EGP → final total **1235**, `rounding_diff` **0.33**
+- [ ] Rounding on: total 1234.678 USD → final total **1234.68** (rounding unit 0.01)
+- [ ] Rounding off for the currency → final total keeps full precision, `rounding_diff` **0** (`D-65`)
+- [ ] Items 10,000 + delivery 1,000, discount 1%, tax 14% → tax base **9,900**, tax **1,386**
+      (discount first per `D-64`; delivery outside the base per `D-62`)
+- [ ] Customer flagged tax-exempt, or `tax_percent` null → **no tax line at all**, not a zero line (`D-63`)
 - [ ] Quantity above the supplier's recorded amount → **inline red warning**, not a block
 - [ ] Product with no recorded price → **save is blocked**
 - [ ] Supplier price changed after the quotation was built (Draft) → warning + "refresh prices"
@@ -243,7 +251,8 @@ calculation · confirmation preview before saving · SmartTermInput
 **Money rules — no exceptions**
 - [ ] `Decimal` everywhere; no float touches a price
 - [ ] All calculations in the backend
-- [ ] No intermediate rounding — final total only
+- [ ] No intermediate rounding — final total only, and only when rounding is enabled (`D-65`)
+- [ ] Discount subtracted **before** tax, reducing the tax base (`D-64`)
 - [ ] Editing an FX rate never alters an existing quotation
 - [ ] Unit tests for every formula, rounding boundary, conversion, discount, tax, additional item
 
@@ -329,7 +338,7 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Connection drops while typing → draft saved locally and not lost
 - [ ] "Successful" outcome with a request → routes automatically to the Team Leader, marked "done"
 - [ ] Rejection → mandatory reason, feeding the rejected-companies report
-- [ ] VPN disconnected → **a clear, specific message**, not a generic error
+- [ ] External access unavailable (Cloudflare) → **a clear, specific message**, not a generic error (`D-59`)
 - [ ] Supervisor sees visits and outdoor-scope deals, and **cannot see any deal after handover**
 - [ ] Mobile-first; touch targets at least 44 × 44 px
 

@@ -13,8 +13,8 @@ Update this section whenever it stops being true. It must stay identical in mean
 - No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 not run** — needs a server plus a Cloudflare Tunnel (D-59); no VPN required.
-- **OD-01 and OD-03 remain unresolved** and still block Module 0.
-- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-01 (accountant) and OD-03 + P-02 (server administrator).
+- **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved** and still blocks Module 0.
+- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
 ## Source Precedence
 
@@ -41,7 +41,7 @@ No feature module begins until both mandatory prototypes pass:
 1. **P-01 Arabic PDF:** a full Arabic paragraph, item table, and numbers render with correct Arabic shaping and embedded fonts.
 2. **P-02 Real-server deployment:** a Hello page works on the on-premise server and opens from a phone through Cloudflare (D-59).
 
-Track these blockers explicitly: **OD-01** (taxability of quotation additional items) and **OD-03** (server specifications). Do not settle either silently.
+Track this blocker explicitly: **OD-03** (server specifications). Do not settle it silently. **OD-01** is closed — additional items are **not** taxable (`D-62`), and no provisional assumption survives.
 
 Implement modules in this strict order:
 
@@ -99,7 +99,9 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - Customer status is derived, never manually edited. Once any deal reaches `Won` or later, the customer is permanently `Customer`.
 - Supplier quotations are standalone entities with nullable `deal_id`; supplier prices live there, while the catalog is descriptive only.
 - All price calculations happen in the backend. Selling price = converted supplier unit cost × `(1 + margin / 100)`; line margin overrides quotation margin.
-- Discount applies to subtotal only. Round final total only by configured currency unit, and store `rounding_diff`.
+- Discount applies to subtotal only and is subtracted **before** tax, reducing the tax base (`D-64`). Additional items are never taxed (`D-62`).
+- Tax is optional and its percentage is per quotation, defaulting from the customer (`D-63`). An exempt quotation renders no tax line at all, not a zero line.
+- Rounding is optional per currency (`D-65`). When enabled, round the final total only by that currency's configured unit; store `rounding_diff`, which is `0` when rounding is off.
 - A quotation has one currency and captures the FX rate at creation. Subsequent FX changes must not alter existing quotations.
 - Block saving if a selected supplier product lacks a price. Warn, without blocking, if requested quantity exceeds the supplier-recorded quantity.
 - Customer PDFs never contain supplier names, supplier prices, costs, or margins.

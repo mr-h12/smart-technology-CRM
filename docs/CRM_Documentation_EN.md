@@ -12,7 +12,7 @@
 | # | Section |
 |---|---|
 | 1 | Overview |
-| 2 | Decision Log (63 decisions) |
+| 2 | Decision Log (65 decisions) |
 | 3 | Roles & Permission Matrix |
 | 4 | Data Model |
 | 5 | Pricing Rules |
@@ -70,9 +70,9 @@ Everything else in this document rests on these. Any future change is **recorded
 | # | Decision |
 |---|---|
 | D-05 | Two statuses added: **Approved** and **Expired** (9 total) |
-| D-06 | Rounding applies to the **final total only** |
-| D-52 | **Rounding unit is per currency**, configurable (EGP = 1 · USD/EUR = 0.01) |
-| D-07 | Discount is a **percentage of the `subtotal` only** (the sum of line totals, per 5.2) — never applied per line or to additional items. It is subtracted **after** tax, not before (`D-60`) |
+| D-06 | Rounding applies to the **final total only** — and rounding itself is **optional per currency** (`D-65`) |
+| D-52 | **Rounding unit is per currency**, configurable (EGP = 1 · USD/EUR = 0.01) — and rounding can be switched off entirely for a currency (`D-65`) |
+| D-07 | Discount is a **percentage of the `subtotal` only** (the sum of line totals, per 5.2) — never applied per line or to additional items. It is subtracted **before** tax, so it reduces the tax base (`D-64`) |
 | D-08 | Partial acceptance = **full copy + manual edit** |
 | D-09 | Quotation is issued in **one currency**, with automatic conversion at the FX rate captured at creation |
 | D-10 | **No approval threshold** — Team Leader and Manager have identical authority |
@@ -150,11 +150,13 @@ Everything else in this document rests on these. Any future change is **recorded
 | D-54 | **Restart recovery** is the system's responsibility; hardware and UPS are out of scope |
 | D-55 | **Missed jobs run on startup** (catch-up) |
 | D-56 | External integrations (WhatsApp · AI · Mapbox · Outlook) are **formally deferred** behind feature flags |
-| D-63 | **Tax is optional per quotation, defaulting from the customer** (recorded 2026-08-12). Some customers are not taxed at all, so `tax_percent` is nullable rather than always present. The customer record carries the default (`is_tax_exempt`); a new quotation inherits it and the preparer may override per quotation. A quotation with no tax shows no tax line at all — not a zero line |
-| D-62 | **Supplier cost is taken as recorded; the company's own tax is added on the selling price** (recorded 2026-08-12). Whatever tax the supplier charges is part of their price and is not decomposed. The system never extracts VAT out of a supplier cost. Tax in this system means only the tax the company adds when selling |
+| D-65 | **Rounding is optional** (recorded 2026-08-19). Rounding the final total is a configurable behaviour per currency, not a mandatory step. It may be switched off entirely, in which case `final_total = total_before_round` and `rounding_diff = 0`. When it is on, `D-06` and `D-52` apply unchanged — the final total only, by that currency's configured unit. The on/off setting lives in `System Settings → Currencies` beside the unit (`AP-08`), and changing either one affects new quotations only, never an issued one |
+| D-64 | **Tax is calculated after the discount is applied** (recorded 2026-08-19). The discount is subtracted from the `subtotal` first and the tax is computed on what remains: `tax_base = subtotal − discount_amount`. Additional items stay outside the tax base (`OD-01`, `D-62`). This **supersedes `D-60`** and restores the ordering §5.2 carried before it. ⚠️ Consequence accepted by the owner: the company's PO #226 applies its 14% to the pre-discount amount and prints `8,326.32`; under this decision the same figures give `8,316.00` — a difference of `10.32`. **PO #226 is therefore no longer a reconciliation target for tax ordering.** The related question — whether the PO's **إشعار خصم** line is a sale discount or a separate credit note — remains open with the accountant and may change *what* the discount is, not *where* it is applied |
+| D-63 | **Tax is optional per quotation, defaulting from the customer** (recorded 2026-08-12; confirmed by the owner 2026-08-19 — a preparer may enter a different tax percentage on any quotation). Some customers are not taxed at all, so `tax_percent` is nullable rather than always present. The customer record carries the default (`is_tax_exempt`); a new quotation inherits it and the preparer may override per quotation. A quotation with no tax shows no tax line at all — not a zero line |
+| D-62 | **Supplier cost is taken as recorded; the company's own tax is added on the selling price** (recorded 2026-08-12; confirmed by the owner 2026-08-19 — delivery and installation carry no tax). Whatever tax the supplier charges is part of their price and is not decomposed. The system never extracts VAT out of a supplier cost. Tax in this system means only the tax the company adds when selling |
 | D-61 | **Primary keys are UUID** (recorded 2026-08-12). Every business table uses a UUID primary key, generated application-side as a time-ordered UUID so inserts stay sequential and indexes do not fragment. This satisfies `OpenAPI §2` ("opaque UUID identifiers") with one key rather than a numeric key plus a public UUID, keeps IDs non-enumerable — which matters in a system whose permissions are row-scoped — and lets a module be extracted later without ID collisions (`ERP-01`). Human-readable business codes (`DL-…`, `QT-…`) stay separate fields as the contract requires. Cost accepted: 16 bytes against 8, and slightly slower joins; at this system's scale neither is the bottleneck |
-| D-60 | **Tax is calculated before the discount is applied** (recorded 2026-08-12). The tax base is the `subtotal`, tax is computed on it, and the discount is subtracted afterwards — matching the company's actual purchase orders, verified against PO #226 to the piastre. This **supersedes the ordering in the previous §5.2**, where the discount reduced the base before tax. `D-07` is unchanged in what the discount is a percentage *of* (the subtotal); only where it is subtracted has moved. ⚠️ The source document labels this line **إشعار خصم** (credit note), which in accounting is a separate instrument adjusting an already-issued invoice rather than a discount on the sale. If that is what it is, the discount does not belong on the quotation at all — confirm with the accountant |
-| D-59 | **External access uses Cloudflare Tunnel + Access, not a VPN** (recorded 2026-08-12). The company LAN remains the primary access path for every role. External access is limited to five named users — CEO, Manager, and Outdoor Sales. The server opens no inbound port; the tunnel connection is outbound from the server. Cloudflare Access is an identity gate **in front of** the application and **never replaces** the system's own authentication or its permission matrix (`SEC-07`, `SEC-09`); its session lifetime is at least 8 hours so field staff are not forced through two logins a day (`D-29`). **Supersedes `OD-04`**, revises §1 and §14.4, changes the `P-02` criterion from "through VPN" to "through Cloudflare", and reframes the Module 12 message from "VPN disconnected" to "connection unavailable" |
+| ~~D-60~~ | ~~**Tax is calculated before the discount is applied**~~ (recorded 2026-08-12) — **superseded by `D-64` on 2026-08-19**, which restores the opposite ordering. Retained for history: `D-60` set the tax base to the `subtotal` and subtracted the discount afterwards, reconciling the company's PO #226 to the piastre. The owner confirmed on 2026-08-19 that the intended rule is tax **after** the discount; `D-64` records the resulting difference against PO #226 as accepted. The question `D-60` raised is still open: the source line is labelled **إشعار خصم** (credit note), which in accounting is a separate instrument adjusting an already-issued invoice rather than a discount on the sale. If that is what it is, the discount does not belong on the quotation at all — confirm with the accountant |
+| D-59 | **External access uses Cloudflare Tunnel + Access, not a VPN** (recorded 2026-08-12; confirmed by the owner 2026-08-19). The company LAN remains the primary access path for every role. External access is limited to five named users — CEO, Manager, and Outdoor Sales. The server opens no inbound port; the tunnel connection is outbound from the server. Cloudflare Access is an identity gate **in front of** the application and **never replaces** the system's own authentication or its permission matrix (`SEC-07`, `SEC-09`); its session lifetime is at least 8 hours so field staff are not forced through two logins a day (`D-29`). **Supersedes `OD-04`**, revises §1 and §14.4, changes the `P-02` criterion from "through VPN" to "through Cloudflare", and reframes the Module 12 message from "VPN disconnected" to "connection unavailable" |
 | D-58 | **Arabic documentation is reading-only** (recorded 2026-08-12). Translations live in `arabic/` for the project owner's reading. They are not maintained companions, carry no synchronization requirement, and are never loaded as a source. This supersedes the companion declarations previously carried in the headers of this document, the build plan, the documentation map, the design system, and the OpenAPI contract. **The product requirement for Arabic in the running system is unchanged**: the application itself ships Arabic and English from Module 0 (§1, §14.2), and this decision governs the specification documents only |
 | D-57 | **Backend framework is Laravel** (recorded 2026-08-11). The documented stack in 14.2 — PostgreSQL, Redis, Meilisearch — is unchanged; this decision only names the application framework, which the documentation had deliberately left open. Chosen for its queue, scheduler and migration tooling, which map directly to the four queues (15.1), J-01…J-14, and the Queue Monitor and Scheduler screens (OBS-02, OBS-03). PDF generation uses headless Chrome via Browsershot, proven by prototype P-01 |
 
@@ -470,22 +472,29 @@ line_cost         = unit_cost_base × quantity
 subtotal            = Σ line_total
 additional_total    = Σ additional items (delivery / installation)
 
-tax_base            = subtotal                         ← additional items are NOT taxed (OD-01)
-tax_amount          = tax_base × tax_percent / 100     ← tax BEFORE discount (D-60)
-                                                          zero when the customer is exempt (D-63)
-
 discount_amount     = subtotal × discount_percent / 100          ← (D-07)
+
+tax_base            = subtotal − discount_amount       ← tax AFTER discount (D-64)
+                                                          additional items are NOT taxed (OD-01, D-62)
+tax_amount          = tax_base × tax_percent / 100     ← no tax line at all when the customer is
+                                                          exempt or tax_percent is null (D-63)
+
 net_amount          = subtotal + additional_total − discount_amount   ← revenue excl. tax
 
-total_before_round  = net_amount + tax_amount                    ← (D-60)
+total_before_round  = net_amount + tax_amount
 
-final_total         = round(total_before_round, currency unit)   ← (D-06, D-52)
-rounding_diff       = final_total − total_before_round           ← stored
+final_total         = round(total_before_round, currency unit)   ← rounding ON  (D-06, D-52)
+                    = total_before_round                         ← rounding OFF (D-65)
+rounding_diff       = final_total − total_before_round           ← stored; 0 when rounding is off
 ```
 
-> **Worked example — the company's PO #226**, which this ordering reproduces exactly:
-> `subtotal 7,368.42` · `tax 14% → 1,031.58` · `discount 1% → 73.68` ·
-> `total 8,326.32`. Discounting first would give `8,316.00` — a different tax base.
+> **Worked example — the company's PO #226 figures under this ordering:**
+> `subtotal 7,368.42` · `discount 1% → 73.6842` · `tax base 7,294.7358` · `tax 14% → 1,021.2630` ·
+> `total_before_round 8,315.9988` → `final_total 8,316` with EGP rounding on (unit 1),
+> or `8,315.9988` with rounding off (`D-65`).
+>
+> The PO itself prints `8,326.32` because it taxes the pre-discount amount. `D-64` records that
+> `10.32` difference as accepted, so **PO #226 is no longer a reconciliation target for tax ordering.**
 
 ### 5.3 Rounding Unit per Currency (D-52)
 
@@ -495,7 +504,9 @@ rounding_diff       = final_total − total_before_round           ← stored
 | USD | 0.01 dollar |
 | EUR | 0.01 euro |
 
-Editable under `System Settings → Currencies`. Rounding applies to the **final total only**.
+Editable under `System Settings → Currencies`, where rounding can also be switched **off** for a currency (`D-65`).
+When it is on, it applies to the **final total only**. Changing either the unit or the on/off setting affects
+new quotations only, never one that has already been issued.
 
 ### 5.4 Profit Calculation
 

@@ -113,6 +113,13 @@ every "are we ready to ship" conversation — not at the end.
       `www-data`, which is the official image's behaviour. A `USER` directive plus ownership of
       `storage/` and `bootstrap/cache` lands in point 0.6, once an application directory exists.
       Until then the image is more privileged than it needs to be
+- [ ] **Inter embeds as Type 3 in PDF output** — Debian's `fonts-inter` ships OTF/CFF outlines
+      (`OTTO`), and Chrome converts CFF to unnamed Type 3 fonts when writing PDF. Verified not to
+      be a functional defect: Latin, Arabic and every money figure render correctly and extract and
+      search correctly. The costs are a larger file, no font name in PDF metadata to audit against
+      `§4.1`, and weaker handling by strict PDF processors. Module 9 embeds its faces base64 per
+      P-01 using TrueType-flavoured files, so the production path likely avoids this entirely —
+      confirm when the real template lands, and switch the system Inter to a TTF build if not
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.

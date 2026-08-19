@@ -89,5 +89,40 @@ foreach ([
     check("fallback: $pattern", str_contains($match, $expectedFile), explode(':', $match)[0]);
 }
 
+// --- headless Chrome and Arabic PDF output (§14.6, D-57) --------------------
+// P-01 proved Arabic renders correctly through Chrome's text engine. This
+// re-proves it inside the container on whichever architecture is building,
+// which is what D-66 asks for and what the deployment-debt register tracks.
+$chrome = getenv('PUPPETEER_EXECUTABLE_PATH') ?: '/usr/bin/chromium';
+check('chrome: binary present', is_executable($chrome), $chrome);
+
+$tmp  = sys_get_temp_dir() . '/crm-verify-' . getmypid();
+@mkdir($tmp);
+$html = $tmp . '/ar.html';
+$pdf  = $tmp . '/ar.pdf';
+
+// Lam-alef, hamza forms, taa marbuta, tabular figures — the P-01 criteria.
+file_put_contents($html, '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">'
+    . '<style>body{font-family:sans-serif}.m{font-family:monospace}</style>'
+    . '<p>لا الاتصالات أحمد إبراهيم مؤسسة شركة خدمة</p>'
+    . '<p>8,315.99 — ١٢٣٤٥٦٧٨٩٠</p><p class="m">QT-2026-0001</p></html>');
+
+exec(escapeshellarg($chrome) . ' --headless --no-sandbox --disable-gpu --disable-dev-shm-usage'
+    . ' --no-pdf-header-footer --print-to-pdf=' . escapeshellarg($pdf)
+    . ' ' . escapeshellarg($html) . ' 2>/dev/null', $_o, $rc);
+
+check('chrome: renders a PDF', $rc === 0 && is_file($pdf) && filesize($pdf) > 5000,
+    is_file($pdf) ? filesize($pdf) . ' bytes' : 'no output');
+
+// The font must be the one §4.1 names. Before the fontconfig fix this embedded
+// DejaVu, which is why the check reads the PDF rather than trusting fc-match.
+$raw = is_file($pdf) ? file_get_contents($pdf) : '';
+check('chrome: embeds Noto Sans Arabic', str_contains($raw, 'NotoSansArabic'),
+    str_contains($raw, 'DejaVu') ? 'found DejaVu instead' : '');
+check('chrome: embeds Noto Sans Mono', str_contains($raw, 'NotoSansMono'));
+
+array_map('unlink', glob($tmp . '/*') ?: []);
+@rmdir($tmp);
+
 echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
 exit($fail);

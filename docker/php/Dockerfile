@@ -115,6 +115,34 @@ RUN set -eux; \
 COPY fonts.conf /etc/fonts/conf.d/60-crm-fonts.conf
 RUN fc-cache -f
 
+# ── Headless browser for PDF generation (§14.6, D-57) ────────────────────────
+#
+# Chromium from Debian, not google-chrome-stable. Google publishes no arm64
+# Linux build at all, so google-chrome-stable would build on the CI runner and
+# fail on the development machine — the exact split D-66 is trying to keep
+# visible rather than accidental.
+#
+# Node and Puppeteer are here because Browsershot needs them: it is a PHP
+# wrapper that drives Chrome through Puppeteer's Node API. P-01 proved the
+# rendering with this same engine, so only the wrapper changes for Module 9.
+#
+# PUPPETEER_SKIP_DOWNLOAD matters. Puppeteer otherwise downloads its own
+# Chromium build on install — a second browser, hundreds of megabytes, and on
+# arm64 an amd64 binary that cannot run.
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROME_PATH=/usr/bin/chromium
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        chromium \
+        nodejs \
+        npm; \
+    npm install -g --omit=dev puppeteer@23; \
+    npm cache clean --force; \
+    rm -rf /var/lib/apt/lists/* /root/.npm
+
 # Composer, copied from its official image rather than curl | php.
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 

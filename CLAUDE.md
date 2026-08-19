@@ -186,6 +186,25 @@ A point is the smallest unit that can be verified on its own.
 **Never report a point as complete on the strength of reasoning.** Run the check and paste the
 output. If a check cannot be run, say that plainly instead of substituting confidence for evidence.
 
+### A point is not done until its checks have been read
+
+Running a check is not the same as reading its result. Pushing is not the same
+as passing.
+
+- If the change triggers CI, **wait for the run and read its conclusion** before
+  reporting the point. A commit that is pushed but unverified is a point in
+  progress, not a point finished.
+- If a check runs somewhere you cannot see from here, say so in the report
+  rather than implying it passed.
+- Report the actual conclusion, not the intent. "CI: success" is a fact; "CI
+  should pass" is the same unverified claim in a different costume.
+
+This is written down because it was broken: point 0.6 was reported complete with
+"all checks passed" while its CI run had already failed. The failure was real —
+`USER www-data` left Chromium unable to create its user-data directory, which
+silently broke the PDF capability proved one point earlier. The verifier caught
+it correctly on the first try. Nobody read it.
+
 ### Never assume — open it and look
 
 Do not state, rely on, or build against what a file, image, package, or system

@@ -99,12 +99,14 @@ $chrome = getenv('PUPPETEER_EXECUTABLE_PATH') ?: '/usr/bin/chromium';
 // design — only the pdf worker renders — so its absence is correct there and a
 // defect nowhere else. Reported as skipped rather than passed, so a browser
 // that goes missing from the pdf target cannot hide behind a green line.
+// A single exit, at the very bottom. An earlier version returned from here, so
+// any check appended after this block would have been skipped on the app target
+// while the run still printed "all checks passed" — a silent hole, and exactly
+// the kind a verifier is supposed to close.
 if (!is_executable($chrome)) {
     printf("  %-46s %s\n", 'chrome: not in this image', 'SKIP  app target carries no browser');
-    echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
-    exit($fail);
-}
-check('chrome: binary present', is_executable($chrome), $chrome);
+} else {
+    check('chrome: binary present', is_executable($chrome), $chrome);
 
 $tmp  = sys_get_temp_dir() . '/crm-verify-' . getmypid();
 @mkdir($tmp);
@@ -133,6 +135,8 @@ check('chrome: embeds Noto Sans Mono', str_contains($raw, 'NotoSansMono'));
 
 array_map('unlink', glob($tmp . '/*') ?: []);
 @rmdir($tmp);
+
+}
 
 echo "\n" . ($fail ? "FAILED\n" : "all checks passed\n");
 exit($fail);

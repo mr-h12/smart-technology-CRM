@@ -23,8 +23,25 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Tests run against PostgreSQL, not sqlite.
+
+             The skeleton ships DB_CONNECTION=sqlite with :memory:, which would
+             have made every database test meaningless here. sqlite's column
+             types are advisory: NUMERIC(18,6) is stored as a double, so
+             999999999999.123456 comes back as 999999999999.1234 — silently
+             truncated — and NUMERIC(4,2) accepts 123456.789 without complaint.
+             PostgreSQL keeps the first exactly and rejects the second with a
+             numeric field overflow.
+
+             D-68 fixes money at NUMERIC(18,6) and DB-07 forbids float anywhere
+             near a price, so testing that on sqlite would prove nothing while
+             looking green. Section 14.2 also relies on JSONB and partitioning
+             (DB-10), and Module 3 on ILIKE — none of which sqlite has.
+
+             DB_DATABASE is overridden so a test run cannot touch development
+             data. -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="crm_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

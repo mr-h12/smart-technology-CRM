@@ -105,9 +105,8 @@ never move a final total — but it is a documented quantization, not an acciden
 Arithmetic runs in BCMath at higher precision; only the persisted snapshot is at
 scale 6.
 
-**Approve or change these numbers before the first money migration.** Widening a
-`NUMERIC` later is cheap; discovering that six months of quotations were stored
-truncated is not.
+**Approved 2026-08-20 and recorded as `D-68`.** These are now the numbers, and
+changing them is a decision rather than an edit.
 
 ---
 
@@ -547,7 +546,7 @@ before the migrations they affect.
 | **Q-5** | `enum_lists` as one table with a `type` column, or one table per list? `DB-05` says enum tables, plural. | Module 2 |
 | **Q-6** | **Which status columns become managed enum tables?** `DB-05` says enum tables, not hard-coded enums, but the system has six candidates: deal status (12 — `§4.4`), quotation status (9 — `§6.1`), `customer_status` (5, derived — `§4.5`), `approval_status` (3), supplier `color_rating` (4 — `§7.1`), and visit outcome (3 — Flow 2). **This needs one policy, not six separate calls.** Suggested split: values the business may extend without a deployment become tables; values a state machine depends on stay constrained columns, because a workflow whose states can be edited from a settings screen is a workflow with no guarantees. | Module 5 |
 | **Q-7** | Is `catalog_items` one table with a Product/Service discriminator, or two tables? `§7.3` shows two tabs with different field sets and no shared columns beyond name and `is_active`. | Module 4 |
-| **Q-8** | Are the money precisions in section 1 accepted — `NUMERIC(18,6)` money, `(18,8)` FX, `(6,3)` percent, `(14,4)` quantity? | Module 7 |
+| ~~Q-8~~ ✅ | ~~Are the money precisions in section 1 accepted?~~ **Closed by `D-68`, approved 2026-08-20:** `NUMERIC(18,6)` money · `(18,8)` FX · `(6,3)` percent · `(14,4)` quantity. | — |
 
 ---
 

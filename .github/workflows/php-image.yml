@@ -134,6 +134,30 @@ jobs:
             npm run build
           '
 
+      # DEV-07 makes tests part of done, and the environment guards in
+      # EnvironmentTest are the reason this runs against a real PostgreSQL
+      # rather than the sqlite the skeleton shipped: sqlite's column types are
+      # advisory, so D-68's NUMERIC precision cannot be asserted on it.
+      - name: Tests (against PostgreSQL)
+        run: |
+          docker run -d --name ci-postgres \
+            -e POSTGRES_DB=crm_test -e POSTGRES_USER=crm -e POSTGRES_PASSWORD=ci \
+            -e POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C.UTF-8" \
+            -e TZ=UTC -e PGTZ=UTC \
+            postgres:17.5-bookworm
+          for _ in $(seq 1 30); do
+            docker exec ci-postgres pg_isready -U crm -d crm_test -q && break
+            sleep 2
+          done
+
+          docker run --rm --link ci-postgres:postgres \
+            -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
+              cp -n .env.example .env 2>/dev/null || true
+              php artisan key:generate --force --quiet
+              php artisan test
+            '
+          docker rm -f ci-postgres >/dev/null
+
       - name: Build pdf target (amd64, native on this runner)
         uses: docker/build-push-action@v6
         with:

@@ -193,7 +193,8 @@ surface months later.
 
 #### Step 2 — database connection and migration tooling *(provisional)*
 
-- [ ] **2.1** Connection and configuration, application timezone UTC (`DB-08`)
+- [x] **2.1** Connection and configuration, application timezone UTC (`DB-08`), asserted by a
+      guard test. Also moved the suite off sqlite — it cannot hold `D-68` precision
 - [ ] **2.2** The standard column block as a shared base: UUID key (`D-61`), `created_by`,
       `created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`)
 - [ ] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`)

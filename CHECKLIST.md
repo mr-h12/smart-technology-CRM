@@ -163,14 +163,72 @@ somewhere. Steps below; each step's points are approved before it starts.
 
 ### Steps 1–7 — the build plan's own items
 
-- [ ] Project structure (backend + frontend)
-- [ ] Database connection + migration tooling
-- [ ] **i18n layer from day one** — no hard-coded strings, Arabic + English
-- [ ] Design system + base RTL/LTR layout
-- [ ] Storage abstraction layer + `files` table
-- [ ] **Audit log as a cross-cutting layer** — automatic for every later module
-- [ ] Queue + jobs infrastructure — four queues: `critical` · `pdf` · `reports` · `maintenance`
-- [ ] Seed data — roles · permissions · sectors · units · currencies · test users
+Step 1 is decomposed. Steps 2–7 are provisional and are confirmed before each
+one starts, because a decomposition written too early is a guess about work the
+step itself will clarify.
+
+Two points carry disproportionate risk and both get an enforcing check rather
+than an agreement: **1.2** (module boundaries) and **6.2** (automatic audit).
+Left as conventions people are expected to honour, both break quietly and
+surface months later.
+
+#### Step 1 — project structure (backend + frontend)
+
+- [ ] **1.1** Laravel running in the container behind nginx, replacing the placeholder
+      document root (`D-57`). No starter kit — Breeze and Jetstream install Inertia or
+      Livewire, which `D-67` forbids
+- [ ] **1.2** Four layers (`AP-03`) and the twelve module directories `AP-02` names, with the
+      boundaries **enforced by a failing check**, not documented and hoped for (`ERP-01`)
+- [ ] **1.3** Vue 3 + TypeScript SPA on Vite consuming `/api/v1` (`D-67`, `AP-07`)
+- [ ] **1.4** Strict typing, lint and static analysis wired into CI (Coding Standards §5, `DEV-10`)
+- [ ] **1.5** Ownership of `storage/` and `bootstrap/cache` — deferred from 0.6 because the
+      directories did not exist yet
+
+#### Step 2 — database connection and migration tooling *(provisional)*
+
+- [ ] **2.1** Connection and configuration, application timezone UTC (`DB-08`)
+- [ ] **2.2** The standard column block as a shared base: UUID key (`D-61`), `created_by`,
+      `created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`)
+- [ ] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`)
+- [ ] **2.4** Money column precision applied once `Q-8` is answered
+
+#### Step 3 — i18n *(provisional)*
+
+- [ ] **3.1** Backend lang files, locale resolved from the request, no string literals
+- [ ] **3.2** Frontend i18n and direction switching
+- [ ] **3.3** A check that **fails** on a hard-coded user-facing string — without it the rule
+      is forgotten by the third screen
+
+#### Step 4 — design system and RTL/LTR *(provisional)*
+
+- [ ] **4.1** Semantic tokens and the three themes (Design System §3)
+- [ ] **4.2** Application shell using logical start/end properties, not left/right
+- [ ] **4.3** Theme persisted, applied before first paint, no flash
+- [ ] **4.4** Loading, empty, error and permission-denied states as base components
+
+#### Step 5 — storage abstraction and `files` *(provisional — blocked by `Q-2`)*
+
+- [ ] **5.1** `Q-2` answered, then the `files` migration
+- [ ] **5.2** Storage behind an interface, local driver first
+- [ ] **5.3** Upload validation: true MIME, configured size (`D-39`), allowed types (`D-40`)
+- [ ] **5.4** Download endpoint checking permission on the parent entity (`D-38`)
+- [ ] **5.5** Virus scanning on every upload (`SEC-15`)
+
+#### Step 6 — audit log as a cross-cutting layer *(provisional — blocked by `Q-3`)*
+
+- [ ] **6.1** `Q-3` answered, then the `audit_log` migration with partitioning (`DB-10`)
+- [ ] **6.2** Automatic capture — a module is audited **without opting in**
+- [ ] **6.3** Immutability enforced at the database, not by convention (`AUD-03`, `D-30`)
+- [ ] **6.4** Request and correlation IDs propagated (`AUD-05`)
+- [ ] **6.5** A test proving a new module is audited without touching audit code
+
+#### Step 7 — seed data *(provisional)*
+
+- [ ] **7.1** Roles and permissions as `resource.action.scope` data (`SEC-07`)
+- [ ] **7.2** Managed lists: sectors, units, service types, delivery terms (`DB-05`)
+- [ ] **7.3** Currencies with rounding unit and on/off (`D-52`, `D-65`), and FX rates
+- [ ] **7.4** One test user per role (`DEV-08`)
+- [ ] **7.5** Seeding repeatable and idempotent (Coding Standards §7)
 
 **Tests**
 - [ ] App runs · frontend talks to backend · database connects

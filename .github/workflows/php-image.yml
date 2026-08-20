@@ -104,6 +104,17 @@ jobs:
             ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress
           '
 
+      # D-67 puts a TypeScript SPA in front of /api/v1, and Coding Standards §5
+      # requires strict typing with no untyped escape hatches. `npm run build`
+      # runs vue-tsc before vite, so a type error fails here rather than
+      # shipping as a runtime surprise. It also proves the bundle still builds.
+      - name: Type-check and build the frontend
+        run: |
+          docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim sh -c '
+            npm ci --no-audit --no-fund
+            npm run build
+          '
+
       - name: Build pdf target (amd64, native on this runner)
         uses: docker/build-push-action@v6
         with:

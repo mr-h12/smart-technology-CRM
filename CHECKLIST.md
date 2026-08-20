@@ -147,7 +147,7 @@ somewhere. Steps below; each step's points are approved before it starts.
 - [x] **0.4** Arabic fonts (`§4.1`) + the UTF-8 locale the base image lacked
 - [x] **0.5** Headless Chromium — Arabic PDF rendered and inspected inside the container,
       which is what `P-01` proved on macOS and `D-66` required on Linux
-- [ ] **0.6** PHP-FPM + Nginx + self-signed TLS (`SEC-14`), plus the `USER` directive and
+- [x] **0.6** PHP-FPM + Nginx + self-signed TLS (`SEC-14`), plus the `USER` directive and
       `storage/` ownership deferred from 0.3
 - [x] **0.7** The four queue workers by priority (`§15.1`) — **and the image split**:
       `PRF-04` puts PDF generation on the `pdf` queue, so only that worker needs Chromium.

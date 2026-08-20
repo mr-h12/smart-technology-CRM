@@ -168,6 +168,12 @@ services:
       # The application. Not read-only: Laravel writes to storage/ and
       # bootstrap/cache at runtime — logs, compiled views, the cached config.
       - ./crm:/var/www/html
+      # Laravel's writable paths are volumes, not part of the bind mount above.
+      # A bind-mounted storage/ carries the host's ownership, which works on
+      # macOS only because Docker Desktop rewrites it and fails on Linux where
+      # it does not. Mounted deeper than /var/www/html, so these win.
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       # §17: attachments live outside the application directory. Not mounted
       # into nginx, on purpose — see that service.
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
@@ -221,6 +227,8 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - ./crm:/var/www/html
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=critical", "--tries=3"]
     networks: [crm]
@@ -237,6 +245,8 @@ services:
     environment: *worker-env
     volumes:
       - ./crm:/var/www/html
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=pdf", "--tries=3"]
     networks: [crm]
@@ -253,6 +263,8 @@ services:
     environment: *worker-env
     volumes:
       - ./crm:/var/www/html
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=reports", "--tries=3"]
     networks: [crm]
@@ -269,6 +281,8 @@ services:
     environment: *worker-env
     volumes:
       - ./crm:/var/www/html
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=maintenance", "--tries=3"]
     networks: [crm]
@@ -409,6 +423,8 @@ volumes:
   meili-data:
   nginx-certs:
   # BK-01 puts files in the daily backup set alongside the database and index.
+  laravel-storage:
+  laravel-bootstrap-cache:
   crm-storage:
 
 networks:

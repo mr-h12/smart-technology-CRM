@@ -215,6 +215,31 @@ RUN chown www-data:www-data /var/www /var/www/html && chmod 0755 /var/www /var/w
 #   /{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext
 RUN mkdir -p /var/crm-files && chown www-data:www-data /var/crm-files && chmod 0750 /var/crm-files
 
+# ── Laravel's writable paths ─────────────────────────────────────────────────
+#
+# Created here, owned by www-data, so the named volumes mounted over them
+# inherit that ownership. Docker seeds an empty named volume from whatever the
+# image has at the mount point, and a volume mounted onto a path that does not
+# exist is created root-owned instead — which the runtime user cannot write.
+#
+# They are volumes rather than part of the bind mount for a reason that only
+# shows up on Linux. On macOS, Docker Desktop translates bind-mount ownership so
+# host files appear as www-data and everything works; on the on-premise Linux
+# server the host uid is presented literally and www-data cannot write to any of
+# it. Verified: on a real Linux filesystem with these directories owned by uid
+# 501, www-data is refused. That is the D-66 failure mode exactly — passing on
+# the development machine, failing in production — so the fix has to remove the
+# host's ownership from the question rather than paper over it locally.
+RUN set -eux; \
+    mkdir -p /var/www/html/storage/app/public \
+             /var/www/html/storage/framework/cache/data \
+             /var/www/html/storage/framework/sessions \
+             /var/www/html/storage/framework/views \
+             /var/www/html/storage/logs \
+             /var/www/html/bootstrap/cache; \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap; \
+    chmod -R 0775 /var/www/html/storage /var/www/html/bootstrap/cache
+
 WORKDIR /var/www/html
 USER www-data
 

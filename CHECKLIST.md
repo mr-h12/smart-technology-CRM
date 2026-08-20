@@ -114,7 +114,8 @@ every "are we ready to ship" conversation — not at the end.
       `Off`). What remains is a deployment actually mounting it: written, not yet proven in place.
       Affects `PRF-01`, and for `display_errors` also `Coding_Standards §9` — a fatal before
       Laravel boots prints raw to the response
-- [x] ~~**Container runs as root**~~ — closed in point 0.6. The image now sets `USER www-data`;
+- [x] ~~**Container runs as root**~~ — closed in point 0.6, and `storage/` and `bootstrap/cache`
+      ownership closed in point 1.5. The image now sets `USER www-data`;
       php-fpm runs its master as www-data too, verified over a real request (`"user":"www-data"`).
       Ownership of `storage/` and `bootstrap/cache` still has to be set when step 1 creates them
 - [ ] **Inter embeds as Type 3 in PDF output** — Debian's `fonts-inter` ships OTF/CFF outlines
@@ -186,8 +187,9 @@ surface months later.
 - [x] **1.4** Strict typing, lint and static analysis wired into CI (Coding Standards §5, `DEV-10`).
       Pint with `declare_strict_types` and strict comparison, PHPStan at **level 10**, both proven
       to fail on planted code. Runbook now covers backend and frontend first-run setup
-- [ ] **1.5** Ownership of `storage/` and `bootstrap/cache` — deferred from 0.6 because the
-      directories did not exist yet
+- [x] **1.5** Ownership of `storage/` and `bootstrap/cache` — deferred from 0.6 because the
+      directories did not exist yet. Made container-owned volumes after proving the bind-mount
+      version works on macOS only and is refused on Linux
 
 #### Step 2 — database connection and migration tooling *(provisional)*
 

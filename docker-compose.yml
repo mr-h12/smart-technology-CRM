@@ -165,8 +165,9 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
-      # Placeholder document root. Step 1 replaces this with the real project.
-      - ./docker/app-placeholder:/var/www/html:ro
+      # The application. Not read-only: Laravel writes to storage/ and
+      # bootstrap/cache at runtime — logs, compiled views, the cached config.
+      - ./crm:/var/www/html
       # §17: attachments live outside the application directory. Not mounted
       # into nginx, on purpose — see that service.
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
@@ -219,7 +220,7 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
-      - ./docker/app-placeholder:/var/www/html:ro
+      - ./crm:/var/www/html
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=critical", "--tries=3"]
     networks: [crm]
@@ -235,7 +236,7 @@ services:
       postgres: { condition: service_healthy }
     environment: *worker-env
     volumes:
-      - ./docker/app-placeholder:/var/www/html:ro
+      - ./crm:/var/www/html
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=pdf", "--tries=3"]
     networks: [crm]
@@ -251,7 +252,7 @@ services:
       postgres: { condition: service_healthy }
     environment: *worker-env
     volumes:
-      - ./docker/app-placeholder:/var/www/html:ro
+      - ./crm:/var/www/html
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=reports", "--tries=3"]
     networks: [crm]
@@ -267,7 +268,7 @@ services:
       postgres: { condition: service_healthy }
     environment: *worker-env
     volumes:
-      - ./docker/app-placeholder:/var/www/html:ro
+      - ./crm:/var/www/html
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
     command: ["php", "artisan", "queue:work", "redis", "--queue=maintenance", "--tries=3"]
     networks: [crm]
@@ -325,7 +326,10 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./docker/app-placeholder:/var/www/html:ro
+      # nginx needs the document root to serve static files and to resolve
+      # $realpath_root for fastcgi. Read-only here — the web server has no
+      # business writing into the application.
+      - ./crm:/var/www/html:ro
       - nginx-certs:/etc/nginx/certs:ro
       # crm-storage is deliberately NOT here. §17 requires every file to be
       # served through a permission-checking API and forbids direct access;

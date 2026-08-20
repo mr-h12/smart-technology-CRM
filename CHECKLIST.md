@@ -174,7 +174,7 @@ surface months later.
 
 #### Step 1 — project structure (backend + frontend)
 
-- [ ] **1.1** Laravel running in the container behind nginx, replacing the placeholder
+- [x] **1.1** Laravel running in the container behind nginx, replacing the placeholder
       document root (`D-57`). No starter kit — Breeze and Jetstream install Inertia or
       Livewire, which `D-67` forbids
 - [ ] **1.2** Four layers (`AP-03`) and the twelve module directories `AP-02` names, with the

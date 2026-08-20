@@ -67,6 +67,9 @@ done
 
 code=$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:"${HTTPS_PORT:-8443}"/ 2>/dev/null)
 [ "$code" = "200" ] && ok "HTTPS serves the application (200)" || bad "HTTPS returned $code"
+# Laravel specifically, not just "something answered 200".
+docker compose exec -T php php artisan --version >/dev/null 2>&1 \
+  && ok "artisan runs inside the container" || bad "artisan is not runnable"
 rcode=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:"${HTTP_PORT:-8080}"/ 2>/dev/null)
 [ "$rcode" = "301" ] && ok "SEC-14 plain HTTP redirects to HTTPS" || bad "HTTP returned $rcode"
 

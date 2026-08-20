@@ -35,3 +35,6 @@ backups/
 .claude-flow/
 .claude/proven-config.json
 .claude/.proven-config-version
+
+# Laravel application — its own .gitignore covers vendor/, .env and build output
+crm/.env

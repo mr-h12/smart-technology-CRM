@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support\Database;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The column block §4.8 requires on every business table.
@@ -99,6 +100,33 @@ final class StandardColumns
             $this->string($column.'_currency', 3);
             $this->fxRate($column.'_fx_rate_at_time');
             $this->money($column.'_base');
+        });
+
+        // Row scoping is what every list query in this system filters on —
+        // §3.2 gives every role but Manager and CEO an Own, Team, Out or Asgn
+        // scope — and every one of those queries also excludes soft-deleted
+        // rows. This pairs them in one partial index.
+        //
+        // Measured on 20k rows with 50 owners and 5% soft-deleted: an
+        // owner-scoped count went from a sequential scan at 1.30 ms to a bitmap
+        // index scan at 0.22 ms.
+        //
+        // A partial index on deleted_at alone is deliberately NOT part of the
+        // standard block, despite DATABASE.md §13 suggesting one. Measured on
+        // the same data it changed nothing — with 95% of rows alive the planner
+        // correctly prefers a sequential scan, and an index nobody uses still
+        // costs every write.
+        // Laravel's schema builder has no partial-index API — index()->where()
+        // is silently ignored and produces an ordinary index. Verified by
+        // reading pg_indexes rather than trusting the fluent call, which looked
+        // like it worked.
+        Blueprint::macro('scopeIndex', function (string ...$columns): void {
+            /** @var Blueprint $this */
+            $table = $this->getTable();
+            $list = implode(', ', array_map(static fn (string $c): string => '"'.$c.'"', $columns));
+            $name = $table.'_'.implode('_', $columns).'_alive_index';
+
+            DB::statement("create index if not exists \"{$name}\" on \"{$table}\" ({$list}) where deleted_at is null");
         });
 
         // Called by Module 1, once the real users table exists.

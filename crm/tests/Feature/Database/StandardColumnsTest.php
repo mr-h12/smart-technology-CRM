@@ -105,6 +105,32 @@ final class StandardColumnsTest extends TestCase
         }
     }
 
+    public function test_scope_index_creates_a_real_partial_index(): void
+    {
+        // §3.2 gives every role but Manager and CEO a row scope, so effectively
+        // every list query filters on an owner column *and* excludes soft-
+        // deleted rows. Measured on 20k rows, pairing them in one partial index
+        // took an owner-scoped count from a 1.30 ms sequential scan to a 0.22 ms
+        // bitmap index scan.
+        //
+        // The assertion checks the WHERE clause specifically. Laravel's
+        // index()->where() is silently ignored and yields an ordinary index,
+        // which looks correct in the migration and is not.
+        Schema::table('standard_column_probes', function (Blueprint $table): void {
+            $table->scopeIndex('created_by');
+        });
+
+        /** @var list<object{indexdef: string}> $partial */
+        $partial = DB::select(
+            "select indexdef from pg_indexes
+             where tablename = 'standard_column_probes' and indexdef ilike '%where%'"
+        );
+
+        self::assertNotEmpty($partial, 'scopeIndex must produce a partial index, not a plain one.');
+        self::assertStringContainsString('deleted_at IS NULL', $partial[0]->indexdef);
+        self::assertStringContainsString('created_by', $partial[0]->indexdef);
+    }
+
     /**
      * information_schema through selectOne returns mixed, which level 10 will
      * not let us dereference. Narrowed once here rather than cast at each use.

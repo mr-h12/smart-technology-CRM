@@ -89,8 +89,10 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Cloudflare Tunnel + Access** (`D-59`) — the whole external path, 5 named users, outbound-only
       tunnel, ≥8h Access session
 - [ ] **Module 12 connection-unavailable message** — cannot be exercised without real external access
-- [ ] **Boot order** `ST-01`…`ST-09` — PostgreSQL → Redis → Meilisearch → app → workers → Nginx,
-      enabled on boot, health check logged
+- [ ] **Boot order** `ST-01`…`ST-09` — locally, `scripts/verify-boot.sh` asserts the `ST-02`
+      order with `ST-03` health gating, a restart-survival check (`D-54`, `ST-06`), and records
+      each run (`ST-04`, `ST-09`). Still owed on the server: `ST-01` starting at power-on,
+      `ST-05` missed-job catch-up, `ST-07` transactional integrity, `ST-08` `/health` per service
 - [ ] **Missed-job catch-up on startup** (`D-55`, `ST-05`)
 - [ ] **Restart recovery** (`D-54`) — power down, power up, everything returns on its own
 - [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
@@ -152,7 +154,9 @@ somewhere. Steps below; each step's points are approved before it starts.
       Two build targets, `app` (~810 MB) for web, API and three workers, and `pdf` (~2.08 GB)
       for one. Architecture, not a size trick
 - [x] **0.8** Storage volume outside the web root (`§17`) + complete `.env.example`
-- [ ] **0.9** Full `ST-01`…`ST-09` boot-order verification + a written runbook (`DEV-11`)
+- [x] **0.9** Boot verification as a script that records its result (`ST-02`, `ST-03`, `ST-04`,
+      `ST-06`, `ST-09`, `D-54`) + the startup runbook (`DEV-11`). `ST-01`, `ST-05`, `ST-07`
+      and `ST-08` are named in both and stay on the debt register
 - [x] **0.10** Build the amd64 image on amd64 hardware in CI, verify it, publish to GHCR.
       Done out of order so 0.4 and 0.5 — the most architecture-sensitive points — were
       verified on amd64 as they landed

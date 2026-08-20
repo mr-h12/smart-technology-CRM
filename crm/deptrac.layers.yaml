@@ -1,0 +1,54 @@
+# Enforces AP-03: Presentation → Application → Domain ← Infrastructure.
+#
+# The load-bearing rule is Domain's empty ruleset. Coding Standards §3.1 lists
+# "HTTP, UI, framework, storage, queue, or vendor SDK calls" among what the
+# domain must not contain, so Domain may reference nothing at all — not another
+# layer, and not Illuminate. Everything else in this file is ordinary layering;
+# that one line is what keeps the business rules portable, which ERP-01 needs.
+#
+# Application and Infrastructure may use the framework: the former coordinates
+# transactions, the latter is where adapters live. Presentation may reach
+# Domain directly for types, but not for decisions — that is a rule about
+# behaviour, which no static tool can check, so it stays a review concern.
+parameters:
+  paths:
+    - ./app/Modules
+  layers:
+    - name: Presentation
+      collectors:
+        - type: directory
+          value: app/Modules/[^/]+/Presentation/.*
+    - name: Application
+      collectors:
+        - type: directory
+          value: app/Modules/[^/]+/Application/.*
+    - name: Domain
+      collectors:
+        - type: directory
+          value: app/Modules/[^/]+/Domain/.*
+    - name: Infrastructure
+      collectors:
+        - type: directory
+          value: app/Modules/[^/]+/Infrastructure/.*
+    - name: Framework
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\.*
+        - type: classLike
+          value: ^Symfony\\.*
+        - type: classLike
+          value: ^Laravel\\.*
+
+  ruleset:
+    Presentation:
+      - Application
+      - Domain
+      - Framework
+    Application:
+      - Domain
+      - Framework
+    Infrastructure:
+      - Domain
+      - Framework
+    # Domain has no entry on purpose. An empty ruleset means "may depend on
+    # nothing", which is the point.

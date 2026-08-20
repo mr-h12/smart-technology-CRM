@@ -22,10 +22,12 @@ on:
     branches: [main]
     paths:
       - 'docker/php/**'
+      - 'crm/**'
       - '.github/workflows/php-image.yml'
   pull_request:
     paths:
       - 'docker/php/**'
+      - 'crm/**'
       - '.github/workflows/php-image.yml'
   workflow_dispatch:
 
@@ -54,6 +56,17 @@ jobs:
             exit 1
           fi
           echo "every compose variable is declared"
+
+      # AP-02 and AP-03 are boundaries, and a boundary that lives only in a
+      # README is one refactor away from not existing. ERP-01 expects each
+      # module to be extractable later, which only holds if nothing has quietly
+      # reached across in the meantime. Both rule sets were confirmed to fail on
+      # a deliberate violation before being trusted here.
+      - name: Enforce architecture boundaries (AP-02, AP-03)
+        run: |
+          docker run --rm -v "$PWD/crm:/app" -w /app php:8.4-cli \
+            sh -c './vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml --no-progress \
+                && ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress'
 
       - uses: docker/setup-buildx-action@v3
 

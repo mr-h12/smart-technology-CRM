@@ -177,8 +177,9 @@ surface months later.
 - [x] **1.1** Laravel running in the container behind nginx, replacing the placeholder
       document root (`D-57`). No starter kit — Breeze and Jetstream install Inertia or
       Livewire, which `D-67` forbids
-- [ ] **1.2** Four layers (`AP-03`) and the twelve module directories `AP-02` names, with the
-      boundaries **enforced by a failing check**, not documented and hoped for (`ERP-01`)
+- [x] **1.2** Four layers (`AP-03`) and the twelve module directories `AP-02` names, with the
+      boundaries **enforced by a failing check**, not documented and hoped for (`ERP-01`).
+      deptrac, two rule sets, both proven to fail on a planted violation
 - [ ] **1.3** Vue 3 + TypeScript SPA on Vite consuming `/api/v1` (`D-67`, `AP-07`)
 - [ ] **1.4** Strict typing, lint and static analysis wired into CI (Coding Standards §5, `DEV-10`)
 - [ ] **1.5** Ownership of `storage/` and `bootstrap/cache` — deferred from 0.6 because the

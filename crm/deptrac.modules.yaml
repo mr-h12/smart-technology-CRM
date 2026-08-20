@@ -1,0 +1,77 @@
+# Enforces AP-02: the twelve modules, and that none reaches into another.
+#
+# CLAUDE.md is explicit — cross-module work goes through interfaces or domain
+# events, never another module's models. Every module below therefore has an
+# empty ruleset: no module may depend on any other.
+#
+# That is stricter than the end state will be, deliberately. When a legitimate
+# shared interface appears it is added here as a named exception with a reason,
+# so each crossing is a decision that shows up in a diff rather than a habit
+# that accumulates. ERP-01 expects each module to be extractable later, and a
+# boundary nobody can cross by accident is what makes that possible.
+parameters:
+  paths:
+    - ./app/Modules
+  layers:
+    - name: Identity
+      collectors:
+        - type: directory
+          value: app/Modules/Identity/.*
+    - name: Customers
+      collectors:
+        - type: directory
+          value: app/Modules/Customers/.*
+    - name: Deals
+      collectors:
+        - type: directory
+          value: app/Modules/Deals/.*
+    - name: Quotations
+      collectors:
+        - type: directory
+          value: app/Modules/Quotations/.*
+    - name: Suppliers
+      collectors:
+        - type: directory
+          value: app/Modules/Suppliers/.*
+    - name: Catalog
+      collectors:
+        - type: directory
+          value: app/Modules/Catalog/.*
+    - name: Procurement
+      collectors:
+        - type: directory
+          value: app/Modules/Procurement/.*
+    - name: Outdoor
+      collectors:
+        - type: directory
+          value: app/Modules/Outdoor/.*
+    - name: Reports
+      collectors:
+        - type: directory
+          value: app/Modules/Reports/.*
+    - name: Notifications
+      collectors:
+        - type: directory
+          value: app/Modules/Notifications/.*
+    - name: Audit
+      collectors:
+        - type: directory
+          value: app/Modules/Audit/.*
+    - name: Admin
+      collectors:
+        - type: directory
+          value: app/Modules/Admin/.*
+
+  ruleset:
+    Identity: ~
+    Customers: ~
+    Deals: ~
+    Quotations: ~
+    Suppliers: ~
+    Catalog: ~
+    Procurement: ~
+    Outdoor: ~
+    Reports: ~
+    Notifications: ~
+    Audit: ~
+    Admin: ~

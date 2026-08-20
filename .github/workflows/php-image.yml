@@ -150,7 +150,10 @@ jobs:
             sleep 2
           done
 
+          # .env.example leaves DB_PASSWORD blank on purpose — the compose stack
+          # supplies it — so the value has to be given explicitly here.
           docker run --rm --link ci-postgres:postgres \
+            -e DB_PASSWORD=ci \
             -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
               cp -n .env.example .env 2>/dev/null || true
               php artisan key:generate --force --quiet

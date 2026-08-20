@@ -19,3 +19,9 @@ parameters:
     # Larastan understands Eloquent's magic; these are the remaining Laravel
     # idioms that static analysis cannot see through.
     ignoreErrors: []
+
+    excludePaths:
+        # Published from laravel-lang and re-published on every update. They are
+        # data, not code, and holding them to this project's style or typing
+        # would conflict with every upstream refresh.
+        - lang/*

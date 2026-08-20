@@ -214,7 +214,8 @@ surface months later.
 
 #### Step 3 — i18n *(provisional)*
 
-- [ ] **3.1** Backend lang files, locale resolved from the request, no string literals
+- [x] **3.1** Backend lang files (`ar` + `en`, complete), locale resolved from `Accept-Language`
+      per OpenAPI §2, machine codes left untranslated. The no-string-literals check is 3.3
 - [ ] **3.2** Frontend i18n and direction switching
 - [ ] **3.3** A check that **fails** on a hard-coded user-facing string — without it the rule
       is forgotten by the third screen

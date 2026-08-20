@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\SetLocaleFromRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Runs on every request, web and API alike: §14.2 requires Arabic and
+        // English from the first release, and a locale resolved per request is
+        // what makes RTL/LTR a function of the request rather than of duplicated
+        // screens (Coding Standards §11).
+        $middleware->append(SetLocaleFromRequest::class);
+
         // OpenAPI §3.3 — every response carries a server-generated request id.
         $middleware->append(App\Http\Middleware\AddRequestId::class);
     })

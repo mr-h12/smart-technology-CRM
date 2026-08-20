@@ -57,17 +57,6 @@ jobs:
           fi
           echo "every compose variable is declared"
 
-      # AP-02 and AP-03 are boundaries, and a boundary that lives only in a
-      # README is one refactor away from not existing. ERP-01 expects each
-      # module to be extractable later, which only holds if nothing has quietly
-      # reached across in the meantime. Both rule sets were confirmed to fail on
-      # a deliberate violation before being trusted here.
-      - name: Enforce architecture boundaries (AP-02, AP-03)
-        run: |
-          docker run --rm -v "$PWD/crm:/app" -w /app php:8.4-cli \
-            sh -c './vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml --no-progress \
-                && ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress'
-
       - uses: docker/setup-buildx-action@v3
 
       # Registry names must be lowercase; this repository's name is not
@@ -95,6 +84,25 @@ jobs:
           tags: crm-php:ci-app
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # AP-02 and AP-03 are boundaries, and a boundary that lives only in a
+      # README is one refactor away from not existing. ERP-01 expects each
+      # module to be extractable later, which only holds if nothing has quietly
+      # reached across in the meantime. Both rule sets were confirmed to fail on
+      # a deliberate violation before being trusted here.
+      #
+      # Runs after the app image is built, inside it: vendor/ is gitignored, so
+      # the dependencies have to be installed here, and doing it in the app
+      # image means deptrac parses with the same PHP version the application
+      # runs. An earlier version used php:8.4-cli and failed with exit 127
+      # because ./vendor/bin/deptrac did not exist.
+      - name: Enforce architecture boundaries (AP-02, AP-03)
+        run: |
+          docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
+            composer install --no-interaction --no-progress --prefer-dist --quiet
+            ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml --no-progress
+            ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress
+          '
 
       - name: Build pdf target (amd64, native on this runner)
         uses: docker/build-push-action@v6

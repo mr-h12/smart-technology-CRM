@@ -65,6 +65,16 @@ for c in crm-postgres crm-redis crm-php crm-nginx; do
     [ "$st" = healthy ] && ok "$c healthy" || bad "$c is $st"
 done
 
+# public/build is gitignored, correctly — build output does not belong in
+# history. The consequence is that a fresh clone has no bundle, @vite() throws,
+# and every page 500s. That failure is already caught below, but as "HTTPS
+# returned 500", which sends whoever hit it looking in the wrong place.
+if [ -f crm/public/build/manifest.json ]; then
+    ok "frontend assets are built"
+else
+    bad "frontend not built — see runbooks/startup.md, 'First run, or after pulling'"
+fi
+
 code=$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:"${HTTPS_PORT:-8443}"/ 2>/dev/null)
 [ "$code" = "200" ] && ok "HTTPS serves the application (200)" || bad "HTTPS returned $code"
 # Laravel specifically, not just "something answered 200".

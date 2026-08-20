@@ -29,6 +29,20 @@ docker compose --profile workers up -d       # queue workers — from step 1 on
 docker compose --profile verify up boot-order-probe
 ```
 
+## First run, or after pulling
+
+The frontend bundle is **not** in the repository — `public/build` is gitignored,
+because build output does not belong in history. A fresh clone therefore has no
+bundle, `@vite()` throws, and every page returns **500** until it is built:
+
+```bash
+docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim \
+    sh -c 'npm ci && npm run build'
+```
+
+`npm run build` type-checks with `vue-tsc` before bundling, so this also fails
+on a type error rather than shipping one.
+
 ## Verify a boot
 
 ```bash
@@ -66,6 +80,8 @@ index, the uploaded files and the TLS certificate.
 | `required variable … is missing` | `.env` absent or incomplete | compare against `.env.example`; CI asserts they match |
 | A container is running that you did not start | it belongs to an inactive profile and survived `down` | tear down naming every profile |
 | Chromium fails to start | `HOME` not writable by the runtime user | `docker compose exec php sh -c 'test -w $HOME'` |
+| Every page returns `500` on a fresh clone | the frontend was never built — `public/build` is gitignored | `ls crm/public/build/manifest.json`, then build it (see above) |
+| `vue-tsc` dies with `ERR_PACKAGE_PATH_NOT_EXPORTED` | TypeScript was bumped to 7.x, whose package exports vue-tsc cannot resolve | keep `typescript` on `^5` — see the note in `crm/tsconfig.json` |
 
 ## Logs
 

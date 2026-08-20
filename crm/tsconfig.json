@@ -1,3 +1,12 @@
+// TypeScript is pinned to ^5 in package.json on purpose.
+//
+// npm resolves an unconstrained `typescript` to 7.x, which restructured its
+// package exports. vue-tsc cannot resolve tsc through them and the build dies
+// with ERR_PACKAGE_PATH_NOT_EXPORTED — not a type error, a hard crash before
+// any checking happens. Confirmed by pinning ^5 and watching it pass.
+//
+// Revisit when the Vue toolchain supports TypeScript 7. Until then, bumping
+// this is not a routine dependency update.
 {
     "compilerOptions": {
         "target": "ES2022",

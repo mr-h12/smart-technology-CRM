@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Support\Database\StandardColumns;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // DB-01 and DB-02 apply to every business table, so the columns are a
+        // macro rather than something each migration remembers to repeat.
+        StandardColumns::register();
     }
 }

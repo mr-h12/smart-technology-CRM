@@ -201,11 +201,13 @@ surface months later.
 
 - [x] **2.1** Connection and configuration, application timezone UTC (`DB-08`), asserted by a
       guard test. Also moved the suite off sqlite — it cannot hold `D-68` precision
-- [ ] **2.2** The standard column block as a shared base: UUID key (`D-61`), `created_by`,
+- [x] **2.2** The standard column block as a shared base: UUID key (`D-61`), `created_by`,
       `created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`).
       Brings in `RefreshDatabase` — the first tests to write rows need it, and it is the
       mechanism that made the `crm_test` guard in 2.1 worth having
-- [ ] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`)
+- [x] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`).
+      Landed with 2.2 — `document_sequences` was the table the block needed to be proven against,
+      and CI now runs migrate, reset and migrate again
 - [ ] **2.4** Money column precision applied once `Q-8` is answered
 
 #### Step 3 — i18n *(provisional)*

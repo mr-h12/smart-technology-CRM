@@ -157,6 +157,17 @@ jobs:
             -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
               cp -n .env.example .env 2>/dev/null || true
               php artisan key:generate --force --quiet
+
+              # DEV-03 asks for a tested down path. Written is not tested, so CI
+              # runs the migrations forward, all the way back, and forward again
+              # before the suite. A migration without a working down() fails the
+              # build rather than being discovered during a rollback.
+              echo "::group::migrations up, down, up (DEV-03)"
+              php artisan migrate --force
+              php artisan migrate:reset --force
+              php artisan migrate --force
+              echo "::endgroup::"
+
               php artisan test
             '
           docker rm -f ci-postgres >/dev/null

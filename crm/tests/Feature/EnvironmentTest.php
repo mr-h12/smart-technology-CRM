@@ -48,9 +48,12 @@ final class EnvironmentTest extends TestCase
         DB::statement('create temporary table _precision_probe (m numeric(18,6))');
         DB::statement("insert into _precision_probe values ('999999999999.123456')");
 
+        $stored = DB::table('_precision_probe')->value('m');
+        self::assertIsScalar($stored);
+
         self::assertSame(
             '999999999999.123456',
-            (string) DB::table('_precision_probe')->value('m'),
+            (string) $stored,
             'The database must store D-68 precision exactly, not round it.',
         );
     }
@@ -73,7 +76,10 @@ final class EnvironmentTest extends TestCase
         // an application on UTC talking to a database on local time still writes
         // the wrong instant.
         self::assertSame('UTC', config('app.timezone'));
-        self::assertSame('UTC', DB::selectOne('show timezone')->TimeZone);
+        /** @var object{TimeZone: string}|null $row */
+        $row = DB::selectOne('show timezone');
+        self::assertNotNull($row);
+        self::assertSame('UTC', $row->TimeZone);
     }
 
     public function test_the_env_template_hands_a_fresh_setup_the_documented_stack(): void

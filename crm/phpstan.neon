@@ -6,6 +6,10 @@ parameters:
         - app
         - routes
         - database
+        # Tests are analysed too. Without them a trait or helper used only by
+        # the suite reads as dead code, and — worse — test code escapes the
+        # level 10 typing Coding Standards §5 requires of everything else.
+        - tests
 
     # Level is set as high as the code actually passes rather than aspirationally.
     # Coding Standards §5 forbids untyped escape hatches and silent coercion, and

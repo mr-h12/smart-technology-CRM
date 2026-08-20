@@ -76,11 +76,32 @@ final class EnvironmentTest extends TestCase
         self::assertSame('UTC', DB::selectOne('show timezone')->TimeZone);
     }
 
-    /** @return array<string, string> */
-    private static function parseEnvFile(): array
+    public function test_the_env_template_hands_a_fresh_setup_the_documented_stack(): void
     {
-        $path = base_path('.env');
-        self::assertFileExists($path, 'The application needs a .env file.');
+        // .env is gitignored, so .env.example is what a new machine and CI both
+        // start from. The skeleton shipped it with sqlite and database-backed
+        // sessions, cache and queues — every value §14.2 rules out. Guarding the
+        // template matters more than guarding .env, because .env is derived
+        // from it and a wrong template is inherited silently.
+        $template = self::parseEnvFile('.env.example');
+
+        self::assertSame('pgsql', $template['DB_CONNECTION'] ?? null);
+        self::assertSame('redis', $template['CACHE_STORE'] ?? null);
+        self::assertSame('redis', $template['SESSION_DRIVER'] ?? null);
+        self::assertSame('redis', $template['QUEUE_CONNECTION'] ?? null);
+        self::assertSame('UTC', $template['APP_TIMEZONE'] ?? null);
+
+        // SEC-17: a template carrying a real credential would ship it to every
+        // checkout.
+        self::assertSame('', $template['DB_PASSWORD'] ?? null);
+        self::assertSame('', $template['REDIS_PASSWORD'] ?? null);
+    }
+
+    /** @return array<string, string> */
+    private static function parseEnvFile(string $file = '.env'): array
+    {
+        $path = base_path($file);
+        self::assertFileExists($path, "The application needs {$file}.");
 
         $values = [];
         foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {

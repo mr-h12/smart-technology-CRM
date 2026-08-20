@@ -125,6 +125,12 @@ every "are we ready to ship" conversation — not at the end.
       `§4.1`, and weaker handling by strict PDF processors. Module 9 embeds its faces base64 per
       P-01 using TrueType-flavoured files, so the production path likely avoids this entirely —
       confirm when the real template lands, and switch the system Inter to a TTF build if not
+- [ ] **Tests run as different users locally and in CI** — `www-data` under compose, `root` on the
+      runner. File ownership is exactly what broke point 1.5, so a suite that writes files could
+      pass in one and fail in the other. Not yet exercised, because nothing writes files yet
+- [ ] **Tests run as different users locally and in CI** — `www-data` under compose, `root` on the
+      runner. File ownership is exactly what broke point 1.5, so a suite that writes files could
+      pass in one and fail in the other. Not yet exercised, because nothing writes files yet
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.
@@ -196,7 +202,9 @@ surface months later.
 - [x] **2.1** Connection and configuration, application timezone UTC (`DB-08`), asserted by a
       guard test. Also moved the suite off sqlite — it cannot hold `D-68` precision
 - [ ] **2.2** The standard column block as a shared base: UUID key (`D-61`), `created_by`,
-      `created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`)
+      `created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`).
+      Brings in `RefreshDatabase` — the first tests to write rows need it, and it is the
+      mechanism that made the `crm_test` guard in 2.1 worth having
 - [ ] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`)
 - [ ] **2.4** Money column precision applied once `Q-8` is answered
 

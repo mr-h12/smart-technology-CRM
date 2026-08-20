@@ -27,6 +27,21 @@ final class EnvironmentTest extends TestCase
         self::assertSame('pgsql', DB::connection()->getDriverName());
     }
 
+    public function test_tests_never_touch_the_development_database(): void
+    {
+        // This failed silently for a while and is the reason the guard exists.
+        // PHPUnit's <env> only sets a variable that is not already set, and the
+        // compose stack injects DB_DATABASE into the container, so phpunit.xml
+        // was ignored and the suite ran against the development database. Every
+        // test still passed — which is precisely why it was dangerous. The first
+        // test to use RefreshDatabase would have truncated development data.
+        $database = DB::connection()->getDatabaseName();
+
+        self::assertStringEndsWith('_test', $database,
+            "The suite is connected to '{$database}'. Test databases must end in _test so a "
+            .'destructive test cannot reach development data.');
+    }
+
     public function test_the_database_enforces_numeric_precision(): void
     {
         // The reason the driver matters, stated as a test rather than a comment.

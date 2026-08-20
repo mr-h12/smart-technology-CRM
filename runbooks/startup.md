@@ -53,6 +53,17 @@ docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim \
 `npm run build` type-checks with `vue-tsc` before bundling, so this also fails
 on a type error rather than shipping one.
 
+**Test database** — the suite runs against `crm_test`, kept separate so a
+destructive test can never reach development data. Create it once:
+
+```bash
+docker compose exec postgres psql -U crm -d crm -c 'create database crm_test owner crm'
+```
+
+`EnvironmentTest` fails if the suite is connected to anything not ending in
+`_test`, which is how a misconfiguration surfaces instead of quietly truncating
+the development database.
+
 ## Checks you can run yourself
 
 The same gates CI runs, in the same images:
@@ -108,6 +119,7 @@ index, the uploaded files and the TLS certificate.
 | Chromium fails to start | `HOME` not writable by the runtime user | `docker compose exec php sh -c 'test -w $HOME'` |
 | Every page returns `500` on a fresh clone | the frontend was never built — `public/build` is gitignored | `ls crm/public/build/manifest.json`, then build it (see above) |
 | `500` with "No application encryption key" | `vendor/` or `.env` missing on a fresh clone | run the backend setup above |
+| Tests pass but touch real data | a `DB_*` variable set in the container overrides `phpunit.xml`, whose `<env>` does not override an existing variable | `EnvironmentTest` catches it; keep configuration in `crm/.env` only |
 | `vue-tsc` dies with `ERR_PACKAGE_PATH_NOT_EXPORTED` | TypeScript was bumped to 7.x, whose package exports vue-tsc cannot resolve | keep `typescript` on `^5` — see the note in `crm/tsconfig.json` |
 
 ## Logs

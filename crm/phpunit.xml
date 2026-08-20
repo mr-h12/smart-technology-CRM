@@ -39,10 +39,15 @@
              (DB-10), and Module 3 on ILIKE — none of which sqlite has.
 
              DB_DATABASE is overridden so a test run cannot touch development
-             data. -->
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_DATABASE" value="crm_test"/>
-        <env name="DB_URL" value=""/>
+             data, and force="true" is not optional for that. PHPUnit's <env>
+             only sets a variable that is not already set, and the compose stack
+             injects DB_DATABASE into the container — so without it the suite
+             silently ran against the development database. It passed either
+             way, which is exactly what made it dangerous: the first test using
+             RefreshDatabase would have truncated development data. -->
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="crm_test" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

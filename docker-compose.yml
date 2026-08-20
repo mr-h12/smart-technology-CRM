@@ -157,13 +157,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      DB_HOST: postgres
-      DB_DATABASE: ${POSTGRES_DB}
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # No DB_* or REDIS_* here on purpose. Laravel reads crm/.env, and injecting
+    # the same keys as container environment variables made two sources of truth
+    # — with the container's winning. That silently defeated phpunit.xml, whose
+    # <env> does not override a variable that is already set, so the suite ran
+    # against the development database while passing.
+    #
+    # They were added in 0.6 for the placeholder document root, which read them
+    # with getenv(). That placeholder is gone.
     volumes:
       # The application. Not read-only: Laravel writes to storage/ and
       # bootstrap/cache at runtime — logs, compiled views, the cached config.
@@ -218,13 +219,14 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
-    environment: &worker-env
-      DB_HOST: postgres
-      DB_DATABASE: ${POSTGRES_DB}
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # No DB_* or REDIS_* here on purpose. Laravel reads crm/.env, and injecting
+    # the same keys as container environment variables made two sources of truth
+    # — with the container's winning. That silently defeated phpunit.xml, whose
+    # <env> does not override a variable that is already set, so the suite ran
+    # against the development database while passing.
+    #
+    # They were added in 0.6 for the placeholder document root, which read them
+    # with getenv(). That placeholder is gone.
     volumes:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage
@@ -242,7 +244,6 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
-    environment: *worker-env
     volumes:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage
@@ -260,7 +261,6 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
-    environment: *worker-env
     volumes:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage
@@ -278,7 +278,6 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
-    environment: *worker-env
     volumes:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage

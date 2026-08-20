@@ -19,7 +19,11 @@ tmp/
 temp/
 
 # Uploaded files — D-38/§17: stored outside the web root, never committed
-storage/
+# Scoped to this repository's own root. Unanchored, this also swallowed
+# crm/storage — the Laravel application anchors those directories with its
+# own .gitignore files, and hiding them left a fresh checkout with no
+# storage/framework/views, which Laravel refuses to boot without.
+/storage/
 uploads/
 
 # Backups — §16.3: kept on a separate machine/disk, never in git

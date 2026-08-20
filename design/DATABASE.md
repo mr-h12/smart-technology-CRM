@@ -524,7 +524,20 @@ first ten thousand expose it.
 | `supplier_quotations` | `supplier_id` · `deal_id` (nullable — `D-51`) | the supplier page's linked offers |
 | `supplier_quotations` | `valid_until` | the expired-offer warning (`§10.3`) |
 | `user_sessions` | `(user_id, last_activity_at)` | 8-hour idle expiry (`D-29`), active-device list (`SEC-05`) |
-| every business table | `deleted_at` partial (`WHERE deleted_at IS NULL`) | every query filters soft-deleted rows (`DB-01`) |
+| every business table | the **scope** column, partial `WHERE deleted_at IS NULL` — `scopeIndex()` | §3.2 scopes nearly every role, so most list queries filter on an owner *and* exclude soft-deleted rows |
+
+> ⚠️ **Corrected by measurement.** This row previously called for a partial index
+> on `deleted_at` alone. On 20k rows with 5% soft-deleted it changed nothing —
+> the plan stayed a sequential scan at 2.2 ms before and after — because with
+> most rows alive that is the cheaper plan and the planner is right. An index
+> nobody uses still costs every write.
+>
+> Pairing the **scope column** with the same predicate is what pays: an
+> owner-scoped count went from a 1.30 ms sequential scan to a 0.22 ms bitmap
+> index scan on identical data.
+>
+> Laravel has no partial-index API — `index()->where()` is silently ignored and
+> produces an ordinary index — so `scopeIndex()` issues the DDL directly.
 
 Text-search indexes are deliberately absent. `SearchService` owns search from
 Module 3 — ILIKE first, Meilisearch later (`D-48`) — so search indexing belongs

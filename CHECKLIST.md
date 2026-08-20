@@ -208,7 +208,9 @@ surface months later.
 - [x] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`).
       Landed with 2.2 — `document_sequences` was the table the block needed to be proven against,
       and CI now runs migrate, reset and migrate again
-- [ ] **2.4** Money column precision applied once `Q-8` is answered
+- [x] **2.4** Money column precision applied once `Q-8` is answered — closed by `D-68`. Named
+      macros (`money`, `fxRate`, `percentage`, `quantity`) because Laravel's `decimal()` defaults
+      to `(8,2)`, and one `Precision` class so the column scale and cast scale cannot drift
 
 #### Step 3 — i18n *(provisional)*
 

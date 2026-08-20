@@ -53,6 +53,54 @@ final class StandardColumns
             $this->standardAudit();
         });
 
+        // ── D-68 precisions ──────────────────────────────────────────────
+        //
+        // Named rather than spelled out, because Laravel's decimal() defaults to
+        // (8,2). Anyone reaching for the obvious method gets two decimal places
+        // and silent truncation, which is exactly the defect D-68 was recorded
+        // to prevent. money() cannot be got wrong the way decimal() can.
+
+        Blueprint::macro('money', function (string $column, bool $nullable = false) {
+            /** @var Blueprint $this */
+            $col = $this->decimal($column, Precision::MONEY_TOTAL, Precision::MONEY_SCALE);
+
+            return $nullable ? $col->nullable() : $col;
+        });
+
+        Blueprint::macro('fxRate', function (string $column, bool $nullable = false) {
+            /** @var Blueprint $this */
+            $col = $this->decimal($column, Precision::FX_TOTAL, Precision::FX_SCALE);
+
+            return $nullable ? $col->nullable() : $col;
+        });
+
+        Blueprint::macro('percentage', function (string $column, bool $nullable = false) {
+            /** @var Blueprint $this */
+            $col = $this->decimal($column, Precision::PERCENT_TOTAL, Precision::PERCENT_SCALE);
+
+            return $nullable ? $col->nullable() : $col;
+        });
+
+        Blueprint::macro('quantity', function (string $column, bool $nullable = false) {
+            /** @var Blueprint $this */
+            $col = $this->decimal($column, Precision::QUANTITY_TOTAL, Precision::QUANTITY_SCALE);
+
+            return $nullable ? $col->nullable() : $col;
+        });
+
+        // DB-06 and §5.6: every amount stores what it is, in what currency, at
+        // what rate, and its base equivalent. Kept together so a table cannot
+        // record an amount and forget the context that makes it meaningful —
+        // D-09 fixes the rate at creation and forbids recomputing it later, and
+        // that is only possible if the rate was stored.
+        Blueprint::macro('moneyWithContext', function (string $column): void {
+            /** @var Blueprint $this */
+            $this->money($column);
+            $this->string($column.'_currency', 3);
+            $this->fxRate($column.'_fx_rate_at_time');
+            $this->money($column.'_base');
+        });
+
         // Called by Module 1, once the real users table exists.
         Blueprint::macro('standardActorForeignKeys', function (string $usersTable = 'users'): void {
             /** @var Blueprint $this */

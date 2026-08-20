@@ -96,12 +96,31 @@ jobs:
       # image means deptrac parses with the same PHP version the application
       # runs. An earlier version used php:8.4-cli and failed with exit 127
       # because ./vendor/bin/deptrac did not exist.
-      - name: Enforce architecture boundaries (AP-02, AP-03)
+      # Architecture, style and types in one pass, because they share the
+      # composer install. DEV-10 asks for automated linting; Coding Standards §5
+      # asks for strict typing with no untyped escape hatches, which is what
+      # PHPStan at level 10 enforces. All three were confirmed to fail on
+      # deliberately bad code before being trusted here.
+      - name: Architecture, style and static analysis
         run: |
           docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
             composer install --no-interaction --no-progress --prefer-dist --quiet
+
+            echo "::group::deptrac — layer boundaries (AP-03)"
             ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml --no-progress
+            echo "::endgroup::"
+
+            echo "::group::deptrac — module boundaries (AP-02)"
             ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress
+            echo "::endgroup::"
+
+            echo "::group::pint — code style and strict_types (DEV-10)"
+            ./vendor/bin/pint --test
+            echo "::endgroup::"
+
+            echo "::group::phpstan level 10 — types (Coding Standards §5)"
+            ./vendor/bin/phpstan analyse --no-progress
+            echo "::endgroup::"
           '
 
       # D-67 puts a TypeScript SPA in front of /api/v1, and Coding Standards §5

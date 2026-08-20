@@ -23,7 +23,7 @@ Route::get('/ping', function (): JsonResponse {
     return new JsonResponse([
         'data' => [
             'service' => 'crm',
-            'time'    => now()->toIso8601String(),   // DB-08: UTC, converted for display only
+            'time' => now()->toIso8601String(),   // DB-08: UTC, converted for display only
         ],
         'meta' => [
             'request_id' => request()->attributes->get(AddRequestId::ATTRIBUTE),

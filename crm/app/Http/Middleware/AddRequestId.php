@@ -20,8 +20,18 @@ use Symfony\Component\HttpFoundation\Response;
 final class AddRequestId
 {
     public const ATTRIBUTE = 'request_id';
+
     public const CORRELATION = 'correlation_id';
 
+    /**
+     * Closure carries no return type of its own, so static analysis sees the
+     * result of $next as mixed and every use of it as an error. Annotating the
+     * callable shape is what makes this middleware analysable at level 10 —
+     * Coding Standards §5 forbids untyped escape hatches, and lowering the
+     * level to accommodate this file would have been exactly that.
+     *
+     * @param  Closure(Request): Response  $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
         $requestId = (string) Str::uuid();

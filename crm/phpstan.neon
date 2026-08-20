@@ -1,0 +1,17 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - routes
+        - database
+
+    # Level is set as high as the code actually passes rather than aspirationally.
+    # Coding Standards §5 forbids untyped escape hatches and silent coercion, and
+    # a level chosen now is far cheaper than one raised after the code exists.
+    level: 10
+
+    # Larastan understands Eloquent's magic; these are the remaining Laravel
+    # idioms that static analysis cannot see through.
+    ignoreErrors: []

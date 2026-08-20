@@ -183,7 +183,9 @@ surface months later.
 - [x] **1.3** Vue 3 + TypeScript SPA on Vite consuming `/api/v1` (`D-67`, `AP-07`). Rendered in
       a real browser fetching a real endpoint; `/api/v1` prefix set at registration (`API-02`),
       responses carry the `OpenAPI §4.1` envelope and an `X-Request-Id` (`§3.3`)
-- [ ] **1.4** Strict typing, lint and static analysis wired into CI (Coding Standards §5, `DEV-10`)
+- [x] **1.4** Strict typing, lint and static analysis wired into CI (Coding Standards §5, `DEV-10`).
+      Pint with `declare_strict_types` and strict comparison, PHPStan at **level 10**, both proven
+      to fail on planted code. Runbook now covers backend and frontend first-run setup
 - [ ] **1.5** Ownership of `storage/` and `bootstrap/cache` — deferred from 0.6 because the
       directories did not exist yet
 

@@ -31,9 +31,19 @@ docker compose --profile verify up boot-order-probe
 
 ## First run, or after pulling
 
-The frontend bundle is **not** in the repository — `public/build` is gitignored,
-because build output does not belong in history. A fresh clone therefore has no
-bundle, `@vite()` throws, and every page returns **500** until it is built:
+Neither `vendor/` nor `public/build` is in the repository — dependencies and
+build output do not belong in history. A fresh clone therefore has neither, and
+the application returns **500** until both are produced.
+
+**Backend** — without `vendor/` there is no framework to boot, and without an
+`APP_KEY` Laravel refuses to start:
+
+```bash
+docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:app \
+    sh -c 'composer install --no-interaction && cp -n .env.example .env && php artisan key:generate'
+```
+
+**Frontend** — without the bundle `@vite()` throws on every page:
 
 ```bash
 docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim \
@@ -42,6 +52,22 @@ docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim \
 
 `npm run build` type-checks with `vue-tsc` before bundling, so this also fails
 on a type error rather than shipping one.
+
+## Checks you can run yourself
+
+The same gates CI runs, in the same images:
+
+```bash
+# style, types and architecture
+docker run --rm -v "$PWD/crm:/app" -w /app crm-php:app sh -c '
+    ./vendor/bin/pint --test
+    ./vendor/bin/phpstan analyse
+    ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml
+    ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml'
+
+# apply style fixes rather than only reporting them
+docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:app ./vendor/bin/pint
+```
 
 ## Verify a boot
 
@@ -81,6 +107,7 @@ index, the uploaded files and the TLS certificate.
 | A container is running that you did not start | it belongs to an inactive profile and survived `down` | tear down naming every profile |
 | Chromium fails to start | `HOME` not writable by the runtime user | `docker compose exec php sh -c 'test -w $HOME'` |
 | Every page returns `500` on a fresh clone | the frontend was never built — `public/build` is gitignored | `ls crm/public/build/manifest.json`, then build it (see above) |
+| `500` with "No application encryption key" | `vendor/` or `.env` missing on a fresh clone | run the backend setup above |
 | `vue-tsc` dies with `ERR_PACKAGE_PATH_NOT_EXPORTED` | TypeScript was bumped to 7.x, whose package exports vue-tsc cannot resolve | keep `typescript` on `^5` — see the note in `crm/tsconfig.json` |
 
 ## Logs

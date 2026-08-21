@@ -13,9 +13,9 @@ return [
     'alpha_num'              => 'يجب أن يحتوي حقل :attribute على حروفٍ وأرقامٍ فقط.',
     'any_of'                 => 'الحقل :attribute غير صالح.',
     'array'                  => 'يجب أن يكون حقل :attribute ًمصفوفة.',
-    'array_keys'             => 'يجب أن يحتوي حقل :attribute على المفاتيح التالية فقط: :values.',
+    'array_keys'             => 'The :attribute field must only contain the following keys: :values.',
     'ascii'                  => 'يجب أن يحتوي الحقل :attribute فقط على أحرف أبجدية رقمية أحادية البايت ورموز.',
-    'base64'                 => 'يجب أن يكون حقل :attribute نصًا صحيحًا بترميز Base64.',
+    'base64'                 => 'The :attribute field must be a valid Base64 string.',
     'before'                 => 'يجب على حقل :attribute أن يكون تاريخًا سابقًا للتاريخ :date.',
     'before_or_equal'        => 'حقل :attribute يجب أن يكون تاريخا سابقا أو مطابقا للتاريخ :date.',
     'between'                => [
@@ -287,18 +287,4 @@ return [
         'work'                     => 'العمل',
         'year'                     => 'السنة',
     ],
-
-    /*
-    | 'custom' holds no message of its own — it is the slot Laravel reads for
-    | per-field overrides. It is present in the English file and was absent
-    | here, which means an override added in English would have had nowhere to
-    | go in Arabic and would have silently fallen back.
-    */
-
-    'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
-        ],
-    ],
-
 ];

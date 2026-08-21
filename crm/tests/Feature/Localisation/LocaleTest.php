@@ -82,20 +82,134 @@ final class LocaleTest extends TestCase
         self::assertNotSame($arabic, $english);
     }
 
-    public function test_every_english_message_has_an_arabic_counterpart(): void
+    /**
+     * Message files nest — 'between' holds four messages under it — so a
+     * comparison has to reach the leaves. Keys come back dotted and prefixed
+     * with the file: 'validation.between.numeric'.
+     *
+     * Only the key set matters here, so the leaves are recorded as true
+     * rather than carried along as mixed values nothing reads.
+     *
+     * @param  array<mixed, mixed>  $messages
+     * @return array<string, true>
+     */
+    private static function flatten(array $messages, string $prefix): array
     {
-        // A missing key falls back to English silently, so the gap only appears
-        // to the user. Two entries were English-only in the published Arabic
-        // file and were translated.
-        foreach (['validation', 'auth', 'passwords', 'pagination'] as $file) {
-            /** @var array<string, mixed> $en */
-            $en = require lang_path("en/{$file}.php");
-            /** @var array<string, mixed> $ar */
-            $ar = require lang_path("ar/{$file}.php");
+        $flat = [];
 
-            self::assertSame([], array_keys(array_diff_key($en, $ar)),
-                "lang/ar/{$file}.php is missing keys present in English.");
+        foreach ($messages as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+
+            if (is_array($value)) {
+                $flat += self::flatten($value, $path);
+
+                continue;
+            }
+
+            $flat[$path] = true;
         }
+
+        return $flat;
+    }
+
+    /**
+     * Every message the locale defines, from every file it defines them in.
+     *
+     * @return array<string, true>
+     */
+    private static function messages(string $locale): array
+    {
+        $flat = [];
+
+        foreach (glob(lang_path($locale.'/*.php')) ?: [] as $file) {
+            /** @var array<mixed, mixed> $messages */
+            $messages = require $file;
+
+            $flat += self::flatten($messages, basename($file, '.php'));
+        }
+
+        return $flat;
+    }
+
+    /**
+     * Keys of the locale's JSON file, whose keys are English sentences rather
+     * than dotted paths.
+     *
+     * @return array<string, true>
+     */
+    private static function jsonMessages(string $locale): array
+    {
+        $path = lang_path($locale.'.json');
+
+        if (! is_file($path)) {
+            return [];
+        }
+
+        /** @var array<string, string> $decoded */
+        $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+
+        return array_fill_keys(array_keys($decoded), true);
+    }
+
+    public function test_the_two_locales_define_the_same_keys(): void
+    {
+        // A missing key is silent — it only appears to the user, in the wrong
+        // language or as the raw key.
+        //
+        // This assertion used to run array_diff_key over the two top levels,
+        // which compares 'between' and never the four messages beneath it.
+        // Deleting the Arabic 'between.numeric' left the whole suite green
+        // while an Arabic client was served "The n field must be between 1 and
+        // 5." Flatten to the leaves, read whatever the lang directory actually
+        // holds rather than a list of names that goes stale, and compare in
+        // both directions: lang/en was missing 187 keys lang/ar had, including
+        // the whole of actions.php and http-statuses.php, and the one-way
+        // check could not see any of them.
+        $en = self::messages('en');
+        $ar = self::messages('ar');
+
+        self::assertSame([], array_keys(array_diff_key($en, $ar)),
+            'lang/ar is missing keys that lang/en defines.');
+        self::assertSame([], array_keys(array_diff_key($ar, $en)),
+            'lang/en is missing keys that lang/ar defines.');
+    }
+
+    public function test_the_two_locales_define_the_same_json_keys(): void
+    {
+        // JSON keys are the English sentence itself, so English resolves even
+        // with no file at all — except for plural forms, which the key alone
+        // cannot express. The files are published as a pair and must stay one.
+        $en = self::jsonMessages('en');
+        $ar = self::jsonMessages('ar');
+
+        self::assertNotSame([], $en, 'lang/en.json is missing entirely.');
+        self::assertSame([], array_keys(array_diff_key($en, $ar)),
+            'lang/ar.json is missing keys that lang/en.json defines.');
+        self::assertSame([], array_keys(array_diff_key($ar, $en)),
+            'lang/en.json is missing keys that lang/ar.json defines.');
+    }
+
+    public function test_no_locale_renders_a_raw_translation_key(): void
+    {
+        // The behavioural half. The two assertions above compare files; this
+        // one asks the translator what a user would actually be shown, which
+        // is the form the defect took: with no lang/en/actions.php, an English
+        // __('actions.save') rendered the literal string "actions.save".
+        $keys = array_keys(self::messages('ar') + self::messages('en'));
+        $raw = [];
+
+        foreach (['ar', 'en'] as $locale) {
+            app()->setLocale($locale);
+
+            foreach ($keys as $key) {
+                if (__($key) === $key) {
+                    $raw[] = $locale.': '.$key;
+                }
+            }
+        }
+
+        self::assertSame([], $raw,
+            'These keys render as themselves instead of a message: '.implode(', ', $raw));
     }
 
     public function test_machine_codes_are_never_translated(): void

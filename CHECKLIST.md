@@ -206,8 +206,11 @@ surface months later.
       Brings in `RefreshDatabase` — the first tests to write rows need it, and it is the
       mechanism that made the `crm_test` guard in 2.1 worth having
 - [x] **2.3** First migration with a `down` path that is actually run, not merely written (`DEV-03`).
-      Landed with 2.2 — `document_sequences` was the table the block needed to be proven against,
-      and CI now runs migrate, reset and migrate again
+      Landed with 2.2 — `document_sequences` was simply the first table to need a migration, and CI
+      now runs migrate, reset and migrate again. It carries **none** of 2.2's column block: it holds
+      `prefix`, `year` and `last_value` under a composite key, with no actor to record and nothing
+      to soft-delete. The block is proven by `StandardColumnsTest` against a purpose-built probe
+      table — this line previously named `document_sequences` as that proof, which it never was
 - [x] **2.4** Money column precision applied once `Q-8` is answered — closed by `D-68`. Named
       macros (`money`, `fxRate`, `percentage`, `quantity`) because Laravel's `decimal()` defaults
       to `(8,2)`, and one `Precision` class so the column scale and cast scale cannot drift

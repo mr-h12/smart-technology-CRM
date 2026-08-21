@@ -6,10 +6,13 @@ namespace Tests\Feature\Database;
 
 use App\Support\Database\HasStandardColumns;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -116,19 +119,173 @@ final class StandardColumnsTest extends TestCase
         // The assertion checks the WHERE clause specifically. Laravel's
         // index()->where() is silently ignored and yields an ordinary index,
         // which looks correct in the migration and is not.
+        //
+        // This is the Schema::table() path, on a table that already exists. It
+        // was the only path covered, and it was the only path that worked.
         Schema::table('standard_column_probes', function (Blueprint $table): void {
             $table->scopeIndex('created_by');
         });
 
-        /** @var list<object{indexdef: string}> $partial */
-        $partial = DB::select(
-            "select indexdef from pg_indexes
-             where tablename = 'standard_column_probes' and indexdef ilike '%where%'"
-        );
+        $definition = self::indexDefinition('standard_column_probes_created_by_alive_index');
 
-        self::assertNotEmpty($partial, 'scopeIndex must produce a partial index, not a plain one.');
-        self::assertStringContainsString('deleted_at IS NULL', $partial[0]->indexdef);
-        self::assertStringContainsString('created_by', $partial[0]->indexdef);
+        self::assertNotNull($definition, 'scopeIndex must produce an index.');
+        self::assertStringContainsString('WHERE (deleted_at IS NULL)', $definition,
+            'It must be a partial index, not a plain one.');
+        self::assertStringContainsString('created_by', $definition);
+    }
+
+    // ── The Schema::create() path — regression for the 42P01 crash ───────────
+
+    public function test_scope_index_works_inside_schema_create(): void
+    {
+        // The defect, as a test. A Blueprint records commands and the connection
+        // runs them after the closure returns, CREATE TABLE first; the original
+        // macro called DB::statement() inside the closure, so the index was
+        // created before its own table existed. Every real migration declares
+        // its indexes exactly this way, so this path is the one that mattered
+        // and it was the one nothing covered.
+        //
+        // Failure mode if it regresses:
+        //   SQLSTATE[42P01]: Undefined table: 7 ERROR: relation
+        //   "scope_index_create_probes" does not exist
+        Schema::dropIfExists('scope_index_create_probes');
+
+        Schema::create('scope_index_create_probes', function (Blueprint $table): void {
+            $table->standardColumns();
+            $table->uuid('owner_id');
+            $table->scopeIndex('owner_id');
+        });
+
+        self::assertTrue(Schema::hasTable('scope_index_create_probes'),
+            'The table must exist: an index created too early aborts the whole create.');
+
+        $definition = self::indexDefinition('scope_index_create_probes_owner_id_alive_index');
+
+        self::assertNotNull($definition, 'The scope index must exist after Schema::create().');
+        self::assertStringContainsString('WHERE (deleted_at IS NULL)', $definition);
+
+        Schema::dropIfExists('scope_index_create_probes');
+    }
+
+    // ── Failure and edge cases ──────────────────────────────────────────────
+
+    public function test_a_scope_index_over_several_columns_keeps_their_order(): void
+    {
+        // (owner_id, status) is the pipeline board's filter — DATABASE.md lists
+        // it for deals. Column order decides whether the index can serve a query
+        // on owner_id alone, so it is asserted, not assumed.
+        Schema::dropIfExists('scope_index_multi_probes');
+
+        Schema::create('scope_index_multi_probes', function (Blueprint $table): void {
+            $table->standardColumns();
+            $table->uuid('owner_id');
+            $table->string('status', 24);
+            $table->scopeIndex('owner_id', 'status');
+        });
+
+        $definition = self::indexDefinition('scope_index_multi_probes_owner_id_status_alive_index');
+
+        self::assertNotNull($definition);
+        self::assertMatchesRegularExpression('/\(owner_id,\s*status\)/', $definition,
+            'Both columns must be in the index, in the order they were declared.');
+        self::assertStringContainsString('WHERE (deleted_at IS NULL)', $definition);
+
+        Schema::dropIfExists('scope_index_multi_probes');
+    }
+
+    public function test_declaring_the_same_scope_index_twice_fails_loudly(): void
+    {
+        // IF NOT EXISTS was removed with the immediate execution that needed it.
+        // Swallowing a duplicate would leave whichever index already existed in
+        // place — possibly over different columns — while the migration
+        // reported success.
+        // Wrapped in a savepoint, the same way PrecisionTest wraps its overflow
+        // check: PostgreSQL aborts the surrounding transaction on error, so the
+        // cleanup DROP would fail with "current transaction is aborted" and the
+        // test would report 25P02 instead of the duplicate it is about.
+        $rejected = false;
+
+        DB::statement('savepoint duplicate_scope_index_probe');
+        try {
+            Schema::create('scope_index_dupe_probes', function (Blueprint $table): void {
+                $table->standardColumns();
+                $table->uuid('owner_id');
+                $table->scopeIndex('owner_id');
+                $table->scopeIndex('owner_id');
+            });
+        } catch (QueryException $e) {
+            $rejected = true;
+            self::assertStringContainsString('already exists', $e->getMessage());
+            self::assertStringContainsString('scope_index_dupe_probes_owner_id_alive_index', $e->getMessage());
+        } finally {
+            DB::statement('rollback to savepoint duplicate_scope_index_probe');
+        }
+
+        self::assertTrue($rejected, 'A duplicate scope index must not be accepted silently.');
+        self::assertFalse(Schema::hasTable('scope_index_dupe_probes'),
+            'The failed create must leave no table behind.');
+    }
+
+    public function test_a_scope_index_with_no_columns_is_rejected_before_any_sql(): void
+    {
+        // Coding Standards §5: validate at the boundary rather than letting a
+        // bad value become invalid SQL. Unchecked this compiles to
+        // `create index "t__alive_index" on "t" () where ...`, whose syntax
+        // error names a paren rather than the mistake.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('scopeIndex() needs at least one column');
+
+        Schema::create('scope_index_empty_probes', function (Blueprint $table): void {
+            $table->standardColumns();
+            $table->scopeIndex();
+        });
+    }
+
+    // ── Behavioural: Laravel's real migration path ──────────────────────────
+
+    public function test_the_migration_path_creates_and_rolls_back_the_scope_index(): void
+    {
+        // Schema::create() from a test is not the migration path. This runs the
+        // real binary's migrator over a fixture migration, then its down path —
+        // DEV-03 requires the rollback to be tested, not assumed.
+        $database = DB::connection()->getDatabaseName();
+        self::assertStringEndsWith('_test', $database,
+            "Refusing to migrate against '{$database}'.");
+
+        $path = 'tests/Fixtures/migrations';
+
+        try {
+            Artisan::call('migrate', ['--path' => $path, '--force' => true]);
+
+            self::assertTrue(Schema::hasTable('scope_index_probes'),
+                Artisan::output());
+
+            $single = self::indexDefinition('scope_index_probes_owner_id_alive_index');
+            $composite = self::indexDefinition('scope_index_probes_owner_id_status_alive_index');
+
+            self::assertNotNull($single, 'migrate must create the single-column scope index.');
+            self::assertNotNull($composite, 'migrate must create the composite scope index.');
+            self::assertStringContainsString('WHERE (deleted_at IS NULL)', $single);
+            self::assertStringContainsString('WHERE (deleted_at IS NULL)', $composite);
+
+            Artisan::call('migrate:rollback', ['--path' => $path, '--force' => true]);
+
+            self::assertFalse(Schema::hasTable('scope_index_probes'),
+                'down() must drop the table.');
+            self::assertNull(self::indexDefinition('scope_index_probes_owner_id_alive_index'),
+                'The indexes must go with it — a left-behind index collides on the next migrate.');
+        } finally {
+            Schema::dropIfExists('scope_index_probes');
+        }
+    }
+
+    /** The definition Postgres actually stored, or null when there is no such index. */
+    private static function indexDefinition(string $name): ?string
+    {
+        /** @var object{indexdef: string}|null $row */
+        $row = DB::selectOne('select indexdef from pg_indexes where indexname = ?', [$name]);
+
+        return $row?->indexdef;
     }
 
     /**

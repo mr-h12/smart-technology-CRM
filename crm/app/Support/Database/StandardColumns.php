@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Support\Database;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Grammars\PostgresGrammar;
+use Illuminate\Support\Fluent;
+use InvalidArgumentException;
 
 /**
  * The column block §4.8 requires on every business table.
@@ -119,14 +121,61 @@ final class StandardColumns
         // Laravel's schema builder has no partial-index API — index()->where()
         // is silently ignored and produces an ordinary index. Verified by
         // reading pg_indexes rather than trusting the fluent call, which looked
-        // like it worked.
-        Blueprint::macro('scopeIndex', function (string ...$columns): void {
+        // like it worked. So the DDL is written by hand here — but it is
+        // *recorded*, not executed.
+        //
+        // A Blueprint is a command recorder. Everything a migration closure
+        // calls appends to its command list, and the connection runs the
+        // compiled statements after the closure returns, CREATE TABLE first.
+        // The first version of this macro called DB::statement() inside the
+        // closure, so the index was created before its own table existed:
+        // SQLSTATE[42P01] in Schema::create(), and appearing to work only in
+        // Schema::table(), where the table is already there. Recording a
+        // command puts it back in order and makes both paths behave the same.
+        //
+        // Blueprint::toSql dispatches 'compile'.ucfirst($command->name) to the
+        // grammar and accepts a macro for it, which is the framework's own
+        // extension point for a command it does not ship.
+        Blueprint::macro('scopeIndex', function (string ...$columns) {
             /** @var Blueprint $this */
-            $table = $this->getTable();
-            $list = implode(', ', array_map(static fn (string $c): string => '"'.$c.'"', $columns));
-            $name = $table.'_'.implode('_', $columns).'_alive_index';
+            if ($columns === []) {
+                throw new InvalidArgumentException(
+                    'scopeIndex() needs at least one column; none were given for table "'
+                    .$this->getTable().'". An index over no columns is not valid SQL, and '
+                    .'the point of this index is the scope column it pairs with deleted_at.',
+                );
+            }
 
-            DB::statement("create index if not exists \"{$name}\" on \"{$table}\" ({$list}) where deleted_at is null");
+            return $this->addCommand('scopeIndex', [
+                'columns' => $columns,
+                'index' => $this->getTable().'_'.implode('_', $columns).'_alive_index',
+            ]);
+        });
+
+        // Postgres-specific DDL, so it is registered on the Postgres grammar to
+        // say so. §14.2 fixes this project on PostgreSQL and EnvironmentTest
+        // asserts the driver, so there is no other grammar to compile for.
+        //
+        // No IF NOT EXISTS. It was there while the statement ran immediately
+        // and had to tolerate being reached twice; recorded as a command it is
+        // reached once, and swallowing a duplicate declaration would leave
+        // whichever index already existed in place — possibly over different
+        // columns — while the migration reported success.
+        PostgresGrammar::macro('compileScopeIndex', function (Blueprint $blueprint, Fluent $command): string {
+            $parameters = $command->getAttributes();
+
+            /** @var list<string> $columns */
+            $columns = $parameters['columns'];
+            /** @var string $index */
+            $index = $parameters['index'];
+
+            $list = implode(', ', array_map(
+                static fn (string $column): string => '"'.$column.'"',
+                $columns,
+            ));
+
+            return 'create index "'.$index.'" on "'.$blueprint->getTable().'" ('.$list.') '
+                .'where deleted_at is null';
         });
 
         // Called by Module 1, once the real users table exists.

@@ -537,7 +537,13 @@ first ten thousand expose it.
 > index scan on identical data.
 >
 > Laravel has no partial-index API — `index()->where()` is silently ignored and
-> produces an ordinary index — so `scopeIndex()` issues the DDL directly.
+> produces an ordinary index — so `scopeIndex()` writes the DDL itself. It
+> *records* it as a Blueprint command compiled by a grammar macro, rather than
+> executing it inline: a Blueprint collects commands and the connection runs
+> them after the migration closure returns, `CREATE TABLE` first. An earlier
+> version ran the statement inline and so created the index before its own
+> table existed — `SQLSTATE[42P01]` in `Schema::create()`, which is where every
+> migration declares its indexes.
 
 Text-search indexes are deliberately absent. `SearchService` owns search from
 Module 3 — ILIKE first, Meilisearch later (`D-48`) — so search indexing belongs

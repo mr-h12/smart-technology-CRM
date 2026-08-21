@@ -7,9 +7,14 @@ export const SUPPORTED = ['ar', 'en'] as const;
 
 export type Locale = (typeof SUPPORTED)[number];
 
-// Direction is a property of the locale, not of a screen. Coding Standards §11
-// is explicit that RTL/LTR is controlled by locale rather than by duplicated
-// screens, so nothing else in the application decides this.
+// Direction is a property of the locale, not of a screen — Coding Standards §11
+// is explicit that RTL/LTR follows the locale rather than duplicated screens.
+//
+// This map is not the only place that applies that rule, and an earlier version
+// of this comment claimed it was. welcome.blade.php sets the dir attribute from
+// the server-resolved locale so the first paint is already correct; this map
+// governs every switch after the SPA has mounted. Both have to agree, because a
+// disagreement is invisible until a reload flips the page back.
 const DIRECTION: Record<Locale, 'rtl' | 'ltr'> = { ar: 'rtl', en: 'ltr' };
 
 export function isSupported(value: string): value is Locale {

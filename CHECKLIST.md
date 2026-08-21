@@ -218,8 +218,12 @@ surface months later.
       per OpenAPI §2, machine codes left untranslated. The no-string-literals check is 3.3
 - [x] **3.2** Frontend i18n and direction switching — `vue-i18n`, `ar`/`en` dictionaries, and a
       language switch that flips `dir` and `lang` without a reload. Verified in a real browser
-- [ ] **3.3** A check that **fails** on a hard-coded user-facing string — without it the rule
-      is forgotten by the third screen
+- [x] **3.3** A check that **fails** on a hard-coded user-facing string — without it the rule
+      is forgotten by the third screen. `NoHardCodedTextTest` scans Vue templates, Blade views
+      and the narrow PHP sinks that put a literal in front of a user (`abort`, `abort_if`,
+      `abort_unless`, `'message' => …`). Every pattern carries `/u`: without it PCRE reads the
+      trailing `0x85` of م (U+0645) as a line break, so the guard saw English and was blind to
+      Arabic — proven, then made permanent by Arabic cases that fail if the modifier is removed
 
 #### Step 4 — design system and RTL/LTR *(provisional)*
 

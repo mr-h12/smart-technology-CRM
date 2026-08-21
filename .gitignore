@@ -6,6 +6,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+# The testing template a developer copies to .env.testing. Without this the
+# .env.* rule above hides it, and a fresh checkout has no way to point
+# --env=testing at the test database.
+!.env.testing.example
 *.pem
 *.key
 

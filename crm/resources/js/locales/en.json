@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "Smart Technology CRM"
+  },
+  "language": {
+    "switch": "Language",
+    "arabic": "العربية",
+    "english": "English"
+  },
+  "state": {
+    "loading": "Loading…",
+    "error": "Something went wrong."
+  },
+  "ping": {
+    "title": "Connection check",
+    "service": "Service",
+    "time": "Server time",
+    "requestId": "Request ID",
+    "retry": "Try again"
+  }
+}

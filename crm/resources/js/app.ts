@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import { i18n } from '@/i18n';
 import { createRouter, createWebHistory } from 'vue-router';
 import App from '@/App.vue';
 import Ping from '@/pages/Ping.vue';
@@ -10,4 +11,5 @@ const router = createRouter({
     routes: [{ path: '/', name: 'home', component: Ping }],
 });
 
-createApp(App).use(router).mount('#app');
+createApp(App).use(router)
+    .use(i18n).mount('#app');

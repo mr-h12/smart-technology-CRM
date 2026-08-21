@@ -216,7 +216,8 @@ surface months later.
 
 - [x] **3.1** Backend lang files (`ar` + `en`, complete), locale resolved from `Accept-Language`
       per OpenAPI §2, machine codes left untranslated. The no-string-literals check is 3.3
-- [ ] **3.2** Frontend i18n and direction switching
+- [x] **3.2** Frontend i18n and direction switching — `vue-i18n`, `ar`/`en` dictionaries, and a
+      language switch that flips `dir` and `lang` without a reload. Verified in a real browser
 - [ ] **3.3** A check that **fails** on a hard-coded user-facing string — without it the rule
       is forgotten by the third screen
 
@@ -253,7 +254,8 @@ surface months later.
 
 **Tests**
 - [ ] App runs · frontend talks to backend · database connects
-- [ ] Switching language flips direction
+- [x] Switching language flips direction — asserted server-side by `SpaShellTest` and confirmed
+      client-side in Chrome: `ar`/`rtl` → `en`/`ltr` → `ar`/`rtl` without a reload
 - [ ] A test job executes from the queue
 
 ---

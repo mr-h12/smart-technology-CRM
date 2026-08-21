@@ -128,9 +128,6 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Tests run as different users locally and in CI** — `www-data` under compose, `root` on the
       runner. File ownership is exactly what broke point 1.5, so a suite that writes files could
       pass in one and fail in the other. Not yet exercised, because nothing writes files yet
-- [ ] **Tests run as different users locally and in CI** — `www-data` under compose, `root` on the
-      runner. File ownership is exactly what broke point 1.5, so a suite that writes files could
-      pass in one and fail in the other. Not yet exercised, because nothing writes files yet
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.

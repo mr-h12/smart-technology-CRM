@@ -54,9 +54,16 @@ It applies to the internal web SPA and PWA. It does not relax the CRM documentat
 | Header | Direction | Rule |
 |---|---|---|
 | `X-Request-Id` | Response | Server-generated unique ID returned on every response. Include it in logs, errors, audit correlation, and support reports. |
-| `X-Correlation-Id` | Request/response | Optional caller-supplied trace ID. Validate and propagate it; otherwise create one. Never trust it as an authorization input. |
+| `X-Correlation-Id` | Request/response | Optional caller-supplied trace ID. Accepted **only** when it matches `^[A-Za-z0-9._-]{1,128}$` — letters, digits, dot, underscore and hyphen, maximum **128** characters (`D-69`). Propagate an accepted value byte for byte, including the single character `0`. Never trust it as an authorization input. |
 | `Idempotency-Key` | Request | Required for defined critical create/action endpoints; a UUID or similarly high-entropy client-generated key. |
 | `If-Match` | Request | Required for quotation mutations subject to optimistic locking; contains the latest quotation version token. |
+
+`X-Correlation-Id` is validated but never rejected. A missing, empty, malformed, or overlong
+value is **ignored and replaced by a server-generated ID**, and the request proceeds to its
+normal status — never `400`. The header is optional, so an unusable value costs the caller its
+trace, not its request (`D-69`). The accepted character set is exactly what is safe to write
+verbatim into a structured log line (§10, `AUD-05`) or an audit row: no whitespace, no `CR`/`LF`,
+no quoting, markup, or field-separator characters, so no caller can forge a permanent record.
 
 All authenticated mutations must create their required audit entry server-side. Clients cannot author audit rows directly.
 

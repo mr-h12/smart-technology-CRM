@@ -511,13 +511,70 @@ surface months later.
       sweeps them. And `scan_status` is still a `CHECK` constraint rather than the managed enum
       table `DB-05` wants, pending `Q-6`
 
-#### Step 6 — audit log as a cross-cutting layer *(provisional — blocked by `Q-3`)*
+#### Step 6 — audit log as a cross-cutting layer *(point order approved 2026-08-22)*
 
-- [ ] **6.1** `Q-3` answered, then the `audit_log` migration with partitioning (`DB-10`)
-- [ ] **6.2** Automatic capture — a module is audited **without opting in**
-- [ ] **6.3** Immutability enforced at the database, not by convention (`AUD-03`, `D-30`)
-- [ ] **6.4** Request and correlation IDs propagated (`AUD-05`)
-- [ ] **6.5** A test proving a new module is audited without touching audit code
+- [x] **6.1** `Q-3` answered by `D-72`, then the `audit_log` migration. **Monthly `RANGE`
+      partitioning on `created_at`.** `DB-10` required partitioning and named no granularity,
+      and `OD-05` — expected daily workload — is still open, so **no row-count argument was
+      available and none was invented**: the granularity comes from the documented access
+      shapes instead. Three of the four indexes end in `created_at DESC`, which are
+      recent-window questions, and a yearly partition reads a year to answer one about a
+      fortnight. `D-30` keeps every row forever while `BK-01` backs up daily, so monthly
+      boundaries turn a table that grows without end into frozen partitions plus one hot one.
+      Written as raw DDL because Laravel's Blueprint has no `PARTITION BY`; a Blueprint here
+      produces an ordinary table that satisfies every documented column and none of `DB-10`.
+      **Three things in it are measured facts about PostgreSQL 17.5, not preferences.** The
+      primary key is `(id, created_at)` because a unique constraint on a partitioned table
+      must contain every partitioning column — `id` alone was refused outright. A `DEFAULT`
+      partition is kept even though a row landing in it blocks creating the range partition
+      that would have held it, because without one an insert outside every range fails, and
+      `AUD-01` with `DB-11` put the audit write inside the business transaction, so a
+      partition nobody created would take the business operation down with it. And the
+      indexes are declared on the parent, which propagates them to every partition present
+      and future — an index reaching only the parent answers nothing, since every scan runs
+      against a partition.
+      **`audit_log` is not a business table:** no `updated_at`, no `deleted_at`, no
+      `created_by`/`updated_by`. `DB-01` and `DB-02` describe rows that change and are
+      retired; `AUD-03` and `D-30` say this one never does either.
+      **Two verifiers that could not fail, both caught by breaking them.** `down()` looped
+      over `pg_inherits` dropping each partition before the parent, and the test written to
+      protect that loop passed identically with the loop deleted — because dropping a
+      partitioned parent drops its partitions already, measured. The loop was dead code and
+      is gone. And the UTC assertion on the partition bounds could not fail: this stack
+      connects with `TimeZone = UTC`, so a bound literal with no offset reads as UTC anyway.
+      Rewritten to run the real migration under `Asia/Riyadh` and read the bounds back as
+      UTC, where the defect is visible — the broken version starts August at **21:00 on 31
+      July**, so the first three hours of every month land in the wrong partition. Two more
+      false greens were found at RED: `hasColumn()` on a missing table is false for every
+      column, and `QueryException` is also what "relation does not exist" throws, so the
+      forbidden-column set and every required-column check passed against a database with no
+      `audit_log` in it. Now anchored to `assertTrue(hasTable())` and to SQLSTATE `23502`.
+      **Not covered:** nothing writes to this table yet — the recorder is 6.4, and until then
+      the schema is proven and unused. `user_id` carries **no foreign key**, because Module 1
+      replaces the users table rather than extending it; that is a live `DB-04` gap closed in
+      Module 1, the same arrangement `standardActorForeignKeys()` already waits on. `id` is
+      typed `UUID` and nothing enforces that it is **v7** — `D-61` is satisfied by the writer,
+      not by the column. Immutability is **not enforced yet**: `UPDATE` and `DELETE` both
+      work on this table today, and that is 6.2. And only two months are seeded, so **once
+      2026-09 elapses every row lands in `DEFAULT`** until `J-15` exists (6.3)
+- [ ] **6.2** Immutability enforced at the database, not by convention (`AUD-03`, `D-30`).
+      Moved ahead of the writer deliberately: the guard belongs in place before there is
+      anything to guard. Measured groundwork — a row trigger declared on the parent
+      propagates to partitions and blocks `UPDATE`/`DELETE` even when aimed straight at one,
+      but a statement-level `BEFORE TRUNCATE` trigger **does not** propagate, and the
+      application's database role is a **superuser**, so nothing in-database stops a
+      `DROP TABLE`. That ceiling is real and gets recorded rather than implied
+- [ ] **6.3** `J-15 ensure_audit_partitions` — creates months ahead, installs the `TRUNCATE`
+      guard on each new partition, and asserts `audit_log_default` is empty. A fifteenth job
+      is an addition to `§15`, which calls itself the single reference list, so the row goes
+      in with the job. Neither `pg_partman` nor `pg_cron` is in the image — measured — which
+      is why this is an application job at all
+- [ ] **6.4** `AuditRecorder`: actor · event · entity · old/new `JSONB` · UTC time · IP ·
+      user agent · request ID · correlation ID (`AUD-02`, Coding Standards §10), fed from the
+      existing `AddRequestId` middleware; plus structured JSON logging (`AUD-05`), which is
+      **not** configured today — `LOG_STACK=single` with the default line formatter
+- [ ] **6.5** A test proving a new module is audited without touching audit code, and a
+      deliberate failure proof that it can fail
 
 #### Step 7 — seed data *(provisional)*
 

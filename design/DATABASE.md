@@ -228,18 +228,35 @@ timestamp · IP · device, plus correlation ID from `Coding_Standards §10`.
 | `event` | VARCHAR | `SELF_APPROVAL`, `LOGIN_AS`, … (`§3.12` rule 4) |
 | `entity_type` · `entity_id` | VARCHAR · UUID | subject (D-61) |
 | `old_values` · `new_values` | JSONB | |
-| `ip_address` · `device` | INET · VARCHAR | |
-| `request_id` · `correlation_id` | VARCHAR | |
-| `created_at` | TIMESTAMPTZ | |
+| `ip_address` · `user_agent` | INET · VARCHAR | `AUD-02` says *device*; over HTTP the thing that actually exists is the `User-Agent` header, so the column is named for what it holds |
+| `request_id` · `correlation_id` | VARCHAR | `D-69` bounds the caller-supplied one at 128 |
+| `created_at` | TIMESTAMPTZ | the partition key (`D-72`) |
 
 > **Immutable and retained permanently** (`D-30`, `AUD-03`). No `updated_at`, no
-> `deleted_at` — those columns would imply it can change. Partitioned (`DB-10`).
+> `deleted_at`, and no `created_by`/`updated_by` — those columns would imply it
+> can change, and `DB-01`/`DB-02` describe business rows that change and are
+> retired. Partitioned (`DB-10`), **by month on `created_at`** (`D-72`).
+
+> **The primary key is `(id, created_at)`, not `id`.** PostgreSQL refuses a
+> unique constraint on a partitioned table that omits a partitioning column, so
+> this is a consequence of `D-72` rather than a modelling choice — and it means
+> anything fetching one audit row by identity has to carry the timestamp too.
 
 **Indexes:** `(entity_type, entity_id, created_at DESC)` — the record-history
-panel · `(user_id, created_at DESC)` — "what did this person do" · `event` where
-it is one of the mandatory critical events (`§3.12` rule 4), so the Manager's
-audit view does not scan the partition · `correlation_id` for tracing one request
-across modules.
+panel · `(user_id, created_at DESC)` — "what did this person do" ·
+`(event, created_at DESC)` — the Manager's audit view, filtered to one event ·
+`correlation_id` for tracing one request across modules.
+
+> The event index is **not** partial on the nine mandatory critical events
+> (`§3.12` rule 4), which an earlier draft of this file suggested. A partial
+> index would freeze that list into the schema, so every addition to the event
+> vocabulary would need a migration — and `correlation_id` aside, all three
+> composite indexes are declared on the parent and inherited by every partition
+> as local indexes, verified rather than assumed.
+
+> `correlation_id` is the one documented lookup with **no time bound**, so it
+> probes every partition rather than pruning to one. That cost is accepted in
+> `D-72` and named here so nobody rediscovers it as a mystery.
 
 ---
 
@@ -588,7 +605,7 @@ before the migrations they affect.
 |---|---|---|
 | ~~Q-1~~ ✅ | ~~`BIGSERIAL` or `UUID`?~~ **Closed by `D-61`: UUID, time-ordered.** One key rather than a numeric key plus a public UUID. | — |
 | ~~Q-2~~ ✅ | ~~Polymorphic `files` table, or a join table per parent?~~ **Closed by `D-71`, approved 2026-08-22:** a central `files` table plus one pivot per parent, with real foreign keys. A polymorphic column cannot carry one — and `J-11`, a weekly job for files linked to nothing, was the specification already admitting the orphans it would produce. | — |
-| **Q-3** | Is `audit_log` partitioned by month or by year? `DB-10` says partition, not how. | Module 0 |
+| ~~Q-3~~ ✅ | ~~Is `audit_log` partitioned by month or by year?~~ **Closed by `D-72`, approved 2026-08-22: by month, `RANGE` on `created_at`.** `DB-10` required partitioning and `OD-05` is still open, so the granularity was chosen from the documented access shapes rather than from a guessed row count: three of the four indexes below end in `created_at DESC`, which are recent-window questions, and a yearly partition reads a year to answer one about a fortnight. Carries three measured consequences — a composite primary key `(id, created_at)`, a `DEFAULT` partition that must be watched, and future partitions created by an application job because neither `pg_partman` nor `pg_cron` is in the image. | — |
 | **Q-4** | Does `users` keep Laravel's `email_verified_at`? `SEC-01` forbids public sign-up, so nothing verifies an email at registration. | Module 1 |
 | **Q-5** | `enum_lists` as one table with a `type` column, or one table per list? `DB-05` says enum tables, plural. | Module 2 |
 | **Q-6** | **Which status columns become managed enum tables?** `DB-05` says enum tables, not hard-coded enums, but the system has six candidates: deal status (12 — `§4.4`), quotation status (9 — `§6.1`), `customer_status` (5, derived — `§4.5`), `approval_status` (3), supplier `color_rating` (4 — `§7.1`), and visit outcome (3 — Flow 2). **This needs one policy, not six separate calls.** Suggested split: values the business may extend without a deployment become tables; values a state machine depends on stay constrained columns, because a workflow whose states can be edited from a settings screen is a workflow with no guarantees. | Module 5 |

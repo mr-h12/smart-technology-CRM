@@ -704,8 +704,50 @@ surface months later.
       request id does **not propagate into queued jobs**, so an audit row written from a job
       has none. And `AUD-05` is only half done — the application's own channels are still
       line-formatted
-- [ ] **6.5** A test proving a new module is audited without touching audit code, and a
-      deliberate failure proof that it can fail
+- [x] **6.5** The check that makes an unaudited mutation a build failure. `AUD-01` wants every
+      create, update, delete, approve and transfer recorded; 6.1 to 6.4 made that *possible*,
+      and nothing made it *unavoidable* — a requirement depending on fourteen future modules
+      each remembering is a requirement with a half-life.
+      **What it enforces, stated without inflation:** it cannot prove a write was audited, which
+      is a claim about behaviour in code nobody has written. What it removes is the *silent*
+      option. Every class under `app/Modules` that writes to the database is **discovered by
+      scanning, not by being declared**, and the set is compared against a register in the
+      test file: a new writer fails the build until somebody says there whether it is audited
+      or why it is not. A writer claiming `AUDITED` is checked against its own source rather
+      than believed. An exempt writer must carry a reason long enough to be one. And
+      `app/Http`, `app/Support` and `routes` may not write at all — a controller reaching the
+      database is outside every boundary this file can police (Coding Standards §5).
+      Separately and behaviourally: a stand-in module inside the test injects
+      `AuditRecorderInterface`, records, and the row appears — **with nothing registered, no
+      listener added, and `app/Modules/Audit` untouched**, which is this step's acceptance
+      criterion read literally.
+      **The scanner's first real finding is real debt, not a demo.**
+      `DatabaseFileRepository::recordScan()` flips `files.scan_status` from `pending` to
+      `clean` or `infected` (`SEC-15`, Point 5.5) — a security-relevant state change on a
+      business entity, and `AUD-01` lists update among what is recorded. It is unaudited,
+      and now unaudited *on the record*, owed by Module 5 when an upload endpoint and an
+      actor exist.
+      **Precision was earned, not assumed.** The first scanner flagged
+      `LocalStorageService::delete()`, which removes a file from a disk; a database write is
+      now a DML verb **plus** a connection signal. `create(` is deliberately not a verb —
+      it is the most common method name in any codebase, and a scanner that cries wolf gets
+      ignored. Two assertions were vacuous on arrival (an empty `AUDITED` set loops over
+      nothing and passes forever); one now also checks every register entry points at a real
+      file, and the other was verified by making the false claim on purpose.
+      **PHPStan read the register's literal types** and called `!== AUDITED` always-true —
+      right about today's register, wrong about every future one — so the register is a
+      method with an explicit `array<class-string, string>` return rather than a constant.
+      **Not covered:** the scanner reads text, so a write assembled at run time, reached
+      through a variable method name, or performed by a vendor package is invisible to it —
+      it raises the cost of an unaudited write, it does not make one impossible. It cannot
+      tell an audited *call path* from a class that merely mentions the interface. No module
+      is `AUDITED` yet, because none writes a business row, so that branch is proven only by
+      deliberate breakage. And `user_id` is still always null until Module 1
+
+**Step 6 is complete: 6.1 … 6.5.** `audit_log` is partitioned monthly (`D-72`), append-only at
+the database (`AUD-03`), kept supplied with months by `J-15`, written through one recorder
+(`AUD-02`, `AUD-05`), and defended by a build-failing boundary. What it is not, yet, is *used*:
+no module records anything, because no module mutates anything.
 
 #### Step 7 — seed data *(provisional)*
 

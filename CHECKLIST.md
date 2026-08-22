@@ -874,8 +874,36 @@ a property of the mechanism: seed data "versioned and repeatable".
       Module 7. Rate *history* (`§13` screen 5) and the audit entry on an FX change (`§3.12` rule 4)
       are Module 2. Nothing converts an amount between currencies yet, and `D-68`'s stated
       quantisation at scale 6 is inherited, not re-examined
-- [ ] **7.4** Managed lists: sectors, units, service types, delivery terms (`DB-05`) — **blocked
-      by `Q-5`**
+- [x] **7.4** The four lists `DB-05` names, in `app/Modules/Admin/Domain/Reference`:
+      **6 sectors · 3 units · 4 service types · 0 delivery terms**.
+      **`Q-5` did not have to be answered, and was not.** It asks whether `enum_lists` is one table
+      with a `type` column or one table per list — a *persistence* question. What this point
+      defines is the membership, which is identical either way, so `Q-5` stays open and Module 2
+      decides it with the migration. Recording that here because 7.4 was listed as blocked by it.
+      **Labels are values in both languages, not translation keys — and the reason is a
+      requirement, not a preference.** `CLAUDE.md` forbids hard-coded user-facing strings, and the
+      usual answer is a lang key; but `design/DATABASE.md` promises that adding a sector reaches
+      the customer form **without a deployment**, and a sector added at runtime has no key. A key
+      would push its label back into a file that needs deploying — the requirement inverted. So
+      every entry carries `label_en` and `label_ar` bound for columns, and the screen renders the
+      row. **The Arabic is read, not translated**: it comes from §4.2's sector row and §7.3's
+      catalog table in `arabic/docs/CRM_Documentation.md` — حكومي · طبي · تجاري · صناعي · فنادق ·
+      بنوك, قطعة · متر · كيلو, تركيب · إصلاح · صيانة · تجهيز — so the seeded lists say what the
+      business already says. A test asserts each Arabic label contains Arabic script and **no Latin
+      letters**, because the failure that matters is not a missing label but a copied one.
+      **Delivery terms is defined and empty on purpose, with a test that says so.** `DB-05` names
+      it in both languages and **neither document gives it a single value**; §6.2 keeps `delivery`
+      as free text on the quotation beside payment (`D-26`) and warranty. A plausible-sounding
+      default would be business content nobody wrote, printed on customer quotations under the
+      company's name — the same rule that kept 7.3 from inventing an FX rate.
+      **`3` units, not "piece, metre, kilo, etc."** §7.3 gives exactly three; the fourth was not
+      invented. Order is data too (`position`, 1..n): without it the order on screen is whatever
+      the query planner returned, which is not an order anybody chose.
+      **Not covered:** nothing is seeded — 7.5 carries this into `enum_lists`, which does not
+      exist. `ManagedList` is itself an enum, which `DB-05` does not forbid: what it forbids is the
+      *membership* being code, while the set of lists is fixed by the columns that reference them.
+      Nothing validates that a customer's sector is one of these — that is Module 3's foreign key.
+      And no delivery term can be quoted until the business supplies them
 - [ ] **7.5** One test user per role (`DEV-08`), the wiring proved from definition to module
       seeder, and Step 7 closed with the deferral recorded
 

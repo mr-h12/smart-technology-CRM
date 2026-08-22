@@ -1,41 +1,77 @@
 <script setup lang="ts">
-// Deliberately bare. The application shell — the three themes, the RTL/LTR
-// layout and the navigation Design System §5 specifies — is point 4.2, not
-// this one. Anything drawn here now would have to be discarded there.
-//
-// The one exception is the language switch: Module 0's acceptance criteria
-// include "switching language flips direction", and that needs something to
-// switch with. It moves into the shell at 4.2.
+/**
+ * The application shell — Design System §5.1.
+ *
+ *   LTR: [Sidebar] [Top context bar] [Page content]
+ *   RTL: [Page content] [Top context bar] [Sidebar]
+ *
+ * There is one DOM order and one stylesheet. The mirroring above is not a
+ * second layout: the sidebar is the inline-start child of a flex row, and
+ * `start` follows `dir`, which follows the locale (Coding Standards §11). Every
+ * rule that could take a side is written on the inline axis, and
+ * LogicalPropertiesTest fails the build if one is not.
+ */
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { setLocale, SUPPORTED, type Locale } from '@/i18n';
+import { useRoute } from 'vue-router';
+import AppSidebar from '@/components/AppSidebar.vue';
+import AppContextBar from '@/components/AppContextBar.vue';
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const route = useRoute();
 
-function choose(next: Locale): void {
-    // Direction, document language and the Accept-Language sent on the next API
-    // call all change together — see setLocale.
-    setLocale(next);
+/** Drawer visibility below 1024px. Above it the rail is always present (§4.3). */
+const sidebarOpen = ref(false);
+
+/** Rail width at ≥1024px. Not persisted — that is point 4.3, with the theme. */
+const collapsed = ref(false);
+
+function closeSidebar(): void {
+    sidebarOpen.value = false;
 }
+
+function onKeydown(event: KeyboardEvent): void {
+    // §6.1: "Escape closes dialogs/menus without discarding silently." A drawer
+    // over the content is one, and there is nothing here to discard.
+    if (event.key === 'Escape' && sidebarOpen.value) {
+        closeSidebar();
+    }
+}
+
+onMounted(() => document.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
+
+// Navigating with the drawer open would otherwise leave it covering the page
+// the user just asked for.
+watch(() => route.fullPath, closeSidebar);
 </script>
 
 <template>
-    <header>
-        <nav :aria-label="t('language.switch')">
-            <button
-                v-for="option in SUPPORTED"
-                :key="option"
-                type="button"
-                :aria-current="locale === option ? 'true' : undefined"
-                :disabled="locale === option"
-                :data-locale="option"
-                @click="choose(option)"
-            >
-                {{ option === 'ar' ? t('language.arabic') : t('language.english') }}
-            </button>
-        </nav>
-    </header>
+    <div class="flex min-h-dvh bg-[var(--color-canvas)] text-[var(--color-text)]">
+        <!-- §8 asks for a full keyboard path. Without this, reaching the page
+             means tabbing the whole sidebar on every navigation. -->
+        <a
+            href="#page-content"
+            class="sr-only rounded-md bg-[var(--color-surface)] px-3 py-2 focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:outline-2 focus:outline-[var(--color-focus-ring)]"
+        >
+            {{ t('shell.skipToContent') }}
+        </a>
 
-    <main>
-        <RouterView />
-    </main>
+        <AppSidebar
+            :open="sidebarOpen"
+            :collapsed="collapsed"
+            @close="closeSidebar"
+            @toggle-collapsed="collapsed = !collapsed"
+        />
+
+        <div class="flex min-w-0 flex-1 flex-col">
+            <AppContextBar :sidebar-open="sidebarOpen" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
+
+            <!-- §4.2: 1600px standard desktop content width; the shell itself
+                 stays full width so data tables can use it. -->
+            <main id="page-content" class="mx-auto w-full max-w-[1600px] flex-1 p-4">
+                <RouterView />
+            </main>
+        </div>
+    </div>
 </template>

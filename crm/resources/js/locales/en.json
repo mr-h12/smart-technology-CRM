@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "Smart Technology CRM"
+    "name": "Smart Technology CRM",
+    "mark": "Smart Technology"
   },
   "language": {
     "switch": "Language",
@@ -17,5 +18,30 @@
     "time": "Server time",
     "requestId": "Request ID",
     "retry": "Try again"
+  },
+  "shell": {
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "primary": "Primary navigation",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "open": "Open navigation",
+    "close": "Close navigation",
+    "group": {
+      "system": "System"
+    },
+    "item": {
+      "home": "Connection check"
+    }
+  },
+  "theme": {
+    "switch": "Theme",
+    "odoo": "Odoo-inspired",
+    "clean-white": "Clean White",
+    "dark-blue": "Dark Blue"
+  },
+  "user": {
+    "signedOut": "Not signed in"
   }
 }

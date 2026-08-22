@@ -8,7 +8,9 @@ import Ping from '@/pages/Ping.vue';
 // which returns the SPA shell, so deep links work without a fragment.
 const router = createRouter({
     history: createWebHistory(),
-    routes: [{ path: '/', name: 'home', component: Ping }],
+    // meta.titleKey is what the context bar reads (§5.1). Keeping the title
+    // on the route rather than inside each page means one place decides it.
+    routes: [{ path: '/', name: 'home', component: Ping, meta: { titleKey: 'nav.item.home' } }],
 });
 
 createApp(App).use(router)

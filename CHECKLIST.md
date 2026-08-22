@@ -247,7 +247,27 @@ surface months later.
       the formatting layer yet, so `Intl.NumberFormat('ar')` can still emit `٠١٢٣` that Noto Sans
       Arabic will happily draw; and the container's OS fonts carry Arabic in Regular and Bold
       only, so a 500 or 600 Arabic weight in a **PDF** is synthesised — a Module 9 concern
-- [ ] **4.2** Application shell using logical start/end properties, not left/right
+- [x] **4.2** Application shell using logical start/end properties, not left/right.
+      `App.vue` hosts the §5.1 shell — sidebar, context bar, page content — with `AppSidebar`
+      at 256px/72px and a drawer below 1024px (§4.3), and `AppContextBar` carrying the page
+      title, theme, language and user context. One DOM order, one stylesheet: the RTL mirror
+      is `dir` following the locale, never a duplicated screen (Coding Standards §11).
+      `LogicalPropertiesTest` scans both surfaces a physical side can arrive on — CSS
+      declarations in `<style>` blocks and Tailwind utility classes in markup — because in a
+      Tailwind codebase `ml-4` is likelier than `margin-left`. **The drawer slides on
+      `inset-inline-start`, not a transform:** `translateX` is physical by definition, so an
+      RTL drawer built on `-translate-x-full` enters from the wrong edge while every class
+      still reads as correct. **What the tests could not see:** all twenty passed while the
+      rail measured 237px in English and 300px in Arabic — a scoped media query set
+      `inline-size: auto` and outranked the utility class, so it sized to its own text. Only
+      headless-Chromium box measurement caught it; the widths are now declared in CSS and
+      pinned by a test. Measured after the fix, in both locales: 256/72 expanded/collapsed,
+      drawer off-canvas and back on Escape, exact mirror at 1280 and 375.
+      **Not covered:** the drawer has no focus trap (§8 exempts dialogs from the no-trap rule,
+      and a drawer is one); Laravel's stock `tailwind.blade.php` paginator uses `ml-auto`,
+      `-ml-px`, `mr-6`, `pl-4`, `pr-2.5` and `text-right` and is already a Tailwind source, so
+      the first §5.2 table inherits a paginator that does not mirror; navigation deliberately
+      lists only routes that exist, since §5.1 forbids showing what cannot be reached
 - [ ] **4.3** Theme persisted, applied before first paint, no flash
 - [ ] **4.4** Loading, empty, error and permission-denied states as base components
 

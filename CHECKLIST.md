@@ -350,7 +350,42 @@ surface months later.
       `crm/` bind mount, so no test can read it and a regression there will not fail CI.
       `scan_status` is a `CHECK` constraint, not the managed enum table `DB-05` wants, pending
       `Q-6`. And nothing writes to these tables yet: no service, no model, no endpoint
-- [ ] **5.2** Storage behind an interface, local driver first
+- [x] **5.2** Storage behind an interface, local driver first. `StorageServiceInterface` in
+      `app/Modules/Storage/Domain/Contracts/`, `LocalStorageService` in `Infrastructure/`, one
+      binding in `AppServiceProvider`. The contract **names no framework type** — no uploaded
+      file, no disk, no path helper — because `deptrac.layers.yaml` gives Domain an empty
+      ruleset: it may depend on nothing, Illuminate included. `StoragePath` is a value object
+      rather than a string built at the call site, since every segment of §17's
+      `/{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext` is assembled from material a user
+      supplied, and `..` in any one of them walks out of the root. The original name is
+      **truncated to its extension, not sanitised**: the safest handling of an untrusted string
+      is to keep it out of the path entirely, which is what §17's UUID naming already says.
+      **The root is `/var/crm-files`, not `storage/`.** §17 asks for a path *outside the
+      application directory* — not merely outside the web root — and `storage/` sits inside the
+      bind mount. The volume was already there and waiting: `docker-compose.yml` mounts
+      `crm-storage` at `${STORAGE_PATH:-/var/crm-files}` for php and every worker, the Dockerfile
+      creates it 0750 www-data, nginx deliberately does not mount it, and `.env.example` already
+      carried the variable with §17 quoted above it. Found by opening the compose file before
+      writing the config. `serve` is false and there is no `url`, so the disk publishes no route;
+      `throw` is true, because a write that returns false and reports success loses a file that
+      BK-01 then backs up as absent.
+      **The abstraction is scanned, not trusted.** §14.2 says "behind an abstraction layer", and
+      a layer callers may walk around is documentation. One test fails the build if anything in
+      `app/` or `routes/` outside the driver touches the Storage facade or a raw file function;
+      another fails if anything but the binding names the concrete class. **Three of the checks
+      could not have caught anything when first written** — `serve` read as null on a disk that
+      did not exist and null casts to false; a `glob` returning nothing passes a scanner forever;
+      and one scanner searched for `LocalStarageService`, a class that will never exist. All
+      three were found by breaking the code on purpose and watching nothing happen.
+      **Not covered:** `app/Modules/Storage` appears in no layer of `deptrac.modules.yaml` — AP-02
+      names twelve modules and this is not one of them, so a module importing the driver directly
+      reports as *uncovered*, which does not fail the build; the hand-rolled scanner stands in
+      until a thirteenth layer is approved, and a test records the gap. Nothing calls the service
+      yet. `pathinfo` takes an extension and asks nothing about the bytes, so an executable
+      renamed `.pdf` stores successfully until 5.3. `delete()` really deletes — whether a
+      soft-deleted `files` row keeps its bytes is a J-11 question nobody has answered. And one
+      full-suite run failed once, unreproduced across fifteen further runs and three random
+      orders; its name was not captured
 - [ ] **5.3** Upload validation: true MIME, configured size (`D-71`), allowed types (`D-40`)
 - [ ] **5.4** Download endpoint checking permission on the parent entity (`D-38`)
 - [ ] **5.5** Virus scanning on every upload (`SEC-15`)

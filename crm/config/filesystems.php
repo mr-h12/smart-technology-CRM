@@ -49,6 +49,36 @@ return [
             'report' => false,
         ],
 
+        /*
+        | §17 attachments. Private by construction, not by convention.
+        |
+        | `serve` is false and there is no `url`: Laravel 11 will publish a
+        | local disk over /storage when asked, and §17 requires every file to
+        | pass a permission check on its parent entity (D-38) before a byte is
+        | returned. A disk that can be linked to has already lost that argument.
+        |
+        | `throw` is true because the alternative is a write that returns false
+        | and a request that reports success — §17 puts files in the backup set,
+        | which assumes they were written in the first place.
+        |
+        | The root is STORAGE_PATH, which already exists: docker-compose.yml
+        | mounts the named volume `crm-storage` there for php and every worker,
+        | the Dockerfile creates it 0750 www-data, and nginx deliberately does
+        | not mount it at all. §17 asks for a path *outside the application
+        | directory* and that volume is the answer — storage/ would not have
+        | been, since it sits inside the bind mount. Reading it from the
+        | environment also keeps AP-08's config-over-code: moving the root is a
+        | deployment change, not an edit to a class.
+        */
+        'secure_uploads' => [
+            'driver' => 'local',
+            'root' => env('STORAGE_PATH', '/var/crm-files'),
+            'serve' => false,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

@@ -21,11 +21,11 @@ final readonly class StoredFile
         public string $mimeType,
         public int $sizeBytes,
         public StoragePath $path,
-        public string $scanStatus,
+        public ScanStatus $scanStatus,
     ) {}
 
     public function isScannedClean(): bool
     {
-        return $this->scanStatus === 'clean';
+        return $this->scanStatus->isServable();
     }
 }

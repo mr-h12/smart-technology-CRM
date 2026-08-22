@@ -97,6 +97,23 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Restart recovery** (`D-54`) — power down, power up, everything returns on its own
 - [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
 - [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
+- [ ] **ClamAV daemon** (`SEC-15`, `§17`) — added 2026-08-22 with Point 5.5. The application
+      speaks clamd's INSTREAM protocol over TCP and refuses to serve anything whose status is
+      not `clean`, but **there is no clamd in this stack**: `docker-compose.yml` has no such
+      service and the image has no such package. What runs locally and in CI is
+      `EicarSignatureScanner`, which knows one signature — the EICAR test file — and calls
+      everything else clean. It proves the wiring, not the protection. The server still owes:
+      the daemon itself, `freshclam` signature updates and their schedule, a real detection
+      against EICAR through `ClamAvScanner`, and a decision on where clamd runs — the adapter
+      streams the bytes precisely so it need not share the attachment volume
+- [ ] **`STORAGE_PATH` is read by two programs and reconciled by neither** — recorded 2026-08-22
+      with Point 5.5. `docker-compose.yml` mounts the `crm-storage` volume at the root `.env`'s
+      value; `config/filesystems.php` defaults its disk root to the same literal out of
+      `crm/.env`. The php service injects no environment on purpose (two sources of truth once
+      silently defeated `phpunit.xml`), so the two files can disagree and nothing notices: the
+      volume moves, the application keeps writing to the old path inside the container layer,
+      and the attachments vanish on the next `--force-recreate`. Needs either a boot assertion
+      or a single source on the server
 - [ ] **Queue and storage sizing** — blocked on `OD-03` and `OD-05`
 - [ ] **Nginx + SSL, process manager, `/health` per service** — nginx, TLS termination and the
       HTTP→HTTPS redirect now work locally against a self-signed certificate (point 0.6). What the
@@ -453,7 +470,46 @@ surface months later.
       PHP-FPM worker for its duration, with no concurrency limit. Every file stays `pending`
       until 5.5, which means every file is undownloadable regardless of permission. And
       `app/Modules/Storage` is still absent from `deptrac.modules.yaml`, now by four layers
-- [ ] **5.5** Virus scanning on every upload (`SEC-15`)
+- [x] **5.5** Virus scanning on every upload (`SEC-15`). `VirusScannerInterface` takes a stream
+      and answers `Clean` or `Infected` — never a third thing. **"Could not check" is an
+      exception, not a status**: `ScannerUnavailable` propagates, the row stays `pending`, and
+      the file stays undownloadable. An antivirus that is down and reports clean is worse than
+      none, because the column then says the file was examined and every later reader believes
+      it. `ScanStatus` is asserted against the `files_scan_status_check` constraint itself
+      rather than against a copy of the list, because two lists in two files is how they drift.
+      Two drivers. `ClamAvScanner` speaks clamd's **INSTREAM** rather than `SCAN`, so the daemon
+      never needs to see the attachment volume and can live anywhere the network reaches; its
+      detection is **unverified — there is no clamd in this stack** and the item is on the
+      deployment-debt register. `EicarSignatureScanner` knows exactly one signature and a test
+      asserts out loud that it calls everything else clean, so it cannot be mistaken for
+      protection. The EICAR string is assembled at run time in both the scanner and the test:
+      it is designed to be detected, and a repository carrying it whole can trip a developer's
+      own antivirus or a CI cache scan, which looks like a build failure and not at all like
+      its cause.
+      **A verifier that could not fail, caught by breaking it.** Deleting the scanner's
+      chunk-overlap changed nothing: the "buried in a larger file" test put the signature at
+      100 kB, comfortably inside the second 64 KiB read. Five boundary-straddling cases were
+      added, and the same break then failed all five. **And a knob that was never connected:**
+      `FILES_MAX_SIZE_BYTES` went into the *root* `.env.example` in Point 5.1, but Laravel reads
+      `crm/.env` and the php service injects no environment — measured, `env()` never saw it, so
+      "configurable without a code change" was false and the 30 MB default was doing all the
+      work. Moved to `crm/.env.example` and proven live: setting it to 12345 changed
+      `config('files.max_size_bytes')` to 12345.
+      **`app/Modules/Storage` is now in `deptrac.modules.yaml`** — the debt Point 5.2 recorded.
+      Split in two so the boundary means something: `StorageContract` (Domain + Application) is
+      what a module may one day depend on, `StorageDriver` (Infrastructure + Presentation) is
+      what nothing may. Proven by planting `Deals\Application\Probe` on the driver:
+      `DependsOnDisallowedLayer`, deptrac exit code **1**. Coverage went from 0 checked
+      dependencies to 79.
+      **Not covered:** nothing calls the scanner automatically — there is no upload endpoint and
+      no queued job, so `ScanStoredFile` has to be invoked by whatever wires the upload. §17
+      says "on every upload"; today it is "on every call". `ClamAvScanner` has never spoken to a
+      real daemon: the suite proves only that an unreachable one throws. No retry, no backoff
+      and no `J-` number for rescanning — a file whose scan failed stays `pending` until someone
+      calls again. clamd's 25 MB default `StreamMaxLength` is below the 30 MB ceiling (`D-71`)
+      and nothing reconciles them. An infected file's bytes are kept deliberately, and no job
+      sweeps them. And `scan_status` is still a `CHECK` constraint rather than the managed enum
+      table `DB-05` wants, pending `Q-6`
 
 #### Step 6 — audit log as a cross-cutting layer *(provisional — blocked by `Q-3`)*
 

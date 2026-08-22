@@ -8,8 +8,11 @@ use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\Contracts\UploadValidatorInterface;
+use App\Modules\Storage\Domain\Contracts\VirusScannerInterface;
+use App\Modules\Storage\Infrastructure\ClamAvScanner;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use App\Modules\Storage\Infrastructure\DenyAllAttachmentPermission;
+use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
@@ -68,6 +71,23 @@ class AppServiceProvider extends ServiceProvider
         // switch the download endpoint on — and until one of them does, a
         // failing download is the honest report of an unfinished feature.
         $this->app->bind(AttachmentPermissionInterface::class, DenyAllAttachmentPermission::class);
+
+        // SEC-15. `bind` and not `singleton` for the same reason as the
+        // validator: the choice is configuration, and a cached instance would
+        // freeze whichever driver the first resolution happened to see.
+        $this->app->bind(VirusScannerInterface::class, function (): VirusScannerInterface {
+            $config = $this->app->make(ConfigRepository::class);
+
+            if ($config->string('files.scanner') === 'clamav') {
+                return new ClamAvScanner(
+                    $config->string('files.clamav.host'),
+                    $config->integer('files.clamav.port'),
+                    $config->integer('files.clamav.timeout'),
+                );
+            }
+
+            return new EicarSignatureScanner;
+        });
     }
 
     /**

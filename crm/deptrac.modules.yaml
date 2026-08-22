@@ -9,6 +9,17 @@
 # so each crossing is a decision that shows up in a diff rather than a habit
 # that accumulates. ERP-01 expects each module to be extractable later, and a
 # boundary nobody can cross by accident is what makes that possible.
+#
+# Storage is the first such exception, approved 2026-08-22. It is **not** one of
+# AP-02's twelve: §14.2 lists it as a stack row — "local file system behind an
+# abstraction layer" — so it is a foundation capability the business modules
+# consume, not a peer owning a slice of the domain. It is split in two on
+# purpose. A module may later be allowed to depend on StorageContract, which is
+# the interfaces and the use cases; nothing is ever allowed to depend on
+# StorageDriver, which is the disk, the scanner and the HTTP surface. Before
+# this entry existed the module was in no layer at all, so a module reaching
+# straight into the driver was reported as *uncovered* — and uncovered does not
+# fail the build.
 parameters:
   paths:
     - ./app/Modules
@@ -62,6 +73,29 @@ parameters:
         - type: directory
           value: app/Modules/Admin/.*
 
+    - name: StorageContract
+      collectors:
+        - type: directory
+          value: app/Modules/Storage/(Domain|Application)/.*
+
+    - name: StorageDriver
+      collectors:
+        - type: directory
+          value: app/Modules/Storage/(Infrastructure|Presentation)/.*
+
+    # The framework is named here for the same reason it is named in
+    # deptrac.layers.yaml: without it every Illuminate call from a covered class
+    # is an uncovered dependency, and a report full of uncovered lines is a
+    # report nobody reads.
+    - name: Framework
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\.*
+        - type: classLike
+          value: ^Symfony\\.*
+        - type: classLike
+          value: ^Laravel\\.*
+
   ruleset:
     Identity: ~
     Customers: ~
@@ -75,3 +109,12 @@ parameters:
     Notifications: ~
     Audit: ~
     Admin: ~
+    # Contracts may reach the framework but never the driver — the point of the
+    # split. The driver may use its own contracts, which is what implementing
+    # them means.
+    StorageContract:
+      - Framework
+    StorageDriver:
+      - StorageContract
+      - Framework
+    Framework: ~

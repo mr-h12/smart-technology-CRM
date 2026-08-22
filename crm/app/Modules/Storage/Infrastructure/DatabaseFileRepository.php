@@ -7,6 +7,7 @@ namespace App\Modules\Storage\Infrastructure;
 use App\Modules\Storage\Domain\AttachmentLink;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
+use App\Modules\Storage\Domain\ScanStatus;
 use App\Modules\Storage\Domain\StoredFile;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
 use Illuminate\Database\ConnectionInterface;
@@ -39,7 +40,7 @@ final readonly class DatabaseFileRepository implements FileRepositoryInterface
             mimeType: (string) $row->mime_type,           // @phpstan-ignore-line property.nonObject
             sizeBytes: (int) $row->size_bytes,            // @phpstan-ignore-line property.nonObject
             path: StoragePath::fromStored((string) $row->storage_path),   // @phpstan-ignore-line property.nonObject
-            scanStatus: (string) $row->scan_status,       // @phpstan-ignore-line property.nonObject
+            scanStatus: ScanStatus::from((string) $row->scan_status),   // @phpstan-ignore-line property.nonObject
         );
     }
 
@@ -60,5 +61,16 @@ final readonly class DatabaseFileRepository implements FileRepositoryInterface
         }
 
         return $links;
+    }
+
+    public function recordScan(string $fileId, ScanStatus $status): void
+    {
+        $this->connection->table('files')
+            ->where('id', $fileId)
+            ->update([
+                'scan_status' => $status->value,
+                'scanned_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 }

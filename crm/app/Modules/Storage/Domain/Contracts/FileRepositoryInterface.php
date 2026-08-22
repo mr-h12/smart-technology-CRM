@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Storage\Domain\Contracts;
 
 use App\Modules\Storage\Domain\AttachmentLink;
+use App\Modules\Storage\Domain\ScanStatus;
 use App\Modules\Storage\Domain\StoredFile;
 
 /**
@@ -26,4 +27,12 @@ interface FileRepositoryInterface
      * @return list<AttachmentLink>
      */
     public function parentsOf(string $fileId): array;
+
+    /**
+     * Writes the scanner's verdict and the moment it was given (SEC-15).
+     *
+     * Only ever called with an answer. "Could not check" is an exception, not a
+     * status, so nothing here can record a file as examined when it was not.
+     */
+    public function recordScan(string $fileId, ScanStatus $status): void;
 }

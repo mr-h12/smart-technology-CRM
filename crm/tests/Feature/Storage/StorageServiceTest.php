@@ -464,8 +464,12 @@ final class StorageServiceTest extends TestCase
     }
 
     /**
-     * AP-02's rule is that modules talk through interfaces. Nothing enforces it
-     * for this module yet — see the debt test below — so it is enforced here.
+     * AP-02's rule is that modules talk through interfaces.
+     *
+     * deptrac.modules.yaml covers app/Modules/Storage since Point 5.5, so a
+     * *module* naming the driver is now a violation. This still earns its place:
+     * deptrac only looks inside app/Modules, and app/Http, app/Support and
+     * routes are outside it entirely.
      */
     public function test_only_the_container_binding_names_the_concrete_driver(): void
     {
@@ -493,23 +497,6 @@ final class StorageServiceTest extends TestCase
         }
 
         self::assertSame([], $offences, 'Depend on the interface; the implementation is chosen once, in the binding.');
-    }
-
-    /**
-     * The gap this stands in for: `app/Modules/Storage` appears in no layer of
-     * deptrac.modules.yaml, so a module importing the driver directly is
-     * reported as *uncovered* rather than as a violation, and uncovered does not
-     * fail the build. AP-02 names twelve modules and Storage is not one of them
-     * — §14.2 lists it as a stack row — so adding a thirteenth layer is a change
-     * to a documented decision, not a tidy-up. Recorded until it is approved.
-     */
-    public function test_storage_is_not_yet_covered_by_the_module_boundary_config(): void
-    {
-        self::assertStringNotContainsString(
-            'app/Modules/Storage',
-            (string) file_get_contents(self::root().'/deptrac.modules.yaml'),
-            'Storage now has a deptrac layer — delete this debt test and the hand-rolled scanner above it.'
-        );
     }
 
     /**

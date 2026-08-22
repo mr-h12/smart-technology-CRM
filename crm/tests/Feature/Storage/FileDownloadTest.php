@@ -110,6 +110,16 @@ final class FileDownloadTest extends TestCase
                     unlink($file);
                 }
             }
+
+            // Prune what is left. rmdir refuses a non-empty directory, so a
+            // month holding real attachments is untouched — the same guard
+            // StorageServiceTest uses.
+            foreach ($found === false ? [] : $found as $file) {
+                @rmdir(dirname($file));
+                @rmdir(dirname($file, 2));
+                @rmdir(dirname($file, 3));
+                @rmdir(dirname($file, 4));
+            }
         }
 
         parent::tearDown();

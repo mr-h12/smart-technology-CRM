@@ -835,10 +835,47 @@ a property of the mechanism: seed data "versioned and repeatable".
       leaves `Out` and `Asgn` incomparable to `Team`, because declaring an order the specification
       does not state is how a screen gets granted by accident. And no runtime enforces any of
       this yet: it is data, and `SEC-07`'s "enforce at the API" is Module 1
-- [ ] **7.3** Managed lists: sectors, units, service types, delivery terms (`DB-05`) — **blocked
+- [x] **7.3** Currencies, rounding and what an FX rate is, in
+      `app/Modules/Admin/Domain/Money` *(7.3 and 7.4 swapped by the owner 2026-08-22 — currencies
+      first, because `Q-5` still blocks the managed lists)*. Module 2 has no module directory of
+      its own: `AP-02`'s twelve are Identity · Customers · Deals · Quotations · Suppliers · Catalog
+      · Procurement · Outdoor · Reports · Notifications · Audit · Admin, and `§3.11` puts "system
+      settings" and "FX rates" under Administration.
+      **§5.3's table is the whole definition** — EGP rounds to the pound, USD and EUR to the cent
+      (`D-52`) — with rounding switchable off per currency (`D-65`), in which case
+      `final_total = total_before_round` and `rounding_diff = 0`, the same invariant
+      `design/DATABASE.md` writes as `CHECK (rounding_enabled OR rounding_diff = 0)`. The unit is
+      kept when the switch is off, because `D-65` moves a switch beside the unit rather than
+      erasing it. `§5.2`'s worked example is pinned: `8315.9988 → 8316`, diff `0.0012`.
+      **No exchange rate is seeded, and that is the finding.** `§13` screen 5 makes every rate
+      manual and `J-12` alerts when one goes stale; the specification gives no rate values
+      anywhere. `D-09` captures the rate onto a quotation at creation and forbids recomputing it,
+      so a placeholder would not stay a placeholder — it would be frozen onto an issued document as
+      though it were real. The only rate defined is the base against itself, which is an identity
+      rather than a price. **USD and EUR cannot be quoted until the business supplies rates.**
+      **Two assumptions, stated rather than buried.** *EGP is the base currency*: `§13` screen 5
+      names the field and never says which currency fills it — EGP is the company's own, `§5.2`'s
+      example is a pound PO and `§5.3` writes "1 pound", so it is the only reading, but it is a
+      reading. *Rounding starts on*: `§5.3` describes switching it **off** as the edit, which makes
+      on the state it is edited from. *Halves round up*: `§5.2` writes `round(total, unit)` and
+      never says which way a half falls.
+      **`DB-07` is enforced by reading tokens, not by arithmetic — measured.** A float
+      implementation of the rounding passed **every** documented row: PHP prints a double at
+      `precision=14`, so `(float) 0.145 / (float) 0.01` comes back as the string `"14.5"` and the
+      cent is right. It takes a twelve-digit total against the cent — quotient `1e14`, printed
+      `"1.0E+14"`, which BCMath refuses — before arithmetic notices. Both checks now exist: that
+      case, and a scanner that tokenises the namespace and fails on a float literal, a `(float)`
+      cast, or a call to `round()`/`floor()`/`ceil()`/`fdiv()`. PHPStan level 10 forced the rest:
+      BCMath takes `numeric-string`, so `Decimal::of()` validates and every amount is a checked
+      plain decimal — stricter than `is_numeric()`, which accepts `1e5` and leading whitespace.
+      **Not covered:** nothing is seeded — 7.5 carries this into Module 2's `currencies` and
+      `fx_rates` tables, which do not exist. `RoundingRule::apply()` is the currency's own rule and
+      **not** the quotation calculation: `§5.2`'s subtotal, discount, tax base and net amount are
+      Module 7. Rate *history* (`§13` screen 5) and the audit entry on an FX change (`§3.12` rule 4)
+      are Module 2. Nothing converts an amount between currencies yet, and `D-68`'s stated
+      quantisation at scale 6 is inherited, not re-examined
+- [ ] **7.4** Managed lists: sectors, units, service types, delivery terms (`DB-05`) — **blocked
       by `Q-5`**
-- [ ] **7.4** Currencies with rounding unit and on/off (`D-52`, `D-65`), plus FX rates captured and
-      never recomputed (`D-09`), at `D-68` precision
 - [ ] **7.5** One test user per role (`DEV-08`), the wiring proved from definition to module
       seeder, and Step 7 closed with the deferral recorded
 

@@ -39,6 +39,18 @@ jobs:
       contents: read
       packages: write
 
+    # GitHub already runs each `run:` under `bash -e`, so a failing command in
+    # an outer block stops the step. pipefail is what it does not give: without
+    # it, `a | b` reports only b's status, so a failing producer in a pipeline
+    # is invisible. Named here rather than assumed.
+    #
+    # This does NOT reach inside `docker run … sh -c '…'`. That inner script is
+    # a separate shell with its own settings, which is why each one below sets
+    # `set -e` for itself.
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -89,7 +101,8 @@ jobs:
       # README is one refactor away from not existing. ERP-01 expects each
       # module to be extractable later, which only holds if nothing has quietly
       # reached across in the meantime. Both rule sets were confirmed to fail on
-      # a deliberate violation before being trusted here.
+      # a deliberate violation — and, since the `set -e` fix below, that failure
+      # is confirmed to fail the build too, which is a separate claim.
       #
       # Runs after the app image is built, inside it: vendor/ is gitignored, so
       # the dependencies have to be installed here, and doing it in the app
@@ -99,11 +112,27 @@ jobs:
       # Architecture, style and types in one pass, because they share the
       # composer install. DEV-10 asks for automated linting; Coding Standards §5
       # asks for strict typing with no untyped escape hatches, which is what
-      # PHPStan at level 10 enforces. All three were confirmed to fail on
-      # deliberately bad code before being trusted here.
+      # PHPStan at level 10 enforces.
+      #
+      # `set -e` is the load-bearing line, and it is here because it was missing.
+      # Every command below used to run in an `sh -c` script whose last statement
+      # was `echo "::endgroup::"` — so the script always exited 0 and the step
+      # always passed, whatever deptrac, pint or PHPStan said. Each tool had been
+      # confirmed to fail on deliberately bad code; nothing had confirmed that
+      # its failure reached the build. It did not. Run 32541862168 passed with
+      # PHPStan reporting `[ERROR] Found 1 error` inside this very step.
+      #
+      # --memory-limit=1G because the runner has 2 vCPUs. PHPStan splits the
+      # analysis across one worker per core, so two workers each carry roughly
+      # five times what a ten-core machine gives them, and 256M — the image
+      # default — is not enough. Measured at 2 CPUs with a cold cache: 256M
+      # crashes, 384M passes. 1G is headroom for fifteen more modules, on a
+      # runner with 16 GB.
       - name: Architecture, style and static analysis
         run: |
           docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
+            set -e
+
             composer install --no-interaction --no-progress --prefer-dist --quiet
 
             echo "::group::deptrac — layer boundaries (AP-03)"
@@ -119,7 +148,7 @@ jobs:
             echo "::endgroup::"
 
             echo "::group::phpstan level 10 — types (Coding Standards §5)"
-            ./vendor/bin/phpstan analyse --no-progress
+            ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G
             echo "::endgroup::"
           '
 
@@ -130,6 +159,8 @@ jobs:
       - name: Type-check and build the frontend
         run: |
           docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim sh -c '
+            set -e
+
             npm ci --no-audit --no-fund
             npm run build
           '
@@ -155,6 +186,8 @@ jobs:
           docker run --rm --link ci-postgres:postgres \
             -e DB_PASSWORD=ci \
             -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
+              set -e
+
               cp -n .env.example .env 2>/dev/null || true
               php artisan key:generate --force --quiet
 

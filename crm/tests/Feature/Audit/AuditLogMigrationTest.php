@@ -331,7 +331,7 @@ final class AuditLogMigrationTest extends TestCase
         // session so the offset has something to be load-bearing against.
         DB::statement("SET TimeZone = 'Asia/Riyadh'");
 
-        Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
+        Artisan::call('migrate:reset', ['--force' => true]);
         Artisan::call('migrate', ['--force' => true]);
 
         // Read it back as UTC. pg_get_expr renders a timestamptz bound in the
@@ -430,9 +430,16 @@ final class AuditLogMigrationTest extends TestCase
 
     public function test_down_drops_every_partition_and_the_parent(): void
     {
+        // migrate:reset, not `migrate:rollback --step 1`. For rollback, --step
+        // is a count of MIGRATIONS, not batches, so `--step 1` reverts only the
+        // newest one — and these tests passed only because audit_log happened
+        // to be it. Point 6.2 added a migration on top and both down tests went
+        // red without either down() having changed. A test whose meaning
+        // depends on nothing else being added after it is a test with a
+        // shelf life.
         self::assertNotSame([], self::partitions());
 
-        Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         self::assertFalse(Schema::hasTable(self::TABLE), 'down() must drop the parent.');
         self::assertSame([], self::tablesNamedLikeAuditLog(),
@@ -459,7 +466,7 @@ final class AuditLogMigrationTest extends TestCase
 
         self::assertContains('audit_log_2099_01', self::partitions());
 
-        Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         self::assertSame([], self::tablesNamedLikeAuditLog());
     }

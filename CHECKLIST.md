@@ -114,6 +114,14 @@ every "are we ready to ship" conversation — not at the end.
       volume moves, the application keeps writing to the old path inside the container layer,
       and the attachments vanish on the next `--force-recreate`. Needs either a boot assertion
       or a single source on the server
+- [ ] **A non-superuser database role for the application** (`AUD-03`, `D-30`) — recorded
+      2026-08-22 with Point 6.2. The application connects as `crm`, and `rolsuper` is `t` —
+      measured. The append-only triggers on `audit_log` refuse `UPDATE`, `DELETE` and
+      `TRUNCATE`, but a superuser can `ALTER TABLE ... DISABLE TRIGGER` or `DROP TABLE` and
+      no trigger can object, so what is enforced today is protection from accidents and
+      application bugs rather than from a deliberate hand. The server owes an application
+      role that owns nothing, has `INSERT` and `SELECT` on `audit_log` and no more, and a
+      separate migration role used only during deployment
 - [ ] **Queue and storage sizing** — blocked on `OD-03` and `OD-05`
 - [ ] **Nginx + SSL, process manager, `/health` per service** — nginx, TLS termination and the
       HTTP→HTTPS redirect now work locally against a self-signed certificate (point 0.6). What the
@@ -557,13 +565,44 @@ surface months later.
       not by the column. Immutability is **not enforced yet**: `UPDATE` and `DELETE` both
       work on this table today, and that is 6.2. And only two months are seeded, so **once
       2026-09 elapses every row lands in `DEFAULT`** until `J-15` exists (6.3)
-- [ ] **6.2** Immutability enforced at the database, not by convention (`AUD-03`, `D-30`).
-      Moved ahead of the writer deliberately: the guard belongs in place before there is
-      anything to guard. Measured groundwork — a row trigger declared on the parent
-      propagates to partitions and blocks `UPDATE`/`DELETE` even when aimed straight at one,
-      but a statement-level `BEFORE TRUNCATE` trigger **does not** propagate, and the
-      application's database role is a **superuser**, so nothing in-database stops a
-      `DROP TABLE`. That ceiling is real and gets recorded rather than implied
+- [x] **6.2** Immutability enforced at the database, not by convention (`AUD-03`, `D-30`).
+      Ahead of the writer deliberately: a guard installed after there is something to protect
+      has already been unnecessary for a while. One plpgsql function, three placements, and
+      the split between them is measured rather than chosen. **`UPDATE` and `DELETE` — one
+      row trigger on the parent**, because a row trigger on a partitioned table is enforced
+      on its partitions too, including against a statement aimed straight at one, and
+      PostgreSQL clones it onto partitions created *afterwards* — so `J-15` inherits this half
+      for free. **`TRUNCATE` — one statement trigger per relation**, because that kind does
+      not propagate in either direction. **Nothing stops `DROP TABLE`**, and the application
+      connects as a PostgreSQL superuser, so this closes the accident and the application
+      bug, not the deliberate superuser; the non-superuser role is now on the deployment-debt
+      register.
+      **A custom SQLSTATE, `AUD03`**, not plpgsql's default `P0001`. `P0001` is what every
+      `RAISE EXCEPTION` in the system will eventually produce, so a test pinned to it would
+      keep passing after it stopped meaning anything. Verified to reach PHP intact as
+      `QueryException::getCode()`. Measured on the real database: `UPDATE`, `DELETE`,
+      `TRUNCATE` of the parent and `TRUNCATE` of a partition directly all answer
+      `AUD03: audit_log is append-only: <OP> is refused (AUD-03, D-30)`, and the row survives.
+      **Three defects this point uncovered, none of them in the guard itself.** `sprintf()`
+      and plpgsql's `RAISE` both claim `%`, so the migration died before any SQL ran —
+      "3 arguments are required, 2 given". Then `migrate:fresh` turned out to drop tables but
+      **not functions**, so the orphaned function collided on the *second* run of the suite
+      with SQLSTATE 42723 and took 137 tests down with it; `CREATE OR REPLACE` closes that,
+      and the suite now runs twice in a row. And **`migrate:rollback --step` counts
+      migrations, not batches**, so Point 6.1's two down tests were quietly coupled to
+      `audit_log` being the newest migration — adding this one turned both red without either
+      `down()` having changed. They use `migrate:reset` now.
+      One more false green caught at RED: the rollback test passed against a database where
+      the function had never existed, because "no such function" and "down() removed it" look
+      identical from the far side.
+      **Not covered:** a partition created **after** this migration has no `TRUNCATE` guard
+      until `J-15` arms it — the hole is asserted by
+      `test_a_partition_created_after_the_guard_is_not_yet_truncate_guarded`, which Point 6.3
+      must *invert* rather than delete. An `UPDATE` matching no rows is a silent no-op,
+      because a row trigger has no row to fire on; nothing was changed, but a reader probing
+      with a `WHERE` that matches nothing gets silence. Nothing writes to the table yet (6.4).
+      And an `ALTER TABLE ... DISABLE TRIGGER`, like `DROP TABLE`, is beyond what any trigger
+      can refuse
 - [ ] **6.3** `J-15 ensure_audit_partitions` — creates months ahead, installs the `TRUNCATE`
       guard on each new partition, and asserts `audit_log_default` is empty. A fifteenth job
       is an addition to `§15`, which calls itself the single reference list, so the row goes

@@ -69,7 +69,17 @@ return [
         'redis' => [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => env('REDIS_QUEUE', 'default'),
+            // NOT Laravel's 'default'. §15.1 has four queues and four worker
+            // services drain exactly those; a queue named `default` has a
+            // producer and no consumer, so a job dispatched without ->onQueue()
+            // would be accepted, stored, and never run — silent on both sides.
+            //
+            // `maintenance` rather than `critical` because the choice is an
+            // interpretation, not a documented value, and this is the direction
+            // whose failure is survivable: an unclassified job runs late.
+            // Defaulting to `critical` would let forgotten annotations pile up
+            // on the queue whose whole purpose is recovery and system health.
+            'queue' => env('REDIS_QUEUE', 'maintenance'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
             'after_commit' => false,
@@ -126,6 +136,34 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | The Four Queues (§15.1)
+    |--------------------------------------------------------------------------
+    |
+    | Not a Laravel key — this project's. §15.1 names four queues and gives
+    | them a priority order, and docker-compose.yml runs one worker service per
+    | queue so that priority is backed by separated capacity rather than by
+    | intention. The order below IS that priority: 1 critical, 2 pdf,
+    | 3 reports, 4 maintenance.
+    |
+    | Here rather than in a class because AP-08 is configuration over code.
+    | App\Support\Queue\QueueName is the typed way to name one at a call site;
+    | QueueConfigurationTest asserts the two agree and that a worker in
+    | docker-compose.yml drains each one, because nothing else connects a PHP
+    | string to a `--queue=` flag in another file.
+    |
+    */
+
+    'crm' => [
+        'queues' => [
+            'critical',      // 1 — recovery · system health
+            'pdf',           // 2 — PDF generation (PRF-04)
+            'reports',       // 3 — report generation
+            'maintenance',   // 4 — cleanup · indexing · aggregates
+        ],
     ],
 
 ];

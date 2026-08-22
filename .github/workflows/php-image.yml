@@ -183,9 +183,16 @@ jobs:
 
           # .env.example leaves DB_PASSWORD blank on purpose — the compose stack
           # supplies it — so the value has to be given explicitly here.
+          # docker-compose.yml is mounted because QueueConfigurationTest reads
+          # it: the queue names in config/queue.php and the `--queue=` flags on
+          # the worker services live in two files that never see each other,
+          # and only a check that reads both can catch them drifting. It fails
+          # rather than skips when absent, so this mount is not optional.
           docker run --rm --link ci-postgres:postgres \
             -e DB_PASSWORD=ci \
-            -v "$PWD/crm:/app" -w /app --user root crm-php:ci-app sh -c '
+            -v "$PWD/crm:/app" \
+            -v "$PWD/docker-compose.yml:/opt/crm/docker-compose.yml:ro" \
+            -w /app --user root crm-php:ci-app sh -c '
               set -e
 
               cp -n .env.example .env 2>/dev/null || true

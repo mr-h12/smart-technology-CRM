@@ -952,6 +952,62 @@ none of them. What it is not, is *seeded*: every table `DEV-08` names belongs to
 Module 2 (approved Option C), and three business facts are deliberately absent because no document
 supplies them — **the USD and EUR exchange rates, the delivery terms, and the test-user password**.
 
+#### Step 8 — queue and jobs infrastructure *(point order approved 2026-08-23)*
+
+**This step has no number in the build plan, and that is why it was nearly missed.** The plan gives
+Module 0 seven bullets; `CHECKLIST` numbered them, and the first bullet — "project structure ·
+database connection · migration tooling" — was split across Steps 1 and 2. Seven bullets over eight
+units of work, and the one left without a number is the sixth: **"Queue + jobs infrastructure — the
+four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 500 ms` comes from
+`§14.5`, not from the build plan.
+
+- [x] **8.1** The four queue names in one place, checked against the services that drain them, and
+      the workers off their profile gate.
+      **The defect this closes is a queue with a producer and no consumer.** A queue name is a
+      string in two files that never see each other: PHP dispatches to it, and a `--queue=` flag in
+      `docker-compose.yml` drains it. Nothing connected them, so a typo on either side would not
+      fail — it would leave jobs sitting in Redis looking exactly like jobs that have not run yet.
+      `config/queue.php` now carries the four names in `§15.1`'s priority order (`AP-08`,
+      configuration over code), `App\Support\Queue\QueueName` is the typed way to name one at a
+      call site, and `QueueConfigurationTest` asserts the enum, the config and every worker command
+      agree — plus `--tries` on each (`§15.1`: a fixed retry count, then `Failed`) and
+      `service_healthy` on Redis and PostgreSQL (`ST-03`).
+      **`docker-compose.yml` is not inside the bind mount** — the mount is `./crm`, the compose
+      file is its parent's — so PHP simply could not see it. Checked in the container, not assumed.
+      It is now mounted read-only at `/opt/crm/docker-compose.yml` for the php service and for the
+      CI test container. **When it is absent the checks fail rather than skip**, proved by
+      breaking it: 15 failures, 0 skipped. A cross-file check that quietly stops running is worse
+      than no check, because the file still reads green.
+      **The profile gate is gone.** It existed because `artisan` did not, and its own comment said
+      to remove it "when the application lands" — which was step 1. `ST-01` requires every service
+      enabled on boot with no manual startup, and `docker compose up -d` now brings all four
+      workers up, verified by `docker inspect` reading back the four commands.
+      **One value is an interpretation and is labelled as such.** Laravel's redis connection falls
+      back to a queue literally named `default`, which no worker drains — a silent black hole the
+      moment anything dispatches without `->onQueue()`. No document names a default, so the choice
+      is mine: `maintenance`, the lowest of the four, because an unclassified job running late is
+      survivable and one congesting `critical` — recovery and system health — is not.
+      **A published sentence is now wrong.** The `D-72` note under `§15.1` reads "the worker
+      services sit behind a compose profile that is off by default". Its conclusion still holds —
+      `J-15` stays in the scheduler while Horizon and Queue Monitor do not exist — but the premise
+      is false as of this point. `CRM_Documentation_EN.md` is hook-protected, so the correction is
+      on the debt register rather than applied.
+      **Not covered:** no job exists. Nothing has ever been dispatched or executed, so this proves
+      the wiring is *consistent*, not that it *runs* — 8.2 is what proves that. The workers were
+      started, but nothing was observed draining. `QueueName` lives in `app/Support`, which is
+      outside both `deptrac` configs' `paths`, so neither counter moved and neither covers it.
+      Horizon is still not installed, so `OBS-02` and `OBS-03` have no screen
+- [ ] **8.2** A real job, dispatched to each of the four queues and observed executing against
+      real Redis and real workers — not `Queue::fake`, which would prove Laravel works rather than
+      that the queue does. Closes "a test job executes from the queue"
+- [ ] **8.3** App · frontend · database proved connected end to end. `/ping` does not query the
+      database, so it cannot answer this alone; `/health` stays deferred by the decision recorded
+      in `routes/api.php` (`ST-08`), owner-approved 2026-08-23
+- [ ] **8.4** `PRF-01` measured — `P95 < 500 ms` — with the method written down: how many requests,
+      against which endpoint, from where, and with which caches warm
+- [ ] **8.5** Module 0 closed: the remaining test rows ticked, Step 8 shut, and everything still
+      owed recorded as debt — `P-02`, `OD-03`, and the `D-73` and `D-72` rows in the master log
+
 **Tests**
 - [ ] App runs · frontend talks to backend · database connects
 - [x] Switching language flips direction — asserted server-side by `SpaShellTest` and confirmed

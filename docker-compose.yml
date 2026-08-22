@@ -15,17 +15,20 @@
 # Everyday use starts PostgreSQL and Redis only:
 #     docker compose up -d
 #
-# Three profiles exist, none active by default:
+# That starts the four queue workers too, since point 8.1 removed their profile
+# gate — ST-01 wants every service enabled on boot.
+#
+# Two profiles remain, neither active by default:
 #     docker compose --profile search up -d                  # Meilisearch, Module 15 work
-#     docker compose --profile workers up -d                 # queue workers, from step 1 on
 #     docker compose --profile verify up boot-order-probe    # prove the ST-02 chain
 #
 # WARNING: `docker compose down` does NOT stop services whose profile is
 # inactive, so a profiled container survives a teardown and is easy to mistake
 # for a fresh one. Tearing down needs EVERY profile named — and this line is a
 # maintenance hazard: it silently became wrong the moment `workers` was added
-# in point 0.7, so extend it whenever a profile is added.
-#     docker compose --profile search --profile workers --profile verify down
+# in point 0.7, and again when 8.1 removed it, so revisit it whenever a profile
+# changes.
+#     docker compose --profile search --profile verify down
 name: crm
 
 services:
@@ -178,6 +181,13 @@ services:
       # §17: attachments live outside the application directory. Not mounted
       # into nginx, on purpose — see that service.
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
+      # This file, read-only, so QueueConfigurationTest can check that every
+      # queue the application dispatches to has a worker draining it. The bind
+      # mount above is ./crm, and this file is its parent's, so without this it
+      # is simply not visible from PHP — checked, not assumed. Read-only
+      # because a test has no business writing the stack definition. The CI
+      # test container mounts it at the same path.
+      - ./docker-compose.yml:/opt/crm/docker-compose.yml:ro
     healthcheck:
       # php-fpm answers FastCGI, not HTTP, so a status page would need a pool
       # config change. Checking the CLI proves the runtime is alive without
@@ -205,16 +215,22 @@ services:
   # PRF-04 puts PDF generation on this queue and nowhere else, so the other
   # three run ~1.3 GB lighter.
   #
-  # ⚠️ Profile-gated until step 1. The commands below are the real ones, and
-  # `artisan` does not exist yet — without the profile these would crash-loop
-  # against a missing file and make the stack look broken. Remove `profiles`
-  # when the application lands.
+  # The profile gate is gone (point 8.1). It existed because `artisan` did not,
+  # and the workers would have crash-looped against a missing file; the
+  # application landed in step 1. ST-01 requires every service enabled on boot
+  # with no manual startup, and a queue whose worker is opt-in is a queue that
+  # accepts jobs and never runs them.
+  #
+  # This invalidates the premise of the D-72 note under §15.1, which reads
+  # "the worker services sit behind a compose profile that is off by default".
+  # Its conclusion still holds — J-15 stays in the scheduler while Horizon and
+  # Queue Monitor do not exist — but the sentence is now wrong. The master
+  # document is hook-protected, so the correction is on the debt register.
 
   worker-critical:
     build: { context: docker/php, dockerfile: Dockerfile, target: app }
     image: crm-php:app
     container_name: crm-worker-critical
-    profiles: [workers]
     restart: unless-stopped
     depends_on:
       redis: { condition: service_healthy }
@@ -239,7 +255,6 @@ services:
     build: { context: docker/php, dockerfile: Dockerfile, target: pdf }
     image: crm-php:pdf
     container_name: crm-worker-pdf
-    profiles: [workers]
     restart: unless-stopped
     depends_on:
       redis: { condition: service_healthy }
@@ -256,7 +271,6 @@ services:
     build: { context: docker/php, dockerfile: Dockerfile, target: app }
     image: crm-php:app
     container_name: crm-worker-reports
-    profiles: [workers]
     restart: unless-stopped
     depends_on:
       redis: { condition: service_healthy }
@@ -273,7 +287,6 @@ services:
     build: { context: docker/php, dockerfile: Dockerfile, target: app }
     image: crm-php:app
     container_name: crm-worker-maintenance
-    profiles: [workers]
     restart: unless-stopped
     depends_on:
       redis: { condition: service_healthy }

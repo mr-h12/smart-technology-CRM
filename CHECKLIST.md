@@ -268,7 +268,26 @@ surface months later.
       `-ml-px`, `mr-6`, `pl-4`, `pr-2.5` and `text-right` and is already a Tailwind source, so
       the first §5.2 table inherits a paginator that does not mirror; navigation deliberately
       lists only routes that exist, since §5.1 forbids showing what cannot be reached
-- [ ] **4.3** Theme persisted, applied before first paint, no flash
+- [x] **4.3** Theme persisted, applied before first paint, no flash. An inline, synchronous
+      script in `welcome.blade.php` above `@vite` reads the preference and sets `data-theme`
+      before anything paints; `theme.ts` writes it on switch. Only the two non-default themes
+      set an attribute — §3.1 makes Odoo-inspired the default and `tokens.css` puts it on
+      `:root`, so "no attribute" is already right. The stored value is checked against a fixed
+      list rather than trusted: `localStorage` is writable by anything on this origin and this
+      script's whole job is to move a value from there into the document.
+      **The flash did not reproduce on a developer machine.** On a warm LAN the naive version —
+      theme applied from the Vue bundle — painted correctly too, because 202 kB of JavaScript
+      arrived before the browser painted at all. Throttled to 400 kbps with the cache emptied,
+      the same page painted at 2552ms with no `data-theme` and a canvas of `rgb(248, 248, 249)`,
+      turning dark only at 5748ms: **3.2 seconds of the wrong theme**. With the inline script it
+      painted dark at 2564ms. **Two assumptions the measurement killed:** `defer` and
+      `type="module"` were expected to reintroduce the flash and neither did — they fetch
+      nothing, and `defer`/`async` are ignored outright on a classic inline script. The property
+      that matters is the absence of a network fetch, and the test says so.
+      **Not covered:** `§9.1` requires the preference to persist *for the account* into the next
+      session, and there is no account until Module 1 — this stores per browser, so the flash
+      requirement is met and the account requirement is a debt. Nothing in CI re-measures the
+      flash: a regression that keeps the ordering but moves the work elsewhere would pass
 - [ ] **4.4** Loading, empty, error and permission-denied states as base components
 
 #### Step 5 — storage abstraction and `files` *(provisional — blocked by `Q-2`)*

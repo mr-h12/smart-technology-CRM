@@ -16,7 +16,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { setLocale, SUPPORTED, type Locale } from '@/i18n';
-import { applyTheme, currentTheme, THEMES, type Theme } from '@/theme';
+import { currentTheme, setTheme, THEMES, type Theme } from '@/theme';
 
 defineProps<{
     /** Drawer state, so the control can announce what it does. */
@@ -45,7 +45,9 @@ function chooseLocale(next: Locale): void {
 }
 
 function chooseTheme(next: Theme): void {
-    applyTheme(next);
+    // Applies and remembers. The pre-paint script in welcome.blade.php reads
+    // what this writes, which is what makes the choice survive a reload (§3.1).
+    setTheme(next);
 }
 
 function themeLabel(theme: Theme): string {

@@ -386,7 +386,37 @@ surface months later.
       soft-deleted `files` row keeps its bytes is a J-11 question nobody has answered. And one
       full-suite run failed once, unreproduced across fifteen further runs and three random
       orders; its name was not captured
-- [ ] **5.3** Upload validation: true MIME, configured size (`D-71`), allowed types (`D-40`)
+- [x] **5.3** Upload validation: true MIME, configured size (`D-71`), allowed types (`D-40`).
+      `UploadValidatorInterface` asks three questions in order, because each only means anything
+      if the one before it held: is there a file of a sane size, is it a type we accept, is it
+      whole. **The interface takes a path and no filename.** A browser controls the name and the
+      `Content-Type` header it sends with it; passing either in would create somewhere for them
+      to be trusted, so neither is passed in, and the extension a file is stored under comes back
+      out of the detected type instead.
+      **Nothing here was assumed about libmagic; all of it was measured in this image (file-5.44).**
+      DOCX and XLSX are zips, and libmagic separates them from `application/zip` by reading the
+      entry names inside — so a renamed archive does not become a Word document, and 8 KB of head
+      identifies a 26 MB DOCX correctly, which is why the whole file is never read into a string.
+      A GIF is refused: `D-40` writes "images" in shorthand and §17 enumerates three, so three is
+      the number. Type detection says nothing about completeness — libmagic calls a 40-byte
+      fragment of a JPEG a JPEG — so each family gets a second check: `%%EOF` for a PDF,
+      `getimagesize()` for an image, an openable archive for OOXML.
+      **A fourth false-green verifier, and the worst of them.** `Lang::has($key, 'ar')` falls back
+      to English by default — the third argument is `$fallback` and it is `true` — so deleting the
+      entire Arabic message left the translation test green. It now passes `false`, and the break
+      was repeated to watch it fail. **And one code comment claimed more than was proven:**
+      dropping `ZipArchive::CHECKCONS` changed nothing, because a truncated archive is refused by
+      a plain open too (`ER_NOZIP`). The flag stays, the comment now says its extra strictness is
+      untested rather than implying otherwise.
+      **Not covered:** the validator exists and **nothing calls it** — there is no upload endpoint,
+      so a hostile file is refused only if it is routed through here, and nothing forces that until
+      5.4. `LocalStorageService::store()` still takes its extension from the untrusted name, so
+      5.4 must pass the detected type in. Corruption is detected partially, never wholly: `%%EOF`
+      present does not make a PDF valid, `getimagesize` reads a header, and a consistent zip may
+      hold broken XML. No zip-bomb ratio check. A DOCX from a producer that orders archive entries
+      unusually reads as `application/zip` and is refused — safe, but a refusal of a good file.
+      `SEC-15` still has no virus scanner. And the two lang files sit under `lang/`, which pint and
+      PHPStan both exclude
 - [ ] **5.4** Download endpoint checking permission on the parent entity (`D-38`)
 - [ ] **5.5** Virus scanning on every upload (`SEC-15`)
 

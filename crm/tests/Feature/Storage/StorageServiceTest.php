@@ -397,6 +397,12 @@ final class StorageServiceTest extends TestCase
             'mkdir(',
             'rmdir(',
             'storeAs(',
+            // Reading a file to inspect it is still reading a file (Point 5.3).
+            'filesize(',
+            'getimagesize(',
+            'finfo_open(',
+            'mime_content_type(',
+            'new ZipArchive',
         ];
 
         $offences = [];
@@ -447,12 +453,16 @@ final class StorageServiceTest extends TestCase
                 }
             }
 
-            if (str_contains(self::withoutComments((string) file_get_contents($file)), 'LocalStorageService')) {
-                $offences[] = str_replace(self::root().'/', '', $file);
+            $source = self::withoutComments((string) file_get_contents($file));
+
+            foreach (['LocalStorageService', 'FinfoUploadValidator'] as $concrete) {
+                if (str_contains($source, $concrete)) {
+                    $offences[] = str_replace(self::root().'/', '', $file).' → '.$concrete;
+                }
             }
         }
 
-        self::assertSame([], $offences, 'Depend on StorageServiceInterface; the driver is chosen once, in the binding.');
+        self::assertSame([], $offences, 'Depend on the interface; the implementation is chosen once, in the binding.');
     }
 
     /**

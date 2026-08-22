@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
+use App\Modules\Storage\Domain\Contracts\UploadValidatorInterface;
+use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
+use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +33,20 @@ class AppServiceProvider extends ServiceProvider
             StorageServiceInterface::class,
             fn (): LocalStorageService => new LocalStorageService(
                 $this->app->make(FilesystemFactory::class)->disk('secure_uploads'),
+            ),
+        );
+
+        // bind, not singleton: the ceiling is configuration (D-71, AP-08), and a
+        // singleton would freeze whatever it read the first time. Module 2 moves
+        // the value into the settings table, where it changes while the process
+        // is running — a cached copy would then be silently stale.
+        $this->app->bind(
+            UploadValidatorInterface::class,
+            fn (): FinfoUploadValidator => new FinfoUploadValidator(
+                // ->integer() rather than ->get() with a cast: the cast is where a
+                // misconfigured string quietly becomes 0, and a ceiling of 0
+                // rejects every upload with a message about size.
+                $this->app->make(ConfigRepository::class)->integer('files.max_size_bytes'),
             ),
         );
     }

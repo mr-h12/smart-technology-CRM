@@ -749,13 +749,65 @@ the database (`AUD-03`), kept supplied with months by `J-15`, written through on
 (`AUD-02`, `AUD-05`), and defended by a build-failing boundary. What it is not, yet, is *used*:
 no module records anything, because no module mutates anything.
 
-#### Step 7 — seed data *(provisional)*
+#### Step 7 — seed data *(path and point order approved 2026-08-22)*
 
-- [ ] **7.1** Roles and permissions as `resource.action.scope` data (`SEC-07`)
-- [ ] **7.2** Managed lists: sectors, units, service types, delivery terms (`DB-05`)
-- [ ] **7.3** Currencies with rounding unit and on/off (`D-52`, `D-65`), and FX rates
-- [ ] **7.4** One test user per role (`DEV-08`)
-- [ ] **7.5** Seeding repeatable and idempotent (Coding Standards §7)
+**The structural finding that set this order.** Not one table `DEV-08` names exists. `roles`,
+`permissions`, `role_permissions` and `users` belong to Module 1; `enum_lists`, `currencies` and
+`fx_rates` to Module 2 (`design/DATABASE.md` §4, §5). The `users` table that *does* exist is
+Laravel's scaffold, which §4 says is **replaced** in Module 1 rather than extended — bigint key
+against `D-61`, no `deleted_at` against `DB-01`, no `created_by` against `DB-02`. Seeding rows into
+it would seed a table on its way out. Two open questions compound it: **`Q-4`** (does `users` keep
+`email_verified_at`) and **`Q-5`** (one `enum_lists` table or one per list, assigned to Module 2).
+
+So Module 0 delivers the **mechanism and the canonical definitions**; the seeders that insert rows
+land with their tables in Modules 1 and 2. That is the same shape as Step 6 — the layer exists here,
+and it is empty until the modules that need it arrive. `Coding Standards §7`'s actual requirement is
+a property of the mechanism: seed data "versioned and repeatable".
+
+- [x] **7.1** What a seeder is allowed to be in this project. `GuardedSeeder` is the only base a
+      seeder extends and its `run()` is **`final`** — the sole extension point is `seed()`, so
+      reaching it means the environment check already happened. A guard a subclass can forget to
+      call is a guard that will be forgotten.
+      **The guard is selective, and that is the requirement, not a nicety.** `DEV-08` lists test
+      users beside roles, permissions, managed lists and currencies — and the last four are exactly
+      what a fresh *production* database needs on day one. So `seedsTestData()` decides, and two
+      tests hold both edges: fixtures refused in production, reference data still seeding there.
+      It reads **both** `$app->environment()` and `config('app.env')`, because
+      `TestingDatabaseGuard` was written after those two disagreed and let a run call itself
+      testing while pointed at the development database.
+      **Idempotency is measured, not declared.** The runner snapshots every table in the schema —
+      row count plus an order-independent `md5(string_agg(t::text ORDER BY t::text))`, partitions
+      excluded so `audit_log` is not counted twice — then runs, snapshots, runs again, snapshots.
+      Its load-bearing assertion is the unobvious one: **the first run must have changed
+      something**, because a seeder that does nothing is perfectly idempotent and so is a snapshot
+      that reads nothing. Three companion tests run the verifier against deliberately broken
+      seeders and assert it rejects them.
+      **Laravel's scaffold is gone**: `DatabaseSeeder` no longer creates `test@example.com`, proved
+      behaviourally by seeding an empty database and counting `users`.
+      **Two verifiers that could not fail were found by breaking them.** The stand-in written to be
+      non-idempotent upserted a counter back to `0` before incrementing it, landing on `1` every
+      run — broken by design, correct by accident. And the `users` assertion passed with the
+      scaffold restored: `PendingCommand::assertSuccessful()` only *records* an expected exit code
+      and returns `$this`; the command runs in `__destruct()`, which the PHPStan fix had pushed
+      past the count. `->run()` executes it where it is written.
+      **Not covered:** no row is seeded anywhere — this is the mechanism, and 7.2 to 7.5 are the
+      definitions it will carry. `app/Support/Seeding` sits outside `./app/Modules`, so **deptrac
+      does not police it** (122 and 103 allowed dependencies, unchanged); it is beside
+      `app/Support/Database` because it is framework-level infrastructure, not a business module.
+      `database/seeders` is deliberately **not** added to Point 6.5's "nothing outside a module
+      writes to the database" list — a seeder must write, and the contract is what makes that write
+      legitimate instead of unexamined. Nothing checks that a seeder's writes are transactional,
+      and nothing yet audits them: a seed run has no actor, and `AUD-01` is about user operations
+- [ ] **7.2** Roles and the `resource.action.scope` matrix as canonical data (`SEC-07`, `§3.1`,
+      `§3.3`–`§3.11`) — 9 sections, 57 rows, 8 roles, 5 scopes. Super Admin holds unconditional
+      full scope and stays hidden (`§3.12` rule 6); `§3.10`'s "Sales" column covers both Indoor
+      and Outdoor Sales *(both clarified by the owner 2026-08-22)*
+- [ ] **7.3** Managed lists: sectors, units, service types, delivery terms (`DB-05`) — **blocked
+      by `Q-5`**
+- [ ] **7.4** Currencies with rounding unit and on/off (`D-52`, `D-65`), plus FX rates captured and
+      never recomputed (`D-09`), at `D-68` precision
+- [ ] **7.5** One test user per role (`DEV-08`), the wiring proved from definition to module
+      seeder, and Step 7 closed with the deferral recorded
 
 **Tests**
 - [ ] App runs · frontend talks to backend · database connects

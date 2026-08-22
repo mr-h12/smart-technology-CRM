@@ -798,10 +798,43 @@ a property of the mechanism: seed data "versioned and repeatable".
       writes to the database" list — a seeder must write, and the contract is what makes that write
       legitimate instead of unexamined. Nothing checks that a seeder's writes are transactional,
       and nothing yet audits them: a seed run has no actor, and `AUD-01` is about user operations
-- [ ] **7.2** Roles and the `resource.action.scope` matrix as canonical data (`SEC-07`, `§3.1`,
-      `§3.3`–`§3.11`) — 9 sections, 57 rows, 8 roles, 5 scopes. Super Admin holds unconditional
-      full scope and stays hidden (`§3.12` rule 6); `§3.10`'s "Sales" column covers both Indoor
-      and Outdoor Sales *(both clarified by the owner 2026-08-22)*
+- [x] **7.2** The `§3` matrix written down once and checked: **9 sections · 57 permissions ·
+      8 roles · 5 scopes · 200 grants**, in `app/Modules/Identity/Domain/Rbac`. Plain PHP with no
+      Illuminate anywhere in it — `deptrac` gives both `Identity` and `Domain` empty rulesets, and
+      Module 1's tables do not exist (approved Option C), so the definition stands alone until a
+      seeder can carry it into them.
+      **Why a test and not just a file.** Every cell is an authorisation decision. A row omitted
+      locks a role out; a scope widened one step hands a sales employee the whole company's
+      quotations. Transcribing 57 rows across **five different column layouts** is exactly where
+      that happens quietly, so the transcription is checked against what the document states about
+      itself: the per-section row counts, `resource.action` shape, every scope inside `§3.2`'s five,
+      and both `delete` rows granting nobody anything (`§3.12` rule 3).
+      **Super Admin is resolved, not transcribed.** `§3.3`–`§3.10` have no Super Admin column at
+      all, so a matrix built only from cells would leave the developer role with nothing. `§3.1`
+      gives it scope `All` unconditionally, `§3.12` rule 6 hides it, and both are properties of the
+      role — one place rather than 57 — with a test that no *other* role may bypass the matrix and
+      that Super Admin was not smuggled into the operational tables as a cell.
+      **The document's bare ✅ had to be interpreted, so the interpretation is checked.** `SEC-07`
+      has no value meaning "yes" — every permission carries a scope — and a plain ✅ means "at this
+      role's scope for this section", the reading `§3.4` makes explicit by writing "✅ Own" and
+      "✅ Asgn" in the one row where the answer differs. Each of the **59 checkmark cells** records
+      that it was a checkmark, and a test resolves every one against its section's own view row.
+      **`§3.11` is the exception and says so:** its first view-prefixed row is `admin.view_audit_log`,
+      a capability rather than a section anchor, so all its cells are explicit and a test asserts it
+      holds no checkmark.
+      **On "export never exceeds view" (`§14.7`):** the citation is wrong — `§14.7` is the API
+      table, `API-01`…`API-12`, and says nothing about export. The rule is enforced where the
+      section has a plain `view` row, which is `§3.5`; it is **not** applied to `§3.10`, where the
+      documented matrix would fail it — Sales is `❌` on `view received` and still exports its
+      **own** reports, because those are two different permissions. Enforcing the rule literally
+      would have required editing the specification.
+      **Not covered:** nothing is seeded — this is the definition, and 7.5 carries it into Module 1.
+      `§3.12` rule 7 (a Manager may not create Manager, CEO or Super Admin accounts) is a
+      constraint on *values*, not a scope, and belongs to Module 1's use case. `§3.5`'s "Own
+      (Draft)" is a state condition the matrix does not express. `Scope::includes()` deliberately
+      leaves `Out` and `Asgn` incomparable to `Team`, because declaring an order the specification
+      does not state is how a screen gets granted by accident. And no runtime enforces any of
+      this yet: it is data, and `SEC-07`'s "enforce at the API" is Module 1
 - [ ] **7.3** Managed lists: sectors, units, service types, delivery terms (`DB-05`) — **blocked
       by `Q-5`**
 - [ ] **7.4** Currencies with rounding unit and on/off (`D-52`, `D-65`), plus FX rates captured and

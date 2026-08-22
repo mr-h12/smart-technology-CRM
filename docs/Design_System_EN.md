@@ -74,9 +74,11 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 | `surface-muted` | `#F1EEF0` | `#F6F8FB` | `#0D2442` |
 | `text` | `#2E2C2D` | `#172033` | `#F5F9FF` |
 | `text-muted` | `#625C61` | `#5E6B82` | `#B9C8DC` |
+| `text-inverse` | `#FFFFFF` | `#FFFFFF` | `#08203D` |
 | `border` | `#D9D3D7` | `#D8E0EB` | `#315579` |
 | `primary` | `#714B67` | `#1D4ED8` | `#66B2FF` |
 | `primary-hover` | `#5C3D54` | `#1E40AF` | `#9BCBFF` |
+| `primary-active` | `#472F41` | `#1F3286` | `#D0E4FF` |
 | `primary-text` | `#FFFFFF` | `#FFFFFF` | `#08203D` |
 | `focus-ring` | `#2563EB` | `#1D4ED8` | `#A8D6FF` |
 | `link` | `#5C3D54` | `#1D4ED8` | `#A8D6FF` |
@@ -84,6 +86,25 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 | `warning` | `#A65300` | `#A65300` | `#FFCA6A` |
 | `danger` | `#B42318` | `#B42318` | `#FF9B91` |
 | `info` | `#1D4ED8` | `#1D4ED8` | `#7CC4FF` |
+| `status-neutral` | `#625C61` | `#5E6B82` | `#B9C8DC` |
+
+All values above are derived where `D-70` says so; the rest are as originally specified.
+
+`shadow-1` and `shadow-2` are elevation, not colour, so they are listed separately rather than
+forced into the hex table. Roles are fixed by §4.2 and §6.6: `shadow-1` for resting cards and
+menus, `shadow-2` for dialogs and popovers only.
+
+| Token | Odoo-inspired and Clean White | Dark Blue |
+|---|---|---|
+| `shadow-1` | `0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.10)` | `0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.30)` |
+| `shadow-2` | `0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08)` | `0 8px 24px -4px rgb(0 0 0 / 0.55), 0 2px 8px -2px rgb(0 0 0 / 0.40)` |
+
+The dark theme carries markedly higher alpha because a 6%-black shadow over `#081A33` is invisible.
+
+> ⚠️ **Known contrast gap, measured not assumed.** Odoo's `success` `#15803D` on its `surface-muted`
+> `#F1EEF0` is **4.35:1**, under the 4.5:1 §8 requires. Both values predate `D-70` and neither is
+> changed by it. The pair is pinned at its measured ratio by the automated contrast test and awaits
+> an owner decision — see `D-70`.
 
 ### 3.4 Theme intent
 

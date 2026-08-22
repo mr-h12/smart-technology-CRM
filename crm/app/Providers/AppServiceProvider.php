@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Modules\Audit\Application\AuditRecorder;
+use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
+use App\Modules\Audit\Domain\Contracts\AuditEntryWriterInterface;
 use App\Modules\Audit\Domain\Contracts\AuditPartitionsInterface;
+use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
+use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
+use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -31,6 +37,37 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // AUD-01's seam. Every module records through the interface, so the
+        // day a mutation stops being audited it is one binding that changed
+        // rather than a call site somebody forgot.
+        //
+        // bind, not singleton, and for a measured reason: the resolver reads
+        // the *current* request, and a singleton recorder would capture
+        // whichever request happened to be in flight when it was first built.
+        // Point 5.4 already paid for that lesson once — Route::getController()
+        // memoised a controller and its injected policy outlived the request,
+        // so a denial answered 200 because the previous allow was still in
+        // scope.
+        $this->app->bind(
+            AuditContextResolverInterface::class,
+            fn (): RequestAuditContext => new RequestAuditContext($this->app),
+        );
+
+        $this->app->bind(
+            AuditEntryWriterInterface::class,
+            fn (): DatabaseAuditEntries => new DatabaseAuditEntries(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        $this->app->bind(
+            AuditRecorderInterface::class,
+            fn (): AuditRecorder => new AuditRecorder(
+                $this->app->make(AuditContextResolverInterface::class),
+                $this->app->make(AuditEntryWriterInterface::class),
+            ),
+        );
+
         // J-15's only seam. Bound rather than newed in the command, so the
         // decision half (EnsureAuditPartitions) never names PostgreSQL and can
         // be exercised without one.

@@ -60,6 +60,30 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        /*
+        | AUD-05: structured logging, JSON, with the correlation id.
+        |
+        | A channel of its own rather than the application stack, and
+        | deliberately so. The audit stream is read by machines — grep, an
+        | ingest pipeline, an incident review — and mixing it into a log whose
+        | format is chosen for humans means every consumer has to parse two
+        | shapes. `days => 0` keeps every file: D-30 retains the audit
+        | permanently, and a log the rotation deletes after fourteen days would
+        | quietly contradict the table beside it.
+        |
+        | This is not the whole of AUD-05. The application's own channels are
+        | still line-formatted; making them structured is a separate change
+        | with a blast radius of every log line in the system.
+        */
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => 0,
+            'formatter' => Monolog\Formatter\JsonFormatter::class,
+            'replace_placeholders' => false,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

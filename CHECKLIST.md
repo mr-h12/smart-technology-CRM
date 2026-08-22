@@ -657,10 +657,53 @@ surface months later.
       for up to a day after something else creates it, which
       `AuditLogImmutabilityTest` now states as a window rather than a hole; and nothing
       writes to `audit_log` yet — that is 6.4
-- [ ] **6.4** `AuditRecorder`: actor · event · entity · old/new `JSONB` · UTC time · IP ·
-      user agent · request ID · correlation ID (`AUD-02`, Coding Standards §10), fed from the
-      existing `AddRequestId` middleware; plus structured JSON logging (`AUD-05`), which is
-      **not** configured today — `LOG_STACK=single` with the default line formatter
+- [x] **6.4** `AuditRecorder` — the writer. Points 6.1 to 6.3 built a table, made it
+      append-only and kept it supplied with months; nothing had ever written a row. The
+      caller supplies only what it alone knows — the event and the thing it happened to —
+      and actor, IP, user agent, request id, correlation id and the timestamp are filled in
+      behind the interface, because a module that had to pass them would eventually pass them
+      wrong.
+      **`AuditEvent` is a validated name, not a free string.** Named constructors for the nine
+      `§3.12` rule 4 requires, because a misspelled mandatory event is a row no audit query
+      will ever find and `AUD-03` means it cannot be corrected. `of()` stays open for the
+      vocabulary each later module brings; what it does not stay open to is a shape the
+      column or a log line cannot carry — the `D` modifier on the pattern is what stops
+      `"LOGIN_AS\n"` putting a line break into a permanent record.
+      **Floats are refused outright** (`DB-07`). `json_encode(0.1 + 0.2)` writes
+      `0.30000000000000004`, and this is where a price change is preserved *permanently*. The
+      check is recursive, because the value that matters is rarely at the top level — it is
+      the third line item's unit price.
+      **`D-69` is enforced twice**, at the boundary by `AddRequestId` and again in
+      `AuditContext`, because a caller can build a context by hand. The rule is duplicated —
+      neither file can reference the other without pointing a module's domain at HTTP
+      middleware or the reverse — so three constants are pinned to the middleware's by test,
+      which is what notices the drift the duplication invites.
+      **The user agent is truncated, the correlation id is not.** A `VARCHAR(512)` overflow
+      would fail the insert and take the business transaction with it (`AUD-01`, `DB-11`) —
+      denial of service through a header. `D-69` discards an overlong trace id instead,
+      because a truncated one matches nothing upstream and is worse than none.
+      `AUD-05` gets **its own JSON channel** with `days => 0`: `D-30` retains the audit
+      permanently, and a log the rotation deletes after fourteen days would quietly contradict
+      the table beside it. Verified on disk, one valid JSON line per record.
+      **Three findings.** `TIMESTAMPTZ` made the UTC test unable to fail — shifting the
+      entry's zone to `Asia/Riyadh` changed nothing, because the same instant reads back
+      identically; `DB-08` is satisfied there by the *column type*, not by this code. What
+      the normalisation actually protects is the log line, which is a formatted string, so
+      the check now asserts `toLogContext()` and the same break fails it. **`jsonb` does not
+      preserve key order** — measured, `tax_exempt` came back ahead of `tax_percent` — so
+      anything depending on payload key order depends on something the column never promised.
+      And **double-encoding is silent**: it produces a quoted string where `jsonb_typeof` says
+      `string`, and every later `old_values->>'x'` returns nothing rather than failing.
+      **Not covered:** `user_id` is **always null** — `RequestAuditContext` reads
+      `$request->user()` and there is no users table until Module 1, so every row records a
+      correct *absence* of actor rather than an actor. **Nothing calls the recorder yet:**
+      `AUD-01` wants every create, update, delete, approve and transfer audited, and today
+      the count of audited mutations in this system is zero — 6.5 is the test that makes that
+      impossible to leave. The **log line is not transactional**: a rolled-back operation
+      leaves no row but does leave a log record, which is deliberate and worth knowing. The
+      request id does **not propagate into queued jobs**, so an audit row written from a job
+      has none. And `AUD-05` is only half done — the application's own channels are still
+      line-formatted
 - [ ] **6.5** A test proving a new module is audited without touching audit code, and a
       deliberate failure proof that it can fail
 

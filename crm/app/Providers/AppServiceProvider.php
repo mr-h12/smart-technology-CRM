@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Modules\Audit\Domain\Contracts\AuditPartitionsInterface;
+use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -29,6 +31,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // J-15's only seam. Bound rather than newed in the command, so the
+        // decision half (EnsureAuditPartitions) never names PostgreSQL and can
+        // be exercised without one.
+        $this->app->bind(
+            AuditPartitionsInterface::class,
+            fn (): PostgresAuditPartitions => new PostgresAuditPartitions(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
         // §14.2 puts the local file system behind an abstraction layer, and the
         // binding is the layer's only seam: callers ask for the interface, so
         // swapping the driver later is one line here rather than a search

@@ -64,14 +64,20 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Notifications/.*
-    - name: Audit
-      collectors:
-        - type: directory
-          value: app/Modules/Audit/.*
     - name: Admin
       collectors:
         - type: directory
           value: app/Modules/Admin/.*
+
+    - name: AuditContract
+      collectors:
+        - type: directory
+          value: app/Modules/Audit/(Domain|Application)/.*
+
+    - name: AuditDriver
+      collectors:
+        - type: directory
+          value: app/Modules/Audit/(Infrastructure|Presentation)/.*
 
     - name: StorageContract
       collectors:
@@ -107,11 +113,18 @@ parameters:
     Outdoor: ~
     Reports: ~
     Notifications: ~
-    Audit: ~
     Admin: ~
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.
+    # Audit is split for the same reason Storage is: the contract half is what
+    # another module may one day depend on, and the driver half — PostgreSQL
+    # DDL, an Artisan command — is what it must never reach.
+    AuditContract:
+      - Framework
+    AuditDriver:
+      - AuditContract
+      - Framework
     StorageContract:
       - Framework
     StorageDriver:

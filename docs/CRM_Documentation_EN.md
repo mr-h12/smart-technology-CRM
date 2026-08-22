@@ -1101,6 +1101,7 @@ The single reference list. All appear in **Queue Monitor** and **Scheduler**, wi
 | J-12 | `fx_rate_staleness_alert` | Weekly | Alert on stale FX rates | ❌ |
 | J-13 | `reindex_search` | Nightly + on demand | Rebuild the index *(after Meilisearch)* | ❌ |
 | J-14 | `storage_threshold_check` | Daily | Alert when storage exceeds the limit | ❌ |
+| J-15 | `ensure_audit_partitions` | Daily | Create the coming months' `audit_log` partitions (`D-72`), arm each one's `TRUNCATE` guard, and fail loudly if the default partition holds a row | ❌ idempotent |
 
 ### 15.1 Queues by Priority
 
@@ -1112,6 +1113,14 @@ The single reference list. All appear in **Queue Monitor** and **Scheduler**, wi
 | `maintenance` | Cleanup · indexing · aggregates | 4 |
 
 **Rules:** every job is **idempotent** · a fixed retry count then `Failed` in Queue Monitor · every run logged with time and outcome.
+
+> **`J-15` runs in the scheduler, not on a queue** — recorded 2026-08-22 with `D-72`. It is the one
+> exception to the line above, and deliberately so: Horizon is not installed, and the worker services sit
+> behind a compose profile that is off by default, so a queued `J-15` would wait in Redis while
+> `audit_log` quietly ran out of months — the exact failure it exists to prevent. Moving it onto
+> `maintenance` is owed once Queue Monitor exists, and is on the deployment-debt register until then.
+> `J-15` needs no catch-up entry (`D-55`): it is idempotent and always creates from *today* forward, so a
+> run missed for a week is repaired by the next one rather than by replaying the ones that did not happen.
 
 ---
 

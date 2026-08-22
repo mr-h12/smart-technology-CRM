@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\SetLocaleFromRequest;
+use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Laravel discovers commands in app/Console/Commands and nowhere else, and
+    // this project puts a module's entry points inside the module (AP-02). So
+    // every module command is named here; without this the class exists, the
+    // scheduler resolves its signature, and `artisan` still answers "The
+    // command ... does not exist".
+    ->withCommands([
+        EnsureAuditPartitionsCommand::class,
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and
         // English from the first release, and a locale resolved per request is

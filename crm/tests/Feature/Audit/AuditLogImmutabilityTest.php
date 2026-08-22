@@ -188,15 +188,22 @@ final class AuditLogImmutabilityTest extends TestCase
         $this->assertRefused("update audit_log_2099_01 set event = 'FORGED' where id = '{$id}'");
     }
 
-    public function test_a_partition_created_after_the_guard_is_not_yet_truncate_guarded(): void
+    public function test_a_partition_created_after_the_guard_is_not_truncate_guarded_until_j15_runs(): void
     {
-        // ⚠️ This test asserts a HOLE, not a feature, and it is here so the
-        // hole is machine-visible instead of living in a comment.
+        // ⚠️ This asserts a WINDOW, not a feature, and it is here so the window
+        // is machine-visible instead of living in a comment.
         //
-        // A TRUNCATE trigger does not propagate, so a partition J-15 creates
-        // next month can be emptied in one word until J-15 arms it itself.
-        // Point 6.3 closes this, and closing it MUST make this test fail —
-        // invert it there rather than deleting it quietly.
+        // A TRUNCATE trigger does not propagate, so a partition that appears
+        // after this migration — by hand, by a restore, by a future migration —
+        // carries no guard at the moment it is created. Point 6.3 did not close
+        // that; it bounded it. `J-15` arms every unguarded partition on its
+        // next daily run, whoever made it, which turns a permanent hole into a
+        // window one day wide. `EnsureAuditPartitionsTest` holds the other half
+        // of this statement: the same partition, after the job.
+        //
+        // If this ever starts failing, something armed the partition at
+        // creation — an event trigger, most likely — and the window is gone.
+        // That is good news; rewrite this test rather than making it pass.
         DB::statement(
             "create table audit_log_2099_02 partition of audit_log
              for values from ('2099-02-01 00:00:00+00') to ('2099-03-01 00:00:00+00')",
@@ -207,7 +214,7 @@ final class AuditLogImmutabilityTest extends TestCase
         DB::statement('truncate audit_log_2099_02');
 
         self::assertSame(0, DB::table(self::PARENT)->where('id', $id)->count(),
-            'If this now fails, Point 6.3 armed the new partition — invert this test.');
+            'If this now fails, something arms partitions at creation — rewrite, do not patch.');
     }
 
     // ───────────────────────────────────────────────── the guard itself

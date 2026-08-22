@@ -114,6 +114,13 @@ every "are we ready to ship" conversation — not at the end.
       volume moves, the application keeps writing to the old path inside the container layer,
       and the attachments vanish on the next `--force-recreate`. Needs either a boot assertion
       or a single source on the server
+- [ ] **`J-15` belongs on the `maintenance` queue once Queue Monitor exists** — recorded
+      2026-08-22 with Point 6.3. `§15` says every job appears in Queue Monitor, and `§15.1`
+      files cleanup work on `maintenance`. `J-15` is in the scheduler instead: Horizon is not
+      installed, and the worker services carry a `workers` compose profile that is off by
+      default, so a queued job would have sat in Redis unexecuted while `audit_log` ran out
+      of months. The server owes Horizon, the move onto `maintenance`, and an alert on the
+      job's non-zero exit (`OBS-06`) — today the only signal is the scheduler's own output
 - [ ] **A non-superuser database role for the application** (`AUD-03`, `D-30`) — recorded
       2026-08-22 with Point 6.2. The application connects as `crm`, and `rolsuper` is `t` —
       measured. The append-only triggers on `audit_log` refuse `UPDATE`, `DELETE` and
@@ -603,11 +610,53 @@ surface months later.
       with a `WHERE` that matches nothing gets silence. Nothing writes to the table yet (6.4).
       And an `ALTER TABLE ... DISABLE TRIGGER`, like `DROP TABLE`, is beyond what any trigger
       can refuse
-- [ ] **6.3** `J-15 ensure_audit_partitions` — creates months ahead, installs the `TRUNCATE`
-      guard on each new partition, and asserts `audit_log_default` is empty. A fifteenth job
-      is an addition to `§15`, which calls itself the single reference list, so the row goes
-      in with the job. Neither `pg_partman` nor `pg_cron` is in the image — measured — which
-      is why this is an application job at all
+- [x] **6.3** `J-15 ensure_audit_partitions`, and the row for it in `§15` — a fifteenth job is
+      an addition to a list that calls itself the single reference list, so the two land
+      together. Neither `pg_partman` nor `pg_cron` is in the image, measured, which is why
+      this is an application job at all. **`D-72` seeded two months and stopped**, which gave
+      `audit_log` a working life of about eight weeks: after that every row falls into
+      `DEFAULT`, and a row in `DEFAULT` is exactly what *blocks* creating the partition it
+      belonged in. Silent when it starts, expensive when it is noticed.
+      Three duties, in this order. **Create** the missing months — `§15` demands idempotency,
+      and here that means a second run creates nothing rather than merely surviving; proven
+      on the real database, `created 2, armed 2` then `created 0, armed 0`. **Arm** every
+      unguarded partition, *not only the ones it made*: Point 6.2's `TRUNCATE` guard does not
+      propagate, so a partition made by hand, by a restore or by a future migration has none,
+      and this is what turns a permanent hole into a window one day wide. **Count** what is
+      stranded in `DEFAULT` and exit non-zero — the alarm is last on purpose, because a run
+      that refused to work while something else was wrong would leave next month uncreated
+      too, and then there would be two problems.
+      **The trap `D-72` named, handled rather than hit.** A row already in `DEFAULT` for a
+      month makes `CREATE TABLE ... PARTITION OF` fail outright — `updated partition
+      constraint for default partition "audit_log_default" would be violated by some row` —
+      and an unhandled failure there stops the run before it arms anything. So the job asks
+      first, records the month as blocked, and carries on with the rest. Measured by deleting
+      the check: one test, the exact error above.
+      **Split across four layers** so the decision is testable without a database:
+      `AuditMonth` and `PartitionMaintenance` in Domain (no Illuminate — `deptrac.layers.yaml`
+      gives Domain an empty ruleset), `EnsureAuditPartitions` in Application,
+      `PostgresAuditPartitions` in Infrastructure, the command in Presentation.
+      `app/Modules/Audit` enters `deptrac.modules.yaml` split as `AuditContract` /
+      `AuditDriver`, the same shape Storage uses; proven by making the contract half name the
+      driver, which produced `Violations 1 · Reason AuditContract`.
+      **Scheduled, not queued, and that is a documented exception to `§15`.** Horizon is not
+      installed and the worker services sit behind a compose profile that is off by default,
+      so a queued `J-15` would wait in Redis while the table ran out of months — the exact
+      failure it exists to prevent. Recorded in `§15` and on the debt register.
+      **Two things the last two points taught, applied here before they could bite.** The
+      UTC-boundary check runs the job under `Asia/Riyadh` and reads the bounds back as UTC,
+      because on a UTC session an offsetless literal is indistinguishable from a correct one;
+      breaking the normalisation produced `partition "audit_log_2026_10" would overlap
+      partition "audit_log_2026_09"` from bounds ending `+03:00`. And the new
+      `AUDIT_PARTITION_MONTHS_AHEAD` knob went into `crm/.env.example`, then was **proven
+      live** — 3 by default, 7 when set — rather than assumed connected.
+      **Not covered:** the job is not on the `maintenance` queue and appears in no Queue
+      Monitor, because there is none; `Schedule::command()` carries no `onOneServer()` lock,
+      which is harmless on one server and wrong on two; nothing alerts on the non-zero exit
+      beyond the scheduler's own output (`OBS-06` is unbuilt); a partition is still unguarded
+      for up to a day after something else creates it, which
+      `AuditLogImmutabilityTest` now states as a window rather than a hole; and nothing
+      writes to `audit_log` yet — that is 6.4
 - [ ] **6.4** `AuditRecorder`: actor · event · entity · old/new `JSONB` · UTC time · IP ·
       user agent · request ID · correlation ID (`AUD-02`, Coding Standards §10), fed from the
       existing `AddRequestId` middleware; plus structured JSON logging (`AUD-05`), which is

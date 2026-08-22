@@ -1,20 +1,82 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './fonts.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
-/* Point 4.1b replaces this with the §4.1 stack — Inter, Noto Sans Arabic and
-   Noto Sans Mono, with the face files delivered rather than assumed. The
-   skeleton's 'Instrument Sans' appears nowhere in the design system and is
-   already gone; what is left here is Tailwind's own default until 4.1b lands. */
-@theme {
-    --font-sans: ui-sans-serif, system-ui, sans-serif;
+@theme static {
+    /*
+     * Design System §4.1. Inter is listed first and Noto Sans Arabic second,
+     * which is the documented split — "English / numbers" to Inter, Arabic to
+     * Noto Sans Arabic — expressed as a stack the browser resolves per
+     * character rather than per screen. There are no separate Arabic and
+     * English stylesheets and there must not be: direction follows locale,
+     * typography does not.
+     *
+     * D-70 rests on this order. Every locale emits Western 0-9, and the first
+     * family in the stack that owns those glyphs draws them. The subset files
+     * in ../fonts make that hold twice over — the Arabic files carry no
+     * Western digits at all — but the order is what states the intent, and
+     * TypographyTest fails if it is reversed.
+     *
+     * The generic sans-serif tail is the only thing standing between a failed
+     * font download and no text, so it stays.
+     */
+    --font-sans: 'Inter', 'Noto Sans Arabic', sans-serif;
+
+    /* §4.1: codes, IDs and audit metadata only — never body text, never a
+       heading. Tailwind's preflight also routes code/kbd/samp/pre here. */
+    --font-mono: 'Noto Sans Mono', monospace;
+
+    /*
+     * §4.1's scale, named for what each size is rather than how big it is, so a
+     * component asks for a page title and not for 24px. Sizes are in px because
+     * §4.1 specifies px; the root stays at the browser default so the px
+     * spacing scale in §4.2 keeps its meaning.
+     */
+    --text-body: 14px;
+    --text-body--line-height: 1.55;
+
+    --text-table: 13px;
+    --text-table--line-height: 1.45;
+
+    --text-page-title: 24px;
+    --text-page-title--line-height: 1.3;
+    --text-page-title--font-weight: 600;
+
+    --text-section-title: 18px;
+    --text-section-title--line-height: 1.35;
+    --text-section-title--font-weight: 600;
+
+    --text-card-title: 16px;
+    --text-card-title--line-height: 1.4;
+    --text-card-title--font-weight: 600;
 }
 
-/* The canvas and the base text colour come from the tokens, so a theme change
-   reaches the page itself and not only the components drawn on it (§3.1). */
+/*
+ * The canvas and the base text colour come from the tokens, so a theme change
+ * reaches the page itself and not only the components drawn on it (§3.1).
+ *
+ * tabular-nums is set once, at the root, rather than per component. §4.1 wants
+ * it on money, counts, codes and dates — which is most of what a CRM displays —
+ * and a rule that has to be remembered on every table cell is a rule that will
+ * be forgotten on one. Proportional digits make a column of figures ragged, and
+ * a ragged column of money is a misreading waiting to happen.
+ */
 html {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     background-color: var(--color-canvas);
     color: var(--color-text);
+}
+
+/*
+ * §4.1 body base. This sits on body, not html, on purpose: Tailwind's spacing
+ * scale is rem-based, so moving the root to 14px would silently shrink every
+ * padding and gap in §4.2 by an eighth.
+ */
+body {
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
 }

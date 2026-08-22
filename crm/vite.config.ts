@@ -3,11 +3,15 @@ import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from '@tailwindcss/vite';
 
-// The skeleton's `bunny('Instrument Sans')` font plugin is removed on purpose.
-// It fetches a typeface from bunny.net at build time, which is an outside
-// dependency for a system §1 puts on company premises, and Design System §4.1
-// names Inter, Noto Sans Arabic and Noto Sans Mono rather than Instrument Sans.
-// Those three are already installed in the container image (point 0.4).
+// No font plugin, on purpose. The skeleton shipped one that fetches a typeface
+// from bunny.net at build time, which is an outside dependency for a system §1
+// puts on company premises. Design System §4.1's three families are self-hosted
+// instead: the woff2 files live in resources/fonts and are declared face by face
+// in resources/css/fonts.css, so Vite fingerprints and emits them like any other
+// asset and nothing reaches a network at build time or at page load.
+//
+// The OS fonts installed by docker/php/Dockerfile are a different path, for the
+// headless Chrome that renders PDFs. Neither substitutes for the other.
 export default defineConfig({
     plugins: [
         laravel({ input: ['resources/css/app.css', 'resources/js/app.ts'], refresh: true }),

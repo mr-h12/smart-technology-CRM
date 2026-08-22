@@ -227,7 +227,26 @@ surface months later.
 
 #### Step 4 — design system and RTL/LTR *(provisional)*
 
-- [ ] **4.1** Semantic tokens and the three themes (Design System §3)
+- [x] **4.1** Semantic tokens, the three themes (Design System §3) and the typography of §4.1.
+      Delivered in two halves. **4.1a** — §3.2 obliges every component to consume 21 semantic
+      tokens and §8 forbids bypassing them, but §3.3 valued only 16; `D-70` derives the five that
+      were mandatory and undefined (`primary-active`, `text-inverse`, `status-neutral`,
+      `shadow-1`, `shadow-2`) from numbers §3.3 already publishes. `ThemeTokenTest` computes WCAG
+      2.1 contrast from `tokens.css` itself rather than from the documented table, so a wrong hex
+      in the shipped stylesheet fails instead of passing. **4.1b** — the three §4.1 families are
+      self-hosted as ten `woff2` faces (`§1` puts this system on premises; a CDN typeface is a
+      dependency it may not have), with `TypographyTest` asserting the family × weight matrix,
+      `font-display: swap`, that every `src` resolves to a real `wOF2`, and the checksums of the
+      exact bytes whose glyph coverage was measured. **Two findings worth carrying forward.**
+      Odoo's documented `success` `#15803D` on its documented `surface-muted` `#F1EEF0` measures
+      **4.35:1**, under §8's 4.5 — both values predate `D-70`, neither was changed, and the pair
+      is pinned at its measured ratio so it cannot widen while it waits on an owner decision.
+      And Tailwind v4 tree-shakes theme variables nothing references: four of the five §4.1 sizes
+      compiled away entirely until `@theme static` was used — found by reading the build output,
+      not the docs, and now held by a test. **Not covered:** nothing enforces `ar-u-nu-latn` at
+      the formatting layer yet, so `Intl.NumberFormat('ar')` can still emit `٠١٢٣` that Noto Sans
+      Arabic will happily draw; and the container's OS fonts carry Arabic in Regular and Bold
+      only, so a 500 or 600 Arabic weight in a **PDF** is synthesised — a Module 9 concern
 - [ ] **4.2** Application shell using logical start/end properties, not left/right
 - [ ] **4.3** Theme persisted, applied before first paint, no flash
 - [ ] **4.4** Loading, empty, error and permission-denied states as base components

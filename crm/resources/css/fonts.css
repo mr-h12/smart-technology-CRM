@@ -1,0 +1,116 @@
+/*
+ * Design System §4.1 — the three families, declared face by face.
+ *
+ * The files are self-hosted in ../fonts. §1 puts this system on company
+ * premises and D-59 limits outside reach to a Cloudflare tunnel for five named
+ * users, so a typeface fetched from a public CDN at page load would be an
+ * outside dependency the product is not allowed to have. `resources/fonts/README.md`
+ * records where every byte came from and its checksum.
+ *
+ * Weights follow §4.1 exactly: 400 body, 500 labels, 600 headings and actions,
+ * 700 key totals only. Monospace is for codes, IDs and audit metadata, which
+ * never carry a heading, so it stops at 500.
+ *
+ * No italics. §4.1 names none, and Arabic has no italic tradition — declaring a
+ * family without one lets the browser synthesise a slant, which is worse than
+ * having no italic at all.
+ *
+ * font-display: swap on every face. Text is readable in a fallback immediately
+ * and reflows once the face arrives, rather than being invisible while it
+ * loads. For an internal tool on a LAN the swap is brief; a blank screen is not
+ * an acceptable state for a system whose §7 flows are all data entry.
+ *
+ * No unicode-range, deliberately. The subsets in ../fonts are disjoint — the
+ * Arabic files carry no Western digits and the Latin files carry no Arabic —
+ * so the browser's own per-character fallback already picks correctly, and a
+ * hand-written range is one more place for a codepoint to fall through to a
+ * system font unnoticed. The cost is that an English-only user still downloads
+ * the four Arabic faces: 205 kB, once, on a local network, for a product §14.2
+ * makes bilingual from its first release.
+ */
+
+/* ── Inter — English and numbers (§4.1); Western 0-9 in every locale (D-70) ── */
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/inter-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/inter-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/inter-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../fonts/inter-latin-700-normal.woff2') format('woff2');
+}
+
+/* ── Noto Sans Arabic — Arabic (§4.1) ───────────────────────────────────── */
+
+@font-face {
+    font-family: 'Noto Sans Arabic';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/noto-sans-arabic-arabic-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Noto Sans Arabic';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/noto-sans-arabic-arabic-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Noto Sans Arabic';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/noto-sans-arabic-arabic-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Noto Sans Arabic';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../fonts/noto-sans-arabic-arabic-700-normal.woff2') format('woff2');
+}
+
+/* ── Noto Sans Mono — codes, IDs, audit metadata only (§4.1) ─────────────── */
+
+@font-face {
+    font-family: 'Noto Sans Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/noto-sans-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Noto Sans Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/noto-sans-mono-latin-500-normal.woff2') format('woff2');
+}

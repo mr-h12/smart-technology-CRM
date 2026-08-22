@@ -25,6 +25,8 @@ final readonly class StoragePath
 
     private const EXTENSION = '/^[a-z0-9]{2,8}$/';
 
+    private const STORED = '#^\\d{4}/\\d{2}/[a-z_]{1,32}/[0-9a-f-]{36}/[0-9a-f-]{36}\\.[a-z0-9]{2,8}$#';
+
     private function __construct(public string $value) {}
 
     /**
@@ -65,6 +67,23 @@ final readonly class StoragePath
             $uuid,
             $extension,
         ));
+    }
+
+    /**
+     * Rebuilds a path that was written to `files.storage_path`.
+     *
+     * Re-checked against the same shape rather than trusted, because a row is
+     * not a safer source than a request: anything that could corrupt the column
+     * — a bad migration, a restored backup, an injection somewhere upstream —
+     * would otherwise reach the filesystem through here.
+     */
+    public static function fromStored(string $value): self
+    {
+        if (preg_match(self::STORED, $value) !== 1) {
+            throw new InvalidArgumentException('The stored path does not have the §17 shape.');
+        }
+
+        return new self($value);
     }
 
     private static function assertUuid(string $candidate, string $label): void

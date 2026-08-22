@@ -35,7 +35,12 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // §17: no direct access. `serve => true` registers GET and PUT on
+            // /storage/{path}; nothing in this system wants a URL that returns a
+            // file without asking who is asking. Until Point 5.4 the route was
+            // unreachable only because the SPA catch-all shadowed it, which is
+            // an accident rather than a control.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

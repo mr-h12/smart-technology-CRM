@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
+use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\Contracts\UploadValidatorInterface;
+use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
+use App\Modules\Storage\Infrastructure\DenyAllAttachmentPermission;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,6 +54,20 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(ConfigRepository::class)->integer('files.max_size_bytes'),
             ),
         );
+
+        $this->app->bind(
+            FileRepositoryInterface::class,
+            fn (): DatabaseFileRepository => new DatabaseFileRepository(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // D-38 cannot be answered yet: the permission matrix is Module 1 and the
+        // parent entities are Modules 5, 6, 10 and 13. The binding that ships
+        // therefore denies everything. Replacing this line is how those modules
+        // switch the download endpoint on — and until one of them does, a
+        // failing download is the honest report of an unfinished feature.
+        $this->app->bind(AttachmentPermissionInterface::class, DenyAllAttachmentPermission::class);
     }
 
     /**

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -30,3 +31,14 @@ Route::get('/ping', function (): JsonResponse {
         ],
     ]);
 });
+
+// §17: "No direct access — every file served through a permission-checking API".
+// D-38 makes that check the parent entity's, which is why the route carries no
+// permission name of its own: the answer belongs to whichever module owns the
+// deal, quotation, purchase order or report the file hangs from.
+//
+// `auth` is the session guard, because that is the only guard there is until
+// Module 1. An unauthenticated caller gets 401; an authenticated one who may
+// not see the parent gets 404, not 403 — OpenAPI does not let a refusal confirm
+// that the file exists.
+Route::middleware('auth')->get('/files/{file}/download', DownloadFileController::class);

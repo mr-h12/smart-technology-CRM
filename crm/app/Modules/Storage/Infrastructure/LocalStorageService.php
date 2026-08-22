@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Storage\Infrastructure;
 
+use App\Modules\Storage\Domain\AllowedFileType;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
@@ -27,7 +28,7 @@ final readonly class LocalStorageService implements StorageServiceInterface
     public function store(
         AttachmentParent $parent,
         string $parentId,
-        string $originalName,
+        AllowedFileType $type,
         string $sourcePath,
     ): StoragePath {
         // UUIDv7 for the same reason D-61 uses it for a primary key: the name
@@ -37,7 +38,7 @@ final readonly class LocalStorageService implements StorageServiceInterface
             $parent,
             $parentId,
             Str::uuid7()->toString(),
-            self::extensionOf($originalName),
+            $type->value,
             // Through the Date facade rather than Carbon directly: Carbon\* sits
             // in no deptrac layer, so importing it here reports as an uncovered
             // dependency — and an uncovered dependency is a boundary nobody
@@ -76,6 +77,17 @@ final readonly class LocalStorageService implements StorageServiceInterface
         return $contents;
     }
 
+    public function readStream(StoragePath $path)
+    {
+        $stream = $this->disk->readStream($path->value);
+
+        if (! is_resource($stream)) {
+            throw new RuntimeException("Stored file not readable: {$path->value}");
+        }
+
+        return $stream;
+    }
+
     public function exists(StoragePath $path): bool
     {
         return $this->disk->exists($path->value);
@@ -84,19 +96,5 @@ final readonly class LocalStorageService implements StorageServiceInterface
     public function delete(StoragePath $path): void
     {
         $this->disk->delete($path->value);
-    }
-
-    /**
-     * The extension, and only the extension.
-     *
-     * §17 stores the original name in the database for display; the disk gets a
-     * UUID. Everything before the last dot is therefore discarded here rather
-     * than sanitised — a name is attacker-supplied, and the safest handling of
-     * an untrusted string is not to put it in a path at all. Whether the
-     * extension is one of D-40's six is Point 5.3's question, at the boundary.
-     */
-    private static function extensionOf(string $originalName): string
-    {
-        return pathinfo($originalName, PATHINFO_EXTENSION);
     }
 }

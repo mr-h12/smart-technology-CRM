@@ -417,7 +417,42 @@ surface months later.
       unusually reads as `application/zip` and is refused — safe, but a refusal of a good file.
       `SEC-15` still has no virus scanner. And the two lang files sit under `lang/`, which pint and
       PHPStan both exclude
-- [ ] **5.4** Download endpoint checking permission on the parent entity (`D-38`)
+- [x] **5.4** Download endpoint checking permission on the parent entity (`D-38`).
+      `GET /api/v1/files/{file}/download` streams from the private volume behind three gates in
+      order: the row exists and is not soft-deleted (`DB-01`), its scan came back clean
+      (`SEC-15`), and **some parent grants read** — approved 2026-08-22: any one of the linked
+      parents is enough. **D-38 cannot be answered yet and nothing here pretends to answer it.**
+      Identity and dynamic RBAC are Module 1 and the parents are Modules 5, 6, 10 and 13, so
+      Module 0 implements the *traversal* — file → its D-71 pivots → its parents — and delegates
+      the decision to `AttachmentPermissionInterface`. The binding that ships is
+      `DenyAllAttachmentPermission`: a default that denies is a feature that visibly does not
+      work yet, a default that grants is a hole that looks finished. **Consequence, stated
+      plainly: the endpoint refuses every request in production today.**
+      A refusal is **404, never 403** — the OpenAPI contract says 404 covers "does not exist or
+      is not visible to the caller. Do not reveal which case applies", so the use case discards
+      the distinction before the controller sees it and cannot leak what it does not hold.
+      Headers: `nosniff`, `Cache-Control: private, no-store`, and RFC 5987 `filename*` so an
+      Arabic name survives an ASCII-only header. `store()` no longer takes a filename at all —
+      the extension comes from the validated type (Point 5.3), closing the gap 5.2 left open.
+      **Three routing defects that predate this point, all found by measurement.** (1) The
+      authorisation decision was made **once per process**: `Route::getController()` memoises the
+      controller on the Route object, so constructor-injected services outlive the request —
+      measured allow → 200, deny → **200**, allow → 200. Dependencies moved to per-call
+      injection; pinned by a test. (2) Every unmatched `/api/*` path returned **200 with the SPA
+      shell** — the catch-all's comment claimed /api/v1 was matched first, true only of routes
+      that exist. Two tests asserting 404 went green before the endpoint existed. (3) An
+      unauthenticated API call returned **500**, not 401: `auth` redirects a guest to
+      `route('login')`, which D-67 does not have. Measured after the fix: `/api/v1/does-not-exist`
+      → 404 JSON, unauthenticated download → 401 JSON. And the `local` disk's `serve => true` had
+      published `GET` and `PUT /storage/{path}` with no middleware — unreachable only because
+      defect (2) shadowed it, which is an accident rather than a control. Now `serve => false`.
+      **Not covered:** a download writes **no audit record** — §13 requires one and the audit log
+      is Step 6, blocked by `Q-3`, so this is a gap and not merely an ordering. No upload
+      endpoint yet, so the validator and the store are wired to each other but not to HTTP. No
+      `Range`, `ETag` or resume: an interrupted 30 MB download restarts. Each stream holds a
+      PHP-FPM worker for its duration, with no concurrency limit. Every file stays `pending`
+      until 5.5, which means every file is undownloadable regardless of permission. And
+      `app/Modules/Storage` is still absent from `deptrac.modules.yaml`, now by four layers
 - [ ] **5.5** Virus scanning on every upload (`SEC-15`)
 
 #### Step 6 — audit log as a cross-cutting layer *(provisional — blocked by `Q-3`)*

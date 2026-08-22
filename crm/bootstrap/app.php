@@ -27,6 +27,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // OpenAPI §3.3 — every response carries a server-generated request id.
         $middleware->append(App\Http\Middleware\AddRequestId::class);
+
+        // An unauthenticated API call must be answered, not redirected.
+        // Laravel's default sends a guest to route('login'); this application
+        // has no such route (D-67 puts login in the SPA), so the redirect threw
+        // RouteNotFoundException and the caller received **500 instead of 401**
+        // — measured in Point 5.4, on the first request to a route behind
+        // `auth`. Returning null keeps the AuthenticationException unresolved
+        // into a redirect, which the handler then renders as the 401 JSON
+        // OpenAPI §4 requires.
+        $middleware->redirectGuestsTo(
+            fn (Request $request): ?string => $request->is('api/*') ? null : '/',
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Storage;
 
+use App\Modules\Storage\Domain\AllowedFileType;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
@@ -11,6 +12,8 @@ use App\Modules\Storage\Infrastructure\LocalStorageService;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionMethod;
+use ReflectionParameter;
 use Tests\TestCase;
 
 /**
@@ -140,7 +143,7 @@ final class StorageServiceTest extends TestCase
         $path = $this->service()->store(
             AttachmentParent::SupplierQuotation,
             self::PARENT_ID,
-            'offer.pdf',
+            AllowedFileType::Pdf,
             $this->source(),
         );
 
@@ -167,7 +170,7 @@ final class StorageServiceTest extends TestCase
     #[DataProvider('parents')]
     public function test_each_parent_owns_its_path_segment(AttachmentParent $parent, string $segment): void
     {
-        $path = $this->service()->store($parent, self::PARENT_ID, 'offer.pdf', $this->source());
+        $path = $this->service()->store($parent, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         self::assertStringContainsString("/{$segment}/", $path->value);
     }
@@ -182,7 +185,7 @@ final class StorageServiceTest extends TestCase
     {
         $this->travelTo(CarbonImmutable::parse('2026-01-09T12:00:00+00:00'));
 
-        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         self::assertStringStartsWith('2026/01/', $path->value);
     }
@@ -190,10 +193,10 @@ final class StorageServiceTest extends TestCase
     public function test_the_year_turns_over_at_the_boundary(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-12-31T23:59:59+00:00'));
-        $last = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $last = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         $this->travelTo(CarbonImmutable::parse('2027-01-01T00:00:01+00:00'));
-        $first = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $first = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         self::assertStringStartsWith('2026/12/', $last->value);
         self::assertStringStartsWith('2027/01/', $first->value);
@@ -206,63 +209,97 @@ final class StorageServiceTest extends TestCase
         // the viewer would file the same object under two different months.
         $this->travelTo(CarbonImmutable::parse('2027-01-01T01:00:00+03:00'));
 
-        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         self::assertStringStartsWith('2026/12/', $path->value);
     }
 
     // ---------------------------------------------------------------- the name
 
-    public function test_the_stored_name_is_a_uuid_and_never_the_original(): void
+    public function test_the_stored_name_is_a_uuid(): void
     {
+        // §17 keeps the original name in the database for display. Since Point
+        // 5.4 the service is not even told what it was — there is no argument
+        // for it — so the only thing that can end up on disk is the UUID.
         $path = $this->service()->store(
             AttachmentParent::Report,
             self::PARENT_ID,
-            'تقرير المبيعات النهائي.pdf',
+            AllowedFileType::Pdf,
             $this->source(),
         );
 
-        self::assertStringNotContainsString('تقرير', $path->value);
-        self::assertStringNotContainsString('المبيعات', $path->value);
+        $name = basename($path->value);
+
+        self::assertMatchesRegularExpression('/^[0-9a-f-]{36}\.pdf$/', $name);
     }
 
     public function test_two_uploads_of_the_same_name_do_not_collide(): void
     {
         $service = $this->service();
 
-        $first = $service->store(AttachmentParent::Deal, self::PARENT_ID, 'offer.pdf', $this->source('one'));
-        $second = $service->store(AttachmentParent::Deal, self::PARENT_ID, 'offer.pdf', $this->source('two'));
+        $first = $service->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source('one'));
+        $second = $service->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source('two'));
 
         self::assertNotSame($first->value, $second->value);
         self::assertSame('one', $service->read($first));
         self::assertSame('two', $service->read($second));
     }
 
-    public function test_the_extension_is_lowercased(): void
+    /**
+     * @return array<string, array{AllowedFileType, string}>
+     */
+    public static function types(): array
     {
-        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'SCAN.PDF', $this->source());
-
-        self::assertStringEndsWith('.pdf', $path->value);
+        return [
+            'pdf' => [AllowedFileType::Pdf, 'pdf'],
+            'jpeg' => [AllowedFileType::Jpeg, 'jpg'],
+            'png' => [AllowedFileType::Png, 'png'],
+            'webp' => [AllowedFileType::Webp, 'webp'],
+            'docx' => [AllowedFileType::Docx, 'docx'],
+            'xlsx' => [AllowedFileType::Xlsx, 'xlsx'],
+        ];
     }
 
-    public function test_a_traversing_original_name_cannot_escape_the_root(): void
+    #[DataProvider('types')]
+    public function test_the_extension_comes_from_the_validated_type(AllowedFileType $type, string $extension): void
     {
-        $path = $this->service()->store(
-            AttachmentParent::Deal,
-            self::PARENT_ID,
-            '../../../../etc/passwd.pdf',
-            $this->source(),
+        // Point 5.3 decides what the bytes are; the extension on disk is that
+        // answer, not the one the browser offered. Before 5.4 this came from
+        // pathinfo() on the original name, which is attacker-controlled.
+        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, $type, $this->source());
+
+        self::assertStringEndsWith('.'.$extension, $path->value);
+    }
+
+    public function test_the_service_has_no_argument_a_filename_could_arrive_through(): void
+    {
+        // The strongest form of "the name cannot escape the root" is that the
+        // name is never passed in. A reflection check, because a future
+        // convenience overload would reopen exactly that door.
+        $method = new ReflectionMethod(StorageServiceInterface::class, 'store');
+
+        $types = array_map(
+            static fn (ReflectionParameter $parameter): string => (string) $parameter->getType(),
+            $method->getParameters(),
         );
 
-        self::assertStringNotContainsString('..', $path->value);
-        self::assertStringNotContainsString('etc', $path->value);
+        self::assertSame(
+            [
+                AttachmentParent::class,
+                'string',
+                AllowedFileType::class,
+                'string',
+            ],
+            $types,
+            'store() takes a parent, its id, the validated type, and a source path — no filename.'
+        );
     }
 
     public function test_a_parent_id_that_is_not_a_uuid_is_refused(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        $this->service()->store(AttachmentParent::Deal, '../../etc', 'a.pdf', $this->source());
+        $this->service()->store(AttachmentParent::Deal, '../../etc', AllowedFileType::Pdf, $this->source());
     }
 
     /**
@@ -293,20 +330,13 @@ final class StorageServiceTest extends TestCase
         );
     }
 
-    public function test_a_name_with_no_extension_at_all_is_refused(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-
-        $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'invoice', $this->source());
-    }
-
     // ---------------------------------------------------------------- write, read, exist, delete
 
     public function test_a_stored_file_can_be_read_back_byte_for_byte(): void
     {
         $service = $this->service();
 
-        $path = $service->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $path = $service->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         self::assertSame(self::SAMPLE, $service->read($path));
     }
@@ -315,7 +345,7 @@ final class StorageServiceTest extends TestCase
     {
         $service = $this->service();
 
-        $path = $service->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $path = $service->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
         self::assertTrue($service->exists($path));
 
         $service->delete($path);
@@ -326,14 +356,14 @@ final class StorageServiceTest extends TestCase
     {
         $source = $this->source();
 
-        $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $source);
+        $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $source);
 
         self::assertFileExists($source, 'store() copies; deleting the upload temp file belongs to the caller.');
     }
 
     public function test_the_bytes_land_under_the_configured_root_at_the_documented_path(): void
     {
-        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, 'a.pdf', $this->source());
+        $path = $this->service()->store(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $this->source());
 
         $root = config('filesystems.disks.secure_uploads.root');
         self::assertIsString($root);

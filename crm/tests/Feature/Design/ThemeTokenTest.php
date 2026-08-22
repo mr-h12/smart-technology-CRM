@@ -37,37 +37,40 @@ final class ThemeTokenTest extends TestCase
      * @var array<string, array<string, string>>
      */
     private const EXPECTED = [
-        'odoo' => [
-            'canvas' => '#F8F8F9', 'surface' => '#FFFFFF', 'surface-raised' => '#FFFFFF', 'surface-muted' => '#F1EEF0',
-            'text' => '#2E2C2D', 'text-muted' => '#625C61', 'text-inverse' => '#FFFFFF', 'border' => '#D9D3D7',
-            'primary' => '#714B67', 'primary-hover' => '#5C3D54', 'primary-active' => '#472F41', 'primary-text' => '#FFFFFF',
-            'focus-ring' => '#2563EB', 'link' => '#5C3D54',
-            'success' => '#15803D', 'warning' => '#A65300', 'danger' => '#B42318', 'info' => '#1D4ED8',
-            'status-neutral' => '#625C61',
+        'warm-editorial' => [
+            'canvas' => '#FAF8F5', 'surface' => '#FFFFFF', 'surface-raised' => '#FFFFFF', 'surface-muted' => '#F5F1EC',
+            'text' => '#292524', 'text-muted' => '#57534E', 'text-inverse' => '#FFFFFF', 'border' => '#E7E5E4',
+            'border-strong' => '#78716C',
+            'primary' => '#C2410C', 'primary-hover' => '#9A3412', 'primary-active' => '#7C2D12', 'primary-text' => '#FFFFFF',
+            'focus-ring' => '#C2410C', 'link' => '#9A3412',
+            'success' => '#166534', 'warning' => '#9A4700', 'danger' => '#B42318', 'info' => '#1D4ED8',
+            'status-neutral' => '#57534E',
         ],
-        'clean-white' => [
-            'canvas' => '#FFFFFF', 'surface' => '#FFFFFF', 'surface-raised' => '#FFFFFF', 'surface-muted' => '#F6F8FB',
-            'text' => '#172033', 'text-muted' => '#5E6B82', 'text-inverse' => '#FFFFFF', 'border' => '#D8E0EB',
-            'primary' => '#1D4ED8', 'primary-hover' => '#1E40AF', 'primary-active' => '#1F3286', 'primary-text' => '#FFFFFF',
-            'focus-ring' => '#1D4ED8', 'link' => '#1D4ED8',
-            'success' => '#15803D', 'warning' => '#A65300', 'danger' => '#B42318', 'info' => '#1D4ED8',
-            'status-neutral' => '#5E6B82',
+        'clean-monochrome' => [
+            'canvas' => '#F4F4F5', 'surface' => '#FFFFFF', 'surface-raised' => '#FFFFFF', 'surface-muted' => '#FAFAFA',
+            'text' => '#18181B', 'text-muted' => '#52525B', 'text-inverse' => '#FFFFFF', 'border' => '#E4E4E7',
+            'border-strong' => '#71717A',
+            'primary' => '#2563EB', 'primary-hover' => '#1D4ED8', 'primary-active' => '#1E3A8A', 'primary-text' => '#FFFFFF',
+            'focus-ring' => '#2563EB', 'link' => '#1D4ED8',
+            'success' => '#166534', 'warning' => '#9A4700', 'danger' => '#B42318', 'info' => '#1D4ED8',
+            'status-neutral' => '#52525B',
         ],
-        'dark-blue' => [
-            'canvas' => '#081A33', 'surface' => '#102B4C', 'surface-raised' => '#16385F', 'surface-muted' => '#0D2442',
-            'text' => '#F5F9FF', 'text-muted' => '#B9C8DC', 'text-inverse' => '#08203D', 'border' => '#315579',
-            'primary' => '#66B2FF', 'primary-hover' => '#9BCBFF', 'primary-active' => '#D0E4FF', 'primary-text' => '#08203D',
-            'focus-ring' => '#A8D6FF', 'link' => '#A8D6FF',
+        'midnight-obsidian' => [
+            'canvas' => '#0B0F19', 'surface' => '#111827', 'surface-raised' => '#1B2437', 'surface-muted' => '#0F1524',
+            'text' => '#E0E7FF', 'text-muted' => '#AFBAD4', 'text-inverse' => '#0B0F19', 'border' => '#1F2937',
+            'border-strong' => '#6B7280',
+            'primary' => '#818CF8', 'primary-hover' => '#A5B4FC', 'primary-active' => '#C7D2FE', 'primary-text' => '#0B0F19',
+            'focus-ring' => '#A5B4FC', 'link' => '#A5B4FC',
             'success' => '#5DDB90', 'warning' => '#FFCA6A', 'danger' => '#FF9B91', 'info' => '#7CC4FF',
-            'status-neutral' => '#B9C8DC',
+            'status-neutral' => '#AFBAD4',
         ],
     ];
 
-    /** The CSS selector each theme is expected to live behind (§3.1: Odoo is the default). */
+    /** The CSS selector each theme lives behind (§3.1: Warm Editorial is the default). */
     private const SELECTORS = [
-        'odoo' => ':root',
-        'clean-white' => "[data-theme='clean-white']",
-        'dark-blue' => "[data-theme='dark-blue']",
+        'warm-editorial' => ':root',
+        'clean-monochrome' => "[data-theme='clean-monochrome']",
+        'midnight-obsidian' => "[data-theme='midnight-obsidian']",
     ];
 
     /** §4.2 and §6.6 give these distinct roles. They are elevation, not colour, so contrast does not apply. */
@@ -83,22 +86,33 @@ final class ThemeTokenTest extends TestCase
     private const AA_INTERACTIVE = 3.0;
 
     /**
-     * One pair in the documented palette does not reach 4.5:1, and it is pinned
-     * here at its measured value rather than quietly dropped from the matrix.
+     * Empty, and that is the news.
      *
-     * Odoo's success #15803D on its surface-muted #F1EEF0 measures 4.35:1. Both
-     * values predate D-70 and neither was changed by it; closing the gap means
-     * darkening success, lightening surface-muted, or ruling that a status chip
-     * never sits on a muted surface — an owner decision, recorded in D-70.
+     * The retired palette carried one pair under 4.5:1 — Odoo's success
+     * #15803D on its surface-muted #F1EEF0, measuring 4.35:1 — pinned here
+     * while it waited on an owner decision recorded in D-70. D-73 replaced
+     * both values: success is #166534 in each light theme, which reads 6.34:1
+     * on Warm Editorial's muted surface and 7.13:1 on its surface. The gap is
+     * closed rather than inherited.
      *
-     * Pinning is not an exemption. The pair still has a floor, it simply has
-     * today's floor, so the gap cannot widen unnoticed while it waits.
+     * The array stays because the mechanism should outlive the exception. A
+     * pinned pair keeps a floor at today's measured value, so a known gap
+     * cannot widen unnoticed; deleting the machinery would mean the next one
+     * has to be argued for from scratch.
      *
-     * @var array<string, float>
+     * A method rather than a constant, and not for style: PHPStan reads an
+     * empty constant array as `array{}`, so the lookup below became "offset
+     * does not exist" and the null check "always null" — level-10 errors that
+     * would have to be suppressed the moment a pin was added back. An explicit
+     * `array<string, float>` return keeps the mechanism typed for the case it
+     * exists to serve. The same narrowing bit the audit register in Point 6.5.
+     *
+     * @return array<string, float>
      */
-    private const PINNED = [
-        'odoo:success:surface-muted' => 4.35,
-    ];
+    private static function pinned(): array
+    {
+        return [];
+    }
 
     // ───────────────────────────────────── the contract: complete, exact, closed
 
@@ -136,11 +150,12 @@ final class ThemeTokenTest extends TestCase
 
     public function test_the_default_theme_needs_no_attribute(): void
     {
-        // §3.1: "before sign-in, use the product default Odoo-inspired". A
-        // document that has never chosen a theme must already be correct, which
-        // is what lets the pre-paint script in 4.3 do nothing in the common case.
-        self::assertSame(':root', self::SELECTORS['odoo']);
-        self::assertNotSame([], self::declarations('odoo'));
+        // §3.1 as D-73 rewrote it: the product default before sign-in is Warm
+        // Editorial. A document that has never chosen a theme must already be
+        // correct, which is what lets the pre-paint script do nothing in the
+        // common case.
+        self::assertSame(':root', self::SELECTORS['warm-editorial']);
+        self::assertNotSame([], self::declarations('warm-editorial'));
     }
 
     public function test_no_component_stylesheet_hard_codes_a_colour(): void
@@ -164,7 +179,11 @@ final class ThemeTokenTest extends TestCase
     /** @return array<string, array{0: string}> */
     public static function themes(): array
     {
-        return ['odoo' => ['odoo'], 'clean white' => ['clean-white'], 'dark blue' => ['dark-blue']];
+        return [
+            'warm editorial' => ['warm-editorial'],
+            'clean monochrome' => ['clean-monochrome'],
+            'midnight obsidian' => ['midnight-obsidian'],
+        ];
     }
 
     #[DataProvider('themes')]
@@ -222,6 +241,46 @@ final class ThemeTokenTest extends TestCase
         foreach (['canvas', 'surface'] as $bg) {
             self::assertContrast($theme, 'primary', $bg, $t['primary'], $t[$bg], self::AA_INTERACTIVE);
         }
+
+        // D-73's twenty-second token. SC 1.4.11 puts a 3:1 floor under the
+        // boundary that *identifies* a control — an input outline, a checkbox
+        // edge — and puts none under a table rule. --color-border is the rule;
+        // this is the outline, and only this one is held to a ratio.
+        foreach (self::BACKGROUNDS as $bg) {
+            self::assertContrast($theme, 'border-strong', $bg, $t['border-strong'], $t[$bg], self::AA_INTERACTIVE);
+        }
+    }
+
+    /**
+     * The divider is deliberately *not* held to 3:1, and that has to be said
+     * out loud rather than left as an absent assertion.
+     *
+     * The brief that produced D-73 asked for 3:1 on every border. Measured, the
+     * three specified divider colours land at 1.15:1 to 1.30:1, and raising
+     * them to 3:1 turns every rule in a data-dense table into a cage. SC 1.4.11
+     * does not ask for it: a decorative separator carries no information a
+     * user needs to identify a control. So the palette keeps its dividers and
+     * gains --color-border-strong for the boundaries that do carry meaning.
+     *
+     * This asserts the two are actually different, which is the whole reason
+     * for having both — a theme that set them equal would silently be choosing
+     * one of the two failures.
+     */
+    #[DataProvider('themes')]
+    public function test_the_divider_and_the_control_boundary_are_distinct(string $theme): void
+    {
+        $t = self::declarations($theme);
+
+        self::assertNotSame($t['border'], $t['border-strong'],
+            "Theme '{$theme}' uses one colour for both the divider and the control boundary.");
+
+        // And the strong one is the darker of the pair against its own surface,
+        // not merely a different hex.
+        self::assertGreaterThan(
+            self::ratio($t['border'], $t['surface']),
+            self::ratio($t['border-strong'], $t['surface']),
+            "Theme '{$theme}' has a control boundary weaker than its divider.",
+        );
     }
 
     // ───────────────────────────────────────────────────────────── mechanics
@@ -229,7 +288,7 @@ final class ThemeTokenTest extends TestCase
     private static function assertContrast(string $theme, string $fg, string $bg, string $fgHex, string $bgHex, float $floor): void
     {
         $ratio = self::ratio($fgHex, $bgHex);
-        $pin = self::PINNED["{$theme}:{$fg}:{$bg}"] ?? null;
+        $pin = self::pinned()["{$theme}:{$fg}:{$bg}"] ?? null;
         $required = $pin ?? $floor;
 
         self::assertGreaterThanOrEqual(
@@ -238,7 +297,7 @@ final class ThemeTokenTest extends TestCase
             sprintf(
                 '%s: %s (%s) on %s (%s) is %.2f:1, below the required %.2f:1%s.',
                 $theme, $fg, $fgHex, $bg, $bgHex, $ratio, $required,
-                $pin === null ? ' (Design System §8, WCAG 2.1 AA)' : ' (pinned by D-70 — this gap must not widen)',
+                $pin === null ? ' (Design System §8, WCAG 2.1 AA)' : ' (pinned — this known gap must not widen)',
             ),
         );
     }

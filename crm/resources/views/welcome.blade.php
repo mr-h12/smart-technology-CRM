@@ -23,10 +23,10 @@
          flash while leaving code that still looks correct. ThemeFlashTest
          asserts the ordering and the absence of both attributes.
 
-         Only the two non-default themes set an attribute. §3.1 makes
-         Odoo-inspired the product default and tokens.css puts it on :root, so
-         "no attribute" is already the right answer and writing one would be
-         work with no effect.
+         Only the two non-default themes set an attribute. §3.1 as D-73
+         rewrote it makes Warm Editorial the product default and tokens.css puts
+         it on :root, so "no attribute" is already the right answer and writing
+         one would be work with no effect.
 
          The stored value is compared against a fixed list rather than trusted.
          localStorage is writable by anything running on this origin, and this
@@ -37,7 +37,7 @@
             try {
                 var stored = window.localStorage.getItem('crm.theme');
 
-                if (stored === 'clean-white' || stored === 'dark-blue') {
+                if (stored === 'clean-monochrome' || stored === 'midnight-obsidian') {
                     document.documentElement.setAttribute('data-theme', stored);
                 }
             } catch (error) {

@@ -49,9 +49,9 @@
   },
   "theme": {
     "switch": "السمة",
-    "odoo": "المستوحاة من أودو",
-    "clean-white": "الأبيض النظيف",
-    "dark-blue": "الأزرق الداكن"
+    "warm-editorial": "الدافئة التحريريّة",
+    "clean-monochrome": "الرماديّة النظيفة",
+    "midnight-obsidian": "سواد منتصف الليل"
   },
   "user": {
     "signedOut": "لم يسجَّل الدخول"

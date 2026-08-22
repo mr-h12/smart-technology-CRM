@@ -52,7 +52,7 @@ use Tests\TestCase;
 final class ThemeFlashTest extends TestCase
 {
     /** The two themes that are not the §3.1 default and therefore need an attribute. */
-    private const ATTRIBUTE_THEMES = ['clean-white', 'dark-blue'];
+    private const ATTRIBUTE_THEMES = ['clean-monochrome', 'midnight-obsidian'];
 
     private const STORAGE_KEY = 'crm.theme';
 
@@ -140,13 +140,13 @@ final class ThemeFlashTest extends TestCase
 
     public function test_the_default_theme_sets_no_attribute(): void
     {
-        // §3.1 makes Odoo-inspired the product default and tokens.css puts it on
-        // :root. Writing data-theme="odoo" would match nothing in the stylesheet
-        // — the theme would still be right, for the wrong reason, until someone
-        // added a selector for it.
+        // §3.1 as D-73 rewrote it makes Warm Editorial the product default and
+        // tokens.css puts it on :root. Writing data-theme="warm-editorial"
+        // would match nothing in the stylesheet — the theme would still be
+        // right, for the wrong reason, until someone added a selector for it.
         $tag = self::scriptTag($this->shell());
 
-        self::assertStringNotContainsString("'odoo'", $tag);
+        self::assertStringNotContainsString("'warm-editorial'", $tag);
     }
 
     public function test_the_blade_script_and_the_typescript_store_agree(): void
@@ -168,7 +168,7 @@ final class ThemeFlashTest extends TestCase
 
         preg_match_all("/'([a-z-]+)'/", $matches[1], $names);
 
-        $expected = array_merge(['odoo'], self::ATTRIBUTE_THEMES);
+        $expected = array_merge(['warm-editorial'], self::ATTRIBUTE_THEMES);
         sort($expected);
         $actual = $names[1];
         sort($actual);

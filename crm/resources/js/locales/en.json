@@ -49,9 +49,9 @@
   },
   "theme": {
     "switch": "Theme",
-    "odoo": "Odoo-inspired",
-    "clean-white": "Clean White",
-    "dark-blue": "Dark Blue"
+    "warm-editorial": "Warm Editorial",
+    "clean-monochrome": "Clean Monochrome",
+    "midnight-obsidian": "Midnight Obsidian"
   },
   "user": {
     "signedOut": "Not signed in"

@@ -44,8 +44,8 @@ The first theme adopts Odoo CRM interaction patterns, not Odoo branding, code, o
 
 ### 3.1 User-selectable theme behavior
 
-- The three themes are **Odoo-inspired**, **Clean White**, and **Dark Blue**.
-- Theme selection is a per-user presentation preference, persisted in the user profile; before sign-in, use the product default **Odoo-inspired**.
+- The three themes are **Warm Editorial**, **Clean Monochrome**, and **Midnight Obsidian** (`D-73`).
+- Theme selection is a per-user presentation preference, persisted in the user profile; before sign-in, use the product default **Warm Editorial**.
 - Changing a theme updates color, border, shadow, and focus tokens only. It does not reset language, direction, filters, permissions, or data.
 - The selected theme must apply before the main application shell paints, avoiding a visible flash of another theme.
 - System language controls direction independently: Arabic = RTL, English = LTR.
@@ -57,7 +57,7 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 
 ```css
 --color-canvas; --color-surface; --color-surface-raised; --color-surface-muted;
---color-text; --color-text-muted; --color-text-inverse; --color-border;
+--color-text; --color-text-muted; --color-text-inverse; --color-border; --color-border-strong;
 --color-primary; --color-primary-hover; --color-primary-active; --color-primary-text;
 --color-focus-ring; --color-link;
 --color-success; --color-warning; --color-danger; --color-info;
@@ -66,53 +66,53 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 
 ### 3.3 Theme token values
 
-| Token | Odoo-inspired | Clean White | Dark Blue |
+| Token | Warm Editorial | Clean Monochrome | Midnight Obsidian |
 |---|---:|---:|---:|
-| `canvas` | `#F8F8F9` | `#FFFFFF` | `#081A33` |
-| `surface` | `#FFFFFF` | `#FFFFFF` | `#102B4C` |
-| `surface-raised` | `#FFFFFF` | `#FFFFFF` | `#16385F` |
-| `surface-muted` | `#F1EEF0` | `#F6F8FB` | `#0D2442` |
-| `text` | `#2E2C2D` | `#172033` | `#F5F9FF` |
-| `text-muted` | `#625C61` | `#5E6B82` | `#B9C8DC` |
-| `text-inverse` | `#FFFFFF` | `#FFFFFF` | `#08203D` |
-| `border` | `#D9D3D7` | `#D8E0EB` | `#315579` |
-| `primary` | `#714B67` | `#1D4ED8` | `#66B2FF` |
-| `primary-hover` | `#5C3D54` | `#1E40AF` | `#9BCBFF` |
-| `primary-active` | `#472F41` | `#1F3286` | `#D0E4FF` |
-| `primary-text` | `#FFFFFF` | `#FFFFFF` | `#08203D` |
-| `focus-ring` | `#2563EB` | `#1D4ED8` | `#A8D6FF` |
-| `link` | `#5C3D54` | `#1D4ED8` | `#A8D6FF` |
-| `success` | `#15803D` | `#15803D` | `#5DDB90` |
-| `warning` | `#A65300` | `#A65300` | `#FFCA6A` |
+| `canvas` | `#FAF8F5` | `#F4F4F5` | `#0B0F19` |
+| `surface` | `#FFFFFF` | `#FFFFFF` | `#111827` |
+| `surface-raised` | `#FFFFFF` | `#FFFFFF` | `#1B2437` |
+| `surface-muted` | `#F5F1EC` | `#FAFAFA` | `#0F1524` |
+| `text` | `#292524` | `#18181B` | `#E0E7FF` |
+| `text-muted` | `#57534E` | `#52525B` | `#AFBAD4` |
+| `text-inverse` | `#FFFFFF` | `#FFFFFF` | `#0B0F19` |
+| `border` | `#E7E5E4` | `#E4E4E7` | `#1F2937` |
+| `border-strong` | `#78716C` | `#71717A` | `#6B7280` |
+| `primary` | `#C2410C` | `#2563EB` | `#818CF8` |
+| `primary-hover` | `#9A3412` | `#1D4ED8` | `#A5B4FC` |
+| `primary-active` | `#7C2D12` | `#1E3A8A` | `#C7D2FE` |
+| `primary-text` | `#FFFFFF` | `#FFFFFF` | `#0B0F19` |
+| `focus-ring` | `#C2410C` | `#2563EB` | `#A5B4FC` |
+| `link` | `#9A3412` | `#1D4ED8` | `#A5B4FC` |
+| `success` | `#166534` | `#166534` | `#5DDB90` |
+| `warning` | `#9A4700` | `#9A4700` | `#FFCA6A` |
 | `danger` | `#B42318` | `#B42318` | `#FF9B91` |
 | `info` | `#1D4ED8` | `#1D4ED8` | `#7CC4FF` |
-| `status-neutral` | `#625C61` | `#5E6B82` | `#B9C8DC` |
-
-All values above are derived where `D-70` says so; the rest are as originally specified.
+| `status-neutral` | `#57534E` | `#52525B` | `#AFBAD4` |
 
 `shadow-1` and `shadow-2` are elevation, not colour, so they are listed separately rather than
 forced into the hex table. Roles are fixed by §4.2 and §6.6: `shadow-1` for resting cards and
 menus, `shadow-2` for dialogs and popovers only.
 
-| Token | Odoo-inspired and Clean White | Dark Blue |
+| Token | Warm Editorial and Clean Monochrome | Midnight Obsidian |
 |---|---|---|
 | `shadow-1` | `0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.10)` | `0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.30)` |
 | `shadow-2` | `0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08)` | `0 8px 24px -4px rgb(0 0 0 / 0.55), 0 2px 8px -2px rgb(0 0 0 / 0.40)` |
 
-The dark theme carries markedly higher alpha because a 6%-black shadow over `#081A33` is invisible.
+The dark theme carries markedly higher alpha because a 6%-black shadow over `#0B0F19` is invisible.
 
-> ⚠️ **Known contrast gap, measured not assumed.** Odoo's `success` `#15803D` on its `surface-muted`
-> `#F1EEF0` is **4.35:1**, under the 4.5:1 §8 requires. Both values predate `D-70` and neither is
-> changed by it. The pair is pinned at its measured ratio by the automated contrast test and awaits
-> an owner decision — see `D-70`.
+> ✅ **The contrast gap recorded here under `D-70` is closed.** The retired Odoo palette paired
+> `success` `#15803D` with `surface-muted` `#F1EEF0` at **4.35:1**, under the 4.5:1 §8 requires, and
+> the pair was pinned in the automated test while it waited on a decision. `D-73` replaced both
+> values: `success` is `#166534`, which measures **6.34:1** on Warm Editorial's `surface-muted` and
+> **7.13:1** on its `surface`. No pair in the current palette sits below its threshold.
 
 ### 3.4 Theme intent
 
 | Theme | Character | Use |
 |---|---|---|
-| Odoo-inspired | Warm, compact, business-application density with a restrained plum primary. | Default for users who prefer ERP/CRM-style workspaces. |
-| Clean White | Bright, low-decoration, neutral data workspace with blue primary actions. | Users who prefer maximum visual simplicity. |
-| Dark Blue | Deep navy operational environment with high-contrast text and blue highlights. | Users who prefer a dark workspace or work for long periods in low light. |
+| Warm Editorial | Paper-warm, editorial calm, business-application density with a terracotta primary. | Default. Users who read and write long-form content — quotations, notes, report narratives — for most of the day. |
+| Clean Monochrome | Neutral zinc, low chroma, cobalt reserved for action. | Users who prefer maximum visual simplicity, and screens where colour should mean status rather than decoration. |
+| Midnight Obsidian | Near-black canvas with indigo highlights and high-contrast text. | Users who prefer a dark workspace or work for long periods in low light. |
 
 ## 4. Foundations
 
@@ -279,3 +279,57 @@ Before a component or screen is complete, verify:
 4. Given a deal Kanban board, when a user cannot drag or uses a keyboard, then they can use an accessible status-change action subject to the same API validation.
 5. Given any component in any theme, when it enters focus, error, loading, or disabled state, then the state is visible without relying on color alone.
 6. Given a customer-facing quotation PDF, when it is generated from any theme, then the PDF content remains theme-independent and excludes all supplier/cost/margin information.
+
+---
+
+## 10. Decisions recorded here
+
+`D-70` is recorded in `docs/CRM_Documentation_EN.md` §2 with the rest of the decision log. The
+entry below is recorded in this document because it changes only this document, and because the
+master log is write-protected against unattended edits — **the `D-73` row still owes an entry
+there**, and that is outstanding rather than done.
+
+### D-73 — The three themes are replaced (recorded 2026-08-22, approved by the owner)
+
+**What changed.** §3.1's three named themes — Odoo-inspired, Clean White, Dark Blue — are retired
+and replaced by **Warm Editorial**, **Clean Monochrome** and **Midnight Obsidian**. §3.3's value
+table is rewritten, §3.4's intent table follows, and Warm Editorial takes the product-default slot
+on `:root`. The count stays at three, so §1, §2 ("One system, three appearances") and §9's first
+acceptance criterion are unaffected.
+
+**Why the default is Warm Editorial.** The retired default was warm and light; so is this one. The
+mapping across the whole set is by character rather than by position — Odoo-inspired → Warm
+Editorial, Clean White → Clean Monochrome, Dark Blue → Midnight Obsidian — so a user's existing
+preference has an obvious successor. Nothing in §3 requires this particular default; it is one
+line in `tokens.css` and one in `theme.ts` if the owner prefers another.
+
+**A twenty-second token: `--color-border-strong`.** The brief asked for 3:1 on every border.
+Measured, the three specified divider colours are `#E7E5E4`, `#E4E4E7` and `#1F2937`, which sit at
+**1.26:1**, **1.27:1** and **1.21:1** against their own surfaces. Raising them to 3:1 turns every
+rule in a data-dense table into a cage, and WCAG 2.1 SC 1.4.11 does not ask for it — its 3:1 floor
+covers the boundary that *identifies* a control, not decorative separation. One token cannot serve
+both roles, so there are two: `border` stays a divider with no ratio floor, and `border-strong`
+carries input outlines, checkbox edges and control boundaries at ≥3:1. Only the second is asserted.
+
+**Two primaries were adjusted, and one of the two adjustments had to be inverted.**
+- `#EA580C` (Terracotta) carries white at **3.56:1** and its own text colour at **4.26:1** — no
+  label reaches AA on it in either direction. Replaced with `#C2410C`, which carries white at
+  **5.18:1**.
+- `#6366F1` (Electric Iris) carries white at **4.47:1**, missing 4.5 by 0.03, and dark text at
+  **4.29:1**. The agreed remedy was to darken it; on a dark canvas that is the wrong direction, and
+  measurement said so — `#4F46E5` reads **2.82:1** on `surface`, **2.47:1** on `surface-raised` and
+  **2.90:1** on `surface-muted`, all under SC 1.4.11's 3:1. A dark theme needs a *lighter* primary
+  carrying dark text, which is the shape the retired Dark Blue theme used. **`#818CF8` with
+  `primary-text` `#0B0F19`**: 5.95:1 against the surface, 6.42:1 for the label.
+
+**A gap closed rather than inherited.** `success` `#15803D` measured 4.35:1 on the retired Odoo
+`surface-muted` and had been pinned in the contrast test awaiting a decision (see `D-70`).
+`#166534` reads 6.34:1 on Warm Editorial's muted surface, so the pinned-exception list is now
+empty. The pinning mechanism is kept — a known gap should keep a floor at its measured value — but
+there is nothing in it.
+
+**What was not decided here.** The remaining sixteen tokens per theme were not specified by the
+brief and were derived to satisfy §8's contrast requirements; they are ordinary design values and
+an owner may restate any of them. Nothing about spacing, typography, direction or component
+behaviour changes: §3.1's rule that a theme moves colour, border, shadow and focus only still
+holds.

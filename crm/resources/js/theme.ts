@@ -1,5 +1,6 @@
 /**
- * Design System §3.1: three themes, and Odoo-inspired is the product default —
+ * Design System §3.1 as D-73 rewrote it: three themes, and Warm Editorial is the
+ * product default —
  * which is why it carries no attribute at all. A document that has never chosen
  * one is already correct.
  *
@@ -16,11 +17,11 @@
  * adds is switching at runtime and remembering the choice.
  */
 
-export const THEMES = ['odoo', 'clean-white', 'dark-blue'] as const;
+export const THEMES = ['warm-editorial', 'clean-monochrome', 'midnight-obsidian'] as const;
 
 export type Theme = (typeof THEMES)[number];
 
-export const DEFAULT_THEME: Theme = 'odoo';
+export const DEFAULT_THEME: Theme = 'warm-editorial';
 
 export function applyTheme(theme: Theme): void {
     if (theme === DEFAULT_THEME) {

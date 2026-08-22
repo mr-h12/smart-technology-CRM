@@ -799,7 +799,10 @@ a property of the mechanism: seed data "versioned and repeatable".
       legitimate instead of unexamined. Nothing checks that a seeder's writes are transactional,
       and nothing yet audits them: a seed run has no actor, and `AUD-01` is about user operations
 - [x] **7.2** The `§3` matrix written down once and checked: **9 sections · 57 permissions ·
-      8 roles · 5 scopes · 200 grants**, in `app/Modules/Identity/Domain/Rbac`. Plain PHP with no
+      8 roles · 5 scopes · 212 grants** (143 explicit scopes, 69 bare checkmarks), in
+      `app/Modules/Identity/Domain/Rbac`. *(Corrected 2026-08-22 during 7.5: this line first said
+      200 grants and 59 checkmarks, which was my arithmetic over the section tables rather than a
+      measurement. Point 7.5's wiring test counts the rows it actually writes and found it.)* Plain PHP with no
       Illuminate anywhere in it — `deptrac` gives both `Identity` and `Domain` empty rulesets, and
       Module 1's tables do not exist (approved Option C), so the definition stands alone until a
       seeder can carry it into them.
@@ -817,7 +820,7 @@ a property of the mechanism: seed data "versioned and repeatable".
       **The document's bare ✅ had to be interpreted, so the interpretation is checked.** `SEC-07`
       has no value meaning "yes" — every permission carries a scope — and a plain ✅ means "at this
       role's scope for this section", the reading `§3.4` makes explicit by writing "✅ Own" and
-      "✅ Asgn" in the one row where the answer differs. Each of the **59 checkmark cells** records
+      "✅ Asgn" in the one row where the answer differs. Each of the **69 checkmark cells** records
       that it was a checkmark, and a test resolves every one against its section's own view row.
       **`§3.11` is the exception and says so:** its first view-prefixed row is `admin.view_audit_log`,
       a capability rather than a section anchor, so all its cells are explicit and a test asserts it
@@ -904,8 +907,50 @@ a property of the mechanism: seed data "versioned and repeatable".
       *membership* being code, while the set of lists is fixed by the columns that reference them.
       Nothing validates that a customer's sector is one of these — that is Module 3's foreign key.
       And no delivery term can be quoted until the business supplies them
-- [ ] **7.5** One test user per role (`DEV-08`), the wiring proved from definition to module
-      seeder, and Step 7 closed with the deferral recorded
+- [x] **7.5** Eight test personas — one per role, `Role`'s own order, Super Admin included
+      because `§3.12` rule 6 **hides** that account rather than omitting it — plus the wiring that
+      proves Step 7's four registries can actually be seeded.
+      **No password exists anywhere in the definitions.** `SEC-17` keeps secrets out of code, and a
+      literal here would be worse than an ordinary one: a working credential identical on every
+      checkout and every developer machine. `PasswordPolicy` carries the rule instead (`D-28`,
+      `SEC-02`: eight characters, letters **and** numbers), the seeder reads
+      `SEED_TEST_USER_PASSWORD` from the environment, and `.env.example` carries the key **empty**
+      — the rule `DB_PASSWORD` and `REDIS_PASSWORD` are already held to. Addresses are on
+      `example.test`, which RFC 6761 reserves as never-resolvable: a plausible company address in
+      seed data is one mistyped environment away from a password reset reaching a real inbox.
+      **The wiring is exercised, not asserted.** Two stand-in seeders inside the test read the
+      registries through their public API and write into probe tables standing in for Module 1's
+      and Module 2's: **212 permission grants · 3 currencies · 13 list entries · 8 users**, with
+      the far end of each chain spot-checked (`quotation.view|team_leader` → `team`, EGP unit `1`,
+      `government` → `حكومي`). Running it twice changes nothing; the registries compare equal
+      afterwards; and a scan asserts **no definition references `Illuminate`, a seeder, or a
+      connection at all**, so "consumed without modification" is a checked property rather than a
+      hope. The production split is exercised both ways: the persona seeder is **refused** and
+      writes nothing, the reference seeder **runs**.
+      **This point corrected a published number.** The 7.2 entry said 200 grants and 59
+      checkmarks. Both were my arithmetic over the section tables, and both were wrong — it is 212
+      grants, 143 explicit scopes and 69 checkmarks. The wiring test counted the rows it wrote and
+      found it; the 7.2 entry above is corrected and marked.
+      **Two tooling defects, both real.** Pint's `php_unit_method_casing` renamed a private helper
+      `testUserSeeder()` to `test_user_seeder()` and left its three call sites pointing at nothing
+      — the suite had been green **before** the formatter ran, and only PHPStan caught it. And the
+      first decoupling scanner read raw text, so it reported `TestPersonas.php` for the sentence in
+      its own docblock explaining that `GuardedSeeder` refuses it in production; it now strips
+      comments via `token_get_all`, the same fix the float scanner needed in 7.3.
+      **Not covered:** still no row is seeded anywhere — the probe tables are created by the test
+      and dropped with it. `PasswordPolicy` is the rule only; Argon2/bcrypt hashing (`SEC-02`) is
+      Module 1 infrastructure, and nothing hashes yet. No `users`, `roles`, `permissions`,
+      `currencies`, `fx_rates` or `enum_lists` table exists. The seeder that reads
+      `SEED_TEST_USER_PASSWORD` does not exist either — the key and its test are the documented
+      home for it, not the implementation
+
+**Step 7 is complete: 7.1 … 7.5.** Module 0's share of `DEV-08` is a seeding mechanism that is
+idempotent by verification and refuses test data in production, plus four canonical registries —
+the `§3` permission matrix, the currencies and their rounding, the four `DB-05` lists, and eight
+test personas — each strongly typed, framework-free, and proven consumable by a seeder that edits
+none of them. What it is not, is *seeded*: every table `DEV-08` names belongs to Module 1 or
+Module 2 (approved Option C), and three business facts are deliberately absent because no document
+supplies them — **the USD and EUR exchange rates, the delivery terms, and the test-user password**.
 
 **Tests**
 - [ ] App runs · frontend talks to backend · database connects

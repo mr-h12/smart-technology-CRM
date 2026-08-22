@@ -315,11 +315,43 @@ surface months later.
       observed; and a caller passing a literal to a `titleKey` prop would bypass the i18n gate,
       which only scans template text
 
-#### Step 5 — storage abstraction and `files` *(provisional — blocked by `Q-2`)*
+#### Step 5 — storage abstraction and `files` *(`Q-2` closed by `D-71`)*
 
-- [ ] **5.1** `Q-2` answered, then the `files` migration
+- [x] **5.1** `Q-2` answered, then the `files` migration. `D-71` records the answer: a central
+      `files` table plus one pivot per parent, with real foreign keys — **not** a polymorphic
+      `entity_type`/`entity_id` pair, because PostgreSQL cannot constrain one column against five
+      tables, so every attachment row would be free to name a deal that never existed. The
+      strongest evidence that the polymorphic shape was already known to leak is in the spec
+      itself: `J-11` is a weekly job whose entire purpose is deleting files attached to nothing.
+      A cleanup job for orphans is an admission, written in advance, that orphans will occur.
+      With the pivots the database refuses them and `J-11` becomes a safety net rather than the
+      mechanism. Four pivots now (`deal_files`, `supplier_quotation_files`,
+      `purchase_order_files`, `report_files`), composite primary key, `file_id` indexed on its
+      own, `ON DELETE CASCADE` on both sides. Upload ceiling raised to **30 MB** (`D-71`,
+      superseding the 10 MB in `D-39`) and carried through all three ceilings that can cut
+      first, since only the lowest one is real.
+      **Three false greens, each found by breaking the thing on purpose.** A bare
+      `expectException(QueryException::class)` is satisfied by "relation does not exist", so
+      three constraint tests passed before the migration existed — every negative assertion now
+      names its SQLSTATE (`23503`, `23505`, `23514`). Worse, the `file_id` index test asked
+      whether *any* index mentioned the column, and the composite key `(deal_id, file_id)`
+      mentions it: deleting the real index left all 28 tests green. A B-tree is only searchable
+      from its leading column, and the check now says so. **And nginx was the actual ceiling:**
+      `client_max_body_size` was never set in `default.conf`, so the live limit was nginx's 1 MB
+      default — a 2 MB upload would have failed today, long before anyone reached 30. Proven by
+      real request, not by reading config: 30 MB → 405 (Laravel answering), 60 MB → 413.
+      `DEV-03` run, not assumed: `migrate` → `migrate:reset` → `migrate`, and `down()` drops the
+      pivots before `files` or PostgreSQL raises `2BP01`.
+      **Not covered:** the four parent-side foreign keys are **owed, not written** — `deals`,
+      `supplier_quotations`, `purchase_orders` and `reports` are Modules 5, 6, 10 and 13 and do
+      not exist, so today nothing stops a `deal_id` pointing at nothing; the debt is machine-
+      readable in `test_the_parent_foreign_keys_that_are_still_owed_are_recorded`, which fails
+      the moment a parent table appears without its key. The nginx ceiling is outside the
+      `crm/` bind mount, so no test can read it and a regression there will not fail CI.
+      `scan_status` is a `CHECK` constraint, not the managed enum table `DB-05` wants, pending
+      `Q-6`. And nothing writes to these tables yet: no service, no model, no endpoint
 - [ ] **5.2** Storage behind an interface, local driver first
-- [ ] **5.3** Upload validation: true MIME, configured size (`D-39`), allowed types (`D-40`)
+- [ ] **5.3** Upload validation: true MIME, configured size (`D-71`), allowed types (`D-40`)
 - [ ] **5.4** Download endpoint checking permission on the parent entity (`D-38`)
 - [ ] **5.5** Virus scanning on every upload (`SEC-15`)
 

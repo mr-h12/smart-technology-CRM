@@ -156,38 +156,66 @@ Three relationships carry documented weight and are easy to get wrong:
 
 ## 3. Module 0 — Foundation
 
-### `files` 📙 · `§17`
+### `files` 📙 · `§17` · `D-71`
 
-Documented: 10 MB configurable limit (`D-39`), allowed types PDF/JPG/PNG/WEBP/
-DOCX/XLSX (`D-40`), true MIME validation, virus scan, UUID naming with the
-original name kept in the database, path
+Documented: **30 MB** configurable limit (`D-71`, superseding `D-39`), allowed
+types PDF/JPG/PNG/WEBP/DOCX/XLSX (`D-40`), true MIME validation, virus scan,
+UUID naming with the original name kept in the database, path
 `/{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext` outside the web root,
 permission inherited from the parent entity (`D-38`).
 
+`files` holds what is true about the bytes. It says nothing about what they are
+attached to — that is the pivots' job.
+
 | Column | Type | Note |
 |---|---|---|
-| `original_name` | VARCHAR | 📗 kept for display |
-| `entity_type` | VARCHAR | 📙 polymorphic parent |
-| `entity_id` | UUID | 📙 |
-| `mime_type` | VARCHAR | 📗 true type, not extension |
+| `original_name` | VARCHAR(255) | 📗 kept for display |
+| `mime_type` | VARCHAR(127) | 📗 true type, not extension |
 | `size_bytes` | BIGINT | 📗 |
-| `storage_path` | VARCHAR | 📗 |
+| `storage_path` | VARCHAR(512) | 📗 assembled, unique |
 | `scan_status` | VARCHAR | 📙 pending/clean/infected — `SEC-15` |
 | `scanned_at` | TIMESTAMPTZ | 📙 |
+
+Plus the standard column block (`§4.8`): UUIDv7 `id` (`D-61`), `created_by`,
+`created_at`, `updated_by`, `updated_at`, `deleted_at` (`DB-01`, `DB-02`).
 
 > **The storage filename is `id`, not a second column.** `§17` writes the path as
 > `…/{entity_id}/{uuid}.ext`, and `D-61` already makes `id` a UUID — so the `{uuid}`
 > in that path *is* `files.id`. A separate `uuid` column would store the same
 > value twice and invite the two to drift apart. `storage_path` holds the
-> assembled path.
+> assembled path and is `UNIQUE`, so two rows can never claim one file on disk.
 
-**Indexes:** `(entity_type, entity_id)` — every permission check loads a
-parent's attachments (`D-38`) · `scan_status` where it is not `clean`, for the
-quarantine view · `created_at` for the orphan-cleanup job `J-11`.
+**Indexes:** `scan_status` where it is not `clean`, for the quarantine view ·
+`created_at` for the orphan-cleanup job `J-11` · `UNIQUE(storage_path)`.
 
-> **Open:** the parent link is polymorphic here because attachments hang off
-> deals, supplier quotations, purchase orders, reports and visits. The
-> specification does not say how. See Q-2.
+### Attachment pivots 📙 · `D-71`
+
+One per attachable parent. Identical shape, deliberately — a pivot that differs
+is a permission rule that differs.
+
+`deal_files` · `supplier_quotation_files` · `purchase_order_files` ·
+`report_files`
+
+| Column | Type | Note |
+|---|---|---|
+| `<parent>_id` | UUID | FK → parent, `ON DELETE CASCADE` |
+| `file_id` | UUID | FK → `files`, `ON DELETE CASCADE` |
+
+**Primary key:** `(<parent>_id, file_id)` — a file cannot be attached to the same
+parent twice, enforced by the key rather than by a check in application code.
+**Index:** `file_id`, for the reverse lookup every permission check makes (`D-38`)
+and for `J-11`, which asks the opposite question: which files have no parent.
+
+> **`ON DELETE CASCADE` on both sides, and it is safe here** only because `DB-01`
+> forbids physically deleting a parent: archiving sets `deleted_at` and the pivot
+> row stays. The cascade exists for the case the rules do allow — a hard delete
+> in a migration or a repair — so that it cannot leave a row pointing at nothing.
+> The file itself is never cascaded away: detaching is not deleting, and `J-11`
+> is what eventually removes a file no pivot references.
+
+> **No `entity_type` column anywhere.** That was the polymorphic draft, and
+> `D-71` rejected it: no foreign key can constrain one column against five
+> tables, so the database could not tell a valid parent from a deleted one.
 
 ### `audit_log` 📗 · `§14.8`
 
@@ -259,7 +287,7 @@ Documented behaviours:
   (`DB-05`). Adding a sector must appear in the customer form **without a
   deployment**.
 - **`system_limits`**: stale-deal threshold (`D-17`) · daily report deadline ·
-  approval SLA · weekly review window · max file size (`D-39`).
+  approval SLA · weekly review window · max file size (`D-71`, was `D-39`).
 
 ---
 
@@ -559,7 +587,7 @@ before the migrations they affect.
 | # | Question | Blocks |
 |---|---|---|
 | ~~Q-1~~ ✅ | ~~`BIGSERIAL` or `UUID`?~~ **Closed by `D-61`: UUID, time-ordered.** One key rather than a numeric key plus a public UUID. | — |
-| **Q-2** | Attachments hang off deals, supplier quotations, POs, reports and visits. Polymorphic `files` table, or a join table per parent? | Module 0 |
+| ~~Q-2~~ ✅ | ~~Polymorphic `files` table, or a join table per parent?~~ **Closed by `D-71`, approved 2026-08-22:** a central `files` table plus one pivot per parent, with real foreign keys. A polymorphic column cannot carry one — and `J-11`, a weekly job for files linked to nothing, was the specification already admitting the orphans it would produce. | — |
 | **Q-3** | Is `audit_log` partitioned by month or by year? `DB-10` says partition, not how. | Module 0 |
 | **Q-4** | Does `users` keep Laravel's `email_verified_at`? `SEC-01` forbids public sign-up, so nothing verifies an email at registration. | Module 1 |
 | **Q-5** | `enum_lists` as one table with a `type` column, or one table per list? `DB-05` says enum tables, plural. | Module 2 |

@@ -155,9 +155,20 @@ RUN { \
         echo 'opcache.revalidate_freq=0'; \
     } > /usr/local/etc/php/conf.d/zz-opcache.ini
 
-# §17 sets the configurable file-size ceiling at 10 MB (D-39). PHP must not
-# reject an upload before the application can apply its own documented rule and
-# error message, so its limits sit just above and the application enforces.
+# §17 sets the configurable file-size ceiling at 30 MB (D-71, superseding the
+# 10 MB in D-39). PHP must not reject an upload before the application can apply
+# its own documented rule and error message, so its limits sit just above and
+# the application enforces.
+#
+# post_max_size clears upload_max_filesize by 8 MB rather than matching it: it
+# caps the whole request body, so the multipart boundaries and any other field
+# travelling with the file are counted too. Set equal, a 30 MB file plus its
+# envelope is rejected — with no message that says why, because PHP discards the
+# body and $_FILES simply arrives empty.
+#
+# nginx cuts before either of these, and its default client_max_body_size is
+# 1 MB. docker/nginx/default.conf raises it; changing one without the other
+# moves the failure rather than fixing it.
 # No php.ini is active in the official image — verified: `php --ini` reports
 # "Loaded Configuration File: (none)". That leaves PHP's built-in defaults, and
 # two of them are wrong here in every environment:
@@ -168,8 +179,8 @@ RUN { \
 # display_errors is left at PHP's default here and turned off by
 # zzz-production.ini at deployment; showing errors is useful while developing.
 RUN { \
-        echo 'upload_max_filesize=12M'; \
-        echo 'post_max_size=16M'; \
+        echo 'upload_max_filesize=32M'; \
+        echo 'post_max_size=40M'; \
         echo 'memory_limit=256M'; \
         echo 'expose_php=Off'; \
         echo 'log_errors=On'; \

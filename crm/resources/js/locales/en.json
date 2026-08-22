@@ -10,7 +10,19 @@
   },
   "state": {
     "loading": "Loading…",
-    "error": "Something went wrong."
+    "retry": "Try again",
+    "empty": {
+      "title": "Nothing here yet",
+      "message": "No records match what you are looking for."
+    },
+    "error": {
+      "title": "Something went wrong.",
+      "message": "This data could not be loaded. Try again."
+    },
+    "denied": {
+      "title": "You do not have access",
+      "message": "You do not have permission to view this content. Contact your system administrator if you believe this is a mistake."
+    }
   },
   "ping": {
     "title": "Connection check",

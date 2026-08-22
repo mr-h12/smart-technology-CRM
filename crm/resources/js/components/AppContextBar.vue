@@ -74,7 +74,7 @@ function themeLabel(theme: Theme): string {
             </svg>
         </button>
 
-        <h1 class="me-auto truncate text-start text-[var(--text-section-title)] font-semibold">
+        <h1 class="me-auto truncate text-start text-section-title">
             {{ title }}
         </h1>
 

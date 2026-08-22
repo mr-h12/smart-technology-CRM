@@ -68,7 +68,7 @@ function onBackdrop(): void {
                 </svg>
             </span>
 
-            <span v-if="!props.collapsed" class="truncate text-[var(--text-card-title)] font-semibold lg:inline">
+            <span v-if="!props.collapsed" class="truncate text-card-title lg:inline">
                 {{ t('app.name') }}
             </span>
         </div>
@@ -77,7 +77,7 @@ function onBackdrop(): void {
             <div v-for="group in NAVIGATION" :key="group.labelKey" class="mb-4">
                 <p
                     v-if="!props.collapsed"
-                    class="px-2 pb-1 text-start text-[var(--text-table)] text-[var(--color-text-muted)] uppercase"
+                    class="px-2 pb-1 text-start text-table text-[var(--color-text-muted)] uppercase"
                 >
                     {{ t(group.labelKey) }}
                 </p>

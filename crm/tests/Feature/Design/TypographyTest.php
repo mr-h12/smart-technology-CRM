@@ -281,6 +281,37 @@ final class TypographyTest extends TestCase
         );
     }
 
+    public function test_no_component_asks_for_a_size_through_the_colour_utility(): void
+    {
+        // Found in a browser, not here, and it had already shipped.
+        //
+        // `text-[var(--text-card-title)]` reads as a font size and is not one.
+        // Tailwind cannot tell a size from a colour inside an arbitrary value,
+        // guesses colour, and emits `color: var(--text-card-title)` — that is
+        // `color: 16px`, invalid at computed-value time and dropped in silence.
+        // So the heading kept the inherited size, and where a colour utility sat
+        // beside it the colour was lost too: the §6.4 danger heading measured
+        // rgb(46, 44, 45) instead of the red the rule requires.
+        //
+        // Eight elements across the shell and the state components were wrong
+        // this way, through a CI-green commit and 207 passing tests. The named
+        // utilities the @theme scale generates — text-page-title, text-table —
+        // are unambiguous and carry the line-height and weight as well.
+        $offences = [];
+
+        foreach (self::vueFiles() as $path) {
+            if (str_contains(self::read($path), 'text-[var(--text-')) {
+                $offences[] = basename($path);
+            }
+        }
+
+        self::assertSame(
+            [],
+            $offences,
+            'An arbitrary text-[…] value is read as a colour. Use the named size utility (§4.1).',
+        );
+    }
+
     public function test_numerals_are_tabular_at_the_root(): void
     {
         // §4.1: tabular numerals for money, counts, codes and dates — which is
@@ -426,6 +457,26 @@ final class TypographyTest extends TestCase
         }
 
         return $manifest;
+    }
+
+    /** @return list<string> */
+    private static function vueFiles(): array
+    {
+        $paths = [];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(base_path('resources/js'), \FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($iterator as $file) {
+            if ($file instanceof \SplFileInfo && $file->getExtension() === 'vue') {
+                $paths[] = $file->getPathname();
+            }
+        }
+
+        sort($paths);
+
+        return $paths;
     }
 
     private static function read(string $path): string

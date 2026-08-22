@@ -288,7 +288,32 @@ surface months later.
       session, and there is no account until Module 1 — this stores per browser, so the flash
       requirement is met and the account requirement is a debt. Nothing in CI re-measures the
       flash: a regression that keeps the ordering but moves the work elsewhere would pass
-- [ ] **4.4** Loading, empty, error and permission-denied states as base components
+- [x] **4.4** Loading, empty, error and permission-denied states as base components.
+      Four components under `resources/js/components/states/`, each carrying the state in an
+      icon **and** text — §9.5: "visible without relying on color alone", which rules out a red
+      box for an error and a bare spinner for loading. `LoadingState` keeps its width and
+      announces politely (§6.1); `ErrorState` interrupts with `role="alert"` and offers a 44px
+      retry (§6.4, §8); `EmptyState` takes the next action as a **slot**, because what a user
+      may do next is a permission decision and SEC-09 keeps those on the server — an empty list
+      with a disabled Create button tells the user about a capability they do not have.
+      `PermissionDeniedState` **takes no props at all**: a denial that names the resource or the
+      permission turns an access-control boundary into an enumeration oracle, so there is
+      nothing a caller can pass in and leak, and no retry, since a 403 does not become a 200 by
+      asking again. Wired into `Ping.vue` so that four components nothing imports are not four
+      components nothing type-checks.
+      **A defect that had already shipped, found by measuring a browser.** `text-[var(--text-card-title)]`
+      reads as a font size and is not one: Tailwind cannot tell a size from a colour inside an
+      arbitrary value, guesses colour, and emits `color: 16px` — invalid, dropped in silence. So
+      no heading in the application had its §4.1 size, and where a colour utility sat beside it
+      the colour was lost too: the §6.4 danger heading measured `rgb(46, 44, 45)` instead of red.
+      Eight elements across the shell and the state components, through the CI-green commit for
+      4.2 and 207 passing tests. Fixed to the named utilities and pinned by a test.
+      Measured after the fix, both locales, mobile viewport: heading `rgb(180, 35, 24)` at 16px
+      weight 600, retry 95×44 and 109×44, `role="alert"`, icon `aria-hidden`.
+      **Not covered:** nothing mounts these in a test, so the announcements, the contrast in all
+      three themes and the reachability of a 44px target are asserted through their markup, not
+      observed; and a caller passing a literal to a `titleKey` prop would bypass the i18n gate,
+      which only scans template text
 
 #### Step 5 — storage abstraction and `files` *(provisional — blocked by `Q-2`)*
 

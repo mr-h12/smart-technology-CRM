@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue';
 import { apiGet } from '@/api';
 import { useI18n } from 'vue-i18n';
+import LoadingState from '@/components/states/LoadingState.vue';
+import ErrorState from '@/components/states/ErrorState.vue';
 
 interface Ping {
     service: string;
@@ -15,7 +17,9 @@ const ping = ref<Ping | null>(null);
 const requestId = ref<string | null>(null);
 const error = ref<string | null>(null);
 
-onMounted(async () => {
+async function load(): Promise<void> {
+    state.value = 'loading';
+
     try {
         const result = await apiGet<Ping>('/ping');
         ping.value = result.data;
@@ -25,26 +29,27 @@ onMounted(async () => {
         error.value = e instanceof Error ? e.message : String(e);
         state.value = 'error';
     }
-});
+}
+
+onMounted(load);
 </script>
 
 <template>
-    <!-- Loading, error and success are all rendered rather than assumed:
-         Coding Standards §11 requires every screen to have them.
-
-         Every visible string comes from a lang file. The only literals left are
-         the request id and the timestamp, which are data. -->
+    <!-- Loading and error come from the §8 base components rather than being
+         spelled out again here. That is the point of them: this page owes a
+         request and a table, not an accessible spinner. It is also what puts
+         them in front of vue-tsc and the bundler — four components nothing
+         imports are four components nothing checks. -->
     <section>
-        <h1>{{ t('ping.title') }}</h1>
+        <h1 class="mb-4 text-page-title">{{ t('ping.title') }}</h1>
 
-        <p v-if="state === 'loading'">{{ t('state.loading') }}</p>
+        <LoadingState v-if="state === 'loading'" />
 
-        <template v-else-if="state === 'error'">
-            <p>{{ t('state.error') }}</p>
-            <!-- The raw message is diagnostic, not a user-facing string, so it
-                 is shown beside the translated one rather than instead of it. -->
-            <p><small>{{ error }}</small></p>
-        </template>
+        <ErrorState v-else-if="state === 'error'" @retry="load">
+            <!-- Diagnostic, not copy: the raw message is data and sits beside the
+                 translated explanation rather than replacing it. -->
+            <template #detail>{{ error }}</template>
+        </ErrorState>
 
         <dl v-else-if="ping">
             <dt>{{ t('ping.service') }}</dt><dd>{{ ping.service }}</dd>

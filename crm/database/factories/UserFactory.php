@@ -4,17 +4,25 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Models\User;
+use App\Modules\Identity\Infrastructure\Eloquent\Role;
+use App\Modules\Identity\Infrastructure\Eloquent\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Ramsey\Uuid\Uuid;
 
 /**
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
+    /**
+     * Named explicitly. Eloquent's factory convention resolves
+     * `Database\Factories\{Model}Factory` against `App\Models`, and AP-02
+     * moved this model into its module, so the guess no longer lands.
+     *
+     * @var class-string<User>
+     */
+    protected $model = User::class;
+
     /**
      * The current password being used by the factory.
      */
@@ -52,30 +60,16 @@ class UserFactory extends Factory
      * `users.role_id` is NOT NULL because §3.1 gives every user exactly one
      * role, so a user cannot be manufactured without one.
      *
-     * Written with the query builder rather than an Eloquent model on purpose:
-     * `roles` has no model yet. Module 1's application layer owns that, and a
-     * factory reaching for one that does not exist would be this point
-     * inventing scope it was not given.
+     * Indoor Sales is the default because it is the plainest operational role
+     * in §3.1 — `Own` scope, no supervision, nothing hidden — so a factory user
+     * carries the fewest assumptions. A test that needs a different role says
+     * so explicitly.
      */
     private static function defaultRoleId(): string
     {
-        $existing = DB::table('roles')->where('slug', 'indoor_sales')->value('id');
-
-        if (is_string($existing)) {
-            return $existing;
-        }
-
-        $id = Uuid::uuid7()->toString();
-
-        DB::table('roles')->insert([
-            'id' => $id,
-            'name' => 'Indoor Sales',
-            'slug' => 'indoor_sales',
-            'is_system' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $id;
+        return Role::firstOrCreate(
+            ['slug' => 'indoor_sales'],
+            ['name' => 'Indoor Sales', 'is_system' => true],
+        )->id;
     }
 }

@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Models;
+namespace App\Modules\Identity\Infrastructure\Eloquent;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -33,6 +35,40 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasUuids, Notifiable, SoftDeletes;
+
+    /**
+     * Named explicitly because Eloquent finds a factory by convention —
+     * `Database\Factories\{Model}Factory` relative to `App\Models` — and this
+     * model no longer lives there. AP-02 puts a module's persistence inside the
+     * module, so the convention has to be replaced rather than followed.
+     */
+    protected static function newFactory(): UserFactory
+    {
+        return UserFactory::new();
+    }
+
+    /**
+     * §3.1 gives every user exactly one role, and `users.role_id` is NOT NULL,
+     * so this relation always resolves for a row that exists.
+     *
+     * @return BelongsTo<Role, $this>
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * The signed-in devices `SEC-05` lists and allows force-logout on. Revoked
+     * sessions are soft-deleted, so the default relation returns the live ones
+     * — which is exactly what the device list shows.
+     *
+     * @return HasMany<UserSession, $this>
+     */
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(UserSession::class, 'user_id');
+    }
 
     /**
      * Get the attributes that should be cast.

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Seed;
 
+use App\Modules\Identity\Domain\Personas\TestPersona;
+use App\Modules\Identity\Domain\Personas\TestPersonas;
 use App\Support\Seeding\GuardedSeeder;
 use App\Support\Seeding\IdempotentSeeder;
 use App\Support\Seeding\ProductionSeedRefused;
@@ -11,6 +13,7 @@ use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Database\Seeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\PendingCommand;
 use PHPUnit\Framework\AssertionFailedError;
@@ -191,12 +194,28 @@ final class SeederContractTest extends TestCase
         }
     }
 
-    public function test_seeding_an_empty_database_creates_no_users(): void
+    /**
+     * **Rewritten in Point 2.1, and the change is deliberate.**
+     *
+     * This used to assert that `db:seed` produced *zero* users, because at the
+     * time `DatabaseSeeder` called nothing and the only thing that could have
+     * created one was Laravel's scaffold — `test@example.com` in a `users`
+     * table `design/DATABASE.md §4` says is replaced rather than extended.
+     *
+     * Module 1 now seeds eight documented personas on purpose, so "zero users"
+     * is no longer the property worth holding. **The property that survives is
+     * the one the test was really about: nothing invented gets seeded.** Every
+     * user that exists after a seed is one `TestPersonas` names, on RFC 6761's
+     * `.test` domain, and the scaffold address is absent.
+     */
+    public function test_seeding_creates_only_documented_personas(): void
     {
-        // Laravel's scaffold seeded test@example.com into a `users` table that
-        // design/DATABASE.md §4 says is replaced in Module 1, not extended —
-        // a row in a table on its way out, with a bigint key (D-61), no
-        // deleted_at (DB-01) and no created_by (DB-02).
+        // The eight personas are test data, so the seeder needs the password
+        // that DEV-08 keeps out of the repository. Set here rather than left
+        // empty, because an unset key makes UserSeeder refuse — which is its
+        // own test in IdentitySeederAndModelsTest, not this one.
+        Config::set('seeding.test_user_password', 'Passw0rd123');
+
         // ->run(), not ->assertSuccessful(). Measured, after this test passed
         // with the scaffold deliberately restored: assertSuccessful() only
         // *records* an expected exit code and returns $this — PendingCommand
@@ -208,7 +227,16 @@ final class SeederContractTest extends TestCase
         self::assertInstanceOf(PendingCommand::class, $seed);
         self::assertSame(Command::SUCCESS, $seed->run());
 
-        self::assertSame(0, DB::table('users')->count());
+        $expected = array_map(
+            static fn (TestPersona $persona): string => $persona->email(),
+            TestPersonas::all(),
+        );
+        sort($expected);
+
+        $seeded = DB::table('users')->orderBy('email')->pluck('email')->all();
+
+        self::assertSame($expected, $seeded);
+        self::assertNotContains('test@example.com', $seeded, "Laravel's scaffold user is back.");
     }
 
     // ─────────────────────────────────────────────────────────── the runner

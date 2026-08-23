@@ -39,6 +39,30 @@ enum Role: string
     case Procurement = 'procurement';
 
     /**
+     * The display name §3.1 gives this role, in English.
+     *
+     * Separate from the case value because the slug is a machine key that must
+     * never change and never be translated, while this is prose that §14.2
+     * will eventually want in Arabic too — at which point this becomes the
+     * translation key's default rather than the only string. Transcribed from
+     * the §3.1 table, and `RoleLabelTest` reads that table back out of the
+     * documentation rather than trusting this list.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::SuperAdmin => 'Super Admin',
+            self::Ceo => 'CEO',
+            self::Manager => 'Manager',
+            self::TeamLeader => 'Team Leader',
+            self::OutdoorSupervisor => 'Outdoor Supervisor',
+            self::OutdoorSales => 'Outdoor Sales',
+            self::IndoorSales => 'Indoor Sales',
+            self::Procurement => 'Procurement',
+        };
+    }
+
+    /**
      * §3.12 rule 6. Never listed in any user list, for any role.
      *
      * A property of the role rather than a filter in one query: the rule says

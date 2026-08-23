@@ -24,10 +24,6 @@ parameters:
   paths:
     - ./app/Modules
   layers:
-    - name: Identity
-      collectors:
-        - type: directory
-          value: app/Modules/Identity/.*
     - name: Customers
       collectors:
         - type: directory
@@ -69,6 +65,27 @@ parameters:
         - type: directory
           value: app/Modules/Admin/.*
 
+    # Identity is split for the reason Audit and Storage are, approved
+    # 2026-08-23 with Point 2.1. Its Infrastructure holds the Eloquent models
+    # for `users`, `roles`, `permissions` and `user_sessions`, and an Eloquent
+    # model is a framework object by definition — so the module needs the
+    # Framework layer that a bare `~` ruleset denies. The split keeps the line
+    # in the right place: Domain and Application are what another module may
+    # one day be allowed to depend on, and IdentityDriver — the models, the
+    # tables, the HTTP surface — is what nothing may ever reach. SEC-07 makes
+    # this the module every other module will eventually ask about permissions,
+    # which is exactly why the crossing has to be a named interface later
+    # rather than a reach into a model now.
+    - name: IdentityContract
+      collectors:
+        - type: directory
+          value: app/Modules/Identity/(Domain|Application)/.*
+
+    - name: IdentityDriver
+      collectors:
+        - type: directory
+          value: app/Modules/Identity/(Infrastructure|Presentation)/.*
+
     - name: AuditContract
       collectors:
         - type: directory
@@ -89,6 +106,17 @@ parameters:
         - type: directory
           value: app/Modules/Storage/(Infrastructure|Presentation)/.*
 
+    # Model factories are test and seed scaffolding rather than a module, and
+    # they live in `database/factories` because that is where Laravel's tooling
+    # looks. A model naming its own factory is the framework's own pattern, so
+    # the dependency is legitimate — but it is named here rather than left
+    # uncovered, because an uncovered line does not fail the build and a report
+    # that accumulates them is a report nobody reads.
+    - name: Factories
+      collectors:
+        - type: classLike
+          value: ^Database\\Factories\\.*
+
     # The framework is named here for the same reason it is named in
     # deptrac.layers.yaml: without it every Illuminate call from a covered class
     # is an uncovered dependency, and a report full of uncovered lines is a
@@ -103,7 +131,6 @@ parameters:
           value: ^Laravel\\.*
 
   ruleset:
-    Identity: ~
     Customers: ~
     Deals: ~
     Quotations: ~
@@ -120,6 +147,12 @@ parameters:
     # Audit is split for the same reason Storage is: the contract half is what
     # another module may one day depend on, and the driver half — PostgreSQL
     # DDL, an Artisan command — is what it must never reach.
+    IdentityContract:
+      - Framework
+    IdentityDriver:
+      - IdentityContract
+      - Framework
+      - Factories
     AuditContract:
       - Framework
     AuditDriver:
@@ -131,3 +164,4 @@ parameters:
       - StorageContract
       - Framework
     Framework: ~
+    Factories: ~

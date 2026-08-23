@@ -1378,6 +1378,68 @@ correction both need the owner's approval on a hook-protected file, and `--color
       `password_reset_tokens` and `sessions`, were deliberately left in place rather than dropped
       in passing — both are now unused and both are on the debt register
 
+#### Step 2 — models, seeders, authentication, enforcement *(point order approved 2026-08-23)*
+
+- [x] **2.1** The Eloquent models, and the seeders that fill Step 1's tables with `§3`.
+      **Seeded, and counted against the matrix rather than against a number somebody typed:**
+      8 roles · **143 permissions** · **212 grants** · 8 test users, 1 of them hidden. Every one of
+      those figures is derived from `PermissionMatrix` inside the test *and then* compared to the
+      literal, so a matrix that grows fails loudly instead of disagreeing quietly. A second test
+      compares the actual set of `resource.action.scope` strings, because writing 143 of the wrong
+      rows would satisfy a count.
+      **`RolePermissionSeeder` is configuration and runs in production; `UserSeeder` is test data
+      and refuses to.** `SEC-07` puts the matrix *in the database*, so `seedsTestData()` is false
+      for the first and true for the second — and a test asserts both directions, including that
+      the matrix seeder is **not** blocked when the environment is production.
+      **Idempotency is asserted by identity, not by counting.** The snapshot compares ids and
+      `created_at` across two runs: a seeder that truncated and re-inserted would hold every count
+      steady and change every id. That is exactly the injected defect the proof below used, and the
+      count assertions all passed while it was in place.
+      **`env()` inside a seeder was a real defect, found by checking rather than reasoning.** With
+      `config:cache` applied — which production runs, per Point 8.4 — `env('SEED_TEST_USER_PASSWORD')`
+      returns **NULL** for a key that is set: measured before and after caching with the value in
+      `.env`. `UserSeeder` would have refused a correctly configured password *only in production*.
+      It now reads `config('seeding.test_user_password')`, and `config/seeding.php` records why.
+      There is still no default and no committed literal — the seeder refuses to run without the
+      key, and refuses again if the value would fail `D-28`.
+      **A second silent defect: `deleted_at` is not `$fillable`, so Eloquent dropped it.** The
+      first version restored an archived canonical role by putting `deleted_at => null` in the
+      `updateOrCreate` payload. Eloquent discards a non-fillable attribute **without a word**, so
+      the row stayed archived while the seeder reported success. The restore test caught it; the
+      seeders now call `restore()` explicitly.
+      **`App\Models\User` moved into the module.** `AP-02` gives a module its own persistence, and
+      the model now sits in `Identity/Infrastructure/Eloquent` beside `Role`, `Permission` and
+      `UserSession`, with `config/auth.php` and the factory's `$model`/`newFactory()` following —
+      Eloquent's factory convention resolves against `App\Models` and no longer lands.
+      **`deptrac` needed two named exceptions, and both are in the diff rather than in a habit.**
+      Identity is now split `IdentityContract` / `IdentityDriver`, exactly as Audit and Storage
+      already are: an Eloquent model is a framework object, and a bare `~` ruleset forbids the
+      framework outright — **22 violations** said so. A `Factories` layer was added to both configs
+      because a model naming its own factory was landing as *uncovered*, and uncovered does not
+      fail a build. New baselines: **layers 159 · modules 140**, violations 0, uncovered 0.
+      **One older test was rewritten, deliberately.** `SeederContractTest` asserted `db:seed`
+      creates **zero** users — true when `DatabaseSeeder` called nothing, and now false by design.
+      The property that survived is the one it was really about: every seeded user is one
+      `TestPersonas` names, and Laravel's `test@example.com` is absent.
+      **Checks:** 719 tests, 3423 assertions. Four deliberate failures, restored under
+      `shasum -a 256 -c`: dropping the `own`-scope triples gave `Undefined array key
+      "customer.view.own"`; pointing `roles()` at the wrong pivot key gave *"permissions() and
+      roles() do not describe the same pivot"*; flipping `seedsTestData()` to false let the seeder
+      run in production; and truncate-then-reinsert tripped the identity snapshot while every
+      count still passed.
+      **Not covered:** **no authentication and no enforcement.** Nothing logs in, nothing checks a
+      permission, and the 212 grants are rows no query reads — `SEC-07`'s "enforced at the API and
+      row level" is 2.3. `is_hidden` is seeded correctly and hides nobody, because there is no user
+      list. No `Scope::includes()` call exists outside its own unit test. The models are persistence
+      mappings only: no policy, no repository interface, and no `Application` use case — a later
+      point decides whether Identity follows Storage's repository shape or keeps these models as
+      the seam. `standardActorForeignKeys()` is still unapplied, so `created_by`/`updated_by`
+      remain without foreign keys across every table
+- [ ] **2.2** Authentication — `login` · `logout` · `me`, Argon2 (`SEC-02`), lockout after five
+      failures with Super Admin notification (`SEC-03`), eight-hour idle expiry (`D-29`)
+- [ ] **2.3** Enforcement — a gate reading the matrix from the database (`SEC-07`), a negative test
+      per scope, and the Super Admin hidden from every list (`§3.12` rule 6)
+
 **Endpoints**
 - [ ] `POST /api/v1/auth/login` · `logout` · `change-password`
 - [ ] `GET /api/v1/auth/me`

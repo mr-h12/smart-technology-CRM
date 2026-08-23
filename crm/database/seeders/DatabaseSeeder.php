@@ -35,7 +35,18 @@ final class DatabaseSeeder extends GuardedSeeder
 
     protected function seed(): void
     {
-        // Module 1: roles, permissions, the resource.action.scope matrix (SEC-07), test users.
+        // Order is load-bearing, not cosmetic: users.role_id is NOT NULL with a
+        // foreign key, so the roles have to exist first. UserSeeder says so
+        // itself rather than trusting this line.
+        //
+        // RolePermissionSeeder is configuration (SEC-07) and runs everywhere.
+        // UserSeeder is test data and refuses to run in production — the guard
+        // is on the seeder, so calling it from here cannot weaken it.
+        $this->call([
+            RolePermissionSeeder::class,
+            UserSeeder::class,
+        ]);
+
         // Module 2: sectors, units, service types, delivery terms (DB-05), currencies (D-52), FX rates.
     }
 }

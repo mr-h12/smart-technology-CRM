@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Storage;
 
-use App\Models\User;
+use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Storage\Domain\AllowedFileType;
 use App\Modules\Storage\Domain\AttachmentLink;
 use App\Modules\Storage\Domain\AttachmentParent;

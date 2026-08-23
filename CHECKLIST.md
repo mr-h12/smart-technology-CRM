@@ -115,12 +115,17 @@ every "are we ready to ship" conversation — not at the end.
       and the attachments vanish on the next `--force-recreate`. Needs either a boot assertion
       or a single source on the server
 - [ ] **`J-15` belongs on the `maintenance` queue once Queue Monitor exists** — recorded
-      2026-08-22 with Point 6.3. `§15` says every job appears in Queue Monitor, and `§15.1`
-      files cleanup work on `maintenance`. `J-15` is in the scheduler instead: Horizon is not
-      installed, and the worker services carry a `workers` compose profile that is off by
-      default, so a queued job would have sat in Redis unexecuted while `audit_log` ran out
-      of months. The server owes Horizon, the move onto `maintenance`, and an alert on the
-      job's non-zero exit (`OBS-06`) — today the only signal is the scheduler's own output
+      2026-08-22 with Point 6.3, **premise corrected 2026-08-23 with Point 8.5**. `§15` says
+      every job appears in Queue Monitor, and `§15.1` files cleanup work on `maintenance`.
+      `J-15` sits in the scheduler instead, and the reason is now only that **Horizon is not
+      installed**. This entry also used to say the worker services carried a `workers` compose
+      profile that was off by default, so a queued job would have sat in Redis unexecuted —
+      **Point 8.1 removed that profile.** `docker compose up -d` now starts all four workers,
+      and a queued job would be drained. The conclusion is unchanged, but half of what
+      justified it stopped being true, and a debt register that argues from a false premise is
+      worse than a short one. The server owes Horizon, the move onto `maintenance`, and an
+      alert on the job's non-zero exit (`OBS-06`) — today the only signal is the scheduler's
+      own output
 - [ ] **A non-superuser database role for the application** (`AUD-03`, `D-30`) — recorded
       2026-08-22 with Point 6.2. The application connects as `crm`, and `rolsuper` is `t` —
       measured. The append-only triggers on `audit_log` refuse `UPDATE`, `DELETE` and
@@ -163,6 +168,39 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.
+
+---
+
+## Debt the server does not gate — `Point 8.5`
+
+The register above opens by saying everything in it is unverifiable without the real server.
+These four are not. They are blocked on an owner decision or on ordinary work, they were each
+created by work already merged, and keeping them under a heading that says "wait for the server"
+would hide them behind `OD-03` indefinitely.
+
+- [ ] **`D-73` has no row in the master decision log** — created 2026-08-22 with the three-theme
+      work (Midnight Obsidian · Warm Editorial · Clean Monochrome, 22 semantic tokens, contrast
+      checked mathematically). `grep -n "D-73" docs/CRM_Documentation_EN.md` returns **nothing**
+      — checked 2026-08-23. The decision is implemented, tested and shipped, and the log that is
+      supposed to be the record of every decision does not mention it. `CRM_Documentation_EN.md`
+      is hook-protected (`.claude/settings.json` blocks `Edit`/`Write` on it), so this needs the
+      owner's explicit approval, not a workaround
+- [ ] **The `D-72` note under `§15.1` states a fact that is no longer true** — it reads "the
+      worker services sit behind a compose profile that is off by default". Point 8.1 deleted
+      that profile. The note's *conclusion* still holds — `J-15` stays in the scheduler while
+      Horizon does not exist — so this is a correction, not a reversal. Same hook, same need for
+      approval
+- [ ] **`.env.testing` governs the suite locally and does not exist in CI** — recorded 2026-08-23
+      with Point 8.5, after Point 8.2's narrative claimed it was "now on the debt register" while
+      it was not. It is `.gitignore`d under `.env.*`, so in CI `APP_ENV=testing` falls back to
+      `.env`. A Redis password worked on this machine and an empty one worked on the runner, and
+      the divergence cost a debug cycle. **To reproduce a CI failure locally, remove it first.**
+      Owed: either commit a checked-in testing environment both sides read, or delete the file
+      and make the two paths identical
+- [ ] **The latency probe is exercised by no automated check** — recorded 2026-08-23 with Point
+      8.5. `LatencyBudgetTest` covers the percentile and the verdict, but CI starts no web server,
+      so `ApiLatencyProbe`'s curl loop is proven only by the runs recorded by hand under Point
+      8.4. It will stay that way until something in CI serves HTTP
 
 ---
 
@@ -1131,8 +1169,40 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
       `PRF-03` measured locally are not comparable to the server.** The command itself — the curl
       loop — is exercised only by the runs recorded here; CI cannot reach it. `PRF-02` (first screen
       < 2 s), `PRF-03` (search < 300 ms) and `PRF-05`…`PRF-08` are untouched
-- [ ] **8.5** Module 0 closed: the remaining test rows ticked, Step 8 shut, and everything still
-      owed recorded as debt — `P-02`, `OD-03`, and the `D-73` and `D-72` rows in the master log
+- [x] **8.5** Module 0 closed — and closed by reading every row rather than by ticking the ones
+      that were convenient.
+      **The audit came first, and it found the sign-off already almost done.** Across Module 0's
+      range — Steps 0 to 8 — exactly **one** unchecked box existed when this point started: this
+      one. Every other unchecked box in the file belongs to Phase 0, to the debt register, or to
+      Modules 1–15, and **none of them was ticked here.** A sign-off point that improves its own
+      numbers by ticking other people's rows is not a sign-off.
+      **The "definition of done" block was not ticked, on purpose.** It says of itself "Copy this
+      block per module", and it is the template every module measures against. Marking it `[x]`
+      in place would read as *every* module being complete. It is copied below with Module 0's own
+      evidence instead, which is what the block asks for.
+      **Two false statements were found in this file and corrected.** The `J-15` debt entry
+      argued from a `workers` compose profile that Point 8.1 deleted — the conclusion survives,
+      the premise did not. And Point 8.2's narrative said the `.env.testing` divergence "is now on
+      the debt register"; `grep` found no such row. It has one now. Defect #5 on this project's
+      list is "claiming something is recorded when it is not", and both of these were that defect,
+      sitting in the register that exists to prevent it.
+      **`D-73` is absent from the master decision log — verified, not assumed.**
+      `grep -n "D-73" docs/CRM_Documentation_EN.md` returns nothing. The themes are built, tested
+      and shipped; the log does not know they were decided. `.claude/settings.json` blocks
+      `Edit`/`Write` on that file, and **that guard was respected rather than bypassed with
+      `sed`** — going around an owner's hook to close a checkbox would defeat the point of both.
+      It is a register row awaiting explicit approval, together with the `§15.1` `D-72` sentence
+      that Point 8.1 falsified.
+      **The register was given a second half.** Its header promises that everything in it needs
+      the real server. Documentation and process debt does not, so four such items now sit under
+      their own heading instead of hiding behind `OD-03`.
+      **Not covered:** this point verified rows, not the work behind them — it re-read what each
+      point recorded and checked the file's internal claims, and it re-ran every gate, but it did
+      not re-derive Steps 0–7 from scratch. The three items above that need the owner (`D-73`,
+      the `§15.1` correction, and the `--color-overlay`/`color-scheme` tokens already recorded in
+      `Design_System_EN.md` §10) are **recorded, not resolved**, and Module 0 is signed off with
+      them open. Nothing here shortens the deployment-debt register by a single row: `P-02` and
+      `OD-03` are exactly as blocking as they were
 
 **Tests**
 - [x] App runs · frontend talks to backend · database connects — point 8.3:
@@ -1144,6 +1214,55 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
 - [x] A test job executes from the queue — point 8.2: a real job on each of the four queues,
       pushed to real Redis and drained by a real `queue:work` pass, with the retry bound spending
       three attempts into `failed_jobs`
+
+**Step 8 is complete: 8.1 … 8.5.** The four `§15.1` queues are named once and checked against the
+services that drain them, a real job reaches Redis and comes back out of each of them, the chain
+from shell to API to PostgreSQL to Redis is asserted as a chain rather than as four independent
+links, and `PRF-01` is measured with its method written down. What Step 8 is *not* is observability:
+Horizon is not installed, so `OBS-02` Queue Monitor and `OBS-03` Scheduler have no screen, and
+`ST-08`'s `/health` is deliberately deferred behind a test that fails if anyone quietly adds one.
+
+### Module 0 — definition of done
+
+The block from the top of this file, copied per its own instruction and answered with Module 0's
+evidence. Seven items, and the seventh is the deferred one `D-66` redefines.
+
+- [x] **All acceptance criteria pass** — the build plan gives Module 0 five: *app runs · frontend
+      talks to backend · database connects · switching language flips direction · a test job
+      executes from the queue*. All five are ticked above, each against a named test rather than
+      an impression
+- [x] **Permission checks enforced at the API, not just the UI** — for the one protected surface
+      Module 0 has. `GET /api/v1/files/{file}/download` is gated by the parent entity (`D-38`,
+      `§17`), returns 401 unauthenticated and **404 rather than 403** when the caller may not see
+      the parent, so a refusal cannot confirm the file exists. There is no RBAC to enforce yet —
+      `SEC-07`'s matrix is Module 1 — and the canonical registry Step 7 built is a definition, not
+      an enforcement point
+- [x] **Audit log records this module's operations** — the layer, and an architectural test that
+      fails when a module escapes it (`D-72`, Point 6.5). `audit_log` is monthly `RANGE`
+      partitioned, append-only at the database through triggers rather than by convention
+      (`AUD-03`), carries correlation IDs, and has `J-15` maintaining its partitions. Module 0
+      performs no business operation, so what is proven is that the recorder works and that
+      coverage is enforced — not that any business event has been written, because none exists
+- [x] **Loading / empty / error states on every screen** — the base states shipped with the
+      design-system work and are used by the diagnostics page, which is the only screen Module 0
+      owns
+- [x] **Screen works in both RTL and LTR** — server-rendered `lang`/`dir` on first paint, the SPA
+      reading its starting locale from the document, `ar`/`rtl` → `en`/`ltr` → `ar`/`rtl` without
+      a reload, a scanner that fails the build on hard-coded user-facing strings, and a test that
+      fails on physical CSS properties (`left`/`right`, `ml-`, `border-l`, `text-left`)
+- [x] **Migration runs and reverses cleanly (up + down)** — `DEV-03`, and enforced rather than
+      asserted: CI runs `migrate` → `migrate:reset` → `migrate` before the suite, so a migration
+      without a working `down()` fails the build instead of being discovered during a rollback
+- [x] **Passes on the production-matched local environment, and its deployment debt is recorded**
+      (`D-66`) — Linux containers matching `§14.2`, and the debt register above carries **20
+      server-gated items plus 4 that the server does not gate**. Per the note under the original
+      block, this item **reverts to "deployed to the server and the smoke test passes" the moment
+      the server exists**, and Module 0 does not get grandfathered
+
+**Module 0 is signed off with three items open and named:** the `D-73` row and the `§15.1` `D-72`
+correction both need the owner's approval on a hook-protected file, and `--color-overlay` plus a
+`color-scheme` declaration are owed to the token set (already recorded in `Design_System_EN.md`
+§10). None of them blocks Module 1; all three are on a register rather than in someone's memory.
 
 ---
 

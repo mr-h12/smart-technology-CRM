@@ -50,6 +50,12 @@
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Redis database 15, forced, because `docker compose up -d` runs the
+             four worker containers (point 8.1) and they drain queues:critical
+             and friends on database 0 right now. A queue test sharing that
+             database is a race against a container that will happily execute
+             the job first, and RealQueueExecutionTest flushes what it uses. -->
+        <env name="REDIS_DB" value="15" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

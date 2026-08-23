@@ -997,9 +997,35 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
       started, but nothing was observed draining. `QueueName` lives in `app/Support`, which is
       outside both `deptrac` configs' `paths`, so neither counter moved and neither covers it.
       Horizon is still not installed, so `OBS-02` and `OBS-03` have no screen
-- [ ] **8.2** A real job, dispatched to each of the four queues and observed executing against
-      real Redis and real workers — not `Queue::fake`, which would prove Laravel works rather than
-      that the queue does. Closes "a test job executes from the queue"
+- [x] **8.2** A job that actually reaches Redis and actually comes back out.
+      `App\Support\Queue\Jobs\InfrastructureProbeJob` carries no business meaning and writes to
+      nothing a module owns; what it leaves behind is evidence that cannot be produced any other
+      way — **which queue it ran on, asked of the running job rather than echoed back from the
+      dispatch call**, which attempt it was, and when (UTC, `DB-08`). The receipt is a Redis list,
+      not a value, so retries append: that is what makes `§15.1`'s "fixed retry count, then
+      `Failed`" observable instead of inferred.
+      **`Queue::fake()` is deliberately absent.** It records dispatches and runs nothing, so it
+      would have asserted that Laravel's dispatcher works — never in question — while leaving
+      Redis, the serializer, the worker loop and `failed_jobs` untested. Every job here is pushed
+      to a real Redis list, and the test asserts **the list is one deep and no receipt exists
+      before any worker runs**: the one assertion a fake cannot make. Draining is a real
+      `queue:work --once --tries=3` pass, the same bound the worker services carry.
+      **The isolation was a correctness fix, not tidiness.** 8.1 made `docker compose up -d` start
+      four workers, and they are draining `queues:critical` on Redis database 0 right now. A test
+      pushing there races a container that will happily execute the job first. `phpunit.xml` now
+      forces `REDIS_DB=15`, and the suite refuses to flush anything else.
+      **`§15.1`'s retry rule is measured, not asserted.** Attempt one and two leave `failed_jobs`
+      empty; the third records a row naming the connection, the queue and the exception. The
+      receipts read `[1, 2, 3]`.
+      **CI had no Redis at all** — the test step ran one PostgreSQL container and nothing else, so
+      this suite would have failed there while passing locally. A `redis:7.4-alpine` container, the
+      same image `docker-compose.yml` pins, is now started and linked.
+      **Not covered:** the four *worker containers* still execute nothing under test. The worker
+      pass here runs in the test process, which proves Redis, the serializer, the worker loop and
+      the retry bound, but not supervision, restart, or `ST-06` durability across a restart.
+      Nothing measures throughput or latency (`PRF-01` is 8.4). The probe ships in the application
+      image and is dispatchable in any environment — harmless, but it is production code whose only
+      consumer is a test. `app/Support` is outside both `deptrac` configs, so neither counter moved
 - [ ] **8.3** App · frontend · database proved connected end to end. `/ping` does not query the
       database, so it cannot answer this alone; `/health` stays deferred by the decision recorded
       in `routes/api.php` (`ST-08`), owner-approved 2026-08-23
@@ -1012,7 +1038,9 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
 - [ ] App runs · frontend talks to backend · database connects
 - [x] Switching language flips direction — asserted server-side by `SpaShellTest` and confirmed
       client-side in Chrome: `ar`/`rtl` → `en`/`ltr` → `ar`/`rtl` without a reload
-- [ ] A test job executes from the queue
+- [x] A test job executes from the queue — point 8.2: a real job on each of the four queues,
+      pushed to real Redis and drained by a real `queue:work` pass, with the retry bound spending
+      three attempts into `failed_jobs`
 
 ---
 

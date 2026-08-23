@@ -181,6 +181,17 @@ jobs:
             sleep 2
           done
 
+          # Redis, because point 8.2 pushes real jobs onto real queues and
+          # drains them with a real `queue:work` pass. Queue::fake() would have
+          # made this container unnecessary and proved nothing about Redis, the
+          # serializer, the worker loop or failed_jobs. Same image as
+          # docker-compose.yml so CI is not testing a different Redis.
+          docker run -d --name ci-redis redis:7.4-alpine
+          for _ in $(seq 1 30); do
+            docker exec ci-redis redis-cli ping 2>/dev/null | grep -q PONG && break
+            sleep 2
+          done
+
           # .env.example leaves DB_PASSWORD blank on purpose — the compose stack
           # supplies it — so the value has to be given explicitly here.
           # docker-compose.yml is mounted because QueueConfigurationTest reads
@@ -188,7 +199,7 @@ jobs:
           # the worker services live in two files that never see each other,
           # and only a check that reads both can catch them drifting. It fails
           # rather than skips when absent, so this mount is not optional.
-          docker run --rm --link ci-postgres:postgres \
+          docker run --rm --link ci-postgres:postgres --link ci-redis:redis \
             -e DB_PASSWORD=ci \
             -v "$PWD/crm:/app" \
             -v "$PWD/docker-compose.yml:/opt/crm/docker-compose.yml:ro" \
@@ -210,7 +221,7 @@ jobs:
 
               php artisan test
             '
-          docker rm -f ci-postgres >/dev/null
+          docker rm -f ci-postgres ci-redis >/dev/null
 
       - name: Build pdf target (amd64, native on this runner)
         uses: docker/build-push-action@v6

@@ -1068,8 +1068,69 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
       the shell assertions are Laravel's own test client, and the SPA's actual `fetch` was confirmed
       by hand in Chromium, not by this file. `ST-05` catch-up and `ST-06` durability across a
       restart remain untested
-- [ ] **8.4** `PRF-01` measured — `P95 < 500 ms` — with the method written down: how many requests,
-      against which endpoint, from where, and with which caches warm
+- [x] **8.4** `PRF-01` measured — **P95 between 4.1 ms and 7.3 ms against a 500 ms budget**, and
+      the method is as much of the deliverable as the number. One figure would have been a
+      misrepresentation: five 200-request runs were taken, three consecutive settled ones gave
+      `4.121` · `4.714` · `4.150` ms, and the `7.257` ms outlier was the first run after
+      `config:cache`, with opcache cold for the freshly written cache file. Two orders of magnitude
+      of headroom, on the one route that exists.
+      **The method, in full.** 200 measured requests preceded by 20 discarded warm-up requests,
+      issued from inside `crm-php` to `https://nginx/api/v1/ping` over the compose network — one
+      container hop, no host boundary, the closest local analogue of §14.5's "internal network"
+      while `OD-03` withholds the real one. One `curl` handle is reused for the whole run, so the
+      TCP connection and TLS session are established once and the handshake is charged to the
+      warm-up; that is what a SPA does across a session. `config:cache` and `route:cache` were
+      applied first, and `opcache.enable` is `On` under the FPM SAPI — *measured with `php-fpm -i`,
+      not with `php -r`, which reports `false` only because `opcache.enable_cli=0`.* The percentile
+      is nearest-rank over the 200 samples: `rank = ceil(95 × 200 ÷ 100) = 190`, the 190th smallest.
+      Reproduce with `php artisan crm:measure-api-latency --insecure`.
+      **Whole microseconds, no float on the path to the verdict.** Durations come from
+      `CURLINFO_TOTAL_TIME_T`, an integer. `CURLINFO_TOTAL_TIME_US` **does not exist** in this
+      build — checked against the container's curl 7.88.1 — and `CURLINFO_TOTAL_TIME` is a float in
+      seconds. Nearest rank *selects* a sample rather than averaging, and the ceiling is
+      `intdiv(p × n + 99, 100)` rather than `ceil()`, so the number compared against the budget is a
+      duration that was actually observed. `DB-07` governs money, not latency, but the reason
+      carries: a float has no business deciding a pass.
+      **There is no benchmark binary, and that was checked rather than assumed.** `ab`, `wrk`,
+      `hey` and `siege` are each `MISSING` under `command -v` inside `crm-php:app`. `curl` and `php`
+      are present, so the probe is ext-curl.
+      **A fast error is not a pass.** Any response that is not `200` fails the run outright, and so
+      does a run that returned fewer samples than were asked for — a short set is a measurement that
+      did not happen, not a fast one. `CURLOPT_FOLLOWLOCATION` is off on purpose: plain `http://`
+      on this stack answers `301`, and following it would measure two round trips while reporting
+      the `200` from the second, so a wrong URL would look like a working one.
+      **The budget is read out of §14.5, not written down here.** Defect #4 on this project's list
+      is "a check that is self-consistent rather than correct" — the precision test compared columns
+      against the constants that built them, and `QueueConfigurationTest` compared the enum to its
+      own literal. `LatencyBudgetTest` parses the `| PRF-01 | API P95 < 500 ms … |` row out of
+      `docs/CRM_Documentation_EN.md` and asserts the command's constants match it. That needed a
+      mount: `./crm` is the only application bind mount, so the master document is now mounted
+      read-only at `/opt/crm/docs/CRM_Documentation_EN.md` in both compose and the CI test
+      container — the same shape, and the same reason, as `docker-compose.yml` in 8.1. Every
+      pattern carries `/u`; the file is bilingual.
+      **CI runs no web server, so the split is deliberate.** `.github/workflows/php-image.yml`
+      starts `ci-postgres` and `ci-redis` on `ci-net` and nothing else. What CI guarantees is the
+      arithmetic and the verdict — 14 unit tests, no socket. The number itself is measured against
+      the running stack and recorded here.
+      **Three deliberate failures, each restored and checked by `shasum -a 256 -c`, not by eye.**
+      (1) A real `usleep(600_000)` in the ping route: `P95 617.825 ms`, `FAIL`, exit 1 — proving the
+      probe measures actual latency rather than merely comparing two numbers. (2) `BUDGET_MS`
+      drifted `500 → 400`: "Failed asserting that 400 is identical to 500", where the 500 came from
+      the master document. (3) The nearest-rank ceiling replaced by truncation: three tests failed.
+      All three files verified `OK` on restore.
+      **Not covered — and the gap is wide.** `/api/v1/ping` is **the only route the application
+      serves without authentication**, and it touches neither PostgreSQL nor Redis: it returns
+      `now()` and a request id. So this measures nginx → TLS → php-fpm → Laravel boot → route → JSON
+      and nothing else. **It says nothing about any endpoint that queries, joins, paginates or
+      renders**, which is every endpoint Modules 1–15 will add, and it is those that `PRF-01` will
+      actually be judged on. The load generator shares CPU with php-fpm on one machine; there is no
+      concurrency, no second client, and no LAN — 200 sequential requests are a latency floor, not a
+      load test. `validate_timestamps` is still `On` here, where a mounted `zzz-production.ini`
+      would set it `0`, so this figure is marginally pessimistic on that one setting. And per the
+      deployment-debt register above, **the host is arm64 and the server will not be: `PRF-01`…
+      `PRF-03` measured locally are not comparable to the server.** The command itself — the curl
+      loop — is exercised only by the runs recorded here; CI cannot reach it. `PRF-02` (first screen
+      < 2 s), `PRF-03` (search < 300 ms) and `PRF-05`…`PRF-08` are untouched
 - [ ] **8.5** Module 0 closed: the remaining test rows ticked, Step 8 shut, and everything still
       owed recorded as debt — `P-02`, `OD-03`, and the `D-73` and `D-72` rows in the master log
 

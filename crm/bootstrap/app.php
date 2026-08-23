@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Support\Performance\MeasureApiLatencyCommand;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
     // command ... does not exist".
     ->withCommands([
         EnsureAuditPartitionsCommand::class,
+        // PRF-01's measurement tool. Not a module command — it belongs to no
+        // business domain and sits in app/Support, which Laravel discovers just
+        // as little as it discovers app/Modules.
+        MeasureApiLatencyCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and

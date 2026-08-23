@@ -188,6 +188,11 @@ services:
       # because a test has no business writing the stack definition. The CI
       # test container mounts it at the same path.
       - ./docker-compose.yml:/opt/crm/docker-compose.yml:ro
+      # Same reason, same shape: LatencyBudgetTest pins PRF-01's budget to
+      # the §14.5 table row that states it, rather than to a constant this
+      # repository could change on both sides at once. Read-only, and the
+      # CI test container mounts it at the same path.
+      - ./docs/CRM_Documentation_EN.md:/opt/crm/docs/CRM_Documentation_EN.md:ro
     healthcheck:
       # php-fpm answers FastCGI, not HTTP, so a status page would need a pool
       # config change. Checking the CLI proves the runtime is alive without

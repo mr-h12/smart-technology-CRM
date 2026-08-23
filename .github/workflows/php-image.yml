@@ -209,10 +209,14 @@ jobs:
           # the worker services live in two files that never see each other,
           # and only a check that reads both can catch them drifting. It fails
           # rather than skips when absent, so this mount is not optional.
+          # The master documentation is mounted for the same reason:
+          # LatencyBudgetTest reads PRF-01's budget out of the §14.5 table
+          # instead of trusting a constant defined in this repository.
           docker run --rm --network ci-net \
             -e DB_PASSWORD=ci \
             -v "$PWD/crm:/app" \
             -v "$PWD/docker-compose.yml:/opt/crm/docker-compose.yml:ro" \
+            -v "$PWD/docs/CRM_Documentation_EN.md:/opt/crm/docs/CRM_Documentation_EN.md:ro" \
             -w /app --user root crm-php:ci-app sh -c '
               set -e
 

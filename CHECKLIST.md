@@ -1281,6 +1281,54 @@ correction both need the owner's approval on a hook-protected file, and `--color
 
 **Tables** `users` · `roles` · `permissions` · `role_permissions` · `user_sessions`
 
+#### Step 1 — schema *(point order approved 2026-08-23)*
+
+- [x] **1.1** `roles`, `permissions`, `role_permissions` — the tables `SEC-07` means when it says
+      "dynamic RBAC **stored in the database**".
+      **A permission is a triple, not a pair.** `§3.2` is explicit — *"Permission = Resource +
+      Action + Scope"*, with `customer.view.own` as its own example — so the scope is part of the
+      permission's identity and lives in `permissions`. `role_permissions` says only which triples
+      a role holds, which is what makes a permission change an `INSERT` rather than a deployment.
+      The Point 7.2 registry groups the same matrix the other way, as a resource+action carrying a
+      `Grant` per role, because that is the readable shape for `§3.3`…`§3.12`. **The two were
+      proven to agree by expanding one into the other: 143 distinct triples and 212 links**,
+      measured against `PermissionMatrix::all()` before the migration was written, and asserted by
+      a test that writes the entire matrix into the tables and counts it back out.
+      **Every unique index is partial — `WHERE deleted_at IS NULL` — and that is a correctness
+      decision, not a preference.** `DB-01` soft-deletes everything and `D-34` archives rather than
+      deletes, so a plain `UNIQUE` would let one archived role reserve its slug for the lifetime of
+      the system: nothing could take that name again, and the archived row could not be restored
+      beside a replacement either. Laravel's `unique()->where()` is **silently ignored** and yields
+      an ordinary index — the same trap `scopeIndex` already documents — so these are raw DDL, and
+      a test reads `pg_indexes` to confirm the predicate is really there rather than trusting the
+      call that looked like it worked.
+      **`§3.2`'s five scopes are a database `CHECK`.** A sixth value is not a narrower permission,
+      it is one that no scope comparison will ever match — failing open or closed depending on the
+      caller, and silently either way. The migration writes five literals and `Scope` declares five
+      cases; neither file can read the other, so the test is the only place they must agree.
+      **`deleted_by` is deliberately absent.** `DB-02` names four audit columns and this is not one
+      of them, `standardAudit()` creates four, and no table Module 0 shipped carries it. A test
+      asserts the absence, and reads the required four **out of the `DB-02` row in §4.8** rather
+      than restating them, so the rule and the schema cannot drift apart quietly.
+      **Checks:** 28 tests, 345 assertions. `down()` proven by `migrate:reset` — all three tables
+      gone, zero leftover indexes, the `CHECK` gone with its table. Three deliberate failures, each
+      restored under `shasum -a 256 -c`: `action` narrowed 64→8 produced *"value too long for type
+      character varying(8)"* on the real matrix row `deal.assign_owner`; `role_permissions` removed
+      from `down()` produced *"cannot drop table permissions because other objects depend on it"*;
+      the slug index made non-partial broke both the archive behaviour and the structural check.
+      **Not covered:** no row is seeded — the seeder that carries the Point 7.2 registry into these
+      tables is Module 1's application work, and the only rows these tables have ever held were
+      written by the test and rolled back with it. No Eloquent model, no policy, no endpoint, and
+      **no enforcement**: this is storage, and `SEC-07`'s "enforced at the API and row level" is
+      not started. `created_by`/`updated_by` still carry no foreign key — `standardActorForeignKeys()`
+      waits for the real `users` table, which is 1.2. `is_system` is recorded but nothing yet
+      refuses to delete a system role
+- [ ] **1.2** `users` and `user_sessions` — standard columns, lockout tracking (`SEC-03`), account
+      status (`D-34`), session activity (`D-29`), and the tested `down()`. Laravel's default
+      `users` table is **replaced here, not extended** — it has no `deleted_at`, no actor columns,
+      no `is_active` and no `role_id`. `standardActorForeignKeys()` becomes available to Module 0's
+      tables at this point
+
 **Endpoints**
 - [ ] `POST /api/v1/auth/login` · `logout` · `change-password`
 - [ ] `GET /api/v1/auth/me`

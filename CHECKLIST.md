@@ -201,6 +201,16 @@ would hide them behind `OD-03` indefinitely.
       8.5. `LatencyBudgetTest` covers the percentile and the verdict, but CI starts no web server,
       so `ApiLatencyProbe`'s curl loop is proven only by the runs recorded by hand under Point
       8.4. It will stay that way until something in CI serves HTTP
+- [ ] **Two scaffolded tables are now unused: `password_reset_tokens` and `sessions`** — recorded
+      2026-08-23 with Point 1.2. Both come from `0001_01_01_000000`, the migration whose `users`
+      table that point replaced. `sessions` is inert because `SESSION_DRIVER=redis` (§14.2), and
+      it is now actively confusing beside `user_sessions`, which is the `SEC-05` device list and a
+      different thing. `password_reset_tokens` has no flow: `§3` lists `change-password` and there
+      is **no public sign-up and no password-reset endpoint** in Module 1's contract, and `SEC-04`
+      puts email verification inside the password-change flow rather than behind a token table.
+      They were left in place rather than dropped in passing, because dropping a table is its own
+      decision and Point 1.2 was given `users` and `user_sessions`. Owed: confirm neither is
+      wanted, then one correcting migration that drops both
 - [ ] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
       Point 8.5, by noticing that this point's own commit triggered no run. `php-image.yml` filters
       on `docker/php/**`, `crm/**` and itself. **`docker-compose.yml` is in none of them**, and yet
@@ -1323,11 +1333,50 @@ correction both need the owner's approval on a hook-protected file, and `--color
       not started. `created_by`/`updated_by` still carry no foreign key — `standardActorForeignKeys()`
       waits for the real `users` table, which is 1.2. `is_system` is recorded but nothing yet
       refuses to delete a system role
-- [ ] **1.2** `users` and `user_sessions` — standard columns, lockout tracking (`SEC-03`), account
-      status (`D-34`), session activity (`D-29`), and the tested `down()`. Laravel's default
-      `users` table is **replaced here, not extended** — it has no `deleted_at`, no actor columns,
-      no `is_active` and no `role_id`. `standardActorForeignKeys()` becomes available to Module 0's
-      tables at this point
+- [x] **1.2** `users` replaced, and `user_sessions` created.
+      **The scaffold is replaced, not altered, and the reason is a column type.** `$table->id()` is
+      a bigint auto-increment; `D-61` fixes UUIDv7 and `standardActorForeignKeys()` is waiting to
+      point `created_by` at a `uuid`. No `ALTER` reconciles those, which is what
+      `design/DATABASE.md §4` means by *"replaced in Module 1, not extended"*. Because `DEV-03`
+      forbids editing a migration that has already run, `0001_01_01_000000` is untouched and a
+      **correcting** migration drops what it made and builds the real table — and `down()` **puts
+      the scaffold back**, bigint key and `remember_token` and all, which is the half that makes
+      the pair genuinely reversible. A test asserts the restored table is the scaffold.
+      **`user_sessions` is a device list, not a session store.** `SEC-05` reads "8-hour session
+      timeout + **active device list** + force logout", and `SESSION_DRIVER=redis` in both `.env`
+      and `.env.example` — checked. So Laravel's session payload lives in Redis and this table
+      records which devices are signed in, carrying `session_id` so a row can actually be matched
+      to that session and revoked. **It has no `payload` column**, and a test fails if one appears
+      while the deployed driver is still Redis — read out of `.env.example`, because the suite runs
+      on `SESSION_DRIVER=array` and the runtime value says nothing about deployment. That
+      distinction was found by the test failing on its first run.
+      **`is_active` and `deleted_at` are different states, and both are needed.** `D-34`
+      deactivates rather than deletes *and keeps the deals attached* — a deactivated user must stay
+      visible to the Team Leader who reassigns their work, which a soft delete would hide. So
+      archiving frees the email address and deactivating does not, and there is a test for each.
+      **`role_id` is `RESTRICT`, emphatically not `CASCADE`.** Cascading would mean deleting a role
+      deletes the people who held it, which is the exact inverse of `D-34`. `user_sessions.user_id`
+      does cascade, for the repairs `DB-01` still allows.
+      Also: `is_hidden` for `§3.12` rule 6, `failed_login_attempts` + `locked_until` for `SEC-03`
+      with a `CHECK` that the counter cannot go negative, `password` at 255 for either `SEC-02`
+      algorithm, and `last_activity_at` as a real `timestamptz` rather than Laravel's epoch integer
+      because `D-29` compares it against an interval and `DB-08` wants UTC types.
+      **Checks:** 23 tests in `UserSchemaMigrationTest`, 700 in the suite. Four deliberate
+      failures, each restored under `shasum -a 256 -c`: dropping `is_hidden` broke the **migration
+      itself** — `column "is_hidden" does not exist` while building its index, a harder failure
+      than an assertion; the session key made non-cascading gave `violates foreign key constraint
+      "user_sessions_user_id_foreign"`; reversing the `down()` order gave `cannot drop table users
+      because other objects depend on it` **and took two other modules' down tests with it**, which
+      is the correct blast radius for a broken rollback; adding a `payload` column tripped the
+      Redis pin.
+      **Not covered:** still no seeded row, no policy, no endpoint, **no authentication**. Nothing
+      hashes a password, nothing counts a failed login, nothing expires an idle session and nothing
+      hides the Super Admin — `is_hidden` is a column that no query yet reads. `SEC-06`
+      two-factor has no columns at all. **`standardActorForeignKeys()` is now possible and has not
+      been applied**: `created_by`/`updated_by` across every Module 0 table still carry no foreign
+      key, which stays the recorded `DB-04` gap `D-72` named. And the scaffold's other two tables,
+      `password_reset_tokens` and `sessions`, were deliberately left in place rather than dropped
+      in passing — both are now unused and both are on the debt register
 
 **Endpoints**
 - [ ] `POST /api/v1/auth/login` · `logout` · `change-password`

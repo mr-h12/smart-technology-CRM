@@ -28,6 +28,16 @@ use Illuminate\Notifications\Notifiable;
  * in the documentation asks for "remember me" — `D-29` expires a session after
  * eight hours idle and `SEC-05` lists devices — and `SEC-04`'s email
  * verification is a step in the password-change flow, not a column here.
+ *
+ * @property string $id
+ * @property string $name
+ * @property string $email
+ * @property string $password
+ * @property string $role_id
+ * @property bool $is_active
+ * @property bool $is_hidden
+ * @property int $failed_login_attempts
+ * @property \Illuminate\Support\Carbon|null $locked_until
  */
 #[Fillable(['name', 'email', 'password', 'role_id', 'is_active', 'is_hidden'])]
 #[Hidden(['password'])]

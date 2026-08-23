@@ -12,6 +12,16 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Identity\Domain\Authentication\AccountLocked;
+use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
+use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
+use App\Modules\Identity\Infrastructure\BearerSessionResolver;
+use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Identity\Infrastructure\EloquentAccountDirectory;
+use App\Modules\Identity\Infrastructure\EloquentProfileReader;
+use App\Modules\Identity\Infrastructure\EloquentSessionStore;
+use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -25,9 +35,14 @@ use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -137,6 +152,14 @@ class AppServiceProvider extends ServiceProvider
 
             return new EicarSignatureScanner;
         });
+
+        // Module 1's three seams. `bind` and not `singleton` for the reason
+        // the audit recorder is bound that way: each reads live rows, and an
+        // instance cached across requests is an authorisation answer that
+        // stops changing when the matrix does (§3.12 rule 5).
+        $this->app->bind(AccountDirectoryInterface::class, EloquentAccountDirectory::class);
+        $this->app->bind(SessionStoreInterface::class, EloquentSessionStore::class);
+        $this->app->bind(ProfileReaderInterface::class, EloquentProfileReader::class);
     }
 
     /**
@@ -152,5 +175,61 @@ class AppServiceProvider extends ServiceProvider
         // DB-01 and DB-02 apply to every business table, so the columns are a
         // macro rather than something each migration remembers to repeat.
         StandardColumns::register();
+
+        $this->registerBearerSessionGuard();
+        $this->registerLoginRateLimiter();
+
+        // SEC-03's second half. Registered explicitly because Laravel discovers
+        // listeners in app/Listeners and nowhere else, and AP-02 keeps a
+        // module's listeners inside the module — the same reason every module
+        // command is named in bootstrap/app.php.
+        Event::listen(
+            AccountLocked::class,
+            fn (AccountLocked $event): null => $this->app->make(NotifySuperAdminOfLockout::class)->handle($event),
+        );
+    }
+
+    /**
+     * `OpenAPI §3.1`'s "server-issued bearer credential", as the `api` guard.
+     *
+     * `viaRequest` rather than a hand-written Guard class: the whole of the
+     * decision is "which user does this request belong to", which is one
+     * method, and `RequestGuard` already supplies the rest of the contract —
+     * including `actingAs()`, which every later test depends on.
+     *
+     * The callback is resolved from the container on each request rather than
+     * captured, for the reason Point 5.4 measured: a service captured once
+     * outlives the request that built it, and an authorisation-bearing object
+     * frozen at the first request is a permission check that stops changing.
+     */
+    private function registerBearerSessionGuard(): void
+    {
+        Auth::viaRequest(
+            'crm-bearer-session',
+            fn (Request $request): ?User => $this->app->make(BearerSessionResolver::class)->forRequest($request),
+        );
+    }
+
+    /**
+     * `SEC-11` — "Rate limiting on login and the API".
+     *
+     * Keyed on IP **and** submitted address together. IP alone locks a whole
+     * office out from behind one NAT address; address alone is defeated by a
+     * rotating source. The limit itself is configuration (`OpenAPI §10`:
+     * "configurable system settings, not client constants"), which Module 2
+     * moves into the settings table.
+     */
+    private function registerLoginRateLimiter(): void
+    {
+        RateLimiter::for('login', function (Request $request): Limit {
+            $config = $this->app->make(ConfigRepository::class);
+
+            $email = $request->input('email');
+
+            return Limit::perMinutes(
+                $config->integer('identity.rate_limit.login.decay_minutes'),
+                $config->integer('identity.rate_limit.login.attempts'),
+            )->by(($request->ip() ?? 'unknown').'|'.(is_string($email) ? mb_strtolower($email) : ''));
+        });
     }
 }

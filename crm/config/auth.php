@@ -17,8 +17,18 @@ return [
     |
     */
 
+    /*
+    | The default guard is the API's, not `web`.
+    |
+    | D-67 makes the frontend a Vue SPA consuming /api/v1 and rejects Inertia
+    | and Livewire, so there is no server-rendered authenticated page for a
+    | session cookie to serve — every authenticated request in this system is
+    | an API request. Leaving `web` as the default meant the `auth` middleware
+    | on an /api/v1 route asked a session guard that the API middleware group
+    | never starts a session for.
+    */
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        'guard' => env('AUTH_GUARD', 'api'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
@@ -40,6 +50,24 @@ return [
     */
 
     'guards' => [
+        /*
+        | Module 1's bearer session (OpenAPI §3.1 — "an equivalent server-issued
+        | bearer credential"). The driver is registered in AppServiceProvider
+        | with Auth::viaRequest, and every rule it applies — D-29's idle
+        | timeout, SEC-05's revocation, D-34's deactivation, SEC-03's lock —
+        | lives in ResolveSessionUser rather than in this file.
+        */
+        'api' => [
+            'driver' => 'crm-bearer-session',
+            'provider' => 'users',
+        ],
+
+        /*
+        | Kept for Laravel's own session-dependent plumbing, and used by no
+        | route in this application. Removing it makes `php artisan` commands
+        | that assume a `web` guard fail for a reason that has nothing to do
+        | with the reason it was removed.
+        */
         'web' => [
             'driver' => 'session',
             'provider' => 'users',

@@ -1435,14 +1435,47 @@ correction both need the owner's approval on a hook-protected file, and `--color
       point decides whether Identity follows Storage's repository shape or keeps these models as
       the seam. `standardActorForeignKeys()` is still unapplied, so `created_by`/`updated_by`
       remain without foreign keys across every table
-- [ ] **2.2** Authentication — `login` · `logout` · `me`, Argon2 (`SEC-02`), lockout after five
-      failures with Super Admin notification (`SEC-03`), eight-hour idle expiry (`D-29`)
+- [x] **2.2** Authentication — `login` · `logout` · `me`, lockout after five failures with Super
+      Admin notification (`SEC-03`), eight-hour idle expiry (`D-29`). *(2026-08-24)*
+      **Credential:** a server-issued **bearer token**, which `OpenAPI §3.1` names as an
+      alternative to a cookie session. `AP-07` and `D-67` put one API under the desktop SPA and the
+      field PWA, `SEC-05` wants a device list and force-logout (a row, and a soft delete),
+      `D-29`'s idle rule then belongs to `IdleTimeout` rather than to a Redis TTL, and `SEC-13`'s
+      CSRF surface does not exist for a credential a browser never attaches by itself.
+      `user_sessions.session_id` holds the token's **SHA-256 digest**, never the token.
+      ⚠️ **Not a recorded decision — the documentation permits both and picks neither.** The
+      trade-off is real: a token the SPA holds is script-reachable where an `HttpOnly` cookie is
+      not. **Owner decision requested.**
+      **Layering:** Application may reach neither Eloquent nor Presentation, so the use cases run
+      against three Domain contracts — `AccountDirectoryInterface`, `SessionStoreInterface`,
+      `ProfileReaderInterface` — bound to Eloquent adapters in `AppServiceProvider`, the pattern
+      Storage already uses. `deptrac.modules.yaml` gains **one named crossing**: Identity →
+      `AuditContract`, because `AUD-01` and `SEC-16` make the audit write mandatory. Baselines
+      moved to **layers 270 / modules 208**, both still 0 violations and 0 uncovered.
+      **Two defects the tests caught, both silent:** a refusal thrown from inside
+      `DB::transaction()` **rolled back its own `SEC-03` counter and `SEC-16` audit row** — five
+      wrong passwords left `failed_login_attempts = 0` and no audit trail, so the account never
+      locked; and an **arrow function captured the lockout event by value**, so the account locked
+      and the Super Admin was never told. A third, `ForgetResolvedGuards`, is a
+      `RequestGuard`-memoisation fix: logout returned `200`, deleted the row, and let the revoked
+      token straight back in on the next call.
+      ⚠️ **`identity.lockout_minutes` defaults to 30 and no source states it.** `SEC-03` and §9
+      Flow 0 stop at "locked"; Point 1.2's `locked_until` column presupposes an expiry.
+      **Owner decision requested.**
+      **Not covered:** `SEC-04` (email verification for password changes) and `change-password`;
+      `SEC-05`'s device-list and force-logout *screens* — the rows and the revocation exist, the
+      endpoints do not; `SEC-10` Login As; `SEC-16`'s IP blacklist; and an unknown email writes no
+      audit row at all, because `audit_log.entity_id` is `UUID NOT NULL` and there is no entity —
+      that failure lives only in the `AUD-05` log line. **No authorization is enforced yet:** every
+      authenticated caller reaches every endpoint, and `SEC-07`/`SEC-09` are 2.3.
 - [ ] **2.3** Enforcement — a gate reading the matrix from the database (`SEC-07`), a negative test
       per scope, and the Super Admin hidden from every list (`§3.12` rule 6)
 
 **Endpoints**
-- [ ] `POST /api/v1/auth/login` · `logout` · `change-password`
-- [ ] `GET /api/v1/auth/me`
+- [x] `POST /api/v1/auth/login` · `logout` — 2.2. `change-password` is **not** done: it needs
+      `SEC-04`'s email verification, which is its own point
+- [x] `GET /api/v1/auth/me` — 2.2. Returns the role and the `SEC-07` triples read from
+      `role_permissions`; the list is a menu, not authorization (§3.12 rule 1)
 - [ ] CRUD `/api/v1/roles` · `/api/v1/permissions` · `/api/v1/users`
 
 **Frontend** login page · role-based redirect · protected routes · role and permission management

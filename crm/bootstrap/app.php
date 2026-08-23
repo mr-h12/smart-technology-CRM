@@ -2,13 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
+use App\Support\Http\ApiExceptionRenderer;
 use App\Support\Performance\MeasureApiLatencyCommand;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,6 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // screens (Coding Standards §11).
         $middleware->append(SetLocaleFromRequest::class);
 
+        // Before anything can ask who the caller is. A RequestGuard memoises
+        // the user it resolved, and AuthManager memoises the guard, so without
+        // this a long-lived worker answers the second request as the first
+        // request's user — measured on logout, which returned 200 and then let
+        // the revoked token straight back in.
+        $middleware->append(ForgetResolvedGuards::class);
+
         // OpenAPI §3.3 — every response carries a server-generated request id.
         $middleware->append(App\Http\Middleware\AddRequestId::class);
 
@@ -56,6 +70,40 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => ApiExceptionRenderer::applies($request),
+        );
+
+        // OpenAPI §5: every non-2xx answer uses the unified envelope. Laravel's
+        // defaults do not — a validation failure is `{"message":…,"errors":…}`
+        // and a 401 is `{"message":"Unauthenticated."}`, neither of which has a
+        // `meta.request_id` a support report can quote. These four are the
+        // shapes Module 1 can produce; §5.1's other nine arrive with the
+        // modules that can raise them.
+        $exceptions->render(
+            fn (AuthenticationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::refusal($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (ValidationException $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::validation($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (AuthenticationException $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::unauthenticated($e, $request)
+                : null,
+        );
+
+        // Registered before ValidationException would ever see it: this is a
+        // subclass of HttpException, not of ValidationException, but the order
+        // of `render` callbacks is the order they are tried, and the throttle
+        // response carries a `Retry-After` §5.1 makes mandatory.
+        $exceptions->render(
+            fn (ThrottleRequestsException $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::throttled($e, $request)
+                : null,
         );
     })->create();

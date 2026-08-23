@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Identity\Presentation\LoginController;
+use App\Modules\Identity\Presentation\LogoutController;
+use App\Modules\Identity\Presentation\MeController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -37,8 +40,23 @@ Route::get('/ping', function (): JsonResponse {
 // permission name of its own: the answer belongs to whichever module owns the
 // deal, quotation, purchase order or report the file hangs from.
 //
-// `auth` is the session guard, because that is the only guard there is until
-// Module 1. An unauthenticated caller gets 401; an authenticated one who may
-// not see the parent gets 404, not 403 — OpenAPI does not let a refusal confirm
+// `auth` resolves the bearer session Module 1 issues (config/auth.php, guard
+// `api`). An unauthenticated caller gets 401; an authenticated one who may not
+// see the parent gets 404, not 403 — OpenAPI does not let a refusal confirm
 // that the file exists.
 Route::middleware('auth')->get('/files/{file}/download', DownloadFileController::class);
+
+// Module 1 — §9 Flow 0. `SEC-01`: there is no sign-up route here and there
+// never will be; accounts are created by the Manager or Super Admin, which is
+// Module 1's user CRUD and not this file.
+Route::prefix('auth')->group(function (): void {
+    // `SEC-11` — "Rate limiting on login and the API". The limiter is named
+    // rather than inline (`throttle:60,1`) because `OpenAPI §10` makes the
+    // concrete limit a configurable system setting; see AppServiceProvider.
+    Route::post('/login', LoginController::class)->middleware('throttle:login');
+
+    Route::middleware('auth')->group(function (): void {
+        Route::post('/logout', LogoutController::class);
+        Route::get('/me', MeController::class);
+    });
+});

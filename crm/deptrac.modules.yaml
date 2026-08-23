@@ -147,10 +147,19 @@ parameters:
     # Audit is split for the same reason Storage is: the contract half is what
     # another module may one day depend on, and the driver half — PostgreSQL
     # DDL, an Artisan command — is what it must never reach.
+    # Identity → AuditContract, added 2026-08-24 with Point 2.2. `AUD-01`
+    # requires a comprehensive audit and `SEC-16` names the failed-login log
+    # outright, so every module writes audit rows — the crossing is mandatory
+    # rather than convenient. It points at the *contract* half only, which is
+    # exactly the crossing the Audit split was made to allow: "the contract half
+    # is what another module may one day depend on". Nothing points at
+    # AuditDriver, and nothing ever should.
     IdentityContract:
+      - AuditContract
       - Framework
     IdentityDriver:
       - IdentityContract
+      - AuditContract
       - Framework
       - Factories
     AuditContract:

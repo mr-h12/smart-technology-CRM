@@ -171,7 +171,17 @@ jobs:
       # advisory, so D-68's NUMERIC precision cannot be asserted on it.
       - name: Tests (against PostgreSQL)
         run: |
-          docker run -d --name ci-postgres \
+          # A user-defined network, NOT `--link`. Legacy links inject
+          # <ALIAS>_PORT=tcp://<ip>:<port> into the linked container, and
+          # Laravel's Dotenv never overrides a variable that is already set —
+          # so `--link ci-redis:redis` set REDIS_PORT to a URL and phpredis
+          # rejected it with "Argument #2 ($port) must be of type int". It cost
+          # a red build. Docker Desktop does not inject those variables, so this
+          # was invisible locally; a user-defined network injects none anywhere
+          # and gives DNS by alias instead.
+          docker network create ci-net
+
+          docker run -d --name ci-postgres --network ci-net --network-alias postgres \
             -e POSTGRES_DB=crm_test -e POSTGRES_USER=crm -e POSTGRES_PASSWORD=ci \
             -e POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C.UTF-8" \
             -e TZ=UTC -e PGTZ=UTC \
@@ -186,7 +196,7 @@ jobs:
           # made this container unnecessary and proved nothing about Redis, the
           # serializer, the worker loop or failed_jobs. Same image as
           # docker-compose.yml so CI is not testing a different Redis.
-          docker run -d --name ci-redis redis:7.4-alpine
+          docker run -d --name ci-redis --network ci-net --network-alias redis redis:7.4-alpine
           for _ in $(seq 1 30); do
             docker exec ci-redis redis-cli ping 2>/dev/null | grep -q PONG && break
             sleep 2
@@ -199,7 +209,7 @@ jobs:
           # the worker services live in two files that never see each other,
           # and only a check that reads both can catch them drifting. It fails
           # rather than skips when absent, so this mount is not optional.
-          docker run --rm --link ci-postgres:postgres --link ci-redis:redis \
+          docker run --rm --network ci-net \
             -e DB_PASSWORD=ci \
             -v "$PWD/crm:/app" \
             -v "$PWD/docker-compose.yml:/opt/crm/docker-compose.yml:ro" \
@@ -222,6 +232,7 @@ jobs:
               php artisan test
             '
           docker rm -f ci-postgres ci-redis >/dev/null
+          docker network rm ci-net >/dev/null
 
       - name: Build pdf target (amd64, native on this runner)
         uses: docker/build-push-action@v6

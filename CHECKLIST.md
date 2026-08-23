@@ -1019,7 +1019,19 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
       receipts read `[1, 2, 3]`.
       **CI had no Redis at all** — the test step ran one PostgreSQL container and nothing else, so
       this suite would have failed there while passing locally. A `redis:7.4-alpine` container, the
-      same image `docker-compose.yml` pins, is now started and linked.
+      same image `docker-compose.yml` pins, now runs alongside it.
+      **The first attempt to add it turned the build red, and the cause is worth keeping.**
+      `--link ci-redis:redis` injects `REDIS_PORT=tcp://<ip>:6379` into the linked container, and
+      Laravel's Dotenv never overrides a variable that is already set — so `.env`'s `6379` lost to
+      a URL and phpredis rejected it: *"Argument #2 ($port) must be of type int, string given"*.
+      **Docker Desktop injects no link variables at all**, so it was invisible here; verified by
+      running `env` in a linked container and seeing none. The workflow now uses a user-defined
+      network with aliases, which injects nothing anywhere, and the whole CI recipe was rebuilt
+      locally — same network, no `.env.testing` — and run green before pushing again.
+      **`.env.testing` governs the suite locally and does not exist in CI.** It is `.gitignore`d
+      (`.env.*`), so `APP_ENV=testing` falls back to `.env` there. That divergence is why a Redis
+      password worked on this machine and an empty one worked in CI, and it is now on the debt
+      register rather than a thing to rediscover.
       **Not covered:** the four *worker containers* still execute nothing under test. The worker
       pass here runs in the test process, which proves Redis, the serializer, the worker loop and
       the retry bound, but not supervision, restart, or `ST-06` durability across a restart.

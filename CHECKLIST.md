@@ -1038,16 +1038,46 @@ four queues (critical · pdf · reports · maintenance)"**. `PRF-01`'s `P95 < 50
       Nothing measures throughput or latency (`PRF-01` is 8.4). The probe ships in the application
       image and is dispatchable in any environment — harmless, but it is production code whose only
       consumer is a test. `app/Support` is outside both `deptrac` configs, so neither counter moved
-- [ ] **8.3** App · frontend · database proved connected end to end. `/ping` does not query the
-      database, so it cannot answer this alone; `/health` stays deferred by the decision recorded
-      in `routes/api.php` (`ST-08`), owner-approved 2026-08-23
+- [x] **8.3** The chain, not the links. Every piece of this was already asserted somewhere — the
+      shell for language and direction, `/ping` for its envelope, the database for its precision,
+      Redis for its queues — **four green suites that would all have stayed green if the SPA were
+      asking a path the server does not serve.** `EndToEndConnectivityTest` walks shell → API →
+      PostgreSQL → Redis in one pass and names the link that broke.
+      **The seam is a file comparison, because it has to be.** `/api/v1` is written in two places
+      that never see each other: `api.ts` prefixes it onto every call and `bootstrap/app.php`
+      registers it as `apiPrefix`. PHP cannot run the TypeScript and the bundle cannot read the
+      router — the same shape as the queue names in 8.1, and the same fix.
+      **The localisation loop is closed both ways:** the shell tells the document its language, and
+      `api.ts` sends that attribute back as `Accept-Language` on the next call. Asserted as a round
+      trip, `ar` and `en`.
+      **A real defect was found by the point's own RED.** The suite's *cache* connection was on
+      Redis database **1** — the database the running application caches in. The probe wrote and
+      deleted a key there before `phpunit.xml` was given `REDIS_CACHE_DB=15`, extending the
+      isolation 8.2 established for queues. A test that evicts a developer's live cache is a test
+      that will eventually be blamed for something else.
+      **`ST-08` is held open by a check, not by memory.** The deferral is the owner's decision of
+      2026-08-23; the test fails if any `/health` route appears *or* if the recorded reason is
+      deleted from `routes/api.php`, so publishing it stays a decision rather than a commit.
+      **`/up` is named so nobody reads it as coverage.** `bootstrap/app.php` registers Laravel's own
+      boot probe. It answers 200 once the framework boots and reports nothing about PostgreSQL,
+      Redis, Meilisearch, the queues or storage — it satisfies none of `ST-08`, it is unversioned,
+      and until this point it was documented and tested nowhere.
+      **Not covered:** this checks the dependencies *from the test process* and publishes that check
+      to nobody — no endpoint, no dashboard, no alert. Meilisearch and the storage volume are not
+      probed at all (`OBS-01` names both). Nothing here runs against nginx, TLS or the real browser:
+      the shell assertions are Laravel's own test client, and the SPA's actual `fetch` was confirmed
+      by hand in Chromium, not by this file. `ST-05` catch-up and `ST-06` durability across a
+      restart remain untested
 - [ ] **8.4** `PRF-01` measured — `P95 < 500 ms` — with the method written down: how many requests,
       against which endpoint, from where, and with which caches warm
 - [ ] **8.5** Module 0 closed: the remaining test rows ticked, Step 8 shut, and everything still
       owed recorded as debt — `P-02`, `OD-03`, and the `D-73` and `D-72` rows in the master log
 
 **Tests**
-- [ ] App runs · frontend talks to backend · database connects
+- [x] App runs · frontend talks to backend · database connects — point 8.3:
+      `EndToEndConnectivityTest` walks the shell, the versioned API, a real PostgreSQL query and a
+      real Redis round trip in one pass, and pins the `/api/v1` prefix the client and the router
+      each write down separately
 - [x] Switching language flips direction — asserted server-side by `SpaShellTest` and confirmed
       client-side in Chrome: `ar`/`rtl` → `en`/`ltr` → `ar`/`rtl` without a reload
 - [x] A test job executes from the queue — point 8.2: a real job on each of the four queues,

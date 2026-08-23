@@ -56,6 +56,12 @@
              database is a race against a container that will happily execute
              the job first, and RealQueueExecutionTest flushes what it uses. -->
         <env name="REDIS_DB" value="15" force="true"/>
+        <!-- And the cache connection, for the same reason. It defaults to
+             database 1, which is where the running application caches: point
+             8.3's probe wrote and deleted a key there before this was added.
+             Both test connections share 15; Redis key prefixes keep the queue
+             lists and the cache entries apart. -->
+        <env name="REDIS_CACHE_DB" value="15" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

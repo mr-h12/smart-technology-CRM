@@ -201,6 +201,14 @@ would hide them behind `OD-03` indefinitely.
       8.5. `LatencyBudgetTest` covers the percentile and the verdict, but CI starts no web server,
       so `ApiLatencyProbe`'s curl loop is proven only by the runs recorded by hand under Point
       8.4. It will stay that way until something in CI serves HTTP
+- [ ] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
+      Point 8.5, by noticing that this point's own commit triggered no run. `php-image.yml` filters
+      on `docker/php/**`, `crm/**` and itself. **`docker-compose.yml` is in none of them**, and yet
+      `QueueConfigurationTest` parses that file to assert the worker `--queue=` flags match
+      `config/queue.php` — the check Point 8.1 built precisely because those two live where neither
+      can see the other. A commit that edits only compose would skip the one test that validates
+      it. Owed: add `docker-compose.yml` to the `paths` filter. Not done here, because it is a
+      change to CI behaviour and this point is a sign-off, not a fix
 
 ---
 

@@ -333,3 +333,28 @@ brief and were derived to satisfy §8's contrast requirements; they are ordinary
 an owner may restate any of them. Nothing about spacing, typography, direction or component
 behaviour changes: §3.1's rule that a theme moves colour, border, shadow and focus only still
 holds.
+
+### Debt owed to the token set (recorded 2026-08-23, during the shell elevation)
+
+Two things the shell needs and §3.2 does not have. Both were found by looking at rendered pixels,
+not by any check in this repository, and neither is applied — a token change is an owner's
+decision, not an implementation detail.
+
+- **No overlay colour.** A scrim over the mobile drawer has to darken in every theme, and no token
+  behaves: `--color-text` is near-black in the two light themes and near-white in Midnight
+  Obsidian, so tinting with it lays a *light* veil over dark content — measured as `#E0E7FF` at
+  40% opacity. `--color-canvas` fails the same way in the opposite direction. `AppSidebar.vue`
+  therefore dims with `backdrop-filter: brightness()`, which takes what is actually behind the
+  element and needs no colour at all. A **23rd token, `--color-overlay`**, dark in all three
+  themes, is the better answer and would make the scrim declarative again.
+- **No `color-scheme` declaration.** The guideline is standard and correct: without
+  `color-scheme: dark` on the root, native scrollbars, `<select>` menus, date pickers and form
+  controls keep painting light while Midnight Obsidian is active. It belongs beside the theme
+  blocks in `tokens.css`, which `ThemeTokenTest` pins and `D-73` documents as carrying exactly
+  22 tokens, so adding it is an amendment to that record rather than a component change.
+
+**One accessibility defect was fixed rather than deferred.** The sidebar's collapse control
+rendered a visible label *and* an `sr-only` copy of the same string, so its computed accessible
+name was `"Collapse sidebar Collapse sidebar"` — read out of the browser's accessibility tree, and
+invisible to every text-scanning check here. The hidden label now exists only when the collapsed
+rail has no visible one.

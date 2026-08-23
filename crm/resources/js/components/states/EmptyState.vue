@@ -26,21 +26,32 @@ const { t } = useI18n();
 
 <template>
     <div
-        class="flex w-full flex-col items-center justify-center gap-2 p-8 text-center"
+        class="flex w-full flex-col items-center justify-center gap-3 p-8 text-center"
         data-testid="empty-state"
     >
-        <svg class="size-8 text-[var(--color-status-neutral)]" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
-            <path d="M3 5a1 1 0 0 1 1-1h5l2 2h5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" opacity="0.35" />
-            <path d="M4 8h12a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-        </svg>
+        <span class="state-plate grid size-14 place-items-center rounded-2xl" aria-hidden="true">
+            <svg class="size-7 text-[var(--color-status-neutral)]" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+                <path d="M3 5a1 1 0 0 1 1-1h5l2 2h5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" opacity="0.35" />
+                <path d="M4 8h12a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+            </svg>
+        </span>
 
         <!-- A heading, not a styled paragraph: §8 asks for semantic headings, and
              this is the heading of the region that has no content. -->
-        <h2 class="text-card-title">{{ t(titleKey) }}</h2>
-        <p class="text-[var(--color-text-muted)]">{{ t(messageKey) }}</p>
+        <div class="flex max-w-sm flex-col gap-1">
+            <h2 class="text-card-title text-balance">{{ t(titleKey) }}</h2>
+            <p class="text-[var(--color-text-muted)] text-pretty">{{ t(messageKey) }}</p>
+        </div>
 
-        <div class="mt-2 empty:hidden">
+        <div class="mt-1 empty:hidden">
             <slot name="action" />
         </div>
     </div>
 </template>
+
+<style scoped>
+.state-plate {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+}
+</style>

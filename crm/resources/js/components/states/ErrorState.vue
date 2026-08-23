@@ -33,30 +33,69 @@ const { t } = useI18n();
          page has settled has to interrupt, or a screen-reader user carries on
          waiting for data that will never arrive (§8). -->
     <div
-        class="flex w-full flex-col items-center justify-center gap-2 p-8 text-center"
+        class="flex w-full flex-col items-center justify-center gap-3 p-8 text-center"
         role="alert"
         data-testid="error-state"
     >
-        <svg class="size-8 text-[var(--color-danger)]" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
-            <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-1 4h2v6H9zm0 8h2v2H9z" />
-        </svg>
+        <span class="state-plate state-plate--danger grid size-14 place-items-center rounded-2xl" aria-hidden="true">
+            <svg class="size-7 text-[var(--color-danger)]" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+                <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-1 4h2v6H9zm0 8h2v2H9z" />
+            </svg>
+        </span>
 
-        <h2 class="text-card-title text-[var(--color-danger)]">{{ t(titleKey) }}</h2>
-        <p class="text-[var(--color-text-muted)]">{{ t(messageKey) }}</p>
+        <div class="flex max-w-sm flex-col gap-1">
+            <h2 class="text-card-title text-balance text-[var(--color-danger)]">{{ t(titleKey) }}</h2>
+            <p class="text-[var(--color-text-muted)] text-pretty">{{ t(messageKey) }}</p>
+        </div>
 
         <!-- Diagnostic detail, when the caller has one. Data, not copy. -->
-        <div class="empty:hidden text-table text-[var(--color-text-muted)]">
+        <div class="detail empty:hidden max-w-full text-table text-[var(--color-text-muted)]">
             <slot name="detail" />
         </div>
 
         <button
             v-if="retryable"
             type="button"
-            class="mt-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[var(--color-border)] px-4 text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+            class="action mt-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-border-strong)] px-4 text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
             data-testid="error-retry"
             @click="$emit('retry')"
         >
+            <svg viewBox="0 0 20 20" class="size-4" aria-hidden="true" fill="currentColor">
+                <path d="M10 3a7 7 0 1 0 6.3 4h-2.2A5 5 0 1 1 10 5v2.5L14 4.2 10 1z" />
+            </svg>
             {{ t('state.retry') }}
         </button>
     </div>
 </template>
+
+<style scoped>
+.state-plate {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+}
+
+.state-plate--danger {
+    border-color: var(--color-danger);
+}
+
+/* An exception message is one long unbroken token often enough that leaving it
+   to wrap normally pushes the whole card sideways. */
+.detail {
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+}
+
+.action {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition-property: background-color, color;
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .action {
+        transition: none;
+    }
+}
+</style>

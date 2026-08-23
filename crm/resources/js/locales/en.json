@@ -25,11 +25,24 @@
     }
   },
   "ping": {
-    "title": "Connection check",
+    "title": "Infrastructure health",
+    "subtitle": "A live round-trip against the versioned API, measured in this browser.",
     "service": "Service",
     "time": "Server time",
     "requestId": "Request ID",
-    "retry": "Try again"
+    "endpoint": "Endpoint",
+    "latency": "Round-trip",
+    "retry": "Try again",
+    "refresh": "Run the check again",
+    "environment": "Client environment",
+    "locale": "Locale",
+    "direction": "Direction",
+    "status": {
+      "label": "Status",
+      "checking": "Checking…",
+      "operational": "Operational",
+      "unreachable": "Unreachable"
+    }
   },
   "shell": {
     "skipToContent": "Skip to content"
@@ -44,7 +57,7 @@
       "system": "System"
     },
     "item": {
-      "home": "Connection check"
+      "home": "System diagnostics"
     }
   },
   "theme": {

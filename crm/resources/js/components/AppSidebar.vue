@@ -37,13 +37,17 @@ function onBackdrop(): void {
 
 <template>
     <!-- The backdrop is symmetric on both axes, so inset-0 carries no direction
-         and needs no logical form. It exists only below 1024px. -->
-    <div
-        v-if="props.open"
-        class="fixed inset-0 z-30 bg-black/40 lg:hidden"
-        data-testid="sidebar-backdrop"
-        @click="onBackdrop"
-    />
+         and needs no logical form. It exists only below 1024px. Opacity is the
+         one thing animated here: it is compositor-only and mirrors nothing.
+         It dims with a filter and not with a colour — see the stylesheet. -->
+    <Transition name="backdrop">
+        <div
+            v-if="props.open"
+            class="app-sidebar__backdrop fixed inset-0 z-30 lg:hidden"
+            data-testid="sidebar-backdrop"
+            @click="onBackdrop"
+        />
+    </Transition>
 
     <aside
         :class="[
@@ -55,11 +59,17 @@ function onBackdrop(): void {
         :aria-label="t('nav.primary')"
         data-testid="sidebar"
     >
-        <div class="flex items-center gap-3 px-4 py-4">
+        <!-- ── Brand ─────────────────────────────────────────────────────── -->
+        <div
+            :class="[
+                'flex min-h-16 items-center gap-3 border-b border-[var(--color-border)] py-3',
+                props.collapsed ? 'justify-center px-0' : 'px-4',
+            ]"
+        >
             <!-- The product mark is not a translated string, so it is not text.
                  The accessible name comes from the lang files. -->
             <span
-                class="grid size-8 shrink-0 place-items-center rounded-md bg-[var(--color-primary)] text-[var(--color-primary-text)]"
+                class="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-text)] shadow-[var(--shadow-1)]"
                 :aria-label="t('app.mark')"
                 role="img"
             >
@@ -68,54 +78,86 @@ function onBackdrop(): void {
                 </svg>
             </span>
 
-            <span v-if="!props.collapsed" class="truncate text-card-title lg:inline">
+            <span
+                v-if="!props.collapsed"
+                class="min-w-0 truncate text-card-title text-[var(--color-text)]"
+                :title="t('app.name')"
+                translate="no"
+            >
                 {{ t('app.name') }}
             </span>
         </div>
 
-        <nav class="flex-1 overflow-y-auto px-2 pb-4">
-            <div v-for="group in NAVIGATION" :key="group.labelKey" class="mb-4">
+        <!-- ── Navigation ────────────────────────────────────────────────── -->
+        <nav class="app-sidebar__scroll flex-1 overflow-y-auto px-2 py-3">
+            <div v-for="group in NAVIGATION" :key="group.labelKey" class="mb-5 last:mb-0">
                 <p
                     v-if="!props.collapsed"
-                    class="px-2 pb-1 text-start text-table text-[var(--color-text-muted)] uppercase"
+                    class="app-sidebar__group px-3 pb-2 text-start text-table text-[var(--color-text-muted)] uppercase"
                 >
                     {{ t(group.labelKey) }}
                 </p>
 
-                <ul>
+                <ul class="flex flex-col gap-1">
                     <li v-for="item in group.items" :key="item.name">
                         <RouterLink
                             :to="{ name: item.name }"
                             :title="props.collapsed ? t(item.labelKey) : undefined"
-                            class="flex items-center gap-3 rounded-md px-2 py-2 text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                            active-class="bg-[var(--color-surface-muted)] font-medium"
+                            :class="[
+                                'app-sidebar__link group relative flex min-h-11 items-center gap-3 rounded-lg',
+                                'text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]',
+                                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]',
+                                props.collapsed ? 'justify-center px-0' : 'px-3',
+                            ]"
+                            active-class="app-sidebar__link--active bg-[var(--color-surface-muted)] font-medium"
                         >
-                            <svg viewBox="0 0 20 20" class="size-5 shrink-0" aria-hidden="true" fill="currentColor">
+                            <svg
+                                viewBox="0 0 20 20"
+                                class="app-sidebar__icon size-5 shrink-0 text-[var(--color-text-muted)]"
+                                aria-hidden="true"
+                                fill="currentColor"
+                            >
                                 <path :d="item.icon" />
                             </svg>
 
-                            <span v-if="!props.collapsed" class="truncate">{{ t(item.labelKey) }}</span>
+                            <span v-if="!props.collapsed" class="min-w-0 truncate">{{ t(item.labelKey) }}</span>
                         </RouterLink>
                     </li>
                 </ul>
             </div>
         </nav>
 
-        <!-- §4.3 gives the collapsed rail to ≥1024px only, so the control that
+        <!-- ── Collapse control ──────────────────────────────────────────────
+             §4.3 gives the collapsed rail to ≥1024px only, so the control that
              produces it does not exist below that width. -->
         <button
             type="button"
-            class="hidden items-center gap-3 border-t border-[var(--color-border)] px-4 py-3 text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] lg:flex"
+            :class="[
+                'app-sidebar__toggle hidden min-h-11 items-center gap-3 border-t border-[var(--color-border)] py-3',
+                'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] lg:flex',
+                props.collapsed ? 'justify-center px-0' : 'px-4',
+            ]"
             :aria-expanded="!props.collapsed"
             data-testid="sidebar-collapse"
             @click="emit('toggleCollapsed')"
         >
-            <svg viewBox="0 0 20 20" class="size-5 shrink-0" aria-hidden="true" fill="currentColor">
-                <path d="M7 4h2v12H7zM11 4h2v12h-2z" />
-            </svg>
+            <span
+                class="grid size-6 shrink-0 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]"
+                aria-hidden="true"
+            >
+                <svg viewBox="0 0 20 20" class="size-4" fill="currentColor">
+                    <path d="M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm4 1v10h10V5z" />
+                </svg>
+            </span>
 
-            <span v-if="!props.collapsed">{{ t('nav.collapse') }}</span>
-            <span class="sr-only">{{ props.collapsed ? t('nav.expand') : t('nav.collapse') }}</span>
+            <!-- One name, not two. The previous shape rendered the visible
+                 label *and* an sr-only copy, so the expanded control announced
+                 "Collapse sidebar Collapse sidebar" — read out of the
+                 accessibility tree in a browser, invisible to every check here.
+                 The hidden label now exists only when there is no visible one. -->
+            <span v-if="!props.collapsed" class="min-w-0 truncate">{{ t('nav.collapse') }}</span>
+            <span v-else class="sr-only">{{ t('nav.expand') }}</span>
         </button>
     </aside>
 </template>
@@ -126,6 +168,12 @@ function onBackdrop(): void {
  * that mirror. A transform would not: translateX is physical by definition, so
  * an RTL drawer built on -translate-x-full slides in from the wrong edge and
  * every utility class still reads as correct.
+ *
+ * That is a deliberate departure from the "animate only transform/opacity"
+ * advice in the Web Interface Guidelines. The guideline is about compositor
+ * cost; §5.1 and Coding Standards §11 are about the layout being correct in
+ * Arabic, and the project's own sources take precedence. The backdrop, which
+ * has no side, does animate opacity.
  *
  * Below 1024px the sidebar is fixed and off-canvas until opened. At 1024px it
  * stops being positioned at all and becomes part of the flow, which is what
@@ -140,7 +188,7 @@ function onBackdrop(): void {
        own text: 237px in English and 300px in Arabic. Measured in a browser,
        not noticed by any of the checks in this repository. */
     inline-size: 16rem;
-    transition: inset-inline-start 200ms ease;
+    transition: inset-inline-start 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .app-sidebar--open {
@@ -151,13 +199,97 @@ function onBackdrop(): void {
     inset-inline-start: -16rem;
 }
 
+/* A drawer that hands its scroll to the page underneath is the classic sheet
+   defect: the list bottoms out and the document behind starts moving. */
+.app-sidebar__scroll {
+    overscroll-behavior: contain;
+}
+
+/*
+ * The scrim dims with a filter rather than with a tinted colour, and that is
+ * not a stylistic preference — it is the only theme-correct option in the
+ * token set.
+ *
+ * A scrim has to darken in every theme. The 22 tokens contain no overlay
+ * colour, and no single one behaves: `--color-text` is near-black in the two
+ * light themes and near-white in Midnight Obsidian, so tinting with it lays a
+ * *light* veil over dark content. That is what the first version of this did —
+ * measured in the browser as `#e0e7ff` at 40%, not noticed by reading it.
+ * `--color-canvas` fails the same way in the opposite direction.
+ *
+ * `brightness()` takes what is actually behind the element and darkens it, so
+ * it is correct in all three themes and hard-codes nothing. A dedicated
+ * `--color-overlay` token would be the better answer and is owed to the design
+ * system as a D-73 follow-up; until that is approved, this needs no token at
+ * all. Where backdrop-filter is unsupported the drawer still separates by its
+ * own shadow and border.
+ */
+.app-sidebar__backdrop {
+    backdrop-filter: brightness(0.45) blur(2px);
+}
+
+/* §4.1 gives no tracking token, so this is presentation of an existing size
+   rather than a new one — the size itself is still the named `text-table`. */
+.app-sidebar__group {
+    letter-spacing: 0.08em;
+}
+
+.app-sidebar__link,
+.app-sidebar__toggle {
+    /* Removes the 300ms double-tap delay on touch, and keeps the tap flash from
+       being whatever the platform picked. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition-property: background-color, color;
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+}
+
+/*
+ * The active indicator. A pill on the inline-start edge of the row, drawn as a
+ * pseudo-element so it costs no markup and cannot be tabbed to. `inset-inline-start`
+ * is what puts it on the correct edge in Arabic; scaleY is on the block axis,
+ * which RTL does not touch.
+ */
+.app-sidebar__link::before {
+    content: '';
+    position: absolute;
+    inset-block: 0.5rem;
+    inset-inline-start: 0;
+    inline-size: 3px;
+    border-radius: 9999px;
+    background-color: var(--color-primary);
+    transform: scaleY(0);
+    transform-origin: center;
+    opacity: 0;
+    transition:
+        transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 180ms ease-out;
+}
+
+.app-sidebar__link--active::before {
+    transform: scaleY(1);
+    opacity: 1;
+}
+
+/* Colour is reinforcement, never the only signal (§9.5): the active row also
+   carries the pill, a raised surface and a heavier weight. */
+.app-sidebar__link--active .app-sidebar__icon,
+.app-sidebar__link:hover .app-sidebar__icon {
+    color: var(--color-primary);
+}
+
+.app-sidebar__icon {
+    transition: color 160ms ease-out;
+}
+
 @media (min-width: 1024px) {
     .app-sidebar,
     .app-sidebar--open,
     .app-sidebar--closed {
         position: static;
         inset-inline-start: auto;
-        transition: inline-size 200ms ease;
+        transition: inline-size 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* §5.1: 72px collapsed. Only at this width — §4.3 gives the rail to
@@ -167,9 +299,31 @@ function onBackdrop(): void {
     }
 }
 
+/* The backdrop's own fade. Named transition rather than a utility so the
+   reduced-motion rule below can reach it. */
+.backdrop-enter-active,
+.backdrop-leave-active {
+    transition: opacity 200ms ease-out;
+}
+
+.backdrop-enter-from,
+.backdrop-leave-to {
+    opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .app-sidebar {
+    .app-sidebar,
+    .app-sidebar__link,
+    .app-sidebar__link::before,
+    .app-sidebar__icon,
+    .app-sidebar__toggle,
+    .backdrop-enter-active,
+    .backdrop-leave-active {
         transition: none;
+    }
+
+    .app-sidebar__link::before {
+        transform: scaleY(1);
     }
 }
 </style>

@@ -52,7 +52,7 @@ watch(() => route.fullPath, closeSidebar);
              means tabbing the whole sidebar on every navigation. -->
         <a
             href="#page-content"
-            class="sr-only rounded-md bg-[var(--color-surface)] px-3 py-2 focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:outline-2 focus:outline-[var(--color-focus-ring)]"
+            class="sr-only rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 shadow-[var(--shadow-2)] focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
         >
             {{ t('shell.skipToContent') }}
         </a>
@@ -68,8 +68,11 @@ watch(() => route.fullPath, closeSidebar);
             <AppContextBar :sidebar-open="sidebarOpen" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
             <!-- §4.2: 1600px standard desktop content width; the shell itself
-                 stays full width so data tables can use it. -->
-            <main id="page-content" class="mx-auto w-full max-w-[1600px] flex-1 p-4">
+                 stays full width so data tables can use it.
+                 scroll-mt keeps the skip link honest: the context bar is sticky,
+                 so jumping to this anchor would otherwise land the first line
+                 underneath it. -->
+            <main id="page-content" class="mx-auto w-full max-w-[1600px] flex-1 scroll-mt-20 p-4 sm:p-6">
                 <RouterView />
             </main>
         </div>

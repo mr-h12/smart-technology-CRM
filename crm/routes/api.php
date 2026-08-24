@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\LoginController;
 use App\Modules\Identity\Presentation\LogoutController;
 use App\Modules\Identity\Presentation\MeController;
@@ -58,5 +59,10 @@ Route::prefix('auth')->group(function (): void {
     Route::middleware('auth')->group(function (): void {
         Route::post('/logout', LogoutController::class);
         Route::get('/me', MeController::class);
+
+        // §9 Flow 0. No permission middleware: this changes the caller's own
+        // credential, and the right to do that is having a session. Changing
+        // somebody else's is §3.11's `admin.*`, a different endpoint.
+        Route::post('/change-password', ChangePasswordController::class);
     });
 });

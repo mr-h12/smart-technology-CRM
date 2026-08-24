@@ -6,6 +6,7 @@ use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
+use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Support\Http\ApiExceptionRenderer;
@@ -96,6 +97,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (AuthorizationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::authorization($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (PasswordChangeRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::passwordChange($e, $request)
                 : null,
         );
 

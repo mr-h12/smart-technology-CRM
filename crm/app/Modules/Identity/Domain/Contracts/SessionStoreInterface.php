@@ -37,4 +37,18 @@ interface SessionStoreInterface
      * happened, not an error.
      */
     public function revoke(string $sessionId, string $accountId): void;
+
+    /**
+     * Revokes every session this account holds, and returns how many.
+     *
+     * §9 Flow 0 ends the password-change flow with "**log in again**", so this
+     * takes down the calling device too. Anything narrower leaves the one
+     * session an attacker is most likely to be holding — the one that is live
+     * right now — and a password change whose purpose is to evict somebody
+     * that does not evict them is worse than none, because the user believes
+     * it worked.
+     *
+     * The count is returned so `AUD-01`'s row can record the blast radius.
+     */
+    public function revokeAllFor(string $accountId): int;
 }

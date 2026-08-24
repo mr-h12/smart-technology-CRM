@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support\Http;
 
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
+use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Presentation\ApiEnvelope;
 use Illuminate\Auth\AuthenticationException;
@@ -79,6 +80,31 @@ final class ApiExceptionRenderer
                 'message' => (string) __('identity.refusal.unauthorized_action', [
                     'ability' => $exception->ability(),
                 ]),
+            ]],
+        );
+    }
+
+    /**
+     * A refused password change — `OpenAPI §5.1`'s 422 `validation_failed`.
+     *
+     * Shaped exactly like a Form Request failure, `field` included, because
+     * from the SPA's side it is one: a submitted field was not acceptable. The
+     * caller should not have to handle two different envelopes depending on
+     * whether the rule lived in a validator or in a use case.
+     */
+    public static function passwordChange(PasswordChangeRefused $exception, Request $request): JsonResponse
+    {
+        $reason = $exception->reason;
+
+        return ApiEnvelope::error(
+            $request,
+            422,
+            'validation_failed',
+            (string) __('identity.errors.validation_failed'),
+            [[
+                'field' => $reason->field(),
+                'code' => $reason->value,
+                'message' => (string) __($reason->messageKey()),
             ]],
         );
     }

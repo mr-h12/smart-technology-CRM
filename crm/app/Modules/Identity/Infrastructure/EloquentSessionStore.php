@@ -44,4 +44,18 @@ final class EloquentSessionStore implements SessionStoreInterface
         // later "who was signed in on the 3rd" question reads.
         $session?->delete();
     }
+
+    public function revokeAllFor(string $accountId): int
+    {
+        $sessions = UserSession::query()->where('user_id', $accountId)->get();
+
+        foreach ($sessions as $session) {
+            // One at a time rather than a mass `->delete()` on the builder, so
+            // each row goes through the model and gets its `deleted_at` and its
+            // `updated_at` written the same way a single revocation does.
+            $session->delete();
+        }
+
+        return $sessions->count();
+    }
 }

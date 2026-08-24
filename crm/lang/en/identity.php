@@ -16,6 +16,12 @@ return [
         'unauthorized_action' => 'The action :ability is not permitted for your role.',
     ],
 
+    'password' => [
+        'current_password_incorrect' => 'Your current password is not correct.',
+        'password_policy_not_met' => 'The password must be at least 8 characters and contain both letters and numbers.',
+        'password_unchanged' => 'The new password must be different from the current one.',
+    ],
+
     'errors' => [
         'validation_failed' => 'Please correct the highlighted fields.',
         'rate_limited' => 'Too many attempts. Please try again shortly.',

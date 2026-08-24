@@ -32,6 +32,25 @@ interface AccountDirectoryInterface
     public function clearFailures(string $accountId): void;
 
     /**
+     * The account behind an id, locked for update.
+     *
+     * Separate from {@see findByEmailForUpdate()} because the caller already
+     * holds an authenticated identity and must not have to round-trip through
+     * an address to use it — an address is a mutable field and an id is not.
+     */
+    public function findByIdForUpdate(string $accountId): ?Account;
+
+    /**
+     * Replaces the stored hash (`SEC-02`).
+     *
+     * Takes a hash, never a plaintext password: hashing is a framework concern
+     * and this interface lives in Domain, which `D-77` keeps framework-free.
+     * The caller has already hashed, which also means no implementation of this
+     * interface can accidentally store a password in the clear.
+     */
+    public function updatePassword(string $accountId, string $passwordHash): void;
+
+    /**
      * The active Super Admins `SEC-03` must notify.
      *
      * @return list<string> account ids

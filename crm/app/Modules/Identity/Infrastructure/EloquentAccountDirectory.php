@@ -33,6 +33,33 @@ final class EloquentAccountDirectory implements AccountDirectoryInterface
         return $user instanceof User ? self::toAccount($user) : null;
     }
 
+    public function findByIdForUpdate(string $accountId): ?Account
+    {
+        $user = User::query()->whereKey($accountId)->lockForUpdate()->first();
+
+        return $user instanceof User ? self::toAccount($user) : null;
+    }
+
+    /**
+     * `SEC-02` — the hash arrives already made; this only stores it.
+     *
+     * `forceFill` past the `hashed` cast is deliberately **not** used: the
+     * attribute is assigned normally, and Laravel's `hashed` cast is a no-op on
+     * a value that is already a hash, so one path stores passwords and there is
+     * no second one that could store a plaintext.
+     */
+    public function updatePassword(string $accountId, string $passwordHash): void
+    {
+        $user = User::query()->whereKey($accountId)->first();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $user->password = $passwordHash;
+        $user->save();
+    }
+
     public function recordFailure(string $accountId, int $attempts, ?DateTimeImmutable $lockedUntil): void
     {
         $user = User::query()->whereKey($accountId)->first();

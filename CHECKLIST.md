@@ -1507,9 +1507,49 @@ correction both need the owner's approval on a hook-protected file, and `--color
       *decidable* — the reach is resolved and handed downstream — but **no query is row-filtered
       yet**, because there are no business rows. `SEC-10` Login As is untouched
 
+#### Step 3 — password change, user administration, Login As *(breakdown approved 2026-08-24)*
+
+- [x] **3.1** `POST /api/v1/auth/change-password` — current-password challenge, `D-28` policy,
+      every session revoked, `PASSWORD_CHANGED` audited. *(2026-08-24)*
+      **Three checks, in this order:** the current password first, so a hijacked session cannot
+      change the credential it stole — that is the entire reason the field exists; then `D-28`
+      through `PasswordPolicy`, the same class the seeder calls, so the rule has one home; then
+      "not the same as the current one", asked of the **hash** rather than by comparing two
+      submitted strings, because that comparison cannot be fooled by whitespace or by a client
+      that normalises one field and not the other.
+      **Every session dies, the caller's included.** §9 Flow 0 ends the flow with "**log in
+      again**". Revoking only the *other* devices leaves the session an attacker is most likely
+      holding — the live one — and a password change that does not evict the person it was meant
+      to evict is worse than none, because the user believes it worked. The response says so:
+      `sessions_revoked` and `reauthentication_required`.
+      **The endpoint takes no target.** No `user_id`, and there will not be one: changing somebody
+      else's password is §3.11's `admin.*`, a different action needing a different check. A test
+      posts `user_id` and `email` for another account and asserts they are ignored entirely.
+      **The audit row carries no credential** — not the old hash, not the new one, not the
+      plaintext. `AUD-03` makes it permanent, and a permanent record of a credential outlives the
+      account. A test greps the serialised row for all three.
+      **Verified live over TLS through nginx**, not only in the suite: wrong current password 422
+      with `current_password_incorrect`, digits-only 422, valid change 200 with
+      `sessions_revoked: 1`, the old token then 401, the old password 401, the new one 201, and
+      one `PASSWORD_CHANGED` row.
+      ⚠️ **`SEC-04` is NOT satisfied.** It reads "Mandatory email verification for password
+      changes", and §9 Flow 0 spells it out: "Password change → **verification code by email** →
+      new password → log in again." Steps one, three and four ship; **step two does not**. A
+      current-password challenge is a different control — it proves the caller knows the old
+      password, not that they hold the mailbox. `ChangePasswordTest` pins the gap against the
+      documentation itself so it cannot be mistaken for done. **This point does not close
+      `SEC-04`.**
+      **Also not covered:** no password-reset flow for somebody who has *forgotten* their password
+      (`password_reset_tokens` is still a dead scaffold table), no re-use history, no forced
+      rotation, and no notification to the user that their password changed
+- [ ] **3.2** User administration — `CRUD /api/v1/users`, where `scopeListable()` finally guards a
+      real listing (§3.12 rule 6) and §3.12 rule 7 limits which roles a Manager may create
+- [ ] **3.3** `SEC-04` — the emailed verification code that `3.1` owes
+- [ ] **3.4** `SEC-10` — Login As, Super Admin only, with its mandatory audit entry
+
 **Endpoints**
-- [x] `POST /api/v1/auth/login` · `logout` — 2.2. `change-password` is **not** done: it needs
-      `SEC-04`'s email verification, which is its own point
+- [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **with `SEC-04`'s
+      emailed verification code still owed**
 - [x] `GET /api/v1/auth/me` — 2.2. Returns the role and the `SEC-07` triples read from
       `role_permissions`; the list is a menu, not authorization (§3.12 rule 1)
 - [ ] CRUD `/api/v1/roles` · `/api/v1/permissions` · `/api/v1/users`

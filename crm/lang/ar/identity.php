@@ -16,6 +16,12 @@ return [
         'unauthorized_action' => 'الإجراء :ability غير مسموح به لدورك.',
     ],
 
+    'password' => [
+        'current_password_incorrect' => 'كلمة المرور الحالية غير صحيحة.',
+        'password_policy_not_met' => 'يجب أن تتكون كلمة المرور من 8 خانات على الأقل وأن تحتوي على حروف وأرقام.',
+        'password_unchanged' => 'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',
+    ],
+
     'errors' => [
         'validation_failed' => 'يرجى تصحيح الحقول المحددة.',
         'rate_limited' => 'عدد كبير جدا من المحاولات. يرجى المحاولة بعد قليل.',

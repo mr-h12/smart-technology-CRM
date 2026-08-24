@@ -31,6 +31,14 @@ final class IdentityAuditEvents
     public const LOGOUT = 'LOGOUT';
 
     /**
+     * `SEC-04`'s event. The row records **that** the password changed and how
+     * many sessions it took down — never the old hash and never the new one.
+     * `AUD-03` makes the row permanent, and a permanent record of a credential
+     * is a credential with a longer life than the account.
+     */
+    public const PASSWORD_CHANGED = 'PASSWORD_CHANGED';
+
+    /**
      * A refusal that was neither wrong credentials nor a lock: `D-34`'s
      * deactivated account presenting a password that was in fact correct.
      * Worth a row of its own — it is the only signal that a suspended person is

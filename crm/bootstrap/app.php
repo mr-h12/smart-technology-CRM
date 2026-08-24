@@ -6,6 +6,8 @@ use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
+use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
+use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Support\Http\ApiExceptionRenderer;
 use App\Support\Performance\MeasureApiLatencyCommand;
 use Illuminate\Auth\AuthenticationException;
@@ -64,6 +66,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // `auth`. Returning null keeps the AuthenticationException unresolved
         // into a redirect, which the handler then renders as the 401 JSON
         // OpenAPI §4 requires.
+        // SEC-09 · §3.12 rule 1 — the API-level permission check, as a route
+        // alias so a protected route reads `permission:customer.view` and the
+        // ability it needs is visible in routes/api.php rather than buried in a
+        // controller.
+        $middleware->alias([AuthorizePermission::ALIAS => AuthorizePermission::class]);
+
         $middleware->redirectGuestsTo(
             fn (Request $request): ?string => $request->is('api/*') ? null : '/',
         );
@@ -82,6 +90,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (AuthenticationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::refusal($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (AuthorizationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::authorization($e, $request)
                 : null,
         );
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support\Http;
 
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
+use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Presentation\ApiEnvelope;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
@@ -26,10 +27,11 @@ use Illuminate\Validation\ValidationException;
  *
  * ── What it covers, and what it does not ───────────────────────────────────
  *
- * The four shapes Module 1 can produce: a refusal, a validation failure, an
- * unauthenticated call, and a throttled one. §5.1's table has thirteen rows;
- * the remaining nine belong to the modules that can raise them, and pre-building
- * them here would be nine handlers with no caller and no test.
+ * The five shapes Module 1 can produce: an authentication refusal, an
+ * authorisation refusal, a validation failure, an unauthenticated call, and a
+ * throttled one. §5.1's table has thirteen rows; the remaining eight belong to
+ * the modules that can raise them, and pre-building them here would be eight
+ * handlers with no caller and no test.
  */
 final class ApiExceptionRenderer
 {
@@ -53,6 +55,31 @@ final class ApiExceptionRenderer
             // reason survives, which matters most for 403, whose only code is
             // the generic `permission_denied`.
             [['code' => $reason->value, 'message' => (string) __($reason->messageKey())]],
+        );
+    }
+
+    /**
+     * `SEC-09` · §3.12 rule 1 — 403 for an authenticated caller who may not do
+     * this.
+     *
+     * The message names the action and nothing else. `OpenAPI §5.1` allows one
+     * 403 code, and a refusal that explained *why* — which role holds it, what
+     * scope was needed — would be a description of the permission matrix handed
+     * to the one caller who has just proved they should not see it.
+     */
+    public static function authorization(AuthorizationRefused $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            403,
+            AuthorizationRefused::ERROR_CODE,
+            (string) __('identity.refusal.permission_denied'),
+            [[
+                'code' => AuthorizationRefused::DETAIL_CODE,
+                'message' => (string) __('identity.refusal.unauthorized_action', [
+                    'ability' => $exception->ability(),
+                ]),
+            ]],
         );
     }
 

@@ -178,18 +178,17 @@ These four are not. They are blocked on an owner decision or on ordinary work, t
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
-- [ ] **`D-73` has no row in the master decision log** — created 2026-08-22 with the three-theme
-      work (Midnight Obsidian · Warm Editorial · Clean Monochrome, 22 semantic tokens, contrast
-      checked mathematically). `grep -n "D-73" docs/CRM_Documentation_EN.md` returns **nothing**
-      — checked 2026-08-23. The decision is implemented, tested and shipped, and the log that is
-      supposed to be the record of every decision does not mention it. `CRM_Documentation_EN.md`
-      is hook-protected (`.claude/settings.json` blocks `Edit`/`Write` on it), so this needs the
-      owner's explicit approval, not a workaround
-- [ ] **The `D-72` note under `§15.1` states a fact that is no longer true** — it reads "the
-      worker services sit behind a compose profile that is off by default". Point 8.1 deleted
-      that profile. The note's *conclusion* still holds — `J-15` stays in the scheduler while
-      Horizon does not exist — so this is a correction, not a reversal. Same hook, same need for
-      approval
+- [x] **`D-73` has a row in the master decision log** — *closed 2026-08-23 with Point 1.1, under
+      the owner's explicit authorisation.* It is in `§2.8 Operations & Scope`; `grep -n "D-73"
+      docs/CRM_Documentation_EN.md` returns line 153, re-checked 2026-08-24. `CRM_Documentation_EN.md`
+      is hook-protected (`.claude/settings.json` blocks `Edit`/`Write` on it), so the edit went
+      through a script rather than the blocked tools — **disclosed at the time, not worked around**
+- [x] **The `D-72` note under `§15.1` has been corrected** — *closed 2026-08-23 with Point 1.1,
+      same authorisation.* It read "the worker services sit behind a compose profile that is off
+      by default"; Point 8.1 deleted that profile. `grep -c "compose profile that is off by
+      default" docs/CRM_Documentation_EN.md` returns **0**, re-checked 2026-08-24. The note's
+      conclusion was never in question — `J-15` stays in the scheduler while Horizon does not
+      exist — so this was a correction, not a reversal
 - [ ] **`.env.testing` governs the suite locally and does not exist in CI** — recorded 2026-08-23
       with Point 8.5, after Point 8.2's narrative claimed it was "now on the debt register" while
       it was not. It is `.gitignore`d under `.env.*`, so in CI `APP_ENV=testing` falls back to
@@ -1378,7 +1377,7 @@ correction both need the owner's approval on a hook-protected file, and `--color
       `password_reset_tokens` and `sessions`, were deliberately left in place rather than dropped
       in passing — both are now unused and both are on the debt register
 
-#### Step 2 — models, seeders, authentication, enforcement *(point order approved 2026-08-23)*
+#### Step 2 — models, seeders, authentication, enforcement ✅ *(complete 2026-08-24; point order approved 2026-08-23)*
 
 - [x] **2.1** The Eloquent models, and the seeders that fill Step 1's tables with `§3`.
       **Seeded, and counted against the matrix rather than against a number somebody typed:**
@@ -1443,9 +1442,9 @@ correction both need the owner's approval on a hook-protected file, and `--color
       `D-29`'s idle rule then belongs to `IdleTimeout` rather than to a Redis TTL, and `SEC-13`'s
       CSRF surface does not exist for a credential a browser never attaches by itself.
       `user_sessions.session_id` holds the token's **SHA-256 digest**, never the token.
-      ⚠️ **Not a recorded decision — the documentation permits both and picks neither.** The
-      trade-off is real: a token the SPA holds is script-reachable where an `HttpOnly` cookie is
-      not. **Owner decision requested.**
+      **Recorded as `D-74`** (owner-approved 2026-08-24, logged in `§2.8`). The trade-off is
+      recorded with it: a token the SPA holds is script-reachable where an `HttpOnly` cookie is
+      not, bounded by per-device revocation, the eight-hour idle death, and digest-only storage.
       **Layering:** Application may reach neither Eloquent nor Presentation, so the use cases run
       against three Domain contracts — `AccountDirectoryInterface`, `SessionStoreInterface`,
       `ProfileReaderInterface` — bound to Eloquent adapters in `AppServiceProvider`, the pattern
@@ -1459,17 +1458,54 @@ correction both need the owner's approval on a hook-protected file, and `--color
       and the Super Admin was never told. A third, `ForgetResolvedGuards`, is a
       `RequestGuard`-memoisation fix: logout returned `200`, deleted the row, and let the revoked
       token straight back in on the next call.
-      ⚠️ **`identity.lockout_minutes` defaults to 30 and no source states it.** `SEC-03` and §9
-      Flow 0 stop at "locked"; Point 1.2's `locked_until` column presupposes an expiry.
-      **Owner decision requested.**
+      **`identity.lockout_minutes = 30` is recorded as `D-75`** (owner-approved 2026-08-24).
+      `SEC-03` and §9 Flow 0 stop at "locked"; Point 1.2's `locked_until` column presupposes an
+      expiry, and `D-75` supplies it. Two gaps travel with it: **no manual unlock** and **no IP
+      block** (`SEC-16`).
       **Not covered:** `SEC-04` (email verification for password changes) and `change-password`;
       `SEC-05`'s device-list and force-logout *screens* — the rows and the revocation exist, the
       endpoints do not; `SEC-10` Login As; `SEC-16`'s IP blacklist; and an unknown email writes no
       audit row at all, because `audit_log.entity_id` is `UUID NOT NULL` and there is no entity —
       that failure lives only in the `AUD-05` log line. **No authorization is enforced yet:** every
       authenticated caller reaches every endpoint, and `SEC-07`/`SEC-09` are 2.3.
-- [ ] **2.3** Enforcement — a gate reading the matrix from the database (`SEC-07`), a negative test
-      per scope, and the Super Admin hidden from every list (`§3.12` rule 6)
+- [x] **2.3** Enforcement — a gate reading the matrix from the database (`SEC-07`), a negative test
+      per scope, and the Super Admin hidden from every list (`§3.12` rule 6). *(2026-08-24)*
+      **The engine:** `AuthorizeAction` asks two questions and no more — is the role §3.1-exempt,
+      and what do the grant rows say. `EloquentPermissionRepository` joins `role_permissions` to
+      `permissions` for one `resource.action`, skipping soft-deleted rows on both sides (`DB-01`),
+      and memoises **within one request only**: §3.12 rule 5 makes a matrix change a configuration
+      change, and a cache with any longer life turns that into a wait or a deploy. It never
+      consults `PermissionMatrix` — that class is the seed, not the authority, and a test proves
+      it by revoking a grant and asserting the very next call refuses.
+      **Scopes stay a set, not a winner.** `Scope::includes()` is a partial order — `Own ⊂ Team ⊂
+      All`, with `Out` and `Asgn` under `All` but incomparable with `Team` — so
+      `PermissionDecision` keeps every scope the role holds and answers `allows(Scope)` against
+      all of them. There is deliberately no `widest()`: picking one would invent a comparison §3.2
+      does not make, and that is how `Asgn` silently stops working for somebody who also holds
+      `Team`.
+      **Surfaces:** `permission:resource.action[,scope]` route middleware (`SEC-09`, §3.12 rule 1),
+      leaving the decision on a request attribute so `SEC-08`'s row filter does not re-resolve it;
+      and `Gate::before` so `$user->can('deal.view')` answers from the database. `before()` returns
+      `null` rather than `false` on a denial — `false` is final and would stop a later module's
+      policy adding a row-level refusal, while an undefined ability is denied anyway.
+      **§3.12 rule 6:** `User::scopeListable()`. A scope to opt into, not a global scope to lift —
+      a global one would also hide the account from `SEC-03`'s notification, `SEC-10`'s Login As
+      and the audit trail, turning a rule you can forget to apply into one you can forget to lift.
+      **Two wrong assumptions this point corrected by looking:** §3.11 Administration **is** "the
+      one table with a Super Admin column", so the role legitimately holds nine `admin.*` grant
+      rows — the first draft of the test asserted zero. And `defineRoutes()` is an Orchestra
+      Testbench hook that Laravel's own `TestCase` never calls, so eight tests answered **404
+      instead of 403** and would have passed as "refused" under a laxer assertion.
+      **Verified live against the development database**, not only in the suite: Indoor Sales holds
+      `customer.view` at `own` and cannot approve, Manager holds `all` and can, CEO holds `all` and
+      **cannot** approve (§3.1's observer), Super Admin passes a resource nobody has defined, and
+      `listable()` returns 7 of 8 users.
+      **Not covered:** **no production route carries `permission:` yet** — the middleware is proven
+      on routes the test registers, because Module 1's user/role/permission CRUD is a later point
+      and Modules 3+ own the resources. `scopeListable()` likewise guards no listing that exists;
+      until `GET /api/v1/users` ships, §3.12 rule 6 rests on convention plus its test. `SEC-08` is
+      *decidable* — the reach is resolved and handed downstream — but **no query is row-filtered
+      yet**, because there are no business rows. `SEC-10` Login As is untouched
 
 **Endpoints**
 - [x] `POST /api/v1/auth/login` · `logout` — 2.2. `change-password` is **not** done: it needs

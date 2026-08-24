@@ -12,16 +12,20 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\PermissionRepositoryInterface;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Identity\Infrastructure\EloquentAccountDirectory;
+use App\Modules\Identity\Infrastructure\EloquentPermissionRepository;
 use App\Modules\Identity\Infrastructure\EloquentProfileReader;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
+use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -37,6 +41,7 @@ use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository as ConfigRepository;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\Request;
@@ -160,6 +165,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AccountDirectoryInterface::class, EloquentAccountDirectory::class);
         $this->app->bind(SessionStoreInterface::class, EloquentSessionStore::class);
         $this->app->bind(ProfileReaderInterface::class, EloquentProfileReader::class);
+
+        // SEC-07's matrix reader. `bind`, and this one matters more than the
+        // rest: the repository memoises within a request, so a singleton would
+        // hold a permission answer for the life of the process — §3.12 rule 5
+        // says removing a grant takes effect without a deployment, and a cached
+        // instance is a deployment wearing a different name.
+        $this->app->bind(
+            PermissionRepositoryInterface::class,
+            fn (): EloquentPermissionRepository => new EloquentPermissionRepository(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
     }
 
     /**
@@ -177,6 +194,15 @@ class AppServiceProvider extends ServiceProvider
         StandardColumns::register();
 
         $this->registerBearerSessionGuard();
+
+        // SEC-07 behind Laravel's own Gate, so `$user->can('customer.view')`
+        // answers from `role_permissions`. Resolved from the container at call
+        // time rather than captured, for the reason Point 5.4 measured.
+        RbacGateRegistrar::register(
+            $this->app->make(Gate::class),
+            $this->app->make(AuthorizeAction::class),
+        );
+
         $this->registerLoginRateLimiter();
 
         // SEC-03's second half. Registered explicitly because Laravel discovers

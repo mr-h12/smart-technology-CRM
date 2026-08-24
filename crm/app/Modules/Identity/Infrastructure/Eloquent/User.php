@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Infrastructure\Eloquent;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -78,6 +79,35 @@ class User extends Authenticatable
     public function sessions(): HasMany
     {
         return $this->hasMany(UserSession::class, 'user_id');
+    }
+
+    /**
+     * §3.12 rule 6 — "The Super Admin is hidden: never listed in any user list,
+     * for any role."
+     *
+     * **Every** query that produces a list of people for a human to look at or
+     * pick from goes through this: a user index, an owner dropdown, a
+     * reassignment picker, an approver selector, a report's staff column. The
+     * rule says *every* list and names no exception, so there is no parameter
+     * here to turn it off.
+     *
+     * It is a scope rather than a global one on purpose. A global scope would
+     * also hide the account from the things that must still see it — the login
+     * lookup, `SEC-03`'s notification recipients, `SEC-10`'s Login As, the
+     * audit trail — and each of those would then need `withoutGlobalScope()`,
+     * which is a rule you can forget to apply inverted into one you can forget
+     * to lift. Opting *in* to a listing is the safer direction: the failure
+     * mode is a query that shows too little, not one that shows the developer.
+     *
+     * ⚠️ **A scope cannot enforce itself.** Nothing makes a future listing call
+     * it. Until `GET /api/v1/users` exists — Module 1's user CRUD, a later
+     * point — this rule is enforced by convention plus the test that pins it.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeListable(Builder $query): void
+    {
+        $query->where('is_hidden', false);
     }
 
     /**

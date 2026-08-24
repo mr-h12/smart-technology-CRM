@@ -39,6 +39,34 @@ final class IdentityAuditEvents
     public const PASSWORD_CHANGED = 'PASSWORD_CHANGED';
 
     /**
+     * §9 Flow 9's "account created automatically". `AUD-01` covers create;
+     * the row records name, address and role — never the initial password.
+     */
+    public const USER_CREATED = 'USER_CREATED';
+
+    /** `AUD-01`'s update, with the fields that actually changed. */
+    public const USER_UPDATED = 'USER_UPDATED';
+
+    /**
+     * §3.12 rule 4 names "role change" as a **mandatory** audit entry in its
+     * own right. It is written alongside `USER_UPDATED` rather than folded into
+     * it, because an auditor answering "who was promoted last quarter" filters
+     * on the event column, and a role change buried in the diff of a generic
+     * update is a row that query never returns.
+     */
+    public const ROLE_CHANGED = 'ROLE_CHANGED';
+
+    /** §3.12 rule 4's "account deactivation", and `D-34`'s switch. */
+    public const USER_DEACTIVATED = 'USER_DEACTIVATED';
+
+    /**
+     * The inverse. Not named by rule 4 — the list is a floor, not a ceiling,
+     * and an account coming *back* is at least as interesting as one going
+     * away.
+     */
+    public const USER_ACTIVATED = 'USER_ACTIVATED';
+
+    /**
      * A refusal that was neither wrong credentials nor a lock: `D-34`'s
      * deactivated account presenting a password that was in fact correct.
      * Worth a row of its own — it is the only signal that a suspended person is

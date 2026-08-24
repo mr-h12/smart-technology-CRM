@@ -39,6 +39,9 @@ use Illuminate\Notifications\Notifiable;
  * @property bool $is_hidden
  * @property int $failed_login_attempts
  * @property \Illuminate\Support\Carbon|null $locked_until
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
  */
 #[Fillable(['name', 'email', 'password', 'role_id', 'is_active', 'is_hidden'])]
 #[Hidden(['password'])]

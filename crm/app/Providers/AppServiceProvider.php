@@ -18,12 +18,14 @@ use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\PermissionRepositoryInterface;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
+use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Identity\Infrastructure\EloquentAccountDirectory;
 use App\Modules\Identity\Infrastructure\EloquentPermissionRepository;
 use App\Modules\Identity\Infrastructure\EloquentProfileReader;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
+use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
@@ -177,6 +179,12 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(ConnectionInterface::class),
             ),
         );
+
+        // §3.11's administration reads and writes. bind and not singleton: it
+        // holds no state worth keeping, and a listing memoised across requests
+        // is a deactivation that has not happened yet as far as the next caller
+        // can tell.
+        $this->app->bind(UserDirectoryInterface::class, EloquentUserDirectory::class);
     }
 
     /**

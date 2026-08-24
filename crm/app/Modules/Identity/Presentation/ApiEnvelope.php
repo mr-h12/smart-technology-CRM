@@ -44,6 +44,29 @@ final class ApiEnvelope
     }
 
     /**
+     * `OpenAPI §4.2` — the collection envelope.
+     *
+     * "Every list endpoint is paginated; an endpoint must never return an
+     * unbounded collection", so there is no overload of this that omits the
+     * pagination block. All six keys are required by the example in §4.2 and
+     * all six are written, including the two the caller could compute, because
+     * a client that has to compute them will compute one of them differently.
+     *
+     * @param  list<array<string, mixed>>  $data
+     * @param  array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool}  $pagination
+     */
+    public static function collection(Request $request, array $data, array $pagination): JsonResponse
+    {
+        return new JsonResponse([
+            'data' => $data,
+            'meta' => [
+                'pagination' => $pagination,
+                'request_id' => self::requestId($request),
+            ],
+        ]);
+    }
+
+    /**
      * `OpenAPI §5` — the unified error envelope.
      *
      * `$details` carries the specific stable code §5.1 asks for, which is how a

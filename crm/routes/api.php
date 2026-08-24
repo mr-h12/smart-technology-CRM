@@ -7,6 +7,7 @@ use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\LoginController;
 use App\Modules\Identity\Presentation\LogoutController;
 use App\Modules\Identity\Presentation\MeController;
+use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -65,4 +66,45 @@ Route::prefix('auth')->group(function (): void {
         // somebody else's is §3.11's `admin.*`, a different endpoint.
         Route::post('/change-password', ChangePasswordController::class);
     });
+});
+
+// Module 1 §3.11 — user administration. §9 Flow 9's employee management, and
+// the first listing `User::scopeListable()` actually guards (§3.12 rule 6).
+//
+// ⚠️ **On the permission names.** §3.11 is the authoritative table and it has
+// exactly two user rows — "create user" and "deactivate user" — held by Super
+// Admin and Manager, with `—` for every other role. It has **no** row for
+// viewing, editing or reactivating a user, so there is no documented
+// `user.view.*`, `user.update.*` or `user.reactivate.*` to name here, and
+// inventing them would add permissions the seeded matrix does not contain:
+// every Manager would be refused while Super Admin passed on unconditional
+// access alone, silently deleting §3.11's grant to the Manager.
+//
+// So the six endpoints are mapped onto the two documented rows. That choice
+// cannot over-grant — both rows are held by exactly the same two roles, so the
+// set of callers is §3.11's regardless of which of the two a route names — but
+// the labels are a judgement call and are **recorded as proposed decision D-78,
+// pending owner approval**, not treated as settled.
+Route::middleware('auth')->prefix('users')->group(function (): void {
+    Route::get('/', [UserController::class, 'index'])
+        ->middleware('permission:admin.create_user');
+
+    Route::post('/', [UserController::class, 'store'])
+        ->middleware('permission:admin.create_user');
+
+    Route::get('/{user}', [UserController::class, 'show'])
+        ->middleware('permission:admin.create_user');
+
+    Route::patch('/{user}', [UserController::class, 'update'])
+        ->middleware('permission:admin.create_user');
+
+    // §7.2's action suffix: "a clear action suffix only when an action is not a
+    // normal resource update". D-34's switch is exactly that — it revokes every
+    // session and writes its own mandatory audit event (§3.12 rule 4), which a
+    // PATCH on a boolean field would hide inside a generic update.
+    Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
+        ->middleware('permission:admin.deactivate_user');
+
+    Route::patch('/{user}/reactivate', [UserController::class, 'reactivate'])
+        ->middleware('permission:admin.deactivate_user');
 });

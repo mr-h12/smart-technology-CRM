@@ -22,9 +22,30 @@ return [
         'password_unchanged' => 'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',
     ],
 
+    'administration' => [
+        'role_not_assignable' => 'لا يمكنك إسناد هذا الدور.',
+        'user_not_found' => 'لا يوجد مستخدم بهذا المعرّف.',
+        'email_already_taken' => 'هذا البريد الإلكتروني مرتبط بحساب قائم بالفعل.',
+        'password_policy_not_met' => 'يجب ألا تقل كلمة المرور عن 8 أحرف وأن تحتوي على حروف وأرقام.',
+        'role_not_found' => 'هذا الدور غير موجود.',
+        'no_fields_submitted' => 'أدخل حقلاً واحداً على الأقل للتعديل.',
+    ],
+
+    'list_query' => [
+        'above_maximum' => 'لا يمكن أن تتجاوز قيمة per_page مئة.',
+        'not_a_positive_integer' => 'يجب أن تكون هذه القيمة عدداً صحيحاً أكبر من صفر.',
+        'unknown_sort_field' => 'لا يدعم هذا المورد الترتيب بهذا الحقل.',
+        'too_many_sort_fields' => 'يقبل هذا المورد حقل ترتيب واحداً فقط.',
+        'unknown_filter' => 'لا يدعم هذا المورد هذا المرشِّح.',
+        'not_a_boolean' => 'يقبل هذا المرشِّح القيمتين true أو false فقط.',
+        'not_a_role_slug' => 'هذا ليس معرّف دور صالحاً.',
+    ],
+
     'errors' => [
         'validation_failed' => 'يرجى تصحيح الحقول المحددة.',
         'rate_limited' => 'عدد كبير جدا من المحاولات. يرجى المحاولة بعد قليل.',
+        'invalid_request' => 'تعذر فهم الطلب.',
+        'resource_not_found' => 'المورد المطلوب غير موجود.',
     ],
 
     'lockout_mail' => [

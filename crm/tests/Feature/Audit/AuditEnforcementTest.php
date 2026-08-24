@@ -7,6 +7,7 @@ namespace Tests\Feature\Audit;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
+use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +76,14 @@ final class AuditEnforcementTest extends TestCase
     {
         return [
             DatabaseAuditEntries::class => self::IS_THE_AUDIT,
+
+            // Point 3.2. Caught by the scanner on `->update(` beside an
+            // imported `ConnectionInterface`: the use case does not touch a
+            // table itself — `UserDirectoryInterface` does — but it owns the
+            // transaction the write happens in, which is the right place for
+            // the register to point. It writes USER_UPDATED and, on a role
+            // change, the ROLE_CHANGED entry §3.12 rule 4 makes mandatory.
+            UpdateUser::class => self::AUDITED,
 
             // Found by this test on its first run, which is the point of it.
             // recordScan() flips files.scan_status from `pending` to `clean` or

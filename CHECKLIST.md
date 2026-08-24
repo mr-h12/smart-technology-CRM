@@ -174,7 +174,7 @@ every "are we ready to ship" conversation — not at the end.
 ## Debt the server does not gate — `Point 8.5`
 
 The register above opens by saying everything in it is unverifiable without the real server.
-These four are not. They are blocked on an owner decision or on ordinary work, they were each
+These are not. They are blocked on an owner decision or on ordinary work, they were each
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
@@ -218,6 +218,19 @@ would hide them behind `OD-03` indefinitely.
       can see the other. A commit that edits only compose would skip the one test that validates
       it. Owed: add `docker-compose.yml` to the `paths` filter. Not done here, because it is a
       change to CI behaviour and this point is a sign-off, not a fix
+- [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
+      closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
+      never named it. `AuditEnforcementTest` calls something a database write only when a DML verb
+      appears **beside** one of four signals — `ConnectionInterface`, `->table(`, `DB::` or
+      `Eloquent\Model`. Measured, in this session: `EloquentSessionStore`, `EloquentAccountDirectory`
+      and `EloquentUserDirectory` each contain `->save(`/`->delete(`/`->update(` and **none of the
+      four signals**, because they type-hint a concrete model class rather than the base. So three
+      writers are invisible to the guard that exists to make an unaudited write a build failure.
+      Their callers do audit today, which is why nothing is currently unrecorded — but the guard is
+      not guarding them. Owed: add a signal that matches a model import (or the `Infrastructure\Eloquent`
+      namespace), then register whatever it finds. Not done in Point 3.2: two of the three classes
+      are Point 2.2's, widening the scanner is its own change with its own failure proof, and
+      `CLAUDE.md` says to mention an unrelated issue rather than change it
 
 ---
 
@@ -1542,8 +1555,64 @@ correction both need the owner's approval on a hook-protected file, and `--color
       **Also not covered:** no password-reset flow for somebody who has *forgotten* their password
       (`password_reset_tokens` is still a dead scaffold table), no re-use history, no forced
       rotation, and no notification to the user that their password changed
-- [ ] **3.2** User administration — `CRUD /api/v1/users`, where `scopeListable()` finally guards a
-      real listing (§3.12 rule 6) and §3.12 rule 7 limits which roles a Manager may create
+- [x] **3.2** User administration — `GET`/`POST /api/v1/users`, `GET`/`PATCH /api/v1/users/{id}`,
+      `PATCH .../deactivate` and `.../reactivate`. *(2026-08-25)*
+      **§3.12 rule 6 is finally enforced by something.** `scopeListable()` had no caller until now;
+      `EloquentUserDirectory` has exactly one builder factory and every read starts from it, so the
+      rule cannot be forgotten per method. The hidden Super Admin is absent from the listing **and
+      unreachable by id** — `404 resource_not_found`, never 403, because `OpenAPI §5.1` forbids a
+      refusal that confirms the resource exists and confirming it is precisely what rule 6 forbids.
+      The cost is stated rather than hidden: **one Super Admin cannot administer another** through
+      this API, because rule 6 says "for any role" and names no exception.
+      **§3.12 rule 7 guards `PATCH` as well as `POST`.** Moving an account onto a forbidden role is
+      creating that account by a different verb. Refused with **422**, not 403 — the caller may
+      administer users; the submitted `role_id` is what is unacceptable.
+      **`D-34`'s switch revokes every session.** §10.1 says login is "Blocked", and flipping
+      `is_active` alone blocks only the *next* login: every bearer token already issued keeps
+      working until `D-29`'s eight idle hours expire it, so a dismissed employee keeps their access
+      for the rest of the working day — the one moment the switch exists for. Deactivating an
+      already-inactive account is idempotent and writes **no** audit row: `AUD-03` keeps rows for
+      ever, and one that records a click rather than a change is permanent noise.
+      **Audit:** `USER_CREATED`, `USER_UPDATED`, `USER_DEACTIVATED`, `USER_ACTIVATED`, and
+      `ROLE_CHANGED` as its **own** event — §3.12 rule 4 makes "role change" mandatory, and an
+      auditor filters on the event column, so a role change buried in a generic update's diff is a
+      row that query never returns. No credential reaches any row; a test greps for the plaintext,
+      `$2y$` and `$argon2`.
+      **`is_hidden` is derived from the role, never accepted from the payload** — a flag a client
+      could set is a flag a client could clear. Tests post `is_hidden` in both directions and
+      assert it is ignored.
+      **Two documented rules are read back out of the master documentation** rather than
+      transcribed into the test: §3.11's create-user allowlist and §3.12 rule 7's denylist.
+      **Verified live over TLS through nginx:** 8 users in the database, 7 listed; a Manager
+      creating a Manager → 422 `role_not_assignable`; create → 201 and the new person signs in;
+      deactivate → `sessions_revoked: 1`, their live token 401, their login 403 with §10.1's
+      message; second deactivate → `changed: false`; Indoor Sales → 403; `per_page=101` → 400
+      `invalid_request`; reactivate → 200; role change → 200; and exactly one row of each of the
+      five audit events.
+      ⚠️ **`D-78` is PROPOSED, NOT RECORDED — this point needs an owner decision.** §3.11 has
+      exactly two user rows, "create user" and "deactivate user", and **no** row for viewing,
+      editing or reactivating a user. There is therefore no documented `user.view.*`,
+      `user.update.*` or `user.reactivate.*`, and inventing them would add permissions the seeded
+      matrix does not hold — every Manager refused while Super Admin passed on unconditional
+      access alone, silently deleting §3.11's grant to the Manager. So all six endpoints are
+      mapped onto the two documented rows. **The mapping cannot over-grant** — both rows are held
+      by exactly the same two roles, so the set of callers is §3.11's whichever row a route names
+      — but the labels are a judgement call. One visible consequence: a refused caller reading the
+      list is told "the action **admin.create_user** is not permitted", which is confusing.
+      ⚠️ **§3.11 and §3.12 rule 7 disagree about Team Leader, and the narrower reading was taken.**
+      §3.11 lists four roles with the word "only"; rule 7 forbids three, which would leave five.
+      The allowlist is implemented, so **a Manager cannot create a Team Leader** and must ask the
+      Super Admin — who is "the developer, completely hidden". A test pins the gap as exactly Team
+      Leader so the day the owner decides otherwise it is one entry in `MANAGER_MAY_CREATE`.
+      **Also not covered:** §9 Flow 9's "**credentials emailed**" — the administrator sets the
+      initial password and must convey it out of band, no mail is sent; `phone` and `whatsapp`,
+      which Flow 9 names and Point 1.2's approved schema has **no columns for**; the free-text `q`
+      search, deliberately omitted because `OpenAPI §6.2` routes it through `SearchService`, which
+      is Module 3's; `Idempotency-Key` (`OpenAPI §9.1`), for which no infrastructure exists
+      anywhere yet — the partial unique index on `email` supplies the practical protection;
+      **self-deactivation is not blocked** — a Manager may sign themselves out permanently, which
+      nothing in §3.11, §3.12 or §10.1 forbids and only the Super Admin can undo; and no team
+      scoping, because `users` has no team column
 - [ ] **3.3** `SEC-04` — the emailed verification code that `3.1` owes
 - [ ] **3.4** `SEC-10` — Login As, Super Admin only, with its mandatory audit entry
 
@@ -1552,7 +1621,9 @@ correction both need the owner's approval on a hook-protected file, and `--color
       emailed verification code still owed**
 - [x] `GET /api/v1/auth/me` — 2.2. Returns the role and the `SEC-07` triples read from
       `role_permissions`; the list is a menu, not authorization (§3.12 rule 1)
-- [ ] CRUD `/api/v1/roles` · `/api/v1/permissions` · `/api/v1/users`
+- [x] CRUD `/api/v1/users` — 3.2. §3.12 rules 6 and 7 enforced; permission names mapped onto
+      §3.11's two documented rows, **pending `D-78`**
+- [ ] CRUD `/api/v1/roles` · `/api/v1/permissions`
 
 **Frontend** login page · role-based redirect · protected routes · role and permission management
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Identity\Domain\Administration\InvalidListQuery;
+use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
@@ -103,6 +105,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (PasswordChangeRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::passwordChange($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (UserAdministrationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::administration($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (InvalidListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidListQuery($e, $request)
                 : null,
         );
 

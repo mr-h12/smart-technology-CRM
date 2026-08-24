@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support\Http;
 
+use App\Modules\Identity\Domain\Administration\InvalidListQuery;
+use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
@@ -105,6 +107,59 @@ final class ApiExceptionRenderer
                 'field' => $reason->field(),
                 'code' => $reason->value,
                 'message' => (string) __($reason->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * A refused user-administration command — §3.11's endpoints.
+     *
+     * The status and the top-level code come from the refusal itself, because
+     * `OpenAPI §5.1` maps them differently: an unassignable role is a `422
+     * validation_failed` about the `role_id` field, while an unknown or hidden
+     * user is a `404 resource_not_found` that deliberately does not say which.
+     */
+    public static function administration(UserAdministrationRefused $exception, Request $request): JsonResponse
+    {
+        $reason = $exception->reason;
+        $detail = ['code' => $reason->value, 'message' => (string) __($reason->messageKey())];
+
+        $field = $reason->field();
+
+        if ($field !== null) {
+            $detail = ['field' => $field] + $detail;
+        }
+
+        return ApiEnvelope::error(
+            $request,
+            $reason->status(),
+            $reason->errorCode(),
+            (string) __($reason->status() === 404
+                ? 'identity.errors.resource_not_found'
+                : 'identity.errors.validation_failed'),
+            [$detail],
+        );
+    }
+
+    /**
+     * `OpenAPI §6.1`/`§6.2` — a list query that cannot be honoured is `400
+     * invalid_request`, not a 422.
+     *
+     * The distinction is load-bearing for the SPA: 422 means the person typed
+     * something wrong in a form, 400 means the client built a URL this API does
+     * not offer. §6.2 also forbids the third option — ignoring the parameter.
+     */
+    public static function invalidListQuery(InvalidListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidListQuery::ERROR_CODE,
+            (string) __('identity.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
             ]],
         );
     }

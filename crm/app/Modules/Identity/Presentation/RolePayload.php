@@ -117,6 +117,18 @@ final class RolePayload
                 // concatenate — a client that builds it itself is a second
                 // implementation of the permission naming rule.
                 'triple' => $permission->triple(),
+                // §3.12 rule 3, sent for the same reason (Point 5.3). The
+                // matrix screen has to draw a locked checkbox rather than one
+                // the API will refuse, and the only alternative was a second
+                // copy of the forbidden list in TypeScript.
+                //
+                // ⚠️ Today this is `true` on all 143 rows: a forbidden key has
+                // no `permissions` row at all, so the seeder never creates one
+                // for it. The flag is what keeps that from being load-bearing —
+                // a later module that adds `customer.delete.all` gets a locked
+                // checkbox and a refused PATCH, instead of a checkbox that
+                // works right up to the server.
+                'is_grantable' => $permission->isGrantable(),
             ];
         }
 

@@ -627,6 +627,63 @@ final class RolePermissionManagementTest extends TestCase
         self::assertNotContains($forbidden[0].'.all', $this->grantedTriples(RoleName::Procurement));
     }
 
+    public function test_every_permission_row_reports_whether_rule_three_allows_it(): void
+    {
+        // Point 5.3. The matrix screen has to draw a locked checkbox rather than
+        // one the API refuses, and the only alternative to this flag was a
+        // second copy of the forbidden list in TypeScript. It is derived from
+        // `PermissionMatrix::forbiddenKeys()`, so there is one list.
+        $response = $this->withHeaders($this->bearer($this->superAdminToken()))
+            ->getJson(self::PERMISSIONS.'?per_page=100')
+            ->assertStatus(200);
+
+        $rows = (array) $response->json('data');
+
+        self::assertNotSame([], $rows);
+
+        foreach ($rows as $row) {
+            self::assertIsArray($row);
+            self::assertArrayHasKey('is_grantable', $row, 'The screen needs rule 3 per row.');
+            self::assertTrue($row['is_grantable'],
+                'Every seeded row is grantable: a rule 3 cell has no `permissions` row at all.');
+        }
+    }
+
+    public function test_a_forbidden_permission_row_is_reported_as_not_grantable(): void
+    {
+        // The test above would pass for the wrong reason on its own — with the
+        // derivation deleted and `is_grantable` hard-coded to true, all 143
+        // seeded rows would still report true. This inserts the one row that
+        // makes the two answers differ, exactly as the grant refusal above does.
+        $forbidden = PermissionMatrix::forbiddenKeys();
+
+        self::assertNotSame([], $forbidden);
+
+        [$resource, $action] = explode('.', $forbidden[0]);
+
+        $row = new Permission;
+        $row->fill(['resource' => $resource, 'action' => $action, 'scope' => 'all']);
+        $row->save();
+
+        $response = $this->withHeaders($this->bearer($this->superAdminToken()))
+            ->getJson(self::PERMISSIONS.'?per_page=100&filter[resource]='.$resource)
+            ->assertStatus(200);
+
+        $matched = 0;
+
+        foreach ((array) $response->json('data') as $candidate) {
+            self::assertIsArray($candidate);
+
+            if ($candidate['triple'] === $forbidden[0].'.all') {
+                $matched++;
+                self::assertFalse($candidate['is_grantable'],
+                    '§3.12 rule 3: the row exists and may still not be granted to anybody.');
+            }
+        }
+
+        self::assertSame(1, $matched, 'The inserted row was not returned; the assertion above proved nothing.');
+    }
+
     public function test_the_permitted_quotation_delete_is_not_caught_by_rule_three(): void
     {
         // §3.5 grants "delete (Draft only)" to four roles. A guard that matched

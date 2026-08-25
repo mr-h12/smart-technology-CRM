@@ -8,7 +8,6 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Identity\Domain\Authentication\IdentityAuditEvents;
 use App\Modules\Identity\Domain\Contracts\RoleDirectoryInterface;
-use App\Modules\Identity\Domain\Rbac\PermissionMatrix;
 use App\Modules\Identity\Domain\RoleAdministration\GrantDiff;
 use App\Modules\Identity\Domain\RoleAdministration\PermissionView;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefusal;
@@ -137,10 +136,10 @@ final readonly class SyncRolePermissions
      */
     private static function assertNoneForbidden(array $permissions): void
     {
-        $forbidden = PermissionMatrix::forbiddenKeys();
-
         foreach ($permissions as $permission) {
-            if (in_array($permission->key(), $forbidden, true)) {
+            // The same question `RolePayload` asks to lock the checkbox, so the
+            // screen and the refusal cannot disagree (Point 5.3).
+            if (! $permission->isGrantable()) {
                 throw RoleAdministrationRefused::because(RoleAdministrationRefusal::GrantForbidden);
             }
         }

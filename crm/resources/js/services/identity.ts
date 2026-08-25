@@ -30,6 +30,47 @@ export interface RoleOption {
     is_system: boolean;
 }
 
+/** One `permissions` row — §3.2's `resource.action.scope`, as the server sends it. */
+export interface PermissionOption {
+    id: string;
+    resource: string;
+    action: string;
+    scope: string;
+    /** §3.2's notation, built by the server so the client never concatenates it. */
+    triple: string;
+    /**
+     * §3.12 rule 3 — false when no role may hold this `resource.action`.
+     *
+     * Server-derived from `PermissionMatrix::forbiddenKeys()`. The client must
+     * not recompute it: a second copy of the forbidden list is a second answer
+     * to the same question, and the copy that is wrong is always the one in the
+     * screen.
+     */
+    is_grantable: boolean;
+}
+
+/** `RolePayload::of()` in full — what the matrix screen reads. */
+export interface AdministeredRole extends RoleOption {
+    description: string | null;
+    /**
+     * False for the role §3.1 grants unconditionally.
+     *
+     * **Not** `is_system`: all eight seeded roles carry `is_system = true`, and
+     * treating that as "immutable" would freeze the entire matrix and delete
+     * §3.12 rule 5. `RolePayload` derives this from
+     * `RoleView::hasUnconditionalAccess()`, which is the Super Admin alone.
+     */
+    is_editable: boolean;
+    /** The triples this role currently grants. */
+    permissions: PermissionOption[];
+}
+
+/** `PATCH /roles/{id}/permissions` — the role as it now stands, and what moved. */
+export interface RolePermissionsUpdated {
+    role: AdministeredRole;
+    diff: { granted: string[]; revoked: string[]; changed: boolean };
+}
+
 export type { Pagination } from '@/api';
 
 export interface Page<T> {
@@ -123,6 +164,53 @@ export async function listAssignableRoles(): Promise<RoleOption[]> {
     return collection<RoleOption>(await apiGet(`/roles?per_page=100`)).items;
 }
 
+/**
+ * Every role, with the grants each one holds — §13 screen 3's input.
+ *
+ * Paged through rather than fetched with one large `per_page`, for the reason
+ * {@see listAllPermissions} spells out.
+ */
+export async function listRoles(): Promise<AdministeredRole[]> {
+    return allPages<AdministeredRole>('/roles');
+}
+
+/**
+ * Every permission row, across as many pages as it takes.
+ *
+ * ⚠️ **This loop is not defensive coding; it is required today.**
+ * `ReferenceListCriteria::MAX_PER_PAGE` is **100** and a `per_page` above it is
+ * a `400`, not a clamp — and the seeded matrix holds **143** rows (measured
+ * against the running database, 2026-08-25). A single request can therefore
+ * never return the whole matrix, and the screen that assumed it could would
+ * silently draw 100 permissions and quietly drop 43 — with a Save that then
+ * revoked every grant sitting in the missing 43, because `PATCH` takes the full
+ * desired set.
+ */
+export async function listAllPermissions(): Promise<PermissionOption[]> {
+    return allPages<PermissionOption>('/permissions');
+}
+
+/**
+ * `PATCH /api/v1/roles/{id}/permissions` — §3.12 rule 5's configuration change.
+ *
+ * The body is the **complete** desired set, not a delta. That is the endpoint's
+ * contract (`SyncRolePermissionsRequest`), and it is why the caller must hold
+ * every page: an omitted id is a revocation.
+ */
+export async function updateRolePermissions(
+    roleId: string,
+    permissionIds: readonly string[],
+): Promise<RolePermissionsUpdated> {
+    const result = await apiPatch<AdministeredRole & { diff: RolePermissionsUpdated['diff'] }>(
+        `/roles/${roleId}/permissions`,
+        { permission_ids: [...permissionIds] },
+    );
+
+    const { diff, ...role } = result.data;
+
+    return { role, diff };
+}
+
 export async function impersonate(userId: string): Promise<ImpersonationStarted> {
     return (await apiPost<ImpersonationStarted>(`/auth/impersonate/${userId}`)).data;
 }
@@ -140,6 +228,33 @@ export async function leaveImpersonation(): Promise<void> {
  * response that carried the rows fine, so the block is defaulted and the rows
  * are shown.
  */
+/**
+ * Follow `OpenAPI §4.2`'s `has_next_page` to the end of a listing.
+ *
+ * Bounded at 50 pages — 5000 rows at the maximum page size. A server that keeps
+ * answering `has_next_page: true` is a bug, and an unbounded `while` turns that
+ * bug into a browser tab that never stops fetching.
+ */
+async function allPages<T>(path: string): Promise<T[]> {
+    const items: T[] = [];
+    let page = 1;
+
+    for (let guard = 0; guard < 50; guard += 1) {
+        const separator = path.includes('?') ? '&' : '?';
+        const result = collection<T>(await apiGet(`${path}${separator}page=${page}&per_page=100`));
+
+        items.push(...result.items);
+
+        if (!result.pagination.has_next_page) {
+            break;
+        }
+
+        page += 1;
+    }
+
+    return items;
+}
+
 function collection<T>(result: ApiResult<unknown>): Page<T> {
     const items = Array.isArray(result.data) ? (result.data as T[]) : [];
 

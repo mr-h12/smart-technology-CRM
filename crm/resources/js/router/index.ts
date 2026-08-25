@@ -17,6 +17,7 @@ import Ping from '@/pages/Ping.vue';
 import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
+import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -91,6 +92,17 @@ export const routes: RouteRecordRaw[] = [
         name: 'users',
         component: UsersView,
         meta: { requiresAuth: true, requiredPermission: 'admin.create_user', titleKey: 'users.title' },
+    },
+    {
+        // §13 screen 3 — *Roles & Permissions (RBAC)*. `admin.manage_roles` is
+        // §3.11's own row for "create / edit role · permissions", held by the
+        // Super Admin alone, and it is the permission all four endpoints behind
+        // this screen already name. A guard that named anything else would send
+        // people to a screen whose every request 403s.
+        path: '/roles',
+        name: 'roles',
+        component: RolesMatrixView,
+        meta: { requiresAuth: true, requiredPermission: 'admin.manage_roles', titleKey: 'roles.title' },
     },
     {
         path: '/403',

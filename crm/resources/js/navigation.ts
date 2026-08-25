@@ -64,6 +64,17 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 icon: 'M7 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM2 16c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5v1H2zm11.2 1H18v-1c0-2-1.6-3.6-3.8-3.6-.6 0-1.1.1-1.6.3.9 1 1.4 2.3 1.4 3.7z',
                 permission: 'admin.create_user',
             },
+            {
+                // §13 screen 3. Drawn for the Super Admin alone, because
+                // §3.11 gives "create / edit role · permissions" to nobody
+                // else — and `navigation.spec.ts` pins this string equal to the
+                // route's `meta.requiredPermission`, so the menu and the guard
+                // cannot describe different products.
+                name: 'roles',
+                labelKey: 'nav.item.roles',
+                icon: 'M10 2 3 5v5c0 4 3 6.9 7 8 4-1.1 7-4 7-8V5zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 5.5c1.7 0 3.2.9 3.9 2.2A5.9 5.9 0 0 1 10 15.6a5.9 5.9 0 0 1-3.9-1.9c.7-1.3 2.2-2.2 3.9-2.2z',
+                permission: 'admin.manage_roles',
+            },
         ],
     },
     {

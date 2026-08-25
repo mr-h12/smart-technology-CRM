@@ -82,7 +82,8 @@
     },
     "item": {
       "home": "System diagnostics",
-      "users": "Employees"
+      "users": "Employees",
+      "roles": "Roles & Permissions"
     }
   },
   "theme": {
@@ -163,6 +164,73 @@
       "forbidden": "You do not have permission to perform this action.",
       "rejected": "The change was not accepted. Check the fields and try again.",
       "unreachable": "The server could not be reached. Check your connection and try again."
+    }
+  },
+  "roles": {
+    "title": "Roles & Permissions",
+    "subtitle": "Grant or revoke permissions per role. Changes take effect on the next request — nothing is deployed and nothing is restarted.",
+    "loading": "Loading the permission matrix…",
+    "selector": {
+      "label": "Choose a role"
+    },
+    "immutableNotice": "{role} has unconditional access to everything, granted by the role itself rather than by these rows. Editing them would change nothing, so they are locked.",
+    "save": "Save changes",
+    "discard": "Discard changes",
+    "saved": "Saved. {granted} granted, {revoked} revoked. In effect from the next request.",
+    "savedNoChange": "Saved. Nothing had changed, so nothing was recorded.",
+    "cell": {
+      "notDefined": "—"
+    },
+    "column": {
+      "permission": "Permission"
+    },
+    "badge": {
+      "immutable": "Immutable",
+      "locked": "Locked",
+      "unknownScope": "Undefined scope: {scopes}"
+    },
+    "lockedReason": "No role may hold this action. Deletion is never granted — records are deactivated or archived instead.",
+    "toggle": {
+      "label": "{permission}, scope {scope}"
+    },
+    "changes": {
+      "none": "No unsaved changes.",
+      "pending": "{count} unsaved change(s)."
+    },
+    "scope": {
+      "own": "Own",
+      "team": "Team",
+      "all": "All",
+      "out": "Outdoor",
+      "asgn": "Assigned"
+    },
+    "resource": {
+      "admin": "Administration",
+      "catalog": "Catalog & Suppliers",
+      "customer": "Customers",
+      "deal": "Deals / Requests",
+      "procurement": "Procurement",
+      "quotation": "Customer Quotations",
+      "report": "Reports",
+      "supplier_quotation": "Supplier Quotations",
+      "visit": "Visits"
+    },
+    "diff": {
+      "title": "Confirm the changes to {role}",
+      "summary": "{granted} permission(s) will be granted and {revoked} will be revoked.",
+      "granted": "Granted ({count})",
+      "revoked": "Revoked ({count})",
+      "none": "None.",
+      "effect": "This is a configuration change, not a deployment: the next request each affected person makes is already checked against the new matrix.",
+      "confirm": "Apply changes"
+    },
+    "error": {
+      "immutable": "This role's permissions cannot be edited.",
+      "forbidden": "One of the selected permissions may not be granted to any role.",
+      "staleMatrix": "One of the selected permissions no longer exists. Reload the screen and try again.",
+      "denied": "You do not have permission to change roles.",
+      "rejected": "The change was rejected. Nothing was saved.",
+      "unreachable": "The server could not be reached. Nothing was saved."
     }
   }
 }

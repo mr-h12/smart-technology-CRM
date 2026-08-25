@@ -1974,9 +1974,70 @@ correction both need the owner's approval on a hook-protected file, and `--color
       returning `RoleAssignmentPolicy::assignableBy()`. **Adding that endpoint was out of this
       point's scope** — the brief said Identity UI — so it was not built
 
+- [x] **5.3** Roles and permissions matrix screen, scope toggles and the diff confirmation.
+      *(2026-08-25)* `resources/js/pages/roles/RolesMatrixView.vue` ·
+      `components/roles/PermissionDiffModal.vue` · `domain/permissionMatrix.ts` ·
+      `services/identity.ts` · `RolePayload::permissions()` · `PermissionView::isGrantable()`.
+      **One role at a time, with §3.2's five scopes as the columns.** The brief allowed
+      role-per-column; the cells are not booleans. §3.2 makes a permission a
+      `resource.action.scope` triple, so a role holding `customer.view.team` and one holding
+      `customer.view.all` are two different grants of the same row, and a role-per-column grid
+      would have to collapse the scope into the cell and stop being readable at the first row
+      where two roles differ by scope. Rows are `resource.action`, grouped into §3.3–§3.11's
+      **nine** sections (measured: `admin · catalog · customer · deal · procurement · quotation ·
+      report · supplier_quotation · visit`).
+      **The grid never draws a triple it invented.** A cell is a checkbox only where
+      `GET /permissions` returned a row for that key *and* that scope; everywhere else it prints
+      §3.2's own `—`. The client cannot mint a permission id, so an enabled box on a scope with no
+      row would be offering a `422 permission_not_found`.
+      ❗ **`GET /permissions` cannot return the matrix in one request, and that is measured, not
+      defensive.** `ReferenceListCriteria::MAX_PER_PAGE` is **100** and a larger `per_page` is a
+      `400`, not a clamp; the seeded matrix holds **143** rows. Live over TLS: page 1 returned
+      **100 rows**, page 2 returned **43**, `total 143 · total_pages 2`. `PATCH` takes the full
+      desired set, so a screen that read one page would have drawn 100 permissions and silently
+      **revoked every grant in the missing 43** on its first save. `listAllPermissions()` follows
+      `has_next_page`, bounded at 50 pages.
+      **§3.12 rule 3 is now sent, not re-typed.** The permission payload carries
+      `is_grantable`, derived from `PermissionMatrix::forbiddenKeys()` — the same question
+      `SyncRolePermissions` asks to refuse the grant, which was two copies of one `in_array` for
+      exactly one point. ⚠️ **All 143 seeded rows report `true`**, because a rule 3 cell has no
+      `permissions` row at all; the flag is what stops that from being load-bearing when a later
+      module adds `customer.delete.all`. Both halves are tested: every row grantable, *and* a
+      hand-inserted forbidden row reported `false` — the second is the one that fails when the
+      derivation is replaced by a literal `true`.
+      **Two locks, two different rules.** `is_editable === false` is §3.1's Super Admin, and it is
+      **not** `is_system`: live, all eight roles are `is_system=true` and exactly one is
+      `is_editable=false`. A screen reading `is_system` would freeze the whole matrix and delete
+      §3.12 rule 5.
+      **The diff modal exists because the request is a set, not a delta.** An unchecked box halfway
+      down the grid and a box never checked are identical to the endpoint, so the one thing the
+      grid cannot show is what changed. The listed triples are sorted the way `RoleView::triples()`
+      sorts them, so the confirmation and the `AUD-02` old/new values read against each other.
+      **Verified live over TLS** (Super Admin session minted through `SessionStoreInterface::open()`
+      and revoked after): `/roles` serves **200** with `lang="ar" dir="rtl"` and `lang="en"
+      dir="ltr"`; the served bundle carries `الأدوار والصلاحيات`, `غير قابل للتعديل`,
+      `is_grantable`, `permission_ids`, `grant_forbidden` and `has_next_page`. §3.12 rule 5 round
+      trip on the CEO role: grant → `200 {granted:["admin.create_user.all"]}`, revert → `200
+      {revoked:[…]}`, and the role came back to its original **13** grants exactly. Super Admin →
+      `422 business_rule_blocked / role_is_immutable`. An unchanged submission → `200` with
+      `changed: false`, so `AUD-03` gets no row recording a click. ⚠️ That round trip wrote **two
+      permanent audit rows** in the development database; `AUD-03` means they cannot be removed.
+      **What this does NOT cover.** §13 screen 3 also says *"create new roles"* — **there is no
+      create-role endpoint**; Point 4.1 shipped index, show, permissions and the sync, and nothing
+      else. The screen therefore edits the eight seeded roles and cannot add a ninth, which is a
+      capability §3.12 rule 5 explicitly contemplates. There is **no rename, no description edit
+      and no role delete**; **no per-role search or filter** across 55 permission keys — long
+      resources are scrolled; **no keyboard shortcut** for bulk grant/revoke, and **no
+      select-all-in-row**; **no focus trap** in either modal (`ConfirmDialog` shares the gap — the
+      dialogs move focus in and close on Escape, but Tab still reaches the page behind them);
+      **no optimistic-lock header** — two administrators saving the same role concurrently is
+      last-write-wins, because `DB-12`'s `If-Match` is scoped to quotations and `roles` carries no
+      version column. The grid and the locked checkboxes are **not** an access-control boundary;
+      §3.12 rule 1 puts that at the API, which `RolePermissionManagementTest` proves separately
+
 **Frontend**
 - [x] login page · role-based redirect · protected routes — 5.1
-- [ ] role and permission management screens
+- [x] roles and permissions matrix · scope toggles · diff confirmation modal — 5.3
 - [x] user management screen · create/edit modal · deactivate/reactivate · Login As ·
       impersonation banner — 5.2
 - [ ] password change screen (`SEC-04`) · active devices (`SEC-05`) · user detail page ·

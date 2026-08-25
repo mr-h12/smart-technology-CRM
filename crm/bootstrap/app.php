@@ -11,6 +11,7 @@ use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
+use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Support\Http\ApiExceptionRenderer;
 use App\Support\Performance\MeasureApiLatencyCommand;
@@ -118,6 +119,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (UserAdministrationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::administration($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (RoleAdministrationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::roleAdministration($e, $request)
                 : null,
         );
 

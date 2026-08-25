@@ -1723,6 +1723,91 @@ correction both need the owner's approval on a hook-protected file, and `--color
       impersonations (the admin screens are a later module); and the SPA is not built, so the
       "you are impersonating" banner the response body exists to feed has no consumer yet
 
+#### Step 4 — role and permission management *(breakdown approved 2026-08-25)*
+
+- [x] **4.1** §3.11 "create / edit role · permissions" — `GET /api/v1/roles`,
+      `GET /api/v1/roles/{role}`, `GET /api/v1/permissions` and
+      `PATCH /api/v1/roles/{role}/permissions`. *(2026-08-25)*
+      **The endpoint is not the point; §3.12 rule 5 is.** "Permissions live in the database —
+      changing this matrix is a configuration change, **not a deployment**." The only way to check
+      that sentence is to take a request that was refused, grant the permission through the API,
+      re-issue the identical request in the same process, and watch it succeed — then revoke and
+      watch it fail again. Both directions are tested, and both were run live over TLS.
+      Immediate effect holds because `EloquentPermissionRepository` memoises **within a request and
+      nowhere longer**; a cache outliving a request would turn rule 5 into a wait, and one
+      outliving a deploy would turn it back into a deploy. `RoleDirectoryInterface` is bound with
+      `bind`, not `singleton`, for the same reason.
+      **"System role protection" is *not* `is_system`, and reading it that way breaks rule 5.**
+      All eight §3.1 roles are seeded `is_system = true`, so a guard on that flag makes the entire
+      matrix uneditable and the feature meaningless. Measured: swapping the check for `is_system`
+      on purpose failed **11** tests, including both rule-5 tests. What is protected is the
+      **Super Admin role alone**, and not out of caution — §3.1's unconditional access is answered
+      by `Actor::hasUnconditionalAccess()` *before* any grant row is read, so revoking its grants
+      would change 20 rows and change nothing at all. A no-op reporting success is worse than a
+      refusal, because the administrator then believes something false about who can do what. A
+      test deletes every Super Admin grant directly in the table and shows the account still
+      authorised, which is the evidence for the refusal rather than the assertion of it.
+      **§3.12 rule 3 is derived from the transcription, not re-listed beside it.**
+      `PermissionMatrix::forbiddenKeys()` returns the rows whose grant array is empty — the
+      document's merged "❌ Forbidden for every role" cells, which are `customer.delete` and
+      `catalog.delete`. A test counts those rows in the mounted master documentation and asserts
+      the derived list is the same length, so the two cannot drift. §3.5's "delete (Draft only)"
+      is granted to four roles and is explicitly **not** caught.
+      ⚠️ **Rule 3 was enforced only by accident until this point.** The seeder writes a
+      `permissions` row per *granted* cell, so the two forbidden triples have no row and cannot be
+      referenced by id. That is absence, not enforcement. The test inserts one of them by hand and
+      then attempts the grant, so it proves the guard fires on the **name**; without that the test
+      would pass with the guard deleted.
+      **Audit.** `ROLE_PERMISSIONS_UPDATED` (`AUD-01`), written inside the same transaction as the
+      grant change (`DB-11`), with the sorted triple list before, the sorted list after, and the
+      granted/revoked diff. **Triples, never permission ids** — `AUD-03` makes the row permanent
+      and a permanent record built out of primary keys stops being readable the first time a row is
+      retired; a test asserts the id is absent and the triple present. A submission identical to
+      the stored set writes **no** row and reports `changed: false`, the same reasoning
+      `SetUserActivation` applies to an idempotent deactivation.
+      **Grants are soft-deleted and restored, never removed** (`DB-01`). `role_permissions` carries
+      a *partial* unique index on `(role_id, permission_id) WHERE deleted_at IS NULL` — read off
+      the live schema — so re-granting restores the original row instead of inserting a second, and
+      `created_at` keeps recording when the grant was **first** made (`DB-02`). A test asserts the
+      row id and `created_at` survive a revoke/re-grant cycle.
+      **All three endpoints carry `admin.manage_roles`, and that is narrower than it looks.**
+      §3.11 gives that row to the Super Admin alone. Guarding the two **reads** with
+      `admin.create_user` instead would have let a Manager read the whole authorisation matrix,
+      which no row in §3.11 grants — and `D-78` was defensible precisely because it *could not
+      widen access*. The same reasoning that permitted `D-78` forbids it here. A test refuses every
+      one of the seven non-Super-Admin roles on all three routes, and breaking just the `GET
+      /roles` guard back to `admin.create_user` failed two tests.
+      **Both listings are paginated** (`OpenAPI §4.2`: "an endpoint must never return an unbounded
+      collection"), default 25, maximum 100, `400 invalid_request` on a bad page size, an unknown
+      sort or an unknown filter — never a silent ignore (§6.2). A test pins the two shared limits
+      against `UserListCriteria`'s so the two resources cannot drift apart.
+      **Verified live over TLS through nginx:** `/roles` → 8 roles; `/permissions` → 143 total,
+      25 per page; Procurement refused on both (403 `permission_denied` / `unauthorized_action`);
+      grant `admin.create_user.all` → `GET /users` as Procurement **403 → 200** with nothing
+      restarted; revoke → **200 → 403**; the Super Admin role → 422 `role_is_immutable`; an
+      unchanged submission → `changed: false`; and the audit log holds exactly two rows, both
+      attributed to `super.admin@example.test`, one granting and one revoking.
+      **Found by `AuditEnforcementTest`, and the register was wrong before it ran.** The point was
+      first registered as `SyncRolePermissions`; the scanner does not see it, because it calls
+      `->transaction(` and that is not a DML verb. The class that actually writes is
+      `EloquentRoleDirectory`, now registered with a reason pointing at the use case that owns the
+      audit. It is deliberately **not** marked `AUDITED`: that disposition asserts the class names
+      the recorder, and a persistence adapter must not.
+      **What this does NOT cover.** There is **no create-role, rename-role, delete-role or
+      describe-role endpoint** — §3.11's row says "create / edit role · permissions" and only the
+      permissions half is built, so §3.12 rule 5's ninth role cannot yet be added through the API.
+      There is **no `If-Match` / optimistic locking**: two administrators editing one role's grid
+      concurrently means last-write-wins, and `DB-12` names quotations rather than roles, so no
+      version column was invented. There is **no bulk or per-cell endpoint** — the whole desired
+      set is submitted each time. And a permission **removed from the matrix** stays granted until
+      an administrator resubmits the grid; nothing sweeps orphaned grants.
+      ❓ **Owner question — the Manager cannot list roles.** §3.11 lets a Manager create users, and
+      `POST /api/v1/users` needs a `role_id`, but no endpoint a Manager may call returns one. The
+      gap is **pre-existing** (Point 3.2 shipped the create endpoint with no role listing at all)
+      and is not widened here; closing it needs either a new §3.11 row — `admin.view_roles` — or a
+      narrow assignable-roles endpoint scoped to `admin.create_user` and returning
+      `RoleAssignmentPolicy::assignableBy()` rather than the matrix. **Not decided here**
+
 **Endpoints**
 - [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **`SEC-04`'s emailed
       verification code closed by 3.3** · `change-password/challenge` — 3.3
@@ -1732,7 +1817,11 @@ correction both need the owner's approval on a hook-protected file, and `--color
       only, with the dual-identity audit trail
 - [x] CRUD `/api/v1/users` — 3.2. §3.12 rules 6 and 7 enforced; permission names mapped onto
       §3.11's two documented rows per **`D-78`**
-- [ ] CRUD `/api/v1/roles` · `/api/v1/permissions`
+- [x] `GET /api/v1/roles` · `roles/{role}` · `/api/v1/permissions` ·
+      `PATCH /api/v1/roles/{role}/permissions` — 4.1. §3.11's `admin.manage_roles` on all four;
+      §3.12 rule 3 and the Super Admin exception enforced; `ROLE_PERMISSIONS_UPDATED` audited
+- [ ] `POST` / `PATCH` / archive on `/api/v1/roles` itself — §3.11's "create role" half, still
+      unbuilt, so §3.12 rule 5's ninth role cannot be added through the API yet
 
 **Frontend** login page · role-based redirect · protected routes · role and permission management
 
@@ -1740,7 +1829,7 @@ correction both need the owner's approval on a hook-protected file, and `--color
 - [ ] Valid credentials → redirect to the role's default screen
 - [ ] 5 failed attempts → account locks and an email is sent
 - [ ] Session idle 8 hours → automatic logout
-- [ ] Permission removed from a role → direct API call returns **403**
+- [x] Permission removed from a role → direct API call returns **403** *(4.1 — proved in both directions, through the API and live over TLS: grant → 200, revoke → 403, nothing restarted)*
 - [ ] Password under 8 characters or digits only → rejected with a clear message
 - [ ] Deactivated employee → "Account suspended, please contact administration"
 - [ ] Super Admin is hidden from every user list, for every role

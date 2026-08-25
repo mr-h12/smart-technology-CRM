@@ -67,6 +67,38 @@ final class PermissionMatrix
     }
 
     /**
+     * The `resource.action` pairs §3.12 rule 3 forbids to every role.
+     *
+     * "No hard deletes for customers, deals, reports or suppliers — deactivate
+     * or archive only." The document writes those cells as a single merged
+     * "❌ Forbidden for every role", which is a stronger statement than an
+     * empty cell: not "nobody holds this today" but "this is not grantable".
+     * Here that is a `Permission` with an empty grant array, so the rule is
+     * **derived** from the transcription rather than re-listed beside it — a
+     * second hand-written list is a second thing to keep in step, and the one
+     * that drifts is always the copy.
+     *
+     * ⚠️ This is the one place a live-matrix reader may consult this class.
+     * Rule 3 is one of the seven that *override* the matrix, so unlike every
+     * cell §3.12 rule 5 makes configurable, it is not a row an administrator
+     * may add back.
+     *
+     * @return list<string>
+     */
+    public static function forbiddenKeys(): array
+    {
+        $keys = [];
+
+        foreach (self::all() as $permission) {
+            if ($permission->grants() === []) {
+                $keys[] = $permission->key();
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
      * The `view` row of a section — the first permission in it whose action
      * begins with `view`, which is the row the document prints first in every
      * table that has one.

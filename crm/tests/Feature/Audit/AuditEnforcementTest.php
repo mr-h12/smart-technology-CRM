@@ -8,6 +8,7 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Identity\Application\Administration\UpdateUser;
+use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +85,24 @@ final class AuditEnforcementTest extends TestCase
             // the register to point. It writes USER_UPDATED and, on a role
             // change, the ROLE_CHANGED entry §3.12 rule 4 makes mandatory.
             UpdateUser::class => self::AUDITED,
+
+            // Point 4.1. Found by this test, and the register was wrong before
+            // it ran: SyncRolePermissions was listed as the writer because it
+            // owns the transaction, but the scanner does not see it — it calls
+            // `->transaction(`, which is not a DML verb. The grants are written
+            // here, so this is the class the register must name.
+            //
+            // Not AUDITED, because that disposition asserts the class names the
+            // recorder and this one must not: the audit write belongs in the
+            // use case, inside the same transaction (DB-11), where a second
+            // entry point would find it. Every write below reaches the database
+            // only through SyncRolePermissions::handle(), which records
+            // ROLE_PERMISSIONS_UPDATED with the old and new triple sets — grep
+            // `syncGrants(` to check that this is still the only caller.
+            EloquentRoleDirectory::class => 'AUD-01 is satisfied one layer out: SyncRolePermissions owns the '
+                    .'transaction and records ROLE_PERMISSIONS_UPDATED. This is a persistence adapter with '
+                    .'no actor and no event vocabulary, and giving it the recorder would put the audit '
+                    .'decision behind an interface any future adapter could answer differently.',
 
             // Found by this test on its first run, which is the point of it.
             // recordScan() flips files.scan_status from `pending` to `clean` or

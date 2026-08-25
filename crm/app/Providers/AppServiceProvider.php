@@ -19,6 +19,7 @@ use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\PasswordChallengeStoreInterface;
 use App\Modules\Identity\Domain\Contracts\PermissionRepositoryInterface;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
+use App\Modules\Identity\Domain\Contracts\RoleDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
@@ -27,6 +28,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Identity\Infrastructure\EloquentAccountDirectory;
 use App\Modules\Identity\Infrastructure\EloquentPermissionRepository;
 use App\Modules\Identity\Infrastructure\EloquentProfileReader;
+use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
 use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
@@ -189,6 +191,14 @@ class AppServiceProvider extends ServiceProvider
         // is a deactivation that has not happened yet as far as the next caller
         // can tell.
         $this->app->bind(UserDirectoryInterface::class, EloquentUserDirectory::class);
+
+        // §3.11's "create / edit role · permissions", and §3.12 rule 5's
+        // promise that changing the matrix takes effect without a deployment.
+        // bind and not singleton, and here that is the requirement rather than
+        // a preference: a directory that cached its reads would answer the
+        // request after a grant change with the matrix from before it, which is
+        // exactly the "wait instead of a deployment" rule 5 rules out.
+        $this->app->bind(RoleDirectoryInterface::class, EloquentRoleDirectory::class);
 
         // SEC-04's outstanding challenge. The cache and not a table: a
         // fifteen-minute secret fits neither DB-01's soft delete nor DB-02's

@@ -10,6 +10,8 @@ use App\Modules\Identity\Presentation\LoginController;
 use App\Modules\Identity\Presentation\LogoutController;
 use App\Modules\Identity\Presentation\MeController;
 use App\Modules\Identity\Presentation\PasswordChallengeController;
+use App\Modules\Identity\Presentation\PermissionController;
+use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
@@ -121,9 +123,9 @@ Route::prefix('auth')->group(function (): void {
 //
 // So the six endpoints are mapped onto the two documented rows. That choice
 // cannot over-grant — both rows are held by exactly the same two roles, so the
-// set of callers is §3.11's regardless of which of the two a route names — but
-// the labels are a judgement call and are **recorded as proposed decision D-78,
-// pending owner approval**, not treated as settled.
+// set of callers is §3.11's regardless of which of the two a route names — and
+// the labelling is **decision D-78**, recorded in §2.8 and approved with
+// Point 3.2.
 Route::middleware('auth')->prefix('users')->group(function (): void {
     Route::get('/', [UserController::class, 'index'])
         ->middleware('permission:admin.create_user');
@@ -146,4 +148,39 @@ Route::middleware('auth')->prefix('users')->group(function (): void {
 
     Route::patch('/{user}/reactivate', [UserController::class, 'reactivate'])
         ->middleware('permission:admin.deactivate_user');
+});
+
+// Module 1 §3.11 — "create / edit role · permissions", the row whose Others and
+// Manager columns are both `—`. §3.12 rule 5 is what these endpoints exist for:
+// "Permissions live in the database — changing this matrix is a configuration
+// change, not a deployment."
+//
+// ⚠️ **All three carry `admin.manage_roles`, including the two reads, and that
+// is narrower than it may look.** §3.11 gives that row to the Super Admin
+// alone. Guarding the listings with `admin.create_user` instead would have let
+// a Manager read the whole authorisation matrix, which no row in §3.11 grants —
+// and D-78's mapping was defensible precisely because it *could not widen
+// access*. The same reasoning that permitted D-78 forbids it here.
+//
+// The cost, stated rather than hidden: a Manager may create users (§3.11) but
+// cannot list the roles to pick a `role_id` from. That gap is **pre-existing**
+// — Point 3.2 shipped the create endpoint with no role listing at all — and
+// closing it needs either a new §3.11 row or an assignable-roles endpoint
+// scoped to `admin.create_user`. Recorded as an owner question in CHECKLIST.md,
+// not decided here.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/roles', [RoleController::class, 'index'])
+        ->middleware('permission:admin.manage_roles');
+
+    Route::get('/roles/{role}', [RoleController::class, 'show'])
+        ->middleware('permission:admin.manage_roles');
+
+    // §7.2's action suffix: "a clear action suffix only when an action is not a
+    // normal resource update". A role's grants are a separate collection with
+    // their own mandatory audit event, not a field on the role.
+    Route::patch('/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])
+        ->middleware('permission:admin.manage_roles');
+
+    Route::get('/permissions', [PermissionController::class, 'index'])
+        ->middleware('permission:admin.manage_roles');
 });

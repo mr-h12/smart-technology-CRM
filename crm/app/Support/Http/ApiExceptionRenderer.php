@@ -10,6 +10,7 @@ use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
+use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\ApiEnvelope;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
@@ -138,6 +139,40 @@ final class ApiExceptionRenderer
             (string) __($reason->status() === 404
                 ? 'identity.errors.resource_not_found'
                 : 'identity.errors.validation_failed'),
+            [$detail],
+        );
+    }
+
+    /**
+     * A refused permission-matrix edit — §3.11's role · permissions row.
+     *
+     * Three statuses off one exception, for the reason
+     * {@see self::administration} needs them too: `OpenAPI §5.1` maps a missing
+     * role to `404 resource_not_found`, an unresolvable id to a `422
+     * validation_failed` about `permission_ids`, and both §3.12 rule 3 and the
+     * Super Admin exception to `422 business_rule_blocked` — a documented rule
+     * blocking the action rather than a field the caller typed wrong.
+     */
+    public static function roleAdministration(RoleAdministrationRefused $exception, Request $request): JsonResponse
+    {
+        $reason = $exception->reason;
+        $detail = ['code' => $reason->value, 'message' => (string) __($reason->messageKey())];
+
+        $field = $reason->field();
+
+        if ($field !== null) {
+            $detail = ['field' => $field] + $detail;
+        }
+
+        return ApiEnvelope::error(
+            $request,
+            $reason->status(),
+            $reason->errorCode(),
+            (string) __(match ($reason->errorCode()) {
+                'resource_not_found' => 'identity.errors.resource_not_found',
+                'validation_failed' => 'identity.errors.validation_failed',
+                default => $reason->messageKey(),
+            }),
             [$detail],
         );
     }

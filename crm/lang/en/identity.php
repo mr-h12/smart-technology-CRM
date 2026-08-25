@@ -51,6 +51,17 @@ return [
         'not_impersonating' => 'This session is not an impersonation.',
     ],
 
+    'role_administration' => [
+        // §3.11 and §3.12 rules 3 and 5. None of these names a role: a refusal
+        // that explained itself would describe the permission matrix, which is
+        // the thing the caller was just told they may not read.
+        'role_not_found' => 'That role does not exist.',
+        'role_is_immutable' => 'The permissions of that role are fixed by the system and cannot be changed.',
+        'permission_not_found' => 'One of the submitted permissions does not exist.',
+        'grant_forbidden' => 'That permission can never be granted to any role.',
+        'permission_ids_required' => 'Send permission_ids, using an empty list to revoke every permission.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'per_page may not exceed 100.',
         'not_a_positive_integer' => 'This value must be a whole number greater than zero.',

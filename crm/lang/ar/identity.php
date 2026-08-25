@@ -42,6 +42,17 @@ return [
         'not_impersonating' => 'هذه الجلسة ليست جلسة دخول باسم مستخدم آخر.',
     ],
 
+    'role_administration' => [
+        // §3.11 and §3.12 rules 3 and 5. None of these names a role: a refusal
+        // that explained itself would describe the permission matrix, which is
+        // the thing the caller was just told they may not read.
+        'role_not_found' => 'هذا الدور غير موجود.',
+        'role_is_immutable' => 'صلاحيات هذا الدور ثابتة في النظام ولا يمكن تغييرها.',
+        'permission_not_found' => 'إحدى الصلاحيات المُرسَلة غير موجودة.',
+        'grant_forbidden' => 'لا يمكن منح هذه الصلاحية لأي دور.',
+        'permission_ids_required' => 'أرسل permission_ids، واستخدم قائمة فارغة لسحب كل الصلاحيات.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'لا يمكن أن تتجاوز قيمة per_page مئة.',
         'not_a_positive_integer' => 'يجب أن تكون هذه القيمة عدداً صحيحاً أكبر من صفر.',

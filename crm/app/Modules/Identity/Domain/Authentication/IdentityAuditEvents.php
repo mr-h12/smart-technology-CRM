@@ -87,6 +87,23 @@ final class IdentityAuditEvents
      */
     public const ROLE_CHANGED = 'ROLE_CHANGED';
 
+    /**
+     * §3.11's "create / edit role · permissions", and §3.12 rule 5's
+     * configuration change made visible.
+     *
+     * Distinct from ROLE_CHANGED on purpose. That one is a **person** moving
+     * between roles; this one is a **role** changing what it may do, which
+     * affects everybody holding it at once. `AUD-01` covers both as updates,
+     * and an auditor asking "who was promoted" and "when did Procurement gain
+     * that" are two queries — folding them into one event name makes the
+     * second one unanswerable.
+     *
+     * The row records the triples, never the ids: `AUD-03` makes it permanent,
+     * and a permanent record built out of primary keys stops being readable the
+     * first time a permission row is retired.
+     */
+    public const ROLE_PERMISSIONS_UPDATED = 'ROLE_PERMISSIONS_UPDATED';
+
     /** §3.12 rule 4's "account deactivation", and `D-34`'s switch. */
     public const USER_DEACTIVATED = 'USER_DEACTIVATED';
 

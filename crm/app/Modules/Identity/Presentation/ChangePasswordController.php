@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\Authentication\ChangePassword;
+use DateTimeImmutable;
+use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -16,14 +18,18 @@ use Illuminate\Http\JsonResponse;
  * §3.11, and giving this endpoint a target would make it that action without
  * the permission check that action needs.
  *
- * ⚠️ **`SEC-04`'s emailed verification code is not part of this flow yet** —
- * see {@see ChangePassword}. The endpoint ships with a current-password
- * challenge only.
+ * **`SEC-04`'s emailed code is required here** as of Point 3.3: the caller
+ * presents `verification_code` alongside the current and new passwords, and
+ * {@see PasswordChallengeController} is
+ * where they obtain one. §9 Flow 0 now reads end to end.
  */
 final class ChangePasswordController
 {
-    public function __invoke(ChangePasswordRequest $request, ChangePassword $change): JsonResponse
-    {
+    public function __invoke(
+        ChangePasswordRequest $request,
+        ChangePassword $change,
+        ConfigRepository $config,
+    ): JsonResponse {
         $user = $request->user();
 
         abort_if($user === null, 401);
@@ -36,6 +42,9 @@ final class ChangePasswordController
             (string) $accountId,
             $request->string('current_password')->toString(),
             $request->string('new_password')->toString(),
+            $request->string('verification_code')->toString(),
+            new DateTimeImmutable,
+            $config->integer('identity.password_challenge.max_verification_attempts'),
         );
 
         return ApiEnvelope::single($request, [

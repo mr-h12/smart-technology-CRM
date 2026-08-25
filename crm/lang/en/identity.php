@@ -20,6 +20,11 @@ return [
         'current_password_incorrect' => 'Your current password is not correct.',
         'password_policy_not_met' => 'The password must be at least 8 characters and contain both letters and numbers.',
         'password_unchanged' => 'The new password must be different from the current one.',
+        // SEC-04. Deliberately the same sentence for a wrong code, a missing
+        // challenge and an exhausted one — telling them apart is an oracle, and
+        // the action is identical in all three.
+        'invalid_verification_code' => 'That verification code is not valid. Request a new one and try again.',
+        'expired_verification_code' => 'That verification code has expired. Request a new one and try again.',
     ],
 
     'administration' => [
@@ -49,6 +54,14 @@ return [
         'invalid_request' => 'The request could not be understood.',
         'resource_not_found' => 'The requested resource was not found.',
         'rate_limited' => 'Too many attempts. Please try again shortly.',
+    ],
+
+    'challenge_mail' => [
+        'subject' => 'Your password change verification code',
+        'greeting' => 'Hello :name,',
+        'intro' => 'Use this code to confirm your password change:',
+        'expires' => 'The code stops working at :until.',
+        'ignore' => 'If you did not ask to change your password, ignore this message and tell your administrator.',
     ],
 
     'lockout_mail' => [

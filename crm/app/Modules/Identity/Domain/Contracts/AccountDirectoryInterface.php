@@ -41,6 +41,17 @@ interface AccountDirectoryInterface
     public function findByIdForUpdate(string $accountId): ?Account;
 
     /**
+     * The account behind an id, **without** a row lock.
+     *
+     * Separate from {@see self::findByIdForUpdate()} because `SELECT … FOR
+     * UPDATE` outside a transaction takes a lock and drops it again in the same
+     * breath — harmless, and a lie about what the caller needs. `SEC-04`'s
+     * challenge issue reads a name and an address to put in a mail and writes
+     * nothing to `users`; the honest signature says so.
+     */
+    public function findById(string $accountId): ?Account;
+
+    /**
      * Replaces the stored hash (`SEC-02`).
      *
      * Takes a hash, never a plaintext password: hashing is a framework concern

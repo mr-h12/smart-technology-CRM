@@ -44,10 +44,51 @@ return [
     | lockout must reach it and be told they are locked, rather than being
     | throttled first and never seeing the lock at all.
     */
+    /*
+    | `SEC-04`'s emailed verification code — §9 Flow 0 step 2.
+    |
+    | ⚠️ **`SEC-04` gives neither number.** It says "mandatory email
+    | verification for password changes" and stops; §9 Flow 0 says "verification
+    | code by email" and stops. So both values below are the owner's instruction
+    | of 2026-08-25, held as configuration for exactly the reason `D-75` records
+    | for `lockout_minutes`: an undocumented limit is a setting, and Module 2
+    | moves it into the `settings` table.
+    |
+    | **15 minutes** is long enough to open a mail client, find the message and
+    | retype six digits, and short enough that a code left in a shared inbox
+    | goes stale within a coffee break.
+    |
+    | **5 attempts** is the number that makes six digits defensible: with it, a
+    | challenge absorbs five guesses out of a million before it is destroyed and
+    | the caller must request another — which is itself rate-limited below. It
+    | matches `SEC-03`'s five, not because that requirement reaches this control,
+    | but because two different "how many tries" numbers in one login flow is a
+    | thing people get wrong at the keyboard.
+    */
+    'password_challenge' => [
+        'ttl_minutes' => (int) env('IDENTITY_CHALLENGE_TTL_MINUTES', 15),
+        'max_verification_attempts' => (int) env('IDENTITY_CHALLENGE_MAX_ATTEMPTS', 5),
+    ],
+
     'rate_limit' => [
         'login' => [
             'attempts' => (int) env('IDENTITY_LOGIN_RATE_ATTEMPTS', 10),
             'decay_minutes' => (int) env('IDENTITY_LOGIN_RATE_DECAY_MINUTES', 1),
+        ],
+
+        /*
+        | `SEC-11` on the challenge endpoint, keyed **per account** rather than
+        | per IP: the caller is already authenticated, so the account is the
+        | thing worth protecting, and an IP key would let one person exhaust the
+        | office's allowance for everybody behind the same NAT address.
+        |
+        | Three per fifteen minutes — the owner's instruction of 2026-08-25.
+        | It bounds how much mail one session can make the server send, which is
+        | the abuse this endpoint actually offers.
+        */
+        'password_challenge' => [
+            'attempts' => (int) env('IDENTITY_CHALLENGE_RATE_ATTEMPTS', 3),
+            'decay_minutes' => (int) env('IDENTITY_CHALLENGE_RATE_DECAY_MINUTES', 15),
         ],
     ],
 

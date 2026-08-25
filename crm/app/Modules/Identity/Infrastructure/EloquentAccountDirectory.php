@@ -40,6 +40,13 @@ final class EloquentAccountDirectory implements AccountDirectoryInterface
         return $user instanceof User ? self::toAccount($user) : null;
     }
 
+    public function findById(string $accountId): ?Account
+    {
+        $user = User::query()->whereKey($accountId)->first();
+
+        return $user instanceof User ? self::toAccount($user) : null;
+    }
+
     /**
      * `SEC-02` — the hash arrives already made; this only stores it.
      *

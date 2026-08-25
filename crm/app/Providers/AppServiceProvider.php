@@ -14,12 +14,15 @@ use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
+use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
 use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\PasswordChallengeStoreInterface;
 use App\Modules\Identity\Domain\Contracts\PermissionRepositoryInterface;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
+use App\Modules\Identity\Infrastructure\CachePasswordChallengeStore;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Identity\Infrastructure\EloquentAccountDirectory;
 use App\Modules\Identity\Infrastructure\EloquentPermissionRepository;
@@ -27,6 +30,7 @@ use App\Modules\Identity\Infrastructure\EloquentProfileReader;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
 use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
+use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
@@ -185,6 +189,12 @@ class AppServiceProvider extends ServiceProvider
         // is a deactivation that has not happened yet as far as the next caller
         // can tell.
         $this->app->bind(UserDirectoryInterface::class, EloquentUserDirectory::class);
+
+        // SEC-04's outstanding challenge. The cache and not a table: a
+        // fifteen-minute secret fits neither DB-01's soft delete nor DB-02's
+        // audit columns, and Redis expires it without a sweeper job. See
+        // PasswordChallengeStoreInterface for the trade-off that accepts.
+        $this->app->bind(PasswordChallengeStoreInterface::class, CachePasswordChallengeStore::class);
     }
 
     /**
@@ -212,6 +222,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->registerLoginRateLimiter();
+        $this->registerPasswordChallengeRateLimiter();
 
         // SEC-03's second half. Registered explicitly because Laravel discovers
         // listeners in app/Listeners and nowhere else, and AP-02 keeps a
@@ -220,6 +231,14 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             AccountLocked::class,
             fn (AccountLocked $event): null => $this->app->make(NotifySuperAdminOfLockout::class)->handle($event),
+        );
+
+        // SEC-04's mail. Synchronous on purpose — PasswordChallengeIssued
+        // carries the plaintext code, and a queued listener would write it into
+        // a job payload sitting in Redis.
+        Event::listen(
+            PasswordChallengeIssued::class,
+            fn (PasswordChallengeIssued $event): null => $this->app->make(SendPasswordChallenge::class)->handle($event),
         );
     }
 
@@ -253,6 +272,31 @@ class AppServiceProvider extends ServiceProvider
      * "configurable system settings, not client constants"), which Module 2
      * moves into the settings table.
      */
+    /**
+     * `SEC-11` on `SEC-04`'s challenge endpoint.
+     *
+     * Keyed by the **authenticated account**, not by IP. The caller has already
+     * proved who they are, so the account is the unit worth bounding; an IP key
+     * would let one person in the office exhaust everyone else's allowance from
+     * behind the same NAT address. Falling back to the IP covers the case the
+     * route makes impossible — an unauthenticated request — rather than keying
+     * every such request together under one bucket.
+     */
+    private function registerPasswordChallengeRateLimiter(): void
+    {
+        RateLimiter::for('password-challenge', function (Request $request): Limit {
+            $config = $this->app->make(ConfigRepository::class);
+
+            $user = $request->user();
+            $id = $user?->getAuthIdentifier();
+
+            return Limit::perMinutes(
+                $config->integer('identity.rate_limit.password_challenge.decay_minutes'),
+                $config->integer('identity.rate_limit.password_challenge.attempts'),
+            )->by(is_string($id) || is_int($id) ? (string) $id : ($request->ip() ?? 'unknown'));
+        });
+    }
+
     private function registerLoginRateLimiter(): void
     {
         RateLimiter::for('login', function (Request $request): Limit {

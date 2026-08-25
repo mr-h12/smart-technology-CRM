@@ -7,6 +7,7 @@ use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\LoginController;
 use App\Modules\Identity\Presentation\LogoutController;
 use App\Modules\Identity\Presentation\MeController;
+use App\Modules\Identity\Presentation\PasswordChallengeController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
@@ -64,7 +65,20 @@ Route::prefix('auth')->group(function (): void {
         // §9 Flow 0. No permission middleware: this changes the caller's own
         // credential, and the right to do that is having a session. Changing
         // somebody else's is §3.11's `admin.*`, a different endpoint.
+        //
+        // `SEC-04` — as of Point 3.3 the body must also carry the
+        // `verification_code` mailed by the challenge endpoint below. §9 Flow 0
+        // reads "password change → verification code by email → new password →
+        // log in again", and this is the third step.
         Route::post('/change-password', ChangePasswordController::class);
+
+        // `SEC-04` step one, and `SEC-11`'s limit on it. The limiter is named
+        // rather than inline because `OpenAPI §10` makes the concrete limit a
+        // configurable system setting; see AppServiceProvider. It is keyed per
+        // account, so this bounds how much mail one session can make the server
+        // send — the only abuse an authenticated, target-less endpoint offers.
+        Route::post('/change-password/challenge', PasswordChallengeController::class)
+            ->middleware('throttle:password-challenge');
     });
 });
 

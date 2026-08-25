@@ -39,6 +39,25 @@ final class IdentityAuditEvents
     public const PASSWORD_CHANGED = 'PASSWORD_CHANGED';
 
     /**
+     * `SEC-04` step one — a verification code was issued and mailed.
+     *
+     * The row records **that** a challenge was requested. Never the code, never
+     * its hash: `AUD-03` makes the row permanent, and a permanent record of a
+     * live secret is worse than no record at all.
+     */
+    public const PASSWORD_CHALLENGE_REQUESTED = 'PASSWORD_CHALLENGE_REQUESTED';
+
+    /**
+     * A wrong, missing or exhausted verification code.
+     *
+     * `SEC-16` writes a failed **login** log for the same reason: an attempt
+     * that leaves no trace is an attack nobody can see afterwards. The 422 the
+     * caller receives says only "invalid code"; this row keeps which of the
+     * three it actually was, and whether the challenge was destroyed.
+     */
+    public const PASSWORD_CHALLENGE_FAILED = 'PASSWORD_CHALLENGE_FAILED';
+
+    /**
      * §9 Flow 9's "account created automatically". `AUD-01` covers create;
      * the row records name, address and role — never the initial password.
      */

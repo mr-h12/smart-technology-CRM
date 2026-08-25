@@ -1551,8 +1551,9 @@ correction both need the owner's approval on a hook-protected file, and `--color
       current-password challenge is a different control — it proves the caller knows the old
       password, not that they hold the mailbox. `ChangePasswordTest` pins the gap against the
       documentation itself so it cannot be mistaken for done. **This point does not close
-      `SEC-04`.**
-      **Also not covered:** no password-reset flow for somebody who has *forgotten* their password
+      `SEC-04`.** ✅ **Closed by Point 3.3** on 2026-08-25 — the pin is now inverted and asserts
+      the requirement is satisfied.
+      **Also not covered by 3.1:** no password-reset flow for somebody who has *forgotten* their password
       (`password_reset_tokens` is still a dead scaffold table), no re-use history, no forced
       rotation, and no notification to the user that their password changed
 - [x] **3.2** User administration — `GET`/`POST /api/v1/users`, `GET`/`PATCH /api/v1/users/{id}`,
@@ -1589,7 +1590,11 @@ correction both need the owner's approval on a hook-protected file, and `--color
       message; second deactivate → `changed: false`; Indoor Sales → 403; `per_page=101` → 400
       `invalid_request`; reactivate → 200; role change → 200; and exactly one row of each of the
       five audit events.
-      ⚠️ **`D-78` is PROPOSED, NOT RECORDED — this point needs an owner decision.** §3.11 has
+      ✅ **`D-78` is RECORDED** — approved by the owner 2026-08-25 and written into
+      `docs/CRM_Documentation_EN.md` §2.8 under explicit authorisation; the file is hook-protected,
+      so the edit went through a script rather than the blocked tools, disclosed at the time.
+      `grep -c "^| D-78 |"` returns 1. **The strict Team Leader restriction is confirmed with it.**
+      What the decision settles: §3.11 has
       exactly two user rows, "create user" and "deactivate user", and **no** row for viewing,
       editing or reactivating a user. There is therefore no documented `user.view.*`,
       `user.update.*` or `user.reactivate.*`, and inventing them would add permissions the seeded
@@ -1599,7 +1604,8 @@ correction both need the owner's approval on a hook-protected file, and `--color
       by exactly the same two roles, so the set of callers is §3.11's whichever row a route names
       — but the labels are a judgement call. One visible consequence: a refused caller reading the
       list is told "the action **admin.create_user** is not permitted", which is confusing.
-      ⚠️ **§3.11 and §3.12 rule 7 disagree about Team Leader, and the narrower reading was taken.**
+      ✅ **§3.11 and §3.12 rule 7 disagree about Team Leader; the narrower reading is now the
+      owner's confirmed decision (`D-78`, 2026-08-25).**
       §3.11 lists four roles with the word "only"; rule 7 forbids three, which would leave five.
       The allowlist is implemented, so **a Manager cannot create a Team Leader** and must ask the
       Super Admin — who is "the developer, completely hidden". A test pins the gap as exactly Team
@@ -1613,16 +1619,67 @@ correction both need the owner's approval on a hook-protected file, and `--color
       **self-deactivation is not blocked** — a Manager may sign themselves out permanently, which
       nothing in §3.11, §3.12 or §10.1 forbids and only the Super Admin can undo; and no team
       scoping, because `users` has no team column
-- [ ] **3.3** `SEC-04` — the emailed verification code that `3.1` owes
+- [x] **3.3** `SEC-04` — the emailed verification code `3.1` owed. `POST
+      /api/v1/auth/change-password/challenge`, and `change-password` now refuses without a
+      `verification_code`. *(2026-08-25)*
+      **§9 Flow 0 now reads end to end** — "password change → **verification code by email** → new
+      password → log in again". 3.1 shipped steps one, three and four and pinned step two as an
+      open gap; that pin has been **inverted** rather than deleted, into a test that fails if the
+      requirement is ever quietly dropped again.
+      **Six digits is only defensible with the four things around it, and each has a test.** 20
+      bits is not a secret on its own. It holds because: the store keeps an **Argon2id/bcrypt
+      hash**, not a digest — `SessionToken` uses `sha256` and is right to, because 32 CSPRNG bytes
+      is 2^256, whereas a six-digit code is a **million** candidates a laptop sweeps through
+      SHA-256 in under a second; the challenge dies in **15 minutes**; generation is limited to
+      **3 per 15 minutes per account** (`SEC-11`); and **5 wrong codes destroy it**, so the
+      million-guess sweep never gets a sixth try. Drop any one and the number stops being enough.
+      **The order of the checks is load-bearing.** Current password first, then the code. Reversed,
+      a caller guessing passwords would burn the account's own challenge attempts as a side
+      effect — a denial-of-service on somebody else's recovery flow. A test asserts a wrong
+      password leaves `failed_attempts` at zero and the code still usable.
+      **Single use.** The challenge is destroyed inside the same transaction as the password
+      write, not left to its TTL: a code that still works after the change it authorised is a
+      second change nobody asked for.
+      **The refusals are recorded outside the transaction** — Point 2.2 measured what happens
+      otherwise, when five wrong passwords left no audit trail because the refusal rolled its own
+      row back. `PASSWORD_CHALLENGE_REQUESTED` and `PASSWORD_CHALLENGE_FAILED` (`AUD-01`,
+      `SEC-16`'s reasoning); neither row holds the code, its hash, or a six-digit run.
+      **Stored in the cache, not in a table.** A fifteen-minute secret fits neither `DB-01`'s soft
+      delete nor `DB-02`'s four audit columns — keeping it for ever, which is what soft delete
+      means, would preserve a credential hash long after the credential. Redis gives the same
+      durability the session layer runs on plus a native TTL, so no sweeper job. The suite runs on
+      the `array` driver (`phpunit.xml`), so one test drives the store against **real Redis** on
+      the forced `REDIS_CACHE_DB=15` — a store proven only against `array` is exactly the gap this
+      project has been bitten by.
+      **Verified live over TLS through nginx:** no code → 422; challenge → 202 and a six-digit
+      code in the mail log; wrong code → 422 `invalid_verification_code`; correct code → 200 with
+      `sessions_revoked: 4`; old password → 401, new → 201; the **same code again** → 422; a
+      fourth challenge in the window → **429** with `retry-after: 857`; audit shows 3
+      `PASSWORD_CHALLENGE_REQUESTED`, 2 `PASSWORD_CHALLENGE_FAILED`, and **zero** rows containing a
+      six-digit run. The development password was restored afterwards and re-confirmed by a 201.
+      ⚠️ **Two numbers the documentation does not give.** `SEC-04` says "mandatory email
+      verification" and stops; §9 Flow 0 says "verification code by email" and stops. The
+      **15 minutes** and the **5 attempts** are the owner's instruction of 2026-08-25, held in
+      `config/identity.php` for the reason `D-75` records for `lockout_minutes` — an undocumented
+      limit is a setting, and Module 2 moves it into the `settings` table. The **3 per 15 minutes**
+      is the same.
+      **Also not covered:** the mail is sent **synchronously**, deliberately — the event carries
+      the plaintext code, and a queued listener would write it into a job payload in Redis — so a
+      dead mail server surfaces as a failed request rather than a code that never arrives, and
+      nothing retries it; there is still **no password-reset flow** for somebody who has forgotten
+      their password (`password_reset_tokens` remains a dead scaffold table); no re-use history, no
+      forced rotation, and no "your password was changed" notice to the user; and the challenge is
+      **not** in `BK-01`'s backup set, which is correct but means a Redis flush invalidates every
+      outstanding code
 - [ ] **3.4** `SEC-10` — Login As, Super Admin only, with its mandatory audit entry
 
 **Endpoints**
-- [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **with `SEC-04`'s
-      emailed verification code still owed**
+- [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **`SEC-04`'s emailed
+      verification code closed by 3.3** · `change-password/challenge` — 3.3
 - [x] `GET /api/v1/auth/me` — 2.2. Returns the role and the `SEC-07` triples read from
       `role_permissions`; the list is a menu, not authorization (§3.12 rule 1)
 - [x] CRUD `/api/v1/users` — 3.2. §3.12 rules 6 and 7 enforced; permission names mapped onto
-      §3.11's two documented rows, **pending `D-78`**
+      §3.11's two documented rows per **`D-78`**
 - [ ] CRUD `/api/v1/roles` · `/api/v1/permissions`
 
 **Frontend** login page · role-based redirect · protected routes · role and permission management

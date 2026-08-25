@@ -28,12 +28,28 @@ enum PasswordRefusal: string
     /** Changing a password to itself is not a change. */
     case SameAsCurrent = 'password_unchanged';
 
+    /**
+     * `SEC-04` — the emailed code is wrong, or the caller has none outstanding,
+     * or the attempts on it have run out.
+     *
+     * **One case for all three, deliberately.** Telling a caller "you have no
+     * challenge" versus "that code is wrong" versus "you have guessed too
+     * often" hands an attacker a free oracle on the state of somebody else's
+     * flow, and the correct action is identical in all three: request a new
+     * code. The audit log keeps the distinction, where it belongs.
+     */
+    case InvalidVerificationCode = 'invalid_verification_code';
+
+    /** `SEC-04` — a code that was right, but arrived after its 15 minutes. */
+    case ExpiredVerificationCode = 'expired_verification_code';
+
     /** The form field the message belongs under. */
     public function field(): string
     {
         return match ($this) {
             self::CurrentPasswordIncorrect => 'current_password',
             self::PolicyNotMet, self::SameAsCurrent => 'new_password',
+            self::InvalidVerificationCode, self::ExpiredVerificationCode => 'verification_code',
         };
     }
 

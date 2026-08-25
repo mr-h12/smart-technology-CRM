@@ -1807,6 +1807,102 @@ correction both need the owner's approval on a hook-protected file, and `--color
       and is not widened here; closing it needs either a new §3.11 row — `admin.view_roles` — or a
       narrow assignable-roles endpoint scoped to `admin.create_user` and returning
       `RoleAssignmentPolicy::assignableBy()` rather than the matrix. **Not decided here**
+- [x] **4.2** Custom-role CRUD, the Manager's role picker, and system-role immutability.
+      *(2026-08-25)* `POST /api/v1/roles` · `PATCH /api/v1/roles/{id}` · `DELETE /api/v1/roles/{id}` ·
+      `Application/RoleAdministration/{CreateRole,UpdateRole,ArchiveRole}` ·
+      `resources/js/components/roles/RoleFormModal.vue` ·
+      `IdentityAuditEvents::{ROLE_CREATED,ROLE_UPDATED,ROLE_ARCHIVED}`.
+      **§3.12 rule 5 is now performable end to end.** Rule 5 says a matrix change is "a
+      configuration change, not a deployment"; Point 4.1 made that true of an existing role's
+      grants, and until this point there was no way to bring the ninth role into existence at all.
+      `CustomRoleManagementTest::test_a_role_created_through_the_api_authorises_on_the_next_request`
+      is the load-bearing one: create a role over HTTP, grant it `admin.create_user.all`, create a
+      user on it, and the endpoint that refused them answers `200` — then revoke and it is `403`
+      again, in the same process, with nothing restarted.
+      ✅ **The Manager's role picker — the owner question open since Point 3.2 is closed.**
+      `GET /api/v1/roles` now carries `permission:admin.create_user`, and `ListRoles` narrows the
+      page to `RoleAssignmentPolicy::assignableBy()` for any caller who does not *also* hold
+      `admin.manage_roles`. §3.11 gives the Manager "create user … Out.Sup · Out.Sales · Sales ·
+      Procurement **only**" and until now that grant could not be exercised, because no endpoint a
+      Manager could call returned a `role_id`. The narrowing runs **inside the query**, before the
+      count, because `OpenAPI §6.1` requires pagination after authorisation scoping — a `total`
+      counting rows the caller may not see is itself a disclosure. Everything else on `/roles`
+      keeps `admin.manage_roles`: `GET /permissions`, `GET /roles/{id}`, and all three writes.
+      §3.12 rule 1 is untouched — `CreateUser` and `UpdateUser` re-ask rule 7 about whatever
+      `role_id` comes back, and a Manager who guesses the Manager role's id is still refused
+      `role_not_assignable`.
+      **All eight system roles are immutable in identity, not only the Super Admin.**
+      `is_editable` (the Super Admin alone) governs *grants* and is unchanged; the new
+      `system_role_cannot_be_edited` / `system_role_cannot_be_deleted` govern the *row*, and they
+      fire for all eight — `RolePermissionSeeder` rewrites `name` from `Role::label()` and restores
+      a trashed row on every run, so a rename or an archive here is a change that quietly undoes
+      itself at the next deployment.
+      **The slug is not editable, and that is a rule.** `Role::tryFrom()` matches a database row to
+      §3.1 **by slug** and `RoleAssignmentPolicy::permitsSlug()` decides rule 7 from it, so renaming
+      `procurement` to `buying` would make `tryFrom` answer null, drop `permitsSlug` into its
+      Super-Admin-only branch, and silently un-assign a role the Manager could confer yesterday —
+      with nothing in the audit log about permissions to explain it. `PATCH` takes the two labels
+      and the description; a submitted `slug` is dropped by `validated()` rather than obeyed.
+      **A role somebody holds cannot be archived.** `users.role_id` is NOT NULL and §3.1 gives every
+      user exactly one role, so archiving an assigned role would leave accounts pointing at a row
+      no listing returns and `AuthorizeAction` answering *denied* for everything they try, with
+      nothing on screen to explain it. Counted over **live** users only — an archived account
+      (`DB-01`) does not hold a role open — and re-asked **inside** the transaction, because a
+      concurrent `POST /users` between the check and the write is exactly the state the refusal
+      exists to prevent. `D-34`'s deactivation stays the documented way to stand somebody down.
+      **The archive is an archive.** `deleted_at` on the role *and* on every `role_permissions` row
+      it held — a live grant pointing at an archived role is one no screen shows and no listing can
+      revoke, and a restore would bring the role back holding permissions nobody reviewed. No
+      `forceDelete()` anywhere; the response says `archived`, not `deleted`.
+      ➕ **`roles.name_ar` — a new nullable column** (`2026_08_25_100000_add_arabic_role_label`,
+      with a tested `down()` and a partial unique index for the reason the original RBAC migration
+      gives). The 2026-08-23 migration's own comment promised a translatable display name and
+      shipped only the English half. §3.12 rule 5 changes the shape of that gap: a custom role's
+      label is **data** created at runtime, so there is no lang file it could live in and nobody to
+      translate it later — the person creating the role is the only one who can supply both.
+      `RoleView::label($locale)` and `AdministeredUser::roleLabel($locale)` resolve it **server**-side
+      and the payloads carry `label` alongside the raw columns, because the fallback is a rule
+      rather than formatting and a client that decided it would be a second implementation.
+      ⚠️ **Two deliberate divergences from the brief, both stated rather than absorbed.** (1) The
+      archive event is **`ROLE_ARCHIVED`**, not the requested `ROLE_DELETED`: nothing is deleted,
+      `AUD-03` makes the string permanent and uncorrectable, and `D-34` already established
+      "deactivate"/"archive" as this system's word for exactly this. One line changes it back, and
+      it must change **before** any production row carries it. (2) The system-role refusal is
+      **`system_role_cannot_be_edited`**, not the requested `role_is_immutable`: that code already
+      means a different rule with a different scope (the Super Admin's *grants*), is pinned by
+      `RolePermissionManagementTest` and matched by name in `RolesMatrixView.vue`, and one code
+      standing for two rules is a code the SPA cannot map to one sentence. Status, error class and
+      behaviour are exactly as specified. A third, smaller one: the create endpoint takes
+      **`permission_ids`** rather than the brief's "permission triples", because
+      `PATCH /roles/{id}/permissions` already established ids as this module's grant vocabulary and
+      the SPA holds ids — two vocabularies for one collection is how they drift.
+      **Nine deliberate failure proofs**, each restored and verified byte-identical with
+      `shasum -a 256 -c` across eight files: dropping the system-role archive guard ("`200` is
+      identical to `422`" across all eight roles); dropping the assigned-users guard (same);
+      deleting the `ROLE_CREATED` audit call ("actual size 0 matches expected size 1"); making
+      `ListRoles` never narrow (the Manager's page grows `manager` and `super_admin`, and offers a
+      custom role rule 7 has no entry for); putting `GET /roles` back on `admin.manage_roles`
+      ("`403` is identical to `200`" — the closed gap reopening); archiving a role without its
+      grants ("1 is identical to 0"); minting a role with `is_system = true` ("true is identical to
+      false"); drifting the client slug pattern to `[A-Za-z]` (the mirror test and a vitest case
+      both fail); submitting the create form without its shape check (three vitest cases); a
+      hard-coded heading (`NoHardCodedTextTest`); and `padding-left` in the modal's stylesheet
+      (`LogicalPropertiesTest` — *"takes a physical side"*).
+      **What this does NOT cover.** There is still **no `If-Match` / optimistic locking** on roles
+      (`DB-12` names quotations, and no version column was invented) and **no restore** for an
+      archived role — the row is there and nothing reaches it, so an accidental archive needs a
+      database repair. `RoleSlugMirrorTest` pins the client copy of the slug pattern; the modal has
+      **no focus trap**, which it shares with every other dialog in this module. ❗ **§3.1's eight
+      roles carry `name_ar = NULL` and render English in Arabic**, unchanged from before this
+      point: the master documentation names them in English only, and writing Arabic for them here
+      would be inventing documentation rather than reading it. `/auth/me`'s `role.name` is **not**
+      locale-resolved, because nothing renders it — only its slug is used, for landing routes and
+      permission checks. ❗ **`DELETE /roles/{id}` is a capability §3.11 does not name** — that row
+      reads "create / edit role · permissions" and says nothing about retiring one. It is the
+      owner's Point 4.2 instruction, it archives rather than deletes, and it carries the same
+      Super-Admin-only `admin.manage_roles` as the edit routes so it cannot widen who administers
+      roles. **It needs a `D-xx` number in §2.8**, which this point did not have authorisation to
+      write
 
 **Endpoints**
 - [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **`SEC-04`'s emailed
@@ -2173,7 +2269,8 @@ correction both need the owner's approval on a hook-protected file, and `--color
       impersonation banner — 5.2
 - [x] password change screen (`SEC-04`) · active devices (`SEC-05`) — 5.4
 - [x] user detail drawer · administrative device list · per-device force logout — 5.5
-- [ ] text search (blocked on Module 3's `SearchService`)
+- [x] create-role form · archive with confirmation · the Manager's role picker — 4.2
+- [ ] text search (blocked on Module 3's `SearchService`) — **carried to Module 3 by design**
 
 **Acceptance criteria**
 - [x] Valid credentials → redirect to the role's default screen *(5.1 — the map is §8's, read back out of the documentation by `RoleLandingTest`; every target falls back to `home` until its module registers a route)*
@@ -2186,31 +2283,48 @@ correction both need the owner's approval on a hook-protected file, and `--color
 - [x] Manager cannot create Manager, CEO, or Super Admin accounts *(3.2 enforces it; 5.2's dropdown mirrors §3.11 and `RoleAssignmentMirrorTest` pins the two lists equal — and per `D-78` a Manager may not create a **Team Leader** either)*
 - [x] Login As is Super Admin only and always writes an audit entry *(3.4 at the API, asked twice; 5.2 draws the button for the Super Admin alone and the banner names who is being impersonated)*
 
-### Module 1 sign-off — attempted 2026-08-25, **not granted**
+### Module 1 sign-off — **granted 2026-08-25**
 
-Every step is complete and every gate is green: 1071 PHP tests (7534 assertions), 205 vitest,
-Pint clean, PHPStan level 10 clean, deptrac `0/0`. Eight of the nine acceptance criteria are now
-ticked, and the three that had been implemented since Point 2.2 but never marked — the lockout,
-the eight-hour idle expiry and `D-28`'s refusal — were verified against their tests before being
-ticked rather than assumed from the code.
+Every step is complete, all nine acceptance criteria are ticked, and every gate is green:
+**1116 PHP tests (7996 assertions)**, **234 vitest across 16 files**, Pint clean across 275 files, PHPStan level 10
+clean, deptrac `Violations 0 · Uncovered 0` on both rulesets, `vue-tsc` clean and a successful
+production build.
 
-**Two items remain open, and one of them blocks the sign-off:**
+**The item that blocked the previous attempt is closed.** On 2026-08-25 the sign-off was refused
+because `POST` / `PATCH` / archive on `/api/v1/roles` was unbuilt — §3.11's row reads "create /
+**edit** role · permissions" and §13 screen 3 says "create new roles", and Point 4.1 had shipped
+only the read and the permissions sync, so §3.12 rule 5's ninth role could not be added through
+the API. Point 4.2 builds all three, and the rule-5 round trip is now proved end to end rather
+than argued: a role created over HTTP authorises the very next request and stops authorising the
+moment its grant is revoked.
 
-1. ❗ **`POST` / `PATCH` / archive on `/api/v1/roles` is unbuilt.** §3.11's row reads "create /
-   **edit** role · permissions" and §13 screen 3 says "create new roles"; Point 4.1 shipped
-   `index`, `show`, `permissions` and the sync, and nothing else. So §3.12 rule 5's ninth role
-   cannot be added through the API, and the matrix screen can edit the eight seeded roles and no
-   others. **This is a documented capability that does not exist**, so Module 1 is complete
-   *except for it* rather than complete. It needs a point of its own, or an owner decision to
-   defer it past the MVP — not a tick.
-2. **Text search over the employee list** is blocked on Module 3's `SearchService` by design
-   (`OpenAPI §6.2` routes `q` through it, and `CLAUDE.md` builds it in Module 3). Not a defect
-   and not a blocker for this module.
+**The Manager's role picker is closed too** — the owner question raised at Points 3.2, 4.1, 5.2 and
+5.3. `GET /roles` carries `admin.create_user` and narrows to `RoleAssignmentPolicy::assignableBy()`,
+so §3.11's create-user grant is finally exercisable by the role the document gives it to.
 
-**Owner questions still unanswered** (each raised at the point that found it, none resolved):
-a Manager holds `admin.create_user` but cannot read `/roles`, so they cannot obtain a `role_id`
-(4.1, 5.2, 5.3); §8's landing screens disagree with the brief's `/deals` and `/requests` (5.1);
-and §13 screen 2 lists a **reset password** control for which no endpoint exists (5.5).
+**What is carried forward, deliberately and by name:**
+
+1. **Text search over the employee list** belongs to Module 3. `OpenAPI §6.2` routes `q` through
+   `SearchService` and `CLAUDE.md`'s delivery order builds that service in Module 3. It is
+   scaffolding for a later module, not an unfinished part of this one, and it stays unticked so it
+   cannot be forgotten.
+2. **`DELETE /roles/{id}` needs a `D-xx` number.** §3.11 names "create / edit"; archiving a role is
+   the owner's Point 4.2 instruction and is not in the matrix. The endpoint archives rather than
+   deletes and carries the same Super-Admin-only permission as the edits, so it cannot widen
+   access — but the decision belongs in §2.8 and this point had no authorisation to write there.
+3. **`ROLE_ARCHIVED` diverges from the brief's `ROLE_DELETED`**, for the `AUD-03` reason recorded
+   with Point 4.2. It must be settled before any production row carries either string.
+4. **§3.1's eight roles have no Arabic label.** `roles.name_ar` exists and is null for all of them,
+   so the Arabic screens show English names — unchanged from before this module, and not
+   inventable from the documentation.
+5. The standing module-wide gaps: **no focus trap** in any dialog, **no client-side idle countdown**
+   for `D-29`, **no optimistic locking** on roles, **no restore** for an archived role, and **no
+   reset-password endpoint** for the control §13 screen 2 lists.
+
+**Owner questions still unanswered:** §8's landing screens disagree with the brief's `/deals` and
+`/requests` (raised at 5.1); §13 screen 2 lists a **reset password** control for which no endpoint
+exists (raised at 5.5). Neither blocks this module — the first is a routing table that falls back
+to `home`, the second is a control that is not drawn.
 
 🚀 **First deployment point — deploy to the real server here, not at the end.**
 

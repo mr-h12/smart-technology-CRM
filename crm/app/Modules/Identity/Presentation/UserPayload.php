@@ -27,8 +27,11 @@ use App\Modules\Identity\Domain\Administration\UserPage;
  */
 final class UserPayload
 {
-    /** @return array<string, mixed> */
-    public static function of(AdministeredUser $user): array
+    /**
+     * @param  string  $locale  the request's locale, as `SetLocaleFromRequest` resolved it
+     * @return array<string, mixed>
+     */
+    public static function of(AdministeredUser $user, string $locale): array
     {
         return [
             'id' => $user->id,
@@ -38,6 +41,12 @@ final class UserPayload
             'role' => [
                 'slug' => $user->roleSlug,
                 'name' => $user->roleName,
+                // Resolved by the server, for the reason `RolePayload` gives:
+                // §3.1's eight roles carry no Arabic name, so the fallback is a
+                // rule and not formatting. Both keys are sent because a screen
+                // that lets an administrator *edit* the labels needs the raw
+                // English one as well.
+                'label' => $user->roleLabel($locale),
             ],
             'is_active' => $user->isActive,
             'created_at' => $user->createdAt->format(DATE_ATOM),
@@ -46,9 +55,9 @@ final class UserPayload
     }
 
     /** @return list<array<string, mixed>> */
-    public static function many(UserPage $page): array
+    public static function many(UserPage $page, string $locale): array
     {
-        return array_map(self::of(...), $page->items);
+        return array_map(static fn (AdministeredUser $user): array => self::of($user, $locale), $page->items);
     }
 
     /** @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool} */

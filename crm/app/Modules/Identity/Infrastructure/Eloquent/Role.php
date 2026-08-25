@@ -30,9 +30,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property string $id
  * @property string $name
+ * @property string|null $name_ar
  * @property string $slug
  * @property bool $is_system
  * @property string|null $description
+ * @property \Illuminate\Support\Carbon|null $deleted_at
  */
 final class Role extends Model
 {
@@ -41,7 +43,7 @@ final class Role extends Model
     protected $table = 'roles';
 
     /** @var list<string> */
-    protected $fillable = ['name', 'slug', 'is_system', 'description'];
+    protected $fillable = ['name', 'name_ar', 'slug', 'is_system', 'description'];
 
     /**
      * The `resource.action.scope` triples this role holds (`SEC-07`).

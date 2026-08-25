@@ -118,8 +118,11 @@ final class RbacSchemaMigrationTest extends TestCase
     public function test_that_roles_holds_what_section_3_1_needs(): void
     {
         self::assertSame(
+            // `name_ar` is Point 4.2's addition and sits at the end because
+            // `ALTER TABLE ... ADD COLUMN` appends regardless of the `after()`
+            // hint — PostgreSQL has no column reordering. Measured, not assumed.
             ['id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at',
-                'name', 'slug', 'is_system', 'description'],
+                'name', 'slug', 'is_system', 'description', 'name_ar'],
             self::columns('roles'),
         );
 

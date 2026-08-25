@@ -16,7 +16,11 @@ export interface AdministeredUser {
     name: string;
     email: string;
     role_id: string;
-    role: { slug: string; name: string };
+    /**
+     * `name` is the English column; `label` is what to print, resolved by the
+     * server for this request's locale (`UserPayload::of`).
+     */
+    role: { slug: string; name: string; label: string };
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -26,7 +30,21 @@ export interface AdministeredUser {
 export interface RoleOption {
     id: string;
     slug: string;
+    /** The English label — `roles.name`. */
     name: string;
+    /** The Arabic label, or null when the role has none (§3.1's eight). */
+    name_ar: string | null;
+    /**
+     * The label to print, resolved by the **server** for this request's locale.
+     *
+     * Not computed here: the fallback is a rule, not formatting. §3.1's eight
+     * roles carry no Arabic name — the master documentation does not contain
+     * one — so an Arabic screen falls back to English for them and must not for
+     * a custom role that has one. A client that decided this would be a second
+     * implementation of the rule, and the copy that is wrong is always the one
+     * in the screen.
+     */
+    label: string;
     is_system: boolean;
 }
 
@@ -210,6 +228,32 @@ export async function listRoles(): Promise<AdministeredRole[]> {
  */
 export async function listAllPermissions(): Promise<PermissionOption[]> {
     return allPages<PermissionOption>('/permissions');
+}
+
+/**
+ * `POST /api/v1/roles` — §13 screen 3's "create new roles".
+ *
+ * `permission_ids` is omitted rather than sent empty when the modal grants
+ * nothing: the endpoint treats an absent key as "no grants", and the SPA has no
+ * reason to state a default the server already owns.
+ */
+export async function createRole(input: {
+    slug: string;
+    name: string;
+    name_ar: string | null;
+    description: string | null;
+}): Promise<AdministeredRole> {
+    return (await apiPost<AdministeredRole>('/roles', input)).data;
+}
+
+/**
+ * `DELETE /api/v1/roles/{id}` — an **archive**, `DB-01`: the row keeps its
+ * place and gains a `deleted_at`, and so does every grant it held. The server
+ * refuses a system role and a role somebody still holds; this sends the request
+ * and reports the code it comes back with.
+ */
+export async function archiveRole(roleId: string): Promise<void> {
+    await apiDelete(`/roles/${roleId}`);
 }
 
 /**

@@ -51,6 +51,8 @@ const PROCUREMENT = {
     id: '01a0-role-proc',
     slug: 'procurement',
     name: 'Procurement',
+    name_ar: null,
+    label: 'Procurement',
     is_system: true,
     is_editable: true,
     description: null,
@@ -61,6 +63,8 @@ const SUPER_ADMIN_ROLE = {
     id: '01a0-role-sa',
     slug: 'super_admin',
     name: 'Super Admin',
+    name_ar: null,
+    label: 'Super Admin',
     is_system: true,
     is_editable: false,
     description: null,
@@ -108,7 +112,21 @@ function routedFetch(handlers: Handler[]) {
     });
 }
 
+/** A role an administrator added — §3.12 rule 5's ninth, and the only archivable one. */
+const AUDITOR = {
+    id: '01a0-role-auditor',
+    slug: 'auditor',
+    name: 'Auditor',
+    name_ar: 'مدقّق',
+    label: 'Auditor',
+    is_system: false,
+    is_editable: true,
+    description: null,
+    permissions: [],
+};
+
 const ROLES_OK: Handler = { match: /\/roles(\?|$)/, response: () => page([PROCUREMENT, SUPER_ADMIN_ROLE]) };
+const ROLES_WITH_CUSTOM: Handler = { match: /\/roles(\?|$)/, response: () => page([AUDITOR, PROCUREMENT, SUPER_ADMIN_ROLE]) };
 const PERMISSIONS_OK: Handler = { match: /\/permissions(\?|$)/, response: () => page(PERMISSIONS) };
 
 async function mountMatrix(handlers: Handler[] = [ROLES_OK, PERMISSIONS_OK], locale: 'ar' | 'en' = 'en') {
@@ -495,5 +513,229 @@ describe('Arabic', () => {
         expect(wrapper.find('h1').text()).toBe(ar.roles.title);
         expect(wrapper.find('[data-testid="roles-save"]').text()).toBe(ar.roles.save);
         expect(wrapper.text()).not.toContain('roles.scope');
+    });
+});
+
+/**
+ * Calls the screen made with this verb to this path.
+ *
+ * Scoped by URL as well as method, because `mountMatrix` signs in through a
+ * real `POST /auth/login` — a bare "did anything POST?" is true before the
+ * screen has done anything at all, which is a test that can never fail.
+ */
+function callsTo(
+    fetchMock: ReturnType<typeof routedFetch>,
+    method: string,
+    path: RegExp,
+): { url: string; body: unknown }[] {
+    return fetchMock.mock.calls
+        .filter(([url, init]) => ((init as { method?: string } | undefined)?.method ?? 'GET') === method && path.test(url))
+        .map(([url, init]) => {
+            const body = (init as { body?: string } | undefined)?.body;
+
+            return { url, body: body === undefined ? null : JSON.parse(body) };
+        });
+}
+
+/**
+ * Point 4.2 — §13 screen 3's "create new roles", and the archive that retires
+ * one. §3.12 rule 5 · `DB-01` · `OpenAPI §5.1`.
+ */
+describe('creating a role', () => {
+    it('opens the form and does not send anything until it is submitted', async () => {
+        const { wrapper, fetchMock } = await mountMatrix();
+
+        expect(wrapper.find('[data-testid="role-form-modal"]').exists()).toBe(false);
+
+        await wrapper.find('[data-testid="roles-create"]').trigger('click');
+
+        expect(wrapper.find('[data-testid="role-form-modal"]').exists()).toBe(true);
+        expect(callsTo(fetchMock, 'POST', /\/roles$/)).toHaveLength(0);
+    });
+
+    it('posts the slug and both labels, and selects the new role', async () => {
+        const { wrapper, fetchMock } = await mountMatrix([
+            ROLES_WITH_CUSTOM,
+            PERMISSIONS_OK,
+            { match: /\/roles$/, method: 'POST', response: () => json(201, { data: AUDITOR, meta: { request_id: 'r' } }) },
+        ]);
+
+        await wrapper.find('[data-testid="roles-create"]').trigger('click');
+        await wrapper.find('[data-testid="role-form-slug"]').setValue('auditor');
+        await wrapper.find('[data-testid="role-form-name"]').setValue('Auditor');
+        await wrapper.find('[data-testid="role-form-name-ar"]').setValue('مدقّق');
+        await wrapper.find('[data-testid="role-form-submit"]').trigger('submit');
+        await flushPromises();
+
+        const posts = callsTo(fetchMock, 'POST', /\/roles$/);
+
+        expect(posts).toHaveLength(1);
+        expect(posts[0]?.body).toEqual({
+            slug: 'auditor',
+            name: 'Auditor',
+            name_ar: 'مدقّق',
+            // An empty box is absent, not an empty label — a stored `""` would
+            // render as a role with no visible name in Arabic.
+            description: null,
+        });
+
+        expect(wrapper.find('[data-testid="role-form-modal"]').exists()).toBe(false);
+
+        // Selected straight away: a role with no grants is exactly the state
+        // the modal warned about, and the grid is where it is fixed.
+        const active = wrapper.findAll('[data-testid="roles-tab"]')
+            .filter((tab) => tab.attributes('aria-selected') === 'true');
+
+        expect(active).toHaveLength(1);
+        expect(active[0]?.text()).toContain('Auditor');
+    });
+
+    it('refuses to send a slug the server would reject anyway (§6.6)', async () => {
+        const { wrapper, fetchMock } = await mountMatrix();
+
+        await wrapper.find('[data-testid="roles-create"]').trigger('click');
+        await wrapper.find('[data-testid="role-form-slug"]').setValue('Not A Slug');
+        await wrapper.find('[data-testid="role-form-name"]').setValue('Auditor');
+        await wrapper.find('[data-testid="role-form-submit"]').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="role-form-slug-error"]').exists()).toBe(true);
+        expect(callsTo(fetchMock, 'POST', /\/roles$/)).toHaveLength(0);
+    });
+
+    it('explains a taken slug by its OpenAPI §5.1 code, not by its status', async () => {
+        const { wrapper } = await mountMatrix([
+            ROLES_OK,
+            PERMISSIONS_OK,
+            {
+                match: /\/roles$/,
+                method: 'POST',
+                response: () => json(422, {
+                    error: {
+                        code: 'validation_failed',
+                        message: 'x',
+                        details: [{ field: 'slug', code: 'slug_already_taken' }],
+                    },
+                }),
+            },
+        ]);
+
+        await wrapper.find('[data-testid="roles-create"]').trigger('click');
+        await wrapper.find('[data-testid="role-form-slug"]').setValue('manager');
+        await wrapper.find('[data-testid="role-form-name"]').setValue('Auditor');
+        await wrapper.find('[data-testid="role-form-submit"]').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="role-form-error"]').text()).toBe(en.roles.error.slugTaken);
+        // The form stays open with what was typed, so a corrected slug is one
+        // keystroke away rather than a re-entered form.
+        expect(wrapper.find('[data-testid="role-form-modal"]').exists()).toBe(true);
+    });
+});
+
+describe('archiving a role', () => {
+    it('offers no archive control on a system role', async () => {
+        const { wrapper } = await mountMatrix();
+
+        // The default selection is Procurement — `is_system: true`. The seeder
+        // restores a trashed system role on its next run, so archiving one is a
+        // change that undoes itself, and the server refuses it.
+        expect(wrapper.find('[data-testid="roles-archive"]').exists()).toBe(false);
+    });
+
+    it('asks before it archives anything, and sends nothing when dismissed', async () => {
+        const { wrapper, fetchMock } = await mountMatrix([ROLES_WITH_CUSTOM, PERMISSIONS_OK]);
+
+        await wrapper.find('[data-testid="roles-archive"]').trigger('click');
+
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true);
+
+        await wrapper.find('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(callsTo(fetchMock, 'DELETE', /\/roles\//)).toHaveLength(0);
+    });
+
+    it('archives on confirmation and reloads the list', async () => {
+        let archived = false;
+
+        const { wrapper, fetchMock } = await mountMatrix([
+            { match: /\/roles(\?|$)/, response: () => page(archived ? [PROCUREMENT, SUPER_ADMIN_ROLE] : [AUDITOR, PROCUREMENT, SUPER_ADMIN_ROLE]) },
+            PERMISSIONS_OK,
+            {
+                match: /\/roles\/[^/]+$/,
+                method: 'DELETE',
+                response: () => {
+                    archived = true;
+
+                    return json(200, { data: { archived: true, role_id: AUDITOR.id }, meta: { request_id: 'r' } });
+                },
+            },
+        ]);
+
+        await wrapper.find('[data-testid="roles-archive"]').trigger('click');
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        const deleted = callsTo(fetchMock, 'DELETE', /\/roles\//);
+
+        expect(deleted).toHaveLength(1);
+        expect(deleted[0]?.url).toContain(`/roles/${AUDITOR.id}`);
+        expect(wrapper.findAll('[data-testid="roles-tab"]').map((tab) => tab.text())).not.toContain('Auditor');
+    });
+
+    it('explains a role somebody still holds by its code', async () => {
+        const { wrapper } = await mountMatrix([
+            ROLES_WITH_CUSTOM,
+            PERMISSIONS_OK,
+            {
+                match: /\/roles\/[^/]+$/,
+                method: 'DELETE',
+                response: () => json(422, {
+                    error: {
+                        code: 'business_rule_blocked',
+                        message: 'x',
+                        details: [{ code: 'role_has_assigned_users' }],
+                    },
+                }),
+            },
+        ]);
+
+        await wrapper.find('[data-testid="roles-archive"]').trigger('click');
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="roles-save-error"]').text()).toBe(en.roles.error.roleInUse);
+    });
+
+    it('renders the confirmation in Arabic', async () => {
+        const { wrapper } = await mountMatrix([ROLES_WITH_CUSTOM, PERMISSIONS_OK], 'ar');
+
+        await wrapper.find('[data-testid="roles-archive"]').trigger('click');
+
+        const dialog = wrapper.find('[data-testid="confirm-dialog"]');
+
+        expect(dialog.text()).toContain(ar.roles.archive.confirm.title);
+        expect(dialog.text()).not.toContain('roles.archive');
+    });
+});
+
+describe('the label the server resolved', () => {
+    it('prints `label`, never the raw English column', async () => {
+        // §3.1's eight carry no Arabic name, so the server falls back to
+        // English for them and must not for a custom role that has one. A
+        // client that picked between `name` and `name_ar` itself would be a
+        // second implementation of that rule.
+        const arabicAuditor = { ...AUDITOR, label: 'مدقّق' };
+
+        const { wrapper } = await mountMatrix([
+            { match: /\/roles(\?|$)/, response: () => page([arabicAuditor, PROCUREMENT, SUPER_ADMIN_ROLE]) },
+            PERMISSIONS_OK,
+        ], 'ar');
+
+        const tabs = wrapper.findAll('[data-testid="roles-tab"]').map((tab) => tab.text());
+
+        expect(tabs.some((text) => text.includes('مدقّق'))).toBe(true);
+        expect(tabs.some((text) => text.includes('Auditor'))).toBe(false);
     });
 });

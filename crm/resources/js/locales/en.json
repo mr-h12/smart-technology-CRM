@@ -116,7 +116,7 @@
     "deactivate": "Deactivate",
     "reactivate": "Reactivate",
     "loginAs": "Sign in as",
-    "rolesUnavailable": "Your role can create accounts but cannot read the list of roles, so the form is unavailable. This needs a decision from the system owner.",
+    "rolesUnavailable": "There is no role you are permitted to assign, so the form is unavailable.",
     "column": {
       "name": "Name",
       "email": "Email",
@@ -254,7 +254,37 @@
       "effect": "This is a configuration change, not a deployment: the next request each affected person makes is already checked against the new matrix.",
       "confirm": "Apply changes"
     },
+    "create": {
+      "action": "New role",
+      "title": "Create a role",
+      "explainer": "A new role starts with no permissions. Grant them on this screen once it exists — the change takes effect on the next request.",
+      "slug": "Identifier",
+      "slugHint": "Lowercase letters, numbers and underscores. Used in URLs and cannot be changed later.",
+      "slugInvalid": "Use lowercase letters, numbers and underscores, starting with a letter.",
+      "name": "Name (English)",
+      "nameInvalid": "Enter a name of at least two characters.",
+      "nameAr": "Name (Arabic)",
+      "nameArHint": "Optional. Without it, the English name is shown in both languages.",
+      "description": "Description",
+      "thenGrant": "You will be taken to this role's permissions once it is created.",
+      "submit": "Create role"
+    },
+    "archive": {
+      "action": "Archive role",
+      "confirm": {
+        "title": "Archive this role?",
+        "message": "{name} and every permission it holds will be archived. Nothing is deleted, and a role somebody is assigned to cannot be archived.",
+        "action": "Archive role"
+      }
+    },
     "error": {
+      "slugTaken": "Another role already uses that identifier.",
+      "nameTaken": "Another role already uses that name.",
+      "nameArTaken": "Another role already uses that Arabic name.",
+      "invalid": "Check the highlighted fields and try again.",
+      "systemRole": "That role is part of the system and cannot be archived.",
+      "roleInUse": "People are still assigned to that role. Move them to another role first.",
+      "gone": "That role no longer exists. The list has been refreshed.",
       "immutable": "This role's permissions cannot be edited.",
       "forbidden": "One of the selected permissions may not be granted to any role.",
       "staleMatrix": "One of the selected permissions no longer exists. Reload the screen and try again.",

@@ -231,7 +231,7 @@ function shortAgent(userAgent: string | null): string {
                     <dd class="tabular-nums">{{ user.email }}</dd>
 
                     <dt class="text-table text-[var(--color-text-muted)]">{{ t('users.column.role') }}</dt>
-                    <dd>{{ user.role.name }}</dd>
+                    <dd>{{ user.role.label }}</dd>
 
                     <dt class="text-table text-[var(--color-text-muted)]">{{ t('users.column.status') }}</dt>
                     <dd>

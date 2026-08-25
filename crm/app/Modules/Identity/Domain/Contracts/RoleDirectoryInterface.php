@@ -35,9 +35,21 @@ interface RoleDirectoryInterface
     /**
      * Live roles with the triples they grant.
      *
+     * `$limitToSlugs` narrows the listing to those slugs, and `null` means no
+     * narrowing. It is applied **inside** the query rather than to the page
+     * that comes back, because `OpenAPI §6.1` requires that "pagination always
+     * happens after authorization scoping" — filtering afterwards would return
+     * short pages and a `total` counting rows the caller may not see, which is
+     * itself a disclosure.
+     *
+     * An empty list is not the same as null: it narrows to nothing, and the
+     * honest answer for a caller entitled to see no roles at all is an empty
+     * page rather than every page.
+     *
+     * @param  list<string>|null  $limitToSlugs
      * @return ReferencePage<RoleView>
      */
-    public function listRoles(ReferenceListCriteria $criteria): ReferencePage;
+    public function listRoles(ReferenceListCriteria $criteria, ?array $limitToSlugs = null): ReferencePage;
 
     /** @return ReferencePage<PermissionView> */
     public function listPermissions(ReferenceListCriteria $criteria): ReferencePage;
@@ -56,6 +68,68 @@ interface RoleDirectoryInterface
      * @return list<PermissionView>
      */
     public function permissionsByIds(array $permissionIds): array;
+
+    /**
+     * Whether a **live** role already holds this slug.
+     *
+     * Asked before the insert rather than caught afterwards, because
+     * `roles_slug_unique_alive` is a partial index and its violation arrives as
+     * a driver exception with a PostgreSQL constraint name in it — a 500 where
+     * `OpenAPI §5.1` wants a `422` naming the field the caller typed.
+     *
+     * An **archived** role does not reserve its slug (`DB-01`, and the index is
+     * `WHERE deleted_at IS NULL`), so this asks only about live rows.
+     */
+    public function slugTaken(string $slug): bool;
+
+    /** The same question about the English label, ignoring one role's own row. */
+    public function nameTaken(string $name, ?string $exceptRoleId = null): bool;
+
+    /** The same question about the Arabic label. */
+    public function arabicNameTaken(string $nameAr, ?string $exceptRoleId = null): bool;
+
+    /**
+     * How many **live** users hold this role.
+     *
+     * `users.role_id` is NOT NULL, so a role cannot be archived out from under
+     * an account without leaving it pointing at a row nothing returns. An
+     * archived user (`DB-01`) is not counted — they are already stood down.
+     */
+    public function countUsersWithRole(string $roleId): int;
+
+    /**
+     * Insert a role an administrator added (§3.12 rule 5).
+     *
+     * `is_system` is false and is **not** a parameter: the flag marks §3.1's
+     * eight, and the only writer that may set it is `RolePermissionSeeder`. An
+     * endpoint that could set it would be an endpoint that could make a
+     * custom role unarchivable by its own author.
+     */
+    public function createRole(string $slug, string $name, ?string $nameAr, ?string $description): RoleView;
+
+    /**
+     * Change a role's labels or description. The slug is never among them.
+     *
+     * A key that is absent is left alone; a key present with `null` clears the
+     * column. That distinction is why this takes an array rather than four
+     * nullable parameters — "not submitted" and "submitted as empty" are
+     * different instructions and a nullable parameter cannot tell them apart.
+     *
+     * @param  array{name?: string, name_ar?: string|null, description?: string|null}  $attributes
+     */
+    public function updateRole(string $roleId, array $attributes): RoleView;
+
+    /**
+     * Archive a role and the grants it holds (`DB-01`).
+     *
+     * The grants go with it because a live `role_permissions` row pointing at
+     * an archived role is a grant no screen shows and no listing can revoke —
+     * and if the role is ever restored it would come back holding permissions
+     * nobody reviewed.
+     *
+     * @return int how many grants were archived alongside it
+     */
+    public function archiveRole(string $roleId): int;
 
     /**
      * Make this role's live grants exactly this set, and report what moved.

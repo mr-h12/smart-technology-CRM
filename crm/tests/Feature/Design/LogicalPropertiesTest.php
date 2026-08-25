@@ -182,6 +182,7 @@ final class LogicalPropertiesTest extends TestCase
             'resources/js/components/identity/ImpersonationBanner.vue',
             'resources/js/pages/roles/RolesMatrixView.vue',
             'resources/js/components/roles/PermissionDiffModal.vue',
+            'resources/js/components/roles/RoleFormModal.vue',
             'resources/js/pages/profile/AccountSecurityView.vue',
             'resources/js/components/profile/EmailChallengeModal.vue',
             'resources/js/components/users/UserDetailsDrawer.vue',

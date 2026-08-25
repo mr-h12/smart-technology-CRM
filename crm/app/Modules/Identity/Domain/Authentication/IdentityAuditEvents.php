@@ -140,6 +140,43 @@ final class IdentityAuditEvents
      */
     public const ROLE_PERMISSIONS_UPDATED = 'ROLE_PERMISSIONS_UPDATED';
 
+    /**
+     * §3.12 rule 5's ninth role, brought into existence.
+     *
+     * `AUD-01` covers create. The row keeps the slug, both labels and the
+     * triples the role was born holding, because a role that arrives with 40
+     * grants is a bigger event than one that arrives empty and the log has to
+     * be able to tell them apart. Never the ids — `AUD-03` makes the row
+     * permanent, and a permanent record built out of primary keys stops being
+     * readable the first time a permission row is retired.
+     */
+    public const ROLE_CREATED = 'ROLE_CREATED';
+
+    /**
+     * A role's labels or description changed.
+     *
+     * Distinct from {@see self::ROLE_PERMISSIONS_UPDATED}, which changes what
+     * the role may **do**. Renaming a role changes nothing about authorisation
+     * and folding the two together would make "when did Procurement gain that"
+     * return rename rows as well.
+     */
+    public const ROLE_UPDATED = 'ROLE_UPDATED';
+
+    /**
+     * A custom role was archived (`DB-01`), together with its grants.
+     *
+     * ⚠️ **Named ARCHIVED, not DELETED.** The owner's Point 4.2 brief asked for
+     * `ROLE_DELETED`; the operation is a soft delete — `deleted_at = now()` on
+     * the role and on every `role_permissions` row it held — and `AUD-03` makes
+     * this string permanent and uncorrectable. A permanent record that says
+     * "deleted" about a row still sitting in the table is a record that
+     * misleads every auditor who reads it, and `D-34` already established
+     * "deactivate" and "archive" as this system's vocabulary for exactly this. One
+     * line changes it back if the owner prefers the original word, and it must
+     * change **before** any production row carries it.
+     */
+    public const ROLE_ARCHIVED = 'ROLE_ARCHIVED';
+
     /** §3.12 rule 4's "account deactivation", and `D-34`'s switch. */
     public const USER_DEACTIVATED = 'USER_DEACTIVATED';
 

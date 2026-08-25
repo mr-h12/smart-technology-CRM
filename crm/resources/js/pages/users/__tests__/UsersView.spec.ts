@@ -46,7 +46,7 @@ function user(overrides: Partial<Record<string, unknown>> = {}) {
         name: 'Nadia Indoor',
         email: 'indoor.sales@example.test',
         role_id: '01a0-role-indoor',
-        role: { slug: 'indoor_sales', name: 'Indoor Sales' },
+        role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
         is_active: true,
         created_at: '2026-08-01T09:00:00+00:00',
         updated_at: '2026-08-01T09:00:00+00:00',
@@ -55,10 +55,16 @@ function user(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 const ROLES = [
-    { id: '01a0-role-indoor', slug: 'indoor_sales', name: 'Indoor Sales', is_system: true },
-    { id: '01a0-role-proc', slug: 'procurement', name: 'Procurement', is_system: true },
-    { id: '01a0-role-mgr', slug: 'manager', name: 'Manager', is_system: true },
-    { id: '01a0-role-sa', slug: 'super_admin', name: 'Super Admin', is_system: true },
+    { id: '01a0-role-indoor', slug: 'indoor_sales', name: 'Indoor Sales', name_ar: null, label: 'Indoor Sales', is_system: true },
+    { id: '01a0-role-proc', slug: 'procurement', name: 'Procurement', name_ar: null, label: 'Procurement', is_system: true },
+    { id: '01a0-role-mgr', slug: 'manager', name: 'Manager', name_ar: null, label: 'Manager', is_system: true },
+    { id: '01a0-role-sa', slug: 'super_admin', name: 'Super Admin', name_ar: null, label: 'Super Admin', is_system: true },
+];
+
+/** What `GET /roles` returns a Manager after Point 4.2 — §3.11's four, narrowed by the server. */
+const MANAGER_ROLES = [
+    { id: '01a0-role-outsup', slug: 'outdoor_supervisor', name: 'Outdoor Supervisor', name_ar: null, label: 'Outdoor Supervisor', is_system: true },
+    { id: '01a0-role-indoor', slug: 'indoor_sales', name: 'Indoor Sales', name_ar: null, label: 'Indoor Sales', is_system: true },
 ];
 
 function json(status: number, body: unknown): Response {
@@ -141,7 +147,7 @@ async function mountUsers(
     return { wrapper, router, fetchMock, auth };
 }
 
-const LIST_OK = { match: /\/users(\?|$)/, response: () => page([user(), user({ id: '01a0-proc', name: 'Omar Procurement', role: { slug: 'procurement', name: 'Procurement' }, is_active: false })]) };
+const LIST_OK = { match: /\/users(\?|$)/, response: () => page([user(), user({ id: '01a0-proc', name: 'Omar Procurement', role: { slug: 'procurement', name: 'Procurement', label: 'Procurement' }, is_active: false })]) };
 const ROLES_OK = { match: /\/roles/, response: () => page(ROLES) };
 
 beforeEach(() => {
@@ -253,12 +259,40 @@ describe('filtering and pagination (OpenAPI §6.2, §4.2)', () => {
 });
 
 describe('creating a user (§9 Flow 9)', () => {
-    it('never opens the form for a Manager, because there is no role list to fill it', async () => {
-        // Not a design choice — §3.11 gives `admin.manage_roles` to the Super
-        // Admin alone, so `GET /roles` is not a call a Manager can make and
-        // there is no `role_id` to submit. The dropdown's own filtering is
-        // tested in UserFormModal.spec.ts, where a role list can be supplied.
-        const { wrapper } = await mountUsers(MANAGER, [LIST_OK, ROLES_OK]);
+    it('opens the form for a Manager on the roles the server narrowed to (Point 4.2)', async () => {
+        // Until Point 4.2 this test asserted the opposite: `GET /roles` carried
+        // `admin.manage_roles`, a row §3.11 gives to the Super Admin alone, so
+        // the Manager could not obtain a `role_id` and the form was permanently
+        // unavailable. The endpoint now carries `admin.create_user` and the
+        // server narrows the page — the screen renders whatever comes back and
+        // does not filter again, which is why the mock returns two roles and
+        // exactly two options appear.
+        const { wrapper } = await mountUsers(MANAGER, [
+            LIST_OK,
+            { match: /\/roles/, response: () => page(MANAGER_ROLES) },
+        ]);
+
+        expect(wrapper.find('[data-testid="users-create"]').attributes('disabled')).toBeUndefined();
+        expect(wrapper.find('[data-testid="users-no-roles-notice"]').exists()).toBe(false);
+
+        await wrapper.find('[data-testid="users-create"]').trigger('click');
+        await flushPromises();
+
+        const options = wrapper.findAll('[data-testid="user-form-role"] option')
+            .map((option) => option.text())
+            .filter((text) => text !== 'Choose a role');
+
+        expect(options).toEqual(['Outdoor Supervisor', 'Indoor Sales']);
+    });
+
+    it('still says so when the server narrows the list to nothing', async () => {
+        // §3.11's *Others* column is `—` on every row, so a caller who reaches
+        // this screen through some later grant may be entitled to confer no
+        // role at all. §6.1: a disabled control explains itself.
+        const { wrapper } = await mountUsers(MANAGER, [
+            LIST_OK,
+            { match: /\/roles/, response: () => page([]) },
+        ]);
 
         expect(wrapper.find('[data-testid="users-create"]').attributes('disabled')).toBeDefined();
         expect(wrapper.find('[data-testid="users-no-roles-notice"]').exists()).toBe(true);
@@ -479,7 +513,7 @@ describe('Login As (SEC-10)', () => {
                 name: target.name,
                 email: 'indoor.sales@example.test',
                 is_active: true,
-                role: { id: '01a0-role-indoor', slug: 'indoor_sales', name: 'Indoor Sales' },
+                role: { id: '01a0-role-indoor', slug: 'indoor_sales', name: 'Indoor Sales', name_ar: null, label: 'Indoor Sales' },
                 permissions: ['customer.view.own'],
                 unconditional_access: false,
             } }) },

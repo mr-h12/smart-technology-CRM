@@ -451,17 +451,42 @@ final class RolePermissionManagementTest extends TestCase
     }
 
     #[DataProvider('nonSuperAdminRoles')]
-    public function test_no_role_but_super_admin_may_read_the_matrix(RoleName $role): void
+    public function test_no_role_but_super_admin_may_read_the_permission_catalogue(RoleName $role): void
     {
+        // `GET /permissions` is the whole `SEC-07` matrix — 143 triples and
+        // which resource each belongs to. §3.11 gives "create / edit role ·
+        // permissions" to the Super Admin alone, and nothing narrows this
+        // listing per caller, so it stays Super-Admin-only.
         $token = $this->tokenFor($this->userWith($role));
 
-        foreach ([self::ROLES, self::PERMISSIONS] as $endpoint) {
-            $this->withHeaders($this->bearer($token))
-                ->getJson($endpoint)
-                ->assertStatus(403)
-                ->assertJsonPath('error.code', 'permission_denied')
-                ->assertJsonPath('error.details.0.code', 'unauthorized_action');
+        $this->withHeaders($this->bearer($token))
+            ->getJson(self::PERMISSIONS)
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'permission_denied')
+            ->assertJsonPath('error.details.0.code', 'unauthorized_action');
+    }
+
+    #[DataProvider('nonSuperAdminRoles')]
+    public function test_only_a_role_that_may_create_users_reads_the_role_listing(RoleName $role): void
+    {
+        // Point 4.2 moved `GET /roles` onto `admin.create_user`, which §3.11
+        // gives to the Super Admin and the Manager and to nobody else. What the
+        // Manager then *sees* is narrowed to `RoleAssignmentPolicy` and is
+        // asserted in `CustomRoleManagementTest`; this is only about the door.
+        $token = $this->tokenFor($this->userWith($role));
+
+        $response = $this->withHeaders($this->bearer($token))->getJson(self::ROLES);
+
+        if ($role === RoleName::Manager) {
+            $response->assertStatus(200);
+
+            return;
         }
+
+        $response
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'permission_denied')
+            ->assertJsonPath('error.details.0.code', 'unauthorized_action');
     }
 
     #[DataProvider('nonSuperAdminRoles')]
@@ -477,16 +502,29 @@ final class RolePermissionManagementTest extends TestCase
             'A refused call must not have written anything.');
     }
 
-    public function test_the_manager_is_refused_even_though_it_administers_users(): void
+    public function test_the_manager_administers_users_and_still_may_not_administer_roles(): void
     {
         // §3.11 gives the Manager "create user" and "deactivate user" and puts
         // a `—` in "create / edit role · permissions". D-78 mapped six user
         // endpoints onto the two rows the Manager holds; it may not be read as
         // licence to map these onto them too.
+        //
+        // Point 4.2 opened exactly one door — the role *picker* at
+        // `GET /roles`, without which §3.11's create-user grant cannot be
+        // exercised at all. Everything that reads or writes the matrix is
+        // still refused, and this test is what keeps the two apart.
         $token = $this->tokenFor($this->userWith(RoleName::Manager));
+        $roleId = $this->roleId(RoleName::Procurement);
 
-        $this->withHeaders($this->bearer($token))->getJson(self::ROLES)->assertStatus(403);
         $this->withHeaders($this->bearer($token))->getJson(self::PERMISSIONS)->assertStatus(403);
+        $this->withHeaders($this->bearer($token))->getJson(self::ROLES.'/'.$roleId)->assertStatus(403);
+        $this->withHeaders($this->bearer($token))->postJson(self::ROLES, [
+            'slug' => 'auditor', 'name' => 'Auditor',
+        ])->assertStatus(403);
+        $this->withHeaders($this->bearer($token))->patchJson(self::ROLES.'/'.$roleId, [
+            'name' => 'Renamed',
+        ])->assertStatus(403);
+        $this->withHeaders($this->bearer($token))->deleteJson(self::ROLES.'/'.$roleId)->assertStatus(403);
     }
 
     public function test_an_unauthenticated_caller_is_401_and_not_403(): void

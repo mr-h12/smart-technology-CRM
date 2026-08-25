@@ -59,6 +59,16 @@ return [
         'role_is_immutable' => 'The permissions of that role are fixed by the system and cannot be changed.',
         'permission_not_found' => 'One of the submitted permissions does not exist.',
         'grant_forbidden' => 'That permission can never be granted to any role.',
+        // §3.1's eight. The message says what the caller may do instead,
+        // because "cannot be changed" with no alternative is the kind of
+        // refusal people work around by creating a duplicate.
+        'system_role_cannot_be_edited' => 'That role is part of the system and its name cannot be changed. Create a new role instead.',
+        'system_role_cannot_be_deleted' => 'That role is part of the system and cannot be archived.',
+        'role_has_assigned_users' => 'People are still assigned to that role. Move them to another role first.',
+        'slug_already_taken' => 'Another role already uses that identifier.',
+        'name_already_taken' => 'Another role already uses that name.',
+        'name_ar_already_taken' => 'Another role already uses that Arabic name.',
+        'no_fields_submitted' => 'Provide at least one field to change.',
         'permission_ids_required' => 'Send permission_ids, using an empty list to revoke every permission.',
     ],
 

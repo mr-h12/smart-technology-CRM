@@ -49,9 +49,11 @@ import { ApiError } from '@/api';
 import LoadingState from '@/components/states/LoadingState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import PermissionDiffModal from '@/components/roles/PermissionDiffModal.vue';
+import RoleFormModal from '@/components/roles/RoleFormModal.vue';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import { SCOPES, diffGrants, groupPermissions, isRowLocked, scopeCells } from '@/domain/permissionMatrix';
 import type { AdministeredRole, PermissionOption } from '@/services/identity';
-import { listAllPermissions, listRoles, updateRolePermissions } from '@/services/identity';
+import { archiveRole, createRole, listAllPermissions, listRoles, updateRolePermissions } from '@/services/identity';
 
 const { t, te } = useI18n();
 
@@ -67,6 +69,38 @@ const confirming = ref(false);
 /** A lang-file key, or null. §6.6: an error is explained in place, not only in a toast. */
 const saveError = ref<string | null>(null);
 const saveResult = ref<{ granted: number; revoked: number } | null>(null);
+
+/**
+ * §13 screen 3's create, and the archive that retires what it made.
+ *
+ * Both live on this screen rather than on a page of their own: §3.12 rule 5
+ * makes creating a role and granting it permissions one act of configuration,
+ * and a new role with no grants is the one state an administrator must not be
+ * left in silently. The modal says so (`roles.create.thenGrant`) and the screen
+ * selects the new role the moment it exists.
+ */
+const creating = ref(false);
+const createBusy = ref(false);
+const createError = ref<string | null>(null);
+
+/** The role the confirmation is about, or null. */
+const archivingId = ref<string | null>(null);
+const archiveBusy = ref(false);
+
+const archiving = computed<AdministeredRole | null>(
+    () => roles.value.find((role) => role.id === archivingId.value) ?? null,
+);
+
+/**
+ * `is_system` here, and `is_editable` on the grid — two different rules.
+ *
+ * The grid locks §3.1's unconditional-access role, because editing its grants
+ * would report success and change nothing. This locks all eight, because
+ * `RolePermissionSeeder` rewrites their labels and restores them if trashed, so
+ * an archive is a change that undoes itself. The server refuses both
+ * independently (§3.12 rule 1); this only decides which control is drawn.
+ */
+const archivable = computed(() => selectedRole.value !== null && !selectedRole.value.is_system);
 
 const groups = computed(() => groupPermissions(permissions.value));
 
@@ -189,6 +223,93 @@ async function save(): Promise<void> {
     }
 }
 
+/**
+ * §13 screen 3's "create new roles".
+ *
+ * The whole list is re-read rather than the response appended: the new role has
+ * to land in the server's own ordering (`ReferenceListCriteria::ROLE_DEFAULT_SORT`
+ * is `name`), and a row pushed onto the end would sit somewhere the next reload
+ * moves it away from.
+ */
+async function submitRole(input: {
+    slug: string;
+    name: string;
+    name_ar: string | null;
+    description: string | null;
+}): Promise<void> {
+    createBusy.value = true;
+    createError.value = null;
+
+    try {
+        const created = await createRole(input);
+
+        await load();
+
+        // Selected straight away, because a role with no grants is exactly the
+        // state the modal just warned about and the grid is where it is fixed.
+        selectRole(created.id);
+        creating.value = false;
+    } catch (error) {
+        createError.value = createMessageFor(error);
+    } finally {
+        createBusy.value = false;
+    }
+}
+
+/** The archive, `DB-01`: no row is removed and the grants go with it. */
+async function confirmArchive(): Promise<void> {
+    const role = archiving.value;
+
+    if (role === null) {
+        return;
+    }
+
+    archiveBusy.value = true;
+    saveError.value = null;
+
+    try {
+        await archiveRole(role.id);
+
+        archivingId.value = null;
+        selectedRoleId.value = '';
+        await load();
+    } catch (error) {
+        saveError.value = messageFor(error);
+        archivingId.value = null;
+    } finally {
+        archiveBusy.value = false;
+    }
+}
+
+/** `OpenAPI §5.1` — the create form's own refusals, by field. */
+function createMessageFor(error: unknown): string {
+    if (!(error instanceof ApiError)) {
+        return 'roles.error.unreachable';
+    }
+
+    if (error.is('slug_already_taken')) {
+        return 'roles.error.slugTaken';
+    }
+
+    if (error.is('name_already_taken')) {
+        return 'roles.error.nameTaken';
+    }
+
+    if (error.is('name_ar_already_taken')) {
+        return 'roles.error.nameArTaken';
+    }
+
+    if (error.status === 422) {
+        return 'roles.error.invalid';
+    }
+
+    if (error.status === 403) {
+        return 'roles.error.denied';
+    }
+
+    return 'roles.error.rejected';
+}
+
 /** `OpenAPI §5.1` — the stable code, not the HTTP status alone. */
 function messageFor(error: unknown): string {
     if (!(error instanceof ApiError)) {
@@ -207,6 +328,18 @@ function messageFor(error: unknown): string {
         return 'roles.error.staleMatrix';
     }
 
+    if (error.is('system_role_cannot_be_deleted')) {
+        return 'roles.error.systemRole';
+    }
+
+    if (error.is('role_has_assigned_users')) {
+        return 'roles.error.roleInUse';
+    }
+
+    if (error.status === 404) {
+        return 'roles.error.gone';
+    }
+
     if (error.status === 403) {
         return 'roles.error.denied';
     }
@@ -219,9 +352,26 @@ onMounted(load);
 
 <template>
     <section class="flex flex-col gap-4">
-        <header class="flex flex-col gap-1">
-            <h1 class="text-page-title">{{ t('roles.title') }}</h1>
-            <p class="text-[var(--color-text-muted)] text-pretty">{{ t('roles.subtitle') }}</p>
+        <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex flex-col gap-1">
+                <h1 class="text-page-title">{{ t('roles.title') }}</h1>
+                <p class="text-[var(--color-text-muted)] text-pretty">{{ t('roles.subtitle') }}</p>
+            </div>
+
+            <!-- §13 screen 3: "create new roles". Drawn unconditionally because
+                 the route guard already names `admin.manage_roles` and §3.11
+                 gives that row to the Super Admin alone — there is no caller who
+                 reaches this screen and may not use it. §3.12 rule 1 still holds
+                 underneath: `POST /roles` refuses on its own. -->
+            <button
+                v-if="!loading && !failed"
+                type="button"
+                class="primary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="roles-create"
+                @click="creating = true; createError = null"
+            >
+                {{ t('roles.create.action') }}
+            </button>
         </header>
 
         <LoadingState v-if="loading" label-key="roles.loading" />
@@ -245,7 +395,7 @@ onMounted(load);
                     data-testid="roles-tab"
                     @click="selectRole(role.id)"
                 >
-                    {{ role.name }}
+                    {{ role.label }}
                     <span
                         v-if="!role.is_editable"
                         class="immutable-chip rounded-full px-2 py-0.5"
@@ -264,7 +414,7 @@ onMounted(load);
                 role="note"
                 data-testid="roles-immutable-notice"
             >
-                {{ t('roles.immutableNotice', { role: selectedRole.name }) }}
+                {{ t('roles.immutableNotice', { role: selectedRole.label }) }}
             </p>
 
             <p
@@ -378,6 +528,21 @@ onMounted(load);
                 </p>
 
                 <div class="flex flex-wrap gap-2">
+                    <!-- Only for a role an administrator added. §3.1's eight are
+                         restored by the seeder on its next run, so archiving one
+                         is a change that undoes itself — the server refuses it
+                         and the control is not drawn. -->
+                    <button
+                        v-if="archivable"
+                        type="button"
+                        class="danger-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="saving || archiveBusy"
+                        data-testid="roles-archive"
+                        @click="archivingId = selectedRoleId"
+                    >
+                        {{ t('roles.archive.action') }}
+                    </button>
+
                     <button
                         type="button"
                         class="secondary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -403,12 +568,35 @@ onMounted(load);
 
         <PermissionDiffModal
             :open="confirming"
-            :role-name="selectedRole?.name ?? ''"
+            :role-name="selectedRole?.label ?? ''"
             :granted="diff.granted"
             :revoked="diff.revoked"
             :busy="saving"
             @confirm="save"
             @cancel="confirming = false"
+        />
+
+        <RoleFormModal
+            :open="creating"
+            :busy="createBusy"
+            :error-key="createError"
+            @submit="submitRole"
+            @cancel="creating = false"
+        />
+
+        <!-- §6.6: a consequential action states its consequence first. The
+             message names the grants that go with the role, because they are
+             the part an administrator cannot see from the tab they clicked. -->
+        <ConfirmDialog
+            :open="archiving !== null"
+            title-key="roles.archive.confirm.title"
+            message-key="roles.archive.confirm.message"
+            confirm-key="roles.archive.confirm.action"
+            :subject="archiving?.label ?? ''"
+            :busy="archiveBusy"
+            danger
+            @confirm="confirmArchive"
+            @cancel="archivingId = null"
         />
     </section>
 </template>
@@ -505,5 +693,13 @@ onMounted(load);
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+/* §6.4 and §9.5: the button carries its own word, so the colour is an accent on
+   a distinction that is already legible without it. */
+.danger-action {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-danger);
+    color: var(--color-danger);
 }
 </style>

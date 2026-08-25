@@ -16,14 +16,14 @@ import { MANAGER_MAY_CREATE, assignableBy } from '@/domain/roleAssignment';
  */
 
 const ROLES = [
-    { id: 'r-outsup', slug: 'outdoor_supervisor', name: 'Outdoor Supervisor', is_system: true },
-    { id: 'r-outsales', slug: 'outdoor_sales', name: 'Outdoor Sales', is_system: true },
-    { id: 'r-indoor', slug: 'indoor_sales', name: 'Indoor Sales', is_system: true },
-    { id: 'r-proc', slug: 'procurement', name: 'Procurement', is_system: true },
-    { id: 'r-tl', slug: 'team_leader', name: 'Team Leader', is_system: true },
-    { id: 'r-mgr', slug: 'manager', name: 'Manager', is_system: true },
-    { id: 'r-ceo', slug: 'ceo', name: 'CEO', is_system: true },
-    { id: 'r-sa', slug: 'super_admin', name: 'Super Admin', is_system: true },
+    { id: 'r-outsup', slug: 'outdoor_supervisor', name: 'Outdoor Supervisor', name_ar: null, label: 'Outdoor Supervisor', is_system: true },
+    { id: 'r-outsales', slug: 'outdoor_sales', name: 'Outdoor Sales', name_ar: null, label: 'Outdoor Sales', is_system: true },
+    { id: 'r-indoor', slug: 'indoor_sales', name: 'Indoor Sales', name_ar: null, label: 'Indoor Sales', is_system: true },
+    { id: 'r-proc', slug: 'procurement', name: 'Procurement', name_ar: null, label: 'Procurement', is_system: true },
+    { id: 'r-tl', slug: 'team_leader', name: 'Team Leader', name_ar: null, label: 'Team Leader', is_system: true },
+    { id: 'r-mgr', slug: 'manager', name: 'Manager', name_ar: null, label: 'Manager', is_system: true },
+    { id: 'r-ceo', slug: 'ceo', name: 'CEO', name_ar: null, label: 'CEO', is_system: true },
+    { id: 'r-sa', slug: 'super_admin', name: 'Super Admin', name_ar: null, label: 'Super Admin', is_system: true },
 ];
 
 function mountForm(actorRole: string | null, locale: 'ar' | 'en' = 'en') {

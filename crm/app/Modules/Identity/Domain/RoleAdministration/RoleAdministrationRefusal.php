@@ -62,11 +62,82 @@ enum RoleAdministrationRefusal: string
      */
     case GrantForbidden = 'grant_forbidden';
 
+    /**
+     * `§3.1`'s eight, whose slug and label the system owns.
+     *
+     * Separate from {@see self::RoleIsImmutable}, and the two are not the same
+     * rule wearing two names. That one is about **grants** and fires for the
+     * Super Admin alone, because §3.12 rule 5 makes every other role's matrix
+     * editable. This one is about **identity** — the row's slug and label — and
+     * fires for all eight, because `Role`'s cases are matched on the slug and
+     * `RolePermissionSeeder` rewrites `name` from `Role::label()` on every run.
+     * Renaming Team Leader here would be undone by the next deployment and
+     * would report success in the meantime.
+     *
+     * ⚠️ The owner's Point 4.2 brief asked for the code `role_is_immutable`
+     * here. It is deliberately **not** reused: that code is already returned by
+     * a different rule with a different scope, it is pinned by
+     * `RolePermissionManagementTest` and matched by name in
+     * `RolesMatrixView.vue`, and one code standing for two rules is a code the
+     * SPA cannot map to one sentence. The status, the error class and the
+     * behaviour are exactly what the brief specified.
+     */
+    case SystemRoleCannotBeEdited = 'system_role_cannot_be_edited';
+
+    /**
+     * `§3.1`'s eight, again — this time against archiving.
+     *
+     * The seeder restores a trashed row on its next run
+     * (`RolePermissionSeeder::seedRoles`), so archiving a system role is a
+     * change that undoes itself silently. Refusing is the honest answer.
+     */
+    case SystemRoleCannotBeDeleted = 'system_role_cannot_be_deleted';
+
+    /**
+     * Somebody still holds this role.
+     *
+     * `users.role_id` is NOT NULL and §3.1 gives every user exactly one role,
+     * so archiving a role that is still assigned leaves accounts pointing at a
+     * row no listing returns — and `AuthorizeAction` would answer *denied* for
+     * every request they make, with nothing on any screen to explain why.
+     * `D-34`'s deactivation is the documented way to stand somebody down; this
+     * refusal is what stops a role archive from doing it by accident to
+     * everybody at once.
+     *
+     * Counted over **live** users only. An archived account (`DB-01`) is not
+     * somebody who will be refused tomorrow.
+     */
+    case RoleHasAssignedUsers = 'role_has_assigned_users';
+
+    /**
+     * The submitted slug is already a live role's machine key.
+     *
+     * A 422 on the field rather than a 409: the caller is creating a resource
+     * and one of the values they typed is wrong, which is what a form needs to
+     * hear. `roles_slug_unique_alive` refuses it at the database too — this is
+     * the readable half of the same rule, not a substitute for it.
+     */
+    case SlugAlreadyTaken = 'slug_already_taken';
+
+    /** The submitted English label is already a live role's. */
+    case NameAlreadyTaken = 'name_already_taken';
+
+    /** The submitted Arabic label is already a live role's. */
+    case ArabicNameAlreadyTaken = 'name_ar_already_taken';
+
+    /**
+     * A `PATCH` that changes nothing.
+     *
+     * Refused rather than answered with the unchanged role, for the reason
+     * `UpdateUser` gives: an empty body is far more often a client bug than an
+     * intention, and a 200 hides it.
+     */
+    case NoFieldsSubmitted = 'no_fields_submitted';
+
     public function status(): int
     {
         return match ($this) {
             self::RoleNotFound => 404,
-            self::PermissionNotFound => 422,
             default => 422,
         };
     }
@@ -76,7 +147,11 @@ enum RoleAdministrationRefusal: string
     {
         return match ($this) {
             self::RoleNotFound => 'resource_not_found',
-            self::PermissionNotFound => 'validation_failed',
+            self::PermissionNotFound,
+            self::SlugAlreadyTaken,
+            self::NameAlreadyTaken,
+            self::ArabicNameAlreadyTaken,
+            self::NoFieldsSubmitted => 'validation_failed',
             default => 'business_rule_blocked',
         };
     }
@@ -86,6 +161,9 @@ enum RoleAdministrationRefusal: string
     {
         return match ($this) {
             self::PermissionNotFound, self::GrantForbidden => 'permission_ids',
+            self::SlugAlreadyTaken => 'slug',
+            self::NameAlreadyTaken => 'name',
+            self::ArabicNameAlreadyTaken => 'name_ar',
             default => null,
         };
     }

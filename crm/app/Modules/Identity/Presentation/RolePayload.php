@@ -26,13 +26,27 @@ use App\Modules\Identity\Domain\RoleAdministration\RoleView;
  */
 final class RolePayload
 {
-    /** @return array<string, mixed> */
-    public static function of(RoleView $role): array
+    /**
+     * @param  string  $locale  the request's locale, as `SetLocaleFromRequest` resolved it
+     * @return array<string, mixed>
+     */
+    public static function of(RoleView $role, string $locale): array
     {
         return [
             'id' => $role->id,
             'slug' => $role->slug,
+            // The two stored labels, and the one to print.
+            //
+            // `label` is resolved by the **server** because the fallback is a
+            // rule, not a formatting choice: §3.1's eight roles carry no Arabic
+            // name — the master documentation does not contain one — so an
+            // Arabic screen must fall back to English for them and must not for
+            // a custom role that has one. A client computing that is a second
+            // implementation of the rule, and the copy that is wrong is always
+            // the one in the screen (the same argument `is_grantable` carries).
             'name' => $role->name,
+            'name_ar' => $role->nameAr,
+            'label' => $role->label($locale),
             // `§3.1`'s eight. The screen uses it to explain why a role cannot
             // be renamed or retired; it does **not** decide whether the grants
             // may be edited — §3.12 rule 5 says they may, for every role except
@@ -48,12 +62,12 @@ final class RolePayload
      * @param  ReferencePage<RoleView>  $page
      * @return list<array<string, mixed>>
      */
-    public static function manyRoles(ReferencePage $page): array
+    public static function manyRoles(ReferencePage $page, string $locale): array
     {
         $items = [];
 
         foreach ($page->items as $role) {
-            $items[] = self::of($role);
+            $items[] = self::of($role, $locale);
         }
 
         return $items;

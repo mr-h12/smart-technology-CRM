@@ -28,9 +28,30 @@ final readonly class AdministeredUser
         public string $roleId,
         public string $roleSlug,
         public string $roleName,
+        /** The role's Arabic label, or null when it has none (§3.1's eight). */
+        public ?string $roleNameAr,
         public bool $isActive,
         public bool $isHidden,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {}
+
+    /**
+     * The role label to show a reader in this locale.
+     *
+     * The same fallback {@see \App\Modules\Identity\Domain\RoleAdministration\RoleView::label()}
+     * applies, and it is duplicated rather than shared because these are two
+     * different reads of `roles` reached through two different contracts —
+     * `RoleSummary` here, the full row there — and neither module may depend on
+     * the other's value object. `CustomRoleManagementTest` asserts the two
+     * screens answer alike for the same role.
+     */
+    public function roleLabel(string $locale): string
+    {
+        if ($locale === 'ar' && $this->roleNameAr !== null && $this->roleNameAr !== '') {
+            return $this->roleNameAr;
+        }
+
+        return $this->roleName;
+    }
 }

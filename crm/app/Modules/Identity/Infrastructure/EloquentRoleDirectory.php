@@ -12,6 +12,7 @@ use App\Modules\Identity\Domain\RoleAdministration\ReferencePage;
 use App\Modules\Identity\Domain\RoleAdministration\RoleView;
 use App\Modules\Identity\Infrastructure\Eloquent\Permission;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
+use App\Modules\Identity\Infrastructure\Eloquent\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
 
@@ -37,10 +38,20 @@ final class EloquentRoleDirectory implements RoleDirectoryInterface
 {
     public function __construct(private readonly ConnectionInterface $connection) {}
 
-    /** @return ReferencePage<RoleView> */
-    public function listRoles(ReferenceListCriteria $criteria): ReferencePage
+    /**
+     * @param  list<string>|null  $limitToSlugs
+     * @return ReferencePage<RoleView>
+     */
+    public function listRoles(ReferenceListCriteria $criteria, ?array $limitToSlugs = null): ReferencePage
     {
         $query = Role::query();
+
+        // Before the count, so `total` describes the page the caller can
+        // actually reach (`OpenAPI §6.1`). `whereIn` with an empty list matches
+        // nothing, which is the wanted answer rather than an accident.
+        if ($limitToSlugs !== null) {
+            $query->whereIn('slug', $limitToSlugs);
+        }
 
         $isSystem = $criteria->filterBool('is_system');
 
@@ -141,6 +152,105 @@ final class EloquentRoleDirectory implements RoleDirectoryInterface
         }
 
         return $items;
+    }
+
+    public function slugTaken(string $slug): bool
+    {
+        return Role::query()->where('slug', $slug)->exists();
+    }
+
+    public function nameTaken(string $name, ?string $exceptRoleId = null): bool
+    {
+        return self::labelTaken('name', $name, $exceptRoleId);
+    }
+
+    public function arabicNameTaken(string $nameAr, ?string $exceptRoleId = null): bool
+    {
+        return self::labelTaken('name_ar', $nameAr, $exceptRoleId);
+    }
+
+    public function countUsersWithRole(string $roleId): int
+    {
+        if (! Str::isUuid($roleId)) {
+            return 0;
+        }
+
+        // The Eloquent model applies `SoftDeletes`, so this counts live rows —
+        // which is the question the refusal asks. An archived account is not
+        // somebody a role archive would strand.
+        return User::query()->where('role_id', $roleId)->count();
+    }
+
+    public function createRole(string $slug, string $name, ?string $nameAr, ?string $description): RoleView
+    {
+        $role = new Role;
+
+        $role->fill([
+            'slug' => $slug,
+            'name' => $name,
+            'name_ar' => $nameAr,
+            'description' => $description,
+            // §3.12 rule 5's ninth role. Never true from here — see the
+            // interface note.
+            'is_system' => false,
+        ]);
+
+        $role->save();
+
+        // Re-read through the same path every other caller uses, so a created
+        // role and a listed one cannot differ in shape. `permissions` is empty
+        // on a row that was just inserted, and loading it says so explicitly
+        // rather than leaving the relation unresolved.
+        $role->load('permissions');
+
+        return self::hydrateRole($role);
+    }
+
+    /** @param  array{name?: string, name_ar?: string|null, description?: string|null}  $attributes */
+    public function updateRole(string $roleId, array $attributes): RoleView
+    {
+        $role = Role::query()->whereKey($roleId)->firstOrFail();
+
+        // `array_key_exists` rather than `isset`: a key present with null is a
+        // request to clear the column, and `isset` cannot see it.
+        foreach (['name', 'name_ar', 'description'] as $column) {
+            if (array_key_exists($column, $attributes)) {
+                $role->setAttribute($column, $attributes[$column]);
+            }
+        }
+
+        $role->save();
+        $role->load('permissions');
+
+        return self::hydrateRole($role);
+    }
+
+    public function archiveRole(string $roleId): int
+    {
+        // The grants first: a live `role_permissions` row pointing at an
+        // archived role is a grant nothing can revoke through the API.
+        $grants = $this->connection->table('role_permissions')
+            ->where('role_id', $roleId)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now(), 'updated_at' => now()]);
+
+        // `DB-01`: soft delete. `Role` uses `SoftDeletes`, so this sets
+        // `deleted_at` — `forceDelete()` is forbidden on business data and is
+        // not reachable from any endpoint.
+        Role::query()->whereKey($roleId)->delete();
+
+        return $grants;
+    }
+
+    private static function labelTaken(string $column, string $value, ?string $exceptRoleId): bool
+    {
+        $query = Role::query()->where($column, $value);
+
+        if ($exceptRoleId !== null && Str::isUuid($exceptRoleId)) {
+            $query->whereKeyNot($exceptRoleId);
+        }
+
+        return $query->exists();
     }
 
     /** @param  list<string>  $permissionIds */
@@ -252,6 +362,7 @@ final class EloquentRoleDirectory implements RoleDirectoryInterface
             id: (string) $role->id,
             slug: (string) $role->slug,
             name: (string) $role->name,
+            nameAr: $role->name_ar,
             isSystem: (bool) $role->is_system,
             description: $role->description,
             permissions: $permissions,

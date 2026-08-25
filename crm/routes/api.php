@@ -200,28 +200,52 @@ Route::middleware('auth')->prefix('users')->group(function (): void {
 });
 
 // Module 1 §3.11 — "create / edit role · permissions", the row whose Others and
-// Manager columns are both `—`. §3.12 rule 5 is what these endpoints exist for:
-// "Permissions live in the database — changing this matrix is a configuration
-// change, not a deployment."
+// Manager columns are both `—`, plus §13 screen 3's "create new roles".
+// §3.12 rule 5 is what these endpoints exist for: "Permissions live in the
+// database — changing this matrix is a configuration change, not a deployment."
 //
-// ⚠️ **All three carry `admin.manage_roles`, including the two reads, and that
-// is narrower than it may look.** §3.11 gives that row to the Super Admin
-// alone. Guarding the listings with `admin.create_user` instead would have let
-// a Manager read the whole authorisation matrix, which no row in §3.11 grants —
-// and D-78's mapping was defensible precisely because it *could not widen
-// access*. The same reasoning that permitted D-78 forbids it here.
+// ⚠️ **The listing is the one exception, and it is the owner's decision of
+// 2026-08-25 (Point 4.2).** Every other route here carries
+// `admin.manage_roles`, a row §3.11 gives to the Super Admin alone. `GET
+// /roles` carries `admin.create_user` instead, and `ListRoles` then narrows the
+// page to `RoleAssignmentPolicy::assignableBy()` for any caller who does not
+// *also* hold `admin.manage_roles`.
 //
-// The cost, stated rather than hidden: a Manager may create users (§3.11) but
-// cannot list the roles to pick a `role_id` from. That gap is **pre-existing**
-// — Point 3.2 shipped the create endpoint with no role listing at all — and
-// closing it needs either a new §3.11 row or an assignable-roles endpoint
-// scoped to `admin.create_user`. Recorded as an owner question in CHECKLIST.md,
-// not decided here.
+// That closes a documented grant nobody could exercise: §3.11 lets the Manager
+// create users with four named roles, and until now the Manager could not read
+// a single role to obtain a `role_id`. It does **not** widen the matrix screen
+// — a Manager still sees four rows and no permission triples they may not
+// confer — and §3.12 rule 1 is untouched, because `CreateUser` and `UpdateUser`
+// re-ask rule 7 about whatever `role_id` comes back. Raised as an owner
+// question at Points 3.2, 4.1, 5.2 and 5.3; answered here.
+//
+// ⚠️ **`DELETE /roles/{role}` is a capability §3.11 does not name.** That row
+// reads "create / edit role · permissions" and says nothing about retiring one.
+// The endpoint archives (`DB-01` — no row is removed) and carries the same
+// Super-Admin-only `admin.manage_roles` as the edit routes, so it cannot widen
+// who administers roles. Recorded in CHECKLIST.md as a decision awaiting a
+// `D-xx` number rather than absorbed into the matrix silently.
 Route::middleware('auth')->group(function (): void {
     Route::get('/roles', [RoleController::class, 'index'])
+        ->middleware('permission:admin.create_user');
+
+    Route::post('/roles', [RoleController::class, 'store'])
         ->middleware('permission:admin.manage_roles');
 
+    // ⚠️ **Registered before the wildcard `{role}` routes below, and must stay
+    // first** — `/roles/{role}` would otherwise capture nothing here today, but
+    // the ordering is written down because `auth/impersonate` needed exactly
+    // this care and the reason is not obvious from either file.
     Route::get('/roles/{role}', [RoleController::class, 'show'])
+        ->middleware('permission:admin.manage_roles');
+
+    // The labels and the description. The slug is not editable — `UpdateRole`
+    // explains why: it is what `Role::tryFrom()` matches on, so changing it
+    // silently re-answers §3.12 rule 7 for every Manager.
+    Route::patch('/roles/{role}', [RoleController::class, 'update'])
+        ->middleware('permission:admin.manage_roles');
+
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])
         ->middleware('permission:admin.manage_roles');
 
     // §7.2's action suffix: "a clear action suffix only when an action is not a

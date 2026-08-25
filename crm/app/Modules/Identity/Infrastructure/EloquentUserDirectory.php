@@ -178,6 +178,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             roleId: $user->role_id,
             roleSlug: $role->slug,
             roleName: $role->name,
+            roleNameAr: $role->name_ar,
             isActive: $user->is_active,
             isHidden: $user->is_hidden,
             // DB-08: stored UTC, handed on as an immutable UTC instant. The

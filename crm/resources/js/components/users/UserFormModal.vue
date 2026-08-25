@@ -232,7 +232,7 @@ async function save(): Promise<void> {
                     data-testid="user-form-role"
                 >
                     <option value="" disabled>{{ t('users.form.rolePlaceholder') }}</option>
-                    <option v-for="role in options" :key="role.id" :value="role.id">{{ role.name }}</option>
+                    <option v-for="role in options" :key="role.id" :value="role.id">{{ role.label }}</option>
                 </select>
                 <span v-if="options.length === 0" class="text-[var(--color-text-muted)] text-pretty">
                     {{ t('users.form.noAssignableRoles') }}

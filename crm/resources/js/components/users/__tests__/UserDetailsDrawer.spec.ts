@@ -24,7 +24,7 @@ const USER = {
     name: 'Layla Hassan',
     email: 'layla@example.test',
     role_id: 'role-1',
-    role: { slug: 'indoor_sales', name: 'Indoor Sales' },
+    role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
     is_active: true,
     created_at: '2026-08-01T08:00:00+00:00',
     updated_at: '2026-08-20T08:00:00+00:00',

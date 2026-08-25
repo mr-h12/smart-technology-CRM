@@ -15,6 +15,7 @@ use App\Modules\Identity\Domain\Authentication\SessionAttribute;
 use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 
 /**
  * §3.11's user administration, as `OpenAPI §7.1`'s conventional resource routes
@@ -43,14 +44,14 @@ final class UserController
 
         return ApiEnvelope::collection(
             $request,
-            UserPayload::many($page),
+            UserPayload::many($page, self::locale()),
             UserPayload::pagination($page),
         );
     }
 
     public function show(Request $request, string $user, ListUsers $users): JsonResponse
     {
-        return ApiEnvelope::single($request, UserPayload::of($users->one($user)));
+        return ApiEnvelope::single($request, UserPayload::of($users->one($user), self::locale()));
     }
 
     public function store(CreateUserRequest $request, CreateUser $create): JsonResponse
@@ -65,7 +66,7 @@ final class UserController
 
         // 201: OpenAPI §4.1 covers POST create with the single-resource
         // envelope, and §7.1 makes this a conventional resource creation.
-        return ApiEnvelope::single($request, UserPayload::of($created), 201);
+        return ApiEnvelope::single($request, UserPayload::of($created, self::locale()), 201);
     }
 
     public function update(UpdateUserRequest $request, string $user, UpdateUser $update): JsonResponse
@@ -75,7 +76,7 @@ final class UserController
 
         $updated = $update->handle(self::actorId($request), $user, $submitted);
 
-        return ApiEnvelope::single($request, UserPayload::of($updated));
+        return ApiEnvelope::single($request, UserPayload::of($updated, self::locale()));
     }
 
     public function deactivate(Request $request, string $user, SetUserActivation $activation): JsonResponse
@@ -129,6 +130,18 @@ final class UserController
         return ApiEnvelope::single($request, ['revoked' => true, 'session_id' => $session]);
     }
 
+    /**
+     * The locale `SetLocaleFromRequest` negotiated for this request.
+     *
+     * Read from the application, which is where that middleware puts it
+     * (`app()->setLocale($locale)`) — not from `$request->getLocale()`, which
+     * is Symfony's own field and is never written by it.
+     */
+    private static function locale(): string
+    {
+        return App::getLocale();
+    }
+
     /** The device the administrator is holding, as the guard resolved it. */
     private static function callerSessionId(Request $request): ?string
     {
@@ -140,7 +153,7 @@ final class UserController
     /** @param array{user: \App\Modules\Identity\Domain\Administration\AdministeredUser, sessions_revoked: int, changed: bool} $result */
     private static function activationResponse(Request $request, array $result): JsonResponse
     {
-        return ApiEnvelope::single($request, UserPayload::of($result['user']) + [
+        return ApiEnvelope::single($request, UserPayload::of($result['user'], self::locale()) + [
             // How many devices this took down (SEC-05). Zero on a reactivation
             // and on a call that changed nothing, which `changed` distinguishes
             // from a deactivation of somebody who was never signed in.

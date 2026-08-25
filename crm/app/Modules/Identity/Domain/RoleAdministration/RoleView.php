@@ -21,10 +21,39 @@ final readonly class RoleView
         public string $id,
         public string $slug,
         public string $name,
+        public ?string $nameAr,
         public bool $isSystem,
         public ?string $description,
         public array $permissions,
     ) {}
+
+    /**
+     * The label to show a reader in this locale.
+     *
+     * `CLAUDE.md` requires every screen to work in Arabic and English, and a
+     * role's label is **data** rather than a lang key — §3.12 rule 5 makes a
+     * ninth role a runtime configuration change, so there is no lang file its
+     * name could ever live in and nobody to translate it afterwards.
+     *
+     * ⚠️ **`§3.1`'s eight answer English in both languages**, because `nameAr`
+     * is null on every one of them: the master documentation names them in
+     * English only, and writing Arabic for them here would be inventing
+     * documentation rather than reading it. The fallback is what keeps that gap
+     * from rendering as an empty cell.
+     *
+     * Resolved in Domain and handed the locale, rather than read from the
+     * framework: this class may depend on nothing (`deptrac.layers.yaml` gives
+     * Domain an empty ruleset), and a rule that reaches for a global is a rule
+     * a second entry point resolves differently.
+     */
+    public function label(string $locale): string
+    {
+        if ($locale === 'ar' && $this->nameAr !== null && $this->nameAr !== '') {
+            return $this->nameAr;
+        }
+
+        return $this->name;
+    }
 
     /**
      * The `§3.1` role this row stands for, or null for one an administrator

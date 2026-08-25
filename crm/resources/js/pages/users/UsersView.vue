@@ -76,16 +76,23 @@ const inspecting = ref<string | null>(null);
 const canTerminateSessions = computed(() => auth.hasPermission('admin.deactivate_user'));
 
 /**
- * ⚠️ True only for a caller who may read `GET /api/v1/roles`.
+ * True for a caller who may read `GET /api/v1/roles`.
  *
- * §3.11 gives "create / edit role · permissions" to the Super Admin alone, so a
- * Manager — who holds `admin.create_user` — cannot fetch the role list and
- * therefore cannot obtain a `role_id`. The gap predates this screen (Point 3.2
- * shipped the create endpoint with no role listing at all) and is recorded as
- * an owner question. Until it is answered, the screen says so instead of
- * offering a form that cannot be submitted.
+ * ✅ **The gap this used to name is closed (Point 4.2).** §3.11 gives the
+ * Manager "create user … Out.Sup · Out.Sales · Sales · Procurement only", and
+ * until Point 4.2 the role listing carried `admin.manage_roles` — a row §3.11
+ * gives to the Super Admin alone — so the Manager could not obtain a `role_id`
+ * and the form was permanently unavailable to them. The endpoint now carries
+ * `admin.create_user` and narrows the page to
+ * `RoleAssignmentPolicy::assignableBy()`, which is the same row this screen
+ * already requires to load at all.
+ *
+ * It is still asked rather than assumed: §3.12 rule 5 lets an administrator
+ * build a role that reaches this screen through some later grant, and a fetch
+ * that 403s should leave the list empty and the notice visible rather than
+ * failing the whole screen.
  */
-const canLoadRoles = computed(() => auth.hasPermission('admin.manage_roles'));
+const canLoadRoles = computed(() => auth.hasPermission('admin.create_user'));
 
 const canCreate = computed(() => roles.value.length > 0);
 
@@ -251,7 +258,7 @@ onMounted(async () => {
                     @change="applyFilters"
                 >
                     <option value="">{{ t('users.filter.roleAll') }}</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.slug">{{ role.name }}</option>
+                    <option v-for="role in roles" :key="role.id" :value="role.slug">{{ role.label }}</option>
                 </select>
             </label>
         </div>
@@ -279,7 +286,7 @@ onMounted(async () => {
                              Latin addresses are drawn by it in both locales.
                              tabular-nums keeps columns of figures aligned. -->
                         <td class="p-3 tabular-nums">{{ user.email }}</td>
-                        <td class="p-3">{{ user.role.name }}</td>
+                        <td class="p-3">{{ user.role.label }}</td>
                         <td class="p-3">
                             <!-- §9.5: legible without relying on colour alone —
                                  the badge carries its own word. -->

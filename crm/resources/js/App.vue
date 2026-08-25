@@ -11,7 +11,7 @@
  * rule that could take a side is written on the inline axis, and
  * LogicalPropertiesTest fails the build if one is not.
  */
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/AppSidebar.vue';
@@ -44,10 +44,22 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 // Navigating with the drawer open would otherwise leave it covering the page
 // the user just asked for.
 watch(() => route.fullPath, closeSidebar);
+
+/**
+ * The login screen renders without the shell.
+ *
+ * A sidebar drawn for somebody with no session would be a menu of links they
+ * cannot follow, and §5.1's context bar has no user to name. The route says so
+ * with `meta.bare` rather than this file testing a path, so a second signed-out
+ * screen is a route flag and not another condition here.
+ */
+const bare = computed(() => route.meta.bare === true);
 </script>
 
 <template>
-    <div class="flex min-h-dvh bg-[var(--color-canvas)] text-[var(--color-text)]">
+    <RouterView v-if="bare" />
+
+    <div v-else class="flex min-h-dvh bg-[var(--color-canvas)] text-[var(--color-text)]">
         <!-- §8 asks for a full keyboard path. Without this, reaching the page
              means tabbing the whole sidebar on every navigation. -->
         <a

@@ -70,7 +70,8 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
-                'EmptyState.vue', 'ErrorState.vue', 'LoadingState.vue', 'PermissionDeniedState.vue',
+                'EmptyState.vue', 'ErrorState.vue', 'ForbiddenView.vue', 'LoadingState.vue',
+                'LoginView.vue', 'PermissionDeniedState.vue',
                 'Ping.vue',
             ],
             self::basenames($files),
@@ -452,7 +453,16 @@ final class NoHardCodedTextTest extends TestCase
      */
     private static function basenames(array $paths): array
     {
-        return array_map(static fn (string $path): string => basename($path), $paths);
+        $names = array_map(static fn (string $path): string => basename($path), $paths);
+
+        // Sorted, because the caller asserts a **set** and the iterator walks
+        // directories rather than the alphabet. Point 5.1 added two files and
+        // the diff showed five lines moving when two had been added — an
+        // ordering the assertion never meant to pin, and one that would make
+        // every future addition harder to read than it is.
+        sort($names);
+
+        return $names;
     }
 
     private static function read(string $path): string

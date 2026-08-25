@@ -9,14 +9,18 @@
  * list screen to filter, so neither is stubbed: an inert search box is a
  * promise the product cannot keep yet.
  *
- * The user menu shows a signed-out state and no name. There is no identity
- * before Module 1, and inventing one would put a fiction on every screen.
+ * The user menu shows the signed-in person's name and a sign-out control
+ * (Point 5.1). It showed a fixed signed-out state until Module 1 had an
+ * identity to put there; `user.signedOut` is still the string when there is no
+ * session, which is what the login screen's own route never renders because it
+ * is `meta.bare`.
  */
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { setLocale, SUPPORTED, type Locale } from '@/i18n';
 import { currentTheme, setTheme, THEMES, type Theme } from '@/theme';
+import { useAuth } from '@/stores/auth';
 
 defineProps<{
     /** Drawer state, so the control can announce what it does. */
@@ -27,6 +31,18 @@ const emit = defineEmits<{ toggleSidebar: [] }>();
 
 const { t, locale } = useI18n();
 const route = useRoute();
+const router = useRouter();
+const auth = useAuth();
+
+/**
+ * `SEC-05`. The store clears local state whatever the server answers, so a
+ * token the server already revoked still ends the session here rather than
+ * stranding the person in one that cannot do anything.
+ */
+async function signOut(): Promise<void> {
+    await auth.logout();
+    await router.replace({ name: 'login' });
+}
 
 /**
  * The title comes from the route, not from each page repeating it. A page that
@@ -191,8 +207,24 @@ function localeCode(option: Locale): string {
                     <path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.5c-3 0-5.5 1.6-5.5 3.6V17h11v-1.9c0-2-2.5-3.6-5.5-3.6z" />
                 </svg>
             </span>
-            <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
+            <span class="min-w-0 truncate">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
         </span>
+
+        <!-- SEC-05's force-logout, applied by the person themselves. Present
+             only with a session, because a sign-out control on the login screen
+             is an action with nothing to act on. -->
+        <button
+            v-if="auth.isAuthenticated.value"
+            type="button"
+            class="context-control inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 text-table"
+            data-testid="sign-out"
+            @click="signOut"
+        >
+            <svg viewBox="0 0 20 20" class="size-4 shrink-0" fill="currentColor" aria-hidden="true">
+                <path d="M11 3a1 1 0 0 1 0 2H6v10h5a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm3.3 3.3 3 3a1 1 0 0 1 0 1.4l-3 3a1 1 0 0 1-1.4-1.4L14.08 11H9a1 1 0 1 1 0-2h5.08l-1.18-1.3a1 1 0 0 1 1.4-1.4z" />
+            </svg>
+            <span>{{ t('user.signOut') }}</span>
+        </button>
     </header>
 </template>
 

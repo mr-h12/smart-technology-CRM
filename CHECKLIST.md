@@ -1823,15 +1823,96 @@ correction both need the owner's approval on a hook-protected file, and `--color
 - [ ] `POST` / `PATCH` / archive on `/api/v1/roles` itself — §3.11's "create role" half, still
       unbuilt, so §3.12 rule 5's ninth role cannot be added through the API yet
 
-**Frontend** login page · role-based redirect · protected routes · role and permission management
+#### Step 5 — frontend SPA screens *(breakdown approved 2026-08-25)*
+
+- [x] **5.1** Authentication store, login view, and role-based navigation guards. *(2026-08-25)*
+      `resources/js/stores/auth.ts` · `resources/js/router/index.ts` ·
+      `resources/js/pages/auth/LoginView.vue` · `resources/js/pages/ForbiddenView.vue`.
+      **None of this is authorization, and saying so is the point.** §3.12 rule 1 and `SEC-09`:
+      "Enforcement happens at the API — hiding a button is not the same as blocking an action."
+      A guard decides which screen renders; a person who edits the route table in a debugger
+      reaches a component that immediately asks `/api/v1` and is refused there. The tests say this
+      in their own headers so that nobody later reads a green guard suite as an access-control
+      proof.
+      ⚠️ **The landing table follows §8, not the point's brief.** The brief proposed `/deals` for
+      Manager and Team Leader and `/requests` for both Sales roles. §8 opens Manager and Team
+      Leader with *Dashboard*, Outdoor Supervisor and Outdoor Sales with *Today's Visits*, Indoor
+      Sales with *Customers*, Procurement with *Assigned Deals*, CEO with *Dashboard*, and Super
+      Admin with §13's administrative screens. `CLAUDE.md` puts the master documentation above the
+      brief, so `LANDING_ROUTE` transcribes §8 — and `RoleLandingTest` reads §8 back out of the
+      mounted documentation rather than trusting the transcription. Pasting the brief's table in
+      was tried on purpose and the test failed with "§8 opens Manager with 'Dashboard'".
+      **None of those eight screens exists yet** — Dashboard is Module 14, Customers Module 3,
+      Deals Module 5, Visits Module 12, §13 later still. `landingRouteFor()` resolves an
+      unregistered target to `home` rather than redirecting into a blank page, which is the defect
+      `navigation.ts` already names: "a dead link is not a permission problem, it is a lie." A
+      third test asserts the gap directly, so it fails — and gets updated — in the same commit that
+      registers each module's route.
+      **`D-74`, read correctly.** The brief called the stored value a "SHA-256 Bearer"; the SHA-256
+      in `D-74` is what the **server** keeps in `user_sessions.session_id`. The client holds the
+      opaque 64-hex token and hashes nothing — a client that hashed it would present a credential
+      the server has never seen. A test asserts the outgoing header is `Bearer <the same 64 hex>`.
+      **`localStorage`, with `D-74`'s trade-off already recorded** — "a token the SPA must hold is
+      reachable by script in a way an HttpOnly cookie is not". `sessionStorage` does not change
+      that (script reads both); it only makes a second tab a second sign-in, against `D-29`'s
+      eight-hour day. What bounds the damage is what that decision names: per-device revocation
+      (`SEC-05`), the idle expiry, and a database holding only the digest.
+      **A 401 clears the session — except on the login request itself.** `D-29`'s expiry,
+      `SEC-05`'s revocation and §10.1's mid-shift deactivation all arrive as a 401, and the
+      transport clears state and replaces the route with `/login`. But a wrong password is a 401
+      too, and treating it as an expired session would clear state the person never had and bounce
+      them to the page they are already looking at. The handler runs only when a credential was
+      actually attached; both branches are tested.
+      **Three refusals, three sentences** (§10.1, `SEC-03`, `OpenAPI §5.1`). §10.1's wording is an
+      acceptance criterion, so the test asserts it character for character — "Account suspended,
+      please contact administration." A locked account (**423**) is a state retyping cannot fix and
+      says so; a network failure says the server could not be reached rather than blaming the
+      password. `D-28` is **not** re-implemented client-side (`D-67`): the form only checks that
+      two boxes are not empty.
+      **`SEC-01` is stated on the screen, not left as an absence.** No sign-up link, no reset link
+      (§9 Flow 0's reset is the authenticated emailed code from Point 3.3), and a test asserts the
+      page renders **zero** anchors.
+      **The open redirect was closed before it shipped.** The guard leaves `?redirect=` behind;
+      `safeRedirect()` accepts only a same-origin absolute path and rejects `//evil.test`, which a
+      browser resolves to another host. Dropping the second character from that check failed the
+      test.
+      **`vitest` was added, and wired into CI in the same commit.** Point 5.1 is the first branching
+      logic in the SPA, and `vue-tsc` proves types while saying nothing about behaviour (`DEV-07`).
+      48 unit tests across the store, the guards and the login component; the CI step now runs
+      `npm run test:unit` between `npm ci` and `npm run build`, because a check CI does not run is
+      a check nobody reads. `vitest@3` was replaced with `@4` after `@3` shipped Vite 6 types that
+      cannot be reconciled with the project's Vite 8 under `exactOptionalPropertyTypes` — measured,
+      not guessed.
+      **Verified against the running server:** `/login` returns **200** through nginx, and the
+      server-side first paint is `<html lang="ar" dir="rtl">` for Arabic, `lang="en" dir="ltr"` for
+      English, and Arabic for an unsupported locale (§1 is Arabic-first). The built bundle carries
+      both languages' strings and the storage key.
+      **What this does NOT cover.** There is **no idle-timeout timer in the client** — `D-29` is
+      enforced server-side and the SPA learns about it only when the next request 401s, so a person
+      who leaves a tab open sees a working-looking screen until they touch it. There is **no
+      real 404 view**: an unknown path redirects to the landing chain, which is better than a blank
+      page and is not the same as saying the record does not exist. **No impersonation banner** —
+      Point 3.4's response body feeds one and this point does not draw it, so a Super Admin inside
+      a Login As still has no visual signal. **No active-device screen** (`SEC-05`'s list), **no
+      password-change screen** (Points 3.1/3.3's endpoints have no UI), and **no user or role
+      management screens** — those are the remaining Step 5 points. And the guards are **not** an
+      access-control boundary; the API is.
+      ❓ **Owner question — the landing table.** §8 is followed here. If the brief's `/deals` and
+      `/requests` were a deliberate product change rather than a paraphrase, it needs to be
+      recorded as a decision and §8 amended; until then the router follows the document
+
+**Frontend**
+- [x] login page · role-based redirect · protected routes — 5.1
+- [ ] role and permission management screens
+- [ ] user management screens · password change · active devices (`SEC-05`) · impersonation banner
 
 **Acceptance criteria**
-- [ ] Valid credentials → redirect to the role's default screen
+- [x] Valid credentials → redirect to the role's default screen *(5.1 — the map is §8's, read back out of the documentation by `RoleLandingTest`; every target falls back to `home` until its module registers a route)*
 - [ ] 5 failed attempts → account locks and an email is sent
 - [ ] Session idle 8 hours → automatic logout
 - [x] Permission removed from a role → direct API call returns **403** *(4.1 — proved in both directions, through the API and live over TLS: grant → 200, revoke → 403, nothing restarted)*
 - [ ] Password under 8 characters or digits only → rejected with a clear message
-- [ ] Deactivated employee → "Account suspended, please contact administration"
+- [x] Deactivated employee → "Account suspended, please contact administration" *(2.2 at the API; 5.1 renders §10.1's sentence character for character, in both languages)*
 - [ ] Super Admin is hidden from every user list, for every role
 - [ ] Manager cannot create Manager, CEO, or Super Admin accounts
 - [ ] Login As is Super Admin only and always writes an audit entry

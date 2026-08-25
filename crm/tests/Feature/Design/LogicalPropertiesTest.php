@@ -174,6 +174,8 @@ final class LogicalPropertiesTest extends TestCase
             'resources/js/components/states/ErrorState.vue',
             'resources/js/components/states/LoadingState.vue',
             'resources/js/components/states/PermissionDeniedState.vue',
+            'resources/js/pages/auth/LoginView.vue',
+            'resources/js/pages/ForbiddenView.vue',
             'resources/css/app.css',
         ] as $expected) {
             self::assertContains($expected, $scanned, "{$expected} is not being scanned.");
@@ -186,13 +188,20 @@ final class LogicalPropertiesTest extends TestCase
         // exist is a worse version of the same defect, and vue-router resolves
         // named routes at render time, so a typo surfaces as a runtime warning
         // in a browser nobody is watching.
-        $registered = self::routeNames(self::read(self::root().'/resources/js/app.ts'));
+        // Point 5.1 moved the table out of app.ts into router/index.ts, where
+        // the guards live with it. Reading the old file would have left this
+        // assertion passing against an empty list forever, which is why it
+        // asserts the source is not empty before it asserts anything about it.
+        $router = self::read(self::root().'/resources/js/router/index.ts');
+        $registered = self::routeNames($router);
         $used = self::routeNames(self::read(self::root().'/resources/js/navigation.ts'));
 
+        self::assertNotEmpty($registered, 'router/index.ts registers no route at all — the scan is looking in the wrong file.');
         self::assertNotEmpty($used, 'navigation.ts names no route at all.');
 
         foreach ($used as $name) {
-            self::assertContains($name, $registered, "navigation.ts links to '{$name}', which app.ts does not register.");
+            self::assertContains($name, $registered,
+                "navigation.ts links to '{$name}', which router/index.ts does not register.");
         }
     }
 

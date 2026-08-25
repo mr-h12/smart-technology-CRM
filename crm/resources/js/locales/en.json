@@ -8,6 +8,29 @@
     "arabic": "العربية",
     "english": "English"
   },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Internal system. Accounts are created by an administrator.",
+      "email": "Email address",
+      "password": "Password",
+      "emailRequired": "Enter your email address.",
+      "passwordRequired": "Enter your password.",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "noSignUp": "There is no self sign-up. Ask your manager or the system administrator for an account."
+    },
+    "error": {
+      "invalidCredentials": "These credentials do not match our records.",
+      "accountSuspended": "Account suspended, please contact administration.",
+      "accountLocked": "This account is locked after too many failed sign-in attempts. Contact administration.",
+      "sessionInvalid": "Your session is no longer valid. Please sign in again.",
+      "rateLimited": "Too many attempts. Please try again shortly.",
+      "validationFailed": "Please correct the highlighted fields.",
+      "unreachable": "The server could not be reached. Check your connection and try again.",
+      "unknown": "Sign-in failed. Please try again."
+    }
+  },
   "state": {
     "loading": "Loading…",
     "retry": "Try again",
@@ -67,6 +90,7 @@
     "midnight-obsidian": "Midnight Obsidian"
   },
   "user": {
-    "signedOut": "Not signed in"
+    "signedOut": "Not signed in",
+    "signOut": "Sign out"
   }
 }

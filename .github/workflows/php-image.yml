@@ -156,12 +156,20 @@ jobs:
       # requires strict typing with no untyped escape hatches. `npm run build`
       # runs vue-tsc before vite, so a type error fails here rather than
       # shipping as a runtime surprise. It also proves the bundle still builds.
-      - name: Type-check and build the frontend
+      - name: Type-check, test and build the frontend
         run: |
           docker run --rm -v "$PWD/crm:/app" -w /app --user root node:22-bookworm-slim sh -c '
             set -e
 
             npm ci --no-audit --no-fund
+
+            # DEV-07. Point 5.1 put branching logic in the SPA for the first
+            # time — the router guards and the session store — and vue-tsc
+            # proves the types while saying nothing about behaviour. This runs
+            # here rather than only locally because a check CI does not run is
+            # a check nobody reads.
+            npm run test:unit
+
             npm run build
           '
 

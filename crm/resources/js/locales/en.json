@@ -101,7 +101,8 @@
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving…",
-    "edit": "Edit"
+    "edit": "Edit",
+    "close": "Close"
   },
   "impersonation": {
     "banner": "You are signed in as {name} ({role}). Everything you do is recorded against your own account.",
@@ -165,6 +166,34 @@
       "forbidden": "You do not have permission to perform this action.",
       "rejected": "The change was not accepted. Check the fields and try again.",
       "unreachable": "The server could not be reached. Check your connection and try again."
+    },
+    "viewDetails": "Details",
+    "details": {
+      "title": "Employee details",
+      "loading": "Loading the employee…",
+      "lastActivity": "Last activity",
+      "neverActive": "Not signed in on any device",
+      "devices": "Signed-in devices",
+      "devicesExplainer": "Devices this employee is currently signed in on. Signing one out ends that session immediately.",
+      "deviceMeta": "IP {ip} · last active {active}",
+      "noDevices": "This employee is not signed in on any device.",
+      "unknownIp": "unknown address",
+      "unknownDevice": "Unrecognised device",
+      "revoke": "Sign this device out",
+      "terminated": "That device was signed out.",
+      "confirm": {
+        "title": "Sign this device out?",
+        "message": "This ends the session immediately on that device. {name} will have to sign in again there.",
+        "action": "Sign the device out"
+      },
+      "error": {
+        "own": "This is the device you are using. Sign out to end this session.",
+        "gone": "That device is no longer signed in.",
+        "userGone": "That employee is no longer available.",
+        "denied": "You do not have permission to sign this device out.",
+        "rejected": "The request was refused. Reload the page and try again.",
+        "unreachable": "The server could not be reached. Check your connection and try again."
+      }
     }
   },
   "roles": {

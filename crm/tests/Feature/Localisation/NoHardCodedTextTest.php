@@ -74,7 +74,7 @@ final class NoHardCodedTextTest extends TestCase
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
-                'RolesMatrixView.vue', 'UserFormModal.vue', 'UsersView.vue',
+                'RolesMatrixView.vue', 'UserDetailsDrawer.vue', 'UserFormModal.vue', 'UsersView.vue',
             ],
             self::basenames($files),
             'The set of scanned Vue files changed. Confirm the new file is covered rather than adjusting this list blindly.',

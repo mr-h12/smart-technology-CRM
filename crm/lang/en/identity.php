@@ -66,7 +66,7 @@ return [
         // SEC-05. Neither message names another account: `session_not_found`
         // answers the same way for an id that never existed, one that belongs
         // to somebody else, and a Login As row §3.1 hides.
-        'session_not_found' => 'That device is not signed in to your account.',
+        'session_not_found' => 'That device is not signed in.',
         'session_is_current' => 'This is the device you are using. Sign out to end this session.',
     ],
 

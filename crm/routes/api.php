@@ -167,6 +167,27 @@ Route::middleware('auth')->prefix('users')->group(function (): void {
     Route::patch('/{user}', [UserController::class, 'update'])
         ->middleware('permission:admin.create_user');
 
+    // §13 screen 2 — "last login · devices · IP · browser", and its force
+    // logout. `SEC-05` gives every person their own device list at
+    // `/auth/sessions`; this is the administrative counterpart, and the two are
+    // deliberately different endpoints because they answer to different rows of
+    // §3.11.
+    //
+    // ⚠️ **On the two permission names.** The read carries
+    // `admin.create_user` — `D-78`'s mapping, the same row `GET /users/{user}`
+    // already names, because §3.11 has no "view user" row to name instead. The
+    // termination carries `admin.deactivate_user`, and that is the narrower
+    // reading rather than the convenient one: §3.11's deactivate row is the
+    // authority that already ends **every** session an account holds (`D-34`),
+    // so ending one of them is strictly less than what that row permits.
+    // Neither choice can over-grant — §3.11 gives both rows to exactly the same
+    // two roles — which is the same argument that made `D-78` defensible.
+    Route::get('/{user}/sessions', [UserController::class, 'sessions'])
+        ->middleware('permission:admin.create_user');
+
+    Route::delete('/{user}/sessions/{session}', [UserController::class, 'terminateSession'])
+        ->middleware('permission:admin.deactivate_user');
+
     // §7.2's action suffix: "a clear action suffix only when an action is not a
     // normal resource update". D-34's switch is exactly that — it revokes every
     // session and writes its own mandatory audit event (§3.12 rule 4), which a

@@ -57,7 +57,7 @@ return [
         // SEC-05. Neither message names another account: `session_not_found`
         // answers the same way for an id that never existed, one that belongs
         // to somebody else, and a Login As row §3.1 hides.
-        'session_not_found' => 'هذا الجهاز غير مسجَّل الدخول إلى حسابك.',
+        'session_not_found' => 'هذا الجهاز غير مسجَّل الدخول.',
         'session_is_current' => 'هذا هو الجهاز الذي تستخدمه الآن. سجّل الخروج لإنهاء هذه الجلسة.',
     ],
 

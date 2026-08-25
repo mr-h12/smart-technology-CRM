@@ -6,9 +6,13 @@ namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\Administration\CreateUser;
 use App\Modules\Identity\Application\Administration\ListUsers;
+use App\Modules\Identity\Application\Administration\ListUserSessions;
 use App\Modules\Identity\Application\Administration\SetUserActivation;
+use App\Modules\Identity\Application\Administration\TerminateUserSession;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Domain\Administration\UserListCriteria;
+use App\Modules\Identity\Domain\Authentication\SessionAttribute;
+use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -82,6 +86,55 @@ final class UserController
     public function reactivate(Request $request, string $user, SetUserActivation $activation): JsonResponse
     {
         return self::activationResponse($request, $activation->handle($user, true));
+    }
+
+    /**
+     * §13 screen 2 — "devices · IP · browser" for one employee.
+     *
+     * The same payload `SEC-05`'s own screen renders, so a fingerprint cannot
+     * leak here after being kept out there. The caller's session id is passed
+     * through so an administrator inspecting their own account sees which row
+     * is the one they are looking through.
+     */
+    public function sessions(Request $request, string $user, ListUserSessions $sessions): JsonResponse
+    {
+        $page = $sessions->handle(
+            $user,
+            self::callerSessionId($request),
+            // Parsed in Domain rather than by a Form Request: OpenAPI §6.1 and
+            // §6.2 require `400 invalid_request` for a bad page size or an
+            // unknown filter, and a Form Request failure is a 422.
+            ReferenceListCriteria::forSessions($request->query()),
+        );
+
+        return ApiEnvelope::collection(
+            $request,
+            SessionPayload::many($page),
+            SessionPayload::pagination($page),
+        );
+    }
+
+    /** §13 screen 2's force logout, one device at a time. */
+    public function terminateSession(
+        Request $request,
+        string $user,
+        string $session,
+        TerminateUserSession $terminate,
+    ): JsonResponse {
+        $terminate->handle($user, $session, self::callerSessionId($request));
+
+        // 200 with a body rather than 204, for the reason `SessionController`
+        // gives: `OpenAPI §3.3` puts a request id on every response and §4.1
+        // puts it in `meta`, and a 204 has no body to carry one.
+        return ApiEnvelope::single($request, ['revoked' => true, 'session_id' => $session]);
+    }
+
+    /** The device the administrator is holding, as the guard resolved it. */
+    private static function callerSessionId(Request $request): ?string
+    {
+        $sessionId = $request->attributes->get(SessionAttribute::NAME);
+
+        return is_string($sessionId) ? $sessionId : null;
     }
 
     /** @param array{user: \App\Modules\Identity\Domain\Administration\AdministeredUser, sessions_revoked: int, changed: bool} $result */

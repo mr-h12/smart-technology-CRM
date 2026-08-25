@@ -1820,6 +1820,13 @@ correction both need the owner's approval on a hook-protected file, and `--color
 - [x] `GET /api/v1/roles` · `roles/{role}` · `/api/v1/permissions` ·
       `PATCH /api/v1/roles/{role}/permissions` — 4.1. §3.11's `admin.manage_roles` on all four;
       §3.12 rule 3 and the Super Admin exception enforced; `ROLE_PERMISSIONS_UPDATED` audited
+- [x] `GET /api/v1/auth/sessions` · `DELETE /auth/sessions/{id}` · `DELETE /auth/sessions` — 5.4.
+      `SEC-05` for the caller's own account; no permission, because §3.11 has no row for it and
+      none of the three takes a target
+- [x] `GET /api/v1/users/{id}/sessions` · `DELETE /users/{id}/sessions/{session}` — 5.5. §13
+      screen 2's administrative half: `admin.create_user` to read (`D-78`), `admin.deactivate_user`
+      to end one, `ADMIN_SESSION_TERMINATED` audited, §3.12 rule 6 answering `404` for the hidden
+      account
 - [ ] `POST` / `PATCH` / archive on `/api/v1/roles` itself — §3.11's "create role" half, still
       unbuilt, so §3.12 rule 5's ninth role cannot be added through the API yet
 
@@ -2101,24 +2108,109 @@ correction both need the owner's approval on a hook-protected file, and `--color
       that lies in both directions. Nothing here is an access-control boundary — §3.12 rule 1 puts
       that at the API, which `SessionManagementTest` proves separately with 27 tests
 
+- [x] **5.5** Employee details drawer, administrative device inspection and force logout.
+      *(2026-08-25)* `resources/js/components/users/UserDetailsDrawer.vue` ·
+      `UserController::sessions/terminateSession` ·
+      `Application/Administration/{ListUserSessions,TerminateUserSession}` ·
+      `IdentityAuditEvents::ADMIN_SESSION_TERMINATED`.
+      **Two permissions, and both are §3.11's own rows rather than new ones.** The read carries
+      `admin.create_user` — `D-78`'s mapping, the same row `GET /users/{id}` already names, because
+      §3.11 has no "view user" row. The termination carries `admin.deactivate_user`, which is the
+      narrower reading and not the convenient one: that row is the authority that already ends
+      **every** session an account holds (`D-34`), so ending one of them is strictly less than it
+      permits. Neither can over-grant — §3.11 gives both rows to exactly the same two roles, which
+      is the argument that made `D-78` defensible.
+      ❗ **The target is resolved through `UserDirectoryInterface::find()`, not through the session
+      store.** The store is keyed on `user_id` and knows nothing about who may be listed, so
+      reading it directly would have handed an administrator who guessed the hidden id the one
+      account §3.12 rule 6 exists to conceal — with its addresses and its browsers. Live: a
+      Manager asking for the hidden Super Admin's devices gets `404 user_not_found`, the same
+      answer `GET /users/{id}` gives, and the account stays signed in.
+      **A Login As session is still not a device**, in the administrative list as well: `SEC-10`'s
+      session belongs to the administrator running it, and the Manager reading this screen is one
+      of the "all users" §3.1 hides them from. Hidden from the list *and* from the command.
+      **The drawer re-reads instead of trusting the row it was opened from.** It takes a user id,
+      not the list's copy: that copy is a page that may be minutes old, and a force logout aimed at
+      a session that has already gone is a `404` the administrator cannot explain.
+      **`ADMIN_SESSION_TERMINATED` is its own event**, distinct from `SESSION_REVOKED` (the owner
+      signing their own device out) and from `USER_DEACTIVATED` (`D-34` taking every session down
+      at once). An auditor asking "who was forcibly logged out, by whom" needs a name to filter on;
+      `AUD-02`'s actor is the administrator and the entity is the account. Never the fingerprint.
+      ⚠️ **A wording defect the live probe caught and the tests did not.**
+      `identity.session.session_not_found` read "That device is not signed in **to your
+      account**", which is right on `SEC-05`'s own screen and names the wrong person on this one.
+      Both wordings are grammatical, so no assertion could see it. Reworded to "That device is not
+      signed in" in both languages.
+      **Verified live over TLS** (four sessions minted through `SessionStoreInterface::open()`, all
+      revoked afterwards): Manager reads the target's two devices, six pagination keys, **no
+      `session_id` and no digest in the body**; hidden Super Admin → `404 user_not_found`;
+      Procurement → `403 permission_denied` on both routes; `DELETE` the target's phone → `200`,
+      that token then `401` while the target's other token still answers `200`; the Manager's own
+      current session → `422 session_is_current`; a third party's session id under the target's
+      path → `404 session_not_found` and that person stays signed in; `per_page=500` → `400
+      above_maximum`; unauthenticated → `401`. `/users` serves `200` with `lang="ar" dir="rtl"` and
+      `lang="en" dir="ltr"`, and the bundle carries `تفاصيل الموظّف`, `تسجيل خروج هذا الجهاز`,
+      `user-details-drawer` and `admin.deactivate_user`. ⚠️ The probe wrote **one permanent
+      `ADMIN_SESSION_TERMINATED` audit row** in the development database; `AUD-03` means it cannot
+      be removed.
+      **What this does NOT cover.** ❗ **"Last login" is shown as "last activity", derived from the
+      newest live session.** `users` has no `last_login_at` column and the honest source is
+      `audit_log`'s `LOGIN_SUCCEEDED`, which Identity may not read — `deptrac.modules.yaml` allows
+      Identity → AuditContract and that contract is a recorder with no reader. A person signed in
+      nowhere shows no time at all rather than a fabricated one. Closing it needs either a column
+      or an audit-read interface, and both are decisions rather than edits. There is **no
+      "sign out every device" for a target** — `D-34`'s deactivation is the only bulk revocation,
+      and adding a second one is a new endpoint; **no reset-password** control (§13 screen 2 lists
+      it and no endpoint exists); **no geolocation** and no user-agent parsing; **no focus trap**
+      in the drawer, which shares the gap with every other dialog in this module. The drawer is
+      **not** an access-control boundary — §3.12 rule 1 puts that at the API, which
+      `AdminSessionInspectionTest` proves separately with 20 tests
+
 **Frontend**
 - [x] login page · role-based redirect · protected routes — 5.1
 - [x] roles and permissions matrix · scope toggles · diff confirmation modal — 5.3
 - [x] user management screen · create/edit modal · deactivate/reactivate · Login As ·
       impersonation banner — 5.2
 - [x] password change screen (`SEC-04`) · active devices (`SEC-05`) — 5.4
-- [ ] user detail page · text search (blocked on Module 3's `SearchService`)
+- [x] user detail drawer · administrative device list · per-device force logout — 5.5
+- [ ] text search (blocked on Module 3's `SearchService`)
 
 **Acceptance criteria**
 - [x] Valid credentials → redirect to the role's default screen *(5.1 — the map is §8's, read back out of the documentation by `RoleLandingTest`; every target falls back to `home` until its module registers a route)*
-- [ ] 5 failed attempts → account locks and an email is sent
-- [ ] Session idle 8 hours → automatic logout
+- [x] 5 failed attempts → account locks and an email is sent *(2.2 — `LockoutPolicy::MAX_ATTEMPTS = 5`, `ACCOUNT_LOCKED` audited and `AccountLockedNotification` queued to the Super Admin; `AuthenticationTest` proves four failures do **not** lock, five do, and a locked account is refused even with the right password. `D-75` sets the 30-minute duration the documentation does not give)*
+- [x] Session idle 8 hours → automatic logout *(2.2 — `IdleTimeout::HOURS = 8`, measured against `last_activity_at` by `BearerSessionResolver`, which deletes the row rather than leaving it to be re-checked; `AuthenticationTest` proves an eight-hour-idle session stops working and that activity pushes the clock forward.* ⚠️ **Server-side only:** an idle tab discovers the expiry on its next request — the `401` handler then clears the session and returns to the login screen. There is no client-side countdown, which is a standing gap on the debt register, not a hole in `D-29`.)
 - [x] Permission removed from a role → direct API call returns **403** *(4.1 — proved in both directions, through the API and live over TLS: grant → 200, revoke → 403, nothing restarted)*
-- [ ] Password under 8 characters or digits only → rejected with a clear message
+- [x] Password under 8 characters or digits only → rejected with a clear message *(3.1 and 3.2 — `PasswordPolicy` is asked by the change-password use case, by `CreateUser` behind the Form Request, and by the seeder; `ChangePasswordTest` covers seven characters, letters only, digits only and empty, and asserts the refusal exists in **both** languages. 5.4 adds the three-condition checklist in the SPA, mirrored to the same constant and pinned by `PasswordPolicyMirrorTest` — including the `\p{L}` letter class, so an Arabic passphrase is not refused by the client the API would accept)*
 - [x] Deactivated employee → "Account suspended, please contact administration" *(2.2 at the API; 5.1 renders §10.1's sentence character for character, in both languages)*
 - [x] Super Admin is hidden from every user list, for every role *(3.2 at the API; 5.2 confirmed live — `GET /users` returned 8 rows with `super_admin` absent and no `is_hidden` field in the payload at all)*
 - [x] Manager cannot create Manager, CEO, or Super Admin accounts *(3.2 enforces it; 5.2's dropdown mirrors §3.11 and `RoleAssignmentMirrorTest` pins the two lists equal — and per `D-78` a Manager may not create a **Team Leader** either)*
 - [x] Login As is Super Admin only and always writes an audit entry *(3.4 at the API, asked twice; 5.2 draws the button for the Super Admin alone and the banner names who is being impersonated)*
+
+### Module 1 sign-off — attempted 2026-08-25, **not granted**
+
+Every step is complete and every gate is green: 1071 PHP tests (7534 assertions), 205 vitest,
+Pint clean, PHPStan level 10 clean, deptrac `0/0`. Eight of the nine acceptance criteria are now
+ticked, and the three that had been implemented since Point 2.2 but never marked — the lockout,
+the eight-hour idle expiry and `D-28`'s refusal — were verified against their tests before being
+ticked rather than assumed from the code.
+
+**Two items remain open, and one of them blocks the sign-off:**
+
+1. ❗ **`POST` / `PATCH` / archive on `/api/v1/roles` is unbuilt.** §3.11's row reads "create /
+   **edit** role · permissions" and §13 screen 3 says "create new roles"; Point 4.1 shipped
+   `index`, `show`, `permissions` and the sync, and nothing else. So §3.12 rule 5's ninth role
+   cannot be added through the API, and the matrix screen can edit the eight seeded roles and no
+   others. **This is a documented capability that does not exist**, so Module 1 is complete
+   *except for it* rather than complete. It needs a point of its own, or an owner decision to
+   defer it past the MVP — not a tick.
+2. **Text search over the employee list** is blocked on Module 3's `SearchService` by design
+   (`OpenAPI §6.2` routes `q` through it, and `CLAUDE.md` builds it in Module 3). Not a defect
+   and not a blocker for this module.
+
+**Owner questions still unanswered** (each raised at the point that found it, none resolved):
+a Manager holds `admin.create_user` but cannot read `/roles`, so they cannot obtain a `role_id`
+(4.1, 5.2, 5.3); §8's landing screens disagree with the brief's `/deals` and `/requests` (5.1);
+and §13 screen 2 lists a **reset password** control for which no endpoint exists (5.5).
 
 🚀 **First deployment point — deploy to the real server here, not at the end.**
 

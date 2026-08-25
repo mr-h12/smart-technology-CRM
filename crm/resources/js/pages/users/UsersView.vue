@@ -37,6 +37,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import UserFormModal from '@/components/users/UserFormModal.vue';
+import UserDetailsDrawer from '@/components/users/UserDetailsDrawer.vue';
 import type { AdministeredUser, Pagination, RoleOption } from '@/services/identity';
 import { listAssignableRoles, listUsers, setUserActivation } from '@/services/identity';
 
@@ -58,6 +59,21 @@ const roleFilter = ref('');
 const editing = ref<AdministeredUser | null>(null);
 const formOpen = ref(false);
 const confirming = ref<AdministeredUser | null>(null);
+
+/**
+ * §13 screen 2's detail drawer. The id rather than the row, so the drawer
+ * re-reads from the server: the list's copy is a page that may be minutes old,
+ * and the devices it shows have to be current or the force logout is aimed at
+ * a session that has already gone.
+ */
+const inspecting = ref<string | null>(null);
+
+/**
+ * §3.11's deactivate row, which is what `DELETE /users/{id}/sessions/{id}`
+ * names. `SEC-09`: hiding the control is the visual complement, never the
+ * check — the API refuses regardless of what this computes.
+ */
+const canTerminateSessions = computed(() => auth.hasPermission('admin.deactivate_user'));
 
 /**
  * ⚠️ True only for a caller who may read `GET /api/v1/roles`.
@@ -280,6 +296,16 @@ onMounted(async () => {
                                 <button
                                     type="button"
                                     class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    :disabled="busy"
+                                    data-testid="users-details"
+                                    @click="inspecting = user.id"
+                                >
+                                    {{ t('users.viewDetails') }}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                     :disabled="busy || !canCreate"
                                     data-testid="users-edit"
                                     @click="openEdit(user)"
@@ -352,6 +378,13 @@ onMounted(async () => {
             :actor-role="auth.role.value"
             @saved="onSaved"
             @cancel="formOpen = false"
+        />
+
+        <UserDetailsDrawer
+            :open="inspecting !== null"
+            :user-id="inspecting"
+            :can-terminate="canTerminateSessions"
+            @close="inspecting = null"
         />
 
         <ConfirmDialog

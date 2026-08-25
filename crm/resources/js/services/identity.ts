@@ -314,6 +314,38 @@ export async function changePassword(payload: {
     return { sessions_revoked: result.data.sessions_revoked };
 }
 
+/**
+ * `GET /api/v1/users/{id}` — one employee, for §13 screen 2's detail view.
+ *
+ * A hidden or archived account answers `404 user_not_found`, which is §3.12
+ * rule 6 and not an error this client should try to explain away.
+ */
+export async function fetchUser(userId: string): Promise<AdministeredUser> {
+    return (await apiGet<AdministeredUser>(`/users/${userId}`)).data;
+}
+
+/**
+ * `GET /api/v1/users/{id}/sessions` — §13 screen 2's "devices · IP · browser".
+ *
+ * The administrative counterpart of {@see listSessions}, and a different
+ * endpoint on purpose: that one reads the caller's own account from the token,
+ * this one names a target and answers to §3.11's `admin.create_user`. Same
+ * payload shape, so the same row component renders both.
+ */
+export async function listUserSessions(userId: string): Promise<DeviceSession[]> {
+    return allPages<DeviceSession>(`/users/${userId}/sessions`);
+}
+
+/**
+ * `DELETE /api/v1/users/{id}/sessions/{session}` — §13 screen 2's force logout.
+ *
+ * One device. `D-34`'s deactivation is what takes every session down at once,
+ * and it is a different control with a different audit event.
+ */
+export async function terminateUserSession(userId: string, sessionId: string): Promise<void> {
+    await apiDelete(`/users/${userId}/sessions/${sessionId}`);
+}
+
 export async function impersonate(userId: string): Promise<ImpersonationStarted> {
     return (await apiPost<ImpersonationStarted>(`/auth/impersonate/${userId}`)).data;
 }

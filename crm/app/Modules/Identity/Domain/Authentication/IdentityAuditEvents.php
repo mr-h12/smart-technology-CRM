@@ -47,6 +47,26 @@ final class IdentityAuditEvents
     public const SESSION_REVOKED = 'SESSION_REVOKED';
 
     /**
+     * §13 screen 2's force logout — an **administrator** ended somebody else's
+     * session.
+     *
+     * Distinct from {@see self::SESSION_REVOKED}, which is a person signing
+     * their own device out from `SEC-05`'s screen, and from
+     * {@see self::USER_DEACTIVATED}, which takes every session down as a side
+     * effect of `D-34`'s switch. This is the narrow one: one device, somebody
+     * else's, and the account owner did not ask for it. An auditor answering
+     * "who was forcibly logged out, by whom" needs a name to filter on, and a
+     * row buried inside the self-service event is a row that query never
+     * returns.
+     *
+     * The actor is the administrator — `RequestAuditContext` fills that in —
+     * and the entity is the account whose device went. Never the fingerprint:
+     * `D-74` makes that the value a live credential is matched against, and
+     * `AUD-03` makes this row permanent.
+     */
+    public const ADMIN_SESSION_TERMINATED = 'ADMIN_SESSION_TERMINATED';
+
+    /**
      * `SEC-04`'s event. The row records **that** the password changed and how
      * many sessions it took down — never the old hash and never the new one.
      * `AUD-03` makes the row permanent, and a permanent record of a credential

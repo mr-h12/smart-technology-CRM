@@ -24,6 +24,12 @@ enum SessionRefusal: string
      * An impersonation row answers this way too: §3.1 hides the Super Admin,
      * so from this endpoint's side a Login As session is not one of this
      * account's devices.
+     *
+     * ⚠️ The message says "that device is not signed in" and deliberately does
+     * **not** say whose account it belongs to. Point 5.5 reaches this same
+     * refusal from `DELETE /users/{id}/sessions/{session}`, where the caller is
+     * an administrator and "your account" would name the wrong person — caught
+     * by a live probe, not by a test, because both wordings are grammatical.
      */
     case SessionNotFound = 'session_not_found';
 

@@ -70,9 +70,9 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
-                'EmptyState.vue', 'ErrorState.vue', 'ForbiddenView.vue', 'LoadingState.vue',
-                'LoginView.vue', 'PermissionDeniedState.vue',
-                'Ping.vue',
+                'ConfirmDialog.vue', 'EmptyState.vue', 'ErrorState.vue', 'ForbiddenView.vue',
+                'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
+                'PermissionDeniedState.vue', 'Ping.vue', 'UserFormModal.vue', 'UsersView.vue',
             ],
             self::basenames($files),
             'The set of scanned Vue files changed. Confirm the new file is covered rather than adjusting this list blindly.',
@@ -329,7 +329,14 @@ final class NoHardCodedTextTest extends TestCase
             '/\{!!.*?!!\}/su',                            // Blade raw echo
             '/@[a-zA-Z]+\s*\((?:[^()]|\([^()]*\))*\)/su', // @vite([...]), @lang(...)
             '/@[a-zA-Z]+/u',                              // @endif and friends
-            '/<[^>]*>/su',                                // every tag
+            // Every tag. The alternation is load-bearing: `[^>]*` stops at the
+            // first `>` **inside an attribute value**, so
+            // `v-if="a.total_pages > 1"` left the rest of the tag standing and
+            // the scanner reported `class="…"` and `data-testid="…"` as
+            // user-facing prose. Measured in Point 5.2, on real markup. Quoted
+            // runs are consumed whole so a comparison operator in a binding
+            // cannot end a tag early.
+            '/<(?:[^>"\']|"[^"]*"|\'[^\']*\')*>/su',
         ] as $pattern) {
             $stripped = self::replace($pattern, $stripped);
         }

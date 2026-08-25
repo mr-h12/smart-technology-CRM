@@ -10,14 +10,38 @@
 // defines the error envelope, and ApiError below is that shape read back —
 // a caller never parses a response body itself.
 
+export interface Pagination {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+    has_next_page: boolean;
+    has_previous_page: boolean;
+}
+
+export interface EnvelopeMeta {
+    request_id?: string;
+    /** `OpenAPI §4.2` — present on every list endpoint, absent on a single resource. */
+    pagination?: Pagination;
+}
+
 export interface Envelope<T> {
     data: T;
-    meta?: { request_id?: string };
+    meta?: EnvelopeMeta;
 }
 
 export interface ApiResult<T> {
     data: T;
     requestId: string | null;
+    /**
+     * The rest of `meta`, kept rather than discarded.
+     *
+     * §4.2 puts the pagination block there and nowhere else, so a caller that
+     * only received `data` had to re-fetch or count the rows itself — and
+     * counting the rows of one page is how a paginator ends up reporting the
+     * page size as the total.
+     */
+    meta: EnvelopeMeta;
 }
 
 /** `OpenAPI §5` — `{ error: { code, message, details } }`. */
@@ -136,6 +160,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     return {
         data: envelope.data,
         requestId: requestId ?? envelope.meta?.request_id ?? null,
+        meta: envelope.meta ?? {},
     };
 }
 

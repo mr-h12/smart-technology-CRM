@@ -1901,10 +1901,86 @@ correction both need the owner's approval on a hook-protected file, and `--color
       `/requests` were a deliberate product change rather than a paraphrase, it needs to be
       recorded as a decision and §8 amended; until then the router follows the document
 
+- [x] **5.2** Employees screen, user form, status actions, and the impersonation banner.
+      *(2026-08-25)* `resources/js/pages/users/UsersView.vue` ·
+      `components/users/UserFormModal.vue` · `components/users/ConfirmDialog.vue` ·
+      `components/identity/ImpersonationBanner.vue` · `services/identity.ts` ·
+      `domain/roleAssignment.ts`.
+      **The banner is the most important part of Point 3.4, delivered a point late.** An
+      impersonation session runs with the target's id, role and permissions — that *is* the
+      feature — so every screen looks exactly as it does for that employee. The audit trail records
+      the truth either way (`impersonated_user_id`), and this is what keeps the Super Admin from
+      being the last to know. It is deliberately **not dismissible**: a banner with a close button
+      is a banner that is closed, and the hazard lasts until `D-29`'s eight idle hours do. It reads
+      from `localStorage`, so a page reload mid-impersonation still draws it — without that, a
+      refresh loses both the warning and the parked Super Admin token and the only way out is
+      waiting the session out. Leaving sends the request on the **impersonation** token, because
+      that is the session the endpoint revokes, and only then restores the parked one; local state
+      is restored even when the call fails, for the same reason `logout()` does.
+      **§3.12 rule 6 needed nothing from this screen, and that is the design.** `scopeListable()`
+      filters inside `EloquentUserDirectory` and `UserPayload` sends no `is_hidden` at all — a
+      field telling a client which account to omit is a field telling it the account exists.
+      Verified live: `GET /users` returned **8 rows, 8 total, super_admin absent, no `is_hidden`
+      anywhere in the payload**.
+      **The role dropdown mirrors §3.11, and the mirror is pinned.** `assignableBy()` offers a
+      Manager exactly *Out.Sup · Out.Sales · Sales · Procurement* — `D-78`'s reading, so a Manager
+      may not create a Team Leader — and `RoleAssignmentMirrorTest` reads both
+      `RoleAssignmentPolicy`'s constants and the TypeScript back and asserts they are identical.
+      Re-reading rule 7 as a denylist on purpose failed **9** tests; drifting the mirror failed the
+      PHP guard. The filter runs against **what the server returned**, not a hard-coded eight, so
+      a ninth role §3.12 rule 5 adds is handled.
+      **`D-28` is mirrored in the form and is not the rule.** `PasswordPolicy` decides and
+      `CreateUser` refuses regardless (`D-67`); the client check exists so nobody is told after a
+      round trip. A `422` is rendered on the field its `details[].code` names (`OpenAPI §5.1`),
+      not in a banner that says "something was wrong". **Editing has no password field**: §9 Flow 0
+      gives that to the account holder behind `SEC-04`'s emailed code, and an administrator
+      resetting somebody's password is a different documented action that does not exist yet.
+      **`D-34` asks before it acts.** The confirmation names what deactivation does — every device
+      signed out (`SEC-05`), customers and deals left where they are, the account never deleted
+      (§10.1) — and the list is reloaded rather than patched in place, because the row is not the
+      only thing that changed.
+      **The sidebar now filters by permission** (§5.1, `SEC-09`), and `navigation.spec.ts` asserts
+      every item's `permission` is exactly its route's `meta.requiredPermission` — a link stricter
+      than its route hides a reachable screen, a link looser than its route sends the person to the
+      denial screen, and either way the menu and the guard describe different products.
+      **Verified live over TLS:** `/users` serves **200** with `lang="ar" dir="rtl"` and
+      `lang="en" dir="ltr"`; `GET /users` and `GET /roles` return what the screen consumes;
+      `POST /auth/impersonate/{id}` answers `{token, impersonating{id,name,role}, impersonator_id}`
+      — and **no `token_type`**, which the TypeScript interface had copied from the login shape and
+      was corrected against the running server.
+      **Found by the tests, fixed in this point:** the bearer-token provider was installed only by
+      `installAuthTransport()` in `app.ts`, so any other entry point signed in and then sent no
+      `Authorization` header at all. A component test caught the impersonation refetch going out
+      bare. The store now registers it at module load — a two-step wiring whose first step is
+      required for correctness is a step somebody will forget.
+      **`NoHardCodedTextTest`'s tag stripper was wrong**, and on real markup: `<[^>]*>` stops at
+      the first `>` **inside an attribute value**, so `v-if="pagination.total_pages > 1"` left the
+      rest of the tag standing and the scanner reported `class="…"` as prose. The alternation now
+      consumes quoted runs whole.
+      **What this does NOT cover.** There is **no text search**: `UserListCriteria` declares
+      `is_active` and `role` and deliberately omits free text, because `OpenAPI §6.2` routes `q`
+      through `SearchService`, which is **Module 3**. A box that sent `?q=` would be silently
+      ignored by the parser — a search that does nothing is worse than none. There is **no sort
+      control** (the API supports `name`, `email`, `created_at`); **no bulk actions**; **no user
+      detail page** — the row is the whole record here; **no active-device list** (`SEC-05`'s
+      force-logout per device); and **no `SEC-04` password-change screen**. The guards and the
+      hidden buttons are **not** an access-control boundary; the API is.
+      ❗ **The Manager cannot create a user through this screen, and that is a real gap, not a
+      styling one.** §3.11 gives `admin.manage_roles` to the Super Admin alone, so a Manager's
+      `GET /roles` is `403` and there is no `role_id` for the form to submit. The screen says so
+      and disables Create rather than offering a form that cannot be sent. This is the **same owner
+      question raised with Point 4.1** and still unanswered: it needs either a new §3.11 row
+      (`admin.view_roles`) or a narrow assignable-roles endpoint scoped to `admin.create_user`
+      returning `RoleAssignmentPolicy::assignableBy()`. **Adding that endpoint was out of this
+      point's scope** — the brief said Identity UI — so it was not built
+
 **Frontend**
 - [x] login page · role-based redirect · protected routes — 5.1
 - [ ] role and permission management screens
-- [ ] user management screens · password change · active devices (`SEC-05`) · impersonation banner
+- [x] user management screen · create/edit modal · deactivate/reactivate · Login As ·
+      impersonation banner — 5.2
+- [ ] password change screen (`SEC-04`) · active devices (`SEC-05`) · user detail page ·
+      text search (blocked on Module 3's `SearchService`)
 
 **Acceptance criteria**
 - [x] Valid credentials → redirect to the role's default screen *(5.1 — the map is §8's, read back out of the documentation by `RoleLandingTest`; every target falls back to `home` until its module registers a route)*
@@ -1913,9 +1989,9 @@ correction both need the owner's approval on a hook-protected file, and `--color
 - [x] Permission removed from a role → direct API call returns **403** *(4.1 — proved in both directions, through the API and live over TLS: grant → 200, revoke → 403, nothing restarted)*
 - [ ] Password under 8 characters or digits only → rejected with a clear message
 - [x] Deactivated employee → "Account suspended, please contact administration" *(2.2 at the API; 5.1 renders §10.1's sentence character for character, in both languages)*
-- [ ] Super Admin is hidden from every user list, for every role
-- [ ] Manager cannot create Manager, CEO, or Super Admin accounts
-- [ ] Login As is Super Admin only and always writes an audit entry
+- [x] Super Admin is hidden from every user list, for every role *(3.2 at the API; 5.2 confirmed live — `GET /users` returned 8 rows with `super_admin` absent and no `is_hidden` field in the payload at all)*
+- [x] Manager cannot create Manager, CEO, or Super Admin accounts *(3.2 enforces it; 5.2's dropdown mirrors §3.11 and `RoleAssignmentMirrorTest` pins the two lists equal — and per `D-78` a Manager may not create a **Team Leader** either)*
+- [x] Login As is Super Admin only and always writes an audit entry *(3.4 at the API, asked twice; 5.2 draws the button for the Super Admin alone and the banner names who is being impersonated)*
 
 🚀 **First deployment point — deploy to the real server here, not at the end.**
 

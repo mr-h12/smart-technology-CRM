@@ -10,11 +10,15 @@
  * only at ≥1024, and promising it earlier would be inventing a requirement.
  *
  * Nothing here decides what a user may see. SEC-09: hiding an item is
- * presentation, and the API still enforces. The filter that reads `permission`
- * arrives with Module 1.
+ * presentation, and the API still enforces. Point 5.2 wired the filter that
+ * reads `permission`; a person who deletes it from the DOM reaches a route
+ * whose guard sends them to the denial screen, and an endpoint that refuses
+ * them regardless.
  */
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { NAVIGATION } from '@/navigation';
+import { NAVIGATION, type NavigationGroup } from '@/navigation';
+import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{
     /** Drawer visibility. Ignored at ≥1024px, where the rail is always present. */
@@ -29,6 +33,25 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const auth = useAuth();
+
+/**
+ * §5.1: "do not show a module, action, count, or record link that the role is
+ * not permitted to access."
+ *
+ * A group whose every item is filtered out is dropped with it — an empty
+ * heading is a menu section that says a module exists and refuses to show it.
+ */
+const groups = computed<NavigationGroup[]>(() =>
+    NAVIGATION
+        .map((group) => ({
+            labelKey: group.labelKey,
+            items: group.items.filter(
+                (item) => item.permission === null || auth.hasPermission(item.permission),
+            ),
+        }))
+        .filter((group) => group.items.length > 0),
+);
 
 function onBackdrop(): void {
     emit('close');
@@ -90,7 +113,7 @@ function onBackdrop(): void {
 
         <!-- ── Navigation ────────────────────────────────────────────────── -->
         <nav class="app-sidebar__scroll flex-1 overflow-y-auto px-2 py-3">
-            <div v-for="group in NAVIGATION" :key="group.labelKey" class="mb-5 last:mb-0">
+            <div v-for="group in groups" :key="group.labelKey" class="mb-5 last:mb-0">
                 <p
                     v-if="!props.collapsed"
                     class="app-sidebar__group px-3 pb-2 text-start text-table text-[var(--color-text-muted)] uppercase"

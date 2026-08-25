@@ -16,6 +16,7 @@ import { useAuth } from '@/stores/auth';
 import Ping from '@/pages/Ping.vue';
 import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
+import UsersView from '@/pages/users/UsersView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -80,6 +81,16 @@ export const routes: RouteRecordRaw[] = [
         name: 'home',
         component: Ping,
         meta: { requiresAuth: true, titleKey: 'nav.item.home' },
+    },
+    {
+        // §8's *Employees* screen. `admin.create_user` and not a `user.view.*`
+        // that does not exist — `D-78` mapped the six user endpoints onto
+        // §3.11's two documented rows, and the screen has to name the same one
+        // the API does or the guard and the endpoint would disagree.
+        path: '/users',
+        name: 'users',
+        component: UsersView,
+        meta: { requiresAuth: true, requiredPermission: 'admin.create_user', titleKey: 'users.title' },
     },
     {
         path: '/403',

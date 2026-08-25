@@ -59,6 +59,28 @@ interface LoginResponse {
  */
 export const TOKEN_STORAGE_KEY = 'crm.auth.token.v1';
 
+/**
+ * The Super Admin's own token, parked while a Login As is running (`SEC-10`).
+ *
+ * Point 3.4 never touches the original session — leaving is a client-side
+ * switch back to the token the browser still holds, which is what
+ * `resume_with_original_token` in the leave response means. Parking it in
+ * storage rather than only in memory is what makes a page reload survivable:
+ * without it, refreshing during an impersonation would strand the Super Admin
+ * inside somebody else's account until `D-29`'s eight idle hours expired it.
+ */
+export const IMPERSONATOR_TOKEN_STORAGE_KEY = 'crm.auth.impersonator_token.v1';
+
+/** Who is being impersonated, so a reload can still draw the banner. */
+export const IMPERSONATION_STORAGE_KEY = 'crm.auth.impersonating.v1';
+
+/** The subject of a Login As, as the start response describes them. */
+export interface ImpersonationSubject {
+    id: string;
+    name: string;
+    role: string | null;
+}
+
 interface AuthState {
     token: string | null;
     user: AuthenticatedUser | null;
@@ -68,6 +90,10 @@ interface AuthState {
     errorKey: string | null;
     /** `D-29`, as the server reported it. Told to the client, never assumed by it. */
     idleTimeoutSeconds: number | null;
+    /** `SEC-10`. Null when this is an ordinary session. */
+    impersonating: ImpersonationSubject | null;
+    /** The parked Super Admin token. Null when this is an ordinary session. */
+    impersonatorToken: string | null;
 }
 
 const state = reactive<AuthState>({
@@ -76,6 +102,8 @@ const state = reactive<AuthState>({
     pending: false,
     errorKey: null,
     idleTimeoutSeconds: null,
+    impersonating: readImpersonation(),
+    impersonatorToken: readStored(IMPERSONATOR_TOKEN_STORAGE_KEY),
 });
 
 /**
@@ -95,9 +123,9 @@ const REFUSAL_KEYS: Readonly<Record<string, string>> = {
     validation_failed: 'auth.error.validationFailed',
 };
 
-function readToken(): string | null {
+function readStored(key: string): string | null {
     try {
-        return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+        return window.localStorage.getItem(key);
     } catch {
         // Safari in private mode, and any browser with storage disabled. A
         // session that cannot be persisted is still a session for this tab;
@@ -106,17 +134,60 @@ function readToken(): string | null {
     }
 }
 
-function writeToken(token: string | null): void {
+function writeStored(key: string, value: string | null): void {
     try {
-        if (token === null) {
-            window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+        if (value === null) {
+            window.localStorage.removeItem(key);
         } else {
-            window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+            window.localStorage.setItem(key, value);
         }
     } catch {
-        // Same reason as readToken. The in-memory token still works until the
+        // Same reason as readStored. The in-memory value still works until the
         // tab closes.
     }
+}
+
+function readToken(): string | null {
+    return readStored(TOKEN_STORAGE_KEY);
+}
+
+function writeToken(token: string | null): void {
+    writeStored(TOKEN_STORAGE_KEY, token);
+}
+
+function readImpersonation(): ImpersonationSubject | null {
+    const raw = readStored(IMPERSONATION_STORAGE_KEY);
+
+    if (raw === null) {
+        return null;
+    }
+
+    try {
+        const parsed: unknown = JSON.parse(raw);
+
+        if (typeof parsed !== 'object' || parsed === null) {
+            return null;
+        }
+
+        const subject = parsed as Partial<ImpersonationSubject>;
+
+        // A half-written entry answers null rather than a banner naming
+        // `undefined`. The same reasoning CachePasswordChallengeStore applies
+        // to a partial cache entry.
+        return typeof subject.id === 'string' && typeof subject.name === 'string'
+            ? { id: subject.id, name: subject.name, role: subject.role ?? null }
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Drops the Login As, leaving the ordinary session untouched. */
+function clearImpersonation(): void {
+    state.impersonating = null;
+    state.impersonatorToken = null;
+    writeStored(IMPERSONATION_STORAGE_KEY, null);
+    writeStored(IMPERSONATOR_TOKEN_STORAGE_KEY, null);
 }
 
 /** Everything about the session, dropped at once. */
@@ -125,6 +196,7 @@ function clear(): void {
     state.user = null;
     state.idleTimeoutSeconds = null;
     writeToken(null);
+    clearImpersonation();
 }
 
 export function useAuth() {
@@ -140,11 +212,24 @@ export function useAuth() {
         pending: computed(() => state.pending),
         errorKey: computed(() => state.errorKey),
 
+        /**
+         * §3.1's unconditional access, which is what `SEC-10` restricts Login
+         * As to. Asked through the flag the server states rather than by
+         * comparing the slug here, so a ninth role §3.12 rule 5 adds cannot
+         * accidentally match a string literal.
+         */
+        isSuperAdmin: computed(() => state.user?.unconditional_access === true),
+
+        isImpersonating: computed(() => state.impersonating !== null && state.impersonatorToken !== null),
+        impersonating: computed(() => state.impersonating),
+
         hasPermission,
         login,
         logout,
         fetchCurrentUser,
         clearError,
+        startImpersonation,
+        leaveImpersonation,
     };
 }
 
@@ -280,6 +365,97 @@ async function fetchCurrentUser(): Promise<boolean> {
     }
 }
 
+/**
+ * `SEC-10` — begin a Login As.
+ *
+ * The Super Admin's own token is parked, not surrendered: Point 3.4 leaves
+ * their session untouched, so leaving is a switch back to a credential the
+ * browser still holds rather than a second sign-in. Everything is written
+ * **before** the profile is re-fetched, because that fetch already runs as the
+ * impersonated user.
+ *
+ * `SEC-10` is enforced by the server twice — the route's
+ * `permission:admin.login_as` and `StartImpersonation`'s own
+ * `hasUnconditionalAccess()` check, because §3.12 rule 5 makes the matrix
+ * configuration. Nothing here is that check; the button is hidden from
+ * everybody else because showing it would be a promise the API refuses.
+ */
+async function startImpersonation(userId: string): Promise<boolean> {
+    const original = state.token;
+
+    if (original === null) {
+        return false;
+    }
+
+    const { impersonate } = await import('@/services/identity');
+
+    state.pending = true;
+
+    try {
+        const started = await impersonate(userId);
+
+        state.impersonatorToken = original;
+        writeStored(IMPERSONATOR_TOKEN_STORAGE_KEY, original);
+
+        state.impersonating = started.impersonating;
+        writeStored(IMPERSONATION_STORAGE_KEY, JSON.stringify(started.impersonating));
+
+        state.token = started.token;
+        writeToken(started.token);
+
+        // The profile, permissions and role now belong to the person being
+        // impersonated — which is the point of the feature, and what makes the
+        // menu and the guards show their screens rather than the Super Admin's.
+        state.user = null;
+        await fetchCurrentUser();
+
+        return true;
+    } catch {
+        return false;
+    } finally {
+        state.pending = false;
+    }
+}
+
+/**
+ * The other end of it.
+ *
+ * The request goes out on the **impersonation** token — that is the session
+ * `/auth/impersonate/leave` revokes — and only then is the parked token put
+ * back. Restoring first would send the leave call as the Super Admin, whose
+ * session is not an impersonation, and the server would answer `422
+ * not_impersonating`.
+ *
+ * Local state is restored **whatever the server answers**, for the reason
+ * {@see logout} gives: a leave that fails must not trap somebody inside another
+ * person's account.
+ */
+async function leaveImpersonation(): Promise<void> {
+    const original = state.impersonatorToken;
+
+    if (original === null) {
+        return;
+    }
+
+    state.pending = true;
+
+    try {
+        const { leaveImpersonation: leave } = await import('@/services/identity');
+        await leave();
+    } catch {
+        // Deliberately swallowed — see above.
+    } finally {
+        state.token = original;
+        writeToken(original);
+        clearImpersonation();
+
+        state.user = null;
+        await fetchCurrentUser();
+
+        state.pending = false;
+    }
+}
+
 function refusalKeyFor(error: unknown): string {
     if (!(error instanceof ApiError)) {
         // A network failure, not a refusal. Saying "wrong password" here would
@@ -298,16 +474,25 @@ function refusalKeyFor(error: unknown): string {
     return 'auth.error.unknown';
 }
 
+// The credential is wired at module load, not by a caller.
+//
+// It used to be installed by `installAuthTransport()`, which only `app.ts`
+// calls — so any other entry point that built a router and signed in sent no
+// `Authorization` header at all and every authenticated request silently
+// 401'd. Found by a component test in Point 5.2, where the impersonation
+// refetch went out bare. A two-step wiring whose first step is required for
+// correctness is a step somebody will forget; the store owns the token, so the
+// store registers it.
+setBearerTokenProvider(() => state.token);
+
 /**
- * Wires the store into the transport.
+ * Tells the transport what to do when the server says the session is gone.
  *
- * Called once from `app.ts`. Separate from the module body so a test can build
- * the pair deliberately instead of inheriting whatever the import order left
- * behind.
+ * Called once from `app.ts`, because only the entry point knows there is a
+ * router to redirect. Kept separate from the token wiring above for exactly
+ * that reason: this one genuinely needs a caller, and that one never did.
  */
 export function installAuthTransport(onSessionLost: () => void): void {
-    setBearerTokenProvider(() => state.token);
-
     setUnauthorizedHandler(() => {
         clear();
         onSessionLost();

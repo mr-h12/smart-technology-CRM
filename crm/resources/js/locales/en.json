@@ -77,10 +77,12 @@
     "open": "Open navigation",
     "close": "Close navigation",
     "group": {
-      "system": "System"
+      "system": "System",
+      "administration": "Administration"
     },
     "item": {
-      "home": "System diagnostics"
+      "home": "System diagnostics",
+      "users": "Employees"
     }
   },
   "theme": {
@@ -92,5 +94,75 @@
   "user": {
     "signedOut": "Not signed in",
     "signOut": "Sign out"
+  },
+  "action": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "edit": "Edit"
+  },
+  "impersonation": {
+    "banner": "You are signed in as {name} ({role}). Everything you do is recorded against your own account.",
+    "leave": "Leave and return to your account"
+  },
+  "users": {
+    "title": "Employees",
+    "subtitle": "Accounts are created here. There is no self sign-up.",
+    "create": "Add employee",
+    "loading": "Loading employees…",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "loginAs": "Sign in as",
+    "rolesUnavailable": "Your role can create accounts but cannot read the list of roles, so the form is unavailable. This needs a decision from the system owner.",
+    "column": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "filter": {
+      "status": "Status",
+      "statusAll": "Any status",
+      "role": "Role",
+      "roleAll": "Any role"
+    },
+    "pagination": {
+      "label": "Employee pages",
+      "previous": "Previous",
+      "next": "Next",
+      "position": "Page {page} of {pages} · {total} employees"
+    },
+    "confirm": {
+      "deactivateTitle": "Deactivate this account?",
+      "deactivateMessage": "{name} will be signed out of every device and blocked from signing in. Their customers, deals and reports stay where they are. The account is never deleted.",
+      "reactivateTitle": "Reactivate this account?",
+      "reactivateMessage": "{name} will be able to sign in again. They will need to enter their password."
+    },
+    "form": {
+      "createTitle": "Add an employee",
+      "editTitle": "Edit employee",
+      "name": "Name",
+      "email": "Email address",
+      "role": "Role",
+      "rolePlaceholder": "Choose a role",
+      "noAssignableRoles": "There is no role you are permitted to assign.",
+      "password": "Initial password",
+      "passwordHint": "At least 8 characters, with letters and numbers.",
+      "passwordNotHere": "Passwords are changed by the account holder, with a code sent to their email.",
+      "nameRequired": "Enter a name.",
+      "emailRequired": "Enter an email address.",
+      "roleRequired": "Choose a role.",
+      "passwordPolicy": "The password must be at least 8 characters and contain both letters and numbers.",
+      "emailTaken": "That email address already belongs to an account.",
+      "roleNotAssignable": "You may not assign that role.",
+      "forbidden": "You do not have permission to perform this action.",
+      "rejected": "The change was not accepted. Check the fields and try again.",
+      "unreachable": "The server could not be reached. Check your connection and try again."
+    }
   }
 }

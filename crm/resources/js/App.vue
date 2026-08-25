@@ -16,6 +16,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppContextBar from '@/components/AppContextBar.vue';
+import ImpersonationBanner from '@/components/identity/ImpersonationBanner.vue';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -59,7 +60,13 @@ const bare = computed(() => route.meta.bare === true);
 <template>
     <RouterView v-if="bare" />
 
-    <div v-else class="flex min-h-dvh bg-[var(--color-canvas)] text-[var(--color-text)]">
+    <!-- SEC-10. Outside the shell's flex row and above everything, because a
+         Super Admin who forgets they are inside somebody else's account will
+         read the system as that person — and the warning must not be something
+         a sidebar can scroll away. It renders itself only during a Login As. -->
+    <div v-else class="flex min-h-dvh flex-col bg-[var(--color-canvas)] text-[var(--color-text)]">
+        <ImpersonationBanner />
+
         <!-- §8 asks for a full keyboard path. Without this, reaching the page
              means tabbing the whole sidebar on every navigation. -->
         <a
@@ -69,24 +76,26 @@ const bare = computed(() => route.meta.bare === true);
             {{ t('shell.skipToContent') }}
         </a>
 
-        <AppSidebar
-            :open="sidebarOpen"
-            :collapsed="collapsed"
-            @close="closeSidebar"
-            @toggle-collapsed="collapsed = !collapsed"
-        />
+        <div class="flex min-h-0 flex-1">
+            <AppSidebar
+                :open="sidebarOpen"
+                :collapsed="collapsed"
+                @close="closeSidebar"
+                @toggle-collapsed="collapsed = !collapsed"
+            />
 
-        <div class="flex min-w-0 flex-1 flex-col">
-            <AppContextBar :sidebar-open="sidebarOpen" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
+            <div class="flex min-w-0 flex-1 flex-col">
+                <AppContextBar :sidebar-open="sidebarOpen" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
-            <!-- §4.2: 1600px standard desktop content width; the shell itself
-                 stays full width so data tables can use it.
-                 scroll-mt keeps the skip link honest: the context bar is sticky,
-                 so jumping to this anchor would otherwise land the first line
-                 underneath it. -->
-            <main id="page-content" class="mx-auto w-full max-w-[1600px] flex-1 scroll-mt-20 p-4 sm:p-6">
-                <RouterView />
-            </main>
+                <!-- §4.2: 1600px standard desktop content width; the shell
+                     itself stays full width so data tables can use it.
+                     scroll-mt keeps the skip link honest: the context bar is
+                     sticky, so jumping to this anchor would otherwise land the
+                     first line underneath it. -->
+                <main id="page-content" class="mx-auto w-full max-w-[1600px] flex-1 scroll-mt-20 p-4 sm:p-6">
+                    <RouterView />
+                </main>
+            </div>
         </div>
     </div>
 </template>

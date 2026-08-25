@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
+use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Presentation\ApiEnvelope;
 use Illuminate\Auth\AuthenticationException;
@@ -161,6 +162,29 @@ final class ApiExceptionRenderer
                 'code' => $exception->detailCode,
                 'message' => (string) __($exception->messageKey()),
             ]],
+        );
+    }
+
+    /**
+     * A refused Login As — `SEC-10`.
+     *
+     * Three different `OpenAPI §5.1` rows, chosen by the refusal itself: 403
+     * `permission_denied` for a caller who is not the Super Admin, 404
+     * `resource_not_found` for a target that does not exist **or is hidden**
+     * (§5.1 forbids saying which), and 422 `business_rule_blocked` for the
+     * rest — "a documented rule blocks the action", which is exactly what
+     * `D-34`'s suspension is.
+     */
+    public static function impersonation(ImpersonationRefused $exception, Request $request): JsonResponse
+    {
+        $reason = $exception->reason;
+
+        return ApiEnvelope::error(
+            $request,
+            $reason->status(),
+            $reason->errorCode(),
+            (string) __($reason->messageKey()),
+            [['code' => $reason->value, 'message' => (string) __($reason->messageKey())]],
         );
     }
 

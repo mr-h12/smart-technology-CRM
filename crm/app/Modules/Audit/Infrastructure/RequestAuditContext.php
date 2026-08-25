@@ -37,6 +37,17 @@ final readonly class RequestAuditContext implements AuditContextResolverInterfac
     /** Mirrors `AddRequestId::CORRELATION`. */
     public const CORRELATION_ATTRIBUTE = 'correlation_id';
 
+    /**
+     * Mirrors `App\Modules\Identity\Domain\Authentication\SessionAttribute::IMPERSONATOR`.
+     *
+     * Duplicated for the same reason the two above are: `deptrac.modules.yaml`
+     * lets `Identity` depend on `Audit` and **not** the reverse, so naming that
+     * constant from here would be a violation rather than a convenience.
+     * `AuditRecorderTest` asserts the two strings are identical, which is what
+     * notices the drift the duplication invites.
+     */
+    public const IMPERSONATOR_ATTRIBUTE = 'identity.impersonator_id';
+
     public function __construct(private Container $container) {}
 
     public function current(): AuditContext
@@ -56,12 +67,24 @@ final readonly class RequestAuditContext implements AuditContextResolverInterfac
 
         $correlationId = $request->attributes->get(self::CORRELATION_ATTRIBUTE);
 
+        $authenticated = self::actorId($request);
+        $impersonator = $request->attributes->get(self::IMPERSONATOR_ATTRIBUTE);
+
+        // SEC-10. During a Login As the guard resolves the **target** as the
+        // request's user, because the session is theirs and their permissions
+        // are what the request must run under. The audit's actor is the other
+        // one: §3.12 rule 4 makes Login As mandatory to log precisely so the
+        // real person is named, and a row saying only "the employee did it"
+        // would be the exact record this requirement exists to prevent.
+        $impersonated = is_string($impersonator) ? $authenticated : null;
+
         return new AuditContext(
-            actorId: self::actorId($request),
+            actorId: is_string($impersonator) ? $impersonator : $authenticated,
             ip: $request->getClientIp(),
             userAgent: $request->userAgent(),
             requestId: $requestId,
             correlationId: is_string($correlationId) ? $correlationId : null,
+            impersonatedUserId: $impersonated,
         );
     }
 

@@ -31,7 +31,10 @@ final readonly class DatabaseAuditEntries implements AuditEntryWriterInterface
             // index does not fragment. Str::uuid7 rather than ramsey directly —
             // the framework is a covered deptrac layer and the vendor is not.
             'id' => (string) Str::uuid7(),
+            // The actor: during a Login As this is the Super Admin, because
+            // they are the human who did it (SEC-10, §3.12 rule 4).
             'user_id' => $entry->context->actorId,
+            'impersonated_user_id' => $entry->context->impersonatedUserId,
             'event' => $entry->event->value,
             'entity_type' => $entry->entityType,
             'entity_id' => $entry->entityId,

@@ -45,9 +45,17 @@ final class AuditLogMigrationTest extends TestCase
 
     private const TABLE = 'audit_log';
 
-    /** `§14.8` `AUD-02` plus the correlation ID from `Coding Standards §10`. */
+    /**
+     * `§14.8` `AUD-02` plus the correlation ID from `Coding Standards §10`, and
+     * `impersonated_user_id` from `SEC-10`.
+     *
+     * `AUD-02` names one user. During a Login As there are two — `user_id` is
+     * the Super Admin who acted, and `impersonated_user_id` the account they
+     * acted as — and §3.12 rule 4 makes that entry mandatory, so the second
+     * identity is part of the documented shape rather than an extra.
+     */
     private const DOCUMENTED_COLUMNS = [
-        'id', 'user_id', 'event', 'entity_type', 'entity_id',
+        'id', 'user_id', 'impersonated_user_id', 'event', 'entity_type', 'entity_id',
         'old_values', 'new_values', 'ip_address', 'user_agent',
         'request_id', 'correlation_id', 'created_at',
     ];
@@ -271,6 +279,12 @@ final class AuditLogMigrationTest extends TestCase
             'tracing one request across modules' => [
                 'audit_log_correlation_index', '(correlation_id)',
             ],
+            // SEC-10: "what was done while impersonating this employee" — a
+            // recent-window question like the three above, so it ends the same
+            // way.
+            'what was done as this person' => [
+                'audit_log_impersonated_index', '(impersonated_user_id, created_at DESC)',
+            ],
         ];
     }
 
@@ -284,11 +298,15 @@ final class AuditLogMigrationTest extends TestCase
                 ->where('tablename', $partition)
                 ->count();
 
-            // Four documented indexes plus the primary key. An index that only
+            // Every documented index plus the primary key. An index that only
             // reached the parent is an index that answers nothing, because
-            // every scan runs against a partition.
-            self::assertSame(5, $local,
-                "Partition {$partition} must carry the four indexes and the primary key.");
+            // every scan runs against a partition. The count is derived from
+            // the provider rather than written as a digit, so adding an index
+            // and forgetting this line is not possible.
+            $expected = count(self::documentedIndexes()) + 1;
+
+            self::assertSame($expected, $local,
+                "Partition {$partition} must carry all {$expected} indexes including the primary key.");
         }
     }
 

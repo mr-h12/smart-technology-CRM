@@ -106,6 +106,15 @@ final class BearerSessionResolver
         // know which of this person's devices is the one asking.
         $request->attributes->set(SessionAttribute::NAME, (string) $session->id);
 
+        // SEC-10. Set only when this really is a Login As, so the presence of
+        // the attribute is the whole question and there is no second state —
+        // "present but null" — for a later reader to get wrong. The audit
+        // context reads it to name both identities on every row the request
+        // writes.
+        if ($session->impersonator_id !== null) {
+            $request->attributes->set(SessionAttribute::IMPERSONATOR, $session->impersonator_id);
+        }
+
         return $user;
     }
 }

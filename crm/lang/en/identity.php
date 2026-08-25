@@ -39,6 +39,18 @@ return [
         'no_fields_submitted' => 'Provide at least one field to change.',
     ],
 
+    'impersonation' => [
+        // SEC-10. None of these names a role or an account: a refusal that
+        // explained itself would describe the permission matrix, and one of the
+        // answers is an account §3.12 rule 6 hides.
+        'impersonation_forbidden' => 'Only the system administrator may sign in as another user.',
+        'target_not_found' => 'No such user.',
+        'target_suspended' => 'That account is deactivated and cannot be used.',
+        'target_is_self' => 'You are already signed in as that user.',
+        'already_impersonating' => 'Leave the current session before starting another one.',
+        'not_impersonating' => 'This session is not an impersonation.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'per_page may not exceed 100.',
         'not_a_positive_integer' => 'This value must be a whole number greater than zero.',

@@ -87,6 +87,10 @@ final readonly class AuditEntry
             'entity_type' => $this->entityType,
             'entity_id' => $this->entityId,
             'actor_id' => $this->context->actorId,
+            // SEC-10: a structured log line that named only the actor would
+            // read identically whether or not the action was taken through
+            // somebody else's account.
+            'impersonated_user_id' => $this->context->impersonatedUserId,
             'ip' => $this->context->ip,
             'request_id' => $this->context->requestId,
             'correlation_id' => $this->context->correlationId,

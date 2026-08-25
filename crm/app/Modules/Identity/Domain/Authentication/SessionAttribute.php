@@ -15,4 +15,13 @@ namespace App\Modules\Identity\Domain\Authentication;
 final class SessionAttribute
 {
     public const NAME = 'identity.session_id';
+
+    /**
+     * `SEC-10` — set only when the resolved session is an impersonation, and
+     * holding the **Super Admin's** id, not the impersonated account's.
+     *
+     * Absent rather than null on an ordinary session: "is this attribute here"
+     * is then the whole question, and there is no second state to get wrong.
+     */
+    public const IMPERSONATOR = 'identity.impersonator_id';
 }

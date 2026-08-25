@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property string $id
  * @property string $user_id
+ * @property string|null $impersonator_id
  * @property string $session_id
  * @property string|null $ip_address
  * @property string|null $user_agent
@@ -30,7 +31,7 @@ final class UserSession extends Model
     protected $table = 'user_sessions';
 
     /** @var list<string> */
-    protected $fillable = ['user_id', 'session_id', 'ip_address', 'user_agent', 'last_activity_at'];
+    protected $fillable = ['user_id', 'impersonator_id', 'session_id', 'ip_address', 'user_agent', 'last_activity_at'];
 
     /** @return array<string, string> */
     protected function casts(): array

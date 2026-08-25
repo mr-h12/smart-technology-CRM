@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
 use App\Modules\Identity\Presentation\ChangePasswordController;
+use App\Modules\Identity\Presentation\ImpersonateController;
+use App\Modules\Identity\Presentation\LeaveImpersonationController;
 use App\Modules\Identity\Presentation\LoginController;
 use App\Modules\Identity\Presentation\LogoutController;
 use App\Modules\Identity\Presentation\MeController;
@@ -79,6 +81,29 @@ Route::prefix('auth')->group(function (): void {
         // send — the only abuse an authenticated, target-less endpoint offers.
         Route::post('/change-password/challenge', PasswordChallengeController::class)
             ->middleware('throttle:password-challenge');
+
+        // `SEC-10` — "Login As restricted to Super Admin, with mandatory
+        // logging", and one of §3.12 rule 4's nine mandatory audit entries.
+        //
+        // ⚠️ **`leave` is registered first, and must stay first.** Laravel
+        // matches in registration order, so with the two swapped the literal
+        // `leave` is captured by `{user}`. Measured with the routes swapped on
+        // purpose: the answer is **403**, not the 404 that seemed obvious —
+        // the wildcard route's `permission:admin.login_as` refuses the
+        // impersonated session, which holds no `admin.*` grant, before anything
+        // looks for a user called "leave". Either way the Super Admin is stuck
+        // inside somebody else's account until D-29's eight idle hours expire
+        // the session. `ImpersonationTest` pins the order.
+        //
+        // It also carries **no** permission middleware, and that is not an
+        // omission: while impersonating, the authenticated user is the target,
+        // who holds no `admin.*` grant. Requiring one here would make the
+        // impersonation impossible to exit through the API. Authorisation is
+        // being in an impersonation session, which only the guard can say.
+        Route::post('/impersonate/leave', LeaveImpersonationController::class);
+
+        Route::post('/impersonate/{user}', ImpersonateController::class)
+            ->middleware('permission:admin.login_as');
     });
 });
 

@@ -36,6 +36,17 @@ final readonly class AuditContext
         public ?string $userAgent,
         public ?string $requestId,
         public ?string $correlationId,
+        /**
+         * `SEC-10` — the account being impersonated, when there is one.
+         *
+         * `AUD-02` records "user · event · entity · …" on the assumption that
+         * there is one user. During a Login As there are two: `actorId` is the
+         * Super Admin, because they are who acted, and this is the identity
+         * they acted **as**. Null on every ordinary request, which is almost
+         * all of them — hence the default, which also keeps every existing
+         * caller of this constructor correct rather than silently reordered.
+         */
+        public ?string $impersonatedUserId = null,
     ) {
         if ($correlationId !== null && preg_match(self::CORRELATION_PATTERN, $correlationId) !== 1) {
             throw new InvalidArgumentException(
@@ -47,6 +58,12 @@ final readonly class AuditContext
     /** The system acting on its own behalf: a job, a command, a migration. */
     public static function system(): self
     {
-        return new self(null, null, null, null, null);
+        return new self(null, null, null, null, null, null);
+    }
+
+    /** `SEC-10` — whether this row has two identities on it rather than one. */
+    public function isImpersonated(): bool
+    {
+        return $this->impersonatedUserId !== null;
     }
 }

@@ -31,6 +31,27 @@ interface SessionStoreInterface
     ): string;
 
     /**
+     * `SEC-10` — opens a session that **belongs to** `$accountId` but is being
+     * driven by `$impersonatorId`.
+     *
+     * A separate method rather than a nullable argument on {@see self::open()}:
+     * a login and a Login As are different operations with different audit
+     * obligations, and a parameter that defaults to null is one a future caller
+     * forgets to pass. This signature cannot be reached by accident.
+     */
+    public function openAs(
+        string $accountId,
+        string $impersonatorId,
+        string $fingerprint,
+        ?string $ip,
+        ?string $userAgent,
+        DateTimeImmutable $at,
+    ): string;
+
+    /** How many live sessions this account is currently impersonating through. */
+    public function impersonationsBy(string $impersonatorId): int;
+
+    /**
      * Revokes one session, and only if it belongs to that account.
      *
      * Idempotent: a session that is already gone is a logout that already

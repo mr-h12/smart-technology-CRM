@@ -1671,13 +1671,65 @@ correction both need the owner's approval on a hook-protected file, and `--color
       forced rotation, and no "your password was changed" notice to the user; and the challenge is
       **not** in `BK-01`'s backup set, which is correct but means a Redis flush invalidates every
       outstanding code
-- [ ] **3.4** `SEC-10` — Login As, Super Admin only, with its mandatory audit entry
+- [x] **3.4** `SEC-10` — Login As. `POST /api/v1/auth/impersonate/{user}` and
+      `.../impersonate/leave`, with the dual-identity audit trail. *(2026-08-25)*
+      **The hard part is not impersonating; it is that the record still names the right person.**
+      An impersonation session runs with the target's id, role and grants — that is the feature —
+      so every row it writes would otherwise read "the Indoor Sales employee did it". §3.12 rule 4
+      makes Login As mandatory to log precisely so the real human is named. Two columns were added
+      for it: `user_sessions.impersonator_id` and `audit_log.impersonated_user_id`. `user_id` stays
+      the **actor** — during a Login As that is the Super Admin — and the new column holds who they
+      acted as. A test performs an ordinary audited action through an impersonation and asserts
+      both ids land on the row.
+      **`SEC-10` is asked twice, and the second ask is the real one.** The route carries
+      `permission:admin.login_as`, which enforces §3.11's matrix row — and §3.12 rule 5 makes the
+      matrix **configuration**, so an administrator can grant that row to another role with an
+      `INSERT`. `SEC-10` is a sentence they cannot change that way, so `StartImpersonation` asks
+      §3.1's `hasUnconditionalAccess()` where no row reaches it. A test grants `admin.login_as` to
+      the Manager, watches the request pass the middleware, and asserts it is still refused 403.
+      **Four refusals about the target, none of them a technicality.** A **hidden** account is 404
+      and indistinguishable from one that does not exist, so Login As cannot enumerate what §3.12
+      rule 6 conceals. A **deactivated** account is 422 `business_rule_blocked` — §10.1 blocks it
+      from signing in, and becoming it would be the way around the one switch `D-34` provides.
+      **Self** is the session the caller already holds. **Nesting** is refused because
+      `impersonated_user_id` has one slot and a chain leaves "who was really acting" without a
+      single answer.
+      **`leave` carries no permission middleware, deliberately.** While impersonating, the
+      authenticated user is the target, who holds no `admin.*` grant; requiring one would make the
+      impersonation impossible to exit through the API and the only way out would be waiting out
+      `D-29`'s eight idle hours. Authorisation is *being in an impersonation session*, which only
+      the guard can establish. It is also registered **before** `impersonate/{user}` — measured
+      with the two swapped, the answer is **403**, not the 404 that looked obvious, because the
+      wildcard route's permission middleware refuses first. A test pins the order.
+      **The Super Admin's own session is never touched**, so leaving is a client-side switch back
+      to the token it still holds rather than a second login.
+      **Verified live over TLS through nginx:** impersonate → 201 as `indoor_sales`; `/me` on the
+      new token answers as the employee; `GET /users` → **403** with it and **200** with the Super
+      Admin's own token, so §3.1's exemption does not travel; a Manager → 403; an audited action
+      through the impersonation left a row whose `user_id` **is** the Super Admin and whose
+      `impersonated_user_id` **is** the employee; nesting → 422 `already_impersonating`; leave →
+      200, the impersonation token then 401 and the original still 200; audit shows one
+      `IMPERSONATION_STARTED` and one `IMPERSONATION_ENDED`.
+      **Migration `2026_08_25_000000_add_impersonation_tracking`** round-trips (`DEV-03`): up →
+      rollback → up, run in this session. `ALTER TABLE … ADD COLUMN` on the partitioned `audit_log`
+      propagates to every partition and the `AUD-03` append-only trigger does not block DDL — both
+      checked against this database rather than recalled. `after()` was **removed** from the
+      column definition: it is a MySQL hint PostgreSQL ignores, and four schema-shape guards
+      caught the appended order.
+      **Also not covered:** there is **no time limit on an impersonation** — it lives until the
+      Super Admin leaves or `D-29`'s eight idle hours expire it, and nothing in `SEC-10` gives a
+      shorter one; **no notification to the impersonated employee** that it happened, which the
+      documentation does not ask for and some companies expect; **no §13 screen** listing active
+      impersonations (the admin screens are a later module); and the SPA is not built, so the
+      "you are impersonating" banner the response body exists to feed has no consumer yet
 
 **Endpoints**
 - [x] `POST /api/v1/auth/login` · `logout` — 2.2 · `change-password` — 3.1, **`SEC-04`'s emailed
       verification code closed by 3.3** · `change-password/challenge` — 3.3
 - [x] `GET /api/v1/auth/me` — 2.2. Returns the role and the `SEC-07` triples read from
       `role_permissions`; the list is a menu, not authorization (§3.12 rule 1)
+- [x] `POST /api/v1/auth/impersonate/{user}` · `impersonate/leave` — 3.4. `SEC-10`, Super Admin
+      only, with the dual-identity audit trail
 - [x] CRUD `/api/v1/users` — 3.2. §3.12 rules 6 and 7 enforced; permission names mapped onto
       §3.11's two documented rows per **`D-78`**
 - [ ] CRUD `/api/v1/roles` · `/api/v1/permissions`

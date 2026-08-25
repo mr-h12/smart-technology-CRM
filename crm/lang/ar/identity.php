@@ -33,6 +33,15 @@ return [
         'no_fields_submitted' => 'أدخل حقلاً واحداً على الأقل للتعديل.',
     ],
 
+    'impersonation' => [
+        'impersonation_forbidden' => 'لا يجوز الدخول باسم مستخدم آخر إلا لمسؤول النظام.',
+        'target_not_found' => 'لا يوجد مستخدم بهذا المعرّف.',
+        'target_suspended' => 'هذا الحساب معطَّل ولا يمكن استخدامه.',
+        'target_is_self' => 'أنت مسجَّل الدخول بهذا الحساب بالفعل.',
+        'already_impersonating' => 'أنهِ الجلسة الحالية قبل بدء جلسة أخرى.',
+        'not_impersonating' => 'هذه الجلسة ليست جلسة دخول باسم مستخدم آخر.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'لا يمكن أن تتجاوز قيمة per_page مئة.',
         'not_a_positive_integer' => 'يجب أن تكون هذه القيمة عدداً صحيحاً أكبر من صفر.',

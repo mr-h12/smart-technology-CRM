@@ -127,7 +127,12 @@ final class UserSchemaMigrationTest extends TestCase
     {
         self::assertSame(
             ['id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at',
-                'user_id', 'session_id', 'ip_address', 'user_agent', 'last_activity_at'],
+                'user_id', 'session_id', 'ip_address', 'user_agent', 'last_activity_at',
+                // SEC-10, Point 3.4 — who is driving a session that belongs to
+                // somebody else. Last in the list because PostgreSQL appends:
+                // the migration's `after()` is a MySQL hint and is ignored,
+                // which was measured rather than assumed.
+                'impersonator_id'],
             self::columns('user_sessions'),
         );
 
@@ -315,7 +320,18 @@ final class UserSchemaMigrationTest extends TestCase
     {
         self::assertSame('uuid', self::type('users', 'id'));
 
-        Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
+        // Rolled back until *this* migration is undone, not a fixed number of
+        // steps: Point 3.4 added a later migration that also touches
+        // `user_sessions`, and a hard-coded `--step => 1` silently started
+        // testing that one's down() instead of this one's.
+        while (Schema::hasTable('user_sessions')) {
+            $before = self::appliedMigrationCount();
+
+            Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
+
+            self::assertLessThan($before, self::appliedMigrationCount(),
+                'migrate:rollback stopped making progress before user_sessions was dropped.');
+        }
 
         self::assertFalse(Schema::hasTable('user_sessions'), 'down() must drop user_sessions.');
         self::assertTrue(Schema::hasTable('users'), 'down() must put the scaffolded users table back.');
@@ -429,6 +445,12 @@ final class UserSchemaMigrationTest extends TestCase
         }
 
         return $names;
+    }
+
+    /** How many rows the migrations table holds — the loop's progress guard. */
+    private static function appliedMigrationCount(): int
+    {
+        return DB::table('migrations')->count();
     }
 
     private static function type(string $table, string $column): ?string

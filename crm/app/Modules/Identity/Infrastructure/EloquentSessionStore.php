@@ -33,6 +33,37 @@ final class EloquentSessionStore implements SessionStoreInterface
         return (string) $session->id;
     }
 
+    public function openAs(
+        string $accountId,
+        string $impersonatorId,
+        string $fingerprint,
+        ?string $ip,
+        ?string $userAgent,
+        DateTimeImmutable $at,
+    ): string {
+        $session = new UserSession;
+        $session->fill([
+            // The session belongs to the person being impersonated: their id,
+            // so their role and their permissions are what resolves (SEC-10).
+            'user_id' => $accountId,
+            'impersonator_id' => $impersonatorId,
+            'session_id' => $fingerprint,
+            'ip_address' => $ip,
+            'user_agent' => $userAgent,
+            'last_activity_at' => $at,
+        ]);
+        $session->save();
+
+        return (string) $session->id;
+    }
+
+    public function impersonationsBy(string $impersonatorId): int
+    {
+        // Live rows only — SoftDeletes excludes the revoked ones, so a Super
+        // Admin who left an impersonation is not counted as still inside it.
+        return UserSession::query()->where('impersonator_id', $impersonatorId)->count();
+    }
+
     public function revoke(string $sessionId, string $accountId): void
     {
         $session = UserSession::query()

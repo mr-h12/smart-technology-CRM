@@ -58,6 +58,18 @@ final class IdentityAuditEvents
     public const PASSWORD_CHALLENGE_FAILED = 'PASSWORD_CHALLENGE_FAILED';
 
     /**
+     * `SEC-10` — "Login As restricted to Super Admin, **with mandatory
+     * logging**", and one of §3.12 rule 4's nine mandatory entries.
+     *
+     * The actor on this row is the Super Admin, because they are who did it.
+     * The entity is the account they became.
+     */
+    public const IMPERSONATION_STARTED = 'IMPERSONATION_STARTED';
+
+    /** The other end of it. Without this, the log says when it began and never that it stopped. */
+    public const IMPERSONATION_ENDED = 'IMPERSONATION_ENDED';
+
+    /**
      * §9 Flow 9's "account created automatically". `AUD-01` covers create;
      * the row records name, address and role — never the initial password.
      */

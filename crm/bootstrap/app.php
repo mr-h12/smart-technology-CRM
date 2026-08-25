@@ -9,6 +9,7 @@ use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
+use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Support\Http\ApiExceptionRenderer;
@@ -105,6 +106,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (PasswordChangeRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::passwordChange($e, $request)
+                : null,
+        );
+
+        $exceptions->render(
+            fn (ImpersonationRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::impersonation($e, $request)
                 : null,
         );
 

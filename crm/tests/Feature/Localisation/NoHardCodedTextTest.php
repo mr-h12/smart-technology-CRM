@@ -69,8 +69,9 @@ final class NoHardCodedTextTest extends TestCase
         self::assertNotEmpty($files, 'No .vue files were scanned — the scan is not looking where the source is.');
         self::assertSame(
             [
-                'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
-                'ConfirmDialog.vue', 'EmptyState.vue', 'ErrorState.vue', 'ForbiddenView.vue',
+                'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                'ConfirmDialog.vue', 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
+                'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RolesMatrixView.vue', 'UserFormModal.vue', 'UsersView.vue',

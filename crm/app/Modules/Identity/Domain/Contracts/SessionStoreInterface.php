@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Domain\Contracts;
 
+use App\Modules\Identity\Domain\Authentication\DeviceSession;
+use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
+use App\Modules\Identity\Domain\RoleAdministration\ReferencePage;
 use DateTimeImmutable;
 
 /**
@@ -58,6 +61,49 @@ interface SessionStoreInterface
      * happened, not an error.
      */
     public function revoke(string $sessionId, string $accountId): void;
+
+    /**
+     * `SEC-05`'s active device list, for the person who owns the account.
+     *
+     * ⚠️ **Impersonation rows are excluded, and that is a rule rather than a
+     * filter.** A Login As session belongs to the Super Admin who is driving
+     * it, and §3.1 makes that account "completely hidden from all users" — a
+     * device the owner did not sign in on, appearing in their own list, names
+     * the hidden administrator by implication. `SEC-10`'s mandatory audit is
+     * the control on Login As; this list is not.
+     *
+     * `$currentSessionId` is the caller's own session, so exactly one row can
+     * come back marked. Null when the caller has no resolvable session id,
+     * which marks none rather than guessing.
+     *
+     * @return ReferencePage<DeviceSession>
+     */
+    public function devicesFor(
+        string $accountId,
+        ?string $currentSessionId,
+        ReferenceListCriteria $criteria,
+    ): ReferencePage;
+
+    /**
+     * Revokes one device of this account, and reports whether there was one.
+     *
+     * False means no live, non-impersonation row with that id belongs to this
+     * account — which the use case turns into `SessionNotFound`. Distinct from
+     * {@see self::revoke()}, which is idempotent because signing out twice is
+     * not an error; asking to revoke a device that is not yours is.
+     */
+    public function revokeDevice(string $sessionId, string $accountId): bool;
+
+    /**
+     * `SEC-05`'s force logout — every device except the one calling.
+     *
+     * Excludes impersonation rows for the reason {@see self::devicesFor()}
+     * gives: a session this list never showed must not be silently taken down
+     * by a button whose label counts what it revoked.
+     *
+     * @return int how many were revoked
+     */
+    public function revokeOtherDevices(string $accountId, string $currentSessionId): int;
 
     /**
      * Revokes every session this account holds, and returns how many.

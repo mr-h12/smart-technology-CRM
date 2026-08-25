@@ -53,6 +53,14 @@ return [
         'permission_ids_required' => 'أرسل permission_ids، واستخدم قائمة فارغة لسحب كل الصلاحيات.',
     ],
 
+    'session' => [
+        // SEC-05. Neither message names another account: `session_not_found`
+        // answers the same way for an id that never existed, one that belongs
+        // to somebody else, and a Login As row §3.1 hides.
+        'session_not_found' => 'هذا الجهاز غير مسجَّل الدخول إلى حسابك.',
+        'session_is_current' => 'هذا هو الجهاز الذي تستخدمه الآن. سجّل الخروج لإنهاء هذه الجلسة.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'لا يمكن أن تتجاوز قيمة per_page مئة.',
         'not_a_positive_integer' => 'يجب أن تكون هذه القيمة عدداً صحيحاً أكبر من صفر.',

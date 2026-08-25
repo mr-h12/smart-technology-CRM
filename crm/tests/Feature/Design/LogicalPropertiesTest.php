@@ -182,6 +182,8 @@ final class LogicalPropertiesTest extends TestCase
             'resources/js/components/identity/ImpersonationBanner.vue',
             'resources/js/pages/roles/RolesMatrixView.vue',
             'resources/js/components/roles/PermissionDiffModal.vue',
+            'resources/js/pages/profile/AccountSecurityView.vue',
+            'resources/js/components/profile/EmailChallengeModal.vue',
             'resources/css/app.css',
         ] as $expected) {
             self::assertContains($expected, $scanned, "{$expected} is not being scanned.");

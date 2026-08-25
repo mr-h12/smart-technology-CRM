@@ -17,7 +17,7 @@
  */
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { setLocale, SUPPORTED, type Locale } from '@/i18n';
 import { currentTheme, setTheme, THEMES, type Theme } from '@/theme';
 import { useAuth } from '@/stores/auth';
@@ -194,9 +194,21 @@ function localeCode(option: Locale): string {
             </button>
         </div>
 
-        <!-- ── Identity ──────────────────────────────────────────────────── -->
-        <span
-            class="hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
+        <!-- ── Identity ──────────────────────────────────────────────────────
+             §5.1 lists a "user menu" in the context bar. This is it: the chip
+             names who is signed in and links to the account-security screen —
+             `SEC-04`'s password change and `SEC-05`'s devices. A link and not a
+             dropdown, because a dropdown with one item is a menu that has to be
+             opened to be read, and §6.1 would then owe it a keyboard model.
+
+             It is hidden below 768px, so `navigation.ts` carries the same
+             destination as a sidebar item; a security screen a phone cannot
+             reach is one the outdoor roles do not have. -->
+        <RouterLink
+            v-if="auth.isAuthenticated.value"
+            :to="{ name: 'account-security' }"
+            class="context-control hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
+            :title="t('account.title')"
             data-testid="user-context"
         >
             <span
@@ -208,6 +220,16 @@ function localeCode(option: Locale): string {
                 </svg>
             </span>
             <span class="min-w-0 truncate">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
+        </RouterLink>
+
+        <!-- Signed out, the same chip is inert text: a link to a screen that
+             requires a session is a guard redirect wearing a name badge. -->
+        <span
+            v-else
+            class="hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
+            data-testid="user-context"
+        >
+            <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
         </span>
 
         <!-- SEC-05's force-logout, applied by the person themselves. Present

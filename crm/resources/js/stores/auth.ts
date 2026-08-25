@@ -226,6 +226,7 @@ export function useAuth() {
         hasPermission,
         login,
         logout,
+        forgetSession,
         fetchCurrentUser,
         clearError,
         startImpersonation,
@@ -329,6 +330,23 @@ async function logout(): Promise<void> {
     } finally {
         clear();
     }
+}
+
+/**
+ * Drops the local session **without** asking the server to revoke anything.
+ *
+ * For the one case where it already has: `POST /auth/change-password` revokes
+ * every session including the calling one (§9 Flow 0 — "log in again"), so the
+ * token this tab is holding is dead before the response arrives. Calling
+ * {@see logout} there would send a revoked credential to `/auth/logout`, take
+ * a `401`, and reach the same state through an error — which is indisputably
+ * worse than saying what happened.
+ *
+ * Not a general-purpose escape hatch: everywhere else, ending a session means
+ * telling the server, because `SEC-05`'s device list is only true if it is.
+ */
+function forgetSession(): void {
+    clear();
 }
 
 /**

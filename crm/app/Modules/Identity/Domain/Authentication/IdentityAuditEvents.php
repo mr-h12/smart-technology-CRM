@@ -31,6 +31,22 @@ final class IdentityAuditEvents
     public const LOGOUT = 'LOGOUT';
 
     /**
+     * `SEC-05`'s force logout — a device was signed out by the account owner
+     * from the security screen, rather than by that device itself.
+     *
+     * Distinct from {@see self::LOGOUT} on purpose. That one is "this device
+     * surrendered its own session"; this one is "somebody ended a session they
+     * were not using", which is the event an auditor looks for after a lost
+     * laptop. Folding them together makes that query unanswerable.
+     *
+     * The row records how many devices went and whether it was one or all of
+     * the others — never the session fingerprint, which `D-74` makes the value
+     * the server compares a live credential against, and `AUD-03` would make
+     * permanent.
+     */
+    public const SESSION_REVOKED = 'SESSION_REVOKED';
+
+    /**
      * `SEC-04`'s event. The row records **that** the password changed and how
      * many sessions it took down — never the old hash and never the new one.
      * `AUD-03` makes the row permanent, and a permanent record of a credential

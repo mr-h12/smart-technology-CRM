@@ -8,7 +8,7 @@
  *
  * Nothing here decides anything. Every function is one request (`D-67`).
  */
-import { apiGet, apiPatch, apiPost, type ApiResult, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, type ApiResult, type Pagination } from '@/api';
 
 /** `UserPayload::of()`. No `password`, and no `is_hidden` — §3.12 rule 6. */
 export interface AdministeredUser {
@@ -69,6 +69,28 @@ export interface AdministeredRole extends RoleOption {
 export interface RolePermissionsUpdated {
     role: AdministeredRole;
     diff: { granted: string[]; revoked: string[]; changed: boolean };
+}
+
+/**
+ * One row of `SEC-05`'s active device list — `SessionPayload::of()`.
+ *
+ * No `session_id`: `D-74` stores the SHA-256 digest of the bearer token in
+ * that column and Coding Standards §9 forbids exposing it, so the server never
+ * sends it and this interface has nowhere to put it.
+ *
+ * No impersonation field either. §3.1 hides the Super Admin, so a Login As
+ * session is not returned to the account it runs as — see `DeviceSession` on
+ * the server for why that is a rule and not a filter.
+ */
+export interface DeviceSession {
+    id: string;
+    ip_address: string | null;
+    /** The raw `User-Agent`. The server does not parse it and neither does this. */
+    user_agent: string | null;
+    last_activity_at: string;
+    signed_in_at: string;
+    /** The device making the call. Told by the server, never inferred here. */
+    is_current: boolean;
 }
 
 export type { Pagination } from '@/api';
@@ -209,6 +231,87 @@ export async function updateRolePermissions(
     const { diff, ...role } = result.data;
 
     return { role, diff };
+}
+
+/**
+ * `GET /api/v1/auth/sessions` — `SEC-05`'s device list, the caller's own.
+ *
+ * Paged through for the same reason {@see listAllPermissions} is: the screen
+ * shows every device and `OpenAPI §4.2` caps a page at 100. Nobody signs in on
+ * 101 devices, and the loop costs one request in every realistic case — but a
+ * list that silently stopped at a page boundary would be a device the owner
+ * cannot see and therefore cannot revoke, which is the one thing `SEC-05` is
+ * for.
+ */
+export async function listSessions(): Promise<DeviceSession[]> {
+    return allPages<DeviceSession>('/auth/sessions');
+}
+
+/**
+ * `DELETE /api/v1/auth/sessions/{id}` — one remote device.
+ *
+ * The caller's own session is refused with `422 session_is_current`: ending
+ * this session is `POST /auth/logout`, which writes the right audit event and
+ * lets the SPA drop the token it is holding.
+ */
+export async function revokeSession(sessionId: string): Promise<void> {
+    await apiDelete(`/auth/sessions/${sessionId}`);
+}
+
+/**
+ * `DELETE /api/v1/auth/sessions` — every device except this one.
+ *
+ * @return how many were revoked
+ */
+export async function revokeOtherSessions(): Promise<number> {
+    const result = await apiDelete<{ revoked: number; current_session_kept: boolean }>('/auth/sessions');
+
+    return result.data.revoked;
+}
+
+/**
+ * `POST /api/v1/auth/change-password/challenge` — `SEC-04` step one.
+ *
+ * Answers `202`: the work the caller cares about is a mail on its way, and the
+ * response is not evidence it arrived. `expires_in_minutes` comes from
+ * `identity.password_challenge.ttl_minutes`, so the countdown is the server's
+ * number rather than one this file guessed.
+ */
+export async function requestPasswordChallenge(): Promise<{ expires_in_minutes: number }> {
+    const result = await apiPost<{ challenge_sent: boolean; expires_in_minutes: number }>(
+        '/auth/change-password/challenge',
+    );
+
+    return { expires_in_minutes: result.data.expires_in_minutes };
+}
+
+/**
+ * `POST /api/v1/auth/change-password` — §9 Flow 0's third and fourth steps.
+ *
+ * `sessions_revoked` counts **every** session including the calling one: the
+ * flow ends "log in again", and the token that made this request is dead when
+ * it returns. The caller must sign the user out locally rather than continue.
+ */
+export async function changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    verificationCode: string;
+}): Promise<{ sessions_revoked: number }> {
+    const result = await apiPost<{
+        password_changed: boolean;
+        sessions_revoked: number;
+        reauthentication_required: boolean;
+    }>('/auth/change-password', {
+        current_password: payload.currentPassword,
+        new_password: payload.newPassword,
+        // Laravel's `confirmed` rule expects this exact field name, and the
+        // Form Request requires it. The two boxes are compared in the screen
+        // before anything is sent; this is the server asking the same question.
+        new_password_confirmation: payload.newPassword,
+        verification_code: payload.verificationCode,
+    });
+
+    return { sessions_revoked: result.data.sessions_revoked };
 }
 
 export async function impersonate(userId: string): Promise<ImpersonationStarted> {

@@ -12,6 +12,7 @@ use App\Modules\Identity\Presentation\MeController;
 use App\Modules\Identity\Presentation\PasswordChallengeController;
 use App\Modules\Identity\Presentation\PermissionController;
 use App\Modules\Identity\Presentation\RoleController;
+use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +84,33 @@ Route::prefix('auth')->group(function (): void {
         // send — the only abuse an authenticated, target-less endpoint offers.
         Route::post('/change-password/challenge', PasswordChallengeController::class)
             ->middleware('throttle:password-challenge');
+
+        // `SEC-05` — "8-hour session timeout + **active device list** + force
+        // logout". The account is the caller's, read from the guard, so there
+        // is no permission middleware for the same reason `change-password`
+        // carries none: the right to manage your own devices is having a
+        // session. Somebody else's devices are §13 screen 2, a different screen
+        // with a different permission, and none of these routes takes a target.
+        //
+        // ⚠️ **On `DELETE`, where D-34 chose `PATCH`.** §7.2 names `POST` and
+        // `PATCH` and is silent on `DELETE`; `PATCH /users/{id}/deactivate` is
+        // a `PATCH` because a user account is business data `DB-01` forbids
+        // deleting, so "deactivate" is a state change and not a removal. A
+        // session is the opposite: it is not business data, its whole lifecycle
+        // is create and destroy, and the row is soft-deleted underneath exactly
+        // as every other revocation in this module is. The verb the owner
+        // specified therefore describes what happens, and `DB-01` is untouched
+        // — no session row is ever physically removed.
+        //
+        // ⚠️ **The collection route is registered before the member route, and
+        // must stay first.** Laravel matches in registration order; with them
+        // swapped, `DELETE /auth/sessions` still resolves correctly because the
+        // paths differ in segment count — but the pairing is written down here
+        // because the impersonation routes above needed exactly this care and
+        // the reason is not obvious from either file.
+        Route::get('/sessions', [SessionController::class, 'index']);
+        Route::delete('/sessions', [SessionController::class, 'destroyOthers']);
+        Route::delete('/sessions/{session}', [SessionController::class, 'destroy']);
 
         // `SEC-10` — "Login As restricted to Super Admin, with mandatory
         // logging", and one of §3.12 rule 4's nine mandatory audit entries.

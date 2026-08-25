@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
 use App\Modules\Identity\Domain\Authentication\PasswordChangeRefused;
+use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
@@ -110,6 +111,30 @@ final class ApiExceptionRenderer
                 'code' => $reason->value,
                 'message' => (string) __($reason->messageKey()),
             ]],
+        );
+    }
+
+    /**
+     * A refused device revocation — `SEC-05`.
+     *
+     * Two `OpenAPI §5.1` rows, chosen by the refusal: a session that is not
+     * this account's is `404 resource_not_found` and deliberately does not say
+     * whether it exists, while revoking the calling session is `422
+     * business_rule_blocked` — a documented rule blocking the action, with
+     * `POST /auth/logout` as the thing to do instead.
+     */
+    public static function sessionRevocation(SessionRevocationRefused $exception, Request $request): JsonResponse
+    {
+        $reason = $exception->reason;
+
+        return ApiEnvelope::error(
+            $request,
+            $reason->status(),
+            $reason->errorCode(),
+            (string) __($reason->status() === 404
+                ? 'identity.errors.resource_not_found'
+                : $reason->messageKey()),
+            [['code' => $reason->value, 'message' => (string) __($reason->messageKey())]],
         );
     }
 

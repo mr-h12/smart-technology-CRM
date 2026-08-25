@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $ip_address
  * @property string|null $user_agent
  * @property \Illuminate\Support\Carbon $last_activity_at
+ * @property \Illuminate\Support\Carbon|null $created_at DB-02's block, written by Eloquent — when this device signed in.
  */
 final class UserSession extends Model
 {

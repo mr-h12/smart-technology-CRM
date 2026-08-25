@@ -83,7 +83,8 @@
     "item": {
       "home": "System diagnostics",
       "users": "Employees",
-      "roles": "Roles & Permissions"
+      "roles": "Roles & Permissions",
+      "accountSecurity": "Account security"
     }
   },
   "theme": {
@@ -231,6 +232,60 @@
       "denied": "You do not have permission to change roles.",
       "rejected": "The change was rejected. Nothing was saved.",
       "unreachable": "The server could not be reached. Nothing was saved."
+    }
+  },
+  "account": {
+    "title": "Account security",
+    "subtitle": "Your password and the devices signed in to your account.",
+    "password": {
+      "title": "Change password",
+      "explainer": "We email a verification code before the change is applied.",
+      "current": "Current password",
+      "next": "New password",
+      "confirm": "Confirm new password",
+      "mismatch": "The two passwords do not match.",
+      "ruleLength": "At least {length} characters",
+      "ruleLetter": "Contains a letter",
+      "ruleDigit": "Contains a number",
+      "submit": "Change password",
+      "sending": "Sending the code…",
+      "signsOutEverywhere": "Changing your password signs you out on every device, including this one."
+    },
+    "challenge": {
+      "title": "Confirm the change",
+      "intro": "We sent a verification code to {email}. Enter it to finish changing your password.",
+      "label": "{length}-digit code",
+      "remaining": "The code stops working in {time}.",
+      "expired": "This code has expired. Send a new one.",
+      "resend": "Send a new code",
+      "resending": "Sending…",
+      "confirm": "Change password"
+    },
+    "devices": {
+      "title": "Signed-in devices",
+      "explainer": "Sign out any device you do not recognise. Sessions also end on their own after eight idle hours.",
+      "loading": "Loading your devices…",
+      "current": "This device",
+      "revoke": "Sign out",
+      "revokeOthers": "Sign out other devices",
+      "revoked": "That device was signed out.",
+      "revokedOthers": "Every other device was signed out.",
+      "meta": "IP {ip} · last active {active} · signed in {since}",
+      "unknownIp": "unknown address",
+      "unknownDevice": "Unrecognised device"
+    },
+    "error": {
+      "currentPassword": "Your current password is not correct.",
+      "codeInvalid": "That code is not valid. Check it, or send a new one.",
+      "codeExpired": "That code has expired. Send a new one and try again.",
+      "policy": "The new password does not meet the password rules.",
+      "unchanged": "The new password must be different from the current one.",
+      "challengeFailed": "The verification code could not be sent. Try again shortly.",
+      "resendLimited": "Too many codes requested. Wait a few minutes before asking for another.",
+      "deviceIsCurrent": "This is the device you are using. Sign out to end this session.",
+      "deviceGone": "That device is no longer signed in.",
+      "rejected": "The change was refused. Reload the page and try again.",
+      "unreachable": "The server could not be reached. Check your connection and try again."
     }
   }
 }

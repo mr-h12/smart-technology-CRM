@@ -62,6 +62,14 @@ return [
         'permission_ids_required' => 'Send permission_ids, using an empty list to revoke every permission.',
     ],
 
+    'session' => [
+        // SEC-05. Neither message names another account: `session_not_found`
+        // answers the same way for an id that never existed, one that belongs
+        // to somebody else, and a Login As row §3.1 hides.
+        'session_not_found' => 'That device is not signed in to your account.',
+        'session_is_current' => 'This is the device you are using. Sign out to end this session.',
+    ],
+
     'list_query' => [
         'above_maximum' => 'per_page may not exceed 100.',
         'not_a_positive_integer' => 'This value must be a whole number greater than zero.',

@@ -81,6 +81,21 @@ export const NAVIGATION: readonly NavigationGroup[] = [
         labelKey: 'nav.group.system',
         items: [
             {
+                // `SEC-04` · `SEC-05`. The context bar's user chip links here
+                // too, which is the "user menu" §5.1 names — but that chip is
+                // hidden below 768px, and a security screen that disappears on
+                // a phone is one the field roles cannot reach. So it is also a
+                // menu item.
+                //
+                // `permission: null` because the route declares none: §3.11 has
+                // no row for managing your own account, and `navigation.spec.ts`
+                // asserts the item and the route say the same thing.
+                name: 'account-security',
+                labelKey: 'nav.item.accountSecurity',
+                icon: 'M10 2 4 4.5V9c0 3.6 2.5 6.9 6 8 3.5-1.1 6-4.4 6-8V4.5zm0 4.5a2 2 0 0 1 2 2c0 .8-.5 1.5-1.2 1.8l.4 2.2H8.8l.4-2.2A2 2 0 0 1 10 6.5z',
+                permission: null,
+            },
+            {
                 name: 'home',
                 labelKey: 'nav.item.home',
                 icon: 'M3 10.5 10 4l7 6.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1z',

@@ -18,6 +18,7 @@ import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
+import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -103,6 +104,20 @@ export const routes: RouteRecordRaw[] = [
         name: 'roles',
         component: RolesMatrixView,
         meta: { requiresAuth: true, requiredPermission: 'admin.manage_roles', titleKey: 'roles.title' },
+    },
+    {
+        // `SEC-04` and `SEC-05`, for the person signed in. **No
+        // `requiredPermission`, and that is read from §3.11 rather than
+        // omitted**: the section has no row for changing your own password or
+        // listing your own devices, and every endpoint behind this screen
+        // takes the account from the bearer token with no `user_id` to widen.
+        // Naming an `admin.*` ability here would hide a screen every employee
+        // must reach; inventing a `user.*` one would invent a permission the
+        // seeded matrix does not contain.
+        path: '/account/security',
+        name: 'account-security',
+        component: AccountSecurityView,
+        meta: { requiresAuth: true, titleKey: 'account.title' },
     },
     {
         path: '/403',

@@ -2035,13 +2035,79 @@ correction both need the owner's approval on a hook-protected file, and `--color
       version column. The grid and the locked checkboxes are **not** an access-control boundary;
       §3.12 rule 1 puts that at the API, which `RolePermissionManagementTest` proves separately
 
+- [x] **5.4** Account security screen, `SEC-04`'s email challenge and `SEC-05`'s device
+      management. *(2026-08-25)* `resources/js/pages/profile/AccountSecurityView.vue` ·
+      `components/profile/EmailChallengeModal.vue` · `domain/passwordPolicy.ts` ·
+      `SessionController` · `SessionPayload` · `Application/SessionManagement/*` ·
+      `DeviceSession` · `SessionRefusal` · `SessionStoreInterface::devicesFor/revokeDevice/revokeOtherDevices`.
+      **Three endpoints, no permission on any of them, and that is §3.11 read rather than
+      skipped.** The section has no row for managing your own password or your own devices; the
+      account is taken from the bearer token and none of the three takes a target, so there is
+      nothing an authorisation check could narrow. Somebody *else's* devices are §13 screen 2,
+      which has its own permission and is not this screen. Naming an `admin.*` ability here would
+      hide a security screen from every employee; inventing a `user.*` one would invent a
+      permission the seeded matrix does not contain.
+      ❗ **A Login As session is not one of the account's devices.** §3.1 makes the Super Admin
+      "completely hidden from all users", so `devicesFor()`, `revokeDevice()` and
+      `revokeOtherDevices()` all filter `impersonator_id IS NULL` through one private scope —
+      hidden from the list *and* from the command, or the list would only be hiding the id from
+      somebody who has not tried guessing it. `SEC-10`'s mandatory audit is the control on Login
+      As; a device list is not. ⚠️ **The cost, stated:** a live impersonation is a session the
+      account owner can neither see nor end.
+      **Revoking the calling session is refused, not half-done.** `422 business_rule_blocked /
+      session_is_current`, pointing at `POST /auth/logout` — which writes the `LOGOUT` event and
+      lets the SPA drop the token. A `200` here would kill the credential the client keeps using.
+      **`DELETE`, where `D-34` chose `PATCH`, and the difference is `DB-01`.** §7.2 names `POST`
+      and `PATCH` and is silent on `DELETE`; a user account is business data that may never be
+      deleted, so deactivation is a state change. A session is not business data, its lifecycle is
+      create-and-destroy, and the row is soft-deleted underneath exactly as every other revocation
+      in this module — no `user_sessions` row is ever physically removed.
+      **`SEC-04` is a two-step flow because §9 Flow 0 is.** The form collects the three passwords,
+      `POST /auth/change-password/challenge` mails the code (no body, no target — a password sent
+      to a mail-sending endpoint would be a credential in a request that exists to send mail), and
+      the dialog collects six digits. The countdown is the server's `expires_in_minutes`, not a
+      hard-coded fifteen: `AP-08` and §3.12 rule 5 make limits configuration.
+      **`D-28`'s checklist is a hint, pinned to the rule.** `passwordPolicy.ts` mirrors
+      `PasswordPolicy::MINIMUM_LENGTH` and `VerificationCode::LENGTH`, and
+      `PasswordPolicyMirrorTest` reads both — including that the letter test is `\p{L}` with `/u`,
+      because a Latin-only class would refuse an Arabic passphrase the API accepts, in the
+      first-release language, on a security screen.
+      **The change signs this device out, and the screen says so first.** `ChangePassword` revokes
+      every session including the caller's, so the store gains `forgetSession()` — dropping local
+      state without posting a revoked token to `/auth/logout` and reaching the same place through
+      a `401`.
+      **Verified live over TLS** (two sessions minted through `SessionStoreInterface::open()`, all
+      revoked afterwards): `GET /auth/sessions` → `200`, four rows, exactly one `is_current`, the
+      six `OpenAPI §4.2` pagination keys, and **no `session_id` and no SHA-256 digest anywhere in
+      the body**; `DELETE` own session → `422 session_is_current`; `DELETE` a remote one → `200`,
+      after which that token answers `401` and the caller's still answers `200`; `DELETE
+      /auth/sessions` → `200 {revoked: 2, current_session_kept: true}`; `per_page=500` → `400
+      above_maximum`; `filter[user_id]` → `400 unknown_filter`; an already-revoked id → `404
+      session_not_found` (Arabic: «هذا الجهاز غير مسجَّل الدخول إلى حسابك.»); unauthenticated →
+      `401` on all three. `/account/security` serves `200` with `lang="ar" dir="rtl"` and
+      `lang="en" dir="ltr"`, and the served bundle carries `أمان الحساب`, `تسجيل الخروج من كافة
+      الأجهزة الأخرى`, `/auth/sessions`, `new_password_confirmation` and `session_is_current`.
+      ⚠️ Those probes wrote **three permanent `SESSION_REVOKED` audit rows** in the development
+      database; `AUD-03` means they cannot be removed.
+      **What this does NOT cover.** The `User-Agent` is shown **raw** — no "Chrome on Windows"
+      parsing, because that is a dependency and a lookup table that goes stale; §13 screen 2 asks
+      for "browser" without saying who reads it. There is **no geolocation** and no "new device"
+      notification. `SEC-05`'s eight-hour expiry is enforced server-side by `IdleTimeout` and is
+      **not** shown as a per-row countdown, and there is still **no client-side idle timer** for
+      `D-29` — a tab left open discovers the expiry on its next request. **No focus trap** in
+      either dialog (`PermissionDiffModal` and `ConfirmDialog` share the gap). **No rate-limit
+      countdown**: `SEC-11`'s three-per-fifteen-minutes is reported when the `429` arrives and not
+      predicted, because a client-side counter and the server's limiter disagreeing is a button
+      that lies in both directions. Nothing here is an access-control boundary — §3.12 rule 1 puts
+      that at the API, which `SessionManagementTest` proves separately with 27 tests
+
 **Frontend**
 - [x] login page · role-based redirect · protected routes — 5.1
 - [x] roles and permissions matrix · scope toggles · diff confirmation modal — 5.3
 - [x] user management screen · create/edit modal · deactivate/reactivate · Login As ·
       impersonation banner — 5.2
-- [ ] password change screen (`SEC-04`) · active devices (`SEC-05`) · user detail page ·
-      text search (blocked on Module 3's `SearchService`)
+- [x] password change screen (`SEC-04`) · active devices (`SEC-05`) — 5.4
+- [ ] user detail page · text search (blocked on Module 3's `SearchService`)
 
 **Acceptance criteria**
 - [x] Valid credentials → redirect to the role's default screen *(5.1 — the map is §8's, read back out of the documentation by `RoleLandingTest`; every target falls back to `home` until its module registers a route)*

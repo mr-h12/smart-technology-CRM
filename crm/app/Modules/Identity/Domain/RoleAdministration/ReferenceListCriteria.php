@@ -58,6 +58,24 @@ final readonly class ReferenceListCriteria
     public const PERMISSION_DEFAULT_SORT = 'resource';
 
     /**
+     * §6.2's declaration for `auth/sessions` — `SEC-05`'s device list.
+     *
+     * No filters. The listing is already scoped to one account by the guard,
+     * and §6.2 allows "only fields explicitly declared for that resource": a
+     * `filter[user_id]` would be the one field this endpoint must never accept.
+     */
+    public const SESSION_FILTERS = [];
+
+    public const SESSION_SORTS = ['last_activity_at', 'created_at'];
+
+    /**
+     * §6.2: "default order is resource-specific and documented" — this is that
+     * documentation. Most recently active first, because the row a person is
+     * looking for on a security screen is the one that moved last.
+     */
+    public const SESSION_DEFAULT_SORT = '-last_activity_at';
+
+    /**
      * @param  array<string, string|bool>  $filters  keyed by the declared filter name; absent means unfiltered
      */
     private function __construct(
@@ -86,6 +104,16 @@ final readonly class ReferenceListCriteria
     public static function forPermissions(array $query): self
     {
         return self::parse($query, self::PERMISSION_FILTERS, self::PERMISSION_SORTS, self::PERMISSION_DEFAULT_SORT);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $query  the raw query string, as received
+     *
+     * @throws InvalidListQuery
+     */
+    public static function forSessions(array $query): self
+    {
+        return self::parse($query, self::SESSION_FILTERS, self::SESSION_SORTS, self::SESSION_DEFAULT_SORT);
     }
 
     public function offset(): int
@@ -161,9 +189,12 @@ final readonly class ReferenceListCriteria
      */
     private static function sort(mixed $value, array $allowed, string $default): array
     {
-        if ($value === null || $value === '') {
-            return [$default, false];
-        }
+        // The default is parsed through the same `-` handling as a submitted
+        // value, so a resource whose documented default order is descending can
+        // say so as `-field` rather than needing a second parameter. Roles and
+        // permissions declare ascending defaults and are unaffected — their
+        // constants carry no prefix, which `SessionManagementTest` pins.
+        $value = $value === null || $value === '' ? $default : $value;
 
         if (! is_string($value)) {
             throw InvalidListQuery::of('sort', 'unknown_sort_field');

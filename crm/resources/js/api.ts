@@ -112,6 +112,18 @@ export async function apiPatch<T>(path: string, body?: unknown): Promise<ApiResu
     return request<T>('PATCH', path, body);
 }
 
+/**
+ * `SEC-05`'s revocations are the only DELETEs this API has.
+ *
+ * `DB-01` is not bypassed by the verb: the server soft-deletes the
+ * `user_sessions` row, and a session is not business data. Every other
+ * "removal" in this product is `PATCH …/deactivate` or `…/archive`, which is
+ * why this helper arrives with Point 5.4 and not before.
+ */
+export async function apiDelete<T>(path: string): Promise<ApiResult<T>> {
+    return request<T>('DELETE', path);
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
     const token = bearerToken();
 

@@ -165,7 +165,12 @@ final class SettingsSchemaMigrationTest extends TestCase
 
     public function test_that_the_migration_rolls_back_and_forward_again(): void
     {
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+        // Named, not `--step 1`. A step is "whatever migrated last", so the
+        // next migration anyone adds silently points this test at itself —
+        // which is exactly what happened when 1.2 landed behind 1.1.
+        self::assertSame(0, Artisan::call('migrate:rollback', [
+            '--path' => 'database/migrations/2026_08_27_000000_create_settings_and_system_limits.php',
+        ]));
 
         foreach (self::TABLES as $table) {
             self::assertFalse(Schema::hasTable($table), "down() left `{$table}` behind (DEV-03).");

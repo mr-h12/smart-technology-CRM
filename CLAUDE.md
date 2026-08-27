@@ -271,6 +271,23 @@ without this conversation.
 - Make schema changes through a new managed migration with tested up and down paths. Never manually edit the production schema or an already-applied migration. Regenerate database types after a schema change.
 - Use strict typing and backend boundary validation. Do not introduce untyped escape hatches or client-owned business rules.
 - Do not declare a task complete until applicable type checks, linting, build, and tests have run and their results are reported.
+- Two strikes on your own attempts: if the same fix fails twice, stop. Report what was tried, what was observed, and what you now think is wrong. Do not try a third variation without checking in.
+- Read narrowly. When the location is known, read those lines, not the whole file, and refer back to a file already read this session instead of reading it again. This scopes how much you read; it never excuses skipping the read.
+- Trim tool output. Pipe verbose commands through `head`/`tail` and paste the failing lines. The actual output is still mandatory, as §"A point is not done until its checks have been read" requires; the noise around it is not.
+- Send fan-out searches — a sweep across many files or directories where only the conclusion matters — to a subagent, so the file contents stay out of this session's context.
+
+## Team Collaboration and Module Ownership
+
+- **Module isolation.** While working inside one module (`app/Modules/Identity/` vs `app/Modules/Admin/`), do not modify files outside it unless they are shared core components — `app/Support/`, configuration, or migrations the module owns. A cross-module need is an interface or a domain event, never an edit next door.
+- **Feature branching.** Every task or point is developed on its own branch, named `feature/<module-name>-<short-description>`.
+- **Quality gates before any merge.** Run all of these locally and read their output first:
+  - `php artisan test`
+  - `npm run test:unit`
+  - `./vendor/bin/pint --test`
+  - `./vendor/bin/phpstan analyse --memory-limit=1G`
+  - `./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml`
+  - `./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml`
+- **No direct push to `main`.** Every merge needs a review confirming the deptrac boundaries hold and strict typing is intact.
 
 ## Requirements Traceability
 

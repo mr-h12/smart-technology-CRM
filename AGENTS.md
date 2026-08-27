@@ -233,6 +233,23 @@ without this conversation.
 - For a defect, write a failing regression test first whenever practical. Tests are mandatory for money, authorization, concurrency, workflows, versioning, and multi-table writes.
 - Make schema changes in a new managed migration with tested up/down paths. Never manually alter production schema or an already-applied migration. Regenerate database types after schema changes.
 - Use strict typing and backend boundary validation. Do not add untyped escape hatches or client-owned business logic.
+- Two failed attempts at the same fix end the attempt. Report what was tried, what was observed, and the current hypothesis; a third variation waits for the owner.
+- Read narrowly: when the location is known, read those lines rather than the whole file, and refer back to a file already read in this session instead of reading it again. This governs how much is read, never whether it is read.
+- Trim tool output: pipe verbose commands through `head`/`tail` and quote the failing lines. §"A point is not done until its checks have been read" still requires the real output; it does not require the noise around it.
+- Dispatch fan-out searches — sweeps over many files or directories where only the conclusion matters — to a subagent, keeping file contents out of the main context.
+
+## Team Collaboration and Module Ownership
+
+- **Module isolation.** Work inside one module (`app/Modules/Identity/` vs `app/Modules/Admin/`) touches no file outside it, except shared core components — `app/Support/`, configuration, or migrations that module owns. Cross-module needs go through an interface or a domain event, not an edit in the neighbouring module.
+- **Feature branching.** Each task or point is developed on an independent branch named `feature/<module-name>-<short-description>`.
+- **Quality gates before any merge.** All of these run locally, and their output is read, before a branch merges:
+  - `php artisan test`
+  - `npm run test:unit`
+  - `./vendor/bin/pint --test`
+  - `./vendor/bin/phpstan analyse --memory-limit=1G`
+  - `./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml`
+  - `./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml`
+- **No direct push to `main`.** Every merge requires a review confirming that the deptrac boundaries and strict typing remain intact.
 
 ## Definition of Done and Traceability
 

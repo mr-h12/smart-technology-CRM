@@ -44,9 +44,12 @@ final class DatabaseSeeder extends GuardedSeeder
         // is on the seeder, so calling it from here cannot weaken it.
         $this->call([
             RolePermissionSeeder::class,
+            CurrencySeeder::class,
             UserSeeder::class,
         ]);
 
-        // Module 2: sectors, units, service types, delivery terms (DB-05), currencies (D-52), FX rates.
+        // Module 2 still owes: sectors, units, service types and delivery terms (DB-05).
+        // No FX rate is seeded — see CurrencySeeder for why the one rate the
+        // system can assert on its own is a tautology the schema refuses.
     }
 }

@@ -140,7 +140,16 @@ parameters:
     Outdoor: ~
     Reports: ~
     Notifications: ~
-    Admin: ~
+    # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
+    # only framework-free domain classes and an empty ruleset cost nothing; the
+    # `currencies` table gives it its first Eloquent model, which cannot exist
+    # without Illuminate. **This does not weaken the Domain rule** — that is
+    # deptrac.layers.yaml's empty Domain ruleset, a separate config, and the
+    # model lives in Infrastructure precisely because of it. No split into
+    # AdminContract / AdminDriver yet: nothing outside Admin points at it, and
+    # the Identity split exists to serve a crossing that actually happened.
+    Admin:
+      - Framework
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.

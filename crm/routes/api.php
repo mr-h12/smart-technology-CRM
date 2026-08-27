@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
 use App\Modules\Identity\Presentation\LeaveImpersonationController;
@@ -256,4 +257,17 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/permissions', [PermissionController::class, 'index'])
         ->middleware('permission:admin.manage_roles');
+});
+
+// Module 2 §13 screen 4 — "System Settings".
+//
+// §3.11 gives `system settings` to the Super Admin and `—` to every other role,
+// including the Manager, who holds `FX rates` on the row below it. The
+// permission name is the one Point 7.2 seeded, not a new one.
+//
+// One resource, two verbs: §7.2's "a clear action suffix only when an action is
+// not a normal resource update", and setting a field is exactly a normal update.
+Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
+    Route::get('/settings', [SettingsController::class, 'index']);
+    Route::patch('/settings', [SettingsController::class, 'update']);
 });

@@ -165,6 +165,14 @@ parameters:
       # App\Support\Settings\SettingReader for why the contract sits outside
       # both modules rather than inside this one.
       - SharedContracts
+      # Admin → AuditContract, added 2026-08-27 with Point 3.1, on the same
+      # terms as Identity's crossing of 2026-08-24: `AUD-01` asks for a
+      # comprehensive audit, so every module that writes business rows writes
+      # audit rows, and the crossing is mandatory rather than convenient. §13
+      # screen 4 edits the company name that §16 prints on every quotation —
+      # a change that should not happen without a trace. It points at the
+      # *contract* half only; nothing points at AuditDriver, and nothing should.
+      - AuditContract
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.

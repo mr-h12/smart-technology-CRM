@@ -41,6 +41,17 @@ parameters:
         - type: classLike
           value: ^Database\\Factories\\.*
 
+    # `App\Support\Settings` — the contract a module reads a tunable number
+    # through. Named as its own layer rather than left uncovered: an uncovered
+    # line does not fail the build, and this file already records why that
+    # matters. Deliberately narrow — `^App\\Support\\Settings\\.*` and not all of
+    # `App\Support`, so a future helper there does not inherit a licence to be
+    # a cross-module channel.
+    - name: SharedContracts
+      collectors:
+        - type: classLike
+          value: ^App\\Support\\Settings\\.*
+
     - name: Framework
       collectors:
         - type: classLike
@@ -58,10 +69,13 @@ parameters:
     Application:
       - Domain
       - Framework
+      - SharedContracts
     Infrastructure:
       - Domain
       - Framework
       - Factories
+      - SharedContracts
     # Domain has no entry on purpose. An empty ruleset means "may depend on
     # nothing", which is the point.
     Factories: ~
+    SharedContracts: ~

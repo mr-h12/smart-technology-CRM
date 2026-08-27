@@ -121,6 +121,17 @@ parameters:
     # deptrac.layers.yaml: without it every Illuminate call from a covered class
     # is an uncovered dependency, and a report full of uncovered lines is a
     # report nobody reads.
+    # `App\Support\Settings` — the contract a module reads a tunable number
+    # through. Named as its own layer rather than left uncovered: an uncovered
+    # line does not fail the build, and this file already records why that
+    # matters. Deliberately narrow — `^App\\Support\\Settings\\.*` and not all of
+    # `App\Support`, so a future helper there does not inherit a licence to be
+    # a cross-module channel.
+    - name: SharedContracts
+      collectors:
+        - type: classLike
+          value: ^App\\Support\\Settings\\.*
+
     - name: Framework
       collectors:
         - type: classLike
@@ -150,6 +161,10 @@ parameters:
     # the Identity split exists to serve a crossing that actually happened.
     Admin:
       - Framework
+      # Admin implements the settings contract; Identity reads through it. See
+      # App\Support\Settings\SettingReader for why the contract sits outside
+      # both modules rather than inside this one.
+      - SharedContracts
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.
@@ -166,6 +181,9 @@ parameters:
     IdentityContract:
       - AuditContract
       - Framework
+      # D-75: the lockout duration is a row now, read through the shared
+      # contract. Identity never learns Admin's name.
+      - SharedContracts
     IdentityDriver:
       - IdentityContract
       - AuditContract
@@ -183,3 +201,4 @@ parameters:
       - Framework
     Framework: ~
     Factories: ~
+    SharedContracts: ~

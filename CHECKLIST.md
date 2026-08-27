@@ -2338,6 +2338,36 @@ to `home`, the second is a control that is not drawn.
 **Tables** `settings` · `currencies` (+ rounding unit) · `fx_rates` + history · `enum_lists` ·
 `system_limits`
 
+#### Step 1 — schema *(point order approved 2026-08-27; key/value settings and managed lists mapped
+to `admin.system_settings`, both approved by the owner in the same turn)*
+
+- [x] **1.1** `settings` and `system_limits`, key/value.
+      **Two tables because §3.11 lists two permissions** — *system settings* and *system limits
+      (SLAs, thresholds)* are separate rows and separate §13 screens (4 and 6). Both are Super
+      Admin only today, and §3.12 rule 5 lets a row be regranted without a deployment, so the
+      split keeps the authorisation check at the table instead of inside a `WHERE` one query
+      could forget. **Key/value because `AP-08` and `D-75`**: the lockout duration moves here
+      *"where an administrator changes it without a deployment"*, and a column-per-setting table
+      would need a migration for every new key — the deployment `D-75` exists to avoid.
+      **`value` is `text`, never numeric (`DB-07`)**: a settings table that types the column
+      `double precision` for one fractional limit has a float in the schema whatever the
+      application casts it to. The type travels in `value_type`, checked against five literals.
+      Uniqueness on `key` is **partial, `WHERE deleted_at IS NULL`** — `DB-01` soft-deletes, so a
+      plain UNIQUE would let one archived row reserve a key permanently; Laravel silently ignores
+      `unique()->where()`, so it is raw DDL. A blank key is refused by CHECK.
+      **17 tests / 44 assertions.** Seven deliberate breaks, each with real output: the unique
+      predicate inverted · the index made non-partial · each CHECK removed in turn · `value` made
+      `double precision` · `down()` emptied (`DEV-03`) · the master-documentation mount removed,
+      proving §4.8 is *read* rather than restated. Restoration verified with `shasum -a 256 -c`.
+      **Three tests passed vacuously before they were fixed** — a missing table returns no float
+      columns and throws on every insert, so "something threw" was accepting SQLSTATE `42P01`.
+      They now assert `23505` and `23514` by code.
+      **Not covered:** no rows, no model, no repository, no API, no permission enforcement — 1.1
+      is storage only. `value_type` is five literals in a migration; the enum that pins them is
+      Point 2.3. Nothing yet reads `identity.lockout_minutes` from this table.
+- [ ] **1.2** `currencies` (+ rounding unit and its on/off switch, `D-65`) and `fx_rates` with history
+- [ ] **1.3** `enum_lists` — the four `DB-05` lists
+
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry
 - [ ] New sector added in settings → appears in the customer form **without a deployment**

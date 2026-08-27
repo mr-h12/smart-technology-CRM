@@ -2394,7 +2394,32 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       repository, no endpoint, no `admin.fx_rates` enforcement, and **no audit entry** — §3.12
       rule 4 makes one mandatory on an FX change and that belongs with the write path in 3.3. The
       trigger stops a rate being edited; it does not record who tried. Nothing reads `is_base` yet.
-- [ ] **1.3** `enum_lists` — the four `DB-05` lists
+- [x] **1.3** `enum_lists` — the four `DB-05` lists in one table.
+      **One table, not four.** The lists differ only in what references them and every screen reads
+      them the same way. `DB-05` forbids the *membership* living in code — which is this module's
+      acceptance criterion, a new sector appearing in the customer form without a deployment — while
+      the *set of lists* is fixed by the columns that point at it, as `ManagedList` already records.
+      **The `list` column is CHECKed against four literals, pinned to `ManagedList::cases()` by the
+      test.** The migration cannot read the enum and the enum cannot read the migration, so drift
+      fails here rather than at the first screen rendering an unknown list. Proved by adding a fifth
+      case to the enum and watching two tests fall.
+      **Both labels are NOT NULL** (§14.2, and `ListEntry` already takes both as non-nullable).
+      `roles.name_ar` is the counter-example — nullable, null for all eight rows, an English word on
+      an Arabic screen. Uniqueness is `(list, code)` and partial: `other` is a sector *and* a unit,
+      and an archived code must be reusable (`DB-01`).
+      **`position` is deliberately not unique.** No document says what two entries sharing a position
+      should mean, and a constraint invented here would be a rule the documentation never made.
+      **16 tests / 36 assertions.** Nine deliberate breaks with real output: a `DB-05` list dropped
+      from the migration · the list CHECK weakened to `IS NOT NULL` · uniqueness made global, then
+      made non-partial · the blank-code and negative-position CHECKs weakened · `label_ar` made
+      nullable · `down()` emptied · a fifth case added to `ManagedList`. Restored byte-identical.
+      **Problems: none.** The first RED was 15 failed / 1 passed, and the one pass was correct —
+      the doc-versus-enum drift check does not touch the table.
+      **Not covered:** no rows — §4.2's sectors, §7.3's units and service types are Point 2.2, and
+      **`delivery_terms` has no documented values at all**, which `ManagedLists` already records.
+      No model, no repository, no endpoint, no `admin.system_settings` enforcement (the mapping the
+      owner approved on 2026-08-27), and nothing yet references an entry: `customers.sector_id`
+      arrives with Module 3.
 
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry

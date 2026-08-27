@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Identity;
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Modules\Identity\Domain\Authentication\IdentityAuditEvents;
 use App\Modules\Identity\Domain\Authentication\IdleTimeout;
 use App\Modules\Identity\Domain\Authentication\LockoutPolicy;
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -416,6 +418,44 @@ final class AuthenticationTest extends TestCase
 
         $user->refresh();
         self::assertNotNull($user->locked_until, 'The fifth failure must lock the account (SEC-03).');
+    }
+
+    /**
+     * `D-75`, end to end: the duration comes from `system_limits` when a row is
+     * there, so an administrator changes it **without a deployment**.
+     *
+     * The row is written directly rather than through the seeder because the
+     * assertion is about where the number is read from, not about how it first
+     * arrived — and `Config` still says 30, so a lock of 45 minutes can only
+     * have come from the table.
+     */
+    public function test_the_lock_duration_comes_from_the_settings_table_when_one_is_stored(): void
+    {
+        $user = $this->user();
+
+        DB::table('system_limits')->insert([
+            'id' => Str::uuid7()->toString(),
+            'key' => AuthenticateUser::LOCKOUT_MINUTES_KEY,
+            'value' => '45',
+            'value_type' => 'integer',
+            'unit' => 'minutes',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        for ($i = 0; $i < LockoutPolicy::MAX_ATTEMPTS; $i++) {
+            $this->login('person@example.test', self::WRONG);
+        }
+
+        $user->refresh();
+
+        self::assertNotNull($user->locked_until);
+        self::assertEqualsWithDelta(
+            45,
+            Carbon::now()->diffInMinutes($user->locked_until),
+            1,
+            'The lock used the configured 30 rather than the stored 45 — D-75 has not taken effect.',
+        );
     }
 
     public function test_a_locked_account_is_refused_even_with_the_right_password(): void

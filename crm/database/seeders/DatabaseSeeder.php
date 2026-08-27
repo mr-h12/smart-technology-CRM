@@ -46,6 +46,7 @@ final class DatabaseSeeder extends GuardedSeeder
             RolePermissionSeeder::class,
             CurrencySeeder::class,
             ManagedListSeeder::class,
+            SystemSettingsSeeder::class,
             UserSeeder::class,
         ]);
 

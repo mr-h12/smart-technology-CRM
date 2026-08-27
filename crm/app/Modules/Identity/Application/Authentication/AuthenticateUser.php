@@ -16,9 +16,9 @@ use App\Modules\Identity\Domain\Authentication\RefusalReason;
 use App\Modules\Identity\Domain\Authentication\SessionToken;
 use App\Modules\Identity\Domain\Contracts\AccountDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
+use App\Support\Settings\SettingReader;
 use DateTimeImmutable;
 use DateTimeZone;
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Database\ConnectionInterface;
@@ -53,7 +53,7 @@ use SensitiveParameter;
  */
 final readonly class AuthenticateUser
 {
-    /** `AP-08` — a limit is configuration, not a constant. Module 2 moves it to `settings`. */
+    /** `AP-08` — a limit is configuration, not a constant. Module 2's Point 2.3 moved it to `system_limits`. */
     public const LOCKOUT_MINUTES_KEY = 'identity.lockout_minutes';
 
     public function __construct(
@@ -63,7 +63,12 @@ final readonly class AuthenticateUser
         private Hasher $hasher,
         private AuditRecorderInterface $audit,
         private Dispatcher $events,
-        private ConfigRepository $config,
+        // D-75: the lockout duration is a row an administrator may edit, with
+        // config/identity.php as its documented default. Read through
+        // App\Support's contract rather than Admin's — deptrac.modules.yaml
+        // gives every module an empty ruleset, and Identity learning Admin's
+        // name is a crossing that needs its own decision.
+        private SettingReader $settings,
     ) {}
 
     /**
@@ -190,7 +195,7 @@ final readonly class AuthenticateUser
         $event = null;
 
         if (LockoutPolicy::shouldLock($after)) {
-            $until = LockoutPolicy::lockedUntil($now, $this->config->integer(self::LOCKOUT_MINUTES_KEY));
+            $until = LockoutPolicy::lockedUntil($now, $this->settings->integer(self::LOCKOUT_MINUTES_KEY));
 
             $event = new AccountLocked(
                 userId: $account->id,

@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
 use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
 use App\Modules\Audit\Application\AuditRecorder;
@@ -51,6 +52,7 @@ use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
+use App\Support\Settings\SettingReader;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -156,6 +158,17 @@ class AppServiceProvider extends ServiceProvider
         // criterion is a new sector appearing without a deployment, which is
         // false the moment anything answers this from ManagedLists.
         $this->app->bind(ManagedListRepositoryInterface::class, EloquentManagedListRepository::class);
+
+        // D-75's limit reader. bind, not singleton — AP-08 makes the value
+        // changeable without a deployment, and an instance holding an answer
+        // for the life of the process is a deployment by another name.
+        $this->app->bind(
+            SettingReader::class,
+            fn (): DatabaseSettingReader => new DatabaseSettingReader(
+                $this->app->make(ConnectionInterface::class),
+                $this->app->make(ConfigRepository::class),
+            ),
+        );
 
         // D-38 cannot be answered yet: the permission matrix is Module 1 and the
         // parent entities are Modules 5, 6, 10 and 13. The binding that ships

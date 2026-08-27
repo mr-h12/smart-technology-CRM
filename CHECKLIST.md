@@ -2490,8 +2490,40 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       through an API — Step 3. Nothing references an entry yet; `customers.sector_id` is Module 3.
       No uniqueness on `position`, so the repository orders by `(position, code)` to keep ties
       stable between requests.
-- [ ] **2.3** `settings` and `system_limits` seeded, and `D-75`'s `identity.lockout_minutes` moved
-      out of `config/identity.php` behind an interface
+- [x] **2.3** `settings` and `system_limits` seeded, and `D-75`'s `identity.lockout_minutes` moved
+      out of `config/identity.php` behind an interface.
+      **One row is seeded, and the emptiness around it is the point.** §13 screen 6 names five
+      limits and screen 4 names ten settings; the documentation gives a value to **one** of them.
+      `D-17` says the stale-deal threshold is *"configurable in settings"* and stops; §11 says
+      deadlines and SLAs *"come from settings"* and stops. A seeded default for any of those would
+      be a business rule nobody wrote, arriving as configuration and read as fact — the refusal
+      `ManagedLists` makes for delivery terms and `Currencies` for exchange rates. `settings` is
+      seeded **empty**, and a test pins that so it reads as a decision rather than an omission.
+      **The table overrides configuration; it does not replace it.** With no row the reader answers
+      from `config/identity.php`, so Module 1's behaviour and all of its tests are unchanged. With a
+      row, the row wins — proved end to end in `AuthenticationTest`: a stored 45 locks an account
+      for 45 minutes while `Config` still says 30. A malformed value falls back rather than failing
+      closed, because `(int) 'half an hour'` is `0` and a zero-minute lock never locks.
+      **The contract lives in `app/Support/Settings`, not in Admin.** `deptrac.modules.yaml` gives
+      every module an empty ruleset, and Identity learning Admin's name is a crossing that needs its
+      own decision. The alternative — splitting Admin into `AdminContract`/`AdminDriver` the way
+      Storage and Audit are split — is recorded in the interface's docblock as the shape a future
+      `D-xx` may prefer; it was not taken as a side-effect of a seeding point.
+      **Both deptrac configs gained a narrow `SharedContracts` layer** (`^App\Support\Settings\.*`,
+      not all of `App\Support`) so the crossing is named rather than uncovered: the first run after
+      wiring reported **Uncovered 2**, and an uncovered line does not fail the build.
+      **11 tests / 17 assertions across two files.** Seven deliberate breaks with real output: the
+      numeric guard removed, so a typed word became a zero-minute lock · `whereNull('deleted_at')`
+      dropped · the table ignored entirely · the seeder rewriting its row each run · the unit
+      nulled · an undocumented `deals.stale_threshold_days` invented · Identity hard-coding 30
+      again. Restored byte-identical (`shasum -a 256 -c`).
+      **Problems.** Pint's `ordered_imports` was "fixed" three times without effect: `pint <path>`
+      was given the host path while the container's working directory *is* `crm/`, so the fixer ran
+      against a file that does not exist and reported success. Caught only by re-running `--test`.
+      **Not covered:** no endpoint and no `admin.system_limits` enforcement (Step 3); no cache
+      (`PRF-08`, Point 4.2) — the reader queries per call, deliberately. `files.max_size_bytes`
+      (`D-71`) and the challenge TTLs stay in `config/`: `D-75` names only the lockout duration.
+      The seeded 30 is still an interim awaiting the owner's answer.
 
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry

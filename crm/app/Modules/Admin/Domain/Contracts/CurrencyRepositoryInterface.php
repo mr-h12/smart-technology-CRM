@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Domain\Contracts;
 
 use App\Modules\Admin\Domain\Money\Currency;
+use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Modules\Admin\Domain\Money\RoundingRule;
 
 /**
  * The currencies the system offers, read from the database.
@@ -28,4 +30,18 @@ interface CurrencyRepositoryInterface
 
     /** The one currency `DB-06`'s `base_amount` is an amount of, or null before seeding. */
     public function base(): ?Currency;
+
+    /** One live currency by its code, or null — archived rows are not offered (`D-34`). */
+    public function find(CurrencyCode $code): ?Currency;
+
+    /**
+     * Replace one currency's rounding rule, returning the row and what it was.
+     *
+     * The identifier comes back because `audit_log.entity_id` is a `UUID`
+     * column, and the previous rule because `AUD-01` wants the old and the new
+     * in one entry — a second read is a second chance for them to disagree.
+     *
+     * @return array{id: string, previous: RoundingRule}
+     */
+    public function replaceRounding(CurrencyCode $code, RoundingRule $rounding): array;
 }

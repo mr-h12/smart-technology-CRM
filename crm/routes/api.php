@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
+use App\Modules\Admin\Presentation\CurrencyController;
 use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
@@ -270,4 +271,13 @@ Route::middleware('auth')->group(function (): void {
 Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
     Route::get('/settings', [SettingsController::class, 'index']);
     Route::patch('/settings', [SettingsController::class, 'update']);
+});
+
+// §13 screen 5's rounding half — §5.3 files it under "System Settings →
+// Currencies", so it carries `admin.system_settings` and not `admin.fx_rates`.
+// The Manager holds the second and not the first; the rates themselves are
+// Point 3.3, and they are the row the Manager may touch.
+Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
+    Route::get('/currencies', [CurrencyController::class, 'index']);
+    Route::patch('/currencies/{code}', [CurrencyController::class, 'update']);
 });

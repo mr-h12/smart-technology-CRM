@@ -2638,7 +2638,7 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       §6.2's allowlists are declared **empty**: `filter[...]` and `sort` are refused with `400
       invalid_request` rather than ignored, and a `filter[from_currency]` is deliberately *not*
       invented — §13 screen 5 says *"rate history"* and stops.
-      **29 tests / 177 assertions.** Fourteen deliberate breaks with real output: the route guarded
+      **28 tests / 177 assertions.** Fourteen deliberate breaks with real output: the route guarded
       by `admin.system_settings` · `auth` removed · `gt:0` dropped · the decimal pattern dropped ·
       `date_format` weakened to `date` · the mandatory audit event renamed · the `23505` translation
       removed · the archived-currency check removed · `totalPages()` allowed to return 0 · the

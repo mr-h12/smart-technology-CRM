@@ -2365,7 +2365,35 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       **Not covered:** no rows, no model, no repository, no API, no permission enforcement — 1.1
       is storage only. `value_type` is five literals in a migration; the enum that pins them is
       Point 2.3. Nothing yet reads `identity.lockout_minutes` from this table.
-- [ ] **1.2** `currencies` (+ rounding unit and its on/off switch, `D-65`) and `fx_rates` with history
+- [x] **1.2** `currencies` (+ rounding unit and its on/off switch, `D-65`) and `fx_rates` with history.
+      **The unit and the switch are two columns.** `D-52` makes the unit per-currency, `D-65` makes
+      rounding optional, and `RoundingRule` already models them apart — switching rounding off keeps
+      the unit so switching it back on need not invent one. A nullable unit meaning "off" would make
+      `NULL` do a boolean's work.
+      **Exactly one base currency**, held by a partial unique index on `is_base`: §13 screen 5 names
+      it in the singular, `Currencies::base()` returns one, and with two `DB-06`'s `base_amount` has
+      no defined meaning. Archiving one and naming another still works.
+      **A rate is history, enforced by the database.** §5.3 and this module's acceptance criterion
+      require an edit to leave the old rate standing and `AP-06` files rates under append-only
+      critical data, so a `BEFORE UPDATE` trigger refuses any write that moves `rate`, either
+      currency, or `effective_from` — SQLSTATE `FXH01`, the idiom `make_audit_log_append_only`
+      established. **`deleted_at` stays writable on purpose:** `DB-01`'s soft delete *is* an
+      `UPDATE`, and a blanket ban would forbid it. There is a test for each half.
+      **19 tests / 48 assertions.** Nine deliberate breaks with real output: the single-base index
+      removed · the code index made non-partial · each CHECK weakened in turn (`rounding_unit >= 0`,
+      `rate >= 0`, the self-pair check) · `fxRate` swapped for `money`, caught by comparing the
+      column's scale against `ExchangeRate::SCALE` rather than against the migration · the trigger
+      given `WHEN (false)` · the trigger made unconditional, which broke the soft delete · `down()`
+      emptied. Restored byte-identical, `shasum -a 256 -c`.
+      **A defect the filtered run hid.** `php artisan test --filter` was green while the full suite
+      failed: Point 1.1's rollback test called `migrate:rollback --step 1`, which means "whatever
+      migrated last" — and 1.2 landed behind it, so the test rolled back *this* migration and then
+      reported that `settings` had survived its own `down()`. Both tests now roll back by
+      `--path`, and both were re-broken afterwards to prove the rewritten check still fails.
+      **Not covered:** no rows — EGP/USD/EUR and their §5.3 units are Point 2.1. No model, no
+      repository, no endpoint, no `admin.fx_rates` enforcement, and **no audit entry** — §3.12
+      rule 4 makes one mandatory on an FX change and that belongs with the write path in 3.3. The
+      trigger stops a rate being edited; it does not record who tried. Nothing reads `is_base` yet.
 - [ ] **1.3** `enum_lists` — the four `DB-05` lists
 
 **Acceptance criteria**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
 use App\Modules\Audit\Application\AuditRecorder;
 use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
 use App\Modules\Audit\Domain\Contracts\AuditEntryWriterInterface;
@@ -141,6 +143,12 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(ConnectionInterface::class),
             ),
         );
+
+        // §5.3's currencies and their rounding units, read from the table.
+        // bind and not singleton, for PermissionRepositoryInterface's reason:
+        // AP-08 makes the unit configuration, and an instance memoised for the
+        // life of the process is a deployment wearing a different name.
+        $this->app->bind(CurrencyRepositoryInterface::class, EloquentCurrencyRepository::class);
 
         // D-38 cannot be answered yet: the permission matrix is Module 1 and the
         // parent entities are Modules 5, 6, 10 and 13. The binding that ships

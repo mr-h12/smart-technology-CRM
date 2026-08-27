@@ -2421,6 +2421,47 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       owner approved on 2026-08-27), and nothing yet references an entry: `customers.sector_id`
       arrives with Module 3.
 
+#### Step 2 — domain and seeding *(point order approved 2026-08-27)*
+
+- [x] **2.1** §5.3's currencies as rows, and the domain reading them back.
+      **The seeder creates and never overwrites.** `IdempotentSeeder` defines repeatable as not
+      duplicating a row, not bumping a counter, and **not overwriting an edit somebody made
+      deliberately** — and §5.3 makes the unit editable under System Settings with `D-65`'s switch
+      beside it. `updateOrCreate`, which `RolePermissionSeeder` uses correctly for a matrix the
+      document owns, would here undo an administrator's documented action on the next deployment.
+      A test edits USD to `0.05`, switches its rounding off, re-seeds, and requires both to survive.
+      **The units are read out of §5.3, not out of `Currencies`.** A test comparing the seeder
+      against the class the seeder loads is defect #4 on this project's list — self-consistent, and
+      blind to both drifting from the document together. Proved by moving USD to `0.05` in the
+      class and watching two tests fall.
+      **`CurrencyRepositoryInterface` reads the table, and a test proves it is not reading the
+      class**: it edits the EUR row and requires the repository to report the edit. `AP-08` and
+      §3.12 rule 5's argument, applied to money.
+      **No FX rate is seeded.** `Currencies::seededRates()` offers exactly one and calls it a
+      tautology — EGP against itself — and Point 1.2's `fx_rates_distinct_currencies` CHECK refuses
+      it, correctly: a currency priced against itself is not a rate. The identity belongs in
+      conversion code; every real rate is entered by a human under §3.11's `FX rates`.
+      **11 tests / 24 assertions.** Seven deliberate breaks with real output: `updateOrCreate` ·
+      `seedsTestData()` true (`DEV-08`) · the wrong base currency · rounding seeded off · the
+      repository answering from `Currencies` · `withTrashed()` · the class drifting from §5.3.
+      Restored byte-identical.
+      **Two boundary findings, both real.** deptrac reported **3 violations and 1 uncovered** the
+      moment Admin gained its first Eloquent model: `Admin: ~` denied it Illuminate, and the model's
+      `Precision::CAST_MONEY` import made it the **only class in any module reaching into
+      `App\Support`**. The ruleset now reads `Admin: [Framework]` — which does *not* weaken the
+      Domain rule, that being `deptrac.layers.yaml`'s empty Domain ruleset in a separate config —
+      and the cast was **removed rather than re-homed**: PostgreSQL returns NUMERIC as a string
+      (`pdo numeric -> string (1.500000)`, measured), `RoundingRule` does BCMath over that string,
+      and a cast would add a conversion `DB-07` forbids. No `AdminContract`/`AdminDriver` split
+      yet — nothing outside Admin points at it, and Identity's split exists for a crossing that
+      actually happened.
+      **Not covered:** managed-list rows are 2.2 and settings/limits rows are 2.3. No endpoint, no
+      permission enforcement, no audit entry. The repository reads; nothing writes. `fx_rates` is
+      still empty, so no conversion is possible yet.
+- [ ] **2.2** the four `DB-05` lists seeded from `ManagedLists`
+- [ ] **2.3** `settings` and `system_limits` seeded, and `D-75`'s `identity.lockout_minutes` moved
+      out of `config/identity.php` behind an interface
+
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry
 - [ ] New sector added in settings → appears in the customer form **without a deployment**

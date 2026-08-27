@@ -2566,7 +2566,50 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       value means anything** — `defaults.currency` accepts `ZZZ` and `locale.language` accepts
       `xx`, because tying them to `currencies` and to §14.2's two locales is a rule this point had
       no authorisation to invent.
-- [ ] **3.2** `GET`/`PATCH /api/v1/currencies` — the rounding unit and its on/off switch (`D-65`)
+- [x] **3.2** `GET /api/v1/currencies` and `PATCH /api/v1/currencies/{code}` — the rounding unit and
+      its on/off switch (`D-65`), behind `admin.system_settings`.
+      **The permission is the one §5.3 files it under.** *"Editable under System Settings →
+      Currencies"* — so `admin.system_settings`, the Super Admin's, and **not** `admin.fx_rates`,
+      which the Manager also holds and which Point 3.3 will guard. A test asserts the Manager is
+      refused here, which is the row of §3.11 rather than a formality.
+      **A partial change keeps what it did not name.** `D-65` flips a switch *beside* the unit, so
+      `PATCH` with only `rounding_enabled` reads the current rule and applies the request on top.
+      **`DB-07` end to end:** the unit arrives as a decimal string, is stored as one and leaves as
+      one — `0.005` survives the round trip, and a test asserts the JSON field is a string rather
+      than comparing numbers, because a float is exactly what would still compare equal.
+      **`CURRENCY_ROUNDING_UPDATED` is audited** although §3.12 rule 4 does not list it: this is the
+      number every total in that currency is rounded by, and §5.3 says a change applies to new
+      quotations only — so *when* it changed is the question reconciling an old one will ask.
+      **16 tests / 94 assertions.** Seven deliberate breaks with real output: the route guarded by
+      `admin.fx_rates` · the partial-change fallback replaced by a constant · `gt:0` dropped · the
+      audit call bypassed · `find()` including archived rows · the unit serialised as a float · the
+      empty-body guard removed. Restored byte-identical.
+      **Two breaks did not fail, and both are recorded rather than papered over.**
+      1. **The `D-65` test could not see an invented unit.** It exercised USD, whose unit is `0.01`
+         — the same value the broken fallback substituted. Rewritten to use **EGP**, whose unit is
+         `1`, and the break then failed as it should. §5.3's table is what makes EGP the right
+         fixture: it is the only one of the three with a different unit.
+      2. **The archived-currency 404 comes from `replaceRounding()`, not from `find()`.** With
+         `find()` deliberately including trashed rows the endpoint still answered 404, because the
+         write path's `firstOrFail()` excludes them. The two are behaviourally identical at the API,
+         so no test was contrived to tell them apart — but the 404 is not where the test implies.
+      **A hole in the audit-coverage guard, found in passing and NOT fixed here.**
+      `AuditEnforcementTest` classifies a class as a database writer only when it carries one of
+      four signals — `ConnectionInterface`, `->table(`, `DB::`, `Eloquent\Model`. A repository that
+      writes purely through a module-aliased Eloquent model (`CurrencyRow::query()`, `$row->save()`)
+      carries none of them and is therefore **invisible to the guard**. Measured: five classes fall
+      through it today — `EloquentCurrencyRepository` and four Identity adapters shipped with
+      Module 1 (`BearerSessionResolver`, `EloquentSessionStore`, `EloquentAccountDirectory`,
+      `EloquentUserDirectory`). Every one of them is in fact audited a layer out, so nothing is
+      unrecorded — but `AUD-01`'s enforcement is weaker than it reads. **Owed: its own point**,
+      because widening the signal list re-classifies four already-shipped Identity classes and each
+      needs its disposition decided rather than guessed.
+      **Not covered:** §5.3's *"changing either the unit or the on/off setting affects new
+      quotations only"* — there are no quotations until Module 7, so the acceptance criterion stays
+      unticked. Changing **which** currency is the base is not offered (§13 screen 5 names it;
+      `DB-06`'s `base_amount` makes it a migration-shaped decision, not a `PATCH`). No new currency
+      can be added — `CurrencyCode`'s three are the set. No optimistic locking: two administrators
+      editing at once, and the last one wins without a `409`.
 - [ ] **3.3** `GET`/`POST /api/v1/fx-rates` — a new rate is a new row, with §3.12 rule 4's mandatory
       audit entry, behind `admin.fx_rates` (the Manager holds this one)
 - [ ] **3.4** `/api/v1/managed-lists/{list}` and `/api/v1/system-limits`

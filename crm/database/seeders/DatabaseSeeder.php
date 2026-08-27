@@ -45,10 +45,12 @@ final class DatabaseSeeder extends GuardedSeeder
         $this->call([
             RolePermissionSeeder::class,
             CurrencySeeder::class,
+            ManagedListSeeder::class,
             UserSeeder::class,
         ]);
 
-        // Module 2 still owes: sectors, units, service types and delivery terms (DB-05).
+        // Module 2 still owes nothing on DB-05: delivery_terms is empty because no
+        // document gives it a value, not because it was forgotten — see ManagedLists.
         // No FX rate is seeded — see CurrencySeeder for why the one rate the
         // system can assert on its own is a tautology the schema refuses.
     }

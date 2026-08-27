@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
+use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
 use App\Modules\Audit\Application\AuditRecorder;
 use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
 use App\Modules\Audit\Domain\Contracts\AuditEntryWriterInterface;
@@ -149,6 +151,11 @@ class AppServiceProvider extends ServiceProvider
         // AP-08 makes the unit configuration, and an instance memoised for the
         // life of the process is a deployment wearing a different name.
         $this->app->bind(CurrencyRepositoryInterface::class, EloquentCurrencyRepository::class);
+
+        // DB-05's lists, read from the table. Same reasoning: the acceptance
+        // criterion is a new sector appearing without a deployment, which is
+        // false the moment anything answers this from ManagedLists.
+        $this->app->bind(ManagedListRepositoryInterface::class, EloquentManagedListRepository::class);
 
         // D-38 cannot be answered yet: the permission matrix is Module 1 and the
         // parent entities are Modules 5, 6, 10 and 13. The binding that ships

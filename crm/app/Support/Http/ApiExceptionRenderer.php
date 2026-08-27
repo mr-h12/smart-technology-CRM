@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Http;
 
+use App\Modules\Admin\Domain\Listing\InvalidRateHistoryQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -217,6 +218,31 @@ final class ApiExceptionRenderer
             400,
             InvalidListQuery::ERROR_CODE,
             (string) __('identity.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * Module 2's rate history, refusing the same three query mistakes for the
+     * same two reasons — `OpenAPI §6.1` and `§6.2`.
+     *
+     * A separate method because it is a separate exception: Admin may not
+     * import Identity's, and this class may import both because it lives
+     * outside `./app/Modules` and therefore outside deptrac's boundary. The
+     * shape it renders is identical on purpose — one envelope for one contract,
+     * whichever module produced it.
+     */
+    public static function invalidRateHistoryQuery(InvalidRateHistoryQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidRateHistoryQuery::ERROR_CODE,
+            (string) __('admin.errors.invalid_request'),
             [[
                 'field' => $exception->parameter,
                 'code' => $exception->detailCode,

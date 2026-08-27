@@ -2610,8 +2610,82 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       `DB-06`'s `base_amount` makes it a migration-shaped decision, not a `PATCH`). No new currency
       can be added — `CurrencyCode`'s three are the set. No optimistic locking: two administrators
       editing at once, and the last one wins without a `409`.
-- [ ] **3.3** `GET`/`POST /api/v1/fx-rates` — a new rate is a new row, with §3.12 rule 4's mandatory
-      audit entry, behind `admin.fx_rates` (the Manager holds this one)
+- [x] **3.3** `GET`/`POST /api/v1/fx-rates` — the rate history and one way to add to it, behind
+      `admin.fx_rates`.
+      **The negative authorisation test inverts, and that is the point of the point.** §3.11's
+      *FX rates* row is `✅ Super Admin · ✅ Manager`, one line below the *system settings* row
+      Point 3.2 guarded. So the Manager who is **refused** by `PATCH /currencies/{code}` is
+      **allowed** by both endpoints here, and four tests assert both directions — a route that
+      carried `admin.system_settings` by copy-paste would look right and silently delete §3.11's
+      grant to the Manager. Break 1 proved it: two Manager tests turned 403.
+      **A new price is a new row, and there is no `PATCH` and no `DELETE`.** §5.6 — *"Changing an
+      FX rate never affects an existing quotation"* — and `AP-06`. Point 1.2 already made an
+      `UPDATE` a database error (`FXH01`), so the guarantee is structural rather than enforced by
+      this code, which is why it survives a later module that forgets it exists. A test asserts the
+      router answers **405** on the collection URI, deliberately not 404 on `/{id}`: a URI no route
+      matches answers 404 whether or not the endpoint was ever written, which is the vacuous shape
+      Point 1.1 already paid for.
+      **`FX_RATE_CHANGED` is mandatory, not discretionary.** §3.12 rule 4 names *"FX rate change"*
+      among the nine — unlike `SETTINGS_UPDATED` (3.1) and `CURRENCY_ROUNDING_UPDATED` (3.2), both
+      written on `AUD-01`'s general grounds. **`old_values` is null on purpose:** the contract says
+      *"absent on a create"* and this is a create — the previous rate is not replaced, it is still
+      in `fx_rates` and still applies to everything issued under it. Copying it in would put a
+      second copy of history in a table `AUD-03` forbids correcting.
+      **`OpenAPI §4.2` arrives with this point.** The rate history is the first genuinely unbounded
+      collection in Module 2 — `GET /settings` and `GET /currencies` are both bounded by an enum —
+      so §4.2's *"never return an unbounded collection"* finally bites. `ApiEnvelope::collection`
+      is the **second** copy of Identity's, on the same terms and with the same debt as `single()`.
+      §6.2's allowlists are declared **empty**: `filter[...]` and `sort` are refused with `400
+      invalid_request` rather than ignored, and a `filter[from_currency]` is deliberately *not*
+      invented — §13 screen 5 says *"rate history"* and stops.
+      **29 tests / 177 assertions.** Fourteen deliberate breaks with real output: the route guarded
+      by `admin.system_settings` · `auth` removed · `gt:0` dropped · the decimal pattern dropped ·
+      `date_format` weakened to `date` · the mandatory audit event renamed · the `23505` translation
+      removed · the archived-currency check removed · `totalPages()` allowed to return 0 · the
+      documented order reversed · the `per_page` maximum and the unknown-filter refusal removed ·
+      the distinct-currency guard removed · the rate serialised as a float · the omitted
+      `effective_from` replaced by a constant. Restored byte-identical, `shasum -a 256 -c`.
+      **Three findings, all recorded rather than papered over.**
+      1. **Break 2 did not fail.** With `auth` removed the suite stayed green: the 401 comes from
+         the permission gate, exactly as Point 3.1 measured. `auth` on this group is
+         belt-and-braces and the unauthenticated test does not distinguish the two.
+      2. **Break 5 did not fail either, and the test was strengthened until it did.** `last tuesday`
+         is refused by Laravel's `date` rule as well, so the original test could not tell `date`
+         from `date_format`. `2026-08-01` is where they differ and `DB-08` is why it matters — a day
+         with no time and no offset becomes midnight in whatever zone the process is in, silently.
+         The test now sends three spellings and the re-run break failed correctly.
+      3. **A restore slip the checksum caught.** Undoing break 1 with `sed` rewrote the permission
+         on the *settings* and *currencies* groups as well — `FxRateEndpointTest` stayed green
+         throughout, because it does not touch either. `shasum -a 256 -c` is what reported it. The
+         lesson is the rule as written: restore is verified byte-for-byte, not by a green filter.
+      **A gate the filtered run could not see.** `CurrencyMatrixDataTest` tokenises every file in
+      `Domain\Money` and forbids `ceil`, `floor`, `intdiv`, `round`, `fdiv`, float literals and
+      float casts — `DB-07` *"anywhere near a price"*, enforced by namespace rather than by
+      judgement. `RateHistoryPage::totalPages()` uses `ceil` over a row count, which is not near a
+      price. The answer was to move the class, not to weaken the guard: `RateHistoryQuery`,
+      `RateHistoryPage` and `InvalidRateHistoryQuery` now live in `Admin\Domain\Listing`. A blunt
+      guard flagging an innocent class is the guard working, and only the **full** suite ran it.
+      **`InvalidRateHistoryQuery` is a third duplication, named here.** Admin may not import
+      Identity's `InvalidListQuery` — `deptrac.modules.yaml` grants it `Framework`,
+      `SharedContracts` and `AuditContract` and nothing else. `ApiExceptionRenderer` may import
+      both, because it lives outside `./app/Modules` and therefore outside deptrac's boundary, and
+      it renders the identical shape. **Debt: the list-query contract and `ApiEnvelope` are now two
+      halves of the same owed move to a shared layer.**
+      **`lang/{en,ar}/admin.php` arrive with this point** — Module 2's first user-facing strings.
+      `LocaleTest` compares the two key sets in both directions.
+      **Not covered:** §5.6's *"changing an FX rate never affects an existing quotation"* as an
+      outcome — there are no quotations until Module 7, so the acceptance criterion stays unticked;
+      what is proved is the half that makes it possible, that the old row is still there. No
+      `filter[from_currency]` and no sortable fields. No `J-12` staleness alert (4.1). No rate is
+      ever **archived** — `DB-01` would allow it and no document asks for it. Nothing validates
+      that a rate is *plausible*: `0.00000001` and `99999999` are both accepted, because a sanity
+      band is a business rule this point had no authorisation to invent. And **no identity rate is
+      stored** — EGP↔EGP is a tautology `fx_rates_distinct_currencies` refuses, which the endpoint
+      now says first, as a 422 with a field name.
+      **The frontend gate was not run locally.** Docker Hub was unreachable (two failed pulls of
+      `node:22`) and the repo's `node_modules` carries Linux bindings installed inside the
+      container, so the host toolchain cannot start vitest. This point changed **zero** frontend
+      files — verified with `git status` — and CI ran the gate.
 - [ ] **3.4** `/api/v1/managed-lists/{list}` and `/api/v1/system-limits`
 
 **Acceptance criteria**

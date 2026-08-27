@@ -6,7 +6,9 @@ namespace App\Providers;
 
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
+use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
 use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
 use App\Modules\Audit\Application\AuditRecorder;
@@ -158,6 +160,16 @@ class AppServiceProvider extends ServiceProvider
         // criterion is a new sector appearing without a deployment, which is
         // false the moment anything answers this from ManagedLists.
         $this->app->bind(ManagedListRepositoryInterface::class, EloquentManagedListRepository::class);
+
+        // §13 screen 4's fields. bind for the same reason as the rest: a
+        // settings screen whose answers are memoised is a settings screen that
+        // needs a deployment to take effect.
+        $this->app->bind(
+            SettingsRepositoryInterface::class,
+            fn (): DatabaseSettingsRepository => new DatabaseSettingsRepository(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
 
         // D-75's limit reader. bind, not singleton — AP-08 makes the value
         // changeable without a deployment, and an instance holding an answer

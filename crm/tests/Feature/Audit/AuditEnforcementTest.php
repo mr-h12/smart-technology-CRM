@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Audit;
 
+use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
@@ -103,6 +104,19 @@ final class AuditEnforcementTest extends TestCase
                     .'transaction and records ROLE_PERMISSIONS_UPDATED. This is a persistence adapter with '
                     .'no actor and no event vocabulary, and giving it the recorder would put the audit '
                     .'decision behind an interface any future adapter could answer differently.',
+
+            // Module 2 Point 3.1. The repository writes and does not record;
+            // AUD-01 is satisfied one layer out, in UpdateSettings, which owns
+            // the transaction and records SETTINGS_UPDATED with the old and new
+            // value for each field. Same disposition and same reason as
+            // EloquentRoleDirectory below: a persistence adapter has no actor
+            // and no event vocabulary, and handing it the recorder would put the
+            // audit decision behind an interface a future adapter could answer
+            // differently. Grep `->put(` to check UpdateSettings is still the
+            // only caller.
+            DatabaseSettingsRepository::class => 'AUD-01 is satisfied one layer out: UpdateSettings owns the '
+                    .'transaction and records SETTINGS_UPDATED with the old and new value per field. This '
+                    .'is a persistence adapter with no actor and no event vocabulary.',
 
             // Found by this test on its first run, which is the point of it.
             // recordScan() flips files.scan_status from `pending` to `clean` or

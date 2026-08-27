@@ -2525,11 +2525,59 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       (`D-71`) and the challenge TTLs stay in `config/`: `D-75` names only the lockout duration.
       The seeded 30 is still an interim awaiting the owner's answer.
 
+#### Step 3 — the API *(point order approved 2026-08-27)*
+
+- [x] **3.1** `GET` and `PATCH /api/v1/settings`, behind `admin.system_settings`.
+      **§3.11's row, asserted rather than assumed.** *system settings* is the Super Admin's and
+      `—` for everyone else, including the Manager, who holds *FX rates* on the row below it. Three
+      negative tests cover Manager read, Manager write and a sales employee — §3.12 rule 1 puts
+      enforcement at the API, so the refusal is the feature.
+      **The editable fields are §13 screen 4's, and only those.** A key/value table accepts
+      anything; `SystemSetting` is what makes the endpoint answer `haxx.enabled` with a 422 instead
+      of storing it. The *values* stay the business's — nothing is seeded — but the *field names*
+      are the document's. **Two of §13's ten are deliberately absent:** the logo needs a `files`
+      row, an upload endpoint and `SEC-15`'s scan (Module 5), and the PDF and email templates need
+      whatever a template *is* (§16, Module 9). Both are owed and named here rather than dropped.
+      **`SETTINGS_UPDATED` is audited** although §3.12 rule 4 does not list it: `AUD-01` asks for a
+      comprehensive audit, and the company name this screen edits is printed on every quotation §16
+      generates. `AuditEnforcementTest` caught the new writer on its first run, exactly as designed.
+      **Two boundary changes, both named.** `Admin → AuditContract` is added to
+      `deptrac.modules.yaml` on the same terms as Identity's crossing of 2026-08-24 — the contract
+      half only, never the driver. And `ApiEnvelope` is **duplicated** into Admin rather than moved:
+      Identity's copy predicted this moment and said the shared move is *"a boundary change, and
+      boundary changes are their own point"*, which `CLAUDE.md`'s module-isolation rule now says
+      from the other side. **Debt: move the envelope to a shared layer before a third module needs
+      one.**
+      **14 tests / 77 assertions.** Nine deliberate breaks with real output: the permission
+      middleware removed · `auth` removed · the unknown-key closure gutted · the numeric rule
+      dropped · the audit call bypassed · every save inserting a new row · unset fields omitted from
+      the response · `meta.request_id` renamed · the empty-body guard weakened. Restored
+      byte-identical.
+      **Problems.** A settings key contains a dot and Laravel reads a dot as nesting, so every
+      per-field rule matched nothing, `validated()` returned no `settings` key at all, and the
+      controller died with a 500 instead of refusing anything — fixed by escaping the dot in the
+      rule path. The same collision then hit the *test*: `assertJsonPath('data.settings.company.name')`
+      read three levels that do not exist. And `audit_log.entity_id` is a `UUID` column, so passing
+      the key produced `SQLSTATE[22P02]`; the entry now points at the row and carries the key in its
+      values. **`auth` on the route is belt-and-braces:** break 2 showed the 401 comes from the
+      permission gate, so the unauthenticated test does not distinguish the two.
+      **Not covered:** no `settings` UI (Module 2 has no screens yet), no logo, no templates, no
+      currency or list endpoints (3.2–3.4), no cache (`PRF-08`, 4.2), and **no validation that a
+      value means anything** — `defaults.currency` accepts `ZZZ` and `locale.language` accepts
+      `xx`, because tying them to `currencies` and to §14.2's two locales is a rule this point had
+      no authorisation to invent.
+- [ ] **3.2** `GET`/`PATCH /api/v1/currencies` — the rounding unit and its on/off switch (`D-65`)
+- [ ] **3.3** `GET`/`POST /api/v1/fx-rates` — a new rate is a new row, with §3.12 rule 4's mandatory
+      audit entry, behind `admin.fx_rates` (the Manager holds this one)
+- [ ] **3.4** `/api/v1/managed-lists/{list}` and `/api/v1/system-limits`
+
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry
 - [ ] New sector added in settings → appears in the customer form **without a deployment**
 - [ ] Currency rounding unit changes → **only new quotations** are affected
-- [ ] Rounding units default correctly: EGP `1` · USD `0.01` · EUR `0.01`
+- [x] Rounding units default correctly: EGP `1` · USD `0.01` · EUR `0.01` *(Point 2.1 — seeded from
+      `Currencies` and asserted against §5.3 as the documentation publishes it, not against the class
+      that produced them)*
 - [ ] Rounding can be switched **off** per currency → final total stored unrounded, `rounding_diff` = `0` (`D-65`)
 
 ---

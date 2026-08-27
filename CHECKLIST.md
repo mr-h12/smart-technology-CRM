@@ -2458,7 +2458,38 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       **Not covered:** managed-list rows are 2.2 and settings/limits rows are 2.3. No endpoint, no
       permission enforcement, no audit entry. The repository reads; nothing writes. `fx_rates` is
       still empty, so no conversion is possible yet.
-- [ ] **2.2** the four `DB-05` lists seeded from `ManagedLists`
+- [x] **2.2** the four `DB-05` lists seeded from `ManagedLists`, and read back through a repository.
+      **The acceptance criterion, half of it, is now provable:** *a new sector added in settings
+      appears in the customer form without a deployment*. A row inserted after seeding is returned
+      by `ManagedListRepositoryInterface` with no code change, and survives the next seeder run.
+      The other half — the customer form — is Module 3, and the criterion stays unticked until then.
+      **The seeder creates and never overwrites** (`IdempotentSeeder`), which here is a requirement
+      rather than manners: `updateOrCreate` would undo an administrator's rename on the next
+      deployment and re-create a withdrawn entry. Nothing is deleted either — an entry that
+      disappears from `ManagedLists` stays (`DB-01`), because withdrawing a sector customers are
+      filed under is a decision, not a side-effect of running a seeder.
+      **`delivery_terms` is seeded empty, deliberately.** `DB-05` names the list and no document
+      gives it a single value; `ManagedLists` already recorded that. The test pins the emptiness so
+      it reads as a decision rather than an oversight.
+      **The members are compared against §4.2 and §7.3 in the mounted documentation**, not against
+      the class the seeder loads — a comparison with its own source is defect #4 on this project's
+      list. Proved by renaming `banks` to `bank` in `ManagedLists` and watching the check fail.
+      **13 tests / 35 assertions.** Seven deliberate breaks with real output: `updateOrCreate` ·
+      `seedsTestData()` flipped (`DEV-08`) · Arabic labels seeded blank (§14.2) · the repository
+      answering from `ManagedLists` instead of the table, which broke three tests including the
+      acceptance criterion · `withTrashed()` · the display order reversed · the class drifted from
+      §4.2. Restored byte-identical (`shasum -a 256 -c`).
+      **Problems.** The documentation parser was wrong twice before it was right — §7.3 writes the
+      units *inside* a table cell that continues afterwards (`| Unit (piece · metre · kilo ·
+      extendable) | Active service (yes/no) |`), so the row's next cell was parsed as a fourth unit.
+      Fixed by ending the list at its closing parenthesis; the logic was checked in isolation before
+      the third edit rather than guessed at again. PHPStan then rejected `pluck()->all()` as
+      `array<mixed>`; narrowed with `assertIsString` rather than a cast, and the drift break was
+      re-run afterwards to prove the rewritten helper can still fail.
+      **Not covered:** no endpoint, no `admin.system_settings` enforcement, no ordering or renaming
+      through an API — Step 3. Nothing references an entry yet; `customers.sector_id` is Module 3.
+      No uniqueness on `position`, so the repository orders by `(position, code)` to keep ties
+      stable between requests.
 - [ ] **2.3** `settings` and `system_limits` seeded, and `D-75`'s `identity.lockout_minutes` moved
       out of `config/identity.php` behind an interface
 

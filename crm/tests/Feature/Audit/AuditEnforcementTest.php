@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Audit;
 
 use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
+use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
@@ -117,6 +118,22 @@ final class AuditEnforcementTest extends TestCase
             DatabaseSettingsRepository::class => 'AUD-01 is satisfied one layer out: UpdateSettings owns the '
                     .'transaction and records SETTINGS_UPDATED with the old and new value per field. This '
                     .'is a persistence adapter with no actor and no event vocabulary.',
+
+            // Module 2 Point 3.4, and this test found it on its first full run
+            // — exactly as it found UpdateSettings in Point 3.1. Same shape and
+            // same disposition as the row above: UpdateSystemLimits owns the
+            // transaction and records SYSTEM_LIMITS_UPDATED per field.
+            //
+            // ⚠️ Its sibling this point, EloquentManagedListRepository, gained
+            // an insert too and is **not** listed here — because this test
+            // cannot see it. A repository writing purely through a
+            // module-aliased Eloquent model carries none of the four signals
+            // scan() looks for. That hole was measured in Point 3.2 with five
+            // classes falling through it; this point makes it six, and it is
+            // still owed its own point.
+            DatabaseSystemLimitRepository::class => 'AUD-01 is satisfied one layer out: UpdateSystemLimits owns '
+                    .'the transaction and records SYSTEM_LIMITS_UPDATED with the old and new value per field. '
+                    .'This is a persistence adapter with no actor and no event vocabulary.',
 
             // Found by this test on its first run, which is the point of it.
             // recordScan() flips files.scan_status from `pending` to `clean` or

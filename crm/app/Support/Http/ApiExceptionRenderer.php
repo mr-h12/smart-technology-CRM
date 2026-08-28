@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Http;
 
-use App\Modules\Admin\Domain\Listing\InvalidRateHistoryQuery;
+use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -236,12 +236,12 @@ final class ApiExceptionRenderer
      * shape it renders is identical on purpose — one envelope for one contract,
      * whichever module produced it.
      */
-    public static function invalidRateHistoryQuery(InvalidRateHistoryQuery $exception, Request $request): JsonResponse
+    public static function invalidListingQuery(InvalidListingQuery $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,
             400,
-            InvalidRateHistoryQuery::ERROR_CODE,
+            InvalidListingQuery::ERROR_CODE,
             (string) __('admin.errors.invalid_request'),
             [[
                 'field' => $exception->parameter,

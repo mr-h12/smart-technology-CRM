@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Application\Settings;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Audit\Domain\AuditEvent;
@@ -32,6 +33,7 @@ final readonly class UpdateSettings
         private ConnectionInterface $connection,
         private SettingsRepositoryInterface $settings,
         private AuditRecorderInterface $audit,
+        private SettingsCacheInterface $cache,
     ) {}
 
     /**
@@ -40,7 +42,7 @@ final readonly class UpdateSettings
      */
     public function handle(array $values): array
     {
-        return $this->connection->transaction(function () use ($values): array {
+        $this->connection->transaction(function () use ($values): void {
             foreach ($values as $key => $value) {
                 $setting = SystemSetting::from($key);
 
@@ -57,8 +59,16 @@ final readonly class UpdateSettings
                     ['key' => $setting->value, 'value' => $value],
                 );
             }
-
-            return $this->settings->all();
         });
+
+        // ⚠️ **After the transaction, never inside it** (Point 4.2). A flush
+        // inside leaves a window in which a concurrent reader repopulates the
+        // cache from rows that have not committed — and if the transaction then
+        // rolls back, the cache holds values that never existed. The read-back
+        // below is therefore also outside, so what the response reports is what
+        // committed.
+        $this->cache->forgetSettings();
+
+        return $this->settings->all();
     }
 }

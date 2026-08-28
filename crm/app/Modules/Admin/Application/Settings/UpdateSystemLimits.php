@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Application\Settings;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemLimit;
 use App\Modules\Audit\Domain\AuditEvent;
@@ -26,6 +27,7 @@ final readonly class UpdateSystemLimits
         private ConnectionInterface $connection,
         private SystemLimitRepositoryInterface $limits,
         private AuditRecorderInterface $audit,
+        private SettingsCacheInterface $cache,
     ) {}
 
     /**
@@ -34,7 +36,7 @@ final readonly class UpdateSystemLimits
      */
     public function handle(array $values): array
     {
-        return $this->connection->transaction(function () use ($values): array {
+        $this->connection->transaction(function () use ($values): void {
             foreach ($values as $key => $value) {
                 $limit = SystemLimit::from($key);
 
@@ -51,8 +53,19 @@ final readonly class UpdateSystemLimits
                     ['key' => $limit->value, 'value' => $value],
                 );
             }
-
-            return $this->limits->all();
         });
+
+        // ⚠️ **After the transaction, never inside it** (Point 4.2) — a flush
+        // inside leaves a window in which a concurrent reader repopulates the
+        // cache from rows that have not committed, and a rollback would then
+        // leave values that never existed. The read-back is outside for the
+        // same reason: what the response reports is what committed.
+        //
+        // This one carries `D-75`: what `AuthenticateUser` reads is the entry
+        // being forgotten here, so the owner's change takes effect on the next
+        // login rather than on the next deployment.
+        $this->cache->forgetLimits();
+
+        return $this->limits->all();
     }
 }

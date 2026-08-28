@@ -18,9 +18,29 @@ use Illuminate\Support\Str;
  */
 final readonly class DatabaseSettingsRepository implements SettingsRepositoryInterface
 {
-    public function __construct(private ConnectionInterface $connection) {}
+    public function __construct(
+        private ConnectionInterface $connection,
+        private SettingsCache $cache,
+    ) {}
 
     public function all(): array
+    {
+        // `PRF-08`. Only the stored map is cached; the assembly over
+        // `SystemSetting::cases()` stays outside it, so the cached payload is a
+        // plain string map whose shape `SettingsCache` can actually check.
+        $stored = $this->cache->remember(SettingsCache::SETTINGS, fn (): array => $this->read());
+
+        $settings = [];
+
+        foreach (SystemSetting::cases() as $setting) {
+            $settings[$setting->value] = $stored[$setting->value] ?? null;
+        }
+
+        return $settings;
+    }
+
+    /** @return array<string, string|null> */
+    private function read(): array
     {
         $stored = [];
 
@@ -30,13 +50,7 @@ final readonly class DatabaseSettingsRepository implements SettingsRepositoryInt
             }
         }
 
-        $settings = [];
-
-        foreach (SystemSetting::cases() as $setting) {
-            $settings[$setting->value] = $stored[$setting->value] ?? null;
-        }
-
-        return $settings;
+        return $stored;
     }
 
     public function put(SystemSetting $setting, string $value): array

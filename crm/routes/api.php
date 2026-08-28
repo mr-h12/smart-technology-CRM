@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Middleware\AddRequestId;
 use App\Modules\Admin\Presentation\CurrencyController;
+use App\Modules\Admin\Presentation\FxRateController;
 use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
@@ -280,4 +281,24 @@ Route::middleware(['auth', 'permission:admin.system_settings'])->group(function 
 Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
     Route::get('/currencies', [CurrencyController::class, 'index']);
     Route::patch('/currencies/{code}', [CurrencyController::class, 'update']);
+});
+
+// §13 screen 5's other half — "manual rate per currency · rate history",
+// behind §3.11's **FX rates** row.
+//
+// ⚠️ **This is the row above's opposite, and the difference is the point.**
+// §3.11 gives `system settings` to the Super Admin and `—` to the Manager,
+// while `FX rates` on the next line is `✅ Super Admin · ✅ Manager`. So the
+// Manager who is refused by `PATCH /currencies/{code}` immediately above is
+// **allowed** here, and `FxRateEndpointTest` asserts both directions — a route
+// that carried `admin.system_settings` by copy-paste would look right and
+// silently delete §3.11's grant to the Manager.
+//
+// **No `PATCH` and no `DELETE`, by design.** `AP-06` makes a rate append-only
+// and Point 1.2 enforces that in the database; a new price is a `POST`. The
+// two verbs registered here are the whole resource, and a test asserts the
+// router answers 405 to anything else on it.
+Route::middleware(['auth', 'permission:admin.fx_rates'])->group(function (): void {
+    Route::get('/fx-rates', [FxRateController::class, 'index']);
+    Route::post('/fx-rates', [FxRateController::class, 'store']);
 });

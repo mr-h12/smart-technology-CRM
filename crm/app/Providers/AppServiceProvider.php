@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
 use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
+use App\Modules\Admin\Infrastructure\EloquentFxRateRepository;
 use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
 use App\Modules\Audit\Application\AuditRecorder;
 use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
@@ -155,6 +157,12 @@ class AppServiceProvider extends ServiceProvider
         // AP-08 makes the unit configuration, and an instance memoised for the
         // life of the process is a deployment wearing a different name.
         $this->app->bind(CurrencyRepositoryInterface::class, EloquentCurrencyRepository::class);
+
+        // §13 screen 5's rate history. bind and not singleton for the reason
+        // above, with one of its own: `AP-06` makes this table append-only, so
+        // a memoised instance is a process answering with a history that has
+        // since grown.
+        $this->app->bind(FxRateRepositoryInterface::class, EloquentFxRateRepository::class);
 
         // DB-05's lists, read from the table. Same reasoning: the acceptance
         // criterion is a new sector appearing without a deployment, which is

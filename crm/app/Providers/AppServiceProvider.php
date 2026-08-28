@@ -8,8 +8,10 @@ use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
 use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
 use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
+use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
 use App\Modules\Admin\Infrastructure\EloquentFxRateRepository;
 use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
@@ -175,6 +177,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SettingsRepositoryInterface::class,
             fn (): DatabaseSettingsRepository => new DatabaseSettingsRepository(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // §13 screen 6's limits. A separate binding from the settings one
+        // because §3.11 makes them two permissions and Point 1.1 made them two
+        // tables; bind and not singleton for the reason above.
+        $this->app->bind(
+            SystemLimitRepositoryInterface::class,
+            fn (): DatabaseSystemLimitRepository => new DatabaseSystemLimitRepository(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

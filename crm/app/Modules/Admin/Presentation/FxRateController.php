@@ -6,7 +6,7 @@ namespace App\Modules\Admin\Presentation;
 
 use App\Modules\Admin\Application\Money\RecordFxRate;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
-use App\Modules\Admin\Domain\Listing\RateHistoryQuery;
+use App\Modules\Admin\Domain\Listing\ListingQuery;
 use App\Modules\Admin\Domain\Money\RecordedRate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,19 +27,12 @@ final class FxRateController
     {
         // `OpenAPI §6` is parsed in Domain rather than by a Form Request: a
         // failed Form Request is a 422 and §6.1 asks for a 400.
-        $page = $rates->history(RateHistoryQuery::fromQueryString($request->query()));
+        $page = $rates->history(ListingQuery::fromQueryString($request->query()));
 
         return ApiEnvelope::collection(
             $request,
-            array_map(self::payload(...), $page->rates),
-            [
-                'page' => $page->page,
-                'per_page' => $page->perPage,
-                'total' => $page->total,
-                'total_pages' => $page->totalPages(),
-                'has_next_page' => $page->hasNextPage(),
-                'has_previous_page' => $page->hasPreviousPage(),
-            ],
+            array_map(self::payload(...), $page->items),
+            $page->meta(),
         );
     }
 

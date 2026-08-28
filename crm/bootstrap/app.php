@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
-use App\Modules\Admin\Domain\Listing\InvalidRateHistoryQuery;
+use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
@@ -143,8 +143,8 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(
-            fn (InvalidRateHistoryQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
-                ? ApiExceptionRenderer::invalidRateHistoryQuery($e, $request)
+            fn (InvalidListingQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidListingQuery($e, $request)
                 : null,
         );
 

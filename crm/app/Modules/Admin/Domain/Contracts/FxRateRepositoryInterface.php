@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Domain\Contracts;
 
-use App\Modules\Admin\Domain\Listing\RateHistoryPage;
-use App\Modules\Admin\Domain\Listing\RateHistoryQuery;
+use App\Modules\Admin\Domain\Listing\ListingQuery;
+use App\Modules\Admin\Domain\Listing\Page;
 use App\Modules\Admin\Domain\Money\ExchangeRate;
 use App\Modules\Admin\Domain\Money\RateAlreadyRecorded;
 use App\Modules\Admin\Domain\Money\RecordedRate;
@@ -22,7 +22,8 @@ use DateTimeImmutable;
  */
 interface FxRateRepositoryInterface
 {
-    public function history(RateHistoryQuery $query): RateHistoryPage;
+    /** @return Page<RecordedRate> */
+    public function history(ListingQuery $query): Page;
 
     /**
      * Append one rate. Both currencies must be live rows; the caller checks

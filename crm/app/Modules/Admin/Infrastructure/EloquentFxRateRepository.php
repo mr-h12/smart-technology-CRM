@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Infrastructure;
 
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
-use App\Modules\Admin\Domain\Listing\RateHistoryPage;
-use App\Modules\Admin\Domain\Listing\RateHistoryQuery;
+use App\Modules\Admin\Domain\Listing\ListingQuery;
+use App\Modules\Admin\Domain\Listing\Page;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Admin\Domain\Money\ExchangeRate;
 use App\Modules\Admin\Domain\Money\RateAlreadyRecorded;
@@ -37,7 +37,7 @@ use Illuminate\Database\QueryException;
  */
 final readonly class EloquentFxRateRepository implements FxRateRepositoryInterface
 {
-    public function history(RateHistoryQuery $query): RateHistoryPage
+    public function history(ListingQuery $query): Page
     {
         $codes = $this->codesById();
 
@@ -61,8 +61,8 @@ final readonly class EloquentFxRateRepository implements FxRateRepositoryInterfa
             }
         }
 
-        return new RateHistoryPage(
-            rates: $rates,
+        return new Page(
+            items: $rates,
             total: FxRateRow::query()->count(),
             page: $query->page,
             perPage: $query->perPage,

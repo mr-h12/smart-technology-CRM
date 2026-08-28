@@ -2686,11 +2686,91 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       `node:22`) and the repo's `node_modules` carries Linux bindings installed inside the
       container, so the host toolchain cannot start vitest. This point changed **zero** frontend
       files — verified with `git status` — and CI ran the gate.
-- [ ] **3.4** `/api/v1/managed-lists/{list}` and `/api/v1/system-limits`
+- [x] **3.4** `/api/v1/managed-lists/{list}` and `/api/v1/system-limits` — `DB-05`'s four lists and
+      §13 screen 6's limits.
+      **`GET` and `POST /managed-lists/{list}` answer to two different authorities, and §3.11 names
+      neither.** The matrix has **no row** for managed lists, so the two halves are decided rather
+      than quoted: the **read is authentication alone**, the way `GET /auth/me` is, because §8 puts
+      Customers on six roles' screens and Catalog on five and not one can render without a sector or
+      a unit; the **write carries `admin.system_settings`**, the Super Admin's row, because changing
+      what the company may file a customer under is a settings action. Break 1 proved the read half
+      is load-bearing rather than lax: putting the `GET` behind `admin.system_settings` failed the
+      **acceptance-criterion test itself** — the new sector appeared in settings and nowhere else.
+      **Recorded as a decision awaiting a `D-xx`**, on the same terms as `DELETE /roles/{role}`.
+      **The module's acceptance criterion is now proved at the API.** A sector is added through the
+      settings endpoint and returned by the endpoint the customer form will call, in one test, with
+      no deployment between them — which is what Points 1.3 and 2.2 built the table and the
+      code-refusing repository for. It stays **unticked** below, precisely: there is no customer
+      form until Module 3, so what is proved is the half this module owns.
+      **`admin.system_limits`, not `admin.system_settings`** — §3.11's own row, and Point 1.1's two
+      tables for the same reason. **Break 7 did not fail and could not**: both rows belong to the
+      Super Admin alone today, so no test can tell the two names apart. The distinction is made now
+      anyway because §3.12 rule 5 makes regranting a row a configuration change — the day the
+      Manager is given the limits row, an endpoint that had quietly named the settings row would not
+      follow. Written into `routes/api.php` beside the group.
+      **`SystemLimit` declares six, and the sixth is why.** §13 screen 6 names five;
+      `identity.lockout_minutes` is the sixth because it is the only limit the documentation values,
+      it is already seeded, and `SystemSettingsSeeder` says outright that *"the first thing that will
+      happen to this row is somebody changing it"*. An endpoint listing five would have left the
+      only live limit uneditable. A test drives the full `D-75` loop: change it through the endpoint,
+      and `SettingReader::integer()` — what `AuthenticateUser` actually reads — returns 45.
+      **The other five report `null` and nothing is seeded.** `D-17` says the stale-deal threshold
+      is *"configurable in settings"* and stops; §11.5 says the daily deadline comes *"from
+      settings"* and stops. Point 1.1 made the column nullable so *"not configured yet"* is
+      distinguishable from a configured zero, and a test asserts all five are null rather than
+      defaulted. ⚠️ **Two key names carry an inference, named rather than hidden:**
+      `weekly_review_window_hours` reads §11.5's *"within 24 hours"* as the window §13 means, and
+      `max_file_size_mb` reads `D-39`'s *"10 MB (configurable)"* as the unit. Neither number is
+      seeded, so an inference about a **unit** cannot become an invented **value** — but both are
+      owed an owner's confirmation.
+      **A zero-minute lockout never locks**, so `SystemLimit::rule()` is a positive-integer pattern
+      and not `integer`. Break 8: with `integer`, `0`, `-5` and `1.5` were all accepted with a 200.
+      **One paginator, not three.** Point 3.3's `RateHistoryQuery`/`RateHistoryPage`/
+      `InvalidRateHistoryQuery` became `ListingQuery`/`Page`/`InvalidListingQuery` — `Page` generic
+      over its item, with a `meta()` that assembles §4.2's six keys once instead of in each
+      controller. Generalising one-point-old code inside its own module is not the boundary change
+      `CLAUDE.md` reserves for its own point: same layer, same module, same namespace, and
+      `FxRateEndpointTest`'s 28 cases were the safety net, green before and after.
+      **39 tests / 277 assertions** (22 managed lists · 17 limits). **Twelve deliberate breaks with
+      real output:** the read put behind the settings permission · the write left unguarded · the
+      Arabic label, code pattern and position floor dropped · the `23505` translation removed and
+      the count widened past its list · the display order replaced · the unknown-list 404 removed ·
+      the audit event renamed · the limits route given the settings permission · the positive-integer
+      rule weakened to `integer` · the unit dropped on insert and the enum loop replaced by stored
+      rows · the write bypassed · the lockout's unit dropped. Restored byte-identical,
+      `shasum -a 256 -c`.
+      **Two findings, recorded rather than papered over.**
+      1. **A vacuous test, caught by the RED count.** RED was 38 failed and **1 passed** — the
+         unknown-list `POST` 404, which a missing route answers too. It now writes a known list
+         first, and RED became 39/0. This is the third time this shape has appeared (1.1, 3.3, 3.4)
+         and the counter-measure is the same each time: exercise the real path in the same test.
+      2. **Break 7 could not fail** — see `admin.system_limits` above. A limitation of §3.11 as it
+         stands, not of the test, and making it observable would mean inventing a matrix change.
+      **The audit guard fired on its first full run**, as it did in Point 3.1:
+      `DatabaseSystemLimitRepository` is now registered in `AuditEnforcementTest::WRITERS`, audited
+      one layer out by `UpdateSystemLimits`. ⚠️ **Its sibling was invisible.**
+      `EloquentManagedListRepository` gained an insert this point and the guard did not notice —
+      it writes purely through a module-aliased Eloquent model and carries none of the four signals.
+      The hole measured in Point 3.2 with five classes now has **six**. Still owed its own point.
+      **Not covered:** no **rename** of a list entry and no **archive** of one — `DB-01` forbids
+      deletion and withdrawing a sector customers are filed under is a decision with consequences,
+      which `ManagedListSeeder` already refuses to make silently; both are owed. No reordering
+      endpoint (`position` is set on creation and never moved). No validation that a limit's *value*
+      means anything beyond its type — `limits.daily_report_deadline` accepts `"tomorrow-ish"`,
+      because §11.5 gives no format. **`D-39`'s 10 MB is declared and not wired**: whatever Storage
+      reads for its upload ceiling today still reads it, and pointing Module 5 at this row is a
+      change in Module 5. No cache (`PRF-08`, Point 4.2). No screens — §13's screens 4, 5 and 6 are
+      Step 5.
+      **The frontend gate was not run locally**, for the third time and the same reason: Docker Hub
+      unreachable and the repo's `node_modules` built inside the container. **Zero frontend files
+      changed** — verified with `git status` — and CI ran it.
 
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry
-- [ ] New sector added in settings → appears in the customer form **without a deployment**
+- [~] New sector added in settings → appears in the customer form **without a deployment** —
+      **the API half is proved** by Point 3.4: `POST /managed-lists/sectors` then
+      `GET /managed-lists/sectors` as a sales employee, in one test, no deployment between them.
+      The **customer form** is Module 3, so the criterion is not tickable here.
 - [ ] Currency rounding unit changes → **only new quotations** are affected
 - [x] Rounding units default correctly: EGP `1` · USD `0.01` · EUR `0.01` *(Point 2.1 — seeded from
       `Currencies` and asserted against §5.3 as the documentation publishes it, not against the class

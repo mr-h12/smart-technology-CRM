@@ -26,7 +26,7 @@ use RuntimeException;
  * recorded in `CHECKLIST.md` beside the `ApiEnvelope` debt, which is the same
  * debt for the same reason.
  */
-final class InvalidRateHistoryQuery extends RuntimeException
+final class InvalidListingQuery extends RuntimeException
 {
     public const ERROR_CODE = 'invalid_request';
 

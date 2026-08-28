@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Infrastructure;
 
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Domain\Listing\ListingQuery;
+use App\Modules\Admin\Domain\Listing\Page;
 use App\Modules\Admin\Domain\Reference\ListEntry;
+use App\Modules\Admin\Domain\Reference\ListEntryAlreadyExists;
 use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Admin\Infrastructure\Eloquent\EnumListEntry;
+use Illuminate\Database\QueryException;
 
 /**
  * `enum_lists`, mapped back into `ListEntry`.
@@ -30,9 +34,64 @@ final readonly class EloquentManagedListRepository implements ManagedListReposit
             ->get();
 
         foreach ($rows as $row) {
-            $entries[] = new ListEntry($row->code, $row->label_en, $row->label_ar, $row->position);
+            $entries[] = $this->map($row);
         }
 
         return $entries;
+    }
+
+    public function page(ManagedList $list, ListingQuery $query): Page
+    {
+        $rows = EnumListEntry::query()
+            ->where('list', $list->value)
+            ->orderBy('position')
+            ->orderBy('code')
+            ->offset($query->offset())
+            ->limit($query->perPage)
+            ->get();
+
+        $entries = [];
+
+        foreach ($rows as $row) {
+            $entries[] = $this->map($row);
+        }
+
+        return new Page(
+            items: $entries,
+            total: EnumListEntry::query()->where('list', $list->value)->count(),
+            page: $query->page,
+            perPage: $query->perPage,
+        );
+    }
+
+    public function add(ManagedList $list, ListEntry $entry): void
+    {
+        $row = new EnumListEntry;
+        $row->fill([
+            'list' => $list->value,
+            'code' => $entry->code(),
+            'label_en' => $entry->labelEn(),
+            'label_ar' => $entry->labelAr(),
+            'position' => $entry->position(),
+        ]);
+
+        try {
+            $row->save();
+        } catch (QueryException $refused) {
+            // 23505 is `unique_violation`, which on this table can only be
+            // `enum_lists_code_unique_alive`. Read from the database's own
+            // refusal rather than from a read-then-write check, which two
+            // administrators adding the same sector at once would both pass.
+            if ($refused->getCode() === '23505') {
+                throw new ListEntryAlreadyExists($list, $entry->code());
+            }
+
+            throw $refused;
+        }
+    }
+
+    private function map(EnumListEntry $row): ListEntry
+    {
+        return new ListEntry($row->code, $row->label_en, $row->label_ar, $row->position);
     }
 }

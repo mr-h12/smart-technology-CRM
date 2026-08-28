@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Http\Middleware\AddRequestId;
 use App\Modules\Admin\Presentation\CurrencyController;
 use App\Modules\Admin\Presentation\FxRateController;
+use App\Modules\Admin\Presentation\ManagedListController;
 use App\Modules\Admin\Presentation\SettingsController;
+use App\Modules\Admin\Presentation\SystemLimitController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
 use App\Modules\Identity\Presentation\LeaveImpersonationController;
@@ -301,4 +303,58 @@ Route::middleware(['auth', 'permission:admin.system_settings'])->group(function 
 Route::middleware(['auth', 'permission:admin.fx_rates'])->group(function (): void {
     Route::get('/fx-rates', [FxRateController::class, 'index']);
     Route::post('/fx-rates', [FxRateController::class, 'store']);
+});
+
+// §13 screen 6 — "Limits & SLAs", behind §3.11's own row for them.
+//
+// ⚠️ **`admin.system_limits`, not `admin.system_settings`.** §3.11 lists
+// "system settings" and "system limits (SLAs, thresholds)" as two rows. Both
+// belong to the Super Admin today and to nobody else, so the two names select
+// the same callers — which is exactly why the distinction has to be made now
+// rather than when it first matters: §3.12 rule 5 makes regranting a row a
+// configuration change, and the day a Manager is given the limits row, an
+// endpoint that had quietly named the settings row would not follow.
+//
+// Point 1.1 made them two tables for the same reason, in its own words: "a
+// matrix row may be regranted without a deployment, so the split is what keeps
+// the authorisation check at the table instead of inside a WHERE".
+Route::middleware(['auth', 'permission:admin.system_limits'])->group(function (): void {
+    Route::get('/system-limits', [SystemLimitController::class, 'index']);
+    Route::patch('/system-limits', [SystemLimitController::class, 'update']);
+});
+
+// `DB-05`'s four lists — §4.2's sectors, §7.3's units and service types, and
+// delivery terms.
+//
+// ⚠️ **The read carries no permission, and the write carries the Super
+// Admin's. That asymmetry is a decision, not an omission.** §3.11 has **no
+// row** for managed lists — neither for reading one nor for editing one — so
+// neither verb has a name to quote, and the two halves are answered
+// differently:
+//
+//   * **Reading is authentication alone**, the way `GET /auth/me` and
+//     `POST /auth/change-password` are. §8 puts Customers on six roles' screens
+//     and Catalog on five, and not one of those screens can render without a
+//     sector or a unit. Behind `admin.system_settings` this module's acceptance
+//     criterion would be unreachable: the new sector would appear in settings
+//     and nowhere else, which is the opposite of "appears in the customer
+//     form". Nothing here is confidential — a sector list is a list of words
+//     printed on every quotation §16 generates.
+//   * **Writing is `admin.system_settings`**, the Super Admin's row, because
+//     changing what the whole company may file a customer under is a settings
+//     action and §13 files these lists in screen 4's neighbourhood.
+//
+// Recorded in `CHECKLIST.md` as a decision awaiting a `D-xx`, on the same terms
+// as `DELETE /roles/{role}`: the endpoint is defensible, the matrix does not
+// name it, and inventing a permission row would be worse than saying so.
+//
+// **No `PATCH` and no `DELETE`.** `DB-01` forbids physical deletion, and
+// withdrawing a sector customers are already filed under is a decision with
+// consequences — `ManagedListSeeder` refuses to do it silently and so does
+// this. Renaming a label is owed and named in `CHECKLIST.md`.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/managed-lists/{list}', [ManagedListController::class, 'index']);
+
+    Route::post('/managed-lists/{list}', [ManagedListController::class, 'store'])
+        ->middleware('permission:admin.system_settings');
 });

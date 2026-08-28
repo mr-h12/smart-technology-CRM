@@ -27,6 +27,10 @@ return [
         'unknown_sort_field' => 'This list does not offer that sort field.',
     ],
 
+    'managed_list' => [
+        'duplicate_code' => 'That code is already used in this list.',
+    ],
+
     'fx_rate' => [
         'unknown_currency' => 'This system does not offer that currency.',
         'same_currency' => 'An exchange rate needs two different currencies.',

@@ -178,6 +178,26 @@ These are not. They are blocked on an owner decision or on ordinary work, they w
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
+- [ ] **The `AuditEnforcementTest` signal hole** — *deferred by the owner 2026-08-28, to a
+      dedicated pass.* The guard classifies a class as a database writer only when it carries one of
+      four signals — `ConnectionInterface`, `->table(`, `DB::`, `Eloquent\Model`. A repository
+      writing purely through a **module-aliased** Eloquent model carries none of them and is
+      invisible to it. Measured at five classes in Point 3.2 and **six** after Point 3.4:
+      `EloquentCurrencyRepository`, `EloquentManagedListRepository`, and four Identity adapters
+      shipped with Module 1 (`BearerSessionResolver`, `EloquentSessionStore`,
+      `EloquentAccountDirectory`, `EloquentUserDirectory`). **Nothing is unrecorded today** — every
+      one is audited a layer out — but `AUD-01`'s enforcement is weaker than it reads. It is its own
+      point because widening the signal re-classifies four already-shipped Identity classes, and
+      each needs its disposition decided rather than guessed
+- [ ] **`ApiEnvelope` and the list-query contract belong in a shared layer** — *deferred by the
+      owner 2026-08-28, to a dedicated pass.* `ApiEnvelope` exists twice (Identity's and the copy
+      Point 3.1 made in Admin), and `InvalidListingQuery` is the third instance of the same
+      duplication — Admin may not import Identity's `InvalidListQuery`, because
+      `deptrac.modules.yaml` grants it `Framework`, `SharedContracts` and `AuditContract` and
+      nothing else. Identity's own copy predicted this: *"the moment a second module has endpoints,
+      this belongs in a shared layer that deptrac names — which is a boundary change, and boundary
+      changes are their own point"*. `SettingsEndpointTest` asserts the shape against the documented
+      envelope so the copies cannot drift silently in the meantime
 - [x] **`D-73` has a row in the master decision log** — *closed 2026-08-23 with Point 1.1, under
       the owner's explicit authorisation.* It is in `§2.8 Operations & Scope`; `grep -n "D-73"
       docs/CRM_Documentation_EN.md` returns line 153, re-checked 2026-08-24. `CRM_Documentation_EN.md`
@@ -2764,6 +2784,93 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       **The frontend gate was not run locally**, for the third time and the same reason: Docker Hub
       unreachable and the repo's `node_modules` built inside the container. **Zero frontend files
       changed** — verified with `git status` — and CI ran it.
+
+#### Step 4 — scheduling and caching *(point order approved 2026-08-28)*
+
+- [~] **4.1** `J-12 fx_rate_staleness_alert` — **withdrawn by the owner, 2026-08-28.**
+      The point was published with three options for the staleness threshold, because §15's header
+      says timings come *"from settings"* while §13 screen 6 names five limits and none of them is
+      an FX staleness threshold — so `J-12` could not be built without adding a key `SystemLimit`'s
+      own docblock says the document fixes.
+      **The owner's decision, in their words:** *"We do NOT want a staleness threshold, and no
+      alerts should be triggered for FX rates. The exchange rates simply exist as records, and
+      employees will update them manually whenever needed."*
+      **So nothing is built, and nothing is removed.** The rates already are purely passive storage:
+      Point 3.3 records them, Point 1.2's trigger keeps them append-only, and no reader treats age
+      as meaningful. `SystemLimit` keeps its six cases and gains no seventh.
+      ⚠️ **`J-12` is still a row in §15's single reference list**, and `docs/` is not edited here.
+      The job is **not implemented by owner decision**, which is a different thing from an oversight
+      — recorded so that the next reader of §15 finds the reason rather than a gap. It is a
+      candidate for a `D-xx` in `§2.8` whenever the owner next opens that log.
+- [x] **4.2** `PRF-08` — a cache for `settings` and `system_limits`, with invalidation on write.
+      **Scope is one of `PRF-08`'s four.** *"Caching for catalog · suppliers · permissions ·
+      settings"* — catalog and suppliers are modules that do not exist, and **permissions belong to
+      Module 1**, which `CLAUDE.md`'s module isolation puts out of reach of a point working in Admin.
+      **This point is mostly about invalidation, and that is not a figure of speech.** `D-75`
+      promises the owner changes the lockout duration *without a deployment*, and
+      `AppServiceProvider` binds every Module 2 repository with `bind` and not `singleton` for that
+      exact reason — its own comment reads *"an instance memoised for the life of the process is a
+      deployment wearing a different name"*. A cache without invalidation is that same deployment
+      wearing a third name and lasting longer. So every test that proves a cache **hit** is paired
+      with one that proves a **write is visible immediately**, and `test_that_changing_a_limit_
+      changes_what_the_login_flow_reads` drives it through `SettingReader` — what `AuthenticateUser`
+      actually reads on every failed login.
+      **The flush is after the transaction commits, never inside it.** Inside leaves a window in
+      which a concurrent reader repopulates the cache from rows that have not committed; a rollback
+      then leaves values that never existed. Both use cases therefore write inside the transaction
+      and flush after it returns — and the read-back that forms the response is outside too, so what
+      the response reports is what committed.
+      **`DatabaseSettingReader` now reads through the repository, not the connection.** It owned a
+      second copy of the same query and ran it once per call. Deleting that copy is what put the
+      `D-75` hot path on the same cache entry §13 screen 6 uses, so **one invalidation covers both**.
+      **Forever, with no TTL.** A TTL would be a number nobody wrote down, and this project does not
+      invent those. Every write that can change these tables — `UpdateSettings`,
+      `UpdateSystemLimits`, `SystemSettingsSeeder` — forgets its key.
+      **The seeder flush is the hole this point would otherwise have opened.** A seeder writes
+      *underneath* the API, so a cache warmed before it ran would hide `D-75`'s row until somebody
+      happened to save the settings screen — in production, a deployment leaving the lockout
+      configured and not in force. It flushes unconditionally, including on the "row already exists"
+      path, because the row existing does not mean the cache knows it does.
+      **`SettingsCacheInterface` is in `Domain\Contracts` and the Application layer never names a
+      cache key.** `deptrac.layers.yaml` gives Application `Domain`, `Framework` and
+      `SharedContracts` — reaching into `Infrastructure` for the concrete cache is a violation, and
+      the boundary is right. The two methods are named after *what changed*, not after what to
+      delete. **Caught by reading the ruleset before running the gate**, not by the gate.
+      **10 tests / 50 assertions. Five deliberate breaks with real output:** both invalidations
+      removed · the seeder flush removed · a poisoned entry filtered instead of reloaded · the cache
+      never read · the flush moved back inside the transaction. Restored byte-identical.
+      **Two findings, recorded rather than papered over.**
+      1. **Six of the ten tests passed in RED**, and they are not vacuous — they are the
+         *invalidation* tests, and an invalidation test cannot fail before the cache it invalidates
+         exists. They were proved by break 1 and break 2 instead, which is what the break step is
+         for. The distinction from Point 3.4's genuinely vacuous test is worth keeping: that one
+         could never have failed; these could only fail after GREEN.
+      2. **Break 5 did not fail, and cannot with the suite as it stands.** Moving the flush inside
+         the transaction changed nothing: no reachable path rolls one of these transactions back,
+         and the suite is single-process, so the concurrent reader the ordering protects against
+         cannot be staged. **The after-commit ordering is reasoning, not a tested property**, and it
+         is written into both use cases so the next editor meets the argument rather than the
+         convention.
+      **`singleton` for `SettingsCacheInterface`, and it is the only one in this module.** It holds
+      no answer of its own — only the cache store's handle — so memoising it memoises nothing.
+      **Not covered:** `currencies` and `enum_lists` are **not** cached — `PRF-08` does not name
+      them, and the managed-list read is paginated, which is a different problem with a different
+      invalidation. No cache metrics or hit-rate reporting (§13 screen 18 is Performance monitor, a
+      later module). A row edited **directly in SQL** is not seen until something writes through the
+      API — not a supported way to change configuration, and a TTL would only shorten that window
+      rather than close it.
+      **The frontend gate was not run locally**, same reason as Points 3.3 and 3.4: Docker Hub
+      unreachable and `node_modules` built inside the container. **Zero frontend files changed** —
+      verified with `git status` — and CI ran it.
+
+> **Scheduling architecture, approved 2026-08-28.** Any maintenance or scheduled task in this scope
+> is a **scheduled console command** on the `J-15` pattern in `routes/console.php`, deferring
+> queue/worker execution until Horizon is configured. With `J-12` withdrawn, Step 4 has no scheduled
+> task to attach it to — the approval is recorded here so the next such task does not re-litigate it.
+
+> **`4.3` and `4.4` were published and postponed by the owner, 2026-08-28**, to a dedicated pass.
+> Both are now in *Debt the server does not gate* above: the `AuditEnforcementTest` signal hole, and
+> the move of `ApiEnvelope` and the list-query contract to a shared layer.
 
 **Acceptance criteria**
 - [ ] FX rate edit → old rate stays in history + mandatory audit entry

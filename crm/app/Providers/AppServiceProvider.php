@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
 use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
@@ -15,6 +16,7 @@ use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Admin\Infrastructure\EloquentCurrencyRepository;
 use App\Modules\Admin\Infrastructure\EloquentFxRateRepository;
 use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
+use App\Modules\Admin\Infrastructure\SettingsCache;
 use App\Modules\Audit\Application\AuditRecorder;
 use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
 use App\Modules\Audit\Domain\Contracts\AuditEntryWriterInterface;
@@ -158,6 +160,12 @@ class AppServiceProvider extends ServiceProvider
         // bind and not singleton, for PermissionRepositoryInterface's reason:
         // AP-08 makes the unit configuration, and an instance memoised for the
         // life of the process is a deployment wearing a different name.
+        // PRF-08's cache. **singleton, and it is the one binding in this module
+        // that may be** — it holds no answer of its own, only the cache store's
+        // handle, so memoising it memoises nothing. The values behind it are
+        // still invalidated on every write.
+        $this->app->singleton(SettingsCacheInterface::class, SettingsCache::class);
+
         $this->app->bind(CurrencyRepositoryInterface::class, EloquentCurrencyRepository::class);
 
         // §13 screen 5's rate history. bind and not singleton for the reason
@@ -178,6 +186,7 @@ class AppServiceProvider extends ServiceProvider
             SettingsRepositoryInterface::class,
             fn (): DatabaseSettingsRepository => new DatabaseSettingsRepository(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(SettingsCache::class),
             ),
         );
 
@@ -188,6 +197,7 @@ class AppServiceProvider extends ServiceProvider
             SystemLimitRepositoryInterface::class,
             fn (): DatabaseSystemLimitRepository => new DatabaseSystemLimitRepository(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(SettingsCache::class),
             ),
         );
 
@@ -197,7 +207,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SettingReader::class,
             fn (): DatabaseSettingReader => new DatabaseSettingReader(
-                $this->app->make(ConnectionInterface::class),
+                $this->app->make(SystemLimitRepositoryInterface::class),
                 $this->app->make(ConfigRepository::class),
             ),
         );

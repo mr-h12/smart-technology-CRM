@@ -23,17 +23,16 @@ use Illuminate\Support\Str;
  */
 final readonly class DatabaseSystemLimitRepository implements SystemLimitRepositoryInterface
 {
-    public function __construct(private ConnectionInterface $connection) {}
+    public function __construct(
+        private ConnectionInterface $connection,
+        private SettingsCache $cache,
+    ) {}
 
     public function all(): array
     {
-        $stored = [];
-
-        foreach ($this->connection->table('system_limits')->whereNull('deleted_at')->get() as $row) {
-            if (is_string($row->key)) {
-                $stored[$row->key] = is_string($row->value) ? $row->value : null;
-            }
-        }
+        // `PRF-08`, and the entry `DatabaseSettingReader` shares — `D-75`'s
+        // lockout is read on every failed login, which was a query per attempt.
+        $stored = $this->cache->remember(SettingsCache::LIMITS, fn (): array => $this->read());
 
         $limits = [];
 
@@ -46,6 +45,20 @@ final readonly class DatabaseSystemLimitRepository implements SystemLimitReposit
         }
 
         return $limits;
+    }
+
+    /** @return array<string, string|null> */
+    private function read(): array
+    {
+        $stored = [];
+
+        foreach ($this->connection->table('system_limits')->whereNull('deleted_at')->get() as $row) {
+            if (is_string($row->key)) {
+                $stored[$row->key] = is_string($row->value) ? $row->value : null;
+            }
+        }
+
+        return $stored;
     }
 
     public function put(SystemLimit $limit, string $value): array

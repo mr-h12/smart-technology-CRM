@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Support\Seeding\GuardedSeeder;
 use Illuminate\Support\Facades\DB;
@@ -48,10 +49,26 @@ final class SystemSettingsSeeder extends GuardedSeeder
             ->where('key', AuthenticateUser::LOCKOUT_MINUTES_KEY)
             ->exists();
 
-        if ($exists) {
-            return;
+        if (! $exists) {
+            $this->insertLockout();
         }
 
+        // ⚠️ **Unconditional, and after the write** (Point 4.2). `PRF-08`'s
+        // cache is invalidated by the two use cases that write through the API;
+        // a seeder writes underneath them, so a cache warmed before a
+        // deployment would hide `D-75`'s row until somebody happened to save
+        // the settings screen — a lockout duration that is configured and not
+        // in force. It flushes on the "already exists" path too, because the
+        // row existing does not mean the cache knows it does.
+        //
+        // Not `defer()`: that fires after a response is sent, and a seeder run
+        // from `artisan` or from a test has no response to be after. Measured —
+        // the test read the configured fallback instead of the seeded row.
+        app(SettingsCacheInterface::class)->forgetLimits();
+    }
+
+    private function insertLockout(): void
+    {
         DB::table('system_limits')->insert([
             'id' => Str::uuid7()->toString(),
             'key' => AuthenticateUser::LOCKOUT_MINUTES_KEY,

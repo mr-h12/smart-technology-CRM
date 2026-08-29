@@ -18,26 +18,41 @@ use Tests\TestCase;
  */
 final class SpaShellTest extends TestCase
 {
-    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    /** @return array<string, array{0: string}> */
     public static function locales(): array
     {
         return [
-            'arabic' => ['ar', 'ar', 'rtl'],
-            'english' => ['en', 'en', 'ltr'],
-            'weighted arabic' => ['ar-EG,ar;q=0.9,en;q=0.8', 'ar', 'rtl'],
-            // Unmatched falls back to the configured default, which is ar (§1).
-            'unsupported' => ['fr-FR', 'ar', 'rtl'],
+            'arabic' => ['ar'],
+            // The shell used to answer this header with an English document,
+            // which made the product's language a property of the visitor's
+            // browser. §1 makes the system Arabic-first, so the default is the
+            // configured one and the browser's preference does not override it.
+            'english' => ['en'],
+            'weighted english' => ['en-GB,en;q=0.9,ar;q=0.8'],
+            'unsupported' => ['fr-FR'],
         ];
     }
 
     #[DataProvider('locales')]
-    public function test_the_shell_carries_the_language_and_direction(string $header, string $lang, string $dir): void
+    public function test_the_shell_opens_in_the_configured_default_language(string $header): void
     {
         $response = $this->withHeader('Accept-Language', $header)->get('/');
 
         $response->assertOk();
-        $response->assertSee('lang="'.$lang.'"', false);
-        $response->assertSee('dir="'.$dir.'"', false);
+        $response->assertSee('lang="ar"', false);
+        $response->assertSee('dir="rtl"', false);
+    }
+
+    public function test_the_default_is_the_configured_one_and_not_a_hard_coded_arabic(): void
+    {
+        // Without this, `lang="ar"` written straight into the template passes
+        // every case above while APP_LOCALE means nothing.
+        config(['app.default_locale' => 'en']);
+
+        $response = $this->withHeader('Accept-Language', 'ar')->get('/');
+
+        $response->assertSee('lang="en"', false);
+        $response->assertSee('dir="ltr"', false);
     }
 
     public function test_the_shell_carries_no_user_facing_text(): void

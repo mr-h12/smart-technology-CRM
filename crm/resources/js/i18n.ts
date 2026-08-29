@@ -22,6 +22,14 @@ export function isSupported(value: string): value is Locale {
 }
 
 /**
+ * Where the chosen language is remembered, read back by the pre-paint script in
+ * welcome.blade.php. `LocalePreferenceTest` pins the two to the same string,
+ * because a disagreement is silent: the language switches, the preference is
+ * written, and the next reload ignores it.
+ */
+export const LOCALE_STORAGE_KEY = 'crm.locale';
+
+/**
  * The server already resolved the locale and rendered it onto <html> (see
  * welcome.blade.php and SetLocaleFromRequest). Reading it back rather than
  * negotiating again keeps one decision in one place: if the client picked
@@ -52,4 +60,13 @@ export function setLocale(locale: Locale): void {
 
     document.documentElement.lang = locale;
     document.documentElement.dir = DIRECTION[locale];
+
+    // The shell opens in the product default whatever the browser asks for, so
+    // this is now the only thing that carries a choice across a reload —
+    // Accept-Language no longer does it.
+    try {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {
+        // A preference that cannot be written is still applied for this visit.
+    }
 }

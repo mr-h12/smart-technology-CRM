@@ -111,6 +111,46 @@ function onBackdrop(): void {
             </span>
         </div>
 
+        <!-- ── Collapse control ──────────────────────────────────────────────
+             §4.3 gives the collapsed rail to ≥1024px only, so the control that
+             produces it does not exist below that width.
+
+             At the top rather than at the foot of the aside. Below the list it
+             drifted further down the screen with every module that added a menu
+             item, and on a short viewport it left the fold entirely — the one
+             control that makes the rail narrower was reachable only by scrolling
+             the rail. Its position here is fixed by the brand row above it.
+
+             Icon only, in both states. The name is always the hidden one, which
+             is not a detail that can be dropped along with the visible label: a
+             button whose only content is an aria-hidden svg is announced as
+             "button" and nothing more. It is also never two names at once —
+             an earlier shape rendered the visible label *and* an sr-only copy,
+             and the expanded control announced itself twice. -->
+        <button
+            type="button"
+            :class="[
+                'app-sidebar__toggle hidden min-h-11 items-center border-b border-[var(--color-border)] py-3',
+                'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] lg:flex',
+                props.collapsed ? 'justify-center px-0' : 'justify-end px-4',
+            ]"
+            :aria-expanded="!props.collapsed"
+            data-testid="sidebar-collapse"
+            @click="emit('toggleCollapsed')"
+        >
+            <span
+                class="grid size-6 shrink-0 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]"
+                aria-hidden="true"
+            >
+                <svg viewBox="0 0 20 20" class="size-4" fill="currentColor">
+                    <path d="M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm4 1v10h10V5z" />
+                </svg>
+            </span>
+
+            <span class="sr-only">{{ props.collapsed ? t('nav.expand') : t('nav.collapse') }}</span>
+        </button>
+
         <!-- ── Navigation ────────────────────────────────────────────────── -->
         <nav class="app-sidebar__scroll flex-1 overflow-y-auto px-2 py-3">
             <div v-for="group in groups" :key="group.labelKey" class="mb-5 last:mb-0">
@@ -150,38 +190,6 @@ function onBackdrop(): void {
             </div>
         </nav>
 
-        <!-- ── Collapse control ──────────────────────────────────────────────
-             §4.3 gives the collapsed rail to ≥1024px only, so the control that
-             produces it does not exist below that width. -->
-        <button
-            type="button"
-            :class="[
-                'app-sidebar__toggle hidden min-h-11 items-center gap-3 border-t border-[var(--color-border)] py-3',
-                'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] lg:flex',
-                props.collapsed ? 'justify-center px-0' : 'px-4',
-            ]"
-            :aria-expanded="!props.collapsed"
-            data-testid="sidebar-collapse"
-            @click="emit('toggleCollapsed')"
-        >
-            <span
-                class="grid size-6 shrink-0 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]"
-                aria-hidden="true"
-            >
-                <svg viewBox="0 0 20 20" class="size-4" fill="currentColor">
-                    <path d="M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm4 1v10h10V5z" />
-                </svg>
-            </span>
-
-            <!-- One name, not two. The previous shape rendered the visible
-                 label *and* an sr-only copy, so the expanded control announced
-                 "Collapse sidebar Collapse sidebar" — read out of the
-                 accessibility tree in a browser, invisible to every check here.
-                 The hidden label now exists only when there is no visible one. -->
-            <span v-if="!props.collapsed" class="min-w-0 truncate">{{ t('nav.collapse') }}</span>
-            <span v-else class="sr-only">{{ t('nav.expand') }}</span>
-        </button>
     </aside>
 </template>
 

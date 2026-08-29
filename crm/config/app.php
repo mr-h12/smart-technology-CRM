@@ -82,6 +82,21 @@ return [
 
     'locale' => env('APP_LOCALE', 'ar'),
 
+    /*
+     * The language the product opens in, which is not the same question as
+     * 'locale' above.
+     *
+     * Application::setLocale() writes its argument back into config('app.locale'),
+     * so once SetLocaleFromRequest has negotiated the request, 'locale' reports
+     * what *this request* resolved to and no longer what the product's default
+     * is. Measured: with this key absent, the SPA shell asked config('app.locale')
+     * and received the visitor's own Accept-Language back.
+     *
+     * Nothing writes to this one, so it can answer the question. §1 makes the
+     * answer Arabic.
+     */
+    'default_locale' => env('APP_LOCALE', 'ar'),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

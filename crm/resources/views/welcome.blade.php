@@ -2,8 +2,28 @@
 {{-- The SPA shell. Laravel serves this for every non-API route and Vue Router
      takes over from there (D-67). It carries no user-facing text: all strings
      live in lang files, and this document exists only to mount the app. --}}
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      dir="{{ in_array(app()->getLocale(), ['ar']) ? 'rtl' : 'ltr' }}">
+{{-- §1 makes this an Arabic-first product, so the shell opens in the configured
+     default language (APP_LOCALE) rather than in whichever language the visitor's
+     browser happens to prefer. This used to render app()->getLocale(), which
+     SetLocaleFromRequest resolves from Accept-Language — so an English browser
+     was handed an English product by default and nobody had chosen that.
+
+     The *API* still negotiates (OpenAPI §2, LocaleTest). Nothing was taken away
+     there: api.ts sends this document's language as Accept-Language, so the two
+     halves continue to agree by construction.
+
+     `app.default_locale` and not `app.locale`: Application::setLocale() writes
+     the negotiated locale back into `app.locale`, so by the time this renders
+     that key reports the visitor's own Accept-Language. Measured, not read.
+
+     The value is matched against the two supported codes rather than trusted,
+     for the same reason SetLocaleFromRequest does it: a locale is a path
+     fragment to the translation loader. It is spread over two directives
+     because NoHardCodedTextTest reads a @php block's body as prose and only
+     understands the single-expression form. --}}
+@php($locale = config('app.default_locale'))
+@php($locale = in_array($locale, ['ar', 'en'], true) ? $locale : 'ar')
+<html lang="{{ $locale }}" dir="{{ $locale === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -39,6 +59,20 @@
 
                 if (stored === 'clean-monochrome' || stored === 'midnight-obsidian') {
                     document.documentElement.setAttribute('data-theme', stored);
+                }
+
+                // The language is the same problem as the theme, and a worse
+                // flash: the document above opens in the product default, so
+                // without this a reader who chose the other language watches
+                // the whole layout arrive in the wrong direction before the
+                // bundle corrects it. Both attributes move together — a
+                // document that says lang="en" and still lays out RTL is wrong
+                // in a way neither the reader nor the stylesheet can correct.
+                var language = window.localStorage.getItem('crm.locale');
+
+                if (language === 'ar' || language === 'en') {
+                    document.documentElement.lang = language;
+                    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
                 }
             } catch (error) {
                 // Storage throws rather than returning null when a browser has

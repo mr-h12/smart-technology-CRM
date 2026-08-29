@@ -365,9 +365,25 @@ built in Module 1's Step 5 and are used by every module after it.
       `settings.hints.` — vue-i18n echoed *that* key back, which does not contain `settings.hint.`
       and sailed straight through. Only comparing against the lang file's exact string catches a key
       that resolves to itself. Both loops re-asserted that way; the same break then failed two cases.
+      ⚠️ **Every one of the 38 strings was rewritten the same day, because the first version was
+      written for the wrong reader.** They shipped citing `D-63`, `DB-08`, `§5.3` and *"in PHP
+      letters"* — each sentence true, each sentence addressed to somebody who has read the
+      documentation. The owner's correction was plain: these are for people who have not seen the
+      docs, do not write code, and may be opening the system for the first time.
+      **The citations were not lost, they were moved to where they belong.** Every one is still in the
+      component docblock and in this entry — which is where a reviewer checks whether a sentence is
+      *true*. The screen is where a person reads what to type. The date-format hint now teaches by
+      example (`d/m/Y` shows the 9th of March 2026 as `09/03/2026`) instead of naming a language.
+      **A guard now enforces it, in both languages** — `i18n.spec.ts` scans all 19 hints in `en` and
+      `ar` for decision/section references, for machinery words (`PHP`, `API`, `UTC`, `enum`, `JSON`,
+      `null`, `endpoint`, `nullable`), and for being a sentence rather than a label. It asserts the
+      **count** first, because an empty scan passes everything below it. Three deliberate breaks: a
+      `D-63` put back into an English hint, `UTC` into an Arabic one, and a hint cut down to a label —
+      each failed on the right case.
       **Not covered:** the hints describe **fields**, not workflows — a person who does not know what
       a quotation approval SLA is for will not learn it here. No `title` tooltips: a hint that only
-      appears on hover is invisible on a phone and to a keyboard.
+      appears on hover is invisible on a phone and to a keyboard. And the guard checks *vocabulary*,
+      not readability: nothing here can tell whether a sentence is genuinely clear to a newcomer.
 
 - [x] **S-01** The product opens in Arabic, and the collapse control is an icon at the top of the
       menu. *(2026-08-29, on the owner's request in one message)*

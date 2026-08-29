@@ -372,14 +372,14 @@
             "save": "The settings were not saved. Try again."
         },
         "hint": {
-            "company_name": "The company's official name.",
-            "company_address": "The company's address.",
-            "company_phones": "The company's contact numbers.",
-            "defaults_currency": "The currency new records start from. Pick one below, or type a code.",
-            "defaults_tax_percent": "The tax percentage a quotation starts from when the customer sets none (D-63). Digits only — no % sign.",
-            "locale_language": "The language the system opens in.",
-            "locale_timezone": "The zone times are shown in. Every time is stored in UTC and converted for display (DB-08).",
-            "locale_date_format": "How dates are written, in PHP letters: d day, m month, Y year."
+            "company_name": "The name of your company, exactly as you want it to appear.",
+            "company_address": "The company's address. Write it the way you would on a letter.",
+            "company_phones": "One or more phone numbers people can reach you on.",
+            "defaults_currency": "The currency the system uses unless someone picks another one. Choose from the list, or type a three-letter code such as EGP.",
+            "defaults_tax_percent": "The tax percentage the system suggests by default. It can still be changed on each price quote. Write the number only — 14, not 14%.",
+            "locale_language": "The language the system opens in. Each person can still switch it for themselves afterwards.",
+            "locale_timezone": "The city or region whose clock times should be shown in. Times are stored the same way for everyone and shown in this zone.",
+            "locale_date_format": "How dates should look. d is the day, m the month and Y the year — so d/m/Y shows the 9th of March 2026 as 09/03/2026."
         }
     },
     "currencies": {
@@ -396,8 +396,8 @@
                 "actions": "Actions"
             },
             "hint": {
-                "enabled": "When off, the total is left unrounded and the rounding difference is zero (D-65).",
-                "unit": "The step the final total is rounded to — the final total only. §5.3 uses 1 for EGP and 0.01 for USD and EUR."
+                "enabled": "Turn this on to round the final total of a price quote. Turn it off and the total is shown exactly as it was calculated.",
+                "unit": "What the final total is rounded to. 1 rounds to a whole unit; 0.01 rounds to two decimal places. Only the final total is rounded — never a single line on its own."
             }
         },
         "rates": {
@@ -423,9 +423,9 @@
                 "message": "Record the first exchange rate using the form above."
             },
             "hint": {
-                "from": "The source currency code — three letters.",
-                "to": "The target currency code. It must differ from the source.",
-                "rate": "The conversion multiplier between the two, as a positive decimal — a dot, not a comma."
+                "from": "The currency you are converting from. Three letters, such as USD.",
+                "to": "The currency you are converting to. It has to be a different one.",
+                "rate": "The number used to convert between the two. Use a dot for decimals, and it must be greater than zero. Recording a new rate never changes a price quote that already used an older one."
             }
         },
         "pagination": {
@@ -465,12 +465,12 @@
             "save": "The limits were not saved. Try again."
         },
         "hint": {
-            "limits_stale_deal_days": "How many days without movement before a deal counts as stale (D-17). The nightly job reads this.",
-            "limits_daily_report_deadline": "The time of day a daily report is due; past it the report counts as missed (§11.5).",
-            "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it breaches its service level.",
-            "limits_weekly_review_window_hours": "The weekly review window, in hours (§11.5 governs the 24-hour rule it serves).",
-            "limits_max_file_size_mb": "The largest an uploaded file may be, in megabytes (D-39: 10 MB, configurable).",
-            "identity_lockout_minutes": "How long an account stays locked after five failed sign-ins (D-75, SEC-03)."
+            "limits_stale_deal_days": "How many days a deal may sit with no activity before the system flags it as stale.",
+            "limits_daily_report_deadline": "The time of day daily reports are due. A report that arrives after this counts as missed.",
+            "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it counts as overdue.",
+            "limits_weekly_review_window_hours": "How many hours the weekly review stays open.",
+            "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
+            "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again."
         }
     }
 }

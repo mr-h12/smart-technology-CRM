@@ -113,6 +113,18 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'admin.fx_rates',
             },
             {
+                // §13 screen 6. `admin.system_limits` — §3.11's own row, one
+                // line below "system settings" and deliberately not it, and the
+                // same string the route declares (`navigation.spec.ts` pins the
+                // two equal). Both rows are the Super Admin's today; naming the
+                // wrong one would only become visible on the day §3.12 rule 5
+                // regrants one of them.
+                name: 'limits',
+                labelKey: 'nav.item.limits',
+                icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2a6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6zm-.9 1.8v4.6l3.4 2.1.9-1.4-2.6-1.6V5.8z',
+                permission: 'admin.system_limits',
+            },
+            {
                 name: 'account-security',
                 labelKey: 'nav.item.accountSecurity',
                 icon: 'M10 2 4 4.5V9c0 3.6 2.5 6.9 6 8 3.5-1.1 6-4.4 6-8V4.5zm0 4.5a2 2 0 0 1 2 2c0 .8-.5 1.5-1.2 1.8l.4 2.2H8.8l.4-2.2A2 2 0 0 1 10 6.5z',

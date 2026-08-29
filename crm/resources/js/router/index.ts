@@ -20,6 +20,7 @@ import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import CurrenciesView from '@/pages/currencies/CurrenciesView.vue';
+import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 
 declare module 'vue-router' {
@@ -149,6 +150,21 @@ export const routes: RouteRecordRaw[] = [
         name: 'currencies',
         component: CurrenciesView,
         meta: { requiresAuth: true, requiredPermission: 'admin.fx_rates', titleKey: 'currencies.title' },
+    },
+    {
+        // §13 screen 6 — *Limits & SLAs*. **`admin.system_limits`, not
+        // `admin.system_settings`.** §3.11 lists "system settings" and "system
+        // limits (SLAs, thresholds)" as two rows. Both belong to the Super
+        // Admin today, so the two names select the same callers — which is
+        // exactly why the distinction is made now rather than when it first
+        // matters: §3.12 rule 5 makes regranting a row a configuration change,
+        // and the day a Manager is given the limits row, a guard that had
+        // quietly named the settings row would not follow. It is the same
+        // string both endpoints behind this screen carry.
+        path: '/limits',
+        name: 'limits',
+        component: SystemLimitsView,
+        meta: { requiresAuth: true, requiredPermission: 'admin.system_limits', titleKey: 'limits.title' },
     },
     {
         path: '/403',

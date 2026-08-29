@@ -38,6 +38,17 @@ return [
         ],
     ],
 
+    'limits' => [
+        'attributes' => [
+            'limits_stale_deal_days' => 'حدّ ركود الصفقة',
+            'limits_daily_report_deadline' => 'موعد التقرير اليومي',
+            'limits_quotation_approval_sla_hours' => 'مهلة اعتماد عرض السعر',
+            'limits_weekly_review_window_hours' => 'نافذة المراجعة الأسبوعيّة',
+            'limits_max_file_size_mb' => 'الحدّ الأقصى لحجم الملفّ',
+            'identity_lockout_minutes' => 'مدّة قفل الحساب',
+        ],
+    ],
+
     'managed_list' => [
         'duplicate_code' => 'هذا الرمز مستخدَم بالفعل في هذه القائمة.',
     ],

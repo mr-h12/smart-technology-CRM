@@ -168,3 +168,54 @@ export async function recordFxRate(payload: {
 
     return result.data.fx_rate;
 }
+
+// ── §13 screen 6 — Limits & SLAs (Point 5.3) ───────────────────────────────
+
+/**
+ * One row of `GET /system-limits`, as `SystemLimitRepositoryInterface::all()`
+ * describes it.
+ *
+ * `value` is `null` for **never configured**, which Point 1.1 made a real state
+ * by leaving the column nullable: five of the six limits have no documented
+ * value, and `0` would be a different answer.
+ *
+ * `unit` and `value_type` come from the server because they come from
+ * `SystemLimit` — §13 screen 6 mixes days, hours and megabytes on one form, and
+ * a client that decided which was which would be a second copy of the enum.
+ * `unit` is `null` for a time of day, where the value is the reading.
+ */
+export interface SystemLimitEntry {
+    value: string | null;
+    unit: string | null;
+    value_type: string;
+}
+
+/**
+ * §13 screen 6's fields, keyed by `SystemLimit::value`.
+ *
+ * The index signature is deliberate, on `SystemSettings`'s terms: the server
+ * owns the membership, and a union spelled out here would be the copy that goes
+ * stale. There is no `LIMIT_KEYS` beside it either — unlike screen 4, this
+ * screen draws **every** key the response carries, in the order it arrives,
+ * which is `SystemLimit::cases()` and therefore §13's.
+ */
+export type SystemLimits = Record<string, SystemLimitEntry>;
+
+export async function readLimits(): Promise<SystemLimits> {
+    const result = await apiGet<{ limits: SystemLimits }>('/system-limits');
+
+    return result.data.limits;
+}
+
+/**
+ * Write the limits that changed, and only those.
+ *
+ * `UpdateSystemLimits` records one audit entry per limit with the old and the
+ * new value (`AUD-01`), and `UpdateSystemLimitsRequest` refuses an empty change
+ * set with a 422 — the same contract `updateSettings` above is written against.
+ */
+export async function updateLimits(values: Record<string, string>): Promise<SystemLimits> {
+    const result = await apiPatch<{ limits: SystemLimits }>('/system-limits', { limits: values });
+
+    return result.data.limits;
+}

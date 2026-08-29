@@ -85,7 +85,8 @@
             "roles": "Roles & Permissions",
             "accountSecurity": "Account security",
             "settings": "System settings",
-            "currencies": "Currencies & FX"
+            "currencies": "Currencies & FX",
+            "limits": "Limits & SLAs"
         }
     },
     "theme": {
@@ -418,6 +419,30 @@
             "save": "The rounding was not saved. Try again.",
             "rates": "The rate history could not be loaded. Try again.",
             "record": "The rate was not recorded. Try again."
+        }
+    },
+    "limits": {
+        "title": "Limits & SLAs",
+        "subtitle": "The thresholds, deadlines and ceilings this system enforces. Five of the six have never been configured.",
+        "loading": "Loading the limits…",
+        "saved": "Limits saved.",
+        "field": {
+            "limits_stale_deal_days": "Stale-deal threshold",
+            "limits_daily_report_deadline": "Daily report deadline",
+            "limits_quotation_approval_sla_hours": "Quotation approval SLA",
+            "limits_weekly_review_window_hours": "Weekly review window",
+            "limits_max_file_size_mb": "Maximum file size",
+            "identity_lockout_minutes": "Account lockout duration"
+        },
+        "unit": {
+            "days": "days",
+            "hours": "hours",
+            "megabytes": "MB",
+            "minutes": "minutes"
+        },
+        "error": {
+            "load": "These limits could not be loaded. Try again.",
+            "save": "The limits were not saved. Try again."
         }
     }
 }

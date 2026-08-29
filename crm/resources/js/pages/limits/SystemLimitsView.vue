@@ -200,10 +200,14 @@ onMounted(load);
 
 <template>
     <section class="flex w-full flex-col gap-6">
-        <header class="flex flex-col gap-1">
-            <h1 class="text-page-title" data-testid="limits-heading">{{ t('limits.title') }}</h1>
+        <!-- An `<h2>` since S-02: this is a section of the one settings page,
+             and the page's `<h1>` is `SystemSettingsView`'s. The test id is
+             unchanged because what it identifies is unchanged — the heading of
+             the limits block, whatever level the document gives it. -->
+        <div class="flex flex-col gap-1">
+            <h2 class="text-card-title" data-testid="limits-heading">{{ t('limits.title') }}</h2>
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('limits.subtitle') }}</p>
-        </header>
+        </div>
 
         <LoadingState v-if="loading" label-key="limits.loading" />
 
@@ -230,7 +234,7 @@ onMounted(load);
                             type="text"
                             :inputmode="row.valueType === 'integer' ? 'numeric' : undefined"
                             :aria-invalid="row.error !== null"
-                            :aria-describedby="row.error === null ? undefined : `error-${row.key}`"
+                            :aria-describedby="row.error === null ? `hint-${row.key}` : `hint-${row.key} error-${row.key}`"
                             class="field min-h-11 w-full rounded-lg border px-3 tabular-nums text-[var(--color-text)]"
                             :class="row.error === null
                                 ? 'border-[var(--color-border-strong)]'
@@ -246,6 +250,14 @@ onMounted(load);
                             data-testid="limits-unit"
                         >{{ unitLabel(row.unit) }}</span>
                     </div>
+
+                    <!-- What this limit governs. Each sentence is the enum's
+                         own citation said in words a person reads. -->
+                    <span
+                        :id="`hint-${row.key}`"
+                        class="text-table text-[var(--color-text-muted)] text-pretty"
+                        data-testid="limit-hint"
+                    >{{ t(`limits.hint.${row.key.replace('.', '_')}`) }}</span>
 
                     <!-- The server's sentence, localised by the server for this
                          request. §9.5: the message carries the meaning, the red

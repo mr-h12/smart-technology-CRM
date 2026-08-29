@@ -444,15 +444,87 @@ describe('recording a rate', () => {
     });
 });
 
+describe('the currency codes offered on the rate form', () => {
+    it('offers the loaded codes to both fields', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        const options = wrapper.findAll('#rate-currency-codes option').map((o) => o.attributes('value'));
+
+        expect(options).toEqual(['EGP', 'USD', 'EUR']);
+        expect(wrapper.get('[data-testid="rates-from"]').attributes('list')).toBe('rate-currency-codes');
+        expect(wrapper.get('[data-testid="rates-to"]').attributes('list')).toBe('rate-currency-codes');
+    });
+
+    /**
+     * ⚠️ **The case a closed `<select>` would have broken.** `GET /currencies`
+     * carries `admin.system_settings`, which the Manager does not hold — and
+     * §3.11 is precisely who may record a rate. An empty dropdown would not
+     * make the form stricter; it would make it unusable for the one role that
+     * needs it. The field carries no list and stays typeable.
+     */
+    it('leaves the fields typeable for a caller who cannot read the currencies', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK]);
+
+        expect(wrapper.find('#rate-currency-codes').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="rates-from"]').attributes('list')).toBeUndefined();
+    });
+});
+
+describe('the explanations', () => {
+    /** One hint per column, not one per cell — three rows, one sentence. */
+    it('explains the rounding columns once each', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        expect(wrapper.findAll('[data-testid="rounding-hint"]')).toHaveLength(2);
+        expect(wrapper.get('[data-currency-code="USD"] [data-testid="currencies-unit"]')
+            .attributes('aria-describedby')).toBe('hint-rounding-unit');
+        expect(wrapper.get('[data-currency-code="USD"] [data-testid="currencies-enabled"]')
+            .attributes('aria-describedby')).toBe('hint-rounding-enabled');
+    });
+
+    it('explains each of the three rate fields', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK]);
+
+        expect(wrapper.findAll('[data-testid="rate-hint"]')).toHaveLength(3);
+
+        for (const field of ['from', 'to', 'rate']) {
+            expect(wrapper.get(`[data-testid="rates-${field}"]`).attributes('aria-describedby'))
+                .toBe(`hint-rate-${field}`);
+        }
+    });
+
+    it('writes them in Arabic too', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK], 'ar');
+
+        const hint = wrapper.findAll('[data-testid="rate-hint"]')[2]?.text();
+
+        expect(hint).toBe(ar.currencies.rates.hint.rate);
+        expect(hint).not.toBe(en.currencies.rates.hint.rate);
+    });
+});
+
 // ── §14.2 ──────────────────────────────────────────────────────────────────
 
 describe('the screen in Arabic', () => {
+    /**
+     * Asserted on a **section** heading since S-02. The page `<h1>` moved to
+     * `SystemSettingsView` when the three screens were merged into one page, so
+     * there is no `currencies-heading` any more — and a test that kept looking
+     * for one would be asserting a heading this component must not render.
+     */
     it('has no hard-coded English heading', async () => {
         const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK], 'ar');
 
-        const heading = wrapper.get('[data-testid="currencies-heading"]').text();
+        const heading = wrapper.get('[data-testid="currencies-rounding"] h2').text();
 
-        expect(heading).toBe(ar.currencies.title);
-        expect(heading).not.toBe(en.currencies.title);
+        expect(heading).toBe(ar.currencies.rounding.title);
+        expect(heading).not.toBe(en.currencies.rounding.title);
+    });
+
+    /** The page owns the `<h1>`; a section that renders one gives the document two. */
+    it('renders no page-level heading of its own', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        expect(wrapper.findAll('h1')).toHaveLength(0);
     });
 });

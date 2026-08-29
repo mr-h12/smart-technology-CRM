@@ -90,39 +90,16 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 // `permission: null` because the route declares none: §3.11 has
                 // no row for managing your own account, and `navigation.spec.ts`
                 // asserts the item and the route say the same thing.
-                // §13 screen 4. `admin.system_settings` — §3.11's own row,
-                // the Super Admin's, and the same string the route declares.
-                // `navigation.spec.ts` pins the two equal, so the menu and the
-                // guard cannot describe different products.
+                // The one settings page since S-02 — §13's screens 4, 5 and 6
+                // as sections of it. `admin.fx_rates` is the **widest** of the
+                // three rows those sections carry, so the Manager, who holds FX
+                // rates and neither of the others, still reaches the page and
+                // sees the one section that is theirs. The same string the
+                // route declares; `navigation.spec.ts` pins the two equal.
                 name: 'settings',
                 labelKey: 'nav.item.settings',
                 icon: 'M10 2.5a1 1 0 0 1 .97.76l.3 1.2c.4.13.78.3 1.13.5l1.06-.64a1 1 0 0 1 1.22.15l1.06 1.06a1 1 0 0 1 .15 1.22l-.64 1.06c.2.35.37.73.5 1.13l1.2.3a1 1 0 0 1 .76.97v1.5a1 1 0 0 1-.76.97l-1.2.3c-.13.4-.3.78-.5 1.13l.64 1.06a1 1 0 0 1-.15 1.22l-1.06 1.06a1 1 0 0 1-1.22.15l-1.06-.64c-.35.2-.73.37-1.13.5l-.3 1.2a1 1 0 0 1-.97.76h-1.5a1 1 0 0 1-.97-.76l-.3-1.2a5.9 5.9 0 0 1-1.13-.5l-1.06.64a1 1 0 0 1-1.22-.15L3.5 15.9a1 1 0 0 1-.15-1.22l.64-1.06a5.9 5.9 0 0 1-.5-1.13l-1.2-.3A1 1 0 0 1 1.5 11.2V9.7a1 1 0 0 1 .76-.97l1.2-.3c.13-.4.3-.78.5-1.13L3.32 6.2a1 1 0 0 1 .15-1.22L4.53 3.9a1 1 0 0 1 1.22-.15l1.06.64c.35-.2.73-.37 1.13-.5l.3-1.2A1 1 0 0 1 9.2 2.5zM10 7.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z',
-                permission: 'admin.system_settings',
-            },
-            {
-                // §13 screen 5. `admin.fx_rates` — §3.11's own row, held by
-                // the Super Admin **and the Manager**, and the same string the
-                // route declares (`navigation.spec.ts` pins the two equal).
-                // The rounding half of that screen needs `admin.system_settings`
-                // and is drawn by permission inside the component; naming the
-                // narrower row here would hide the whole screen from the
-                // Manager, who §3.11 sends to it.
-                name: 'currencies',
-                labelKey: 'nav.item.currencies',
-                icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm.9 3v1.2c1.2.2 2 .9 2.1 2h-1.7c-.1-.5-.5-.8-1.2-.8-.7 0-1.1.3-1.1.8 0 .4.3.6 1.2.8l.8.2c1.6.4 2.3 1 2.3 2.2 0 1.2-.9 2-2.4 2.2V15H9.2v-1.4c-1.4-.2-2.3-1-2.4-2.2h1.8c.1.6.6.9 1.4.9.8 0 1.2-.3 1.2-.8 0-.4-.3-.6-1.3-.9l-.9-.2c-1.5-.4-2.1-1-2.1-2.1 0-1.2.9-2 2.3-2.2V5z',
                 permission: 'admin.fx_rates',
-            },
-            {
-                // §13 screen 6. `admin.system_limits` — §3.11's own row, one
-                // line below "system settings" and deliberately not it, and the
-                // same string the route declares (`navigation.spec.ts` pins the
-                // two equal). Both rows are the Super Admin's today; naming the
-                // wrong one would only become visible on the day §3.12 rule 5
-                // regrants one of them.
-                name: 'limits',
-                labelKey: 'nav.item.limits',
-                icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2a6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6zm-.9 1.8v4.6l3.4 2.1.9-1.4-2.6-1.6V5.8z',
-                permission: 'admin.system_limits',
             },
             {
                 name: 'account-security',

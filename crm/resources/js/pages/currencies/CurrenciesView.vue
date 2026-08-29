@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * §13 screen 5 — *Currencies & FX*.
+ * §13 screen 5's content — *Currencies & FX* — rendered as two sections of the
+ * one settings page (**owner decision, 2026-08-29**, recorded as a pending
+ * `D-xx`: §13 names screens 4, 5 and 6 separately and the owner merged them).
  *
  * ── One screen, two audiences ──────────────────────────────────────────────
  *
@@ -184,6 +186,23 @@ async function saveRounding(row: RoundingRow): Promise<void> {
     }
 }
 
+/**
+ * The codes offered under the two rate fields (S-02.2).
+ *
+ * ⚠️ **A `<datalist>` and not a `<select>`, and the reason is §3.11 rather
+ * than taste.** `GET /currencies` carries `admin.system_settings`, which the
+ * **Manager does not hold** — and the Manager is exactly who §3.11 lets record
+ * a rate. A closed dropdown would therefore be *empty* for them, which does not
+ * make the form stricter; it makes it impossible to use. So the codes are
+ * offered where they are known and typed where they are not, and the server
+ * remains the only thing that decides whether a code exists (`RecordFxRate`
+ * refuses an unknown or archived one).
+ *
+ * Empty for the Manager, because `rows` is only loaded for a caller who holds
+ * the rounding row. No extra request is made for this.
+ */
+const currencyCodes = computed(() => rows.value.map((row) => row.code));
+
 // ── the rates half ─────────────────────────────────────────────────────────
 
 const rates = ref<FxRate[]>([]);
@@ -292,12 +311,11 @@ onMounted(async () => {
 </script>
 
 <template>
+    <!-- No page header. This is a **section of** §13 screen 4 since S-02, not a
+         screen of its own: the page's `<h1>` belongs to `SystemSettingsView`,
+         and a second one here would give the document two top-level headings —
+         which is exactly what a screen reader reads out as two pages. -->
     <section class="flex w-full flex-col gap-8">
-        <header class="flex flex-col gap-1">
-            <h1 class="text-page-title" data-testid="currencies-heading">{{ t('currencies.title') }}</h1>
-            <p class="text-[var(--color-text-muted)] text-pretty">{{ t('currencies.subtitle') }}</p>
-        </header>
-
         <!-- Half one — §5.3's unit and D-65's switch, behind admin.system_settings. -->
         <section
             v-if="canConfigureRounding"
@@ -324,8 +342,25 @@ onMounted(async () => {
                     <thead>
                         <tr class="table-head">
                             <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.code') }}</th>
-                            <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.enabled') }}</th>
-                            <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.unit') }}</th>
+                            <!-- The explanation lives on the column, not under
+                                 every cell: one hint repeated on three rows is
+                                 three copies of one sentence to read past. -->
+                            <th scope="col" class="p-3 text-start">
+                                <span class="block">{{ t('currencies.rounding.column.enabled') }}</span>
+                                <span
+                                    id="hint-rounding-enabled"
+                                    class="block font-normal normal-case text-[var(--color-text-muted)] text-pretty"
+                                    data-testid="rounding-hint"
+                                >{{ t('currencies.rounding.hint.enabled') }}</span>
+                            </th>
+                            <th scope="col" class="p-3 text-start">
+                                <span class="block">{{ t('currencies.rounding.column.unit') }}</span>
+                                <span
+                                    id="hint-rounding-unit"
+                                    class="block font-normal normal-case text-[var(--color-text-muted)] text-pretty"
+                                    data-testid="rounding-hint"
+                                >{{ t('currencies.rounding.hint.unit') }}</span>
+                            </th>
                             <th scope="col" class="p-3 text-end">{{ t('currencies.rounding.column.actions') }}</th>
                         </tr>
                     </thead>
@@ -358,6 +393,7 @@ onMounted(async () => {
                                     type="checkbox"
                                     class="size-5"
                                     :aria-label="t('currencies.rounding.column.enabled')"
+                                    aria-describedby="hint-rounding-enabled"
                                     data-testid="currencies-enabled"
                                 >
                             </td>
@@ -375,6 +411,7 @@ onMounted(async () => {
                                         ? 'border-[var(--color-border-strong)]'
                                         : 'border-[var(--color-danger)]'"
                                     :aria-label="t('currencies.rounding.column.unit')"
+                                    aria-describedby="hint-rounding-unit"
                                     :aria-invalid="row.error !== null"
                                     data-testid="currencies-unit"
                                 >
@@ -428,6 +465,13 @@ onMounted(async () => {
                 data-testid="rates-form"
                 @submit.prevent="record"
             >
+                <!-- One list for both fields: the same set of codes answers
+                     "from" and "to", and two identical datalists would be two
+                     things to keep in step. -->
+                <datalist v-if="currencyCodes.length > 0" id="rate-currency-codes">
+                    <option v-for="code in currencyCodes" :key="code" :value="code" />
+                </datalist>
+
                 <label class="flex flex-col gap-1.5">
                     <span class="text-form-label text-[var(--color-text)]">{{ t('currencies.rates.field.from') }}</span>
                     <input
@@ -435,12 +479,20 @@ onMounted(async () => {
                         type="text"
                         maxlength="3"
                         autocapitalize="characters"
+                        :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.from !== null"
+                        :aria-describedby="formErrors.from === null ? 'hint-rate-from' : 'hint-rate-from error-rate-from'"
                         data-testid="rates-from"
                     >
                     <span
+                        id="hint-rate-from"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.from') }}</span>
+                    <span
                         v-if="formErrors.from !== null"
+                        id="error-rate-from"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.from }}</span>
                 </label>
@@ -452,12 +504,20 @@ onMounted(async () => {
                         type="text"
                         maxlength="3"
                         autocapitalize="characters"
+                        :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.to !== null"
+                        :aria-describedby="formErrors.to === null ? 'hint-rate-to' : 'hint-rate-to error-rate-to'"
                         data-testid="rates-to"
                     >
                     <span
+                        id="hint-rate-to"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.to') }}</span>
+                    <span
                         v-if="formErrors.to !== null"
+                        id="error-rate-to"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.to }}</span>
                 </label>
@@ -475,10 +535,17 @@ onMounted(async () => {
                             ? 'border-[var(--color-border-strong)]'
                             : 'border-[var(--color-danger)]'"
                         :aria-invalid="formErrors.rate !== null"
+                        :aria-describedby="formErrors.rate === null ? 'hint-rate-rate' : 'hint-rate-rate error-rate-rate'"
                         data-testid="rates-rate"
                     >
                     <span
+                        id="hint-rate-rate"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.rate') }}</span>
+                    <span
                         v-if="formErrors.rate !== null"
+                        id="error-rate-rate"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.rate }}</span>
                 </label>

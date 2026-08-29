@@ -2930,6 +2930,71 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       unreachable and `node_modules` built inside the container. **Zero frontend files changed** —
       verified with `git status` — and CI ran it.
 
+#### Step 5 — §13's screens *(point order and four decisions approved 2026-08-28)*
+
+> **The owner's four decisions, 2026-08-28.** (1) Managed lists get a **dedicated screen** §13 does
+> not name — recorded as a decision awaiting a `D-xx`, on the same terms as `DELETE /roles/{role}`.
+> (2) Screen 4 draws **eight** fields, with **no disabled placeholders** for the logo or the
+> templates. (3) Screen 5 is **one screen** with its two halves rendered by permission. (4) Screen 6
+> draws **all six** limits, `D-75`'s included. Staleness alert omitted (Step 4); base currency
+> read-only.
+
+- [x] **5.1** §13 screen 4 — *System Settings*, plus `services/admin.ts`, the route and the menu item.
+      **Eight fields, and the two that are missing are missing on purpose.** The **logo** is Module 5
+      (a `files` row, `SEC-15`'s scan, `D-38`'s permission-checked download) and the **PDF and email
+      templates** are Module 9. Owner decision (A): no disabled placeholders — a control that cannot
+      be used is a promise the product has not made.
+      **`DB-07` reaches the screen.** Every input is `type="text"`, including the tax percentage: a
+      `type="number"` binds to a JavaScript number, and a JavaScript number is a float.
+      `inputmode="decimal"` gets the phone keypad without the conversion, and a test asserts the
+      submitted value is a **string**.
+      **Only what changed is sent.** `UpdateSettings` writes one audit entry per field with the old
+      and the new value, so sending all eight on every save would fill `audit_log` with "changed X to
+      X" — and `UpdateSettingsRequest` refuses an empty change set with a 422, so the button does
+      nothing when nothing was edited rather than asking the server to say no.
+      **A backend defect this screen exposed, found and fixed here.** `PATCH /settings` with a bad
+      tax value answered *"The **settings.defaults.tax percent** field must be a number."* — Laravel
+      derives the attribute name from the rule path, and that path carries the `settings.` prefix and
+      the escaped dot `rules()` needs. The internal key was reaching the user. Fixed with a
+      translated `attributes()` and covered by a new case in `SettingsEndpointTest`, so the message
+      is right for **every** client rather than patched over in this one screen.
+      ⚠️ **Two different key shapes on one line, both measured.** The `attributes()` array key is the
+      **unescaped** path (`settings.defaults.tax_percent`) because the lookup uses the *resolved*
+      attribute — with the escaped key nothing changed. The **lang** key uses **underscores**, because
+      `__()` reads dots as nesting too, and the dotted key returned itself: the message then read
+      *"The admin.settings.attributes.defaults.tax_percent field…"*. **Third time a dot has meant
+      nesting in this module**; Point 3.1 paid for the first. Verified in isolation with `tinker`
+      before the third edit, which is what the two-strike rule is for.
+      **`ApiError` gains `details` and `messageFor(field)`** — additive; `detailCodes` is untouched
+      and every Module 1 screen still reads it. It answers *what rule broke* and cannot answer *which
+      field*, and a form with eight inputs needs that: one banner saying "validation failed" makes a
+      person hunt for the control they got wrong. The sentence shown is the **server's**, localised
+      by it for the request's `Accept-Language` — a client that composed its own would be a second
+      copy of a validation rule.
+      **14 component tests · 251 frontend tests · 17 files.** Seven deliberate breaks with real
+      output: every field sent on every save · an unset field rendered as the word `null` · a 403
+      rendered as a generic error · success flagged before the server answers · the per-field message
+      dropped · the route's permission swapped to `admin.fx_rates` · `attributes()` removed. Restored
+      byte-identical.
+      **Two of the seven did not apply on the first attempt** — the search string's indentation was
+      wrong, the file was untouched, and the suite stayed green. `shasum -a 256 -c` reported *no
+      change* rather than a restore, which is how it was caught both times. **A break that does not
+      apply looks exactly like a check that does not fail**, and only the checksum tells them apart.
+      **Two existing guards caught the new work on their own, which is the point of them.**
+      `navigation.spec.ts` generates a case per menu item pinning it to its route's
+      `meta.requiredPermission` — break 6 failed there, not in a test written for it. And
+      `NoHardCodedTextTest` keeps an explicit inventory of every `.vue` file and refused the new one
+      until it was declared; the list is an inventory, not a suppression, and the scan passed on the
+      file before it was added.
+      **Not covered:** no logo upload and no template editor (Modules 5 and 9). **No unsaved-change
+      warning** — Design System §5.2 asks a Form view for one, and it belongs with the shell rather
+      than with one screen; recorded rather than half-built here. No optimistic locking: two
+      administrators editing at once, and the last one wins without a `409`. No validation that a
+      value *means* anything — `defaults.currency` still accepts `ZZZ`, unchanged from Point 3.1.
+- [ ] **5.2** §13 screen 5 — *Currencies & FX*, one screen with its two halves rendered by permission
+- [ ] **5.3** §13 screen 6 — *Limits & SLAs*, all six fields
+- [ ] **5.4** Managed lists — the dedicated screen §13 does not name
+
 > **Scheduling architecture, approved 2026-08-28.** Any maintenance or scheduled task in this scope
 > is a **scheduled console command** on the `J-15` pattern in `routes/console.php`, deferring
 > queue/worker execution until Horizon is configured. With `J-12` withdrawn, Step 4 has no scheduled

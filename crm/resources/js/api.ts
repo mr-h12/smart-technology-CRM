@@ -44,6 +44,20 @@ export interface ApiResult<T> {
     meta: EnvelopeMeta;
 }
 
+/**
+ * One entry of `OpenAPI §5.1`'s `details`, kept whole.
+ *
+ * `field` is the submitted path the server refused, and `message` is the
+ * sentence it wrote for a person — localised by the server for this request's
+ * `Accept-Language`, which is why the client does not compose one. The stable
+ * `code` beside them stays English and is what a client matches on.
+ */
+export interface ApiErrorDetail {
+    field?: string;
+    code?: string;
+    message?: string;
+}
+
 /** `OpenAPI §5` — `{ error: { code, message, details } }`. */
 interface ErrorEnvelope {
     error?: {
@@ -70,6 +84,18 @@ export class ApiError extends Error {
         readonly detailCodes: readonly string[],
         message: string,
         readonly requestId: string | null,
+        /**
+         * §5.1's `details`, whole — added with Point 5.1.
+         *
+         * `detailCodes` above answers *what rule was broken* and is what every
+         * Module 1 screen reads. It cannot answer *which field*, and a form
+         * with eight inputs needs that: a single banner saying "validation
+         * failed" makes the person hunt for the one control they got wrong.
+         *
+         * Additive on purpose — `detailCodes` is unchanged and still derived
+         * from the same array, so no existing caller moves.
+         */
+        readonly details: readonly ApiErrorDetail[] = [],
     ) {
         super(message);
         this.name = 'ApiError';
@@ -78,6 +104,24 @@ export class ApiError extends Error {
     /** True when any of §5.1's detail codes on this response is `code`. */
     is(code: string): boolean {
         return this.code === code || this.detailCodes.includes(code);
+    }
+
+    /**
+     * The server's sentence for `field`, or null.
+     *
+     * The server's and not one composed here: it is localised for this
+     * request's `Accept-Language`, and a client that wrote its own would be a
+     * second copy of a validation rule — the copy that is wrong is always the
+     * one in the screen.
+     */
+    messageFor(field: string): string | null {
+        for (const detail of this.details) {
+            if (detail.field === field && typeof detail.message === 'string') {
+                return detail.message;
+            }
+        }
+
+        return null;
     }
 }
 
@@ -194,8 +238,9 @@ async function errorFrom(
     }
 
     const details: string[] = [];
+    const entries = parsed.error?.details ?? [];
 
-    for (const detail of parsed.error?.details ?? []) {
+    for (const detail of entries) {
         if (typeof detail.code === 'string') {
             details.push(detail.code);
         }
@@ -207,5 +252,6 @@ async function errorFrom(
         details,
         parsed.error?.message ?? `${method} ${path} failed with ${response.status}`,
         requestId ?? null,
+        entries,
     );
 }

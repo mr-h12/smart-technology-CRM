@@ -27,6 +27,22 @@ return [
         'unknown_sort_field' => 'This list does not offer that sort field.',
     ],
 
+    'settings' => [
+        // §13 screen 4's field names, shown to a person inside a validation
+        // message (`OpenAPI §5.1`). The machine code beside them stays English
+        // and untranslated.
+        'attributes' => [
+            'company_name' => 'company name',
+            'company_address' => 'address',
+            'company_phones' => 'phone numbers',
+            'defaults_currency' => 'default currency',
+            'defaults_tax_percent' => 'default tax',
+            'locale_language' => 'language',
+            'locale_timezone' => 'time zone',
+            'locale_date_format' => 'date format',
+        ],
+    ],
+
     'managed_list' => [
         'duplicate_code' => 'That code is already used in this list.',
     ],

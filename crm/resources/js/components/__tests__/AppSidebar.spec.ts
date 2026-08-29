@@ -62,15 +62,27 @@ describe('AppSidebar collapse control', () => {
         expect(expected.trim()).not.toBe('');
     });
 
-    it('sits above the navigation, not below it', () => {
+    it('sits in the header row, above the navigation', () => {
+        const aside = mountSidebar(false).get('[data-testid="sidebar"]');
+        const toggle = aside.get('[data-testid="sidebar-collapse"]').element;
+        const nav = aside.get('nav').element;
+
+        // Document order rather than child index: the control is nested inside
+        // the header now, so comparing direct children of the aside would say
+        // it is absent rather than that it is early.
+        const order = Array.from(aside.element.querySelectorAll('*'));
+
+        expect(order.indexOf(toggle)).toBeLessThan(order.indexOf(nav));
+        expect(aside.element.firstElementChild?.contains(toggle)).toBe(true);
+    });
+
+    it('puts the control where the product mark used to be, not beside it', () => {
+        // The owner asked for the collapse control *instead of* the blue mark.
+        // Two controls in a 72px rail is the outcome this rules out — and the
+        // mark was decorative: §5.1 asks the sidebar for permitted screens and
+        // never for a logo.
         const aside = mountSidebar(false).get('[data-testid="sidebar"]');
 
-        const children = Array.from(aside.element.children);
-        const toggle = children.indexOf(aside.get('[data-testid="sidebar-collapse"]').element);
-        const nav = children.indexOf(aside.get('nav').element);
-
-        expect(toggle).toBeGreaterThan(-1);
-        expect(nav).toBeGreaterThan(-1);
-        expect(toggle).toBeLessThan(nav);
+        expect(aside.find('[role="img"]').exists()).toBe(false);
     });
 });

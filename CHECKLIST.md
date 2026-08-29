@@ -284,15 +284,26 @@ built in Module 1's Step 5 and are used by every module after it.
       **before the first paint**, on Design System §3.1's terms and for a worse flash than the
       theme's: the whole layout arrives in the wrong direction. `LocalePreferenceTest` pins the two
       files to one storage key, because a mismatch there is silent.
-      **The collapse control.** Icon only, in both states, and directly under the brand instead of
-      below the list. Below the list it drifted further down the screen with every module that added
-      a menu item, and on a short viewport the one control that narrows the rail was reachable only
-      by scrolling the rail. The **accessible name is always present and always hidden** — dropping
-      the visible label and dropping the announced name are the same edit, and a button whose only
-      content is an `aria-hidden` svg is announced as "button".
-      **Tests: 4 PHP (`LocalePreferenceTest`) + 2 rewritten in `SpaShellTest`, and 8 vitest
+      **The collapse control.** Icon only, in both states, and it now stands **in the slot the blue
+      product mark held** — the owner pointed at that mark and asked for the control instead of it,
+      in a second message the same day. Two earlier positions were tried and both were wrong: at the
+      foot of the aside it drifted further down the screen with every module that added a menu item,
+      and as its own row under the brand it left two squares stacked in a 72px rail. §5.1 asks this
+      sidebar for the screens a role may open and **never for a logo**, so the mark was decorative
+      and was holding the most prominent slot in the rail to show an image that did nothing when
+      clicked. `app.mark` is deleted from both lang files with it — a key nothing renders.
+      The **accessible name is always present and always hidden** — dropping the visible label and
+      dropping the announced name are the same edit, and a button whose only content is an
+      `aria-hidden` svg is announced as "button".
+      ⚠️ **Below 1024px the header now shows the product name alone.** §4.3 gives the collapsed rail
+      to ≥1024px only, so the control does not exist below that width and nothing replaced the mark
+      there. The drawer still closes on its backdrop and on Escape; no behaviour was lost, only a
+      decoration.
+      **Tests: 4 PHP (`LocalePreferenceTest`) + 2 rewritten in `SpaShellTest`, and 9 vitest
       (`AppSidebar.spec.ts`, `i18n.spec.ts`).** `AppSidebar` had no component test at all before
-      this. **Twelve deliberate breaks with real output**, restored byte-identical.
+      this. **Sixteen deliberate breaks with real output**, restored byte-identical. One of the nine
+      is the owner's instruction itself made checkable: the control replaces the mark rather than
+      standing beside it, so a re-added mark is a failing test rather than a crowded rail.
       **Two of the checks could not fail as first written, and both were found by breaking them.**
       `assertStringContainsString('dir', $tag)` passed with the direction line deleted, because
       *"wrong direction"* appears in the script's own prose; and `'ar'`/`'en'` occurred elsewhere in

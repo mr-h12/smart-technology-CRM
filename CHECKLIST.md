@@ -254,6 +254,73 @@ would hide them behind `OD-03` indefinitely.
 
 ---
 
+## Shell revisions — owner-directed
+
+Changes the owner asked for directly, outside any module's point list. They belong to no module
+because the shell belongs to no module: the sidebar, the context bar and the locale plumbing were
+built in Module 1's Step 5 and are used by every module after it.
+
+- [x] **S-01** The product opens in Arabic, and the collapse control is an icon at the top of the
+      menu. *(2026-08-29, on the owner's request in one message)*
+      **Two changes with one thing in common: neither was a defect.** The shell did exactly what it
+      was written to do; the owner changed what it should do.
+      **The language.** `welcome.blade.php` rendered `app()->getLocale()`, which
+      `SetLocaleFromRequest` resolves from `Accept-Language` — so an English browser was handed an
+      English product and nobody had chosen that. `APP_LOCALE=ar` was set, and correct, and never
+      consulted for the shell. It now renders the **configured** default.
+      ⚠️ **`config('app.locale')` could not answer the question.** `Application::setLocale()` writes
+      its argument back into `app.locale`, so after the middleware has run that key reports *this
+      request's* negotiated locale, not the product's default. Measured — the first implementation
+      read `app.locale` and got the visitor's own `Accept-Language` back. `config/app.php` gains
+      **`default_locale`**, which nothing writes to, and `SpaShellTest` pins the shell to it rather
+      than to a literal `ar` so a hard-coded default is a failing test.
+      **The API still negotiates, untouched.** OpenAPI §2 is a contract with clients, and `LocaleTest`
+      still passes as written. The two halves keep agreeing because `api.ts` sends *this document's*
+      language as `Accept-Language`.
+      **Persisting the choice is part of the change, not scope added to it.** Once the shell ignores
+      `Accept-Language`, that header is no longer carrying anyone's preference across a reload —
+      without a stored choice, an English reader would have had to switch language on every single
+      page load. `setLocale()` writes `crm.locale`, and a pre-paint script in the shell reads it
+      **before the first paint**, on Design System §3.1's terms and for a worse flash than the
+      theme's: the whole layout arrives in the wrong direction. `LocalePreferenceTest` pins the two
+      files to one storage key, because a mismatch there is silent.
+      **The collapse control.** Icon only, in both states, and it now stands **in the slot the blue
+      product mark held** — the owner pointed at that mark and asked for the control instead of it,
+      in a second message the same day. Two earlier positions were tried and both were wrong: at the
+      foot of the aside it drifted further down the screen with every module that added a menu item,
+      and as its own row under the brand it left two squares stacked in a 72px rail. §5.1 asks this
+      sidebar for the screens a role may open and **never for a logo**, so the mark was decorative
+      and was holding the most prominent slot in the rail to show an image that did nothing when
+      clicked. `app.mark` is deleted from both lang files with it — a key nothing renders.
+      The **accessible name is always present and always hidden** — dropping the visible label and
+      dropping the announced name are the same edit, and a button whose only content is an
+      `aria-hidden` svg is announced as "button".
+      ⚠️ **Below 1024px the header now shows the product name alone.** §4.3 gives the collapsed rail
+      to ≥1024px only, so the control does not exist below that width and nothing replaced the mark
+      there. The drawer still closes on its backdrop and on Escape; no behaviour was lost, only a
+      decoration.
+      **Tests: 4 PHP (`LocalePreferenceTest`) + 2 rewritten in `SpaShellTest`, and 9 vitest
+      (`AppSidebar.spec.ts`, `i18n.spec.ts`).** `AppSidebar` had no component test at all before
+      this. **Sixteen deliberate breaks with real output**, restored byte-identical. One of the nine
+      is the owner's instruction itself made checkable: the control replaces the mark rather than
+      standing beside it, so a re-added mark is a failing test rather than a crowded rail.
+      **Two of the checks could not fail as first written, and both were found by breaking them.**
+      `assertStringContainsString('dir', $tag)` passed with the direction line deleted, because
+      *"wrong direction"* appears in the script's own prose; and `'ar'`/`'en'` occurred elsewhere in
+      the script, so "contains the code" was true of a script that trusted whatever storage held.
+      Both are now spelled as `documentElement.dir` and as `=== 'ar'` comparisons.
+      **One restore silently did not apply**, for the reason recorded twice already: the `&&` chain
+      stopped at the failed edit and the checksum step never ran, so the next break's output carried
+      two failures that belonged to the previous one. Caught by `shasum -a 256 -c`, repaired, and
+      re-verified `OK` before the gates.
+      **Not covered:** the pre-paint script was **not executed in a real browser** — the served HTML
+      was read back over TLS (`lang="ar" dir="rtl"` for an `en-GB` request) and the script's shape is
+      asserted, but nothing here observes a paint or a `localStorage` round trip in Chrome. The
+      language is still **per browser, not per account**: §3.1 and §9.1 put the preference on the
+      user profile, and that debt is the theme's too. No language switch on the **login** screen
+      beyond the context bar it does not render. The sidebar's own **collapsed state** is still not
+      remembered across a reload.
+
 ## Module 0 — Foundation
 
 *Infrastructure — no user story.*

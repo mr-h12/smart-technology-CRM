@@ -20,6 +20,7 @@ import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
+import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -138,6 +139,26 @@ export const routes: RouteRecordRaw[] = [
         name: 'settings',
         component: SystemSettingsView,
         meta: { requiresAuth: true, requiredPermission: 'admin.fx_rates', titleKey: 'settings.title' },
+    },
+    {
+        // `DB-05`'s four managed lists — **the screen §13 does not name**, and a
+        // route of its own rather than a fourth section of `/settings` (owner
+        // decision 2026-08-28, reconfirmed 2026-08-29 after S-02; recorded as a
+        // pending `D-xx` in `CHECKLIST.md`).
+        //
+        // ⚠️ **No `requiredPermission`, and it is read from §3.11 rather than
+        // forgotten.** The section has no row for managed lists at all, and
+        // `GET /managed-lists/{list}` is guarded by authentication alone for
+        // the reason `routes/api.php` sets out: §8 puts Customers on six roles'
+        // screens and Catalog on five, and not one of them renders without a
+        // sector or a unit. Naming `admin.system_settings` here — the write's
+        // permission — would hide the list from every role that has to read it.
+        // The add form inside the component is drawn by that permission;
+        // `SEC-09`'s visual complement, never the check.
+        path: '/managed-lists',
+        name: 'managed-lists',
+        component: ManagedListsView,
+        meta: { requiresAuth: true, titleKey: 'lists.title' },
     },
     {
         path: '/403',

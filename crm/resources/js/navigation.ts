@@ -102,6 +102,17 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'admin.fx_rates',
             },
             {
+                // `DB-05`'s four managed lists. **`permission: null` because
+                // the route declares none** — §3.11 has no row for them and the
+                // read is authentication alone, so hiding the link would be the
+                // defect §5.1's mirror image: a screen the person may open with
+                // no way to reach it. `navigation.spec.ts` pins the two equal.
+                name: 'managed-lists',
+                labelKey: 'nav.item.managedLists',
+                icon: 'M3 4.5h2v2H3zm4 0h10v2H7zM3 9h2v2H3zm4 0h10v2H7zM3 13.5h2v2H3zm4 0h10v2H7z',
+                permission: null,
+            },
+            {
                 name: 'account-security',
                 labelKey: 'nav.item.accountSecurity',
                 icon: 'M10 2 4 4.5V9c0 3.6 2.5 6.9 6 8 3.5-1.1 6-4.4 6-8V4.5zm0 4.5a2 2 0 0 1 2 2c0 .8-.5 1.5-1.2 1.8l.4 2.2H8.8l.4-2.2A2 2 0 0 1 10 6.5z',

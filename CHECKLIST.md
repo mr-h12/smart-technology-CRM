@@ -3207,7 +3207,43 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       optimistic locking** — both already on the debt register, unchanged. Two of the six key names
       still carry the inference `SystemLimit` records (`weekly_review_window_hours`,
       `max_file_size_mb`); nothing here values them, so the inference cannot become a number.
-- [ ] **5.4** Managed lists — the dedicated screen §13 does not name
+- [x] **5.4** Managed lists — the dedicated screen §13 does not name
+      *(`/managed-lists`, `ManagedListsView.vue`. **The owner's decision of 2026-08-28 was put again
+      on 2026-08-29**, because `S-02` had changed the premise under it: every other Module 2 screen
+      is now a section of `/settings`. The owner chose the **dedicated route** a second time, and the
+      deciding fact is a permission rather than a preference — `/settings` is guarded by
+      `admin.fx_rates`, and `GET /managed-lists/{list}` is guarded by **nothing but a session**.
+      §3.11 has no row for managed lists at all; §8 puts Customers on six roles' screens and Catalog
+      on five, and not one of them renders without a sector or a unit. Folding this into the settings
+      page would have hidden the sector list from every role the open read exists for. Still a
+      pending `D-xx` on the same terms as the 2026-08-28 entry; `docs/` untouched.
+      The route therefore declares **no `requiredPermission`** and the nav item declares
+      `permission: null` — `navigation.spec.ts` pins the two equal, and a link stricter than its
+      route is §5.1's defect in mirror image. The **add form** is drawn by
+      `admin.system_settings`, which is what `POST /managed-lists/{list}` names: `SEC-09`'s visual
+      complement, never the check — the API refuses either way, and `ManagedListEndpointTest` is
+      where that is proved. Four lists as buttons, closed by `ManagedList`. Both labels on every row
+      and both required in the form (`§14.2` — an entry with one label renders blank in the other
+      language, which is why Point 1.3 made both columns `NOT NULL`). `position` is parsed once, at
+      the moment of sending: it is a sort key and not an amount, so `DB-07` has nothing to say about
+      it, and `AddListEntryRequest`'s floor of 1 is left to the boundary rather than restated here.
+      Paged through `ListingQuery` with `page` as the only parameter (§6.2 makes an undeclared one a
+      400). Per-field refusals come back as the server's own sentences via `ApiError.messageFor` —
+      the duplicate code is one of them, `admin.managed_list.duplicate_code` on field `code`.
+      **14 component tests · 346 frontend tests · 22 files · 1333 backend tests.** A real RED first —
+      the spec could not resolve the component. **One deliberate break:** the add form's `v-if` was
+      forced true so it drew for a role holding no administration row; the read-only case failed
+      `expected true to be false`, 13/14 passing, and the file was restored byte-identical and
+      confirmed with `shasum -a 256 -c`. **Problems found:** `vue-tsc` refused five reads of
+      `fetchMock.mock.calls` — an untyped `vi.fn(async () => …)` types its `calls` as the empty
+      tuple, so every destructured `[url]` and `[, init]` is `TS2493`. Fixed by declaring the mock
+      parameters the way `SystemSettingsView.spec.ts` already does. **Not covered:** there is **no
+      edit and no delete**, because the API offers neither — `DB-01` forbids physical deletion and
+      withdrawing a sector customers are filed under is a decision with consequences; renaming a
+      label stays owed. Nothing validates that a label is not a duplicate of another label — only
+      `code` is unique. **No unsaved-change warning** and **no optimistic locking**: both already on
+      the debt register, unchanged. `delivery_terms` is still seeded empty on purpose, so that list
+      opens on the empty state and that is correct rather than broken.)*
 
 > **Scheduling architecture, approved 2026-08-28.** Any maintenance or scheduled task in this scope
 > is a **scheduled console command** on the `J-15` pattern in `routes/console.php`, deferring
@@ -3223,6 +3259,10 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
 - [~] New sector added in settings → appears in the customer form **without a deployment** —
       **the API half is proved** by Point 3.4: `POST /managed-lists/sectors` then
       `GET /managed-lists/sectors` as a sales employee, in one test, no deployment between them.
+      **Point 5.4 adds the screen half**: the entry is added at `/managed-lists` by a holder of
+      `admin.system_settings` and read back by any signed-in employee, no deployment between them.
+      The criterion stays partial only because **the customer form is Module 3** and does not exist
+      yet — nothing about this list is waiting on it.
       The **customer form** is Module 3, so the criterion is not tickable here.
 - [ ] Currency rounding unit changes → **only new quotations** are affected
 - [x] Rounding units default correctly: EGP `1` · USD `0.01` · EUR `0.01` *(Point 2.1 — seeded from

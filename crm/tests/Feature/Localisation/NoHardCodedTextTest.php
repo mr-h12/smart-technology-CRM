@@ -77,6 +77,9 @@ final class NoHardCodedTextTest extends TestCase
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
+                // Module 2 Point 5.4 — `DB-05`'s managed lists, on the same
+                // terms: added after the scan below passed on it.
+                'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // Module 2 Point 5.3 — §13 screen 6, on the same terms.

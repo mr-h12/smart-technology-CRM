@@ -219,3 +219,66 @@ export async function updateLimits(values: Record<string, string>): Promise<Syst
 
     return result.data.limits;
 }
+
+// ── `DB-05`'s managed lists — the screen §13 does not name (Point 5.4) ──────
+
+/**
+ * The four lists, in `ManagedList`'s own order — §4.2's sectors, §7.3's units
+ * and service types, and delivery terms.
+ *
+ * A fifth list is a migration rather than a setting (the enum's docblock says
+ * why), so this really is the closed set and the screen may draw a control per
+ * entry. The strings are the URL segments the API routes on.
+ */
+export const MANAGED_LISTS = ['sectors', 'units', 'service_types', 'delivery_terms'] as const;
+
+export type ManagedListName = (typeof MANAGED_LISTS)[number];
+
+/**
+ * One row of `GET /managed-lists/{list}`, as `ManagedListController::payload()`
+ * builds it.
+ *
+ * **Both labels, always.** §14.2 makes Arabic and English first-release
+ * languages and the response never omits one — an entry accepted with a single
+ * label would render blank for half the company, which is why `AddListEntry`
+ * requires both.
+ *
+ * `position` is a real number here and not a decimal string: it is a sort key,
+ * not an amount, so `DB-07` has nothing to say about it.
+ */
+export interface ListEntry {
+    code: string;
+    label_en: string;
+    label_ar: string;
+    position: number;
+}
+
+/**
+ * `page` is the only parameter, on `listFxRates`'s terms: `ListingQuery`
+ * declares no filter and no sort for this resource, and §6.2 makes an
+ * undeclared one a 400 rather than something quietly ignored.
+ *
+ * No permission is named because the endpoint names none — authentication
+ * alone, for the reason `routes/api.php` sets out at length.
+ */
+export async function listEntries(
+    list: ManagedListName,
+    page: number,
+): Promise<{ items: ListEntry[]; pagination: Pagination | null }> {
+    const result = await apiGet<ListEntry[]>(`/managed-lists/${list}?page=${page}`);
+
+    return { items: result.data, pagination: result.meta.pagination ?? null };
+}
+
+/**
+ * `POST /managed-lists/{list}` — the only write this resource has.
+ *
+ * There is no `PATCH` and no `DELETE` to pair with it: `DB-01` forbids physical
+ * deletion, and withdrawing a sector customers are already filed under is a
+ * decision with consequences the endpoint deliberately does not offer.
+ */
+export async function addListEntry(list: ManagedListName, entry: ListEntry): Promise<ListEntry> {
+    const result = await apiPost<{ entry: ListEntry }>(`/managed-lists/${list}`, entry);
+
+    return result.data.entry;
+}

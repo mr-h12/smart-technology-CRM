@@ -145,6 +145,27 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
         return self::hydrate($row);
     }
 
+    public function setArchived(string $customerId, bool $archived, CustomerRowScope $scope, string $actorId): ?CustomerSummary
+    {
+        $query = $this->scoped($scope);
+
+        if ($query === null) {
+            return null;
+        }
+
+        $row = $query->whereKey($customerId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->is_archived = $archived;
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row);
+    }
+
     /**
      * ponytail: five rows, because a "yellow warning listing the similar
      * customers" that lists forty is a dialog nobody reads. §10.2 gives no

@@ -267,7 +267,26 @@ would hide them behind `OD-03` indefinitely.
       is satisfied one layer out — `SaveCustomer` owns the transaction, is registered `AUDITED`, and
       **is** seen by the scanner (`->update(` beside an imported `ConnectionInterface`) — but that is
       the register being right by luck of a method name, not the scanner being right. Still owed its
-      own point
+      own point. ⚠️ **Point 3.4 makes it worse and proves the point:** `ArchiveCustomer` owns the
+      archive/restore transaction and writes §3.12 rule 4's `ARCHIVE_RESTORED`, and the scanner does
+      **not** see it — measured, the register test passes with it unlisted, because `setArchived(`,
+      `find(` and `record(` are none of them DML verbs
+- [ ] **Bulk restore is documented and not built** — Flow 7 grants restore *"individually or
+      select-all"* and `OpenAPI §7.3` gives the exact shape: a resource-specific action, a bounded
+      `{"ids": [...]}` list, per-record result data, every record authorised and audited, and **no
+      bypass of the row scope**. Point 3.4 built the singular routes only, because the approved
+      point list names those. **Point 4.4's screen needs it** ("archive, individually and
+      select-all"), so it is owed before that screen — as its own point, or as 4.4's first half.
+      Bulk *archive* is a separate question: Flow 7 puts "individually or select-all" in the
+      **Restore** column only, so it is not clearly documented and was not assumed
+- [ ] **Who may *view* an archived customer is undocumented** — *raised in Point 3.4, and left
+      open rather than closed by invention.* Flow 7 restricts **archiving and restoring** to
+      Manager and Team Leader; it says nothing about reading an archived row, and §3.3's `view` row
+      carries no archived carve-out. So `filter[is_archived]=true` remains available to every holder
+      of `customer.view`, within their own scope. ⚠️ This **corrects** Point 3.2's note, which said
+      the rule was 3.4's to enforce. Restricting the filter would be safer and would also hide a
+      customer from their own owner with no source saying to — an owner decision, not an
+      implementation one
 - [x] **`D-73` has a row in the master decision log** — *closed 2026-08-23 with Point 1.1, under
       the owner's explicit authorisation.* It is in `§2.8 Operations & Scope`; `grep -n "D-73"
       docs/CRM_Documentation_EN.md` returns line 153, re-checked 2026-08-24. `CRM_Documentation_EN.md`
@@ -3698,7 +3717,54 @@ Excel import · "customers of deactivated employees" filter
       at all** — `D-35`'s yellow warning has an API and no UI until Point 4.2. The duplicate probe
       is scoped, with the cost recorded above. `customer_status` is still never derived: §4.5's
       recalculation is Module 5's. Nothing here rate-limits creation.)*
-- [ ] **3.4** `PATCH /customers/{id}/archive` and restore (Flow 7: Manager and Team Leader only)
+- [x] **3.4** `PATCH /customers/{id}/archive` and restore (Flow 7: Manager and Team Leader only)
+      *(**One permission for two routes, because §3.3 writes one row.** The matrix merges the pair
+      as `archive / restore` granted `All · Team · — · — · — · — · —`, and `PermissionMatrix`
+      carries a single `customer.archive` with no `customer.restore` beside it. Both routes check
+      the same ability; inventing a second permission would be a matrix row no document contains.
+      `OpenAPI §7.2` supplies the shapes — `PATCH /customers/{id}/archive` and `…/restore` — which
+      are exactly the two action suffixes it lists for this resource.
+      **Idempotent, and silent when nothing changed.** §7.2 wants each action's *"accepted current
+      state"* documented and no source names one, so archiving an archived customer succeeds and
+      does nothing — **and writes no audit row**. `AUD-03` keeps entries permanently and immutably,
+      so one describing a change that did not happen is a permanent false record; Flow 7's
+      select-all restore makes "some of these are already active" the ordinary case rather than the
+      odd one.
+      **Archive is not delete.** Flow 7 — *"No customer is ever permanently deleted"* — plus `DB-01`
+      and §3.12 rule 3. Nothing touches `deleted_at`, and a test asserts it stays null.
+      **Two audit events, and the split is §3.12 rule 4's.** Rule 4 names *"restore from archive"*
+      among the nine that must always be recorded, which is why `AuditEvent::archiveRestored()`
+      already existed; the archive itself is an update and rides on `AUD-01`. Both write inside the
+      same transaction as the flag (`DB-11`).
+      ⚠️ **Flow 7's "Manager / TL only" is half met, and the half that fails is the Team Leader.**
+      §3.3 gives them `Team`, which has no mechanism (owner's deferral, 2026-08-29), so
+      `CustomerRowScope` fails it closed and **a Team Leader can archive and restore nothing at
+      all** — 404 on every customer in the company. Tested explicitly, so the deferral's cost is
+      visible rather than surprising.
+      ⚠️ **A correction to what Point 3.2's own notes claimed.** They said `filter[is_archived]`
+      *"does not enforce Flow 7's Manager and Team Leader only — that rule is 3.4's"*. Read against
+      the source, that rule is not 3.4's and is not anybody's: Flow 7 restricts **who archives and
+      restores**, not who may *view* an archived row, and §3.3's `view` row carries no archived
+      carve-out. Nothing was invented to close it — the filter is unchanged and the question is on
+      the register instead.
+      **24 tests · 1492 backend · 346 frontend.** RED first: **22 failed, 2 passed** — and the two
+      were read rather than counted: with no route at all, *"a Team Leader archives nothing"* and
+      *"an unknown id is 404"* both pass against a module with no code in it. The documented trap,
+      caught again by reading **which** tests passed.
+      **Three deliberate breaks, each confirmed to fail and each restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the row scope replaced with `all` (the Team Leader test
+      failed) · `CustomerNotFound` rendered as 422 (the unknown-id test failed) · the idempotence
+      short-circuit disabled (both silence tests failed).
+      **Problems found:** (1) the two `@dataProvider` annotations expanded to nothing — this repo is
+      on PHPUnit's `#[DataProvider]` attribute, as `CustomerRowScopeTest` already showed, and the
+      annotation form silently collapsed ten cases into two. Caught by the test count, not by
+      reading the file. Fixed to the attribute; 16 tests became 24.
+      **Not covered:** ⚠️ **no bulk restore.** Flow 7 grants restore *"individually or select-all"*
+      and `OpenAPI §7.3` gives the shape (`{"ids": [...]}`, per-record results, no bypass of row
+      scope) — it is documented and it is **not built here**, because the approved point names the
+      singular routes. Point 4.4's screen needs it; recorded on the register. No bulk archive either,
+      and that one is not clearly documented at all. Nothing here changes who may *view* archived
+      rows. `ArchiveCustomer` is invisible to `AuditEnforcementTest` — measured, see the register.)*
 - [ ] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
 - [ ] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency
 

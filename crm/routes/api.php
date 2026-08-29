@@ -397,4 +397,19 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
 
     Route::patch('/{customer}', [CustomerController::class, 'update'])
         ->middleware('permission:customer.edit');
+
+    // Flow 7 · `OpenAPI §7.2`'s action suffixes. **One permission for both**:
+    // §3.3 writes the row as a single merged `archive / restore` granted
+    // `All · Team · — · — · — · — · —`, and `PermissionMatrix` carries one
+    // `customer.archive` with no `customer.restore` beside it. Inventing a
+    // second permission here would be a matrix row no document contains.
+    //
+    // ⚠️ A Team Leader holds `Team`, which has no mechanism today, so half of
+    // Flow 7's "Manager / TL only" is unreachable — the owner's deferral of
+    // 2026-08-29, tested rather than left to be discovered.
+    Route::patch('/{customer}/archive', [CustomerController::class, 'archive'])
+        ->middleware('permission:customer.archive');
+
+    Route::patch('/{customer}/restore', [CustomerController::class, 'restore'])
+        ->middleware('permission:customer.archive');
 });

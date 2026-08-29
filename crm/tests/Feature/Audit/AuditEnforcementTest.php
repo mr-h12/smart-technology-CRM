@@ -102,6 +102,15 @@ final class AuditEnforcementTest extends TestCase
             // scan() looks for, exactly as EloquentManagedListRepository does.
             // That hole was six classes at Module 2 Point 3.4; this makes it
             // seven, and it is still owed its own point.
+            //
+            // ⚠️ Point 3.4 makes it eight. `ArchiveCustomer` owns the archive
+            // and restore transaction and writes CUSTOMER_ARCHIVED and §3.12
+            // rule 4's ARCHIVE_RESTORED — and is **not** here, because it is
+            // not seen either: it calls `setArchived(`, `find(` and `record(`,
+            // none of which is a DML verb. Measured, not assumed: this test
+            // passes with it unlisted. So the sibling that *is* listed above is
+            // listed by the luck of a method name, which is the whole argument
+            // for giving this hole its own point.
             SaveCustomer::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before

@@ -60,4 +60,15 @@ interface CustomerDirectoryInterface
      * @return list<CustomerSummary>
      */
     public function similarTo(string $name, string $threshold, CustomerRowScope $scope, ?string $excluding = null): array;
+
+    /**
+     * Flow 7 — set or clear the manual archive flag. Point 3.4.
+     *
+     * A flag and never a delete: Flow 7 says "no customer is ever permanently
+     * deleted" and `DB-01` says the same of every business table, so this does
+     * not touch `deleted_at`.
+     *
+     * Null on the same two indistinguishable cases as {@see find()}.
+     */
+    public function setArchived(string $customerId, bool $archived, CustomerRowScope $scope, string $actorId): ?CustomerSummary;
 }

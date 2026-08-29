@@ -17,7 +17,7 @@
  * this file never parses one — a screen that wants to compare two of them has
  * the same obligation.
  */
-import { apiGet, apiPatch } from '@/api';
+import { apiGet, apiPatch, apiPost, type Pagination } from '@/api';
 
 /**
  * §13 screen 4's fields, keyed by `SystemSetting::value`.
@@ -78,4 +78,93 @@ export async function updateSettings(values: Record<string, string>): Promise<Sy
     const result = await apiPatch<{ settings: SystemSettings }>('/settings', { settings: values });
 
     return result.data.settings;
+}
+
+// ── §13 screen 5 — Currencies & FX (Point 5.2) ─────────────────────────────
+
+/**
+ * `CurrencyController::payload()`.
+ *
+ * `rounding_unit` is a decimal **string** for the same reason `tax_percent` is:
+ * §5.3's `0.01` has to survive a round trip through JSON intact, and a
+ * JavaScript number is a float (`DB-07`).
+ *
+ * `is_base` is stated and never sent back. Which currency is the base is not an
+ * edit this API offers — `PATCH /currencies/{code}` takes the unit and the
+ * switch and nothing else — so the screen draws it as a fact.
+ */
+export interface Currency {
+    code: string;
+    rounding_unit: string;
+    rounding_enabled: boolean;
+    is_base: boolean;
+}
+
+/** `FxRateController::payload()`. `rate` is a decimal string — `DB-07`. */
+export interface FxRate {
+    id: string;
+    from_currency: string;
+    to_currency: string;
+    rate: string;
+    /** ISO 8601 in UTC (`DB-08`); the screen converts for display. */
+    effective_from: string;
+    created_at: string;
+}
+
+export async function listCurrencies(): Promise<Currency[]> {
+    const result = await apiGet<{ currencies: Currency[] }>('/currencies');
+
+    return result.data.currencies;
+}
+
+/**
+ * `D-65`'s switch and `D-52`'s unit, one currency at a time.
+ *
+ * Partial on purpose: `UpdateCurrencyRoundingRequest` refuses a body naming
+ * neither with a 422, and sending both on every save would claim a change to
+ * the switch that the person never made.
+ */
+export async function updateCurrencyRounding(
+    code: string,
+    changes: { rounding_unit?: string; rounding_enabled?: boolean },
+): Promise<Currency> {
+    const result = await apiPatch<{ currency: Currency }>(`/currencies/${code}`, changes);
+
+    return result.data.currency;
+}
+
+/**
+ * `GET /fx-rates` — `OpenAPI §4.2`'s collection envelope, newest first.
+ *
+ * `page` is the only parameter there is: `ListingQuery` declares no filter and
+ * no sort for this resource, and §6.2 makes an undeclared one a 400 rather than
+ * something quietly ignored.
+ *
+ * `pagination` is nullable rather than defaulted. The block is `meta`'s and a
+ * caller that invented one from `items.length` would report the page size as
+ * the total — the screen draws no pager when it is absent instead.
+ */
+export async function listFxRates(page: number): Promise<{ items: FxRate[]; pagination: Pagination | null }> {
+    const result = await apiGet<FxRate[]>(`/fx-rates?page=${page}`);
+
+    return { items: result.data, pagination: result.meta.pagination ?? null };
+}
+
+/**
+ * `POST /fx-rates` — the only write this resource has (`AP-06`).
+ *
+ * No `effective_from`: the field is optional and absent means *now*, which is
+ * the only moment this screen offers. Back-dating a rate is a capability the
+ * endpoint has and the screen does not — recorded as a gap rather than half
+ * built, since a control that writes the wrong moment silently re-prices
+ * nothing and quietly misdates the history.
+ */
+export async function recordFxRate(payload: {
+    from_currency: string;
+    to_currency: string;
+    rate: string;
+}): Promise<FxRate> {
+    const result = await apiPost<{ fx_rate: FxRate }>('/fx-rates', payload);
+
+    return result.data.fx_rate;
 }

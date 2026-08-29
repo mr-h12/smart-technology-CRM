@@ -100,6 +100,19 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'admin.system_settings',
             },
             {
+                // §13 screen 5. `admin.fx_rates` — §3.11's own row, held by
+                // the Super Admin **and the Manager**, and the same string the
+                // route declares (`navigation.spec.ts` pins the two equal).
+                // The rounding half of that screen needs `admin.system_settings`
+                // and is drawn by permission inside the component; naming the
+                // narrower row here would hide the whole screen from the
+                // Manager, who §3.11 sends to it.
+                name: 'currencies',
+                labelKey: 'nav.item.currencies',
+                icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm.9 3v1.2c1.2.2 2 .9 2.1 2h-1.7c-.1-.5-.5-.8-1.2-.8-.7 0-1.1.3-1.1.8 0 .4.3.6 1.2.8l.8.2c1.6.4 2.3 1 2.3 2.2 0 1.2-.9 2-2.4 2.2V15H9.2v-1.4c-1.4-.2-2.3-1-2.4-2.2h1.8c.1.6.6.9 1.4.9.8 0 1.2-.3 1.2-.8 0-.4-.3-.6-1.3-.9l-.9-.2c-1.5-.4-2.1-1-2.1-2.1 0-1.2.9-2 2.3-2.2V5z',
+                permission: 'admin.fx_rates',
+            },
+            {
                 name: 'account-security',
                 labelKey: 'nav.item.accountSecurity',
                 icon: 'M10 2 4 4.5V9c0 3.6 2.5 6.9 6 8 3.5-1.1 6-4.4 6-8V4.5zm0 4.5a2 2 0 0 1 2 2c0 .8-.5 1.5-1.2 1.8l.4 2.2H8.8l.4-2.2A2 2 0 0 1 10 6.5z',

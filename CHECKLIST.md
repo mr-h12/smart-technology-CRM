@@ -2991,7 +2991,49 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       than with one screen; recorded rather than half-built here. No optimistic locking: two
       administrators editing at once, and the last one wins without a `409`. No validation that a
       value *means* anything — `defaults.currency` still accepts `ZZZ`, unchanged from Point 3.1.
-- [ ] **5.2** §13 screen 5 — *Currencies & FX*, one screen with its two halves rendered by permission
+- [x] **5.2** §13 screen 5 — *Currencies & FX*, one screen with its two halves rendered by permission.
+      **The route carries `admin.fx_rates`, read from §3.11 rather than copied from the screen above.**
+      §3.11 gives `system settings` to the Super Admin and `—` to the Manager, while **FX rates** on
+      the next line is `✅ Super Admin · ✅ Manager`. A route carries one permission and the screen has
+      two audiences, so it carries the **wider** of the two: every seeded holder of
+      `admin.system_settings` also holds `admin.fx_rates`, and guarding with the narrower one would
+      bounce the Manager off a screen §3.11 grants them — the defect `navigation.ts` names, "a dead
+      link is not a permission problem, it is a lie". The rounding half is then drawn by permission
+      inside the component, which is `SEC-09`'s visual complement and never the check.
+      **The Manager's view is a tested state, not a degraded one.** Rates and no rounding table — and
+      the currencies are **not requested at all** for a caller without `admin.system_settings`,
+      because a guaranteed 403 buys nothing but an error state on a half that should not be drawn.
+      **The base currency is read-only** (owner decision, 2026-08-28). `CurrencyController` offers the
+      unit and the switch and nothing else, so the base is a fact beside the code, not a control — and
+      a test asserts the base row offers exactly the same inputs as every other row.
+      **No staleness element of any kind** — `J-12` withdrawn by the owner, 2026-08-28. A badge with
+      no rule behind it is a promise nothing keeps.
+      **`DB-07` reaches the screen.** The rounding unit and the FX rate are both `type="text"` with
+      `inputmode="decimal"`; break 2 swapped the unit to `type="number"` and failed **two** tests, the
+      second being the PATCH body — a number input does not round-trip `0.05` as the string the API
+      is owed.
+      **Only what that row changed is sent.** `UpdateCurrencyRoundingRequest` refuses a body naming
+      neither field with a 422, so the button does nothing when nothing was edited.
+      **`AP-06` in the client.** A rate is append-only, so recording one re-reads the history from
+      page 1 rather than patching a row in place; there is no edit and no delete because the resource
+      has no `PATCH` and no `DELETE`.
+      **22 component tests · 285 frontend tests · 20 files · 1325 backend tests.** Eight deliberate
+      breaks with real output: the rounding half drawn for everyone · the unit as a number input ·
+      every field sent on every row save · the currency codes not upper-cased · the history not
+      re-read after a write · every currency marked as the base · the loading state never rendered ·
+      a hard-coded heading in the new `.vue`. All restored byte-identical, each confirmed with
+      `shasum -a 256 -c` rather than by re-reading the file.
+      **The eighth break is the one that matters most.** It proved `NoHardCodedTextTest` is really
+      scanning the new file rather than merely listing it: the literal was reported by name.
+      **Not covered:** **no back-dating a rate** — `effective_from` is optional and absent means
+      *now*, which is the only moment this screen offers; the endpoint accepts a past or future one
+      and the screen does not. **No currency dropdown on the rate form** — `GET /currencies` carries
+      `admin.system_settings`, which the Manager does not hold, so there is no endpoint that would
+      answer them; both codes are free text validated by the server, and inventing a client-side list
+      would be a second copy of the currency table. **A custom role holding `admin.system_settings`
+      without `admin.fx_rates`** (§3.12 rule 5 permits one) is bounced by the route guard even though
+      it may edit rounding — no seeded role is in that position, and the API is unaffected. No
+      optimistic locking, and no unsaved-change warning: both already on the debt register.
 - [ ] **5.3** §13 screen 6 — *Limits & SLAs*, all six fields
 - [ ] **5.4** Managed lists — the dedicated screen §13 does not name
 

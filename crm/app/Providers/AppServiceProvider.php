@@ -60,6 +60,8 @@ use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
+use App\Support\Search\PostgresSearchDriver;
+use App\Support\Search\SearchService;
 use App\Support\Settings\SettingReader;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository as ConfigRepository;
@@ -146,6 +148,17 @@ class AppServiceProvider extends ServiceProvider
                 // misconfigured string quietly becomes 0, and a ceiling of 0
                 // rejects every upload with a message about size.
                 $this->app->make(ConfigRepository::class)->integer('files.max_size_bytes'),
+            ),
+        );
+
+        // `D-48`'s seam. **Binding is the whole point of this line**: Module 15
+        // replaces the driver here and every caller — which asked for the
+        // interface — keeps working. `singleton`, because the driver holds only
+        // the connection and decides nothing that can go stale.
+        $this->app->singleton(
+            SearchService::class,
+            fn (): PostgresSearchDriver => new PostgresSearchDriver(
+                $this->app->make(ConnectionInterface::class),
             ),
         );
 

@@ -3434,7 +3434,38 @@ Excel import · "customers of deactivated employees" filter
       line in `SearchIndex::columns()`. No Arabic normalisation yet: that is 2.2. No caller uses the
       seam until 3.2, so the `SharedContracts` deptrac entry collects nothing today. No relevance
       ranking, and none pretended — ILIKE has no notion of a better match.)*
-- [ ] **2.2** Arabic normalisation for name matching (§10.2: hamza · taa marbuta · yaa)
+- [x] **2.2** Arabic normalisation for name matching (§10.2: hamza · taa marbuta · yaa)
+      *(`App\Support\Search\ArabicNormalisation`, wired into `PostgresSearchDriver` on **both**
+      sides. **Exactly three families, because exactly three are named — twice.** §10.2 describes the
+      duplicate check as a "fuzzy match with normalisation of hamza, taa marbuta and yaa forms" and
+      §14.2 says the same of search; the two sections agree on which three, so diacritics and tatweel
+      are **not** folded however usual that is elsewhere. That is an **open owner question**, and one
+      line here when answered — it changes which customers the system calls duplicates.
+      **One rule, two languages, and a test that they agree.** The query is folded in PHP and the
+      stored column by PostgreSQL's `translate()`, because folding every row in PHP would mean
+      reading every row. That is two implementations of one rule — the defect waiting to happen — so
+      the mapping lives in **one** pair of constants, the SQL binds them directly, and a test runs
+      both over the same names and compares. ⚠️ `translate()` being character-wise on UTF-8 Arabic
+      was **probed against the running database** before the design depended on it, not recalled:
+      `translate('أحمد إبراهيم فاطمة ليلى', …)` answered `احمد ابراهيم فاطمه ليلي`, and
+      `length('أإآٱةى')` answered `6`.
+      **Both directions are asserted**, and that is what makes the tests able to see a half-done
+      job: folding only the query would find `احمد` on file from `أحمد` typed and not the reverse,
+      and folding only the column does the opposite. Proved — see the breaks.
+      **30 tests · 1407 backend.** RED first: the class did not exist.
+      **Two deliberate breaks:** the query-side fold removed (**3 of 7 direction cases failed — the
+      three where the written form is typed**, exactly the half that break leaves broken) · the
+      column-side fold removed (4 failed, the mirror). Both restored, both confirmed with
+      `shasum -a 256 -c`.
+      **Problems found:** PHPStan level 10 rejected both data providers — the docblocks promised
+      `list<…>` while the arrays are string-keyed, and those keys are the data-set names PHPUnit
+      prints in the output above. The annotation was wrong, not the code.
+      **Not covered:** no diacritics, no tatweel (above). **The duplicate warning itself is not
+      built** — §10.2's "similarity above the threshold" needs a threshold, and no source states one:
+      `SystemLimit` has six limits and none of them is it. That is 3.3's problem and a second open
+      owner question. **`ponytail:` `translate()` on every row is a sequential scan** — no index can
+      serve it. The ceiling is fine at MVP customer counts; the upgrade path is a functional index on
+      the same expression, or Meilisearch, and neither is guesswork today.)*
 
 #### Step 3 — row scope and the API *(approved 2026-08-29)*
 

@@ -59,16 +59,27 @@ final readonly class PostgresSearchDriver implements SearchService
         }
 
         $allowed = $index->filterable();
-        $bindings = ['%'.self::escaped($words).'%'];
         $columns = $index->columns();
 
-        $matches = implode(
-            ' or ',
+        // §10.2 and §14.2: hamza, taa marbuta and yaa are folded on **both**
+        // sides, or `أحمد` typed into the box would not find `احمد` on file.
+        // The query is folded here; the column is folded by `translate()`
+        // below, from the same declaration — see `ArabicNormalisation`.
+        $pattern = '%'.self::escaped(ArabicNormalisation::normalise($words)).'%';
+
+        $bindings = [];
+        $matches = [];
+
+        foreach ($columns as $column) {
+            array_push($bindings, ArabicNormalisation::FROM, ArabicNormalisation::TO, $pattern);
+
             // `ESCAPE '\'` is stated rather than left to the default: the
             // default *is* backslash on PostgreSQL, and stating it means a
             // reader does not have to know that to see the escaping is real.
-            array_map(static fn (string $c): string => "{$c} ilike ? escape '\\'", $columns),
-        );
+            $matches[] = "translate({$column}, ?, ?) ilike ? escape '\\'";
+        }
+
+        $matches = implode(' or ', $matches);
 
         $conditions = '';
 

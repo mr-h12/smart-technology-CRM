@@ -332,6 +332,59 @@ final class SystemLimitEndpointTest extends TestCase
         $this->patchJson(self::ENDPOINT, ['limits' => []], $bearer)->assertStatus(422);
     }
 
+    /**
+     * `OpenAPI §5.1`'s `details[].message` is read by a person, so it may not
+     * carry the internal key path.
+     *
+     * **The same defect Point 5.1 measured on `PATCH /settings`, live on the
+     * endpoint beside it and found the same way — by building the screen that
+     * shows the message.** Measured with a throwaway request before this test
+     * was written: the two refusals read *"The limits.limits.stale deal days
+     * field format is invalid."* and *"The limits.identity.lockout minutes
+     * field format is invalid."*, in Arabic as well as English.
+     *
+     * `limits.stale_deal_days` is the worse of the two because its own key
+     * begins with `limits.`, so the submitted path carries the word twice. The
+     * machine code beside the sentence is unchanged and still English — a
+     * client matches on that, not on this.
+     */
+    public function test_that_a_refusal_names_the_limit_in_words_a_person_reads(): void
+    {
+        $response = $this->patchJson(
+            self::ENDPOINT,
+            ['limits' => ['limits.stale_deal_days' => 'quite a while']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        $message = $response->json('error.details.0.message');
+
+        self::assertIsString($message);
+        self::assertStringNotContainsString('limits.', $message);
+        self::assertStringNotContainsString('stale_deal_days', $message);
+        self::assertStringContainsString('stale-deal threshold', $message);
+
+        // The **field** path is untouched: it is the submitted path a client
+        // matches a message to its control by, and Point 5.2's screen reads it.
+        self::assertSame('limits.limits.stale_deal_days', $response->json('error.details.0.field'));
+    }
+
+    /** `D-75`'s row, whose key does not repeat the prefix but still leaked it. */
+    public function test_that_the_lockout_refusal_names_the_limit_in_words_too(): void
+    {
+        $response = $this->patchJson(
+            self::ENDPOINT,
+            ['limits' => [self::LOCKOUT => 'half an hour']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        $message = $response->json('error.details.0.message');
+
+        self::assertIsString($message);
+        self::assertStringNotContainsString('identity.', $message);
+        self::assertStringContainsString('lockout', $message);
+        self::assertSame('limits.identity.lockout_minutes', $response->json('error.details.0.field'));
+    }
+
     /** §13 screen 6 is a form, not a resource collection — no create, no delete. */
     public function test_that_the_resource_carries_no_create_or_delete_verb(): void
     {

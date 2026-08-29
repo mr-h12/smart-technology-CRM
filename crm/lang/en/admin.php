@@ -43,6 +43,20 @@ return [
         ],
     ],
 
+    'limits' => [
+        // §13 screen 6's field names, shown to a person inside a validation
+        // message (`OpenAPI §5.1`), on the same terms as `settings.attributes`
+        // above. The machine code beside them stays English and untranslated.
+        'attributes' => [
+            'limits_stale_deal_days' => 'stale-deal threshold',
+            'limits_daily_report_deadline' => 'daily report deadline',
+            'limits_quotation_approval_sla_hours' => 'quotation approval SLA',
+            'limits_weekly_review_window_hours' => 'weekly review window',
+            'limits_max_file_size_mb' => 'maximum file size',
+            'identity_lockout_minutes' => 'account lockout duration',
+        ],
+    ],
+
     'managed_list' => [
         'duplicate_code' => 'That code is already used in this list.',
     ],

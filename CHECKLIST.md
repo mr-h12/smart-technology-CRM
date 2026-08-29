@@ -3034,7 +3034,54 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
       without `admin.fx_rates`** (§3.12 rule 5 permits one) is bounced by the route guard even though
       it may edit rounding — no seeded role is in that position, and the API is unaffected. No
       optimistic locking, and no unsaved-change warning: both already on the debt register.
-- [ ] **5.3** §13 screen 6 — *Limits & SLAs*, all six fields
+- [x] **5.3** §13 screen 6 — *Limits & SLAs*, all six fields.
+      **`admin.system_limits`, not `admin.system_settings`.** §3.11 lists them as two rows and both
+      are the Super Admin's today, so the two names select the same callers — which is exactly why
+      the distinction is made now: §3.12 rule 5 makes regranting a row a configuration change, and
+      the day a Manager is given the limits row, a guard that had quietly named the settings row
+      would not follow. Point 1.1 split the tables for the same reason.
+      **The server owns the list, the order and the units — the client restates none of it.**
+      `DatabaseSystemLimitRepository::all()` iterates `SystemLimit::cases()`, so the response is the
+      whole enum in §13's order with each `unit` and `value_type` beside it. There is deliberately no
+      `LIMIT_KEYS` beside `SETTING_KEYS`: screen 4 needs a list because two of its ten fields are
+      **not** drawn, and every one of these six is. A second copy of the enum in the client is the
+      copy that goes stale.
+      **The unit is translated, not printed.** `SystemLimit::unit()` returns English words and §13
+      screen 6 mixes days, hours and megabytes on one form. An unrecognised unit renders nothing
+      rather than leaking `limits.unit.furlongs` into the page.
+      **`D-75`'s lockout is the sixth and including it is the point.** It is the only limit the
+      documentation values and the only one with a live reader; a screen drawing §13's five would
+      leave the one working limit uneditable.
+      **A backend defect this screen exposed, found and fixed here — the twin of Point 5.1's.**
+      `UpdateSystemLimitsRequest` had no `attributes()`, so a refusal read *"The
+      **limits.limits.stale deal days** field format is invalid."* — the internal key in front of a
+      person, with the word `limits` in it **twice** because that key already begins with the prefix
+      the rule path adds. In Arabic too. Measured with a throwaway request before a line was
+      written, then fixed in the request class with a translated `attributes()` and covered by two
+      new cases in `SystemLimitEndpointTest`, so the message is right for **every** client rather
+      than patched over in one screen. Both key shapes are the ones Point 5.1 paid for: the array key
+      **unescaped**, the lang key with **underscores**.
+      **The `details[].field` path is untouched and is the submitted one** — `limits.limits.stale_deal_days`,
+      measured, not inferred. The screen reads exactly that.
+      **A weak assertion of my own, caught and replaced before it could pass on a defect.** The unit
+      test asserted the English labels, and `en.limits.unit.days` is the same word the server sends —
+      so it would have passed just as happily on the raw payload value. Re-asserted in **Arabic**,
+      where `megabytes` becomes ميغابايت and the English word must be absent. Break 5 then failed on
+      it; the English-only version would not have.
+      **17 component tests · 305 frontend tests · 21 files · 1330 backend tests.** A real RED first
+      this time — the spec failed to resolve the component, and the two backend cases failed 2/17
+      before `attributes()` existed. Six deliberate breaks: an unconfigured limit rendered as the word
+      `null` · a `type="number"` control · every limit sent on every save · the field path read
+      without its submitted prefix · the raw server unit printed on every row · a hard-coded heading
+      in the new `.vue`. All restored byte-identical, each confirmed with `shasum -a 256 -c`.
+      **Not covered:** **the daily report deadline has no format, client-side or server-side.**
+      `SystemLimit::rule()` is `string` for it, so the API accepts `"17:00"`, `"5 PM"` and `"soon"`
+      alike, and the screen does not invent a format the documentation does not give — a `type="time"`
+      control would have been the client deciding what the value means. **Owner question:** what
+      spelling should `limits.daily_report_deadline` hold? **No unsaved-change warning** and **no
+      optimistic locking** — both already on the debt register, unchanged. Two of the six key names
+      still carry the inference `SystemLimit` records (`weekly_review_window_hours`,
+      `max_file_size_mb`); nothing here values them, so the inference cannot become a number.
 - [ ] **5.4** Managed lists — the dedicated screen §13 does not name
 
 > **Scheduling architecture, approved 2026-08-28.** Any maintenance or scheduled task in this scope

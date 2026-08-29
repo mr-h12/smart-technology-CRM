@@ -79,6 +79,8 @@ final class NoHardCodedTextTest extends TestCase
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // Module 2 Point 5.3 — §13 screen 6, on the same terms.
+                'SystemLimitsView.vue',
                 // Module 2 Point 5.1 — §13 screen 4. Added to this list only
                 // after the scan below passed on it: the list is an inventory,
                 // not a suppression, and the message above says so.

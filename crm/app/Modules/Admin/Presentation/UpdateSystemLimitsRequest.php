@@ -28,6 +28,40 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class UpdateSystemLimitsRequest extends FormRequest
 {
+    /**
+     * §13 screen 6's field names, so a refusal reads as a sentence.
+     *
+     * **This is {@see UpdateSettingsRequest::attributes()}'s twin, and it was
+     * missing.** Point 5.1 measured the defect on `PATCH /settings`; the same
+     * one was live here and was found the same way, by building the screen
+     * that shows the message. It read *"The limits.limits.stale deal days
+     * field format is invalid."* — the internal key path in front of a person,
+     * with the word `limits` in it twice because this key begins with the
+     * prefix the rule path adds.
+     *
+     * ⚠️ **Two key shapes on one line, both measured rather than assumed.**
+     * The array key is the **unescaped** path, unlike `rules()` below which
+     * needs `\.`: a rule key is parsed for nesting, while this array is looked
+     * up with the *resolved* attribute, which has real dots in it. The **lang**
+     * key uses underscores, because `__()` reads dots as nesting too and an
+     * unresolved key returns itself — the message would then read
+     * *"The admin.limits.attributes.identity.lockout_minutes field…"*.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        $attributes = [];
+
+        foreach (SystemLimit::cases() as $limit) {
+            $attributes['limits.'.$limit->value] = (string) __(
+                'admin.limits.attributes.'.str_replace('.', '_', $limit->value),
+            );
+        }
+
+        return $attributes;
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {

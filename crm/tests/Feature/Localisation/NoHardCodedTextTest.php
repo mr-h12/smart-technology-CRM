@@ -70,7 +70,11 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
-                'ConfirmDialog.vue', 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
+                'ConfirmDialog.vue',
+                // Module 2 Point 5.2 — §13 screen 5. Added after the scan below
+                // passed on it, on the same terms as the entry below.
+                'CurrenciesView.vue',
+                'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',

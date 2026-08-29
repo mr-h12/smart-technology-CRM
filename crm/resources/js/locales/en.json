@@ -84,7 +84,8 @@
             "users": "Employees",
             "roles": "Roles & Permissions",
             "accountSecurity": "Account security",
-            "settings": "System settings"
+            "settings": "System settings",
+            "currencies": "Currencies & FX"
         }
     },
     "theme": {
@@ -365,6 +366,58 @@
         "error": {
             "load": "These settings could not be loaded. Try again.",
             "save": "The settings were not saved. Try again."
+        }
+    },
+    "currencies": {
+        "title": "Currencies & FX",
+        "subtitle": "The base currency, the rounding unit each currency uses, and the exchange rates recorded by hand.",
+        "rounding": {
+            "title": "Rounding per currency",
+            "description": "Rounding applies to the final total only, using this currency's unit. Switching it off leaves the total unrounded. Either change affects new quotations only, never one already issued.",
+            "loading": "Loading the currencies…",
+            "base": "Base currency",
+            "saved": "Saved.",
+            "column": {
+                "code": "Currency",
+                "enabled": "Rounding on",
+                "unit": "Rounding unit",
+                "actions": "Actions"
+            }
+        },
+        "rates": {
+            "title": "Exchange rates",
+            "description": "Rates are entered by hand and kept forever. Recording a new rate never changes a quotation that already captured one.",
+            "loading": "Loading the rate history…",
+            "record": "Record rate",
+            "recording": "Recording…",
+            "recorded": "Rate recorded.",
+            "field": {
+                "from": "From",
+                "to": "To",
+                "rate": "Rate"
+            },
+            "column": {
+                "from": "From",
+                "to": "To",
+                "rate": "Rate",
+                "effective": "Effective from"
+            },
+            "empty": {
+                "title": "No rates recorded yet",
+                "message": "Record the first exchange rate using the form above."
+            }
+        },
+        "pagination": {
+            "label": "Rate history pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} \u00b7 {total} rates"
+        },
+        "error": {
+            "load": "The currencies could not be loaded. Try again.",
+            "save": "The rounding was not saved. Try again.",
+            "rates": "The rate history could not be loaded. Try again.",
+            "record": "The rate was not recorded. Try again."
         }
     }
 }

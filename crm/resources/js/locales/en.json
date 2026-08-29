@@ -1,350 +1,371 @@
 {
-  "app": {
-    "name": "Smart Technology CRM",
-    "mark": "Smart Technology"
-  },
-  "language": {
-    "switch": "Language",
-    "arabic": "العربية",
-    "english": "English"
-  },
-  "auth": {
-    "login": {
-      "title": "Sign in",
-      "subtitle": "Internal system. Accounts are created by an administrator.",
-      "email": "Email address",
-      "password": "Password",
-      "emailRequired": "Enter your email address.",
-      "passwordRequired": "Enter your password.",
-      "submit": "Sign in",
-      "submitting": "Signing in…",
-      "noSignUp": "There is no self sign-up. Ask your manager or the system administrator for an account."
+    "app": {
+        "name": "Smart Technology CRM",
+        "mark": "Smart Technology"
     },
-    "error": {
-      "invalidCredentials": "These credentials do not match our records.",
-      "accountSuspended": "Account suspended, please contact administration.",
-      "accountLocked": "This account is locked after too many failed sign-in attempts. Contact administration.",
-      "sessionInvalid": "Your session is no longer valid. Please sign in again.",
-      "rateLimited": "Too many attempts. Please try again shortly.",
-      "validationFailed": "Please correct the highlighted fields.",
-      "unreachable": "The server could not be reached. Check your connection and try again.",
-      "unknown": "Sign-in failed. Please try again."
+    "language": {
+        "switch": "Language",
+        "arabic": "العربية",
+        "english": "English"
+    },
+    "auth": {
+        "login": {
+            "title": "Sign in",
+            "subtitle": "Internal system. Accounts are created by an administrator.",
+            "email": "Email address",
+            "password": "Password",
+            "emailRequired": "Enter your email address.",
+            "passwordRequired": "Enter your password.",
+            "submit": "Sign in",
+            "submitting": "Signing in…",
+            "noSignUp": "There is no self sign-up. Ask your manager or the system administrator for an account."
+        },
+        "error": {
+            "invalidCredentials": "These credentials do not match our records.",
+            "accountSuspended": "Account suspended, please contact administration.",
+            "accountLocked": "This account is locked after too many failed sign-in attempts. Contact administration.",
+            "sessionInvalid": "Your session is no longer valid. Please sign in again.",
+            "rateLimited": "Too many attempts. Please try again shortly.",
+            "validationFailed": "Please correct the highlighted fields.",
+            "unreachable": "The server could not be reached. Check your connection and try again.",
+            "unknown": "Sign-in failed. Please try again."
+        }
+    },
+    "state": {
+        "loading": "Loading…",
+        "retry": "Try again",
+        "empty": {
+            "title": "Nothing here yet",
+            "message": "No records match what you are looking for."
+        },
+        "error": {
+            "title": "Something went wrong.",
+            "message": "This data could not be loaded. Try again."
+        },
+        "denied": {
+            "title": "You do not have access",
+            "message": "You do not have permission to view this content. Contact your system administrator if you believe this is a mistake."
+        }
+    },
+    "ping": {
+        "title": "Infrastructure health",
+        "subtitle": "A live round-trip against the versioned API, measured in this browser.",
+        "service": "Service",
+        "time": "Server time",
+        "requestId": "Request ID",
+        "endpoint": "Endpoint",
+        "latency": "Round-trip",
+        "retry": "Try again",
+        "refresh": "Run the check again",
+        "environment": "Client environment",
+        "locale": "Locale",
+        "direction": "Direction",
+        "status": {
+            "label": "Status",
+            "checking": "Checking…",
+            "operational": "Operational",
+            "unreachable": "Unreachable"
+        }
+    },
+    "shell": {
+        "skipToContent": "Skip to content"
+    },
+    "nav": {
+        "primary": "Primary navigation",
+        "collapse": "Collapse sidebar",
+        "expand": "Expand sidebar",
+        "open": "Open navigation",
+        "close": "Close navigation",
+        "group": {
+            "system": "System",
+            "administration": "Administration"
+        },
+        "item": {
+            "home": "System diagnostics",
+            "users": "Employees",
+            "roles": "Roles & Permissions",
+            "accountSecurity": "Account security",
+            "settings": "System settings"
+        }
+    },
+    "theme": {
+        "switch": "Theme",
+        "warm-editorial": "Warm Editorial",
+        "clean-monochrome": "Clean Monochrome",
+        "midnight-obsidian": "Midnight Obsidian"
+    },
+    "user": {
+        "signedOut": "Not signed in",
+        "signOut": "Sign out"
+    },
+    "action": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "edit": "Edit",
+        "close": "Close"
+    },
+    "impersonation": {
+        "banner": "You are signed in as {name} ({role}). Everything you do is recorded against your own account.",
+        "leave": "Leave and return to your account"
+    },
+    "users": {
+        "title": "Employees",
+        "subtitle": "Accounts are created here. There is no self sign-up.",
+        "create": "Add employee",
+        "loading": "Loading employees…",
+        "deactivate": "Deactivate",
+        "reactivate": "Reactivate",
+        "loginAs": "Sign in as",
+        "rolesUnavailable": "There is no role you are permitted to assign, so the form is unavailable.",
+        "column": {
+            "name": "Name",
+            "email": "Email",
+            "role": "Role",
+            "status": "Status",
+            "actions": "Actions"
+        },
+        "status": {
+            "active": "Active",
+            "suspended": "Suspended"
+        },
+        "filter": {
+            "status": "Status",
+            "statusAll": "Any status",
+            "role": "Role",
+            "roleAll": "Any role"
+        },
+        "pagination": {
+            "label": "Employee pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} · {total} employees"
+        },
+        "confirm": {
+            "deactivateTitle": "Deactivate this account?",
+            "deactivateMessage": "{name} will be signed out of every device and blocked from signing in. Their customers, deals and reports stay where they are. The account is never deleted.",
+            "reactivateTitle": "Reactivate this account?",
+            "reactivateMessage": "{name} will be able to sign in again. They will need to enter their password."
+        },
+        "form": {
+            "createTitle": "Add an employee",
+            "editTitle": "Edit employee",
+            "name": "Name",
+            "email": "Email address",
+            "role": "Role",
+            "rolePlaceholder": "Choose a role",
+            "noAssignableRoles": "There is no role you are permitted to assign.",
+            "password": "Initial password",
+            "passwordHint": "At least 8 characters, with letters and numbers.",
+            "passwordNotHere": "Passwords are changed by the account holder, with a code sent to their email.",
+            "nameRequired": "Enter a name.",
+            "emailRequired": "Enter an email address.",
+            "roleRequired": "Choose a role.",
+            "passwordPolicy": "The password must be at least 8 characters and contain both letters and numbers.",
+            "emailTaken": "That email address already belongs to an account.",
+            "roleNotAssignable": "You may not assign that role.",
+            "forbidden": "You do not have permission to perform this action.",
+            "rejected": "The change was not accepted. Check the fields and try again.",
+            "unreachable": "The server could not be reached. Check your connection and try again."
+        },
+        "viewDetails": "Details",
+        "details": {
+            "title": "Employee details",
+            "loading": "Loading the employee…",
+            "lastActivity": "Last activity",
+            "neverActive": "Not signed in on any device",
+            "devices": "Signed-in devices",
+            "devicesExplainer": "Devices this employee is currently signed in on. Signing one out ends that session immediately.",
+            "deviceMeta": "IP {ip} · last active {active}",
+            "noDevices": "This employee is not signed in on any device.",
+            "unknownIp": "unknown address",
+            "unknownDevice": "Unrecognised device",
+            "revoke": "Sign this device out",
+            "terminated": "That device was signed out.",
+            "confirm": {
+                "title": "Sign this device out?",
+                "message": "This ends the session immediately on that device. {name} will have to sign in again there.",
+                "action": "Sign the device out"
+            },
+            "error": {
+                "own": "This is the device you are using. Sign out to end this session.",
+                "gone": "That device is no longer signed in.",
+                "userGone": "That employee is no longer available.",
+                "denied": "You do not have permission to sign this device out.",
+                "rejected": "The request was refused. Reload the page and try again.",
+                "unreachable": "The server could not be reached. Check your connection and try again."
+            }
+        }
+    },
+    "roles": {
+        "title": "Roles & Permissions",
+        "subtitle": "Grant or revoke permissions per role. Changes take effect on the next request — nothing is deployed and nothing is restarted.",
+        "loading": "Loading the permission matrix…",
+        "selector": {
+            "label": "Choose a role"
+        },
+        "immutableNotice": "{role} has unconditional access to everything, granted by the role itself rather than by these rows. Editing them would change nothing, so they are locked.",
+        "save": "Save changes",
+        "discard": "Discard changes",
+        "saved": "Saved. {granted} granted, {revoked} revoked. In effect from the next request.",
+        "savedNoChange": "Saved. Nothing had changed, so nothing was recorded.",
+        "cell": {
+            "notDefined": "—"
+        },
+        "column": {
+            "permission": "Permission"
+        },
+        "badge": {
+            "immutable": "Immutable",
+            "locked": "Locked",
+            "unknownScope": "Undefined scope: {scopes}"
+        },
+        "lockedReason": "No role may hold this action. Deletion is never granted — records are deactivated or archived instead.",
+        "toggle": {
+            "label": "{permission}, scope {scope}"
+        },
+        "changes": {
+            "none": "No unsaved changes.",
+            "pending": "{count} unsaved change(s)."
+        },
+        "scope": {
+            "own": "Own",
+            "team": "Team",
+            "all": "All",
+            "out": "Outdoor",
+            "asgn": "Assigned"
+        },
+        "resource": {
+            "admin": "Administration",
+            "catalog": "Catalog & Suppliers",
+            "customer": "Customers",
+            "deal": "Deals / Requests",
+            "procurement": "Procurement",
+            "quotation": "Customer Quotations",
+            "report": "Reports",
+            "supplier_quotation": "Supplier Quotations",
+            "visit": "Visits"
+        },
+        "diff": {
+            "title": "Confirm the changes to {role}",
+            "summary": "{granted} permission(s) will be granted and {revoked} will be revoked.",
+            "granted": "Granted ({count})",
+            "revoked": "Revoked ({count})",
+            "none": "None.",
+            "effect": "This is a configuration change, not a deployment: the next request each affected person makes is already checked against the new matrix.",
+            "confirm": "Apply changes"
+        },
+        "create": {
+            "action": "New role",
+            "title": "Create a role",
+            "explainer": "A new role starts with no permissions. Grant them on this screen once it exists — the change takes effect on the next request.",
+            "slug": "Identifier",
+            "slugHint": "Lowercase letters, numbers and underscores. Used in URLs and cannot be changed later.",
+            "slugInvalid": "Use lowercase letters, numbers and underscores, starting with a letter.",
+            "name": "Name (English)",
+            "nameInvalid": "Enter a name of at least two characters.",
+            "nameAr": "Name (Arabic)",
+            "nameArHint": "Optional. Without it, the English name is shown in both languages.",
+            "description": "Description",
+            "thenGrant": "You will be taken to this role's permissions once it is created.",
+            "submit": "Create role"
+        },
+        "archive": {
+            "action": "Archive role",
+            "confirm": {
+                "title": "Archive this role?",
+                "message": "{name} and every permission it holds will be archived. Nothing is deleted, and a role somebody is assigned to cannot be archived.",
+                "action": "Archive role"
+            }
+        },
+        "error": {
+            "slugTaken": "Another role already uses that identifier.",
+            "nameTaken": "Another role already uses that name.",
+            "nameArTaken": "Another role already uses that Arabic name.",
+            "invalid": "Check the highlighted fields and try again.",
+            "systemRole": "That role is part of the system and cannot be archived.",
+            "roleInUse": "People are still assigned to that role. Move them to another role first.",
+            "gone": "That role no longer exists. The list has been refreshed.",
+            "immutable": "This role's permissions cannot be edited.",
+            "forbidden": "One of the selected permissions may not be granted to any role.",
+            "staleMatrix": "One of the selected permissions no longer exists. Reload the screen and try again.",
+            "denied": "You do not have permission to change roles.",
+            "rejected": "The change was rejected. Nothing was saved.",
+            "unreachable": "The server could not be reached. Nothing was saved."
+        }
+    },
+    "account": {
+        "title": "Account security",
+        "subtitle": "Your password and the devices signed in to your account.",
+        "password": {
+            "title": "Change password",
+            "explainer": "We email a verification code before the change is applied.",
+            "current": "Current password",
+            "next": "New password",
+            "confirm": "Confirm new password",
+            "mismatch": "The two passwords do not match.",
+            "ruleLength": "At least {length} characters",
+            "ruleLetter": "Contains a letter",
+            "ruleDigit": "Contains a number",
+            "submit": "Change password",
+            "sending": "Sending the code…",
+            "signsOutEverywhere": "Changing your password signs you out on every device, including this one."
+        },
+        "challenge": {
+            "title": "Confirm the change",
+            "intro": "We sent a verification code to {email}. Enter it to finish changing your password.",
+            "label": "{length}-digit code",
+            "remaining": "The code stops working in {time}.",
+            "expired": "This code has expired. Send a new one.",
+            "resend": "Send a new code",
+            "resending": "Sending…",
+            "confirm": "Change password"
+        },
+        "devices": {
+            "title": "Signed-in devices",
+            "explainer": "Sign out any device you do not recognise. Sessions also end on their own after eight idle hours.",
+            "loading": "Loading your devices…",
+            "current": "This device",
+            "revoke": "Sign out",
+            "revokeOthers": "Sign out other devices",
+            "revoked": "That device was signed out.",
+            "revokedOthers": "Every other device was signed out.",
+            "meta": "IP {ip} · last active {active} · signed in {since}",
+            "unknownIp": "unknown address",
+            "unknownDevice": "Unrecognised device"
+        },
+        "error": {
+            "currentPassword": "Your current password is not correct.",
+            "codeInvalid": "That code is not valid. Check it, or send a new one.",
+            "codeExpired": "That code has expired. Send a new one and try again.",
+            "policy": "The new password does not meet the password rules.",
+            "unchanged": "The new password must be different from the current one.",
+            "challengeFailed": "The verification code could not be sent. Try again shortly.",
+            "resendLimited": "Too many codes requested. Wait a few minutes before asking for another.",
+            "deviceIsCurrent": "This is the device you are using. Sign out to end this session.",
+            "deviceGone": "That device is no longer signed in.",
+            "rejected": "The change was refused. Reload the page and try again.",
+            "unreachable": "The server could not be reached. Check your connection and try again."
+        }
+    },
+    "settings": {
+        "title": "System Settings",
+        "subtitle": "The company details, defaults and locale this system runs on.",
+        "saved": "Settings saved.",
+        "saving": "Saving…",
+        "field": {
+            "company_name": "Company name",
+            "company_address": "Address",
+            "company_phones": "Phone numbers",
+            "defaults_currency": "Default currency",
+            "defaults_tax_percent": "Default tax (%)",
+            "locale_language": "Language",
+            "locale_timezone": "Time zone",
+            "locale_date_format": "Date format"
+        },
+        "error": {
+            "load": "These settings could not be loaded. Try again.",
+            "save": "The settings were not saved. Try again."
+        }
     }
-  },
-  "state": {
-    "loading": "Loading…",
-    "retry": "Try again",
-    "empty": {
-      "title": "Nothing here yet",
-      "message": "No records match what you are looking for."
-    },
-    "error": {
-      "title": "Something went wrong.",
-      "message": "This data could not be loaded. Try again."
-    },
-    "denied": {
-      "title": "You do not have access",
-      "message": "You do not have permission to view this content. Contact your system administrator if you believe this is a mistake."
-    }
-  },
-  "ping": {
-    "title": "Infrastructure health",
-    "subtitle": "A live round-trip against the versioned API, measured in this browser.",
-    "service": "Service",
-    "time": "Server time",
-    "requestId": "Request ID",
-    "endpoint": "Endpoint",
-    "latency": "Round-trip",
-    "retry": "Try again",
-    "refresh": "Run the check again",
-    "environment": "Client environment",
-    "locale": "Locale",
-    "direction": "Direction",
-    "status": {
-      "label": "Status",
-      "checking": "Checking…",
-      "operational": "Operational",
-      "unreachable": "Unreachable"
-    }
-  },
-  "shell": {
-    "skipToContent": "Skip to content"
-  },
-  "nav": {
-    "primary": "Primary navigation",
-    "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar",
-    "open": "Open navigation",
-    "close": "Close navigation",
-    "group": {
-      "system": "System",
-      "administration": "Administration"
-    },
-    "item": {
-      "home": "System diagnostics",
-      "users": "Employees",
-      "roles": "Roles & Permissions",
-      "accountSecurity": "Account security"
-    }
-  },
-  "theme": {
-    "switch": "Theme",
-    "warm-editorial": "Warm Editorial",
-    "clean-monochrome": "Clean Monochrome",
-    "midnight-obsidian": "Midnight Obsidian"
-  },
-  "user": {
-    "signedOut": "Not signed in",
-    "signOut": "Sign out"
-  },
-  "action": {
-    "cancel": "Cancel",
-    "save": "Save",
-    "saving": "Saving…",
-    "edit": "Edit",
-    "close": "Close"
-  },
-  "impersonation": {
-    "banner": "You are signed in as {name} ({role}). Everything you do is recorded against your own account.",
-    "leave": "Leave and return to your account"
-  },
-  "users": {
-    "title": "Employees",
-    "subtitle": "Accounts are created here. There is no self sign-up.",
-    "create": "Add employee",
-    "loading": "Loading employees…",
-    "deactivate": "Deactivate",
-    "reactivate": "Reactivate",
-    "loginAs": "Sign in as",
-    "rolesUnavailable": "There is no role you are permitted to assign, so the form is unavailable.",
-    "column": {
-      "name": "Name",
-      "email": "Email",
-      "role": "Role",
-      "status": "Status",
-      "actions": "Actions"
-    },
-    "status": {
-      "active": "Active",
-      "suspended": "Suspended"
-    },
-    "filter": {
-      "status": "Status",
-      "statusAll": "Any status",
-      "role": "Role",
-      "roleAll": "Any role"
-    },
-    "pagination": {
-      "label": "Employee pages",
-      "previous": "Previous",
-      "next": "Next",
-      "position": "Page {page} of {pages} · {total} employees"
-    },
-    "confirm": {
-      "deactivateTitle": "Deactivate this account?",
-      "deactivateMessage": "{name} will be signed out of every device and blocked from signing in. Their customers, deals and reports stay where they are. The account is never deleted.",
-      "reactivateTitle": "Reactivate this account?",
-      "reactivateMessage": "{name} will be able to sign in again. They will need to enter their password."
-    },
-    "form": {
-      "createTitle": "Add an employee",
-      "editTitle": "Edit employee",
-      "name": "Name",
-      "email": "Email address",
-      "role": "Role",
-      "rolePlaceholder": "Choose a role",
-      "noAssignableRoles": "There is no role you are permitted to assign.",
-      "password": "Initial password",
-      "passwordHint": "At least 8 characters, with letters and numbers.",
-      "passwordNotHere": "Passwords are changed by the account holder, with a code sent to their email.",
-      "nameRequired": "Enter a name.",
-      "emailRequired": "Enter an email address.",
-      "roleRequired": "Choose a role.",
-      "passwordPolicy": "The password must be at least 8 characters and contain both letters and numbers.",
-      "emailTaken": "That email address already belongs to an account.",
-      "roleNotAssignable": "You may not assign that role.",
-      "forbidden": "You do not have permission to perform this action.",
-      "rejected": "The change was not accepted. Check the fields and try again.",
-      "unreachable": "The server could not be reached. Check your connection and try again."
-    },
-    "viewDetails": "Details",
-    "details": {
-      "title": "Employee details",
-      "loading": "Loading the employee…",
-      "lastActivity": "Last activity",
-      "neverActive": "Not signed in on any device",
-      "devices": "Signed-in devices",
-      "devicesExplainer": "Devices this employee is currently signed in on. Signing one out ends that session immediately.",
-      "deviceMeta": "IP {ip} · last active {active}",
-      "noDevices": "This employee is not signed in on any device.",
-      "unknownIp": "unknown address",
-      "unknownDevice": "Unrecognised device",
-      "revoke": "Sign this device out",
-      "terminated": "That device was signed out.",
-      "confirm": {
-        "title": "Sign this device out?",
-        "message": "This ends the session immediately on that device. {name} will have to sign in again there.",
-        "action": "Sign the device out"
-      },
-      "error": {
-        "own": "This is the device you are using. Sign out to end this session.",
-        "gone": "That device is no longer signed in.",
-        "userGone": "That employee is no longer available.",
-        "denied": "You do not have permission to sign this device out.",
-        "rejected": "The request was refused. Reload the page and try again.",
-        "unreachable": "The server could not be reached. Check your connection and try again."
-      }
-    }
-  },
-  "roles": {
-    "title": "Roles & Permissions",
-    "subtitle": "Grant or revoke permissions per role. Changes take effect on the next request — nothing is deployed and nothing is restarted.",
-    "loading": "Loading the permission matrix…",
-    "selector": {
-      "label": "Choose a role"
-    },
-    "immutableNotice": "{role} has unconditional access to everything, granted by the role itself rather than by these rows. Editing them would change nothing, so they are locked.",
-    "save": "Save changes",
-    "discard": "Discard changes",
-    "saved": "Saved. {granted} granted, {revoked} revoked. In effect from the next request.",
-    "savedNoChange": "Saved. Nothing had changed, so nothing was recorded.",
-    "cell": {
-      "notDefined": "—"
-    },
-    "column": {
-      "permission": "Permission"
-    },
-    "badge": {
-      "immutable": "Immutable",
-      "locked": "Locked",
-      "unknownScope": "Undefined scope: {scopes}"
-    },
-    "lockedReason": "No role may hold this action. Deletion is never granted — records are deactivated or archived instead.",
-    "toggle": {
-      "label": "{permission}, scope {scope}"
-    },
-    "changes": {
-      "none": "No unsaved changes.",
-      "pending": "{count} unsaved change(s)."
-    },
-    "scope": {
-      "own": "Own",
-      "team": "Team",
-      "all": "All",
-      "out": "Outdoor",
-      "asgn": "Assigned"
-    },
-    "resource": {
-      "admin": "Administration",
-      "catalog": "Catalog & Suppliers",
-      "customer": "Customers",
-      "deal": "Deals / Requests",
-      "procurement": "Procurement",
-      "quotation": "Customer Quotations",
-      "report": "Reports",
-      "supplier_quotation": "Supplier Quotations",
-      "visit": "Visits"
-    },
-    "diff": {
-      "title": "Confirm the changes to {role}",
-      "summary": "{granted} permission(s) will be granted and {revoked} will be revoked.",
-      "granted": "Granted ({count})",
-      "revoked": "Revoked ({count})",
-      "none": "None.",
-      "effect": "This is a configuration change, not a deployment: the next request each affected person makes is already checked against the new matrix.",
-      "confirm": "Apply changes"
-    },
-    "create": {
-      "action": "New role",
-      "title": "Create a role",
-      "explainer": "A new role starts with no permissions. Grant them on this screen once it exists — the change takes effect on the next request.",
-      "slug": "Identifier",
-      "slugHint": "Lowercase letters, numbers and underscores. Used in URLs and cannot be changed later.",
-      "slugInvalid": "Use lowercase letters, numbers and underscores, starting with a letter.",
-      "name": "Name (English)",
-      "nameInvalid": "Enter a name of at least two characters.",
-      "nameAr": "Name (Arabic)",
-      "nameArHint": "Optional. Without it, the English name is shown in both languages.",
-      "description": "Description",
-      "thenGrant": "You will be taken to this role's permissions once it is created.",
-      "submit": "Create role"
-    },
-    "archive": {
-      "action": "Archive role",
-      "confirm": {
-        "title": "Archive this role?",
-        "message": "{name} and every permission it holds will be archived. Nothing is deleted, and a role somebody is assigned to cannot be archived.",
-        "action": "Archive role"
-      }
-    },
-    "error": {
-      "slugTaken": "Another role already uses that identifier.",
-      "nameTaken": "Another role already uses that name.",
-      "nameArTaken": "Another role already uses that Arabic name.",
-      "invalid": "Check the highlighted fields and try again.",
-      "systemRole": "That role is part of the system and cannot be archived.",
-      "roleInUse": "People are still assigned to that role. Move them to another role first.",
-      "gone": "That role no longer exists. The list has been refreshed.",
-      "immutable": "This role's permissions cannot be edited.",
-      "forbidden": "One of the selected permissions may not be granted to any role.",
-      "staleMatrix": "One of the selected permissions no longer exists. Reload the screen and try again.",
-      "denied": "You do not have permission to change roles.",
-      "rejected": "The change was rejected. Nothing was saved.",
-      "unreachable": "The server could not be reached. Nothing was saved."
-    }
-  },
-  "account": {
-    "title": "Account security",
-    "subtitle": "Your password and the devices signed in to your account.",
-    "password": {
-      "title": "Change password",
-      "explainer": "We email a verification code before the change is applied.",
-      "current": "Current password",
-      "next": "New password",
-      "confirm": "Confirm new password",
-      "mismatch": "The two passwords do not match.",
-      "ruleLength": "At least {length} characters",
-      "ruleLetter": "Contains a letter",
-      "ruleDigit": "Contains a number",
-      "submit": "Change password",
-      "sending": "Sending the code…",
-      "signsOutEverywhere": "Changing your password signs you out on every device, including this one."
-    },
-    "challenge": {
-      "title": "Confirm the change",
-      "intro": "We sent a verification code to {email}. Enter it to finish changing your password.",
-      "label": "{length}-digit code",
-      "remaining": "The code stops working in {time}.",
-      "expired": "This code has expired. Send a new one.",
-      "resend": "Send a new code",
-      "resending": "Sending…",
-      "confirm": "Change password"
-    },
-    "devices": {
-      "title": "Signed-in devices",
-      "explainer": "Sign out any device you do not recognise. Sessions also end on their own after eight idle hours.",
-      "loading": "Loading your devices…",
-      "current": "This device",
-      "revoke": "Sign out",
-      "revokeOthers": "Sign out other devices",
-      "revoked": "That device was signed out.",
-      "revokedOthers": "Every other device was signed out.",
-      "meta": "IP {ip} · last active {active} · signed in {since}",
-      "unknownIp": "unknown address",
-      "unknownDevice": "Unrecognised device"
-    },
-    "error": {
-      "currentPassword": "Your current password is not correct.",
-      "codeInvalid": "That code is not valid. Check it, or send a new one.",
-      "codeExpired": "That code has expired. Send a new one and try again.",
-      "policy": "The new password does not meet the password rules.",
-      "unchanged": "The new password must be different from the current one.",
-      "challengeFailed": "The verification code could not be sent. Try again shortly.",
-      "resendLimited": "Too many codes requested. Wait a few minutes before asking for another.",
-      "deviceIsCurrent": "This is the device you are using. Sign out to end this session.",
-      "deviceGone": "That device is no longer signed in.",
-      "rejected": "The change was refused. Reload the page and try again.",
-      "unreachable": "The server could not be reached. Check your connection and try again."
-    }
-  }
 }

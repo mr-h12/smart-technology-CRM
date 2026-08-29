@@ -24,6 +24,20 @@ return [
         'unknown_sort_field' => 'هذه القائمة لا تتيح الترتيب بهذا الحقل.',
     ],
 
+    'settings' => [
+        // أسماء حقول الشاشة ٤ في §13 كما تظهر داخل رسالة تحقّق يقرؤها إنسان.
+        'attributes' => [
+            'company_name' => 'اسم الشركة',
+            'company_address' => 'العنوان',
+            'company_phones' => 'أرقام الهاتف',
+            'defaults_currency' => 'العملة الافتراضيّة',
+            'defaults_tax_percent' => 'الضريبة الافتراضيّة',
+            'locale_language' => 'اللغة',
+            'locale_timezone' => 'المنطقة الزمنيّة',
+            'locale_date_format' => 'صيغة التاريخ',
+        ],
+    ],
+
     'managed_list' => [
         'duplicate_code' => 'هذا الرمز مستخدَم بالفعل في هذه القائمة.',
     ],

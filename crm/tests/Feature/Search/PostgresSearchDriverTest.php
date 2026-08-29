@@ -12,6 +12,7 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -126,6 +127,41 @@ final class PostgresSearchDriverTest extends TestCase
         $literal = $this->customer('Back\\slash');
 
         self::assertSame([$literal], $this->search->search(SearchIndex::Customers, 'Back\\slash'));
+    }
+
+    // ─────────────────────────────────── §10.2 · §14.2 Arabic normalisation
+
+    /**
+     * Both directions, because a person types whichever form they know.
+     *
+     * §14.2 requires "Arabic search with hamza, taa marbuta and yaa
+     * normalisation" and §10.2 the same for the duplicate check. Folding only
+     * the query would find `احمد` on file from `أحمد` typed, and not the
+     * reverse; folding only the column would do the opposite. Both sides are
+     * asserted so neither half can be dropped unnoticed.
+     *
+     * @return array<string, array{string, string}> the keys are the data-set names PHPUnit prints
+     */
+    public static function arabicForms(): array
+    {
+        return [
+            'hamza above, plain typed' => ['أحمد حسن', 'احمد'],
+            'hamza above, written typed' => ['احمد حسن', 'أحمد'],
+            'hamza below' => ['إبراهيم علي', 'ابراهيم'],
+            'taa marbuta on file' => ['فاطمة سعيد', 'فاطمه'],
+            'taa marbuta typed' => ['فاطمه سعيد', 'فاطمة'],
+            'alef maksura on file' => ['ليلى كامل', 'ليلي'],
+            'alef maksura typed' => ['ليلي كامل', 'ليلى'],
+        ];
+    }
+
+    #[DataProvider('arabicForms')]
+    public function test_that_a_name_is_found_whichever_form_is_typed(string $stored, string $typed): void
+    {
+        $id = $this->customer($stored);
+        $this->customer('Sara Fouad');
+
+        self::assertSame([$id], $this->search->search(SearchIndex::Customers, $typed));
     }
 
     // ──────────────────────────────────────────────────────── an empty query

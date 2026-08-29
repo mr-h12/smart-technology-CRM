@@ -51,6 +51,12 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Support\\Settings\\.*
+        # `D-48`'s search seam, on exactly the same terms: a contract every
+        # module may name so that none of them has to name another. Added with
+        # Module 3 Point 2.1; the first module dependency on it arrives with
+        # Point 3.2, and until then this entry collects nothing.
+        - type: classLike
+          value: ^App\\Support\\Search\\.*
 
     - name: Framework
       collectors:

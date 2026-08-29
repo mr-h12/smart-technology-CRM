@@ -3389,8 +3389,51 @@ Excel import · "customers of deactivated employees" filter
 
 #### Step 2 — `SearchService` *(approved 2026-08-29)*
 
-- [ ] **2.1** the seam + `PostgresSearchDriver` (ILIKE) in `App\Support\Search`, with a
+- [x] **2.1** the seam + `PostgresSearchDriver` (ILIKE) in `App\Support\Search`, with a
       `SharedContracts` entry in `deptrac.layers.yaml` on the `App\Support\Settings` precedent
+      *(`D-48`: "Meilisearch comes last — behind an abstraction layer built on day one", and the
+      build plan states the condition — without the layer, adding Meilisearch at the end means
+      **rewriting every screen with a search bar**.
+      **The driver answers with identifiers, not rows, and that is what makes the swap possible.**
+      Meilisearch searches its own index and returns document ids that the caller hydrates from
+      PostgreSQL; a contract returning whole rows could be met by an ILIKE driver and **not** by a
+      Meilisearch one, so the shape is chosen now rather than discovered in Module 15.
+      **`SearchIndex` is an enum, not a string** — the build plan writes `search(index, query,
+      filters)` without saying what `index` is, and a case cannot be wrong. One case, because one
+      table exists.
+      **The wildcard escaping is the load-bearing line.** `%`, `_` and `\` are ILIKE instructions,
+      and `OpenAPI_Contract_EN.md` §6.2 says `q` must "not expose a database-specific search
+      syntax" — a person searching `50%` is not writing a pattern.
+      **The filter allowlist is a security boundary, not tidiness:** a filter key is a column name
+      reaching SQL and a key cannot be bound the way a value can. `sales_owner_id` and
+      `is_archived` earn their places from §3.3 (every customer read is owner-scoped) and Flow 7 —
+      a capped search that ignored either would return the wrong results, not fewer right ones.
+      **An empty query is refused rather than answered:** every row or none of them are both silent
+      wrong answers, so the caller decides what a cleared box means.
+      **`ponytail:` a hard cap of 500 with no pagination** — the ceiling is that an over-cap search
+      truncates with no signal; the upgrade path is Meilisearch's native pagination in Module 15,
+      not a bigger number. Noted in the class.
+      **12 tests · 1377 backend.** RED first: the class did not exist.
+      **Two deliberate breaks:** the escaping deleted · the filter allowlist deleted. Both restored,
+      both confirmed with `shasum -a 256 -c`.
+      **Problems found — three, and the first is the one that matters.** (1) ⚠️ **The percent-sign
+      test passed with the escaping deleted.** The decoy was `Ahmed Hassan`, and the unescaped
+      pattern `%50%%` matches anything containing `50`, which that name does not — a decoy that
+      cannot be matched the wrong way proves nothing about the right way. Replaced with
+      `507 Supplies`, which the wildcard *does* match; all three escaping tests then failed on the
+      break as they must. **Found by breaking the code, never by reading the test** — the fifth such
+      weak assertion this project has caught this way. (2) PHPStan level 10: `select()` is typed
+      `array`, so `array_map` returned `array<string>` where the contract promises `list<string>`;
+      replaced with a loop that appends, and `identifier()` now takes `mixed` and narrows with
+      `is_object` — an assertion, not a cast. (3) A `cd crm &&` chain short-circuited again and the
+      container binding was silently never added; the failing test caught it. **Second occurrence
+      in two points** — `cd X && …` is now avoided outright in favour of absolute paths.
+      **Not covered:** **`name` is the only searchable column.** No source enumerates them — §6.2's
+      example is `?q=ahmed`, §4.2 makes `name` the identifying field and `D-35` compares names —
+      so `contact_person`, `phone` and `email` are each an **open owner question**, and each is one
+      line in `SearchIndex::columns()`. No Arabic normalisation yet: that is 2.2. No caller uses the
+      seam until 3.2, so the `SharedContracts` deptrac entry collects nothing today. No relevance
+      ranking, and none pretended — ILIKE has no notion of a better match.)*
 - [ ] **2.2** Arabic normalisation for name matching (§10.2: hamza · taa marbuta · yaa)
 
 #### Step 3 — row scope and the API *(approved 2026-08-29)*

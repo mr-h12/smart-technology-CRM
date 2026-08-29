@@ -297,6 +297,45 @@ built in Module 1's Step 5 and are used by every module after it.
       now long and has **no in-page navigation** between its sections; Design System §5.2 says
       nothing about one, and it was not invented here.
 
+- [x] **S-02.2 / S-02.3** Assisted input on the settings page. *(2026-08-29, owner's request)*
+      **One `<select>`, five suggestion lists, and the split is the whole decision.** A `<select>`
+      closes a set, which is honest only where a document closes it: §14.2 names Arabic and English
+      as the two languages this product ships in, so `locale.language` is a real choice between two
+      known values and is the one closed control on the form.
+      **Everything else stays typeable, because nothing closes those sets — the server least of
+      all.** `SystemSetting::rule()` is `numeric` for the tax and `string` for the rest, so the API
+      accepts any value. A `<select>` there would be the client inventing a constraint the product
+      has not made — and worse, a stored value outside the list would **vanish from the control that
+      is meant to be showing it**. `<datalist>` gives the dropdown without the lie: Safari draws the
+      arrow, the suggestions are offered, anything may still be typed. A test stores
+      `Mars/Olympus_Mons` and asserts it is still on screen.
+      ⚠️ **`من` / `إلى` on the rate form are a datalist for a permission reason, not a taste one.**
+      `GET /currencies` carries `admin.system_settings`, which the **Manager does not hold** — and
+      §3.11 is precisely who may record a rate. A closed dropdown would be *empty* for them: not
+      stricter, unusable. The codes are offered where they are known and typed where they are not,
+      and `RecordFxRate` remains the only thing that decides whether a code exists. Tested from both
+      sides. No extra request: the codes come from the rounding table the same component already
+      loaded.
+      **Sources, each named rather than invented.** Currencies from `GET /currencies`. Languages
+      from §14.2. **Time zones from the platform** — `Intl.supportedValuesOf('timeZone')`,
+      feature-detected because it is ES2023 and this project's `lib` is ES2022, measured at **418
+      zones** in the test runtime. Date formats are three spellings, and the tax offers `0` and `14`
+      — `14` being the only tax figure anywhere in the documentation (§5.2's worked example) and `0`
+      the exempt end of `D-63`. Neither is seeded and the field still starts empty: a suggestion is
+      not a default.
+      **314 frontend tests · 1330 backend · four deliberate breaks:** the language field stops being
+      a select · every `list` binding detached · the Manager's field pointed at a list that does not
+      exist · a suggestion used as a fallback value.
+      ⚠️ **Break 2 caught three weak assertions of mine.** The time-zone, date-format and tax cases
+      asserted the datalist's *options* and not that the list was **attached to the input** — so they
+      passed with every `list` binding removed, which is an orphaned dropdown that renders nothing.
+      Re-asserted on the attribute; the same break then failed three cases instead of one.
+      **Not covered:** `defaults.currency` costs **a second read of `/currencies`** — `CurrenciesView`
+      below makes the same call for its rounding table. Marked `ponytail:` in the source with the
+      upgrade path (lift the read into the page and pass the rows down) rather than refactored here.
+      The tax and date-format suggestion sets are still awaiting an owner's list; until then they are
+      suggestions over an open set, not a documented enumeration.
+
 - [x] **S-01** The product opens in Arabic, and the collapse control is an icon at the top of the
       menu. *(2026-08-29, on the owner's request in one message)*
       **Two changes with one thing in common: neither was a defect.** The shell did exactly what it

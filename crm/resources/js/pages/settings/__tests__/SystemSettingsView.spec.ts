@@ -331,6 +331,148 @@ describe('SystemSettingsView', () => {
             .toBe('Unsaved Work');
     });
 
+    // ── S-02.2 / S-02.3: assisted input ────────────────────────────────────
+
+    const WITH_CURRENCIES = vi.fn(async (input: string) =>
+        /\/currencies$/.test(String(input))
+            ? json(200, { data: { currencies: [
+                { code: 'EGP', rounding_unit: '1', rounding_enabled: true, is_base: true },
+                { code: 'USD', rounding_unit: '0.01', rounding_enabled: true, is_base: false },
+            ] }, meta: {} })
+            : envelope(SETTINGS));
+
+    /** §14.2 closes this set at two, so it is the one field that may be closed. */
+    it('offers the language as a real select of the two documented languages', async () => {
+        vi.stubGlobal('fetch', WITH_CURRENCIES);
+
+        const view = await render();
+        await flushPromises();
+
+        const select = view.get('[data-setting-key="locale.language"] select');
+        const values = select.findAll('option').map((o) => o.attributes('value'));
+
+        expect(values).toEqual(['', 'ar', 'en']);
+        expect(view.findAll('[data-testid="setting-select"]')).toHaveLength(1);
+    });
+
+    it('sends the chosen language as a string', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (init?.method === 'PATCH') {
+                return envelope({ ...SETTINGS, 'locale.language': 'en' });
+            }
+
+            return /\/currencies$/.test(String(input))
+                ? json(200, { data: { currencies: [] }, meta: {} })
+                : envelope(SETTINGS);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.get('[data-setting-key="locale.language"] select').setValue('en');
+        await view.get('[data-testid="settings-save"]').trigger('submit');
+        await flushPromises();
+
+        const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+
+        expect(JSON.parse(patch![1]?.body as string)).toEqual({ settings: { 'locale.language': 'en' } });
+    });
+
+    it('offers the currencies the API returns under the default-currency field', async () => {
+        vi.stubGlobal('fetch', WITH_CURRENCIES);
+
+        const view = await render();
+        await flushPromises();
+
+        const field = view.get('[data-setting-key="defaults.currency"]');
+        const options = field.findAll('datalist option').map((o) => o.attributes('value'));
+
+        expect(options).toEqual(['EGP', 'USD']);
+        expect(field.get('input').attributes('list')).toBe('options-defaults.currency');
+    });
+
+    /** The platform's IANA list, not one written here. */
+    it('offers the IANA time zones under the time-zone field', async () => {
+        vi.stubGlobal('fetch', WITH_CURRENCIES);
+
+        const view = await render();
+        await flushPromises();
+
+        const field = view.get('[data-setting-key="locale.timezone"]');
+        const options = field.findAll('datalist option').map((o) => o.attributes('value'));
+
+        expect(options.length).toBeGreaterThan(100);
+        expect(options).toContain('Africa/Cairo');
+
+        // ⚠️ The list must be **attached**. Measured: break 2 detached every
+        // `list` binding and this case still passed on the options alone — an
+        // orphaned datalist is a dropdown that renders nothing.
+        expect(field.get('input').attributes('list')).toBe('options-locale.timezone');
+    });
+
+    it('suggests date formats and tax percentages without closing either set', async () => {
+        vi.stubGlobal('fetch', WITH_CURRENCIES);
+
+        const view = await render();
+        await flushPromises();
+
+        const dateField = view.get('[data-setting-key="locale.date_format"]');
+        const taxField = view.get('[data-setting-key="defaults.tax_percent"]');
+
+        expect(dateField.findAll('datalist option').map((o) => o.attributes('value')))
+            .toEqual(['d/m/Y', 'Y-m-d', 'd-m-Y']);
+        expect(taxField.findAll('datalist option').map((o) => o.attributes('value')))
+            .toEqual(['0', '14']);
+
+        // Attached, not merely present — see the time-zone case above.
+        expect(dateField.get('input').attributes('list')).toBe('options-locale.date_format');
+        expect(taxField.get('input').attributes('list')).toBe('options-defaults.tax_percent');
+
+        // Still text controls, still typeable — and `DB-07` on the tax.
+        expect(dateField.get('input').attributes('type')).toBe('text');
+        expect(taxField.get('input').attributes('type')).toBe('text');
+        expect(taxField.get('input').attributes('inputmode')).toBe('decimal');
+    });
+
+    /**
+     * ⚠️ **The regression a `<select>` would have shipped.** The server closes
+     * none of these sets (`SystemSetting::rule()` is `string`), so a stored
+     * value outside the suggestions is legal — and a select would have silently
+     * dropped it from the control meant to be showing it.
+     */
+    it('still shows a stored value that is not among the suggestions', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (input: string) =>
+            /\/currencies$/.test(String(input))
+                ? json(200, { data: { currencies: [] }, meta: {} })
+                : envelope({ ...SETTINGS, 'locale.timezone': 'Mars/Olympus_Mons', 'defaults.tax_percent': '7.5' })));
+
+        const view = await render();
+        await flushPromises();
+
+        expect((view.get('[data-setting-key="locale.timezone"] input').element as HTMLInputElement).value)
+            .toBe('Mars/Olympus_Mons');
+        expect((view.get('[data-setting-key="defaults.tax_percent"] input').element as HTMLInputElement).value)
+            .toBe('7.5');
+    });
+
+    /** A suggestion list the caller could not load costs the dropdown, not the field. */
+    it('keeps the currency field usable when the currencies cannot be read', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (input: string) =>
+            /\/currencies$/.test(String(input))
+                ? json(403, { error: { code: 'permission_denied' } })
+                : envelope(SETTINGS)));
+
+        const view = await render();
+        await flushPromises();
+
+        const field = view.get('[data-setting-key="defaults.currency"]');
+
+        expect(field.find('datalist').exists()).toBe(false);
+        expect(field.get('input').attributes('list')).toBeUndefined();
+        expect((field.get('input').element as HTMLInputElement).value).toBe('EGP');
+    });
+
     // ── S-02: one page, four sections, three permissions ───────────────────
 
     /**

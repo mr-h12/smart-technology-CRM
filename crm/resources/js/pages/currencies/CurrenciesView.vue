@@ -186,6 +186,23 @@ async function saveRounding(row: RoundingRow): Promise<void> {
     }
 }
 
+/**
+ * The codes offered under the two rate fields (S-02.2).
+ *
+ * ⚠️ **A `<datalist>` and not a `<select>`, and the reason is §3.11 rather
+ * than taste.** `GET /currencies` carries `admin.system_settings`, which the
+ * **Manager does not hold** — and the Manager is exactly who §3.11 lets record
+ * a rate. A closed dropdown would therefore be *empty* for them, which does not
+ * make the form stricter; it makes it impossible to use. So the codes are
+ * offered where they are known and typed where they are not, and the server
+ * remains the only thing that decides whether a code exists (`RecordFxRate`
+ * refuses an unknown or archived one).
+ *
+ * Empty for the Manager, because `rows` is only loaded for a caller who holds
+ * the rounding row. No extra request is made for this.
+ */
+const currencyCodes = computed(() => rows.value.map((row) => row.code));
+
 // ── the rates half ─────────────────────────────────────────────────────────
 
 const rates = ref<FxRate[]>([]);
@@ -429,6 +446,13 @@ onMounted(async () => {
                 data-testid="rates-form"
                 @submit.prevent="record"
             >
+                <!-- One list for both fields: the same set of codes answers
+                     "from" and "to", and two identical datalists would be two
+                     things to keep in step. -->
+                <datalist v-if="currencyCodes.length > 0" id="rate-currency-codes">
+                    <option v-for="code in currencyCodes" :key="code" :value="code" />
+                </datalist>
+
                 <label class="flex flex-col gap-1.5">
                     <span class="text-form-label text-[var(--color-text)]">{{ t('currencies.rates.field.from') }}</span>
                     <input
@@ -436,6 +460,7 @@ onMounted(async () => {
                         type="text"
                         maxlength="3"
                         autocapitalize="characters"
+                        :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.from !== null"
                         data-testid="rates-from"
@@ -453,6 +478,7 @@ onMounted(async () => {
                         type="text"
                         maxlength="3"
                         autocapitalize="characters"
+                        :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.to !== null"
                         data-testid="rates-to"

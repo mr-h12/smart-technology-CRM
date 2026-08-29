@@ -444,6 +444,32 @@ describe('recording a rate', () => {
     });
 });
 
+describe('the currency codes offered on the rate form', () => {
+    it('offers the loaded codes to both fields', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        const options = wrapper.findAll('#rate-currency-codes option').map((o) => o.attributes('value'));
+
+        expect(options).toEqual(['EGP', 'USD', 'EUR']);
+        expect(wrapper.get('[data-testid="rates-from"]').attributes('list')).toBe('rate-currency-codes');
+        expect(wrapper.get('[data-testid="rates-to"]').attributes('list')).toBe('rate-currency-codes');
+    });
+
+    /**
+     * ⚠️ **The case a closed `<select>` would have broken.** `GET /currencies`
+     * carries `admin.system_settings`, which the Manager does not hold — and
+     * §3.11 is precisely who may record a rate. An empty dropdown would not
+     * make the form stricter; it would make it unusable for the one role that
+     * needs it. The field carries no list and stays typeable.
+     */
+    it('leaves the fields typeable for a caller who cannot read the currencies', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK]);
+
+        expect(wrapper.find('#rate-currency-codes').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="rates-from"]').attributes('list')).toBeUndefined();
+    });
+});
+
 // ── §14.2 ──────────────────────────────────────────────────────────────────
 
 describe('the screen in Arabic', () => {

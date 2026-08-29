@@ -355,6 +355,7 @@
             "description": "The company details and the values new records start from."
         },
         "saved": "Settings saved.",
+        "unset": "Not set",
         "saving": "Saving…",
         "field": {
             "company_name": "Company name",

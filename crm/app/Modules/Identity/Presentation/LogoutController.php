@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\Authentication\SignOut;
 use App\Modules\Identity\Domain\Authentication\SessionAttribute;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

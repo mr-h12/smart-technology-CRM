@@ -57,6 +57,14 @@ parameters:
         # Point 3.2, and until then this entry collects nothing.
         - type: classLike
           value: ^App\\Support\\Search\\.*
+        # `App\Support\Http` — the response envelope every module returns.
+        # Added with Module 3's shared-layer point: `ApiEnvelope` had been
+        # duplicated into Identity and Admin, the two copies had already drifted
+        # (Admin's carried no `error()`), and Customers would have been the third.
+        # `ApiExceptionRenderer` already lived here and had to reach *into*
+        # Identity to build an error body; both now sit on the shared side.
+        - type: classLike
+          value: ^App\\Support\\Http\\.*
 
     - name: Framework
       collectors:
@@ -72,6 +80,12 @@ parameters:
       - Application
       - Domain
       - Framework
+      # The response envelope only. Presentation is the one layer that serialises
+      # a response, so this is the narrowest edge that lets the shared
+      # `ApiEnvelope` replace the duplicated copies — not a licence for
+      # Presentation to reach `App\Support` at large, which is why
+      # `SharedContracts` stays a deliberately narrow set of prefixes.
+      - SharedContracts
     Application:
       - Domain
       - Framework

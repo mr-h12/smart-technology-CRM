@@ -131,6 +131,11 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Support\\Settings\\.*
+        # `App\Support\Http` — the shared response envelope, moved out of
+        # Identity and Admin by Module 3's shared-layer point. See the matching
+        # comment in `deptrac.layers.yaml` for why the duplication ended here.
+        - type: classLike
+          value: ^App\\Support\\Http\\.*
 
     - name: Framework
       collectors:
@@ -197,6 +202,8 @@ parameters:
       - AuditContract
       - Framework
       - Factories
+      # The shared response envelope its own controllers used to own.
+      - SharedContracts
     AuditContract:
       - Framework
     AuditDriver:

@@ -217,15 +217,28 @@ would hide them behind `OD-03` indefinitely.
       one is audited a layer out — but `AUD-01`'s enforcement is weaker than it reads. It is its own
       point because widening the signal re-classifies four already-shipped Identity classes, and
       each needs its disposition decided rather than guessed
-- [ ] **`ApiEnvelope` and the list-query contract belong in a shared layer** — *deferred by the
-      owner 2026-08-28, to a dedicated pass.* `ApiEnvelope` exists twice (Identity's and the copy
-      Point 3.1 made in Admin), and `InvalidListingQuery` is the third instance of the same
-      duplication — Admin may not import Identity's `InvalidListQuery`, because
-      `deptrac.modules.yaml` grants it `Framework`, `SharedContracts` and `AuditContract` and
-      nothing else. Identity's own copy predicted this: *"the moment a second module has endpoints,
-      this belongs in a shared layer that deptrac names — which is a boundary change, and boundary
-      changes are their own point"*. `SettingsEndpointTest` asserts the shape against the documented
-      envelope so the copies cannot drift silently in the meantime
+- [x] **`ApiEnvelope` now lives in a shared layer** — *closed 2026-08-29, as its own point, on the
+      trigger this entry itself named: "before a third module needs one".* Module 3's customers
+      endpoints were that third module. `App\Support\Http\ApiEnvelope` is now the single copy;
+      both module copies are deleted, and `deptrac` names it through `SharedContracts` in **both**
+      configs with `Presentation` and `IdentityDriver` gaining that one edge.
+      ⚠️ **The two copies had already drifted, which is what settled this by measurement rather than
+      taste:** Admin's copy carried **no `error()` at all**, so `OpenAPI §5`'s error envelope existed
+      for one module and silently not the other. It also fixes a dependency pointing the wrong way —
+      `App\Support\Http\ApiExceptionRenderer` had to reach *into* `Identity\Presentation` to build
+      an error body.
+
+- [ ] **The list-query contract is still duplicated, and it cannot follow the envelope** — *the
+      remaining half, and the reason is measured rather than assumed.* `InvalidListQuery` (Identity)
+      and `InvalidListingQuery` (Admin) both live in **Domain**, whose `deptrac.layers.yaml` ruleset
+      is empty on purpose — "may depend on nothing", the load-bearing rule of that file. A shared
+      base in `App\Support` would be a Domain → SharedContracts edge. **Probed, not inferred:** a
+      real reference was added to `Admin\Domain\Listing\InvalidListingQuery` and deptrac answered
+      `DependsOnDisallowedLayer — App\Modules\Admin\Domain\Listing\InvalidListingQuery must not
+      depend on App\Support\Http\ApiEnvelope`; the probe was then reverted and the file confirmed
+      byte-identical with `shasum -a 256 -c`. So Customers gets a third small copy in Point 3.2, and
+      closing this needs either a decision to weaken Domain's empty ruleset or a different shape
+      entirely — both bigger than a Customers point
 - [x] **`D-73` has a row in the master decision log** — *closed 2026-08-23 with Point 1.1, under
       the owner's explicit authorisation.* It is in `§2.8 Operations & Scope`; `grep -n "D-73"
       docs/CRM_Documentation_EN.md` returns line 153, re-checked 2026-08-24. `CRM_Documentation_EN.md`
@@ -3513,6 +3526,40 @@ Excel import · "customers of deactivated employees" filter
       **Not covered:** no query and no endpoint — the predicate is not applied to the database until
       3.2. Nothing here handles `is_archived` (Flow 7, Point 3.4). The negative-authorization tests
       are **unit-level**; real `403`s over HTTP arrive with the endpoint.)*
+- [x] **3.1b** the shared-layer point `ApiEnvelope`'s own docblock had been owed since Module 2
+      *(unplanned, approved by the owner 2026-08-29 when Point 3.2's reading surfaced it.
+      **Why it had to come first:** `deptrac.modules.yaml` gives `Customers` an empty ruleset, so the
+      module cannot reference `Illuminate`, let alone an envelope owned by Identity — and
+      `ApiEnvelope` sat in `Identity\Presentation`, which the module config places in
+      `IdentityDriver`, the half *"nothing may ever reach"*. Customers had two honest options: a
+      third copy, or the move this file already owed. The debt entry named its own trigger —
+      *"before a third module needs one"* — and Customers is the third.
+      **The copies had already drifted:** Admin's carried no `error()`, so `OpenAPI §5`'s error
+      envelope was one module's and silently not the other's. Measured by diffing them, not assumed.
+      **Scope was cut by a probe, not by preference.** The same debt names the list-query contract,
+      and that half **cannot** move: both exceptions live in Domain, whose ruleset is empty by
+      design. A real reference was added and deptrac answered `DependsOnDisallowedLayer`; the probe
+      was reverted and verified byte-identical. So the envelope moved and the exception did not, and
+      the register now says exactly that.
+      **18 files, all of them one `use` line**, plus the two deletions and the two deptrac configs.
+      `1418 passed (9175 assertions) · 131.53s · EXIT=0` · `pint --test` **PASS 347 files** (348
+      minus the removed copy) · `phpstan` **[OK]** · `deptrac` ×2 **Violations 0 · Uncovered 0**.
+      ⚠️ **The assertion count fell by one and that was chased rather than waved through:**
+      `NoHardCodedTextTest` asserts once per PHP file under `app/` and `routes/`, and this point
+      removed two files and added one. Net −1 file, net −1 assertion. Explained, not a defect.
+      **Problems found:** (1) a `for f in $files` loop silently did nothing because zsh does not
+      word-split unquoted variables — caught because `perl` reported "File name too long"; no file
+      was half-edited, confirmed against `git status` before retrying with `while read`. (2) The
+      retry added a real `use` to `Admin\Domain\Listing\InvalidListingQuery`, which only mentions
+      the envelope in a **docblock** — a Domain class given an import it must not have. Reverted with
+      `git checkout --`. ⚠️ **deptrac reported `Violations 0` with that bad import in place**, so an
+      unused import is invisible to it; that is why the probe above used a real reference.
+      (3) A `git stash`-based comparison was killed by a 2-minute timeout **after** stashing and
+      **before** popping, leaving the whole change in the stash; recovered with `git stash pop` and
+      all 22 files verified present.
+      **Not covered:** the list-query duplication (above), and `Customers` still has **no** deptrac
+      ruleset entry — that arrives with 3.2, which is where the module first needs `Framework` and
+      `SharedContracts`.)*
 - [ ] **3.2** `GET /customers` (§10.1's deactivated-employee filter · `q` through `SearchService`) and
       `GET /customers/{id}`
 - [ ] **3.3** `POST` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning, never a block**

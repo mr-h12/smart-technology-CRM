@@ -10,6 +10,7 @@ use App\Modules\Identity\Application\RoleAdministration\ListRoles;
 use App\Modules\Identity\Application\RoleAdministration\SyncRolePermissions;
 use App\Modules\Identity\Application\RoleAdministration\UpdateRole;
 use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;

@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\RoleAdministration\ListPermissions;
 use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

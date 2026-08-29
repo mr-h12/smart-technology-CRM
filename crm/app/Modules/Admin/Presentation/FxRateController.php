@@ -8,6 +8,7 @@ use App\Modules\Admin\Application\Money\RecordFxRate;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Listing\ListingQuery;
 use App\Modules\Admin\Domain\Money\RecordedRate;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

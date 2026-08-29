@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\Impersonation\StartImpersonation;
+use App\Support\Http\ApiEnvelope;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;

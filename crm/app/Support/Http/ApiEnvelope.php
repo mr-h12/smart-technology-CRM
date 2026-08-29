@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Identity\Presentation;
+namespace App\Support\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,12 +19,33 @@ use Illuminate\Http\Request;
  * the same way: duplicate the string, and let a test assert the two are
  * identical. `AuthenticationTest` is that test here.
  *
- * ── Why it lives in Identity and not somewhere shared ──────────────────────
+ * ── Why it lives here, and what moving it cost ─────────────────────────────
  *
- * Because Identity is the only module with endpoints today. The moment a second
- * one has them, this belongs in a shared layer that `deptrac` names — which is
- * a boundary change, and boundary changes are their own point rather than a
- * side effect of this one.
+ * It began in `Identity\Presentation` and predicted its own move: *"the moment
+ * a second module has endpoints, this belongs in a shared layer that deptrac
+ * names — which is a boundary change, and boundary changes are their own point
+ * rather than a side effect of this one"*. Module 2 made the second copy in
+ * `Admin` and recorded the debt as owed **before a third module needs one**.
+ * Module 3's customers endpoints are that third module, so this is that point.
+ *
+ * The two copies had already drifted, which is the argument settled by
+ * measurement rather than taste: Admin's copy had no `error()` at all, so the
+ * `OpenAPI §5` error envelope existed for one module and silently not the other.
+ *
+ * Living in `App\Support\Http` also fixes a dependency that pointed the wrong
+ * way. {@see ApiExceptionRenderer} is wired from `bootstrap/app.php` and had to
+ * reach *into* `Identity\Presentation` to build an error body; now both sit in
+ * the same shared place and no module owns the envelope every module returns.
+ *
+ * `deptrac` names it through `SharedContracts` in both configs, and
+ * `Presentation` gained that layer in its ruleset — the narrowest edge that
+ * makes this legal, rather than opening Presentation to `App\Support` at large.
+ *
+ * ⚠️ **The list-query half of the same debt did not move, and that was measured.**
+ * `InvalidListQuery` and `InvalidListingQuery` live in **Domain**, whose deptrac
+ * ruleset is empty on purpose — "may depend on nothing", the load-bearing rule of
+ * `deptrac.layers.yaml`. A shared base in `App\Support` would be a Domain edge,
+ * so that half stays duplicated and stays on the register.
  */
 final class ApiEnvelope
 {

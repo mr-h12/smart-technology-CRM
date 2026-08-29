@@ -9,6 +9,7 @@ use App\Modules\Identity\Application\SessionManagement\RevokeDeviceSession;
 use App\Modules\Identity\Application\SessionManagement\RevokeOtherDeviceSessions;
 use App\Modules\Identity\Domain\Authentication\SessionAttribute;
 use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

@@ -6,6 +6,7 @@ namespace App\Modules\Admin\Presentation;
 
 use App\Modules\Admin\Application\Settings\UpdateSettings;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

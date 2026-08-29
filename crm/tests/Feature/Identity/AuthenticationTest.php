@@ -16,7 +16,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Identity\Infrastructure\Eloquent\UserSession;
 use App\Modules\Identity\Infrastructure\Notifications\AccountLockedNotification;
-use App\Modules\Identity\Presentation\ApiEnvelope;
+use App\Support\Http\ApiEnvelope;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;

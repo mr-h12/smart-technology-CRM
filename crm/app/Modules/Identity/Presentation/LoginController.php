@@ -8,6 +8,7 @@ use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Modules\Identity\Domain\Authentication\IdleTimeout;
 use App\Modules\Identity\Domain\Authentication\Profile;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 
 /**

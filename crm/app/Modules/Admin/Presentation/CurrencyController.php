@@ -9,6 +9,7 @@ use App\Modules\Admin\Application\Money\UpdateCurrencyRounding;
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Money\Currency;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;

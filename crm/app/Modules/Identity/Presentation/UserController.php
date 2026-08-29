@@ -13,6 +13,7 @@ use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Domain\Administration\UserListCriteria;
 use App\Modules\Identity\Domain\Authentication\SessionAttribute;
 use App\Modules\Identity\Domain\RoleAdministration\ReferenceListCriteria;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;

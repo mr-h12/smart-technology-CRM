@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Application\Authentication\RequestPasswordChallenge;
+use App\Support\Http\ApiEnvelope;
 use DateTimeImmutable;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;

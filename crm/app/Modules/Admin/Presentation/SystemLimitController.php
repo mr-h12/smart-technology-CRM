@@ -6,6 +6,7 @@ namespace App\Modules\Admin\Presentation;
 
 use App\Modules\Admin\Application\Settings\UpdateSystemLimits;
 use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

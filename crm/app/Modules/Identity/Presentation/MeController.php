@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Domain\Authentication\Profile;
 use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

@@ -9,6 +9,7 @@ use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Listing\ListingQuery;
 use App\Modules\Admin\Domain\Reference\ListEntry;
 use App\Modules\Admin\Domain\Reference\ManagedList;
+use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;

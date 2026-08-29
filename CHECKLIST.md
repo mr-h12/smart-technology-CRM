@@ -3560,8 +3560,57 @@ Excel import · "customers of deactivated employees" filter
       **Not covered:** the list-query duplication (above), and `Customers` still has **no** deptrac
       ruleset entry — that arrives with 3.2, which is where the module first needs `Framework` and
       `SharedContracts`.)*
-- [ ] **3.2** `GET /customers` (§10.1's deactivated-employee filter · `q` through `SearchService`) and
+- [x] **3.2** `GET /customers` (§10.1's deactivated-employee filter · `q` through `SearchService`) and
       `GET /customers/{id}`
+      *(**Customers' first endpoint, and its first deptrac ruleset.** The module had `Customers: ~` —
+      it could not reference `Illuminate`, let alone anything else — so this point grants it
+      `Framework`, `SharedContracts` and `IdentityContract`. The third is the crossing
+      `deptrac.modules.yaml` predicted in writing: *"SEC-07 makes this the module every other module
+      will eventually ask about permissions"*. `SEC-08` cannot scope a row without knowing what the
+      caller's grant reaches, so Customers reads Identity's `PermissionDecision` off the request. It
+      points at the **contract** half only; nothing points at `IdentityDriver`.
+      **The row scope is applied by construction.** Every read starts from one private `scoped()`
+      builder factory — a filter each method remembers to add is a filter one method will forget,
+      and the row that leaks is somebody else's customer. A scope that permits nothing returns early
+      instead of asking PostgreSQL a question whose answer is known.
+      **`q` narrows, never widens.** `D-48`/§6.2 route it through `SearchService`, which answers with
+      **ids**; those are intersected with the already-scoped query. Handing the search a scope filter
+      and trusting its answer would put an authorisation decision inside the component Module 15
+      replaces with Meilisearch. A test proves it end to end in Arabic — `?q=احمد` matches
+      `أحمد للتجارة` through §10.2's normalisation — and another proves `q` cannot reach past the
+      caller's own rows.
+      **§10.1's filter asks Identity rather than joining `users`.** `CLAUDE.md` forbids direct
+      cross-module database access, so `owner_inactive` pages through `UserDirectoryInterface`. A
+      `ponytail:` comment names the ceiling and the upgrade (a bulk `inactiveUserIds()`, agreed with
+      Identity rather than added from a Customers point).
+      **Multi-field sort, unlike Identity's criteria** — and that is the contract, not drift: §6.2's
+      example is written against this very resource, `?q=ahmed&sort=-created_at,name`.
+      **A row out of scope is 404, never 403** (`OpenAPI §5.1`: "do not reveal which case applies"),
+      which is why `CustomerNotFound` is one exception for both cases rather than two.
+      **19 tests · 1437 backend (9344 assertions) · 145.17 s · EXIT=0** (1418 + 19 ✓) · `pint --test`
+      **PASS 359 files** · `phpstan` **[OK]** · `deptrac` ×2 **Violations 0 · Uncovered 0** ·
+      frontend **346 passed**, built in 4.16 s.
+      ⚠️ **Two tests passed vacuously in RED and were verified afterwards** — the documented trap,
+      caught this time by reading which tests passed rather than only the count. With no route at
+      all, a request 404s, so *"a row outside the caller's scope is 404"* and *"an unknown id is 404"*
+      both passed against a module with no code in it. **Verified after the route existed, by two
+      deliberate breaks:** `find()` made to ignore the scope (the scope test failed) and
+      `CustomerNotFound` made to render 422 (both failed). Restored and confirmed byte-identical with
+      `shasum -a 256 -c`.
+      **Problems found:** (1) the first RED run failed inside the test's own helper rather than
+      against the endpoint — `RefreshDatabase` migrates but does not seed, so no role existed;
+      `RolePermissionSeeder` is now seeded in `setUp`, which also means the endpoint is checked
+      against §3.12 rule 5's **database** matrix rather than a fixture agreeing with itself.
+      (2) PHPStan level 10 rejected seven mixed-narrowing sites — a cast on `getAuthIdentifier()` and
+      six offsets on `->json()`. Fixed by narrowing with assertions, never casts, as the standards
+      require.
+      **Not covered:** no `POST`/`PATCH` (3.3), no archive/restore endpoint (3.4) — `filter[is_archived]`
+      reads archived rows but **does not enforce Flow 7's "Manager and Team Leader only"**, which is
+      3.4's rule and is not yet applied here. No `include`, no `group_by`. The owner's *name* is not
+      expanded onto a row: it belongs to Identity, and inlining it would reach for another module's
+      rows once per row. And `team`/`out`/`asgn` still resolve to nothing, so Team Leader, Outdoor
+      Supervisor and Procurement see an empty list — tested explicitly, so the deferral's cost is
+      visible rather than surprising.)*
 - [ ] **3.3** `POST` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning, never a block**
 - [ ] **3.4** `PATCH /customers/{id}/archive` and restore (Flow 7: Manager and Team Leader only)
 - [ ] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)

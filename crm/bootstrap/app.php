@@ -6,6 +6,8 @@ use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Customers\Domain\Listing\CustomerNotFound;
+use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -145,6 +147,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (InvalidListingQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::invalidListingQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (InvalidCustomerListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidCustomerListQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (CustomerNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::customerNotFound($e, $request)
                 : null,
         );
 

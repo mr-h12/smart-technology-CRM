@@ -8,6 +8,7 @@ use App\Modules\Admin\Presentation\FxRateController;
 use App\Modules\Admin\Presentation\ManagedListController;
 use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Admin\Presentation\SystemLimitController;
+use App\Modules\Customers\Presentation\CustomerController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
 use App\Modules\Identity\Presentation\LeaveImpersonationController;
@@ -357,4 +358,24 @@ Route::middleware('auth')->group(function (): void {
 
     Route::post('/managed-lists/{list}', [ManagedListController::class, 'store'])
         ->middleware('permission:admin.system_settings');
+});
+
+// ── §10 Customers ──────────────────────────────────────────────────────────
+//
+// `OpenAPI §7.1`'s conventional resource routes, and §3.3's own permission row
+// — `customer.view` exists in the matrix, so unlike `D-78`'s user endpoints
+// there is nothing to map and nothing to invent.
+//
+// **No scope argument on the middleware.** `permission:customer.view` asks only
+// whether the caller may reach the endpoint at all; which *rows* they get is
+// `SEC-08`, and that is answered per row by `CustomerRowScope` from the reach
+// the middleware leaves behind. Naming a scope here would ask the wrong
+// question — a caller holding `own` would be refused the endpoint outright
+// rather than shown their own customers.
+Route::middleware('auth')->prefix('customers')->group(function (): void {
+    Route::get('/', [CustomerController::class, 'index'])
+        ->middleware('permission:customer.view');
+
+    Route::get('/{customer}', [CustomerController::class, 'show'])
+        ->middleware('permission:customer.view');
 });

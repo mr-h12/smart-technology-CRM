@@ -25,6 +25,8 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
+use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
@@ -130,6 +132,18 @@ class AppServiceProvider extends ServiceProvider
         // The disk is resolved through the Factory contract rather than the
         // Storage facade, because StorageServiceTest forbids that facade
         // everywhere outside the driver — including here.
+        // Module 3 Point 3.2. Plain `bind`: the directory is stateless and its
+        // two collaborators are resolved per request anyway, so a singleton
+        // would buy nothing and would outlive a swapped `SearchService` in a
+        // test.
+        $this->app->bind(
+            CustomerDirectoryInterface::class,
+            fn (): EloquentCustomerDirectory => new EloquentCustomerDirectory(
+                $this->app->make(SearchService::class),
+                $this->app->make(UserDirectoryInterface::class),
+            ),
+        );
+
         $this->app->singleton(
             StorageServiceInterface::class,
             fn (): LocalStorageService => new LocalStorageService(

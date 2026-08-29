@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Support\Http;
 
 use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
+use App\Modules\Customers\Domain\Listing\CustomerNotFound;
+use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -247,6 +249,46 @@ final class ApiExceptionRenderer
                 'code' => $exception->detailCode,
                 'message' => (string) __($exception->messageKey()),
             ]],
+        );
+    }
+
+    /**
+     * Module 3's list query, on the same two contract rows as the two above.
+     *
+     * A third method for a third exception, because all three live in their own
+     * module's Domain and Domain may depend on nothing — probed, not assumed.
+     * The rendered shape is identical on purpose: one envelope for one contract,
+     * whichever module produced it.
+     */
+    public static function invalidCustomerListQuery(InvalidCustomerListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidCustomerListQuery::ERROR_CODE,
+            (string) __('customers.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a customer that is absent **or** out of reach.
+     *
+     * One response for both, because §5.1 forbids revealing which case applies.
+     * `SEC-08` is why the second case exists at all: a row outside the caller's
+     * scope must be indistinguishable from a row that is not there.
+     */
+    public static function customerNotFound(CustomerNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
         );
     }
 

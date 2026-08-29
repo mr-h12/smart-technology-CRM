@@ -136,6 +136,11 @@ parameters:
         # comment in `deptrac.layers.yaml` for why the duplication ended here.
         - type: classLike
           value: ^App\\Support\\Http\\.*
+        # `D-48`'s search seam. Added with Module 3 Point 3.2, which is the
+        # first module dependency on it — `deptrac.layers.yaml` has carried the
+        # same entry since Point 2.1.
+        - type: classLike
+          value: ^App\\Support\\Search\\.*
 
     - name: Framework
       collectors:
@@ -147,7 +152,28 @@ parameters:
           value: ^Laravel\\.*
 
   ruleset:
-    Customers: ~
+    # Customers → Framework, SharedContracts, IdentityContract, added 2026-08-30
+    # with Point 3.2, the module's first endpoint.
+    #
+    # `Framework` because a controller, a Form Request and an Eloquent model are
+    # framework objects by definition — the same reason Admin gained it.
+    # `SharedContracts` for `App\Support\Http`'s response envelope and `D-48`'s
+    # `SearchService`, which is the whole point of putting both in `App\Support`.
+    #
+    # `IdentityContract` is the load-bearing one, and it is the crossing this
+    # file predicted: *"SEC-07 makes this the module every other module will
+    # eventually ask about permissions, which is exactly why the crossing has to
+    # be a named interface later rather than a reach into a model now."*
+    # `SEC-08` requires row-level scoping, and a module cannot scope rows without
+    # knowing what the caller's grant reaches — so Customers reads Identity's
+    # `PermissionDecision` off the request, and asks `UserDirectoryInterface`
+    # which owners are deactivated for §10.1's filter. It points at the
+    # **contract** half only; nothing points at `IdentityDriver`, and nothing
+    # should — that is what the Identity split exists to keep true.
+    Customers:
+      - Framework
+      - SharedContracts
+      - IdentityContract
     Deals: ~
     Quotations: ~
     Suppliers: ~

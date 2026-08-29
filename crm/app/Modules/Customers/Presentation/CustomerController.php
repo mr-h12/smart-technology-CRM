@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Customers\Presentation;
 
 use App\Modules\Customers\Application\Archiving\ArchiveCustomer;
+use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Listing\ListCustomers;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
@@ -64,6 +65,13 @@ final class CustomerController
             $request->validated(),
             self::heldScopes($request),
             self::actorId($request),
+        ));
+    }
+
+    public function assign(AssignCustomerRequest $request, string $customer, AssignCustomer $customers): JsonResponse
+    {
+        return ApiEnvelope::single($request, CustomerPayload::of(
+            $customers->handle($customer, $request->ownerId(), self::heldScopes($request), self::actorId($request)),
         ));
     }
 

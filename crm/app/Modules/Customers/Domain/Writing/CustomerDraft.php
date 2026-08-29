@@ -58,6 +58,21 @@ final readonly class CustomerDraft
         return new self(self::only($validated, self::WRITABLE));
     }
 
+    /**
+     * Point 3.5 — the one field `forUpdate()` deliberately refuses.
+     *
+     * §3.3 makes `assign` a permission of its own and `OpenAPI §7.2` gives it
+     * its own route, so the transfer arrives here instead of through the
+     * generic update. It is a named factory rather than a second key list
+     * because the point of this class is that the set of writable keys lives in
+     * one place: a caller assembling `['sales_owner_id' => ...]` by hand would
+     * be that second place.
+     */
+    public static function forAssignment(string $ownerId): self
+    {
+        return new self(['sales_owner_id' => $ownerId]);
+    }
+
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {

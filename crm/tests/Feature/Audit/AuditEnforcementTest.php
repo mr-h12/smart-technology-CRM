@@ -9,6 +9,7 @@ use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
+use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
@@ -112,6 +113,18 @@ final class AuditEnforcementTest extends TestCase
             // listed by the luck of a method name, which is the whole argument
             // for giving this hole its own point.
             SaveCustomer::class => self::AUDITED,
+
+            // Module 3 Point 3.5 — and the hole is exactly as narrow as the
+            // note above says. This one **is** seen, because it calls
+            // `->update(` beside an imported `ConnectionInterface`, while its
+            // sibling ArchiveCustomer calls `->setArchived(` and is not. Two
+            // classes doing the same kind of work, one visible on the spelling
+            // of a method name. Measured by this test failing on the unlisted
+            // class, after a comment here claimed the opposite.
+            //
+            // It owns Flow 10's transfer transaction and writes §3.12 rule 4's
+            // CUSTOMER_REASSIGNED — "transfer" is one of the verbs AUD-01 names.
+            AssignCustomer::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

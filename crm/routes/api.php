@@ -398,6 +398,17 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     Route::patch('/{customer}', [CustomerController::class, 'update'])
         ->middleware('permission:customer.edit');
 
+    // Flow 10 · `OpenAPI §7.2`'s suffix, verbatim. §3.3 grants `assign`
+    // `All · Team · — · — · — · — · —` — its own row beside `edit`, which five
+    // roles hold — so this checks `customer.assign` and never `customer.edit`.
+    //
+    // ⚠️ Nobody is notified. Flow 10 says "both employees notified" and §18.1
+    // limits the MVP to badge counters (customers are not among them) while
+    // §18.2's email list is closed at `MAIL-01`…`MAIL-05`. The narrowing is
+    // recorded in `CHECKLIST.md` awaiting a `D-xx` (owner, 2026-08-30).
+    Route::patch('/{customer}/assign', [CustomerController::class, 'assign'])
+        ->middleware('permission:customer.assign');
+
     // Flow 7 · `OpenAPI §7.2`'s action suffixes. **One permission for both**:
     // §3.3 writes the row as a single merged `archive / restore` granted
     // `All · Team · — · — · — · — · —`, and `PermissionMatrix` carries one

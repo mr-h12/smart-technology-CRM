@@ -270,7 +270,11 @@ would hide them behind `OD-03` indefinitely.
       own point. ⚠️ **Point 3.4 makes it worse and proves the point:** `ArchiveCustomer` owns the
       archive/restore transaction and writes §3.12 rule 4's `ARCHIVE_RESTORED`, and the scanner does
       **not** see it — measured, the register test passes with it unlisted, because `setArchived(`,
-      `find(` and `record(` are none of them DML verbs
+      `find(` and `record(` are none of them DML verbs. ⚠️ **Point 3.5 measured the hole's exact edge:** `AssignCustomer`
+      writes the same kind of transaction as `ArchiveCustomer` and **is** seen — it calls `->update(`
+      beside `ConnectionInterface` where its sibling calls `->setArchived(`. Two classes doing one
+      kind of work, one visible on the spelling of a method name. Found by this test failing on the
+      unlisted class **after a comment claimed it would be invisible**; it is now registered `AUDITED`
 - [ ] **Bulk restore is documented and not built** — Flow 7 grants restore *"individually or
       select-all"* and `OpenAPI §7.3` gives the exact shape: a resource-specific action, a bounded
       `{"ids": [...]}` list, per-record result data, every record authorised and audited, and **no
@@ -3765,7 +3769,73 @@ Excel import · "customers of deactivated employees" filter
       singular routes. Point 4.4's screen needs it; recorded on the register. No bulk archive either,
       and that one is not clearly documented at all. Nothing here changes who may *view* archived
       rows. `ArchiveCustomer` is invisible to `AuditEnforcementTest` — measured, see the register.)*
-- [ ] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
+- [x] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
+      *(**`assign` is its own permission, and the route says so.** §3.3 grants it
+      `All · Team · — · — · — · — · —` where `edit` reaches five roles, `PermissionMatrix` already
+      carried `customer.assign`, and `OpenAPI §7.2` lists the suffix verbatim. The route checks
+      `customer.assign` and never `customer.edit` — which is also why `SaveCustomerRequest` has
+      prohibited `sales_owner_id` on `PATCH /customers/{id}` since Point 3.3.
+      **"The customer and their full history move" is satisfied by not moving anything.** The
+      customer's id does not change, so the audit trail keyed to it — and every later module's deal,
+      quotation and visit — follows the owner change by construction. A transfer that copied rows
+      between owners would be the version of this flow that loses history. Tested: an
+      `ARCHIVE_RESTORED` entry written before the transfer is still the same customer's after it.
+      **The reach is the same one every other Customers route uses.** `CustomerRowScope` resolved
+      from §3.2's codes, the row read **inside** the transaction through that scope, and 404 for
+      absent-or-out-of-reach without revealing which (§5.1).
+      **Idempotent and silent when nothing changed** — Point 3.4's rule for Point 3.4's reason
+      (`AUD-03`): assigning a customer to the owner they already have succeeds, writes nothing, and
+      leaves `updated_by` untouched.
+      **§3.12 rule 4's mandatory entry**, written inside the transfer's transaction (`DB-11`) with
+      `AUD-02`'s old value beside the new one. `AuditEvent::customerReassigned()` already existed.
+      **The new owner is checked through Identity's contract**, never `exists:users,id` — the direct
+      cross-module read `CLAUDE.md` forbids. `UserDirectoryInterface::find()` answers null for a
+      hidden account too, so §3.12 rule 6's Super Admin cannot be made an owner through a guessed id;
+      a test pins that.
+      **No persistence surface was added.** `CustomerDirectoryInterface` is untouched:
+      `CustomerDraft::forAssignment()` is the one field `forUpdate()` refuses, and the existing
+      `update()` writes it. One named factory, so the writable-key set stays in one place.
+      ⚠️ **NARROWING, AWAITING A `D-xx` — Flow 10's "both employees notified" is not built.** The
+      owner ruled on 2026-08-30 to ship the transfer without it. The reading behind the ruling:
+      §18.1 limits the MVP to *"Badges and Inline Validation Only"* and its badge counters are
+      *Requests · Approvals · Reports · My Quotations*, with **customers not among them**; §18.2,
+      *"Email — The Only Exception"*, is a **closed list of five** — `MAIL-01` verification code ·
+      `MAIL-02` password changed · `MAIL-03` account status changed · `MAIL-04` new account
+      credentials · `MAIL-05` critical failures to Super Admin — and a customer reassignment is on
+      none of them; §18.3 puts the full notification centre post-MVP. Machinery **does** exist
+      (Identity ships two `Illuminate\Notifications` mail notifications and `User` is `Notifiable`),
+      so this is a scope decision and not a capability gap. `test_that_assigning_notifies_nobody`
+      pins it as a decision rather than an omission. **This narrows a documented flow and needs a
+      `D-xx` in the master log.**
+      ⚠️ **Flow 10 is half reachable, and the half that fails is the Team Leader** — §10.1 names
+      *the Team Leader* as the one who reassigns a deactivated employee's customers, and §3.3 gives
+      them `Team`, which has no mechanism (owner's deferral, 2026-08-29). `CustomerRowScope` fails it
+      closed, so **a Team Leader can assign nothing at all** — 404 on every customer in the company,
+      and only the Manager can actually perform Flow 10 today. Tested, so the deferral's cost is
+      visible rather than surprising.
+      **22 tests · 1514 backend · 346 frontend.** RED first: **20 failed, 2 passed** — and the two
+      were read rather than counted: with no route, *"a Team Leader assigns nothing"* and *"an
+      unknown id is 404"* both pass against a module with no code. The documented trap, and both
+      tests were re-verified afterwards.
+      **Three deliberate breaks, each confirmed to fail and each restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the absent/out-of-reach guard throwing 422 instead of
+      `CustomerNotFound` (**both** vacuous-in-RED tests failed — 2 failed) · the idempotence
+      short-circuit disabled (the silence test failed — 1 failed) · the owner-existence check removed
+      (the unknown-owner and hidden-Super-Admin tests failed — 2 failed).
+      **Problems found:** one, and the guard caught it rather than a reader. A comment added here
+      claimed `AssignCustomer` would be **invisible** to `AuditEnforcementTest` the way
+      `ArchiveCustomer` is — and the register test failed on the unlisted class, because this one
+      calls `->update(`, which **is** one of the DML verbs the scanner matches, where `setArchived(`
+      is not. The claim was wrong before the run and would have gone into a commit message unchecked;
+      the class is now registered `AUDITED` and both notes say what was measured.
+      **Not covered:** no notification, per the ruling above. **No bulk assign** — no source
+      describes one; Flow 7's *"select-all"* is about restore, not transfer. Assigning **to** a
+      deactivated employee is allowed, exactly as creating under one is (§10.1 keeps customers
+      attached to deactivated accounts and offers a filter for them); **unassigning is impossible**
+      — `sales_owner_id` is `required`, because §3.3 has no unassign row and an ownerless customer is
+      `D-34`'s path, not this one. An **archived** customer can still be assigned: no source forbids
+      it. Nothing here derives `customer_status`, and there is **still no screen** — Flow 10's UI is
+      Point 4.3's.)*
 - [ ] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency
 
 #### Step 4 — screens *(approved 2026-08-29)*

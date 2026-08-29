@@ -178,6 +178,23 @@ These are not. They are blocked on an owner decision or on ordinary work, they w
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
+- [ ] **`team`, `out` and `asgn` row scopes resolve to no rows** — *owner decision, 2026-08-29:
+      deferred as debt rather than invented.* §3.2 defines five scopes and only two have a mechanism
+      in the system: `all` needs no predicate and `own` is `customers.sales_owner_id`. The other
+      three have nothing behind them — §4.1's entity map has **no team entity**, §4.2 has no team
+      field and `users` has no team column; `D-44` scopes `out` to "visits, visit customers" and
+      `visits` is Module 12; `asgn` is "deals handed over to them" and `deals` is Module 5.
+      `CustomerRowScope` therefore fails them **closed**, which is the safe half of an undefined
+      rule: guessing that a team means "everyone sharing a role" would invent an authorisation rule
+      no source states, and it fails by handing one person's customers to a role the matrix never
+      granted them to. **The cost, stated:** the Module 3 acceptance criterion *"Team Leader sees
+      team"* cannot pass, and a Team Leader, Outdoor Supervisor and Procurement user currently
+      resolve to **no customers at all**. Closing it needs an owner answer to *what defines a team*
+      and then either a new migration on `users` or a `D-xx` recording a derivation. The resolver's
+      shape already anticipates it — `ownerIds` is a set, not a boolean — so `team` and `out` become
+      a wider set later without changing a single caller. `asgn` will not fit that shape (it is a
+      join on `deals`, not an owner) and is left for Module 5.
+
 - [ ] **`GET /users` still has no free-text `q`** — *owner decision, 2026-08-29: this stays debt, and
       Identity is not touched from a Customers task.* `UserListCriteria` records the gap in its own
       docblock: `q` was left out of Module 1 because §6.2 says the parameter "always passes through
@@ -3469,7 +3486,33 @@ Excel import · "customers of deactivated employees" filter
 
 #### Step 3 — row scope and the API *(approved 2026-08-29)*
 
-- [ ] **3.1** row-scope resolution (§3.3: All · Team · Out · Own · Asgn) + negative-authorization tests
+- [x] **3.1** row-scope resolution (§3.3: All · Team · Out · Own · Asgn) + negative-authorization tests
+      *(`CustomerRowScope` — a pure Domain function turning the scope codes a §3.2 permission carries
+      into the only two things a `customers` query needs: **every row**, or **the rows of a known set
+      of sales owners** (`SEC-08`).
+      **The five codes are strings, not Identity's `Scope` enum, and that is forced rather than
+      chosen.** `deptrac.modules.yaml` gives `Customers` an empty ruleset (`Customers: ~`) because
+      `AP-02` wants each module extractable — so the module may reference nothing at all, Identity
+      included. The codes therefore cross the boundary as the strings §3.2 writes, and a test **reads
+      §3.2's table out of the master documentation** and compares, so the two transcriptions cannot
+      drift; a sixth code added to §3.2 fails the build rather than being silently ignored by an
+      authorisation rule.
+      **An unknown code throws rather than denying.** Failing closed on it would hide a typo behind
+      an empty list that looks exactly like a legitimate refusal — the same reason
+      `AuthorizePermission` already throws on an unknown route scope.
+      ⚠️ **Three of the five scopes have no mechanism and fail closed** — recorded as owner-deferred
+      debt above, not as finished behaviour.
+      **11 tests · 1418 backend · 346 frontend.** RED first: 11 failed before the class existed.
+      **Three deliberate breaks, each confirmed to fail and each restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** `team` widened to every row (2 failed) · the unknown-code
+      `throw` removed (1 failed) · `asgn` dropped from the recognised set (1 failed).
+      **Problems found:** (1) the documentation parser first returned **6** codes, not 5 — §3.2 bolds
+      the `—` "Not permitted" row too; caught by running the check, not by reading it. (2) A first
+      full-suite run reported 4 failures from two suites sharing one test database — the trap this
+      file already documents; re-run alone, 1418 passed.
+      **Not covered:** no query and no endpoint — the predicate is not applied to the database until
+      3.2. Nothing here handles `is_archived` (Flow 7, Point 3.4). The negative-authorization tests
+      are **unit-level**; real `403`s over HTTP arrive with the endpoint.)*
 - [ ] **3.2** `GET /customers` (§10.1's deactivated-employee filter · `q` through `SearchService`) and
       `GET /customers/{id}`
 - [ ] **3.3** `POST` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning, never a block**

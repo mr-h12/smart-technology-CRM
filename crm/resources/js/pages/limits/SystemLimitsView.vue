@@ -200,10 +200,14 @@ onMounted(load);
 
 <template>
     <section class="flex w-full flex-col gap-6">
-        <header class="flex flex-col gap-1">
-            <h1 class="text-page-title" data-testid="limits-heading">{{ t('limits.title') }}</h1>
+        <!-- An `<h2>` since S-02: this is a section of the one settings page,
+             and the page's `<h1>` is `SystemSettingsView`'s. The test id is
+             unchanged because what it identifies is unchanged — the heading of
+             the limits block, whatever level the document gives it. -->
+        <div class="flex flex-col gap-1">
+            <h2 class="text-card-title" data-testid="limits-heading">{{ t('limits.title') }}</h2>
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('limits.subtitle') }}</p>
-        </header>
+        </div>
 
         <LoadingState v-if="loading" label-key="limits.loading" />
 

@@ -19,8 +19,6 @@ import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
-import CurrenciesView from '@/pages/currencies/CurrenciesView.vue';
-import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 
 declare module 'vue-router' {
@@ -123,48 +121,23 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, titleKey: 'account.title' },
     },
     {
-        // §13 screen 4 — *System Settings*. `admin.system_settings` is §3.11's
-        // own row, held by the Super Admin alone — and deliberately **not**
-        // `admin.fx_rates`, which the Manager also holds and which Point 5.2's
-        // screen names for its rates half. It is the permission both endpoints
-        // behind this screen already carry; a guard that named anything else
-        // would send people to a screen whose every request 403s.
+        // *System Settings* — **the one settings page** since S-02, carrying
+        // §13's screens 4, 5 and 6 as sections of it (owner decision
+        // 2026-08-29, recorded as a pending `D-xx`).
+        //
+        // ⚠️ **`admin.fx_rates`, and the reason is §3.11 rather than this
+        // screen's own name.** The page's sections carry three different rows:
+        // *system settings* and *system limits* are the Super Admin's, and
+        // **FX rates is the Manager's too**. A route carries one permission, so
+        // it carries the **widest** — every seeded holder of the other two also
+        // holds this one. Guarding with `admin.system_settings`, which is what
+        // this route said until S-02, would lock the Manager out of a row
+        // §3.11 grants them. Each section is drawn by its own permission inside
+        // the component: `SEC-09`'s visual complement, never the check.
         path: '/settings',
         name: 'settings',
         component: SystemSettingsView,
-        meta: { requiresAuth: true, requiredPermission: 'admin.system_settings', titleKey: 'settings.title' },
-    },
-    {
-        // §13 screen 5 — *Currencies & FX*. **`admin.fx_rates`, and that is
-        // read from §3.11 rather than copied from the screen above.** The
-        // screen has two halves with two different rows behind them: the
-        // rounding unit is `admin.system_settings` (Super Admin only) and the
-        // rates are `admin.fx_rates` (Super Admin **and Manager**). A route
-        // carries one permission, so it carries the wider of the two — every
-        // seeded holder of `admin.system_settings` also holds `admin.fx_rates`,
-        // and guarding with the narrower one would bounce the Manager off a
-        // screen §3.11 grants them. The rounding half is then drawn by
-        // permission inside the component, which is `SEC-09`'s visual
-        // complement and never the check.
-        path: '/currencies',
-        name: 'currencies',
-        component: CurrenciesView,
-        meta: { requiresAuth: true, requiredPermission: 'admin.fx_rates', titleKey: 'currencies.title' },
-    },
-    {
-        // §13 screen 6 — *Limits & SLAs*. **`admin.system_limits`, not
-        // `admin.system_settings`.** §3.11 lists "system settings" and "system
-        // limits (SLAs, thresholds)" as two rows. Both belong to the Super
-        // Admin today, so the two names select the same callers — which is
-        // exactly why the distinction is made now rather than when it first
-        // matters: §3.12 rule 5 makes regranting a row a configuration change,
-        // and the day a Manager is given the limits row, a guard that had
-        // quietly named the settings row would not follow. It is the same
-        // string both endpoints behind this screen carry.
-        path: '/limits',
-        name: 'limits',
-        component: SystemLimitsView,
-        meta: { requiresAuth: true, requiredPermission: 'admin.system_limits', titleKey: 'limits.title' },
+        meta: { requiresAuth: true, requiredPermission: 'admin.fx_rates', titleKey: 'settings.title' },
     },
     {
         path: '/403',

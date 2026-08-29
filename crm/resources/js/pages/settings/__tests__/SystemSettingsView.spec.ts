@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
+import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
  * Module 2, Point 5.1 — §13 screen 4, *System Settings*.
@@ -55,19 +56,80 @@ function i18n(locale = 'en') {
     return createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } });
 }
 
-function render(locale = 'en') {
+/**
+ * A role holding the settings row and nothing else.
+ *
+ * ⚠️ **Deliberately not the Super Admin**, and that is what keeps every case
+ * below reading the way it did before S-02 merged the three screens into one
+ * page. This profile draws section one and **no** other section, so a test
+ * about the eight fields still stubs one endpoint and asserts one form. §3.12
+ * rule 5 makes such a role real rather than a fixture convenience: the matrix
+ * is configuration, and an administrator may build exactly this.
+ */
+const SETTINGS_ADMIN: AuthenticatedUser = {
+    id: '01a0-set',
+    name: 'Settings Administrator',
+    email: 'settings.admin@example.test',
+    is_active: true,
+    role: { id: '01a0-role-set', slug: 'settings_admin', name: 'Settings Administrator' },
+    permissions: ['admin.system_settings.all'],
+    unconditional_access: false,
+};
+
+const SUPER_ADMIN: AuthenticatedUser = {
+    id: '01a0-sa',
+    name: 'Test Super Admin',
+    email: 'super.admin@example.test',
+    is_active: true,
+    role: { id: '01a0-role-sa', slug: 'super_admin', name: 'Super Admin' },
+    permissions: [],
+    unconditional_access: true,
+};
+
+/** §3.11: **FX rates** and neither of the other two rows. */
+const MANAGER: AuthenticatedUser = {
+    id: '01a0-mgr',
+    name: 'Test Manager',
+    email: 'manager@example.test',
+    is_active: true,
+    role: { id: '01a0-role-mgr', slug: 'manager', name: 'Manager' },
+    permissions: ['admin.fx_rates.all'],
+    unconditional_access: false,
+};
+
+/**
+ * Sign in, then mount.
+ *
+ * The login response is answered here and **everything else is delegated to
+ * whatever the test already stubbed**, so each case below keeps its own
+ * one-endpoint stub and its own assertions on it. `auth`'s state is module
+ * level, so signing in again is what resets it between cases.
+ */
+async function render(locale = 'en', profile: AuthenticatedUser = SETTINGS_ADMIN) {
+    const delegate = globalThis.fetch as typeof globalThis.fetch;
+
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+        /\/auth\/login$/.test(String(input))
+            ? Promise.resolve(json(201, {
+                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: profile },
+            }))
+            : delegate(input as unknown as RequestInfo, init));
+
+    await useAuth().login(profile.email, 'Passw0rd123');
+
     return mount(SystemSettingsView, { global: { plugins: [i18n(locale)] } });
 }
 
 beforeEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
 });
 
 describe('SystemSettingsView', () => {
-    it('shows the loading state before the settings arrive', () => {
+    it('shows the loading state before the settings arrive', async () => {
         vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
 
-        const view = render();
+        const view = await render();
 
         expect(view.find('[data-testid="loading-state"]').exists()).toBe(true);
     });
@@ -75,7 +137,7 @@ describe('SystemSettingsView', () => {
     it('renders the eight fields the API exposes, and no more', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         const fields = view.findAll('[data-setting-key]');
@@ -95,7 +157,7 @@ describe('SystemSettingsView', () => {
     it('does not render a control for the logo or the templates', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         const html = view.html();
@@ -108,7 +170,7 @@ describe('SystemSettingsView', () => {
     it('fills each control with the stored value', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         const name = view.get('[data-setting-key="company.name"] input');
@@ -120,7 +182,7 @@ describe('SystemSettingsView', () => {
     it('renders an unset field as empty rather than as a literal', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         const address = view.get('[data-setting-key="company.address"] input');
@@ -131,7 +193,7 @@ describe('SystemSettingsView', () => {
     it('shows the error state and offers a retry when the reading fails', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => json(500, { error: { code: 'server_error' } })));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         expect(view.find('[data-testid="error-state"]').exists()).toBe(true);
@@ -142,7 +204,7 @@ describe('SystemSettingsView', () => {
     it('shows the permission-denied state on a 403', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => json(403, { error: { code: 'permission_denied' } })));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         expect(view.find('[data-testid="permission-denied-state"]').exists()).toBe(true);
@@ -157,7 +219,7 @@ describe('SystemSettingsView', () => {
         );
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-setting-key="company.name"] input').setValue('Changed');
@@ -179,7 +241,7 @@ describe('SystemSettingsView', () => {
         const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => envelope(SETTINGS));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-testid="settings-save"]').trigger('submit');
@@ -195,7 +257,7 @@ describe('SystemSettingsView', () => {
         );
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('12.5');
@@ -216,7 +278,7 @@ describe('SystemSettingsView', () => {
                 : envelope(SETTINGS),
         ));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-setting-key="company.name"] input').setValue('Changed');
@@ -242,7 +304,7 @@ describe('SystemSettingsView', () => {
                 : envelope(SETTINGS),
         ));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('lots');
@@ -258,7 +320,7 @@ describe('SystemSettingsView', () => {
             init?.method === 'PATCH' ? json(500, { error: { code: 'server_error' } }) : envelope(SETTINGS),
         ));
 
-        const view = render();
+        const view = await render();
         await flushPromises();
 
         await view.get('[data-setting-key="company.name"] input').setValue('Unsaved Work');
@@ -269,12 +331,96 @@ describe('SystemSettingsView', () => {
             .toBe('Unsaved Work');
     });
 
+    // ── S-02: one page, four sections, three permissions ───────────────────
+
+    /**
+     * §13 names screens 4, 5 and 6 separately; the owner merged them into one
+     * page on 2026-08-29 (pending `D-xx`). What that must **not** do is delete
+     * a grant: §3.11 gives *system settings* and *system limits* to the Super
+     * Admin and **FX rates to the Manager as well**, so the page is composed of
+     * sections drawn by their own rows rather than one block behind one.
+     */
+    function routed(handlers: { match: RegExp; response: () => Response }[]) {
+        return vi.fn((input: string) => {
+            for (const handler of handlers) {
+                if (handler.match.test(input)) {
+                    return Promise.resolve(handler.response());
+                }
+            }
+
+            return Promise.resolve(json(404, { error: { code: 'resource_not_found' } }));
+        });
+    }
+
+    const ALL_SECTIONS = [
+        { match: /\/settings$/, response: () => envelope(SETTINGS) },
+        { match: /\/currencies$/, response: () => json(200, { data: { currencies: [] }, meta: {} }) },
+        { match: /\/fx-rates/, response: () => json(200, { data: [], meta: { pagination: { page: 1, per_page: 25, total: 0, total_pages: 1, has_next_page: false, has_previous_page: false } } }) },
+        { match: /\/system-limits$/, response: () => json(200, { data: { limits: {} }, meta: {} }) },
+    ];
+
+    it('draws all four sections for a holder of all three rows', async () => {
+        vi.stubGlobal('fetch', routed(ALL_SECTIONS));
+
+        const view = await render('en', SUPER_ADMIN);
+        await flushPromises();
+
+        expect(view.find('[data-testid="settings-section"]').exists()).toBe(true);
+        expect(view.find('[data-testid="currencies-rounding"]').exists()).toBe(true);
+        expect(view.find('[data-testid="currencies-rates"]').exists()).toBe(true);
+        expect(view.find('[data-testid="limits-heading"]').exists()).toBe(true);
+    });
+
+    /** One `<h1>` for the page, however many sections it carries. */
+    it('gives the page exactly one top-level heading', async () => {
+        vi.stubGlobal('fetch', routed(ALL_SECTIONS));
+
+        const view = await render('en', SUPER_ADMIN);
+        await flushPromises();
+
+        expect(view.findAll('h1')).toHaveLength(1);
+        expect(view.get('[data-testid="settings-heading"]').element.tagName).toBe('H1');
+    });
+
+    /**
+     * ⚠️ **The regression this merge could have shipped.** §3.11 grants the
+     * Manager *FX rates*; a single page behind `admin.system_settings` would
+     * have taken it away. They reach the page and see their one section.
+     */
+    it('draws only the rates section for the Manager', async () => {
+        vi.stubGlobal('fetch', routed(ALL_SECTIONS));
+
+        const view = await render('en', MANAGER);
+        await flushPromises();
+
+        expect(view.find('[data-testid="currencies-rates"]').exists()).toBe(true);
+        expect(view.find('[data-testid="settings-section"]').exists()).toBe(false);
+        expect(view.find('[data-testid="currencies-rounding"]').exists()).toBe(false);
+        expect(view.find('[data-testid="limits-heading"]').exists()).toBe(false);
+    });
+
+    /** §5.1 — do not show what the role may not reach, and do not ask for it. */
+    it('requests nothing a section the caller lacks would have needed', async () => {
+        const fetchMock = routed(ALL_SECTIONS);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await render('en', MANAGER);
+        await flushPromises();
+
+        const asked = fetchMock.mock.calls.map(([url]) => String(url));
+
+        expect(asked.some((url) => /\/settings$/.test(url))).toBe(false);
+        expect(asked.some((url) => /\/system-limits$/.test(url))).toBe(false);
+        expect(asked.some((url) => /\/currencies$/.test(url))).toBe(false);
+        expect(asked.some((url) => /\/fx-rates/.test(url))).toBe(true);
+    });
+
     // ── §14.2 ──────────────────────────────────────────────────────────────
 
     it('has no hard-coded English when the locale is Arabic', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
-        const view = render('ar');
+        const view = await render('ar');
         await flushPromises();
 
         const heading = view.get('[data-testid="settings-heading"]').text();

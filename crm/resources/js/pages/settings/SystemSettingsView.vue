@@ -1,6 +1,32 @@
 <script setup lang="ts">
 /**
- * §13 screen 4 — *System Settings*.
+ * *System Settings* — **the one settings page** (owner decision, 2026-08-29).
+ *
+ * ── One page, four sections, three permissions ─────────────────────────────
+ *
+ * §13 names screens 4, 5 and 6 separately. The owner merged them into one long
+ * page on 2026-08-29; that is a change to the master documentation's screen
+ * inventory and is recorded as a **pending `D-xx`** rather than applied
+ * silently. This component is the page: its own form, then §13 screen 5's two
+ * halves ({@link CurrenciesView}) and screen 6 ({@link SystemLimitsView}).
+ *
+ * ⚠️ **The three sections do not share a permission, and merging them naively
+ * would have deleted a grant §3.11 makes.** §3.11 gives *system settings* and
+ * *system limits* to the Super Admin alone, and **FX rates to the Manager as
+ * well**. A single page behind `admin.system_settings` would therefore lock the
+ * Manager out of a row they hold. So the route carries the **widest** of the
+ * three — `admin.fx_rates` — and each section is drawn by its own:
+ *
+ * | section | permission |
+ * |---|---|
+ * | company & defaults (below) | `admin.system_settings` |
+ * | rounding per currency | `admin.system_settings` (inside `CurrenciesView`) |
+ * | exchange rates | `admin.fx_rates` — the route already required it |
+ * | limits & SLAs | `admin.system_limits` |
+ *
+ * A section the caller does not hold is **not rendered and not requested**: a
+ * guaranteed 403 buys nothing but a denial block inside a page they were
+ * invited to open. `SEC-09` still applies — the server refuses regardless.
  *
  * ── Eight fields, not ten ──────────────────────────────────────────────────
  *
@@ -41,8 +67,21 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { SETTING_KEYS, readSettings, updateSettings, type SystemSettings } from '@/services/admin';
+import { useAuth } from '@/stores/auth';
+import CurrenciesView from '@/pages/currencies/CurrenciesView.vue';
+import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
 
 const { t } = useI18n();
+const auth = useAuth();
+
+/**
+ * Which sections this caller gets. `SEC-09`'s visual complement, never the
+ * check — and the reason each is *asked* rather than assumed is §3.12 rule 5:
+ * the matrix is configuration, so a role holding one of these and not another
+ * is a state an administrator can create without a deployment.
+ */
+const canConfigureSettings = computed(() => auth.hasPermission('admin.system_settings'));
+const canConfigureLimits = computed(() => auth.hasPermission('admin.system_limits'));
 
 /** What the server last said. The baseline every edit is compared against. */
 const stored = ref<SystemSettings>({});
@@ -97,6 +136,14 @@ function adopt(settings: SystemSettings): void {
 }
 
 async function load(): Promise<void> {
+    // Not requested at all without the row. §5.1: do not show what the role may
+    // not reach — and do not ask for it either.
+    if (!canConfigureSettings.value) {
+        loading.value = false;
+
+        return;
+    }
+
     loading.value = true;
     denied.value = false;
     loadError.value = null;
@@ -163,11 +210,22 @@ onMounted(load);
 </script>
 
 <template>
-    <section class="flex w-full flex-col gap-6">
+    <section class="flex w-full flex-col gap-10">
         <header class="flex flex-col gap-1">
             <h1 class="text-page-title" data-testid="settings-heading">{{ t('settings.title') }}</h1>
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('settings.subtitle') }}</p>
         </header>
+
+        <!-- Section one — §13 screen 4's own eight fields. -->
+        <section
+            v-if="canConfigureSettings"
+            class="flex flex-col gap-4"
+            data-testid="settings-section"
+        >
+            <div class="flex flex-col gap-1">
+                <h2 class="text-card-title">{{ t('settings.section.title') }}</h2>
+                <p class="text-[var(--color-text-muted)] text-pretty">{{ t('settings.section.description') }}</p>
+            </div>
 
         <LoadingState v-if="loading" />
 
@@ -234,6 +292,17 @@ onMounted(load);
                 </button>
             </div>
         </form>
+        </section>
+
+        <!-- §13 screen 5, both halves. `CurrenciesView` draws its rounding half
+             by `admin.system_settings` and its rates half unconditionally —
+             the route already required `admin.fx_rates` to get here. -->
+        <CurrenciesView />
+
+        <!-- §13 screen 6. Gated here rather than inside the component: the page
+             owns the composition, so the section that does not belong to this
+             caller is simply never mounted and never fetches. -->
+        <SystemLimitsView v-if="canConfigureLimits" />
     </section>
 </template>
 

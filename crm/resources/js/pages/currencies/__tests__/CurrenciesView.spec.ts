@@ -447,12 +447,25 @@ describe('recording a rate', () => {
 // ── §14.2 ──────────────────────────────────────────────────────────────────
 
 describe('the screen in Arabic', () => {
+    /**
+     * Asserted on a **section** heading since S-02. The page `<h1>` moved to
+     * `SystemSettingsView` when the three screens were merged into one page, so
+     * there is no `currencies-heading` any more — and a test that kept looking
+     * for one would be asserting a heading this component must not render.
+     */
     it('has no hard-coded English heading', async () => {
         const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK], 'ar');
 
-        const heading = wrapper.get('[data-testid="currencies-heading"]').text();
+        const heading = wrapper.get('[data-testid="currencies-rounding"] h2').text();
 
-        expect(heading).toBe(ar.currencies.title);
-        expect(heading).not.toBe(en.currencies.title);
+        expect(heading).toBe(ar.currencies.rounding.title);
+        expect(heading).not.toBe(en.currencies.rounding.title);
+    });
+
+    /** The page owns the `<h1>`; a section that renders one gives the document two. */
+    it('renders no page-level heading of its own', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        expect(wrapper.findAll('h1')).toHaveLength(0);
     });
 });

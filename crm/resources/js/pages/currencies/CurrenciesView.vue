@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * §13 screen 5 — *Currencies & FX*.
+ * §13 screen 5's content — *Currencies & FX* — rendered as two sections of the
+ * one settings page (**owner decision, 2026-08-29**, recorded as a pending
+ * `D-xx`: §13 names screens 4, 5 and 6 separately and the owner merged them).
  *
  * ── One screen, two audiences ──────────────────────────────────────────────
  *
@@ -292,12 +294,11 @@ onMounted(async () => {
 </script>
 
 <template>
+    <!-- No page header. This is a **section of** §13 screen 4 since S-02, not a
+         screen of its own: the page's `<h1>` belongs to `SystemSettingsView`,
+         and a second one here would give the document two top-level headings —
+         which is exactly what a screen reader reads out as two pages. -->
     <section class="flex w-full flex-col gap-8">
-        <header class="flex flex-col gap-1">
-            <h1 class="text-page-title" data-testid="currencies-heading">{{ t('currencies.title') }}</h1>
-            <p class="text-[var(--color-text-muted)] text-pretty">{{ t('currencies.subtitle') }}</p>
-        </header>
-
         <!-- Half one — §5.3's unit and D-65's switch, behind admin.system_settings. -->
         <section
             v-if="canConfigureRounding"

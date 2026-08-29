@@ -260,6 +260,43 @@ Changes the owner asked for directly, outside any module's point list. They belo
 because the shell belongs to no module: the sidebar, the context bar and the locale plumbing were
 built in Module 1's Step 5 and are used by every module after it.
 
+- [x] **S-02.1** §13's screens 4, 5 and 6 become **one settings page**. *(2026-08-29, owner's request)*
+      ⚠️ **This changes the master documentation's screen inventory and is recorded as a pending
+      `D-xx`, not applied silently.** §13 names *System Settings*, *Currencies & FX* and *Limits &
+      SLAs* as three separate screens. The owner merged them; `CLAUDE.md` requires a proposed change
+      to a documented decision to be raised as a new decision, and this entry is that record. Nothing
+      in `docs/` was edited.
+      ⚠️ **The naive merge would have deleted a grant §3.11 makes, and that is the whole
+      engineering content of this point.** The page's sections carry **three different rows**:
+      *system settings* and *system limits* are the Super Admin's, and **FX rates is the Manager's
+      too**. One page behind `admin.system_settings` — which is what `/settings` required until now —
+      would have locked the Manager out of a row they hold. So the route carries the **widest** of
+      the three, `admin.fx_rates`, and each section is drawn by its own permission inside the page.
+      A section the caller lacks is **not rendered and not requested**: a guaranteed 403 buys nothing
+      but a denial block inside a page they were invited to open.
+      **The parent owns the composition, not a flag on each child.** `SystemSettingsView` renders its
+      own form, then `CurrenciesView`, then `SystemLimitsView` — so neither child learned about
+      permissions it did not already need, and `SystemLimitsView`'s spec needed no change beyond the
+      heading level. `CurrenciesView` keeps its own internal split because its two halves genuinely
+      differ.
+      **One `<h1>` for the page.** Both children lost their page headers; `currencies.title`,
+      `currencies.subtitle`, `nav.item.currencies` and `nav.item.limits` are deleted as keys nothing
+      renders, and `settings.section.*` arrives for the first section's heading. A test asserts each
+      child renders **no** `h1`, and another asserts the page renders exactly one — two headings at
+      the top level is what a screen reader reads out as two pages.
+      **`/currencies` and `/limits` are gone** from the router and the menu, with their imports.
+      ⚠️ The first removal attempt used a regex whose `    {\n` anchor matched the **first** route in
+      the file, so it would have deleted five routes including `/settings`. Nothing was written — the
+      assertion that followed caught it — and the retry walks outward from the exact `path:` line
+      instead. Recorded because a silent version of that edit is a very quiet catastrophe.
+      **305 frontend tests · 1330 backend · four deliberate breaks:** the limits section shown to
+      everyone · the company form shown to everyone · the settings read issued without the row · the
+      route's permission changed so it disagrees with the menu item. The last is the one that matters
+      — `navigation.spec.ts` caught it, which is the guard doing the job it was written for.
+      **Not covered:** the dropdowns are **S-02.2 and S-02.3**, not this point. The settings page is
+      now long and has **no in-page navigation** between its sections; Design System §5.2 says
+      nothing about one, and it was not invented here.
+
 - [x] **S-01** The product opens in Arabic, and the collapse control is an icon at the top of the
       menu. *(2026-08-29, on the owner's request in one message)*
       **Two changes with one thing in common: neither was a defect.** The shell did exactly what it

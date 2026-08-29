@@ -84,9 +84,7 @@
             "users": "Employees",
             "roles": "Roles & Permissions",
             "accountSecurity": "Account security",
-            "settings": "System settings",
-            "currencies": "Currencies & FX",
-            "limits": "Limits & SLAs"
+            "settings": "System settings"
         }
     },
     "theme": {
@@ -351,7 +349,11 @@
     },
     "settings": {
         "title": "System Settings",
-        "subtitle": "The company details, defaults and locale this system runs on.",
+        "subtitle": "Everything this system runs on: the company, its defaults, its currencies and its limits.",
+        "section": {
+            "title": "Company & defaults",
+            "description": "The company details and the values new records start from."
+        },
         "saved": "Settings saved.",
         "saving": "Saving…",
         "field": {
@@ -370,8 +372,6 @@
         }
     },
     "currencies": {
-        "title": "Currencies & FX",
-        "subtitle": "The base currency, the rounding unit each currency uses, and the exchange rates recorded by hand.",
         "rounding": {
             "title": "Rounding per currency",
             "description": "Rounding applies to the final total only, using this currency's unit. Switching it off leaves the total unrounded. Either change affects new quotations only, never one already issued.",

@@ -329,6 +329,17 @@ describe('SystemLimitsView', () => {
 
     // ── §14.2 ──────────────────────────────────────────────────────────────
 
+    /** The page owns the `<h1>`; this is a section of it since S-02. */
+    it('renders no page-level heading of its own', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.findAll('h1')).toHaveLength(0);
+        expect(view.get('[data-testid="limits-heading"]').element.tagName).toBe('H2');
+    });
+
     it('has no hard-coded English when the locale is Arabic', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
 

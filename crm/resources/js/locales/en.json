@@ -84,7 +84,8 @@
             "users": "Employees",
             "roles": "Roles & Permissions",
             "accountSecurity": "Account security",
-            "settings": "System settings"
+            "settings": "System settings",
+            "managedLists": "Managed Lists"
         }
     },
     "theme": {
@@ -471,6 +472,56 @@
             "limits_weekly_review_window_hours": "How many hours the weekly review stays open.",
             "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
             "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again."
+        }
+    },
+    "lists": {
+        "title": "Managed Lists",
+        "subtitle": "The choices that appear in drop-downs across the system: the sector a customer belongs to, the unit an item is counted in, and the rest. Adding an entry here makes it available everywhere that choice is offered.",
+        "loading": "Loading the list…",
+        "chooser": "Choose a list",
+        "name": {
+            "sectors": "Sectors",
+            "units": "Units",
+            "service_types": "Service types",
+            "delivery_terms": "Delivery terms"
+        },
+        "column": {
+            "code": "Code",
+            "label_en": "English label",
+            "label_ar": "Arabic label",
+            "position": "Order"
+        },
+        "empty": {
+            "title": "Nothing in this list yet",
+            "message": "No entry has been added to this list so far."
+        },
+        "error": {
+            "load": "This list could not be loaded. Try again.",
+            "add": "The entry was not added. Try again."
+        },
+        "add": {
+            "title": "Add an entry",
+            "submit": "Add entry",
+            "submitting": "Adding…",
+            "added": "Entry added."
+        },
+        "field": {
+            "code": "Code",
+            "label_en": "English label",
+            "label_ar": "Arabic label",
+            "position": "Order"
+        },
+        "hint": {
+            "code": "A short internal name for this entry, never shown to anyone. Use small English letters, digits and underscores only, and choose one you will not want to change later.",
+            "label_en": "How this entry reads for someone using the system in English. This is the wording people actually see.",
+            "label_ar": "How this entry reads for someone using the system in Arabic. Both languages are required, because an entry with one wording shows blank in the other.",
+            "position": "Where this entry sits when the choices are listed. Start at 1 and count upwards; the smallest number comes first."
+        },
+        "pagination": {
+            "label": "List entries",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} entries"
         }
     }
 }

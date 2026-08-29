@@ -81,13 +81,14 @@ describe('the field explanations', () => {
             ...Object.entries(bundle.limits.hint),
             ...Object.entries(bundle.currencies.rounding.hint),
             ...Object.entries(bundle.currencies.rates.hint),
+            ...Object.entries(bundle.lists.hint),
         ];
     }
 
     it.each([['en', en], ['ar', ar]] as const)('%s carries every hint this screen renders', (_name, bundle) => {
         // Assert the count, not merely that the loop ran: an empty scan passes
         // every assertion below it and proves nothing.
-        expect(hints(bundle)).toHaveLength(19);
+        expect(hints(bundle)).toHaveLength(23);
     });
 
     it.each([['en', en], ['ar', ar]] as const)('%s cites no decision or section number', (_name, bundle) => {

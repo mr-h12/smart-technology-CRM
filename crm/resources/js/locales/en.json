@@ -370,6 +370,16 @@
         "error": {
             "load": "These settings could not be loaded. Try again.",
             "save": "The settings were not saved. Try again."
+        },
+        "hint": {
+            "company_name": "The company's official name.",
+            "company_address": "The company's address.",
+            "company_phones": "The company's contact numbers.",
+            "defaults_currency": "The currency new records start from. Pick one below, or type a code.",
+            "defaults_tax_percent": "The tax percentage a quotation starts from when the customer sets none (D-63). Digits only — no % sign.",
+            "locale_language": "The language the system opens in.",
+            "locale_timezone": "The zone times are shown in. Every time is stored in UTC and converted for display (DB-08).",
+            "locale_date_format": "How dates are written, in PHP letters: d day, m month, Y year."
         }
     },
     "currencies": {
@@ -384,6 +394,10 @@
                 "enabled": "Rounding on",
                 "unit": "Rounding unit",
                 "actions": "Actions"
+            },
+            "hint": {
+                "enabled": "When off, the total is left unrounded and the rounding difference is zero (D-65).",
+                "unit": "The step the final total is rounded to — the final total only. §5.3 uses 1 for EGP and 0.01 for USD and EUR."
             }
         },
         "rates": {
@@ -407,13 +421,18 @@
             "empty": {
                 "title": "No rates recorded yet",
                 "message": "Record the first exchange rate using the form above."
+            },
+            "hint": {
+                "from": "The source currency code — three letters.",
+                "to": "The target currency code. It must differ from the source.",
+                "rate": "The conversion multiplier between the two, as a positive decimal — a dot, not a comma."
             }
         },
         "pagination": {
             "label": "Rate history pages",
             "previous": "Previous",
             "next": "Next",
-            "position": "Page {page} of {pages} \u00b7 {total} rates"
+            "position": "Page {page} of {pages} · {total} rates"
         },
         "error": {
             "load": "The currencies could not be loaded. Try again.",
@@ -444,6 +463,14 @@
         "error": {
             "load": "These limits could not be loaded. Try again.",
             "save": "The limits were not saved. Try again."
+        },
+        "hint": {
+            "limits_stale_deal_days": "How many days without movement before a deal counts as stale (D-17). The nightly job reads this.",
+            "limits_daily_report_deadline": "The time of day a daily report is due; past it the report counts as missed (§11.5).",
+            "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it breaches its service level.",
+            "limits_weekly_review_window_hours": "The weekly review window, in hours (§11.5 governs the 24-hour rule it serves).",
+            "limits_max_file_size_mb": "The largest an uploaded file may be, in megabytes (D-39: 10 MB, configurable).",
+            "identity_lockout_minutes": "How long an account stays locked after five failed sign-ins (D-75, SEC-03)."
         }
     }
 }

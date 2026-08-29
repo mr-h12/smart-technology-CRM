@@ -173,6 +173,17 @@ const TIME_ZONES = timeZones();
  */
 const currencyCodes = ref<string[]>([]);
 
+/**
+ * §8 asks for *error association*; the same mechanism carries the explanation.
+ *
+ * Both ids when there is an error, so a screen reader reads what the field is
+ * for **and** what went wrong. The hint is always present, so it is always
+ * first — the explanation before the complaint.
+ */
+function describedBy(key: string): string {
+    return fieldErrors.value[key] === undefined ? `hint-${key}` : `hint-${key} error-${key}`;
+}
+
 function suggestionsFor(key: string): string[] {
     if (key === 'defaults.currency') {
         return currencyCodes.value;
@@ -356,7 +367,7 @@ onMounted(async () => {
                         v-if="key === 'locale.language'"
                         v-model="draft[key]"
                         :aria-invalid="fieldErrors[key] !== undefined"
-                        :aria-describedby="fieldErrors[key] !== undefined ? `error-${key}` : undefined"
+                        :aria-describedby="describedBy(key)"
                         class="field min-h-11 rounded-lg border px-3 text-[var(--color-text)]"
                         :class="fieldErrors[key] !== undefined
                             ? 'border-[var(--color-danger)]'
@@ -382,7 +393,7 @@ onMounted(async () => {
                         :inputmode="NUMERIC_KEYS.has(key) ? 'decimal' : undefined"
                         :list="suggestionsFor(key).length > 0 ? `options-${key}` : undefined"
                         :aria-invalid="fieldErrors[key] !== undefined"
-                        :aria-describedby="fieldErrors[key] !== undefined ? `error-${key}` : undefined"
+                        :aria-describedby="describedBy(key)"
                         class="field min-h-11 rounded-lg border px-3 text-[var(--color-text)]"
                         :class="fieldErrors[key] !== undefined
                             ? 'border-[var(--color-danger)]'
@@ -396,6 +407,17 @@ onMounted(async () => {
                             :value="option"
                         />
                     </datalist>
+
+                    <!-- What to write here. The Design System names no hint
+                         pattern (§5.2 asks a Form view for sections, required
+                         markers and inline validation, and stops), so this
+                         establishes one on the owner's request of 2026-08-29 —
+                         recorded rather than assumed to be house style. -->
+                    <span
+                        :id="`hint-${key}`"
+                        class="text-table text-[var(--color-text-muted)] text-pretty"
+                        data-testid="setting-hint"
+                    >{{ t(`settings.hint.${key.replace('.', '_')}`) }}</span>
 
                     <!-- The server's sentence, localised by the server for this
                          request. §9.5: the message carries the meaning, the red

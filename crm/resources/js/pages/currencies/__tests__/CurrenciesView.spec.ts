@@ -470,6 +470,39 @@ describe('the currency codes offered on the rate form', () => {
     });
 });
 
+describe('the explanations', () => {
+    /** One hint per column, not one per cell — three rows, one sentence. */
+    it('explains the rounding columns once each', async () => {
+        const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);
+
+        expect(wrapper.findAll('[data-testid="rounding-hint"]')).toHaveLength(2);
+        expect(wrapper.get('[data-currency-code="USD"] [data-testid="currencies-unit"]')
+            .attributes('aria-describedby')).toBe('hint-rounding-unit');
+        expect(wrapper.get('[data-currency-code="USD"] [data-testid="currencies-enabled"]')
+            .attributes('aria-describedby')).toBe('hint-rounding-enabled');
+    });
+
+    it('explains each of the three rate fields', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK]);
+
+        expect(wrapper.findAll('[data-testid="rate-hint"]')).toHaveLength(3);
+
+        for (const field of ['from', 'to', 'rate']) {
+            expect(wrapper.get(`[data-testid="rates-${field}"]`).attributes('aria-describedby'))
+                .toBe(`hint-rate-${field}`);
+        }
+    });
+
+    it('writes them in Arabic too', async () => {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK], 'ar');
+
+        const hint = wrapper.findAll('[data-testid="rate-hint"]')[2]?.text();
+
+        expect(hint).toBe(ar.currencies.rates.hint.rate);
+        expect(hint).not.toBe(en.currencies.rates.hint.rate);
+    });
+});
+
 // ── §14.2 ──────────────────────────────────────────────────────────────────
 
 describe('the screen in Arabic', () => {

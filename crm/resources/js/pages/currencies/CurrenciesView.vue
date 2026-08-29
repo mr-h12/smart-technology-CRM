@@ -342,8 +342,25 @@ onMounted(async () => {
                     <thead>
                         <tr class="table-head">
                             <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.code') }}</th>
-                            <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.enabled') }}</th>
-                            <th scope="col" class="p-3 text-start">{{ t('currencies.rounding.column.unit') }}</th>
+                            <!-- The explanation lives on the column, not under
+                                 every cell: one hint repeated on three rows is
+                                 three copies of one sentence to read past. -->
+                            <th scope="col" class="p-3 text-start">
+                                <span class="block">{{ t('currencies.rounding.column.enabled') }}</span>
+                                <span
+                                    id="hint-rounding-enabled"
+                                    class="block font-normal normal-case text-[var(--color-text-muted)] text-pretty"
+                                    data-testid="rounding-hint"
+                                >{{ t('currencies.rounding.hint.enabled') }}</span>
+                            </th>
+                            <th scope="col" class="p-3 text-start">
+                                <span class="block">{{ t('currencies.rounding.column.unit') }}</span>
+                                <span
+                                    id="hint-rounding-unit"
+                                    class="block font-normal normal-case text-[var(--color-text-muted)] text-pretty"
+                                    data-testid="rounding-hint"
+                                >{{ t('currencies.rounding.hint.unit') }}</span>
+                            </th>
                             <th scope="col" class="p-3 text-end">{{ t('currencies.rounding.column.actions') }}</th>
                         </tr>
                     </thead>
@@ -376,6 +393,7 @@ onMounted(async () => {
                                     type="checkbox"
                                     class="size-5"
                                     :aria-label="t('currencies.rounding.column.enabled')"
+                                    aria-describedby="hint-rounding-enabled"
                                     data-testid="currencies-enabled"
                                 >
                             </td>
@@ -393,6 +411,7 @@ onMounted(async () => {
                                         ? 'border-[var(--color-border-strong)]'
                                         : 'border-[var(--color-danger)]'"
                                     :aria-label="t('currencies.rounding.column.unit')"
+                                    aria-describedby="hint-rounding-unit"
                                     :aria-invalid="row.error !== null"
                                     data-testid="currencies-unit"
                                 >
@@ -463,10 +482,17 @@ onMounted(async () => {
                         :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.from !== null"
+                        :aria-describedby="formErrors.from === null ? 'hint-rate-from' : 'hint-rate-from error-rate-from'"
                         data-testid="rates-from"
                     >
                     <span
+                        id="hint-rate-from"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.from') }}</span>
+                    <span
                         v-if="formErrors.from !== null"
+                        id="error-rate-from"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.from }}</span>
                 </label>
@@ -481,10 +507,17 @@ onMounted(async () => {
                         :list="currencyCodes.length > 0 ? 'rate-currency-codes' : undefined"
                         class="field min-h-11 w-24 rounded-lg border border-[var(--color-border-strong)] px-3 uppercase text-[var(--color-text)]"
                         :aria-invalid="formErrors.to !== null"
+                        :aria-describedby="formErrors.to === null ? 'hint-rate-to' : 'hint-rate-to error-rate-to'"
                         data-testid="rates-to"
                     >
                     <span
+                        id="hint-rate-to"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.to') }}</span>
+                    <span
                         v-if="formErrors.to !== null"
+                        id="error-rate-to"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.to }}</span>
                 </label>
@@ -502,10 +535,17 @@ onMounted(async () => {
                             ? 'border-[var(--color-border-strong)]'
                             : 'border-[var(--color-danger)]'"
                         :aria-invalid="formErrors.rate !== null"
+                        :aria-describedby="formErrors.rate === null ? 'hint-rate-rate' : 'hint-rate-rate error-rate-rate'"
                         data-testid="rates-rate"
                     >
                     <span
+                        id="hint-rate-rate"
+                        class="text-[var(--color-text-muted)] text-pretty"
+                        data-testid="rate-hint"
+                    >{{ t('currencies.rates.hint.rate') }}</span>
+                    <span
                         v-if="formErrors.rate !== null"
+                        id="error-rate-rate"
                         class="text-[var(--color-danger)]"
                     >{{ formErrors.rate }}</span>
                 </label>

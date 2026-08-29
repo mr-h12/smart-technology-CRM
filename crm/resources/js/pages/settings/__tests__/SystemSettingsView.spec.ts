@@ -473,6 +473,81 @@ describe('SystemSettingsView', () => {
         expect((field.get('input').element as HTMLInputElement).value).toBe('EGP');
     });
 
+    // ── S-02.4: every field explains itself ────────────────────────────────
+
+    /**
+     * Owner's request, 2026-08-29. The Design System names **no** hint pattern
+     * — §5.2 asks a Form view for sections, required markers, inline validation
+     * and an unsaved-change warning, and stops — so this establishes one.
+     */
+    it('gives every field an explanation', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
+
+        const view = await render();
+        await flushPromises();
+
+        const fields = view.findAll('[data-setting-key]');
+
+        expect(fields).toHaveLength(8);
+
+        const hints: Record<string, string> = en.settings.hint;
+
+        for (const field of fields) {
+            const key = field.attributes('data-limit-key') ?? field.attributes('data-setting-key') ?? '';
+            const hint = field.find('[data-testid="setting-hint"]');
+
+            expect(hint.exists()).toBe(true);
+
+            // ⚠️ Compared against the lang file, **not** merely checked for the
+            // absence of the key prefix. Measured: break 1 pointed the template
+            // at `settings.hints.` and vue-i18n echoed that key back — which
+            // does not contain `settings.hint.` and sailed past the prefix
+            // check. Only the exact string catches a key that resolves to
+            // itself.
+            expect(hint.text()).toBe(hints[key.replace('.', '_')]);
+        }
+    });
+
+    /** §8 — error association, and the same mechanism carries the explanation. */
+    it('associates the explanation with its control, and keeps the error beside it', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'PATCH'
+                ? json(422, {
+                    error: {
+                        code: 'validation_failed',
+                        details: [{ field: 'settings.defaults.tax_percent', code: 'invalid', message: 'Not a number.' }],
+                    },
+                })
+                : envelope(SETTINGS)));
+
+        const view = await render();
+        await flushPromises();
+
+        const clean = view.get('[data-setting-key="company.name"] input');
+
+        expect(clean.attributes('aria-describedby')).toBe('hint-company.name');
+
+        await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('lots');
+        await view.get('[data-testid="settings-save"]').trigger('submit');
+        await flushPromises();
+
+        // Both, and the hint first: the explanation before the complaint.
+        expect(view.get('[data-setting-key="defaults.tax_percent"] input').attributes('aria-describedby'))
+            .toBe('hint-defaults.tax_percent error-defaults.tax_percent');
+    });
+
+    it('writes the explanations in Arabic too', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
+
+        const view = await render('ar');
+        await flushPromises();
+
+        const hint = view.get('[data-setting-key="locale.timezone"] [data-testid="setting-hint"]').text();
+
+        expect(hint).toBe(ar.settings.hint.locale_timezone);
+        expect(hint).not.toBe(en.settings.hint.locale_timezone);
+    });
+
     // ── S-02: one page, four sections, three permissions ───────────────────
 
     /**

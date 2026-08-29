@@ -336,6 +336,39 @@ built in Module 1's Step 5 and are used by every module after it.
       The tax and date-format suggestion sets are still awaiting an owner's list; until then they are
       suggestions over an open set, not a documented enumeration.
 
+- [x] **S-02.4** Every field on the settings page explains itself. *(2026-08-29, owner's request)*
+      **The Design System names no hint pattern, so this establishes one.** §5.2 asks a Form view for
+      *"clear sections, required markers, inline validation, calculated values read-only,
+      unsaved-change warning"* and stops; §8 asks for *error association* and says nothing about
+      explanation. Recorded rather than assumed to be house style.
+      **Nineteen controls, thirty-eight strings.** Eight settings fields, two rounding columns, three
+      rate fields, six limits — in both languages.
+      **The hint is associated, not merely adjacent.** `aria-describedby` carries `hint-<key>`, and
+      `hint-<key> error-<key>` once the server has refused something: the explanation before the
+      complaint, so a screen reader hears what the field is for *and* what went wrong. §8's error
+      association, doing double duty.
+      **On the rounding table the hint sits on the column, not in the cell.** One sentence repeated
+      down three rows is three copies to read past; the two `<th>` carry it and every row's control
+      points at them.
+      **Every sentence is grounded, and the ones that could not be were not written.** The tax hint
+      cites `D-63` and says *digits only, no % sign* because `SystemSetting::rule()` is `numeric`. The
+      time-zone hint says times are stored in UTC and converted, which is `DB-08`. The rounding hints
+      are `D-65` and §5.3's own numbers. The limits hints are each their enum case's citation said in
+      words. ⚠️ **The FX rate hint deliberately does not say which way the multiplier goes** —
+      `ExchangeRate` calls it *"the multiplier that reaches every line of every converted
+      quotation"* and no document says whether `from → to` multiplies or divides. Nothing converts
+      anything yet (Module 7), so the sentence describes the field and stops. **Owner question.**
+      **321 frontend tests · 1330 backend · three deliberate breaks:** the hint keys pointed one
+      letter off · the association helper returning the error id alone · one rate hint dropped.
+      ⚠️ **Break 1 caught a weak assertion of mine, again the same shape as the last one.** The loop
+      asserted `not.toContain('settings.hint.')`, and the break pointed the template at
+      `settings.hints.` — vue-i18n echoed *that* key back, which does not contain `settings.hint.`
+      and sailed straight through. Only comparing against the lang file's exact string catches a key
+      that resolves to itself. Both loops re-asserted that way; the same break then failed two cases.
+      **Not covered:** the hints describe **fields**, not workflows — a person who does not know what
+      a quotation approval SLA is for will not learn it here. No `title` tooltips: a hint that only
+      appears on hover is invisible on a phone and to a keyboard.
+
 - [x] **S-01** The product opens in Arabic, and the collapse control is an icon at the top of the
       menu. *(2026-08-29, on the owner's request in one message)*
       **Two changes with one thing in common: neither was a defect.** The shell did exactly what it

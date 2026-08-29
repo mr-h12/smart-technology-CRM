@@ -234,7 +234,7 @@ onMounted(load);
                             type="text"
                             :inputmode="row.valueType === 'integer' ? 'numeric' : undefined"
                             :aria-invalid="row.error !== null"
-                            :aria-describedby="row.error === null ? undefined : `error-${row.key}`"
+                            :aria-describedby="row.error === null ? `hint-${row.key}` : `hint-${row.key} error-${row.key}`"
                             class="field min-h-11 w-full rounded-lg border px-3 tabular-nums text-[var(--color-text)]"
                             :class="row.error === null
                                 ? 'border-[var(--color-border-strong)]'
@@ -250,6 +250,14 @@ onMounted(load);
                             data-testid="limits-unit"
                         >{{ unitLabel(row.unit) }}</span>
                     </div>
+
+                    <!-- What this limit governs. Each sentence is the enum's
+                         own citation said in words a person reads. -->
+                    <span
+                        :id="`hint-${row.key}`"
+                        class="text-table text-[var(--color-text-muted)] text-pretty"
+                        data-testid="limit-hint"
+                    >{{ t(`limits.hint.${row.key.replace('.', '_')}`) }}</span>
 
                     <!-- The server's sentence, localised by the server for this
                          request. §9.5: the message carries the meaning, the red

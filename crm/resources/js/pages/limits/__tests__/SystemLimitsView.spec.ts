@@ -327,6 +327,30 @@ describe('SystemLimitsView', () => {
         expect(view.find('[data-testid="error-retry"]').exists()).toBe(true);
     });
 
+    it('gives every limit an explanation, associated with its control', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        const view = render();
+        await flushPromises();
+
+        const fields = view.findAll('[data-limit-key]');
+
+        expect(fields).toHaveLength(6);
+
+        const hints: Record<string, string> = en.limits.hint;
+
+        for (const field of fields) {
+            const key = field.attributes('data-limit-key') ?? '';
+            const hint = field.find('[data-testid="limit-hint"]');
+
+            expect(hint.exists()).toBe(true);
+            // The exact string, for the reason `SystemSettingsView.spec` records:
+            // a key that resolves to itself passes a prefix check.
+            expect(hint.text()).toBe(hints[key.replace('.', '_')]);
+            expect(field.get('input').attributes('aria-describedby')).toBe(`hint-${key}`);
+        }
+    });
+
     // ── §14.2 ──────────────────────────────────────────────────────────────
 
     /** The page owns the `<h1>`; this is a section of it since S-02. */

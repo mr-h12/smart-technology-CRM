@@ -178,6 +178,17 @@ These are not. They are blocked on an owner decision or on ordinary work, they w
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
+- [ ] **`GET /users` still has no free-text `q`** — *owner decision, 2026-08-29: this stays debt, and
+      Identity is not touched from a Customers task.* `UserListCriteria` records the gap in its own
+      docblock: `q` was left out of Module 1 because §6.2 says the parameter "always passes through
+      `SearchService`", and `CLAUDE.md` builds that seam in Module 3. Module 3 now builds it — and
+      wiring it back into Identity would be a cross-module edit that module isolation forbids
+      without exactly this decision. **The cost, stated:** `D-48` — "every search call in the
+      codebase goes through `SearchService`" — is holed in one known, documented place, and the
+      employees list has no search box until a dedicated pass gives it one. The seam itself is not
+      at risk: it is being built for Customers either way, so closing this later is wiring, not
+      design.
+
 - [ ] **The `AuditEnforcementTest` signal hole** — *deferred by the owner 2026-08-28, to a
       dedicated pass.* The guard classifies a class as a database writer only when it carries one of
       four signals — `ConnectionInterface`, `->table(`, `DB::`, `Eloquent\Model`. A repository
@@ -3280,8 +3291,97 @@ to `admin.system_settings`, both approved by the owner in the same turn)*
 
 **Endpoints** CRUD + `PATCH /:id/archive` · `PATCH /:id/assign` · `POST /import`
 
+> **⚠️ Owner decision, 2026-08-29 — the MVP import reads `CSV`, not `.xlsx`. Awaiting a `D-xx`.**
+> This **narrows a documented requirement** and is recorded rather than applied silently:
+> `MVP_Build_Plan_EN.md` Module 3 says "**Excel import**", §3.3 has an `import (Excel)` permission
+> row, and §10 speaks of Excel throughout. `docs/` is untouched.
+>
+> **What forced the question.** `crm/composer.json` requires `laravel/framework` and
+> `laravel/tinker` and nothing else — there is no Excel reader in this project. An `.xlsx` file is a
+> ZIP of XML and cannot be parsed without one, so honouring the word "Excel" meant adding a
+> dependency (`openspout/openspout` or `maatwebsite/excel`). CSV needs **no dependency at all**:
+> `fgetcsv` is in the PHP standard library.
+>
+> **What this costs, stated rather than hidden.** A person who exports from Excel must choose
+> *Save As → CSV UTF-8*, and the importer has to survive what that produces: a UTF-8 BOM on the
+> first header, `;` as the separator under some Windows locales, and CRLF line endings. Those are
+> the importer's problem now, and they are cheaper than a dependency. **`D-31` is unaffected** — a
+> row with missing fields still saves flagged `is_incomplete`, whatever the file format was.
+> The permission row keeps its documented name (`import (Excel)`, §3.3, Manager only); renaming a
+> permission the seeded matrix carries is not in scope for a file-format decision.
+
 **Frontend** role-filtered list · add/edit form · detail page · archive (individual + select all) ·
 Excel import · "customers of deactivated employees" filter
+
+#### Step 1 — schema *(point order approved 2026-08-29)*
+
+- [x] **1.1** `customers` — §4.2's fields, `DB-01`/`DB-02`'s block, `DB-04`'s keys, `DB-09`'s index.
+      **§4.2's field list is read out of the master documentation by the test**, not restated in it:
+      a column dropped from both the migration and a hand-written list would pass a check that only
+      agrees with itself. **`added_by` is `created_by`** — §4.2 and `DB-02` name the same fact, and
+      two columns meaning "who added this row" is the defect rather than the reconciliation.
+      **`customer_status` is a CHECK, not an enum table**, and `DB-05` is why: it requires enum
+      tables for four named lists — sectors, units, service types, delivery terms — and customer
+      status is not among them. §4.5 derives it from five ordered conditions, so a fifth status is a
+      change to that rule and therefore a migration. It defaults to `prospect` because §4.5's fifth
+      rule makes a customer with no deals a Prospect, and on the day this table is created there are
+      no deals at all. **Nothing here derives anything** — `recompute_customer_status` is Module 5's.
+      ⚠️ **`sector` carries no foreign key, and that was measured, not assumed.** `enum_lists`'s
+      uniqueness is a *partial* index (`WHERE deleted_at IS NULL`, Module 2 Point 1.3) and PostgreSQL
+      refuses a key against one — probed against the running database, which answered
+      `SQLSTATE[42830]: there is no unique constraint matching given keys for referenced table
+      "enum_lists"`. `DB-04` is therefore honoured wherever a key is possible (`sales_owner_id` and
+      both actor columns) and the sector is validated at the boundary instead; the test pins **both**
+      halves, so if that index ever becomes total the decision is revisited rather than inherited.
+      **One index, not a speculative set:** `DB-09`'s owner index, because every §3.3 scope filters
+      on it. The name search belongs to `SearchService` (2.1) and the default sort is not chosen
+      until 3.2 — an index for a query that does not exist is a guess that costs writes.
+      **20 tests · 1352 backend · 346 frontend.** RED first: 17 failed for a missing table while the
+      one pure documentation check passed, and the field test failed on `hasColumn` rather than on
+      its own counter, which is what proves the parser really read §4.2.
+      **Three deliberate breaks:** the `whatsapp` column deleted (caught by name, out of the
+      documentation) · the status CHECK removed (`vip` accepted) · the owner index removed (`DB-09`
+      unmet). All restored; the last two confirmed with `shasum -a 256 -c`.
+      **Problems found:** (1) PHPStan level 10 refused `DB::select(...)->indexdef` — an untyped row
+      object — so the index check counts in SQL instead; narrowing it with a cast would have been the
+      escape hatch the standards forbid. (2) A baseline checksum was never written because a failed
+      `cd` short-circuited the `&&` chain before `shasum`; the first restore was verified by
+      inspecting the column order instead, and a real baseline was taken before the next break.
+      (3) A first full-suite run reported five deadlocks — two suites were running concurrently
+      against one test database. Re-run alone: 1352 passed, 0 failed.
+      **Not covered:** no seeder and no model — 1.1 is the table. No uniqueness on name, phone or
+      email, because §4.2 declares none and `D-35` makes a similar name a *warning*, never a block.
+- [ ] **1.2** `import_batches` — the batch's metadata and counts, not the uploaded file
+
+#### Step 2 — `SearchService` *(approved 2026-08-29)*
+
+- [ ] **2.1** the seam + `PostgresSearchDriver` (ILIKE) in `App\Support\Search`, with a
+      `SharedContracts` entry in `deptrac.layers.yaml` on the `App\Support\Settings` precedent
+- [ ] **2.2** Arabic normalisation for name matching (§10.2: hamza · taa marbuta · yaa)
+
+#### Step 3 — row scope and the API *(approved 2026-08-29)*
+
+- [ ] **3.1** row-scope resolution (§3.3: All · Team · Out · Own · Asgn) + negative-authorization tests
+- [ ] **3.2** `GET /customers` (§10.1's deactivated-employee filter · `q` through `SearchService`) and
+      `GET /customers/{id}`
+- [ ] **3.3** `POST` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning, never a block**
+- [ ] **3.4** `PATCH /customers/{id}/archive` and restore (Flow 7: Manager and Team Leader only)
+- [ ] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
+- [ ] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency
+
+#### Step 4 — screens *(approved 2026-08-29)*
+
+- [ ] **4.1** the role-filtered list, both filters, four states, RTL/LTR
+- [ ] **4.2** add/edit form — sector from the managed lists, region free text with suggestions
+      (`D-20`), the yellow duplicate warning
+- [ ] **4.3** detail page
+- [ ] **4.4** archive, individually and select-all
+- [ ] **4.5** the `.csv` import screen
+
+> **Out of scope for Module 3, stated so it is not looked for here.** Customer-status derivation
+> (`recompute_customer_status` → Module 5) · excluding incomplete records from financial reports
+> (Module 13) · free-text `q` on `GET /users` (debt, owner decision 2026-08-29) · duplicate merging
+> (§10.2: post-MVP).
 
 **Acceptance criteria**
 - [ ] Sales employee sees only own customers · Team Leader sees team · Manager sees all

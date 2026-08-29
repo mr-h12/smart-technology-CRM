@@ -3351,7 +3351,41 @@ Excel import · "customers of deactivated employees" filter
       against one test database. Re-run alone: 1352 passed, 0 failed.
       **Not covered:** no seeder and no model — 1.1 is the table. No uniqueness on name, phone or
       email, because §4.2 declares none and `D-35` makes a similar name a *warning*, never a block.
-- [ ] **1.2** `import_batches` — the batch's metadata and counts, not the uploaded file
+- [x] **1.2** `import_batches` — the batch's metadata and counts, not the uploaded file
+      *(⚠️ **The table is required and its columns are documented nowhere.** `import_batches`
+      appears **once** in the whole corpus — `MVP_Build_Plan_EN.md` lists it among Module 3's
+      tables — no section describes a field of it, and `OpenAPI_Contract_EN.md` does not mention
+      import at all. The column set below is therefore **derived**, and recorded here as a decision
+      awaiting a `D-xx` rather than presented as a reading of the documentation.
+      **What each column is derived from:** *who and when* come free from `DB-02`, and §3.3 gives
+      `import (Excel)` to the Manager alone so `created_by` is the importer · `original_filename`,
+      because a batch nobody can identify answers no question anyone would ask of it · **three
+      counts**, because `D-31` makes "saved but incomplete" an outcome distinct from "saved", so a
+      batch that cannot report how many of each it produced cannot describe its own result.
+      **A fourth count is deliberately absent:** outright failures are `row_count - imported_count`,
+      and a stored copy is a number that can disagree with the two it is computed from.
+      **The uploaded file is not kept.** No path column, and that is scope: storing the upload pulls
+      in `SEC-15`'s virus scan, `D-39`'s configurable 10 MB and `D-38`'s permission-checked
+      download — Module 5's files work. A path column today would promise machinery that does not
+      exist, and a test fails if one appears.
+      **The arithmetic is the database's** (`DB-04`): a batch cannot import more rows than it read,
+      and `D-31` makes an incomplete row an *imported* row, so `incomplete_count` can never exceed
+      `imported_count`. Both are CHECKs, not conventions the writer is trusted to keep.
+      **13 tests · 1365 backend.** RED first: 12 failed. ⚠️ **The thirteenth passed vacuously** —
+      "no column holds the uploaded file" is true of a table that does not exist, which is the
+      hollow-test trap this project has already been bitten by once. It was verified **after** the
+      table existed, by adding a `file_path` column and watching it fail by name.
+      **Two deliberate breaks:** that `file_path` column · the `D-31` invariant CHECK removed
+      (5 incomplete of 4 imported accepted). Both restored.
+      **Problems found:** the first restore of break 2 was **not** byte-identical — re-inserting the
+      block left a stray blank line before the closing brace, and `shasum -a 256 -c` reported
+      `FAILED`. Found by the checksum, not by reading; the line was removed and the second check
+      returned `OK`. This is the second time in two points that the restore step, not the break,
+      was the risky half.
+      **Not covered:** nothing links an imported customer back to its batch — `customers` has no
+      `import_batch_id`. No source asks for one, and it is an **open owner question** rather than an
+      omission: adding it later is a new migration, which is ordinary. No status column, no error
+      log, no partial-resume — all invention, none of it documented.)*
 
 #### Step 2 — `SearchService` *(approved 2026-08-29)*
 

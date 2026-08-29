@@ -74,7 +74,12 @@ final class NoHardCodedTextTest extends TestCase
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
-                'RoleFormModal.vue', 'RolesMatrixView.vue', 'UserDetailsDrawer.vue', 'UserFormModal.vue', 'UsersView.vue',
+                'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // Module 2 Point 5.1 — §13 screen 4. Added to this list only
+                // after the scan below passed on it: the list is an inventory,
+                // not a suppression, and the message above says so.
+                'SystemSettingsView.vue',
+                'UserDetailsDrawer.vue', 'UserFormModal.vue', 'UsersView.vue',
             ],
             self::basenames($files),
             'The set of scanned Vue files changed. Confirm the new file is covered rather than adjusting this list blindly.',

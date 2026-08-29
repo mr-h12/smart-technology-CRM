@@ -263,4 +263,29 @@ final class SettingsEndpointTest extends TestCase
         $this->patchJson(self::ENDPOINT, ['settings' => []], $this->bearerFor(RoleName::SuperAdmin))
             ->assertStatus(422);
     }
+
+    /**
+     * `OpenAPI §5.1`'s `details[].message` is read by a person, so it may not
+     * carry the internal key path.
+     *
+     * **Measured with Point 5.1**, which is the screen that shows it: without
+     * `attributes()` the message read *"The settings.defaults.tax percent field
+     * must be a number."* The machine code beside it is unchanged and still
+     * English — a client matches on that, not on this sentence.
+     */
+    public function test_that_a_refusal_names_the_field_in_words_a_person_reads(): void
+    {
+        $response = $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['defaults.tax_percent' => 'lots']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        $message = $response->json('error.details.0.message');
+
+        self::assertIsString($message);
+        self::assertStringNotContainsString('settings.', $message);
+        self::assertStringContainsString('default tax', $message);
+        self::assertSame('settings.defaults.tax_percent', $response->json('error.details.0.field'));
+    }
 }

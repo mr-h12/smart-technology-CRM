@@ -25,6 +25,53 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class UpdateSettingsRequest extends FormRequest
 {
+    /**
+     * Human names for the eight fields — `OpenAPI §5.1`'s `details[].message`
+     * is read by a person.
+     *
+     * **Measured before it was written.** Without this, `PATCH /settings` with a
+     * bad tax value answered *"The settings.defaults.tax percent field must be
+     * a number."* — Laravel derives an attribute name from the rule path, and
+     * the rule path here carries the `settings.` prefix and the escaped dot
+     * that `rules()` needs. The internal key reached the screen.
+     *
+     * Translated, because §14.2 requires Arabic and English from the first
+     * release and this string is shown to a user, not matched by a client.
+     * The stable machine code beside it (`details[].code`) stays English.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        $attributes = [];
+
+        foreach (SystemSetting::cases() as $setting) {
+            // ⚠️ **Two different key shapes on one line, and both are
+            // measured rather than assumed.**
+            //
+            // The array key is the **unescaped** attribute path — unlike
+            // `rules()`, which needs `\.` because a rule key is parsed for
+            // nesting. This array is looked up with the *resolved* attribute,
+            // which has real dots in it. With the escaped key the message still
+            // read "The settings.defaults.tax percent field must be a number."
+            //
+            // The **lang** key uses underscores, because `__()` reads dots as
+            // nesting too: `admin.settings.attributes.defaults.tax_percent`
+            // looks for `attributes → defaults → tax_percent`, which is not how
+            // the file is shaped, and an unresolved key returns itself — the
+            // message then read "The admin.settings.attributes.defaults.tax_percent
+            // field...". This is the third time a dot has meant nesting in this
+            // module; Point 3.1 paid for the first. The rule path needs `\.`
+            // because a rule key is parsed for nesting; this array is looked up
+            // with the *resolved* attribute, which has real dots in it.
+            // Measured: with the escaped key the message still read "The
+            // settings.defaults.tax percent field must be a number."
+            $attributes['settings.'.$setting->value] = (string) __('admin.settings.attributes.'.str_replace('.', '_', $setting->value));
+        }
+
+        return $attributes;
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {

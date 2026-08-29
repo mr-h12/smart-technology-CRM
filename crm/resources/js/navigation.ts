@@ -90,6 +90,16 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 // `permission: null` because the route declares none: §3.11 has
                 // no row for managing your own account, and `navigation.spec.ts`
                 // asserts the item and the route say the same thing.
+                // §13 screen 4. `admin.system_settings` — §3.11's own row,
+                // the Super Admin's, and the same string the route declares.
+                // `navigation.spec.ts` pins the two equal, so the menu and the
+                // guard cannot describe different products.
+                name: 'settings',
+                labelKey: 'nav.item.settings',
+                icon: 'M10 2.5a1 1 0 0 1 .97.76l.3 1.2c.4.13.78.3 1.13.5l1.06-.64a1 1 0 0 1 1.22.15l1.06 1.06a1 1 0 0 1 .15 1.22l-.64 1.06c.2.35.37.73.5 1.13l1.2.3a1 1 0 0 1 .76.97v1.5a1 1 0 0 1-.76.97l-1.2.3c-.13.4-.3.78-.5 1.13l.64 1.06a1 1 0 0 1-.15 1.22l-1.06 1.06a1 1 0 0 1-1.22.15l-1.06-.64c-.35.2-.73.37-1.13.5l-.3 1.2a1 1 0 0 1-.97.76h-1.5a1 1 0 0 1-.97-.76l-.3-1.2a5.9 5.9 0 0 1-1.13-.5l-1.06.64a1 1 0 0 1-1.22-.15L3.5 15.9a1 1 0 0 1-.15-1.22l.64-1.06a5.9 5.9 0 0 1-.5-1.13l-1.2-.3A1 1 0 0 1 1.5 11.2V9.7a1 1 0 0 1 .76-.97l1.2-.3c.13-.4.3-.78.5-1.13L3.32 6.2a1 1 0 0 1 .15-1.22L4.53 3.9a1 1 0 0 1 1.22-.15l1.06.64c.35-.2.73-.37 1.13-.5l.3-1.2A1 1 0 0 1 9.2 2.5zM10 7.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z',
+                permission: 'admin.system_settings',
+            },
+            {
                 name: 'account-security',
                 labelKey: 'nav.item.accountSecurity',
                 icon: 'M10 2 4 4.5V9c0 3.6 2.5 6.9 6 8 3.5-1.1 6-4.4 6-8V4.5zm0 4.5a2 2 0 0 1 2 2c0 .8-.5 1.5-1.2 1.8l.4 2.2H8.8l.4-2.2A2 2 0 0 1 10 6.5z',

@@ -18,6 +18,7 @@ import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
+import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 
 declare module 'vue-router' {
@@ -118,6 +119,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'account-security',
         component: AccountSecurityView,
         meta: { requiresAuth: true, titleKey: 'account.title' },
+    },
+    {
+        // §13 screen 4 — *System Settings*. `admin.system_settings` is §3.11's
+        // own row, held by the Super Admin alone — and deliberately **not**
+        // `admin.fx_rates`, which the Manager also holds and which Point 5.2's
+        // screen names for its rates half. It is the permission both endpoints
+        // behind this screen already carry; a guard that named anything else
+        // would send people to a screen whose every request 403s.
+        path: '/settings',
+        name: 'settings',
+        component: SystemSettingsView,
+        meta: { requiresAuth: true, requiredPermission: 'admin.system_settings', titleKey: 'settings.title' },
     },
     {
         path: '/403',

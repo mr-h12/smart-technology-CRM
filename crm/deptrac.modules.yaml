@@ -170,6 +170,14 @@ parameters:
     # which owners are deactivated for §10.1's filter. It points at the
     # **contract** half only; nothing points at `IdentityDriver`, and nothing
     # should — that is what the Identity split exists to keep true.
+    # `StorageContract` added 2026-08-30 with Point 3.6 — the crossing this
+    # file's own header anticipated: "a module may later be allowed to depend on
+    # StorageContract, which is the interfaces and the use cases". §14.2 puts
+    # the local file system behind an abstraction and `StorageServiceTest`
+    # enforces it as a property of every file in the application, so a module
+    # that must read an uploaded CSV cannot open it and must ask. Contract half
+    # only; nothing points at `StorageDriver`, and nothing should.
+    #
     # `AuditContract` added 2026-08-30 with Point 3.3, on exactly the terms
     # Identity's crossing of 2026-08-24 and Admin's of 2026-08-27 were added:
     # `AUD-01` names create and update among what must be recorded, and the
@@ -180,6 +188,7 @@ parameters:
       - SharedContracts
       - IdentityContract
       - AuditContract
+      - StorageContract
     Deals: ~
     Quotations: ~
     Suppliers: ~

@@ -398,6 +398,17 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     Route::patch('/{customer}', [CustomerController::class, 'update'])
         ->middleware('permission:customer.edit');
 
+    // §3.3's `import (Excel)` row — the Manager alone, with a dash in every
+    // other column including the Team Leader's. The permission keeps the
+    // document's name; the owner's narrowing of 2026-08-29 is about the file
+    // format (CSV through `fgetcsv`, no library), not about who may import.
+    //
+    // No `Idempotency-Key`, on Point 3.3's reading of `OpenAPI §9.1`: a
+    // customer is on none of the resources that require one, and is archivable
+    // rather than irreversible (`DB-01`).
+    Route::post('/import', [CustomerController::class, 'import'])
+        ->middleware('permission:customer.import');
+
     // Flow 10 · `OpenAPI §7.2`'s suffix, verbatim. §3.3 grants `assign`
     // `All · Team · — · — · — · — · —` — its own row beside `edit`, which five
     // roles hold — so this checks `customer.assign` and never `customer.edit`.

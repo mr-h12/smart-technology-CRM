@@ -274,7 +274,11 @@ would hide them behind `OD-03` indefinitely.
       writes the same kind of transaction as `ArchiveCustomer` and **is** seen — it calls `->update(`
       beside `ConnectionInterface` where its sibling calls `->setArchived(`. Two classes doing one
       kind of work, one visible on the spelling of a method name. Found by this test failing on the
-      unlisted class **after a comment claimed it would be invisible**; it is now registered `AUDITED`
+      unlisted class **after a comment claimed it would be invisible**; it is now registered `AUDITED`. ⚠️ **Point 3.6 puts it back on show:** `ImportCustomers` writes one `CUSTOMER_CREATED` per
+      imported row and is **not** seen (`->create(`, `->record(`, `->handle(` are none of them the
+      scanned verbs), and neither is `EloquentImportBatches`. Listing them would fail the register's
+      identity assertion instead of satisfying it — which is the clearest statement yet that this
+      hole needs its own point
 - [ ] **Bulk restore is documented and not built** — Flow 7 grants restore *"individually or
       select-all"* and `OpenAPI §7.3` gives the exact shape: a resource-specific action, a bounded
       `{"ids": [...]}` list, per-record result data, every record authorised and audited, and **no
@@ -3836,7 +3840,71 @@ Excel import · "customers of deactivated employees" filter
       `D-34`'s path, not this one. An **archived** customer can still be assigned: no source forbids
       it. Nothing here derives `customer_status`, and there is **still no screen** — Flow 10's UI is
       Point 4.3's.)*
-- [ ] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency
+- [x] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency
+      *(**§3.3's `import (Excel)` row, the Manager alone.** A dash in every other column, the Team
+      Leader's included — the one Customers row where `All · Team` does not apply. The permission
+      keeps the document's name; the owner's narrowing of 2026-08-29 is about the **file format**,
+      not about who may import.
+      **`fgetcsv`, and three behaviours measured in this image (PHP 8.4.24) rather than assumed:**
+      CRLF is handled, a newline inside a quoted field is preserved and the row still reads whole,
+      and **a UTF-8 BOM is not stripped** — the first header cell arrives as `\xEF\xBB\xBFname`.
+      So the BOM is stripped in `CustomerCsv` and the other two are left to the standard library.
+      The `;` separator is sniffed off the header line, because that is what a spreadsheet saves in
+      a locale where `,` is the decimal separator.
+      ⚠️ **`D-31`'s "missing fields" is undocumented, and this is the reading — awaiting a `D-xx`.**
+      §4.2 marks only `name` required, so the literal reading flags nothing and leaves `D-31`,
+      §10.1's filter and §11's exclusion with no subject at all. **Any of §4.2's ten user-entered
+      fields left empty flags the row** — the conservative direction, because it never calls a
+      record complete when it is not. The cost, stated rather than hidden: in practice nearly every
+      imported row carries the flag. The narrower reading — only the columns the file itself
+      declares — is the owner's to choose.
+      **A nameless row is a failure, not an incomplete one.** `customers_name_not_blank` is a CHECK,
+      so the row cannot save; it counts in `row_count` and not in `imported_count`, which is exactly
+      the arithmetic Point 1.2 wrote into `import_batches` when it refused a fourth count. The same
+      applies to a value longer than its column: refused, because a name cut at 255 is a different
+      customer, silently.
+      **One transaction for the whole file** (`DB-11`), one `CUSTOMER_CREATED` per imported row
+      (`AUD-01` names create explicitly), and one `import_batches` row at the end. No
+      `Idempotency-Key`: `OpenAPI §9.1` lists the resources that need one and a customer is on none
+      of them — Point 3.3 read that first and this point follows it rather than re-deciding it.
+      ⚠️ **`StorageContract` was added to `Customers` in `deptrac.modules.yaml`, and the guard is
+      why.** `StorageServiceTest` forbids `fopen(` — and eleven other filesystem primitives —
+      everywhere outside `Modules/Storage/Infrastructure`, as a property of *every* file in the
+      application (§14.2: "local file system behind an abstraction layer"). `fgetcsv` needs a
+      stream, so the choice was to cross the boundary properly or to spell the call differently and
+      leave the crossing undetectable. `StorageServiceInterface` gained **`readUploadStream()`** —
+      the pair to `store()`'s `$sourcePath`, taking a raw path precisely because the file is *not*
+      in storage — and `CustomerCsv` now parses a stream it never opened. This is the crossing
+      `deptrac.modules.yaml`'s own header anticipated: *"a module may later be allowed to depend on
+      StorageContract"*. Contract half only; nothing points at `StorageDriver`.
+      **The file is still not stored, scanned or served.** Point 1.2's decision holds:
+      `import_batches` has no path column, so `SEC-15`'s scan, `D-39`/`D-71`'s ceiling on a *stored*
+      file and `D-38`'s permission-checked download stay out of this point. `AllowedFileType` is
+      `D-40`'s six — PDF · JPG · PNG · WEBP · DOCX · XLSX — and **CSV is not among them**, which is
+      the other half of why the import file is not an attachment. The size ceiling is
+      `config('files.max_size_bytes')` (30 MB, `D-71` superseding `D-39`'s 10 MB) —
+      **not `limits.max_file_size_mb`**, which is unseeded with no `config/limits.php` behind it, so
+      `SettingReader::integer()` would fall through to a configured **0** and refuse every file.
+      Measured before it was used.
+      **29 tests · 1543 backend · 346 frontend.** RED first: **29 failed, 0 passed** — nothing
+      vacuous this time, because no test asserts a bare 404.
+      **Three deliberate breaks, each confirmed to fail and each restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the BOM strip removed (1 failed) · the `name` guard removed
+      (2 failed) · `D-31`'s flag pinned to false (3 failed).
+      **Problems found: two, both caught by a guard rather than by a reader.** (1) `StorageServiceTest`
+      failed on `CustomerCsv.php → fopen(` — the abstraction guard, doing exactly what it was built
+      for; the fix is the contract method above, not an exemption. (2) PHPStan level 10 rejected five
+      things at once, four of them mine to narrow rather than cast: a `mixed` stream parameter,
+      `$flagged and $incomplete++` as a statement, `(int) config(...)` (now `Config::integer`), and a
+      test helper returning an ungenericised `TestResponse`.
+      **Not covered:** **no owner column in the format** — §3.3 makes `assign` its own permission and
+      Point 3.5 its own route, and a spreadsheet full of UUIDs is not a format anyone fills in, so
+      imported rows arrive **unowned** and the Manager assigns them. No `D-35` duplicate probe on
+      import (`OD-08` is unseeded, so it would do nothing anyway, and §10.2 describes the employee's
+      save). No dry-run and no per-row error report — the response carries the four counts and the
+      failures are `row_count - imported_count`. No queue: a 30 MB file is parsed inside the request,
+      with a `ponytail:` comment naming the chunking upgrade. `customer_status` is still never
+      derived, and **there is no import screen** — Point 4.5's.)*
 
 #### Step 4 — screens *(approved 2026-08-29)*
 

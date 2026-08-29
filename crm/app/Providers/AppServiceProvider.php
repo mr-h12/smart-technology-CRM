@@ -26,7 +26,9 @@ use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
+use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
+use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
@@ -143,6 +145,10 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(UserDirectoryInterface::class),
             ),
         );
+
+        // Module 3 Point 3.6. `bind` for the same reason as the directory
+        // above: stateless, and a singleton would outlive nothing useful.
+        $this->app->bind(ImportBatchesInterface::class, EloquentImportBatches::class);
 
         $this->app->singleton(
             StorageServiceInterface::class,

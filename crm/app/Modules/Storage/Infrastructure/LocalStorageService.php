@@ -88,6 +88,21 @@ final readonly class LocalStorageService implements StorageServiceInterface
         return $stream;
     }
 
+    /** @return resource */
+    public function readUploadStream(string $sourcePath)
+    {
+        // Not through the disk: an upload temp file is not on `secure_uploads`
+        // and never will be. This is the abstraction's whole job — the one
+        // directory in the application where opening a file is allowed.
+        $handle = @fopen($sourcePath, 'r');
+
+        if ($handle === false) {
+            throw new RuntimeException('The uploaded file could not be opened.');
+        }
+
+        return $handle;
+    }
+
     public function exists(StoragePath $path): bool
     {
         return $this->disk->exists($path->value);

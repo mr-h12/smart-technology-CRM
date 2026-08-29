@@ -73,6 +73,22 @@ final readonly class CustomerDraft
         return new self(['sales_owner_id' => $ownerId]);
     }
 
+    /**
+     * Point 3.6 — the importer's row, and the one caller allowed to set
+     * `is_incomplete`.
+     *
+     * `D-31` makes the flag *"an imported record with missing fields"*, so it
+     * belongs to the importer and to nobody else: a hand-typed record is not
+     * incomplete by choice, which is why `SaveCustomerRequest` prohibits the
+     * field on both verbs.
+     *
+     * @param  array<string, string>  $attributes  already reduced to WRITABLE keys
+     */
+    public static function forImport(array $attributes, bool $isIncomplete): self
+    {
+        return new self([...self::only($attributes, self::WRITABLE), 'is_incomplete' => $isIncomplete]);
+    }
+
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {

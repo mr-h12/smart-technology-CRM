@@ -124,6 +124,14 @@ final class AuditEnforcementTest extends TestCase
             //
             // It owns Flow 10's transfer transaction and writes §3.12 rule 4's
             // CUSTOMER_REASSIGNED — "transfer" is one of the verbs AUD-01 names.
+            //
+            // ⚠️ Point 3.6 puts the hole back on show: `ImportCustomers` writes
+            // one CUSTOMER_CREATED per imported row and is **not** here, because
+            // it is not seen — `->create(`, `->record(` and `->handle(` are none
+            // of them the verbs scan() matches. Measured: this test passes with
+            // it unlisted, and listing it would fail the identity assertion
+            // above instead. So does `EloquentImportBatches`, which writes
+            // `import_batches` through a module-aliased Eloquent model.
             AssignCustomer::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before

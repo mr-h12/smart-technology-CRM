@@ -31,6 +31,14 @@ return [
         'assign_has_its_own_action' => 'Transferring a customer to another owner is a separate action, not a field on this form.',
     ],
 
+    // Point 3.6 — `POST /customers/import`. The owner's CSV narrowing of
+    // 2026-08-29; the §3.3 permission keeps its documented name.
+    'import' => [
+        'empty_file' => 'This file is empty. The first row must name the columns.',
+        'unknown_columns' => 'This file has columns the importer does not accept: :columns.',
+        'missing_name_column' => 'This file has no "name" column, and a customer cannot be imported without one.',
+    ],
+
     // Field names as a person reading a validation message would say them.
     'attributes' => [
         'name' => 'customer name',
@@ -47,5 +55,6 @@ return [
         'customer_status' => 'customer status',
         'is_archived' => 'archived',
         'is_incomplete' => 'incomplete',
+        'file' => 'file',
     ],
 ];

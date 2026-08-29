@@ -63,6 +63,33 @@ interface StorageServiceInterface
      */
     public function readStream(StoragePath $path);
 
+    /**
+     * An **upload temp file** as a read stream, for a caller that parses bytes
+     * it never stores. Module 3 Point 3.6 is the first.
+     *
+     * The pair to `store()`'s `$sourcePath`: this interface already knows what
+     * PHP's upload temp file is, and this is the other thing a caller can
+     * legitimately want to do with one. It takes a raw path rather than a
+     * {@see StoragePath} for exactly that reason — the file is not in storage,
+     * and giving it a storage path would claim it was.
+     *
+     * **Why it exists at all.** §14.2 puts "the local file system behind an
+     * abstraction layer", and `StorageServiceTest` enforces that as a property
+     * of every file in the application: no `fopen(` outside this module's
+     * Infrastructure. A module that must read an uploaded CSV therefore cannot
+     * open it, and the alternative — a hand-rolled parser over a string,
+     * because `fgetcsv` needs a stream — would reimplement the standard
+     * library to get around a boundary rather than through it.
+     *
+     * The caller closes the handle. Nothing is copied, kept, scanned or
+     * indexed: the file's lifetime still belongs to the request.
+     *
+     * @return resource
+     *
+     * @throws \RuntimeException when the path is missing or unreadable
+     */
+    public function readUploadStream(string $sourcePath);
+
     public function exists(StoragePath $path): bool;
 
     public function delete(StoragePath $path): void;

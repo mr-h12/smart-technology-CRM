@@ -6,6 +6,7 @@ namespace App\Modules\Customers\Presentation;
 
 use App\Modules\Customers\Application\Archiving\ArchiveCustomer;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
+use App\Modules\Customers\Application\Importing\ImportCustomers;
 use App\Modules\Customers\Application\Listing\ListCustomers;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
@@ -87,6 +88,17 @@ final class CustomerController
         return ApiEnvelope::single($request, CustomerPayload::of(
             $customers->restore($customer, self::heldScopes($request), self::actorId($request)),
         ));
+    }
+
+    public function import(ImportCustomersRequest $request, ImportCustomers $customers): JsonResponse
+    {
+        $upload = $request->upload();
+
+        return ApiEnvelope::single($request, ImportBatchPayload::of($customers->handle(
+            $upload->getRealPath(),
+            $upload->getClientOriginalName(),
+            self::actorId($request),
+        )), 201);
     }
 
     /**

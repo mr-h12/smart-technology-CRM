@@ -54,6 +54,24 @@ final class CustomerPayload
         return array_map(static fn (CustomerSummary $customer): array => self::of($customer), $page->items);
     }
 
+    /**
+     * `D-35`'s warning — §10.2's "yellow warning listing the similar customers".
+     *
+     * Id and name only, and not the whole record. The screen needs enough to
+     * name the customer and open it; anything more is a second detail payload
+     * nobody asked for, delivered to somebody who was only saving a form.
+     *
+     * @param  list<CustomerSummary>  $similar
+     * @return list<array{id: string, name: string}>
+     */
+    public static function similar(array $similar): array
+    {
+        return array_map(
+            static fn (CustomerSummary $customer): array => ['id' => $customer->id, 'name' => $customer->name],
+            $similar,
+        );
+    }
+
     /** @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool} */
     public static function pagination(CustomerPage $page): array
     {

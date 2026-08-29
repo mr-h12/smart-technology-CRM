@@ -52,13 +52,26 @@ final class ApiEnvelope
     /** Mirrors `App\Http\Middleware\AddRequestId::ATTRIBUTE`. */
     public const REQUEST_ATTRIBUTE = 'request_id';
 
-    /** @param  array<string, mixed>  $data */
-    public static function single(Request $request, array $data, int $status = 200): JsonResponse
+    /**
+     * `OpenAPI §4.1`'s single-resource envelope — "`GET` detail, `POST` create,
+     * and successful `PATCH`/action responses".
+     *
+     * ⚠️ **`$meta` merges *under* `request_id`, never over it.** §3.3 makes the
+     * request id the one thing every response carries, and a caller that
+     * happened to pass a `request_id` key would otherwise replace the value the
+     * whole audit trail is correlated by. Module 3 is the first caller: `D-35`'s
+     * duplicate warning is about the save rather than about the customer, so it
+     * belongs beside the request id and not inside `data`.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $meta  extra response-level metadata; omitted keys change nothing
+     */
+    public static function single(Request $request, array $data, int $status = 200, array $meta = []): JsonResponse
     {
         return new JsonResponse(
             [
                 'data' => $data,
-                'meta' => ['request_id' => self::requestId($request)],
+                'meta' => [...$meta, 'request_id' => self::requestId($request)],
             ],
             $status,
         );

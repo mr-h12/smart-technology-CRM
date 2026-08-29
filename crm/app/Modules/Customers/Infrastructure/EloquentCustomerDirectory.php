@@ -9,9 +9,11 @@ use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
 use App\Modules\Customers\Domain\Listing\CustomerPage;
 use App\Modules\Customers\Domain\Listing\CustomerSummary;
+use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Customers\Infrastructure\Eloquent\Customer;
 use App\Modules\Identity\Domain\Administration\UserListCriteria;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Support\Search\ArabicNormalisation;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use DateTimeImmutable;
@@ -99,6 +101,94 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
         $row = $query->whereKey($customerId)->first();
 
         return $row === null ? null : self::hydrate($row);
+    }
+
+    public function create(CustomerDraft $draft, string $actorId): CustomerSummary
+    {
+        $row = new Customer;
+        $row->fill($draft->attributes);
+
+        // `DB-02`. `HasStandardColumns` says plainly why no observer fills
+        // these: "a model observer guessing it would be wrong in exactly the
+        // cases that matter". The actor is passed in from the request instead.
+        $row->created_by = $actorId;
+        $row->updated_by = $actorId;
+        $row->save();
+
+        // `customer_status` is filled by the column's `DEFAULT 'prospect'`
+        // (§4.5 rule 5) and nothing in this module sets it, so the in-memory
+        // model still holds null until it is read back. Measured, not guessed:
+        // without this the hydrate below died on a non-nullable argument.
+        $row->refresh();
+
+        return self::hydrate($row);
+    }
+
+    public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, string $actorId): ?CustomerSummary
+    {
+        $query = $this->scoped($scope);
+
+        if ($query === null) {
+            return null;
+        }
+
+        $row = $query->whereKey($customerId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->fill($draft->attributes);
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row);
+    }
+
+    /**
+     * ponytail: five rows, because a "yellow warning listing the similar
+     * customers" that lists forty is a dialog nobody reads. §10.2 gives no
+     * number; raise it when a screen asks for one.
+     */
+    private const SIMILAR_LIMIT = 5;
+
+    public function similarTo(string $name, string $threshold, CustomerRowScope $scope, ?string $excluding = null): array
+    {
+        $query = $this->scoped($scope);
+
+        if ($query === null) {
+            return [];
+        }
+
+        // The stored column is folded by `translate()` and the incoming name in
+        // PHP, from the one declaration `ArabicNormalisation` owns — the same
+        // arrangement `PostgresSearchDriver` uses, for the same reason: folding
+        // every row in PHP would mean reading every row.
+        $score = 'similarity(translate(customers.name, ?, ?), ?)';
+        $folding = [ArabicNormalisation::FROM, ArabicNormalisation::TO, ArabicNormalisation::normalise($name)];
+
+        // `?::real` rather than a PHP comparison: the threshold is a decimal
+        // string (`DB-07`) and the score is produced by PostgreSQL, so the
+        // comparison belongs where both values already are.
+        $query->whereRaw($score.' >= ?::real', [...$folding, $threshold]);
+
+        if ($excluding !== null) {
+            // A record is never its own duplicate.
+            $query->whereKeyNot($excluding);
+        }
+
+        $rows = $query->orderByRaw($score.' desc', $folding)
+            ->orderBy('customers.id')
+            ->limit(self::SIMILAR_LIMIT)
+            ->get();
+
+        $similar = [];
+
+        foreach ($rows as $row) {
+            $similar[] = self::hydrate($row);
+        }
+
+        return $similar;
     }
 
     /**

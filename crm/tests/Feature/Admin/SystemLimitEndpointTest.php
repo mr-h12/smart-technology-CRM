@@ -145,7 +145,12 @@ final class SystemLimitEndpointTest extends TestCase
             ->json('data.limits');
 
         self::assertIsArray($limits);
-        self::assertCount(6, $limits, '§13 screen 6 names five, and D-75 adds the sixth.');
+        // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
+        // adds the seventh, `OD-08`'s similarity threshold, on the owner's
+        // decision of 2026-08-30. The count is asserted first on purpose: a
+        // limit added without a reader noticing is a field the screen will not
+        // draw, and this line is what makes somebody notice.
+        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);
@@ -173,9 +178,14 @@ final class SystemLimitEndpointTest extends TestCase
     }
 
     /**
-     * The five §13 names and nobody has valued. Null and not `0`: Point 1.1
-     * made the column nullable so "not configured yet" is distinguishable from
-     * a configured zero.
+     * The six nobody has valued — §13's five, plus `OD-08`'s threshold, which
+     * the owner deliberately left unseeded on 2026-08-30 for the reason
+     * `SystemSettingsSeeder` gives: *"a default nobody wrote would arrive as
+     * configuration and be read as fact"*.
+     *
+     * Null and not `0`: Point 1.1 made the column nullable so "not configured
+     * yet" is distinguishable from a configured zero — and on the threshold the
+     * difference is total, because zero would warn on every save.
      */
     public function test_that_an_unvalued_limit_reports_null_rather_than_a_default(): void
     {
@@ -195,7 +205,7 @@ final class SystemLimitEndpointTest extends TestCase
             }
         }
 
-        self::assertSame(5, $unvalued);
+        self::assertSame(6, $unvalued);
     }
 
     // ── writing ─────────────────────────────────────────────────────────────

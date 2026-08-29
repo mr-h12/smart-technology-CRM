@@ -378,4 +378,23 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
 
     Route::get('/{customer}', [CustomerController::class, 'show'])
         ->middleware('permission:customer.view');
+
+    // §3.3 gives `create` and `edit` their own rows, with different scopes on
+    // the same roles — the Team Leader creates under `All` and edits under
+    // `Team` — so they are two permissions here and not one `customer.write`.
+    //
+    // No `Idempotency-Key`. `OpenAPI §9.1` requires it for "deals, quotations,
+    // supplier quotations, purchase orders, reports, versions, and actions that
+    // change irreversible-equivalent business state"; a customer is on none of
+    // those lists and is archivable rather than irreversible (`DB-01`). Read
+    // before it was omitted, rather than omitted and explained afterwards.
+    //
+    // No `If-Match` either: `OpenAPI §9.2` scopes optimistic concurrency to
+    // quotations and says the pattern reaches other resources "only through a
+    // documented contract update".
+    Route::post('/', [CustomerController::class, 'store'])
+        ->middleware('permission:customer.create');
+
+    Route::patch('/{customer}', [CustomerController::class, 'update'])
+        ->middleware('permission:customer.edit');
 });

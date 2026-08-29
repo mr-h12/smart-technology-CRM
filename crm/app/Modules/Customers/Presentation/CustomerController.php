@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Customers\Presentation;
 
 use App\Modules\Customers\Application\Listing\ListCustomers;
+use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
+use App\Modules\Customers\Domain\Writing\CustomerWriteResult;
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Support\Http\ApiEnvelope;
@@ -43,6 +45,45 @@ final class CustomerController
         return ApiEnvelope::single($request, CustomerPayload::of(
             $customers->one($customer, self::heldScopes($request), self::actorId($request)),
         ));
+    }
+
+    public function store(SaveCustomerRequest $request, SaveCustomer $customers): JsonResponse
+    {
+        return self::saved($request, $customers->create(
+            $request->validated(),
+            self::heldScopes($request),
+            self::actorId($request),
+        ), 201);
+    }
+
+    public function update(SaveCustomerRequest $request, string $customer, SaveCustomer $customers): JsonResponse
+    {
+        return self::saved($request, $customers->update(
+            $customer,
+            $request->validated(),
+            self::heldScopes($request),
+            self::actorId($request),
+        ));
+    }
+
+    /**
+     * The record, plus `D-35`'s warning when there is one.
+     *
+     * The key is absent rather than an empty array when nothing is similar: a
+     * client checking `meta.similar_customers` for truthiness and one checking
+     * for the key both get the same answer, and the common response does not
+     * carry a field describing something that did not happen.
+     */
+    private static function saved(Request $request, CustomerWriteResult $result, int $status = 200): JsonResponse
+    {
+        $similar = CustomerPayload::similar($result->similar);
+
+        return ApiEnvelope::single(
+            $request,
+            CustomerPayload::of($result->customer),
+            $status,
+            $similar === [] ? [] : ['similar_customers' => $similar],
+        );
     }
 
     /**

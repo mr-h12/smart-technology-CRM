@@ -34,4 +34,23 @@ interface SettingReader
 {
     /** The stored limit for $key, or the configured value when there is none. */
     public function integer(string $key): int;
+
+    /**
+     * The stored limit for $key as a decimal string, or **null when it is unset**.
+     *
+     * ⚠️ **This one has no configuration floor, and the asymmetry with
+     * {@see integer()} is the contract rather than an oversight.** `integer()`
+     * serves limits that must always answer — a lockout with no value is a
+     * lockout of zero minutes, so configuration underneath it is a safety
+     * floor. `OD-08`'s similarity threshold is the opposite case: the
+     * documentation says the value is *"empirical, tuned after the first 100
+     * customers"*, so **there is no defensible default to fall back to**, and
+     * inventing one would put a number nobody chose in front of `D-35`'s
+     * warning. `null` means "not configured yet", and the caller is required to
+     * do nothing rather than to guess.
+     *
+     * A string and not a float: `DB-07`. The comparison belongs in the database,
+     * which is where the score is produced.
+     */
+    public function decimal(string $key): ?string;
 }

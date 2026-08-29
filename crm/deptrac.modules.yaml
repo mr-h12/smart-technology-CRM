@@ -170,10 +170,16 @@ parameters:
     # which owners are deactivated for §10.1's filter. It points at the
     # **contract** half only; nothing points at `IdentityDriver`, and nothing
     # should — that is what the Identity split exists to keep true.
+    # `AuditContract` added 2026-08-30 with Point 3.3, on exactly the terms
+    # Identity's crossing of 2026-08-24 and Admin's of 2026-08-27 were added:
+    # `AUD-01` names create and update among what must be recorded, and the
+    # recorder is an interface in `Audit\Domain`. The *contract* half only;
+    # nothing points at `AuditDriver`, and nothing should.
     Customers:
       - Framework
       - SharedContracts
       - IdentityContract
+      - AuditContract
     Deals: ~
     Quotations: ~
     Suppliers: ~

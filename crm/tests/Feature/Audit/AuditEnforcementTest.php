@@ -9,6 +9,7 @@ use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
+use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
@@ -87,6 +88,21 @@ final class AuditEnforcementTest extends TestCase
             // the register to point. It writes USER_UPDATED and, on a role
             // change, the ROLE_CHANGED entry §3.12 rule 4 makes mandatory.
             UpdateUser::class => self::AUDITED,
+
+            // Module 3 Point 3.3, and the scanner caught it on `->update(`
+            // beside an imported `ConnectionInterface` — the same two signals
+            // that caught UpdateUser. It owns the transaction and writes
+            // CUSTOMER_CREATED and CUSTOMER_UPDATED, which AUD-01 names
+            // explicitly among "create/update/delete/approve/transfer".
+            //
+            // ⚠️ Its persistence adapter, EloquentCustomerDirectory, gained
+            // `->save(` in the same point and is **not** listed — because this
+            // test still cannot see it. A repository writing purely through a
+            // module-aliased Eloquent model carries none of the four signals
+            // scan() looks for, exactly as EloquentManagedListRepository does.
+            // That hole was six classes at Module 2 Point 3.4; this makes it
+            // seven, and it is still owed its own point.
+            SaveCustomer::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

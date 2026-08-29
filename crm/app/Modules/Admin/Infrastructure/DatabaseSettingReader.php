@@ -51,4 +51,21 @@ final readonly class DatabaseSettingReader implements SettingReader
 
         return $this->config->integer($key);
     }
+
+    public function decimal(string $key): ?string
+    {
+        $stored = $this->limits->all()[$key]['value'] ?? null;
+
+        // Returned as the string it was stored as — `DB-07`, and the comparison
+        // happens in PostgreSQL, where the score is produced. `is_numeric` for
+        // the same reason `integer()` uses it: a word typed into a settings
+        // screen is not a threshold, and here "not an answer" is `null`, which
+        // the caller reads as "no warning configured" rather than as a zero
+        // that would warn on every save.
+        if (is_string($stored) && is_numeric($stored)) {
+            return $stored;
+        }
+
+        return null;
+    }
 }

@@ -239,6 +239,35 @@ would hide them behind `OD-03` indefinitely.
       byte-identical with `shasum -a 256 -c`. So Customers gets a third small copy in Point 3.2, and
       closing this needs either a decision to weaken Domain's empty ruleset or a different shape
       entirely — both bigger than a Customers point
+- [ ] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
+      *owner decision, 2026-08-30.* §10.2 asks for a warning when similarity is *"above the
+      threshold"* and `OD-08` gives the threshold no value, saying only *"Empirical — tuned after
+      the first 100 customers"*. `SystemLimit::CustomerSimilarityThreshold` is therefore the enum's
+      **seventh** case where §13 names six, and it is left unvalued for the reason
+      `SystemSettingsSeeder` already records: *"a default nobody wrote would arrive as configuration
+      and be read as fact"*. **The cost, stated:** until an administrator types a number into §13
+      screen 6, `POST`/`PATCH /customers` never returns `meta.similar_customers`, and §10.2's
+      acceptance criterion cannot pass. Nothing is unsafe — `D-35` is *"warning only; the employee
+      decides"*, so an absent warning is a save that goes through, which is what it does today
+      anyway. Closing it is one row in `system_limits`; the measured gap the value sits in is
+      **0.09 for two unrelated Arabic company names against 1.00 for a folded duplicate**
+- [ ] **The duplicate warning is row-scoped, so two callers with disjoint scopes can each create the
+      same customer** — *decided in Point 3.3, and it is a trade, not an oversight.* §10.2 wants the
+      warning to **list** the similar customers; `SEC-08` says a caller may not see a row outside
+      their scope. Listing one would leak another owner's customer name through a convenience, so
+      the probe runs inside the module's one `scoped()` builder factory, like every other read. What that costs:
+      an Indoor Sales user is not warned about a duplicate owned by somebody else, and will create
+      it. **Open owner question** — is an unscoped *count* ("2 similar customers exist, ask your
+      manager") an acceptable middle, or does the leak-free version stand? A count still discloses
+      existence, which is why it is asked rather than assumed
+- [ ] **The audit scanner's blind spot is now seven classes** — *unchanged in kind, one wider.*
+      `EloquentCustomerDirectory` gained `->save(` in Point 3.3 and `AuditEnforcementTest` cannot
+      see it: a repository writing purely through a module-aliased Eloquent model carries none of
+      the four signals `scan()` looks for, exactly as `EloquentManagedListRepository` does. `AUD-01`
+      is satisfied one layer out — `SaveCustomer` owns the transaction, is registered `AUDITED`, and
+      **is** seen by the scanner (`->update(` beside an imported `ConnectionInterface`) — but that is
+      the register being right by luck of a method name, not the scanner being right. Still owed its
+      own point
 - [x] **`D-73` has a row in the master decision log** — *closed 2026-08-23 with Point 1.1, under
       the owner's explicit authorisation.* It is in `§2.8 Operations & Scope`; `grep -n "D-73"
       docs/CRM_Documentation_EN.md` returns line 153, re-checked 2026-08-24. `CRM_Documentation_EN.md`
@@ -3611,7 +3640,64 @@ Excel import · "customers of deactivated employees" filter
       rows once per row. And `team`/`out`/`asgn` still resolve to nothing, so Team Leader, Outdoor
       Supervisor and Procurement see an empty list — tested explicitly, so the deferral's cost is
       visible rather than surprising.)*
-- [ ] **3.3** `POST` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning, never a block**
+- [x] **3.3** `POST /customers` and `PATCH /customers/{id}`, with `D-35`'s similar-name **warning,
+      never a block**
+      *(**A scope on `create` is not a `WHERE`.** §3.3's create row carries scopes —
+      `All · All · Out · Own · Own · — · —` — and there is no row yet to filter, so the only thing a
+      scope can constrain before the row exists is **who it is filed under**: `all` files under
+      anybody, `own` files under the actor and refuses anybody else. The same `CustomerRowScope`
+      answers it, which is why `team`/`out`/`asgn` fail closed here exactly as they do on read — an
+      Outdoor Supervisor cannot create a customer at all today, and that is tested rather than left
+      to be discovered.
+      **`sales_owner_id` is writable on create and `prohibited` on update.** §3.3 makes `assign` a
+      permission of its own — two roles hold it where five hold `edit` — and `OpenAPI §7.2` gives it
+      the route `PATCH /customers/{id}/assign`. Accepting the column on a generic update would hand
+      every `edit` holder a permission the matrix does not grant them. Point 3.5 builds the transfer.
+      **Three columns are refused with a 422 rather than dropped:** `customer_status` (§4.5 and
+      `D-49` derive it), `is_archived` (Point 3.4's own action) and `is_incomplete` (`D-31`'s
+      importer flag, Point 3.6). `CustomerDraft` would filter them out anyway, so the write is safe
+      either way — but a caller who sends `customer_status` has a wrong idea about who owns that
+      value, and a 201 would confirm it.
+      **`pg_trgm`, chosen by measurement.** §10.2 asks for a *similarity score against a threshold*,
+      which `ILIKE` cannot answer. PHP's two candidates were measured and both are **byte-wise** —
+      `strlen('أحمد')` is 8 where `mb_strlen` is 4 — so `levenshtein()` and `similar_text()` score
+      Arabic by its UTF-8 bytes. Probed in a throwaway database before the migration was written:
+      folded through `ArabicNormalisation`, `احمد للتجاره` vs `أحمد للتجارة` scores **1.00** (0.44
+      unfolded) while two unrelated company names score **0.09**. The extension is available in
+      `postgres:17.5-bookworm` and was **not** installed; the DB role is superuser, checked with
+      `usesuper` before relying on `CREATE EXTENSION`. ponytail: no GIN index — `OD-08` scopes the
+      tuning to the first hundred customers and the probe runs once per save.
+      **The probe runs after the write, never before it.** `D-35` is *"warning only; the employee
+      decides"*, so there is no branch in which a similar name can stop a save — structural rather
+      than a rule somebody has to keep.
+      **No `Idempotency-Key` and no `If-Match`, read rather than skipped.** `OpenAPI §9.1` lists
+      deals, quotations, supplier quotations, purchase orders, reports and versions; a customer is
+      on none of them and is archivable rather than irreversible (`DB-01`). §9.2 scopes optimistic
+      concurrency to quotations and says the pattern reaches other resources *"only through a
+      documented contract update"*.
+      **`AUD-01` create and update**, recorded inside the same transaction as the write (`DB-11`),
+      with the old values limited to the fields the write actually touched (`AUD-02`).
+      **`Customers → AuditContract`** in `deptrac.modules.yaml`, on the same terms as Identity's
+      crossing of 2026-08-24 and Admin's of 2026-08-27 — the contract half only.
+      **31 tests · 1468 backend · 346 frontend.** RED first: **27 failed** before any of it existed.
+      **Four deliberate breaks, each confirmed to fail and each restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the duplicate probe's scope removed (the leak test failed) ·
+      the create-scope owner check disabled (1 failed) · `sales_owner_id` un-prohibited on `PATCH`
+      (1 failed) · the migration's `down()` made a no-op (`DEV-03` failed).
+      **Problems found:** (1) after `save()`, `customer_status` was still null in memory — the
+      column's `DEFAULT 'prospect'` fills it and nothing in this module sets it — which killed
+      `hydrate()` on a non-nullable argument and took 10 tests with it; fixed with a `refresh()`,
+      and the comment says why rather than what. (2) PHPStan level 10 rejected five sites in the new
+      tests; fixed by narrowing (`assertIsNumeric`, `DB::scalar`) and by deleting one assertion it
+      could prove would never fail — never by casting. (3) ⚠️ **Two Module 2 tests failed, and they
+      were right to:** `SystemLimitEndpointTest` asserts the limit **count** first, so the seventh
+      case broke it exactly as `i18n.spec.ts` breaks on a new hint. Both were updated with the
+      reason, not just the number — a Module 3 point editing a Module 2 test, disclosed here because
+      the enum it guards is the one this point extended.
+      **Not covered:** no archive/restore (3.4), no assign (3.5), no import (3.6), and **no screens
+      at all** — `D-35`'s yellow warning has an API and no UI until Point 4.2. The duplicate probe
+      is scoped, with the cost recorded above. `customer_status` is still never derived: §4.5's
+      recalculation is Module 5's. Nothing here rate-limits creation.)*
 - [ ] **3.4** `PATCH /customers/{id}/archive` and restore (Flow 7: Manager and Team Leader only)
 - [ ] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
 - [ ] **3.6** `POST /customers/import` — CSV through `fgetcsv`, no dependency

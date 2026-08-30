@@ -73,6 +73,7 @@ import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // own docblock says so — and moving it to a shared folder would edit Module 1's
 // screens for a tidier import path. Recorded as debt instead.
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
+import CustomerImportModal from '@/pages/customers/CustomerImportModal.vue';
 
 /**
  * The two date columns of `CustomerListCriteria::ALLOWED_SORTS`; `name` is the
@@ -134,6 +135,11 @@ const archivedOnly = computed(() => archivedFilter.value === 'archived');
 
 /** §3.3 writes `archive / restore` as one merged row — one permission, both directions. */
 const canArchive = computed(() => auth.hasPermission('customer.archive'));
+
+/** §3.3's `import (Excel)` row is `All · — · — · — · — · — · —` — the Manager alone. */
+const canImport = computed(() => auth.hasPermission('customer.import'));
+
+const importOpen = ref(false);
 
 const selectedIds = ref<string[]>([]);
 const acting = ref(false);
@@ -396,6 +402,20 @@ async function onConfirm(): Promise<void> {
     await load();
 }
 
+/**
+ * §10's "dedicated filter", reached rather than described.
+ *
+ * The dialog closes first: it has just sent the person to a set of rows, and
+ * sitting on top of them is the one place the result is less useful than the
+ * list behind it.
+ */
+async function onShowIncomplete(): Promise<void> {
+    importOpen.value = false;
+    incompleteOnly.value = true;
+
+    await applyFilters();
+}
+
 onMounted(async () => {
     await Promise.all([load(), loadSectors()]);
 });
@@ -410,6 +430,18 @@ onMounted(async () => {
                 <p v-if="!loading && !failed && !denied" data-testid="customer-total" class="tabular-nums text-[var(--color-text-muted)]">
                     {{ t('customers.total', { count: total }) }}
                 </p>
+
+                <!-- §3.3's Manager-only row. §6.2 allows one Primary per
+                     context and *New customer* is it, so this is Secondary. -->
+                <button
+                    v-if="canImport"
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-import"
+                    @click="importOpen = true"
+                >
+                    {{ t('customers.import.title') }}
+                </button>
 
                 <!-- §6.2: one primary action per context. -->
                 <button
@@ -740,6 +772,13 @@ onMounted(async () => {
             :danger="pending?.kind === 'archive'"
             @confirm="onConfirm"
             @cancel="dismiss"
+        />
+
+        <CustomerImportModal
+            :open="importOpen"
+            @imported="load()"
+            @show-incomplete="onShowIncomplete"
+            @cancel="importOpen = false"
         />
 
         <CustomerFormModal

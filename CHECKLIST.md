@@ -4244,7 +4244,60 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       ships select-all as a client loop over `PATCH /customers/{id}/restore`, so the screen no longer
       blocks on this. **The gap itself remains open**: `API-07` and `OpenAPI §7.3` document a bulk
       archive/restore endpoint that is not built, and it stays on the register awaiting a `D-xx`
-- [ ] **4.6** the `.csv` import screen — the four counts, and a link to the incomplete filter
+- [x] **4.6** the `.csv` import screen — the four counts, and a link to the incomplete filter
+      *(**`CustomerImportModal.vue`, a dialog on the Customers screen — no route and no nav item.**
+      §8 names no *Import* item for any role, and Point 4.5b was the cost of a menu offering a
+      destination §8 does not name. Import is an action on the Customers screen, so it lives where
+      that screen is.
+      **§3.3's `import (Excel)` row is `All · — · — · — · — · — · —`** — the Manager alone, a dash
+      even for the Team Leader — so the button is drawn by `customer.import` and
+      `CustomerImportEndpointTest` is the gate (`SEC-09`). §6.2 keeps one Primary per context and
+      *New customer* is it, so Import is Secondary.
+      **CSV and not Excel is the owner's narrowing** (2026-08-29, `fgetcsv`, no library); the
+      permission keeps the document's name. Still awaiting a `D-xx`.
+      **Four numbers, and the fourth is this screen's own.** `ImportBatchPayload` sends
+      `row_count`, `imported_count` and `incomplete_count` and deliberately **no** failure count —
+      its own docblock says why: "a field that can disagree with the two it is derived from is a
+      field that eventually will". Failures are `row_count − imported_count`, computed here.
+      ⚠️ **A failed row and an incomplete row are not the same thing, and the labels say so.**
+      `D-31` accepts incomplete data and flags it — **those rows were imported** and are inside
+      `imported_count`. A failure saved nothing at all (a blank name violates the table's CHECK).
+      **§10's "dedicated filter", reached rather than described.** The result offers Point 4.2's
+      `is_incomplete` filter, and only when `incomplete_count > 0` — a control offering a filter
+      that would match nothing is a control that lies. It is an **emit, not a `RouterLink`**,
+      because no filter state reaches the URL (standing debt) and a link could not carry it.
+      **Design System §6.3's four for a file upload:** allowed format · configured size limit ·
+      upload status (§6.1's text alternative on the busy button, not a bare spinner) · the
+      permission that draws it. §6.1's server validation is `ApiError.messageFor('file')` — the
+      server's own sentence — **with the chosen file preserved** through a 422.
+      ⚠️ **The 30 MB limit is a label, not a check, and it can drift.** The ceiling is
+      `config('files.max_size_bytes')` (`D-71`), server-side configuration the SPA has no endpoint
+      for: `GET /system-limits` needs `admin.system_limits`, which the importing Manager does not
+      hold, and its `limits.max_file_size_mb` is unseeded anyway. §6.3 requires the limit be shown,
+      so it is a string in the lang file — and if `FILES_MAX_SIZE_BYTES` is ever set, the label
+      lies while the server stays right. **On the register.**
+      **12 frontend tests (9 modal + 3 wiring) · 1557 backend (9882) · 442 frontend (27 files) ·
+      pint 380 · phpstan [OK] · deptrac 0/0 twice.** The backend delta is **`+3` / `+4`**, the
+      predicted shape for one new `.vue` plus one new `.spec.ts` — third time it has closed to the
+      unit.
+      **Four deliberate breaks, each failing the test written for it, restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the multipart field renamed off `file` · failures reported as
+      the incomplete count · the incomplete filter offered unconditionally · the chosen file
+      discarded on a refusal.
+      **Problems found: three.** (1) **The 422 fixture used the wrong envelope shape** — a map of
+      field to messages, where `OpenAPI §5.1` defines `details` as an **array** of
+      `{field, code, message}`. The screen fell through to its generic sentence and looked exactly
+      like a code bug. Checked against `CustomerFormModal.spec.ts`'s working fixture rather than
+      guessed twice. (2) A `docker run` fired from the repo root instead of `crm/` reported
+      **"no tests"** and left a stray root `node_modules/.vite`, which only `crm/.gitignore`
+      ignores; removed. (3) `NoHardCodedTextTest`'s inventory assertion sits **before** the scan
+      loop, so the first failure proved only that the set changed — the scan half was run
+      separately, after the file was listed, and passed (48 tests).
+      **Not covered:** no dry-run, no per-row error report (a failure is arithmetic, not a reason),
+      **no queue** — a 30 MB file is parsed inside the request — no `D-35` duplicate probe on
+      import, and **imported rows arrive unowned** with no screen able to assign them (Point 3.5's
+      route still has no UI). The import history is not listed anywhere: `import_batches` is
+      written and only the batch just created is ever shown.)*
 
 > **Out of scope for Module 3, stated so it is not looked for here.** Customer-status derivation
 > (`recompute_customer_status` → Module 5) · excluding incomplete records from financial reports

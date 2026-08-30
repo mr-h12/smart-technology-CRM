@@ -622,6 +622,21 @@
             "confirmAction": "Restore",
             "done": "Restored {count} customers.",
             "failed": "Restored {done}, {failed} refused. Nothing else changed — try the refused rows again."
+        },
+        "import": {
+            "title": "Import customers",
+            "hint": "CSV files only, up to 30 MB.",
+            "choose": "Choose a file",
+            "noFile": "No file chosen",
+            "submit": "Import",
+            "submitting": "Importing…",
+            "resultTitle": "Import finished",
+            "rows": "Rows read",
+            "imported": "Imported",
+            "incomplete": "Flagged incomplete",
+            "failed": "Not imported",
+            "showIncomplete": "Show the incomplete records",
+            "error": "The import did not run. Nothing was changed."
         }
     }
 }

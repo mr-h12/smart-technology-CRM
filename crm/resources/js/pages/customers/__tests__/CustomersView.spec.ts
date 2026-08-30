@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import CustomersView from '@/pages/customers/CustomersView.vue';
+import CustomerImportModal from '@/pages/customers/CustomerImportModal.vue';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 import { createAppRouter } from '@/router';
 
@@ -934,5 +935,83 @@ describe('CustomersView — Point 4.5, the archive half', () => {
         await flushPromises();
 
         expect(document.activeElement).toBe(trigger.element);
+    });
+});
+
+/**
+ * Point 4.6 — the import control, and the filter §10 asks it to offer.
+ *
+ * §3.3's `import (Excel)` row is `All · — · — · — · — · — · —`: the Manager
+ * alone, with a dash even for the Team Leader. The button mirrors that and
+ * `CustomerImportEndpointTest` enforces it (`SEC-09`).
+ */
+describe('CustomersView — Point 4.6, the import control', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** §3.3's Manager: the only row without a dash on `import`. */
+    const IMPORTER: AuthenticatedUser = {
+        ...SALES,
+        permissions: ['customer.view.all', 'customer.import.all'],
+    };
+
+    it('offers Import to a holder of customer.import and to nobody else', async () => {
+        stubScreen();
+        await signIn(IMPORTER);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="customers-import"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(READER);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="customers-import"]').exists()).toBe(false);
+    });
+
+    /**
+     * §10: an incomplete import is "Flagged 'incomplete' with a **dedicated
+     * filter**". Point 4.2 built the filter, so the result reaches it rather
+     * than describing it — and the assertion is on the query string, because a
+     * filter that never reaches the server is a control that lies.
+     */
+    it('applies §10’s incomplete filter when the import result asks for it', async () => {
+        const asked = stubScreen();
+        await signIn(IMPORTER);
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-import"]').trigger('click');
+        expect(view.find('[data-testid="customer-import-modal"]').exists()).toBe(true);
+
+        view.findComponent(CustomerImportModal).vm.$emit('showIncomplete');
+        await flushPromises();
+
+        expect(customerCalls(asked).at(-1)).toContain('filter[is_incomplete]=true');
+        // The dialog gets out of the way of the rows it just sent the person to.
+        expect(view.find('[data-testid="customer-import-modal"]').exists()).toBe(false);
+    });
+
+    it('reloads the list when an import succeeds', async () => {
+        const asked = stubScreen();
+        await signIn(IMPORTER);
+
+        const view = render();
+        await flushPromises();
+
+        const before = customerCalls(asked).length;
+
+        await view.find('[data-testid="customers-import"]').trigger('click');
+        view.findComponent(CustomerImportModal).vm.$emit('imported');
+        await flushPromises();
+
+        // New rows exist and the list in hand predates them.
+        expect(customerCalls(asked).length).toBe(before + 1);
     });
 });

@@ -79,6 +79,7 @@ final class NoHardCodedTextTest extends TestCase
                 // below passed on each.
                 'CustomerDetailView.vue',
                 'CustomerFormModal.vue',
+                'CustomerImportModal.vue',
                 'CustomersView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',

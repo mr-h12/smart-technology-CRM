@@ -5084,6 +5084,80 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       no row link — §8 lists *Suppliers*, not a supplier record, and `navigation.ts`'s rule keeps the
       name plain text until a route exists. No `linked_quotations` column: §7.1 marks it Automatic and
       Module 6 derives it. The 500-row search cap is the driver's and unchanged.
+- [x] **4.2** `SupplierFormModal.vue` · the create button · the row Edit button — §7.1's supplier
+      add/edit form, Design System §5.2's Detail/Form.
+      **One permission draws all four verbs.** §3.7's write row is a single cell — "create · edit ·
+      deactivate · set colour" — so `canManage = auth.hasPermission('catalog.manage')` draws every
+      write control on the screen and there is no second permission to ask about. There is also no
+      action route: the server publishes neither `/deactivate` nor `/color`, so `is_active` and
+      `color_rating` travel as ordinary fields on the same PATCH, and the spec reads the request
+      **method and URL** to prove the screen agrees rather than trusting the comment that says so.
+      **The CEO is the documented negative case**, not an invented one. §3.7 grants them
+      `catalog.view` and annotates the write column "read-only", so they are the role the
+      documentation itself nominates for "reaches the screen, writes nothing". Both SEC-09 tests
+      assert **both halves** — drawn for Procurement, absent for the CEO — because a one-sided
+      assertion passes against a screen that draws nothing at all. `SupplierWriteEndpointTest`
+      remains the gate; these buttons are the menu.
+      **Seven fields, and deliberately not the eighth.** §7.1 marks `linked_quotations` "Automatic"
+      and `SaveSupplierRequest` answers it with `prohibited` — a 422, not a silent drop — so a
+      control for it would be one that can never save. The spec asserts its **absence**.
+      **The create sends the table's own defaults explicitly** — `color_rating: 'white'` (§7.1's
+      "new / not yet rated"), `has_open_account: false`, `is_active: true` — read from the Point 1.1
+      migration rather than recalled. An empty box is sent as `null` and not `""`: the columns are
+      nullable and "" is a value no filter or export expects.
+      **`name` is the only required field**, and the client check is a courtesy, not the rule.
+      `SaveSupplierRequest` carries `regex:/\S/` beside `required` because `required` accepts "   "
+      and the table's `CHECK (btrim(name) <> '')` would answer a blank one with a 500. The screen
+      refuses first to save a round trip; `D-67` keeps the server the authority.
+      **Standing debt 17 is settled for this form by following `UserFormModal`, not by inventing a
+      third way.** A field-level refusal shows the server's own sentence — the server said exactly
+      what was wrong, and copying that rule into the screen would make a second copy of it. A
+      form-level refusal is a **lang key** (`suppliers.form.forbidden` / `rejected` / `unreachable`),
+      because a server sentence was localised once, when the request was answered, and a banner
+      holding one stops re-translating when the reader switches AR/EN. The remaining forms still map
+      errors their own way; that spread is unchanged and is not this point's to close.
+      **The saved row is not patched in place.** A rename moves it under `sort=name` and a
+      deactivation drops it out of `filter[is_active]`, so the dialog closes and the list is asked
+      again (§5.2, §6.5).
+      **1745 backend (10994 assertions) · 507 frontend (32 files) · `npm run build` clean
+      (`vue-tsc --noEmit && vite build`) · pint 416 files · PHPStan level 10 clean · deptrac
+      violations 0 / uncovered 0 on both configs (1404 and 728 allowed).**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Two deliberate breaks, neither a deletion:** (1) `canManage` keyed on `catalog.view` instead
+      of `catalog.manage` — the plausible copy of the *view* key the sidebar legitimately uses →
+      failed **exactly** the two SEC-09 tests, by name, and no other of the twenty; (2) the
+      form-level refusal taken from `error.message` instead of a key — the plausible shortcut, and
+      the one this point argued against → failed **exactly** the 403 test. Both restored with the
+      inverse `sed` and confirmed against a checksum baseline taken **before** the first break
+      (`shasum -a 256 -c` → OK on both files).
+      Delta reconciled to the unit against the measured `main` baseline (1742 / 10990 backend, 490 /
+      31 frontend). Backend **+3 tests** — `LogicalPropertiesTest` generates one test per scanned
+      file through two providers: `styledFiles()` over `vue|css` gains the component, `markupFiles()`
+      over `vue|php|ts` gains the component **and** its spec. Backend **+4 assertions** = those three
+      provider rows plus one from `NoHardCodedTextTest`'s per-Vue-file scan loop (measured 371 → 372).
+      No new nav item, so the fourth guard that surprised Point 4.1 does not move here. Frontend
+      490 → 507 = **13** (the new spec) + **4** (the write-control tests added to
+      `SuppliersView.spec.ts`). Predicted before the run and matched exactly.
+      **Problems found:** three. (1) `NoHardCodedTextTest`'s Vue inventory is a count-asserting guard
+      and broke by design; updated with the reason written into the test, after the scan itself had
+      passed on the file (48 passed / 372 assertions). (2) **Two `artisan test` runs were alive at
+      once** and the suite came back `48 failed` with `DeadlockException`. The cause was an operating
+      error, not the code: a suite backgrounded with a shell `&` was assumed dead because its log had
+      no summary, and a second was started over it. `ps` on the host showed both. (3) Killing the
+      host-side `docker compose exec` does **not** immediately kill the PHP process inside the
+      container, so the first re-run still contended. The container has **no `pgrep`**, and a
+      `pgrep || echo gone` probe therefore reported "gone" from the *error* path — a false all-clear.
+      Read `/proc/*/cmdline` instead. Clean re-run: 1745 passed, 0 failed.
+      **Not covered:** no focus trap and no focus return — the dialog is `role="dialog"`
+      `aria-modal="true"` with Escape and scrim handled, but focus is not moved into it on open nor
+      restored to the opener on close; `ConfirmDialog.vue` has the same gap (debt 15) and both want
+      one shared fix rather than two. No optimistic locking — suppliers have no version column, so
+      two people editing one supplier is last-write-wins (`DB-12` scopes `If-Match` to quotations).
+      No delete and no archive control: `catalog.delete` is an **empty grant array** (§3.12 rule 3)
+      and there is no route at any permission. Still **no `filter[has_open_account]` control**
+      (debt 26) and still no supplier detail view. The dialog does not warn that deactivating a
+      supplier hides them from Modules 6/7 selection lists, because those lists do not exist yet.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company

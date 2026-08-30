@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Modules\Admin\Domain\Settings\SystemLimit;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
@@ -195,17 +196,28 @@ final class SystemLimitEndpointTest extends TestCase
 
         self::assertIsArray($limits);
 
+        // The two the owner has ruled on: `D-75`'s lockout and, since
+        // 2026-08-30, `OD-08`'s similarity threshold. Everything else in §13
+        // screen 6 still has no documented value.
+        $configured = [self::LOCKOUT, SystemLimit::CustomerSimilarityThreshold->value];
+
         $unvalued = 0;
         foreach ($limits as $key => $limit) {
             self::assertIsArray($limit);
 
-            if ($key !== self::LOCKOUT) {
+            if (! in_array($key, $configured, true)) {
                 self::assertNull($limit['value'], "{$key} has no documented value and must not invent one.");
                 $unvalued++;
             }
         }
 
-        self::assertSame(6, $unvalued);
+        // Was 6 until the threshold was seeded. A count, so a limit gaining a
+        // value cannot slip past this guard unremarked.
+        self::assertSame(5, $unvalued);
+
+        $threshold = $limits[SystemLimit::CustomerSimilarityThreshold->value];
+        self::assertIsArray($threshold);
+        self::assertSame('0.60', $threshold['value']);
     }
 
     // ── writing ─────────────────────────────────────────────────────────────

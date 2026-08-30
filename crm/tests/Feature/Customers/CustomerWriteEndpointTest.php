@@ -9,6 +9,7 @@ use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\SystemSettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -328,6 +329,42 @@ final class CustomerWriteEndpointTest extends TestCase
     }
 
     // ─────────────────────────────── D-35 · §10.2 duplicate warning
+
+    /**
+     * The **seeded** threshold, not an injected one — the difference between
+     * "the mechanism works" and "the feature is on in a real deployment".
+     *
+     * Every other test in this section supplies its own number through
+     * `thresholdOf()`, which proves the probe and would keep passing if the
+     * seeder shipped nothing at all. That is exactly the state Module 3 was in
+     * until 2026-08-30: built, tested, and never once able to fire.
+     *
+     * The two pairs are the measured extremes either side of `0.60`:
+     * the `D-35` hamza/taa pair scores `1.00`, and two different firms sharing
+     * a `مؤسسة` prefix score `0.50`. Asserting both halves is the point — a
+     * threshold of `0` warns on everything and would pass the first assertion
+     * alone.
+     */
+    public function test_that_the_seeded_threshold_warns_on_a_duplicate_and_stays_silent_otherwise(): void
+    {
+        $this->seed(SystemSettingsSeeder::class);
+        $this->customer('أحمد للتجارة');
+        $this->customer('مؤسسة الأمل');
+
+        $warned = $this->postJson(self::ENDPOINT, ['name' => 'احمد للتجاره'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('meta');
+
+        self::assertIsArray($warned);
+        self::assertArrayHasKey('similar_customers', $warned, 'D-35 must fire on the documented §10.2 pair.');
+
+        $silent = $this->postJson(self::ENDPOINT, ['name' => 'مؤسسة النور'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('meta');
+
+        self::assertIsArray($silent);
+        self::assertArrayNotHasKey('similar_customers', $silent, 'Two different firms sharing a prefix are not duplicates.');
+    }
 
     public function test_that_no_warning_is_returned_while_the_threshold_is_unset(): void
     {

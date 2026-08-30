@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Modules\Admin\Domain\Settings\SystemLimit;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Support\Settings\SettingReader;
 use Database\Seeders\SystemSettingsSeeder;
@@ -49,12 +50,56 @@ final class SystemSettingsSeedingTest extends TestCase
         self::assertSame('minutes', $row->unit);
     }
 
-    /** Every other limit §13 screen 6 names has no documented value. */
+    /**
+     * `OD-08`'s threshold, seeded on the owner's ruling of 2026-08-30.
+     *
+     * Left deliberately unseeded when the case was declared, because §13 gives
+     * it no value and `SystemLimit`'s own docblock refuses to invent one. The
+     * owner supplied it after the gap was **measured** rather than guessed: a
+     * folded Arabic duplicate scores `1.00`, `Alpha Trading` against
+     * `Alpha Trading Co` scores `0.82`, and two plainly different firms sharing
+     * a `شركة`/`مؤسسة` prefix score `0.50`–`0.57`.
+     *
+     * ⚠️ **0.60 does not separate the cases cleanly, and nothing can.**
+     * `أحمد للتجارة` against `محمد للتجارة` — different companies — scores
+     * `0.62`, *above* `شركة النور` against `شركة النور للتجارة`, which is one
+     * company with a trade suffix at `0.58`. The overlap is a property of
+     * trigram similarity, not of the number. `D-35` is warning-only, so the
+     * chosen point favours firing over silence.
+     */
+    public function test_that_od_08s_similarity_threshold_is_seeded(): void
+    {
+        $this->seed(SystemSettingsSeeder::class);
+
+        $row = DB::table('system_limits')
+            ->where('key', SystemLimit::CustomerSimilarityThreshold->value)
+            ->first();
+
+        self::assertNotNull($row, 'D-35 cannot warn while the threshold is unseeded.');
+        // A decimal string, never a float (`DB-07`).
+        self::assertSame('0.60', $row->value);
+        self::assertSame('decimal', $row->value_type);
+        self::assertNull($row->unit, 'A trigram ratio has no unit.');
+    }
+
+    /**
+     * Every other limit §13 screen 6 names still has no documented value.
+     *
+     * ⚠️ **This list grew from one key to two, and that is a widening — so the
+     * reason is written here rather than the array being quietly edited.** The
+     * guard exists to stop the seeder inventing numbers the documentation does
+     * not give. The threshold is not invented: `OD-08` is an open question the
+     * owner answered explicitly on 2026-08-30, against measured scores. Any
+     * *third* key must clear the same bar.
+     */
     public function test_that_no_undocumented_limit_is_invented(): void
     {
         $this->seed(SystemSettingsSeeder::class);
 
-        self::assertSame([self::KEY], DB::table('system_limits')->pluck('key')->all());
+        self::assertSame(
+            [self::KEY, SystemLimit::CustomerSimilarityThreshold->value],
+            DB::table('system_limits')->orderBy('key')->pluck('key')->all(),
+        );
     }
 
     /** §13 screen 4 names ten fields and the documentation gives none of them a value. */

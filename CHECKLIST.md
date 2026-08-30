@@ -4332,7 +4332,42 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       shipped is **CSV** (owner, 2026-08-29 — `fgetcsv`, no library). The mechanism the criterion
       describes is met in full; the file format it names is not, and that still awaits a `D-xx`.)*
 - [ ] Incomplete records are **excluded from financial reports** until completed
-- [ ] Name similar to an existing customer → **yellow warning**; the employee decides, no blocking
+- [x] Name similar to an existing customer → **yellow warning**; the employee decides, no blocking
+      *(**Ticked 2026-08-30. `OD-08` is answered: `limits.customer_similarity_threshold = 0.60`,
+      seeded by `SystemSettingsSeeder`.** The probe, the row-scoped query, the `meta` block and the
+      form's yellow warning were all built at Points 3.3 and 4.3 and **had never once fired** — the
+      limit was deliberately unseeded, so every existing test injected its own number through
+      `thresholdOf()` and would have kept passing had the seeder shipped nothing.
+      **The number was measured before it was chosen.** `similarity()` over `translate()`-folded
+      names: the documented `D-35` pair (`أحمد للتجارة` / `احمد للتجاره`) **1.00** ·
+      `Alpha Trading` / `Alpha Trading Co` **0.82** · `مؤسسة الأمل` / `مؤسسة الأمل الطبية` **0.71** ·
+      `Alpha Trading` / `Alpha Trading Company` **0.64** · unrelated names **0.00**.
+      ⚠️ **No threshold separates the cases cleanly, and this is recorded rather than smoothed over.**
+      `أحمد للتجارة` against `محمد للتجارة` — **different companies** — scores **0.62**, *above*
+      `شركة النور` against `شركة النور للتجارة`, which is **one company with a trade suffix** at
+      **0.58**. The overlap is a property of trigram similarity, not of the value, and no number
+      fixes it. `D-35` warns and never blocks or merges, so `0.60` was chosen to favour firing over
+      silence: a false warning costs a glance, a missed one costs a duplicate record. **At 0.60 the
+      sample carries one false positive (0.62) and one miss (0.58)** — stated so neither is later
+      discovered as a surprise.
+      **Proved on the seeded value, not an injected one:**
+      `CustomerWriteEndpointTest::test_that_the_seeded_threshold_warns_on_a_duplicate_and_stays_silent_otherwise`
+      runs `SystemSettingsSeeder` and asserts both halves — the §10.2 pair warns, and two different
+      firms sharing a `مؤسسة` prefix do not.
+      **Two guards broke by design and were updated with their reasons, not quietly widened:**
+      `SystemSettingsSeedingTest::test_that_no_undocumented_limit_is_invented` (one key → two) and
+      `SystemLimitEndpointTest::test_that_an_unvalued_limit_reports_null_rather_than_a_default`
+      (6 unvalued → 5, plus an assertion on the seeded value).
+      **Two deliberate breaks, restored byte-identical (`shasum -a 256 -c` → `OK`):** the seeding
+      removed (4 tests failed) and — the meaningful one — **the value lowered to a plausible `0.45`,
+      which failed the behaviour test**, proving it discriminates on the number and not merely on
+      the row existing.
+      **1560 backend (9908 assertions) · 442 frontend (27 files) · pint 380 · phpstan [OK] ·
+      deptrac 0/0 twice.** `+2` tests, no new file. **Applied to the dev database** so the warning
+      is live there, not only in the test suite.
+      **Not covered:** the threshold is one number for every sector and language; `D-35`'s
+      *merging* remains post-MVP (§10.2); and the probe is still row-scoped, so two callers with
+      disjoint scopes can each create the same customer (register item 3b).)*
 - [ ] Manually archived customer → visible only to Manager and Team Leader
 - [ ] Change of sales owner → customer and full history transfer + audit entry
 - [ ] **Every search call goes through `SearchService`** — no direct queries

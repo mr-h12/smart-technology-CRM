@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
+use App\Modules\Admin\Domain\Settings\SystemLimit;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Support\Seeding\GuardedSeeder;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
  * `D-75`'s move: the lockout duration stops being configuration-only and
  * becomes a row an administrator can edit.
  *
- * **Exactly one row, and the emptiness around it is the point.** §13 screen 6
+ * **Two rows, and the emptiness around them is the point.** §13 screen 6
  * names five limits and §13 screen 4 names ten settings; the documentation
  * gives a value to **one** of them. `D-17` says the stale-deal threshold is
  * "configurable in settings" and stops. §11 says deadlines and SLAs "come from
@@ -22,6 +23,11 @@ use Illuminate\Support\Str;
  * rule nobody wrote, arriving as configuration and read as fact — the same
  * refusal `ManagedLists` makes for delivery terms and `Currencies` for exchange
  * rates. The tables exist so the real numbers have somewhere to go.
+ *
+ * The second row is `OD-08`'s similarity threshold, added 2026-08-30. It is the
+ * exception that proves the rule above rather than a hole in it: the value is
+ * not inferred from a document that declines to give one, it is the owner's
+ * explicit answer to an open question, taken against measured scores.
  *
  * **Creates, never overwrites** (`IdempotentSeeder`), and here the reason is
  * sharper than usual: the seeded 30 is explicitly an interim awaiting the
@@ -53,6 +59,14 @@ final class SystemSettingsSeeder extends GuardedSeeder
             $this->insertLockout();
         }
 
+        $configured = DB::table('system_limits')
+            ->where('key', SystemLimit::CustomerSimilarityThreshold->value)
+            ->exists();
+
+        if (! $configured) {
+            $this->insertSimilarityThreshold();
+        }
+
         // ⚠️ **Unconditional, and after the write** (Point 4.2). `PRF-08`'s
         // cache is invalidated by the two use cases that write through the API;
         // a seeder writes underneath them, so a cache warmed before a
@@ -79,6 +93,40 @@ final class SystemSettingsSeeder extends GuardedSeeder
             'value' => '30',
             'value_type' => 'integer',
             'unit' => 'minutes',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * `OD-08`, answered by the owner on 2026-08-30 — and the number was
+     * measured before it was chosen, not after.
+     *
+     * `similarity()` over `translate()`-folded names scores the documented
+     * `D-35` pair (`أحمد للتجارة` / `احمد للتجاره`) at **1.00**,
+     * `Alpha Trading` / `Alpha Trading Co` at **0.82**, and two different firms
+     * sharing a `شركة`/`مؤسسة` prefix at **0.50**–**0.57**.
+     *
+     * ⚠️ **No threshold separates the cases cleanly.** `أحمد للتجارة` against
+     * `محمد للتجارة` — different companies — scores **0.62**, *above*
+     * `شركة النور` against `شركة النور للتجارة`, which is one company with a
+     * trade suffix at **0.58**. That overlap belongs to trigram similarity, not
+     * to this number, and no value fixes it. `D-35` is a warning that never
+     * blocks and never merges, so `0.60` favours firing over silence: it costs
+     * a glance when wrong and saves a duplicate record when right.
+     *
+     * A **decimal string** (`DB-07`) — the comparison happens in PostgreSQL
+     * against `?::real`, and a PHP float never touches it.
+     */
+    private function insertSimilarityThreshold(): void
+    {
+        DB::table('system_limits')->insert([
+            'id' => Str::uuid7()->toString(),
+            'key' => SystemLimit::CustomerSimilarityThreshold->value,
+            'value' => '0.60',
+            'value_type' => 'decimal',
+            // A trigram ratio has no unit; the value is the reading.
+            'unit' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

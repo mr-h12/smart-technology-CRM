@@ -127,6 +127,19 @@ listed above is unowned, and picking it up means adding a row.
    the order the tables actually depend on each other.
 5. **`composer.lock` and `package-lock.json` change only in a point that deliberately adds a
    dependency**, and that point carries nothing else.
+6. **Run this once per clone**, before the first push:
+
+   ```
+   git config core.hooksPath githooks
+   ```
+
+   It enables [`githooks/pre-push`](githooks/pre-push), which refuses a direct push to `main`.
+   ⚠️ **This is an automated agreement, not enforcement.** Server-side branch protection is the
+   right tool and is unavailable: the repository is private on a free plan, and both the rulesets
+   and branch-protection endpoints answer `403 Upgrade to GitHub Pro` (measured 2026-08-30). The
+   hook lives in each clone, so it protects nobody who skipped the command above, and
+   `git push --no-verify` walks past it. It stops the accident, not a determined push. If `main`
+   ever needs real protection, GitHub Pro on the repository's account is the only thing that gives it.
 
 ---
 

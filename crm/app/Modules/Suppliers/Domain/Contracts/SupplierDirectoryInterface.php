@@ -7,6 +7,7 @@ namespace App\Modules\Suppliers\Domain\Contracts;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
 use App\Modules\Suppliers\Domain\Listing\SupplierPage;
 use App\Modules\Suppliers\Domain\Listing\SupplierSummary;
+use App\Modules\Suppliers\Domain\Writing\SupplierDraft;
 
 /**
  * The `suppliers` table as §8's Suppliers screen needs to read it.
@@ -33,4 +34,10 @@ interface SupplierDirectoryInterface
 
     /** Null when the row is absent or soft-deleted. */
     public function find(string $supplierId): ?SupplierSummary;
+
+    /** Point 2.2. */
+    public function create(SupplierDraft $draft, string $actorId): SupplierSummary;
+
+    /** Null on the same case as {@see find()} — absent or soft-deleted. */
+    public function update(string $supplierId, SupplierDraft $draft, string $actorId): ?SupplierSummary;
 }

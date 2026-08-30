@@ -212,9 +212,18 @@ parameters:
     #
     # **No `AuditContract`** either: Point 2.1 publishes two GET routes and
     # `AUD-01` records writes. Point 2.2 adds the writes and will need it.
+    #
+    # `AuditContract` added 2026-08-30 with Point 2.2, the module's first write,
+    # on exactly the terms Customers' crossing of the same day was added:
+    # `AUD-01` names create and update among what must be recorded, and the
+    # recorder is an interface in `Audit\Domain`. `D-45` makes it load-bearing
+    # here rather than routine — opening catalog and supplier editing to every
+    # employee is mitigated by *"every edit is written to the audit log"*. The
+    # **contract** half only; nothing points at `AuditDriver`, and nothing should.
     Suppliers:
       - Framework
       - SharedContracts
+      - AuditContract
     Catalog: ~
     Procurement: ~
     Outdoor: ~

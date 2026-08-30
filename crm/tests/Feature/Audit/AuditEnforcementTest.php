@@ -14,6 +14,7 @@ use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
+use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -133,6 +134,25 @@ final class AuditEnforcementTest extends TestCase
             // above instead. So does `EloquentImportBatches`, which writes
             // `import_batches` through a module-aliased Eloquent model.
             AssignCustomer::class => self::AUDITED,
+
+            // Module 4 Point 2.2, and seen for the same two signals as the
+            // three above: `->update(` beside an imported `ConnectionInterface`.
+            // It owns the create/edit transaction and writes SUPPLIER_CREATED
+            // and SUPPLIER_UPDATED, which `AUD-01` names explicitly.
+            //
+            // `D-45` is why this one is load-bearing rather than routine:
+            // §3.7 opens catalog and supplier editing to *every* employee, and
+            // the documented mitigation is "every edit is written to the audit
+            // log" plus a monthly Team Leader review. The audit is the control.
+            //
+            // ⚠️ Its persistence adapter, EloquentSupplierDirectory, gained
+            // `->save(` in the same point and is **not** listed, for the reason
+            // EloquentCustomerDirectory is not: a repository writing purely
+            // through a module-aliased Eloquent model carries none of the four
+            // signals scan() looks for. Measured, not assumed — this test
+            // passes with it unlisted. The hole was eight classes; this makes
+            // it nine, and it is still owed its own point.
+            SaveSupplier::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

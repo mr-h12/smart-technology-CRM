@@ -460,4 +460,25 @@ Route::middleware('auth')->prefix('suppliers')->group(function (): void {
 
     Route::get('/{supplier}', [SupplierController::class, 'show'])
         ->middleware('permission:catalog.view');
+
+    // §3.7's write row is a single cell — "create · edit · deactivate · set
+    // colour ✅" — so all four are one permission and there is no `/deactivate`
+    // or `/set-colour` action. `OpenAPI §7.2` reserves an action suffix for
+    // what is "not a normal resource update", and both of those are a field on
+    // the row. Module 3 needed `/archive` and `/assign` because §3.3 made each
+    // of them a separate permission with its own grants; §3.7 does not.
+    //
+    // **No `Idempotency-Key`.** `OpenAPI §9.1` requires one for "critical POST
+    // commands, including creation of deals, quotations, supplier quotations,
+    // purchase orders, reports, versions" — a supplier is on none of that list,
+    // the same reading Module 3 applied to a customer.
+    //
+    // **And no DELETE, at any permission.** §3.12 rule 3 forbids hard-deleting
+    // a supplier, and `catalog.delete` is seeded with an empty grant array so
+    // no role can ever hold it. Deactivation is `is_active` on the PATCH above.
+    Route::post('/', [SupplierController::class, 'store'])
+        ->middleware('permission:catalog.manage');
+
+    Route::patch('/{supplier}', [SupplierController::class, 'update'])
+        ->middleware('permission:catalog.manage');
 });

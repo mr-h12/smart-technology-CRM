@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Suppliers\Presentation;
 
 use App\Modules\Suppliers\Application\Listing\ListSuppliers;
+use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 /**
  * §8's Suppliers screen, as `OpenAPI §7.1`'s conventional routes.
@@ -41,5 +43,43 @@ final class SupplierController
     public function show(Request $request, string $supplier, ListSuppliers $suppliers): JsonResponse
     {
         return ApiEnvelope::single($request, SupplierPayload::of($suppliers->one($supplier)));
+    }
+
+    public function store(SaveSupplierRequest $request, SaveSupplier $suppliers): JsonResponse
+    {
+        return ApiEnvelope::single(
+            $request,
+            SupplierPayload::of($suppliers->create($request->validated(), self::actorId($request))),
+            201,
+        );
+    }
+
+    public function update(SaveSupplierRequest $request, string $supplier, SaveSupplier $suppliers): JsonResponse
+    {
+        return ApiEnvelope::single(
+            $request,
+            SupplierPayload::of($suppliers->update($supplier, $request->validated(), self::actorId($request))),
+        );
+    }
+
+    /**
+     * The signed-in person, for `DB-02`'s `created_by`/`updated_by`.
+     *
+     * Taken from the request because `auth` has already resolved it. The reads
+     * above need nothing from the caller — §3.7 has no scope — so this appears
+     * only now, with the first write.
+     */
+    private static function actorId(Request $request): string
+    {
+        $id = $request->user()?->getAuthIdentifier();
+
+        if (! is_string($id)) {
+            // The route carries `auth`, so this cannot be reached. Answering
+            // with a placeholder would put a wrong actor in the audit log,
+            // which is worse than failing loudly.
+            throw new RuntimeException('The supplier write routes require an authenticated caller.');
+        }
+
+        return $id;
     }
 }

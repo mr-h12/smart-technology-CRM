@@ -8,6 +8,7 @@ use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
 use App\Modules\Suppliers\Domain\Listing\SupplierPage;
 use App\Modules\Suppliers\Domain\Listing\SupplierSummary;
+use App\Modules\Suppliers\Domain\Writing\SupplierDraft;
 use App\Modules\Suppliers\Infrastructure\Eloquent\Supplier;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
@@ -75,6 +76,41 @@ final readonly class EloquentSupplierDirectory implements SupplierDirectoryInter
         $row = Supplier::query()->whereKey($supplierId)->first();
 
         return $row === null ? null : self::hydrate($row);
+    }
+
+    public function create(SupplierDraft $draft, string $actorId): SupplierSummary
+    {
+        $row = new Supplier;
+        $row->fill($draft->attributes);
+
+        // `DB-02`. No model observer fills these: one guessing the actor would
+        // be wrong in exactly the cases that matter, so it is passed in from
+        // the request instead — the same arrangement Module 3 uses.
+        $row->created_by = $actorId;
+        $row->updated_by = $actorId;
+        $row->save();
+
+        // `color_rating` and the two flags are filled by the columns' own
+        // DEFAULTs (Point 1.1), so the in-memory model still holds null for any
+        // the caller did not send until it is read back.
+        $row->refresh();
+
+        return self::hydrate($row);
+    }
+
+    public function update(string $supplierId, SupplierDraft $draft, string $actorId): ?SupplierSummary
+    {
+        $row = Supplier::query()->whereKey($supplierId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->fill($draft->attributes);
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row->refresh());
     }
 
     /** @param Builder<Supplier> $query */

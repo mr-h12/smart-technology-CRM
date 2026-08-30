@@ -4619,6 +4619,59 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       `group_by` (that is the catalog's, Point 3.1). No chip — `color_rating` ships as its stored
       code and Design System §6.4's "never colour alone" is Point 4.0's. Nothing in the SPA calls
       either route yet.
+- [x] **2.2** `POST /suppliers` + `PATCH /suppliers/{id}` — create, edit, set colour and deactivate,
+      all under `catalog.manage`, each with `AUD-01`'s record inside `DB-11`'s transaction.
+      **One permission, four verbs, and therefore no action routes.** §3.7's write row is a *single
+      cell* — "create · edit · deactivate · set colour ✅" — so `color_rating` and `is_active` are
+      ordinary fields on the PATCH. `OpenAPI §7.2` reserves an action suffix for what is "not a
+      normal resource update", and neither is. Module 3 needed `/archive` and `/assign` because §3.3
+      made each of them a **separate permission with its own grants**; §3.7 does not, so inventing
+      `/deactivate` here would have published a route the matrix has no permission for.
+      **The negative test has a real role this time.** Point 2.1 had to withdraw a seeded grant to
+      find a caller who could not read, because §3.7 grants `view` to everyone. Writing differs: the
+      CEO's ✅ is annotated **"read-only"**, which is the absence of the `manage` grant — so the CEO
+      is the documented negative case and is used as one, on both verbs.
+      **No DELETE route at any permission**, and the absence is asserted rather than assumed (405):
+      §3.12 rule 3 forbids hard-deleting a supplier and `catalog.delete` is seeded with an *empty*
+      grant array. Deactivation is tested to leave the row and to leave `deleted_at` untouched.
+      **No `Idempotency-Key`:** `OpenAPI §9.1` requires one for "deals, quotations, supplier
+      quotations, purchase orders, reports, versions" — a supplier is on none of that list, the same
+      reading Module 3 applied to a customer.
+      **`AUD-02` is enforced, not just satisfied:** the old values are limited to the fields the
+      write actually touched, and a test asserts a field the caller did not send is **absent** from
+      `old_values`. `D-45` is why this is load-bearing rather than routine — §3.7 opens editing to
+      every employee and the documented mitigation *is* the audit log plus a monthly review. A PATCH
+      naming no writable field writes **no** audit row, and that is asserted too.
+      **`SupplierDraft` holds the closed sets** (`RATINGS`, `TYPES`) so the boundary and the table's
+      CHECKs cannot drift; the test round-trips **every** rating through the API rather than trusting
+      the list.
+      **26 tests · 1657 backend (10462 assertions) · 446 frontend · pint 400 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **23 failed, 0 passed** — nothing passed for a wrong reason.
+      **`AuditEnforcementTest` was run and read, never predicted.** It **does** see `SaveSupplier`
+      (`->update(` beside an imported `ConnectionInterface`) and failed with
+      `Unlisted: …\SaveSupplier` until the register named it. ⚠️ It does **not** see
+      `EloquentSupplierDirectory`, which gained `->save(` in the same point — measured, since the
+      test passes with it unlisted. That is the known signal hole: it was eight classes, and this
+      makes it **nine**. Still owed its own point.
+      **Two deliberate breaks, neither a deletion:** (1) both write routes re-gated on
+      `permission:catalog.view` — the plausible copy-paste from the two GET routes above them →
+      failed **exactly** the two CEO read-only tests, proving §3.7's "read-only" annotation is
+      actually enforced; (2) `changedFrom()` made to return the whole row — the plausible reading of
+      "record the old values" → failed exactly the `AUD-02` test. Both restored, confirmed with
+      `shasum -a 256 -c`.
+      **Problems found:** PHPStan wanted `@return` on both data providers and refused three
+      `(string)` casts of `DB::table()->first()` columns, which are `mixed` — narrowed with an
+      `assertIsString` helper rather than a cast, per Coding Standards §5; and pint reformatted the
+      register entry. Assertion delta reconciled to the unit: **146** (this file, after those three
+      added assertions) + **3** (`NoHardCodedTextTest`, one per new `app/` PHP file) + **2**
+      (`EndToEndConnectivityTest`, one per registered route) + **2** (`AuditEnforcementTest`'s
+      register) = 153, and 10309 + 153 = 10462.
+      **Not covered:** no bulk write (`API-07` is still unbuilt). No supplier **prices** — `D-21`
+      keeps them on the supplier quotation, Module 6. No chip: `color_rating` still ships as a stored
+      code and Design System §6.4's "never colour alone" is Point 4.0's. Nothing in the SPA calls
+      either route yet, so a supplier can still only be created with an HTTP client. Deactivation
+      does **not** yet hide anything from a selection list — `D-37`/§10.4 is Modules 6/7.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company

@@ -3955,7 +3955,47 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       **Not covered:** no table, no filters, no sort, no paginator, no row actions — 4.1 and 4.2. No
       *My Customers* item for the Team Leader (§8 names one; it is an open question, and their scope
       reaches nothing today anyway). The list body is a plain `<ul>` that 4.1 replaces.)*
-- [ ] **4.1** the list screen — §5.2's table, server-side sort, the paginator, column priorities
+- [x] **4.1** the list screen — §5.2's table, server-side sort, the paginator, column priorities
+      *(**The sort is the server's, and the tests read the URL to prove it.** §5.2 requires
+      "server-side filters/sort/search" and §6.5 requires "Every list is server-paginated. Do not
+      create a UI that requires loading all records." A client-side `Array.sort` would order the 25
+      rows in hand while claiming to have ordered 4,000, and it would pass any assertion made about
+      the rendered order — so every sort assertion is about the query string that was sent.
+      **The three sortable columns are `CustomerListCriteria::ALLOWED_SORTS`** (`name`,
+      `start_date`, `created_at`) and the initial order is its `DEFAULT_SORT`, restated on the
+      screen because `OpenAPI §6.2` answers an undeclared sort field with a 400 — a header this
+      screen invented would be a button that breaks it. §6.2's `-` prefix is the descending form.
+      **One sort key, though the server parses several.** No source asks the UI for a second, and a
+      two-key header interaction is a design nobody has approved; the criteria still carries it.
+      **A sort change returns to page 1** — "page 2" is a position in an order, so keeping it after
+      the order changes shows a page the user never asked for.
+      **Column priorities (§5.2):** name and the §4.5 status always; sector, contact and phone fold
+      away below `md`; the two dates below `lg`. §6.5's sticky header, `tabular-nums` on figures,
+      and a row hover/`focus-within` state. The block axis does not mirror, so `top-0` is correct in
+      both directions (`LogicalPropertiesTest` states that rule itself).
+      **Two date columns formatted two different ways, deliberately.** `created_at` is a UTC
+      timestamp, so `DB-08` puts it through `toLocaleDateString` into the reader's timezone;
+      `start_date` is a calendar date (§4.2, "First engagement") with no timezone, and a `Date`
+      would place it at UTC midnight and show the day before to anyone west of Greenwich.
+      **§4.5's status is a word, not a code** — `deal_not_completed` never reaches a screen. An
+      unknown code prints itself rather than an empty cell, because §3.12 rule 5 makes the set
+      configuration.
+      **10 tests · 1548 backend (9870 assertions, unchanged — no new PHP or `.vue` file, so no
+      per-file guard moved) · 378 frontend (24 files).** RED first: **10 failed, 6 passed**, the six
+      being 4.0's own.
+      ⚠️ **One of the ten passed in RED and was rewritten before implementation** — "hides the
+      paginator when the list fits on one page" passes against a screen with no paginator at all. It
+      now asserts both halves in one test, so it cannot pass vacuously.
+      **Three deliberate breaks, all caught, restored byte-identical (`shasum -a 256 -c` → `OK`):**
+      the page reset dropped from `sortBy` (1 failed) · the raw `customer_status` printed instead of
+      its label (1 failed) · `sort` omitted from the request so the order never left the browser
+      (3 failed).
+      **Problems found:** the vacuous paginator test above; nothing else.
+      **Not covered:** no filters, no search box, no row actions, no *My Customers* item — 4.2
+      onward. `is_incomplete` and `is_archived` are fetched but not drawn, so `D-31`'s flag is
+      invisible on the list. Archived rows are absent by the server's default (`filter[is_archived]`
+      defaults false) and nothing on the screen says so yet — 4.2's filter. Three roles still see
+      the empty state, and the table changes none of that.)*
 - [ ] **4.2** the filters and the search — `customer_status` · `sector` · `is_incomplete` ·
       §10.1's `owner_inactive` · `q`
 - [ ] **4.3** add/edit form — sector from the managed lists, region free text with suggestions

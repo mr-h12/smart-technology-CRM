@@ -528,6 +528,28 @@
     },
     "customers": {
         "title": "Customers",
-        "total": "No customers | 1 customer | {count} customers"
+        "total": "No customers | 1 customer | {count} customers",
+        "loading": "Loading customers…",
+        "column": {
+            "name": "Name",
+            "status": "Status",
+            "sector": "Sector",
+            "contact": "Contact",
+            "phone": "Phone",
+            "startDate": "Start date",
+            "added": "Added"
+        },
+        "status": {
+            "prospect": "Prospect",
+            "customer": "Customer",
+            "no_response": "No response",
+            "deal_not_completed": "Deal not completed"
+        },
+        "pagination": {
+            "label": "Customer pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} · {total} customers"
+        }
     }
 }

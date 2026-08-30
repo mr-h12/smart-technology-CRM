@@ -528,6 +528,28 @@
     },
     "customers": {
         "title": "العملاء",
-        "total": "لا عملاء | عميل واحد | {count} عملاء"
+        "total": "لا عملاء | عميل واحد | {count} عملاء",
+        "loading": "جارٍ تحميل العملاء…",
+        "column": {
+            "name": "الاسم",
+            "status": "الحالة",
+            "sector": "القطاع",
+            "contact": "جهة الاتصال",
+            "phone": "الهاتف",
+            "startDate": "تاريخ البداية",
+            "added": "تاريخ الإضافة"
+        },
+        "status": {
+            "prospect": "عميل محتمل",
+            "customer": "عميل",
+            "no_response": "لا يوجد رد",
+            "deal_not_completed": "صفقة لم تكتمل"
+        },
+        "pagination": {
+            "label": "صفحات العملاء",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} · {total} عميل"
+        }
     }
 }

@@ -41,6 +41,83 @@ decision the agents cannot see.** Approved decisions belong in `docs/` as `D-xx`
 
 ---
 
+## Getting started
+
+From an empty machine to a running application. Steps 3 and 5 are the ones
+[`runbooks/startup.md`](runbooks/startup.md) does not cover — everything else defers to that
+runbook instead of repeating it, so there stays one place to correct when it changes.
+
+**1 — Prerequisites.** Docker with Compose v2, and git. Nothing else is installed on the host: PHP,
+Composer, Node and PostgreSQL all run in containers. That is the point of `D-66` — developing on
+the host OS hides the Linux font gap `P-01` found, which is the defect `P-02` exists to catch.
+
+**2 — Clone, and turn the hooks on.**
+
+```bash
+git clone https://github.com/mr-h12/smart-technology-CRM.git
+cd smart-technology-CRM
+git config core.hooksPath githooks
+```
+
+The third command is per clone and is not optional. It enables
+[`githooks/pre-push`](githooks/pre-push), which refuses a direct push to `main`. `git config` writes
+to `.git/config`, which is not tracked, so nobody can enable it on your behalf — and pointing
+`core.hooksPath` at a directory that does not exist disables hooks **silently**, so run it from
+inside the clone, after the clone.
+
+**3 — Compose's environment.** `docker-compose.yml` reads a `.env` at the repository root, and five
+of its variables are declared `:?` — required, with compose refusing to start rather than quietly
+defaulting.
+
+```bash
+cp .env.example .env
+```
+
+`POSTGRES_PASSWORD`, `REDIS_PASSWORD` and `MEILI_MASTER_KEY` ship **empty on purpose** (`SEC-17` — a
+committed credential is a shipped credential). Generate your own; `MEILI_MASTER_KEY` must be at
+least 16 bytes. This file is compose's environment, not Laravel's: the application reads `crm/.env`,
+which step 4 creates.
+
+**4 — Start the stack, and build once.** Follow [`runbooks/startup.md`](runbooks/startup.md) →
+*Start the stack*, then *First run, or after pulling*. It starts the services in the `ST-02` order
+and produces the four things a fresh clone has none of: `vendor/`, `public/build`, `crm/.env` with
+an `APP_KEY`, and the `crm_test` database. The application answers on `https://localhost:8443` with
+a self-signed certificate, so the browser will warn.
+
+**5 — Schema and accounts.** Neither is in the runbook, and the application is unusable without
+both.
+
+```bash
+docker compose exec -T php php artisan migrate
+```
+
+Nothing applies migrations for you — not on a fresh clone, and not after pulling a branch that adds
+one. `php artisan migrate:status` lists what has and has not run.
+
+Then set `SEED_TEST_USER_PASSWORD` in `crm/.env` and seed. The password must satisfy `D-28` — at
+least 8 characters, letters and numbers — because `UserSeeder` refuses to create an account the
+login form would reject, and it has no default on purpose.
+
+```bash
+docker compose exec -T php php artisan db:seed
+```
+
+That creates eight accounts, one per `§3.1` role (`DEV-08`), each with the password you chose, all
+on the `.test` domain that RFC 6761 reserves as never-resolvable:
+
+`super.admin@example.test` · `ceo@example.test` · `manager@example.test` · `team.leader@example.test`
+· `outdoor.supervisor@example.test` · `outdoor.sales@example.test` · `indoor.sales@example.test` ·
+`procurement@example.test`
+
+**Before your first commit**, read [`CHECKLIST.md`](CHECKLIST.md) → *Two developers*. It carries who
+owns which module, and the rules for the files both developers edit on nearly every point.
+
+> ⚠️ Paths passed **into** the container carry no `crm/` prefix — the container's working directory
+> is already `crm/`. `./vendor/bin/pint app/Modules/...` works; `crm/app/Modules/...` is not
+> readable. Host-side tools (`git`, `shasum`) still need the prefix.
+
+---
+
 ## Repository layout
 
 ```

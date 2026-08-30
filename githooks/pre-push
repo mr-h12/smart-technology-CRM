@@ -1,0 +1,41 @@
+#!/bin/sh
+# Refuses a direct push to main.
+#
+# Branch protection is the right tool for this job and is not available here:
+# the repository is private on a free plan, and both the rulesets and the
+# branch-protection endpoints answer 403 "Upgrade to GitHub Pro" (measured
+# 2026-08-30). This hook is the free substitute, and it is weaker in two ways
+# that are worth stating rather than discovering: it lives in each developer's
+# clone, so it protects nobody who has not run the setup command below, and
+# `git push --no-verify` walks straight past it. It stops the accident. It does
+# not stop a determined push, and it is not a security control.
+#
+# Enable it once per clone:
+#
+#     git config core.hooksPath githooks
+#
+# git feeds one line per ref being pushed on stdin:
+#
+#     <local ref> <local sha> <remote ref> <remote sha>
+#
+# Only the remote ref matters here — it is the name the push would land on, so
+# it catches `git push origin HEAD:main` and a branch literally named main
+# alike, and a delete (all-zero local sha) with the same test.
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+	case "$remote_ref" in
+	refs/heads/main)
+		echo "pre-push: refusing to push directly to main." >&2
+		echo "" >&2
+		echo "  Every change reaches main through a pull request — see CHECKLIST.md," >&2
+		echo "  section \"Two developers\". Push your own branch and open one:" >&2
+		echo "" >&2
+		echo "      git push -u origin \$(git branch --show-current)" >&2
+		echo "      gh pr create --base main" >&2
+		echo "" >&2
+		exit 1
+		;;
+	esac
+done
+
+exit 0

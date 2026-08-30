@@ -152,7 +152,12 @@ const ROW = {
     updated_at: '2026-08-01T09:00:00Z',
 };
 
-/** The URLs the component asked for, in order — the only honest record of a server-side sort. */
+/**
+ * The URLs the component asked for, in order — the only honest record of a
+ * server-side sort. Read them through `customerCalls()`: Point 4.2 added a
+ * second request on mount (the sector options), so a bare index addresses
+ * whichever of the two landed first.
+ */
 function stubList(bodies: { data: unknown[]; meta: { pagination: typeof PAGINATION } }[]): string[] {
     const asked: string[] = [];
     let call = 0;
@@ -161,6 +166,10 @@ function stubList(bodies: { data: unknown[]; meta: { pagination: typeof PAGINATI
         'fetch',
         vi.fn(async (url: string) => {
             asked.push(url);
+
+            if (url.includes('/managed-lists/')) {
+                return json(200, { data: [], meta: { pagination: PAGINATION } });
+            }
 
             return json(200, bodies[Math.min(call++, bodies.length - 1)]);
         }),
@@ -196,7 +205,7 @@ describe('CustomersView — §5.2 table', () => {
         render();
         await flushPromises();
 
-        expect(asked[0]).toContain('sort=name');
+        expect(customerCalls(asked)[0]).toContain('sort=name');
     });
 
     it('asks the server for the reversed order when the active column is clicked', async () => {
@@ -208,7 +217,7 @@ describe('CustomersView — §5.2 table', () => {
         await view.find('[data-testid="customers-sort-name"]').trigger('click');
         await flushPromises();
 
-        expect(asked[1]).toContain('sort=-name');
+        expect(customerCalls(asked)[1]).toContain('sort=-name');
     });
 
     it('asks the server, not the browser, when a different column is chosen', async () => {
@@ -220,7 +229,7 @@ describe('CustomersView — §5.2 table', () => {
         await view.find('[data-testid="customers-sort-start_date"]').trigger('click');
         await flushPromises();
 
-        expect(asked[1]).toContain('sort=start_date');
+        expect(customerCalls(asked)[1]).toContain('sort=start_date');
     });
 
     /** A sort changes what "page 2" contains, so staying on it shows a page of a different list. */
@@ -232,12 +241,12 @@ describe('CustomersView — §5.2 table', () => {
 
         await view.find('[data-testid="customers-next"]').trigger('click');
         await flushPromises();
-        expect(asked[1]).toContain('page=2');
+        expect(customerCalls(asked)[1]).toContain('page=2');
 
         await view.find('[data-testid="customers-sort-name"]').trigger('click');
         await flushPromises();
 
-        expect(asked[2]).toContain('page=1');
+        expect(customerCalls(asked)[2]).toContain('page=1');
     });
 
     it('marks the sorted column with aria-sort and leaves the others unsorted', async () => {
@@ -306,5 +315,187 @@ describe('CustomersView — §5.2 table', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="customers-table"]').text()).toContain('القطاع');
+    });
+});
+
+/**
+ * Point 4.2 — §5.2's server-side filters and search.
+ *
+ * `ALLOWED_FILTERS` is a closed set of five and `OpenAPI §6.2` answers an
+ * undeclared one with a 400, so every assertion here is again about the query
+ * string: a filter that never reaches the server is a control that lies.
+ *
+ * §10.1 **requires** the "Customers of deactivated employees" filter on this
+ * screen. `filter[is_archived]` is deliberately absent — it belongs to Point
+ * 4.5's archive screen, per the decomposition the owner approved on 2026-08-30.
+ *
+ * The URLs are decoded before they are matched. `filter[sector]` is sent as
+ * `filter%5Bsector%5D`, and an assertion written against the escaped form reads
+ * as a puzzle rather than as the contract.
+ */
+
+const SECTOR = { code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 2 };
+
+function stubScreen(options: { sectors?: unknown[]; sectorsStatus?: number; pages?: unknown[] } = {}): string[] {
+    const asked: string[] = [];
+    let call = 0;
+
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+            asked.push(url);
+
+            if (url.includes('/managed-lists/')) {
+                return options.sectorsStatus === undefined
+                    ? json(200, { data: options.sectors ?? [SECTOR], meta: { pagination: PAGINATION } })
+                    : json(options.sectorsStatus, { error: { code: 'permission_denied', message: 'no' } });
+            }
+
+            const bodies = (options.pages ?? [page([ROW])]) as unknown[];
+
+            return json(200, bodies[Math.min(call++, bodies.length - 1)]);
+        }),
+    );
+
+    return asked;
+}
+
+/** Only the customer requests, decoded — the managed list is asked for once and is not the subject. */
+function customerCalls(asked: string[]): string[] {
+    return asked.filter((url) => url.startsWith('/api/v1/customers')).map((url) => decodeURIComponent(url));
+}
+
+describe('CustomersView — §5.2 filters and search', () => {
+    it('offers the sectors the administrator configured, in the caller’s language', async () => {
+        stubScreen();
+
+        const view = render('ar');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-filter-sector"]').text()).toContain('طبي');
+    });
+
+    it('sends the words a person typed as `q`, and drops them again when the box is cleared', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-search"]').setValue('أحمد');
+        await view.find('[data-testid="customers-search-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('q=أحمد');
+
+        await view.find('[data-testid="customers-search"]').setValue('');
+        await view.find('[data-testid="customers-search-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(customerCalls(asked)[2]).not.toContain('q=');
+    });
+
+    it('sends the chosen status as a declared filter, and keeps the sort', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-filter-status"]').setValue('customer');
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('filter[customer_status]=customer');
+        expect(customerCalls(asked)[1]).toContain('sort=name');
+    });
+
+    it('sends the chosen sector as a declared filter', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-filter-sector"]').setValue('medical');
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('filter[sector]=medical');
+    });
+
+    /**
+     * The rule `services/customers.ts` was written around: `false` is a filter
+     * and the absence of one is not `false`. An unchecked box asks nothing
+     * about `is_incomplete`; sending `false` would ask for the complete records
+     * only, which is a different question and would hide `D-31`'s rows.
+     */
+    it('asks about incomplete records only when the box is checked', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-filter-incomplete"]').setValue(true);
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('filter[is_incomplete]=true');
+
+        await view.find('[data-testid="customers-filter-incomplete"]').setValue(false);
+        await flushPromises();
+
+        expect(customerCalls(asked)[2]).not.toContain('is_incomplete');
+    });
+
+    /** §10.1, required in as many words: a "Customers of deactivated employees" filter on this screen. */
+    it('asks for the customers of deactivated employees', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-filter-owner-inactive"]').setValue(true);
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('filter[owner_inactive]=true');
+    });
+
+    it('returns to the first page when a filter changes', async () => {
+        const asked = stubScreen({ pages: [page([ROW], { total: 40, total_pages: 2, has_next_page: true })] });
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-next"]').trigger('click');
+        await flushPromises();
+        expect(customerCalls(asked)[1]).toContain('page=2');
+
+        await view.find('[data-testid="customers-filter-status"]').setValue('customer');
+        await flushPromises();
+
+        expect(customerCalls(asked)[2]).toContain('page=1');
+    });
+
+    /** The options are a convenience. A screen that dies because a dropdown could not be filled is worse than one filter short. */
+    it('still lists customers when the sector options cannot be loaded', async () => {
+        // The refused request is asserted too. Without it this test passes
+        // against a screen that never asks for the options at all — which is
+        // exactly what it did in this point's RED run.
+        const asked = stubScreen({ sectorsStatus: 403 });
+
+        const view = render();
+        await flushPromises();
+
+        expect(asked.some((url) => url.includes('/managed-lists/sectors'))).toBe(true);
+        expect(view.find('[data-testid="customers-table"]').exists()).toBe(true);
+        expect(view.find('[data-testid="error-state"]').exists()).toBe(false);
+    });
+
+    /** "You have no customers" and "nothing matched" are different sentences, and only one of them is true. */
+    it('says nothing matched, rather than nothing exists, when a filter empties the list', async () => {
+        stubScreen({ pages: [page([ROW]), page([], { total: 0 })] });
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-filter-status"]').setValue('customer');
+        await flushPromises();
+
+        expect(view.find('[data-testid="empty-state"]').text()).toContain('filter');
     });
 });

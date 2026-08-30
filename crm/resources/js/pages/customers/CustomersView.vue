@@ -57,6 +57,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import { listEntries, type ListEntry } from '@/services/admin';
 import { listCustomers, type Customer, type Pagination } from '@/services/customers';
 
 /**
@@ -69,6 +70,14 @@ const DATE_COLUMNS = [
     { field: 'created_at', label: 'customers.column.added' },
 ] as const;
 
+/**
+ * §4.5's four codes, which are a database CHECK rather than a managed list —
+ * so there is no endpoint to ask, and this is the one place the set is
+ * restated. `customers_known_status` in the create-customers migration is the
+ * original; a code missing from here narrows a filter, it does not break one.
+ */
+const STATUS_CODES = ['prospect', 'customer', 'no_response', 'deal_not_completed'] as const;
+
 const { t, te, locale } = useI18n();
 
 const customers = ref<Customer[]>([]);
@@ -77,12 +86,30 @@ const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
 
+/** §4.2's sectors, from `DB-05`'s managed list rather than from a copy of the seeded six. */
+const sectors = ref<ListEntry[]>([]);
+
 const page = ref(1);
+const search = ref('');
+const statusFilter = ref('');
+const sectorFilter = ref('');
+const incompleteOnly = ref(false);
+const ownerInactiveOnly = ref(false);
 /** `CustomerListCriteria::DEFAULT_SORT`. */
 const sortField = ref<string>('name');
 const sortDescending = ref(false);
 
 const total = computed(() => pagination.value?.total ?? 0);
+
+/** Which of the two empty states is true: "you have none" or "none matched". */
+const filtering = computed(
+    () =>
+        search.value !== '' ||
+        statusFilter.value !== '' ||
+        sectorFilter.value !== '' ||
+        incompleteOnly.value ||
+        ownerInactiveOnly.value,
+);
 
 /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
 const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortField.value}`);
@@ -93,7 +120,18 @@ async function load(): Promise<void> {
     denied.value = false;
 
     try {
-        const result = await listCustomers({ page: page.value, sort: sortParameter.value });
+        const result = await listCustomers({
+            page: page.value,
+            sort: sortParameter.value,
+            q: search.value === '' ? null : search.value,
+            customerStatus: statusFilter.value === '' ? null : statusFilter.value,
+            sector: sectorFilter.value === '' ? null : sectorFilter.value,
+            // `null`, never `false`. An unchecked box asks nothing about the
+            // column; `false` would ask for the complete records only, which is
+            // a different question and would hide `D-31`'s rows entirely.
+            isIncomplete: incompleteOnly.value ? true : null,
+            ownerInactive: ownerInactiveOnly.value ? true : null,
+        });
 
         customers.value = result.items;
         pagination.value = result.pagination;
@@ -105,6 +143,36 @@ async function load(): Promise<void> {
     } finally {
         loading.value = false;
     }
+}
+
+/**
+ * The sector options, and why a failure here is not the screen's failure.
+ *
+ * `GET /managed-lists/sectors` names no permission — authentication alone — but
+ * §3.12 rule 5 lets an administrator change what a role reaches, and a dropdown
+ * that could not be filled is one filter short, not a broken screen. The list
+ * still loads and still says so.
+ *
+ * ponytail: page 1 only. The seeded set is §4.2's six and the endpoint pages at
+ * 25; a 26th sector needs a paged fetch or a `per_page`, not a redesign.
+ */
+async function loadSectors(): Promise<void> {
+    try {
+        sectors.value = (await listEntries('sectors', 1)).items;
+    } catch {
+        sectors.value = [];
+    }
+}
+
+/** Any change to the question invalidates the page number, for `sortBy`'s reason. */
+async function applyFilters(): Promise<void> {
+    page.value = 1;
+    await load();
+}
+
+/** `DB-05` keeps both labels on every entry, so neither language falls back to a code. */
+function sectorLabel(entry: ListEntry): string {
+    return locale.value.startsWith('ar') ? entry.label_ar : entry.label_en;
 }
 
 async function sortBy(field: string): Promise<void> {
@@ -157,7 +225,9 @@ function addedOn(timestamp: string): string {
     return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
-onMounted(load);
+onMounted(async () => {
+    await Promise.all([load(), loadSectors()]);
+});
 </script>
 
 <template>
@@ -170,10 +240,88 @@ onMounted(load);
             </p>
         </header>
 
+        <!-- §5.2's "server-side filters/sort/search". Every control below sends a
+             declared parameter and nothing narrows anything in the browser. -->
+        <form class="flex flex-wrap items-end gap-3" data-testid="customers-search-form" @submit.prevent="applyFilters">
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('customers.filter.search') }}</span>
+                <input
+                    v-model="search"
+                    type="search"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-search"
+                />
+            </label>
+
+            <button
+                type="submit"
+                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="customers-search-submit"
+            >
+                {{ t('customers.filter.searchAction') }}
+            </button>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('customers.filter.status') }}</span>
+                <select
+                    v-model="statusFilter"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-filter-status"
+                    @change="applyFilters"
+                >
+                    <option value="">{{ t('customers.filter.statusAll') }}</option>
+                    <option v-for="code in STATUS_CODES" :key="code" :value="code">{{ t(`customers.status.${code}`) }}</option>
+                </select>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('customers.filter.sector') }}</span>
+                <select
+                    v-model="sectorFilter"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-filter-sector"
+                    @change="applyFilters"
+                >
+                    <option value="">{{ t('customers.filter.sectorAll') }}</option>
+                    <option v-for="sector in sectors" :key="sector.code" :value="sector.code">{{ sectorLabel(sector) }}</option>
+                </select>
+            </label>
+
+            <label class="flex min-h-11 items-center gap-2">
+                <input
+                    v-model="incompleteOnly"
+                    type="checkbox"
+                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-filter-incomplete"
+                    @change="applyFilters"
+                />
+                <span>{{ t('customers.filter.incomplete') }}</span>
+            </label>
+
+            <!-- §10.1, required in as many words: "a 'Customers of deactivated
+                 employees' filter on the customer screen". -->
+            <label class="flex min-h-11 items-center gap-2">
+                <input
+                    v-model="ownerInactiveOnly"
+                    type="checkbox"
+                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-filter-owner-inactive"
+                    @change="applyFilters"
+                />
+                <span>{{ t('customers.filter.ownerInactive') }}</span>
+            </label>
+        </form>
+
         <LoadingState v-if="loading" label-key="customers.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
-        <EmptyState v-else-if="customers.length === 0" />
+        <!-- "You have no customers" and "nothing matched" are different
+             sentences, and only one of them is ever true. -->
+        <EmptyState
+            v-else-if="customers.length === 0"
+            :title-key="filtering ? 'customers.empty.filtered.title' : 'state.empty.title'"
+            :message-key="filtering ? 'customers.empty.filtered.message' : 'state.empty.message'"
+        />
 
         <div v-else class="table-frame overflow-x-auto rounded-xl">
             <table class="w-full text-table" data-testid="customers-table">
@@ -295,6 +443,12 @@ onMounted(load);
 .table-row:hover,
 .table-row:focus-within {
     background-color: var(--color-surface-muted);
+}
+
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
 }
 
 .sort-action {

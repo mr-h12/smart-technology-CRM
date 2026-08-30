@@ -3996,8 +3996,50 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       invisible on the list. Archived rows are absent by the server's default (`filter[is_archived]`
       defaults false) and nothing on the screen says so yet — 4.2's filter. Three roles still see
       the empty state, and the table changes none of that.)*
-- [ ] **4.2** the filters and the search — `customer_status` · `sector` · `is_incomplete` ·
+- [x] **4.2** the filters and the search — `customer_status` · `sector` · `is_incomplete` ·
       §10.1's `owner_inactive` · `q`
+      *(**Every control sends a declared parameter and nothing narrows anything in the browser.**
+      `ALLOWED_FILTERS` is closed at five and `OpenAPI §6.2` answers an undeclared one with a 400, so
+      the tests assert the query string rather than the rendered rows. The URLs are decoded before
+      matching — `filter[sector]` travels as `filter%5Bsector%5D`.
+      **`null`, never `false`.** An unchecked *incomplete* box asks nothing about the column;
+      `false` would ask for the complete records only, which is a different question and would hide
+      every `D-31` row. Pinned by a test that checks and then unchecks.
+      **§10.1 is met in its own words** — "a *Customers of deactivated employees* filter on the
+      customer screen". It is drawn for everyone who reaches the screen: §10.1 names Team Leader and
+      Manager as who must have it, not who must be denied it, and `GET /customers` applies no
+      permission carve-out to `owner_inactive`. A client-side role gate would be a restriction no
+      server rule enforces, which is exactly what `SEC-09` forbids. **Recorded as a reading.**
+      **The sectors come from `DB-05`'s managed list**, not from a copy of §4.2's seeded six —
+      `GET /managed-lists/sectors` names no permission, and `listEntries()` already existed in
+      `services/admin.ts` (reused, not re-written). Both labels ship on every entry, so neither
+      language falls back to a code. A refusal there costs one filter, not the screen: the list still
+      loads and still says so. `ponytail:` page 1 only — a 26th sector needs a paged fetch.
+      **§4.5's four status codes are restated in the component** because they are a database CHECK
+      with no endpoint to ask; the migration's `customers_known_status` is the original.
+      **Two empty states, because only one of them is ever true** — "you have no customers" and
+      "nothing matched these filters".
+      **`filter[is_archived]` is deliberately absent** — it belongs to Point 4.5's archive screen,
+      per the approved decomposition.
+      **9 tests · 1548 backend (9870 assertions, unchanged again — no new file) · 387 frontend
+      (24 files).** RED first: **9 failed, 16 passed** (4.0's six and 4.1's ten).
+      ⚠️ **One of the nine passed in RED, for the second point running** — "still lists customers
+      when the sector options cannot be loaded" passes against a screen that never asks for options.
+      It now asserts that the request was made **and** refused, and fails without the feature.
+      **Three of 4.1's tests then failed on a second mount request** — `asked[1]` had become the
+      managed-list call. The assertions were re-pointed through a `customerCalls()` filter rather
+      than re-numbered, so an index no longer depends on which of two parallel fetches lands first.
+      **Four deliberate breaks, all caught, restored byte-identical (`shasum -a 256 -c` → `OK`):**
+      `isIncomplete` sending `false` when unchecked (1 failed) · the page reset dropped from
+      `applyFilters` (1 failed) · a sector-options failure raised into the screen's error state
+      (1 failed) · `q` never passed to the service (1 failed).
+      **Problems found:** the vacuous test and the three index assertions above; nothing else.
+      **Not covered:** no row actions, no form, no detail page — 4.3 onward. The search is submitted,
+      not live: `SearchService` is asked once per submit rather than once per keystroke, and no
+      source asks for as-you-type. `q` still matches `name` only (`SearchIndex::Customers::columns()`
+      — open question 4). No saved or shareable filter state: nothing is written to the URL, so a
+      filtered list cannot be linked or restored on reload. `is_incomplete` and `is_archived` remain
+      undrawn **on the row** — the filter exists, the column does not.)*
 - [ ] **4.3** add/edit form — sector from the managed lists, region free text with suggestions
       (`D-20`), the yellow duplicate warning, 422 `details` bound to the fields
 - [ ] **4.4** detail page — summary first, related second, actions by permission

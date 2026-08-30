@@ -77,6 +77,59 @@ Copy this block per module. A module is not complete until all seven pass.
 
 ---
 
+## Two developers — module ownership and the shared trunk
+
+From 2026-08-30 this repository has two people working in it, each driving their own agent. Nothing
+below changes a requirement; it records who is where, and the rules that keep two parallel branches
+from fighting over the same eleven files.
+
+### Ownership
+
+| Module | Owner | State |
+|---|---|---|
+| **4 — Catalog & Suppliers** | Yousef | in progress — Step 3, Point 3.2 next |
+| **5 — Requests / Deals** | second developer | starting |
+| **6 — Supplier Quotations** | Yousef | after Module 4 |
+
+Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
+listed above is unowned, and picking it up means adding a row.
+
+> ⚠️ **This runs two modules in parallel against a documented sequence — recorded as a decision
+> awaiting a `D-xx`.** `CLAUDE.md` and `docs/MVP_Build_Plan_EN.md` require modules in the strict order
+> `… 3 Customers → 4 Catalog/Suppliers → 5 Deals → 6 Supplier Quotations …`. Running 4 and 5 side by
+> side is a deliberate owner decision (2026-08-30) on the reading that **Deals depends on Customers,
+> which is complete, and not on Catalog**. It is not a reinterpretation of the build plan and it does
+> not license further reordering. `docs/` is untouched.
+
+> ⚠️ **Module 6 is not parallel with Module 5 — it depends on it.** A supplier quotation carries a
+> nullable `deal_id` (Business Invariants), so Module 6's schema cannot put that foreign key anywhere
+> until Module 5 has created `deals`. Module 6 may start on the parts that do not touch the column,
+> but its migration is blocked until Module 5's schema point is merged into `main`.
+
+### Working rules
+
+1. **Every branch starts from `main`.** This supersedes the single-developer rule of branching from
+   the tip of the previous point's branch. With two people, a personal tip is not a shared base, and
+   stacking on one is what put twenty-two pull requests in a single chain behind an untouched `main`.
+2. **One point → one pull request → merged → then the next point.** No stacking. A point waiting on
+   review is not a reason to start another on top of it.
+3. **In a shared file, append inside your own block. Never reorder, never reformat, never re-indent
+   a neighbouring block.** Every new module endpoint touches these, so both branches will edit most
+   of them on most points:
+
+   `crm/routes/api.php` · `crm/bootstrap/app.php` · `crm/app/Providers/AppServiceProvider.php` ·
+   `crm/app/Support/Http/ApiExceptionRenderer.php` · `crm/app/Support/Search/SearchIndex.php` ·
+   `crm/deptrac.modules.yaml` · `CHECKLIST.md` (each person inside their own module's section)
+
+   A reformat here turns a three-line append into a whole-file conflict.
+4. **Migrations are ordered by their timestamp, not by who merged first.** Before adding one, pull
+   `main` and check the newest migration already there, so the two developers' filenames interleave in
+   the order the tables actually depend on each other.
+5. **`composer.lock` and `package-lock.json` change only in a point that deliberately adds a
+   dependency**, and that point carries nothing else.
+
+---
+
 ## Deployment debt — `D-66`
 
 Everything below is unverifiable without the real server. Nothing here counts as done until it has

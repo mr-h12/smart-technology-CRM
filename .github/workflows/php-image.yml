@@ -35,6 +35,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # GitHub's default is 360 minutes, which is not a limit so much as an
+    # afternoon. Measured from `gh run list` on 2026-08-30: every healthy run
+    # of this workflow finished in 6-8 minutes, and one stalled run burned
+    # 59 minutes before it was noticed. 20 is roughly 3x the observed normal
+    # and well under that stall, so a hang is cut short instead of idling a
+    # runner. If a legitimate run ever approaches this, raise it deliberately
+    # and say why — do not remove the cap.
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write

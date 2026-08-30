@@ -4880,6 +4880,64 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       "by employee" is not, and no catalog column holds an employee. The 500-row search cap is
       unchanged and remains Module 15's to lift.
 
+#### Step 4 — screens *(point order approved 2026-08-30)*
+
+- [x] **4.0** `services/suppliers.ts` · `services/catalog.ts` · `SupplierRatingChip.vue` — the API
+      catalogue for Step 2 and Step 3's eight routes, and §7.1's chip.
+      **The services restate the server's names, never their own.** `OpenAPI §6.2` answers an
+      unknown filter with a 400 and both `ALLOWED_FILTERS` sets are closed, so an unset filter is
+      **omitted rather than sent empty** — `filter[type]=` asks for suppliers whose type is the
+      empty string, a different question from "any type". The three boolean filters are tri-state:
+      `false` is a question and absence is not `false`.
+      **No deactivate call and no delete call, in either service.** §3.7's write row is one cell, so
+      `is_active` and `color_rating` are fields on a `PATCH`; the server publishes no action route
+      for either and no `DELETE` at any permission (§3.12 rule 3). A convenience wrapper here would
+      have produced a 405 at runtime, so both services assert the absence rather than paper over it.
+      **The catalog tab is `filter[kind]`, not a second endpoint**, and `group_by=company` is the
+      one group `ALLOWED_GROUPS` declares. `CatalogItemDraft` has no price, cost or margin field
+      (§7.3, `D-21`), and the create test pins that the body carries nothing the caller did not name.
+      **The chip carries a word, because Design System §6.4 ends its badge table with "never color
+      alone"** and names these four "supplier rating chips only". §7.1's meanings are the source —
+      🟢 excellent · 🟡 average · 🔴 problematic · ⚪ new / not yet rated — and the label is also the
+      `title`, so nothing in the component conveys meaning by hue. Four modifier classes over
+      `--color-success` / `--color-warning` / `--color-danger`, and the white chip borrows **no**
+      status colour at all: it is the *absence* of a rating, and a white fill on a white surface is
+      invisible, so the border carries the shape and muted text carries the word.
+      ⚠️ **The Arabic labels are a translation, not a reading.** Every other Arabic string in this
+      project came from an Arabic row in the documentation; `docs/` has no Arabic counterpart and
+      §7.1's colour table is English only (checked). `ممتاز · متوسط · غير موثوق · غير مُقيَّم` are
+      therefore this point's words and an owner may restate any of them without touching code.
+      **1710 backend (10827 assertions) · 471 frontend (30 files) · `npm run build` clean · pint 412
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.** The
+      backend and pint numbers are **lower than Point 3.2's** because this branch is cut from `main`
+      and Point 3.2 is not merged yet — not a regression.
+      RED first: **3 files failed, 0 tests ran** — the imports did not resolve, so nothing passed for
+      a wrong reason.
+      **Two deliberate breaks, neither a deletion:** (1) `filter[kind]` → `kind`, the plausible
+      simplification → failed **exactly** the one tab test and no other; (2) the chip's label taken
+      from `props.rating` instead of the dictionary, the plausible shortcut → failed the four
+      "colour is never alone" tests **and** the Arabic-script test. ⚠️ It did **not** fail the
+      English-uniqueness test, because four raw codes are also four distinct strings — that test
+      cannot tell a translation from a code, and the Arabic assertion is what actually catches it.
+      Both restored, confirmed with `shasum -a 256 -c`.
+      Assertion and test delta reconciled to the unit against a measured baseline
+      (`--list-tests` on `main` = **1703**, on this branch = **1710**): `LogicalPropertiesTest`
+      generates one test per scanned file through two providers — `styledFiles()` over `vue|css`
+      (+1, the chip) and `markupFiles()` over `vue|php|ts` (+6, the chip and five new `.ts` files) —
+      which is +7, read in the source rather than inferred. Assertions +8 = those 7, plus 1 from
+      `NoHardCodedTextTest`'s per-Vue-file scan loop.
+      **Problems found:** `NoHardCodedTextTest`'s Vue inventory is a **count-asserting guard** and
+      broke by design on the new component. Updated with the reason written into the test, not
+      widened silently — and only after the scan itself had passed on the file.
+      **Not covered:** nothing renders any of this — no screen imports either service and no screen
+      mounts the chip, so §7.1's "on **every** screen" is unproved until Points 4.1 and 4.3. The
+      chip's `rating` prop is a TypeScript union backed by the table's CHECK; a fifth rating added
+      server-side would render an empty label, and no runtime fallback exists. The services carry no
+      retry, no cache and no request cancellation. `unit` and `service_type` are still plain strings
+      on the wire — the `enum_lists` gap recorded at Point 3.2 is unchanged here.
+      ⚠️ **This entry and Point 3.2's are inserted at the same anchor in this file**, so PR #49 and
+      this one will conflict on `CHECKLIST.md`. The resolution is to keep both, 3.2 first.
+
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
 - [ ] Red-rated supplier → red chip beside their name on **every** screen

@@ -74,8 +74,10 @@ final class NoHardCodedTextTest extends TestCase
                 // Module 2 Point 5.2 — §13 screen 5. Added after the scan below
                 // passed on it, on the same terms as the entry below.
                 'CurrenciesView.vue',
-                // Module 3 Point 4.3 — §4.2's add/edit form, on the same terms:
-                // added only after the scan below passed on it.
+                // Module 3 Points 4.4 and 4.3 — the detail page and the
+                // add/edit form, on the same terms: added only after the scan
+                // below passed on each.
+                'CustomerDetailView.vue',
                 'CustomerFormModal.vue',
                 'CustomersView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',

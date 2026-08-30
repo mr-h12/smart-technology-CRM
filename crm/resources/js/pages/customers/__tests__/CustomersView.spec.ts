@@ -5,6 +5,7 @@ import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import CustomersView from '@/pages/customers/CustomersView.vue';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
+import { createAppRouter } from '@/router';
 
 /**
  * Module 3, Point 4.0 — the screen the route resolves to.
@@ -39,8 +40,13 @@ const PAGINATION = {
 const CUSTOMER = { id: 'c1', name: 'Alpha Trading', customer_status: 'prospect', is_archived: false, is_incomplete: false };
 
 function render(locale = 'en') {
+    // The router is not decoration: Point 4.4 made the name cell a `RouterLink`,
+    // and without a router it resolves to nothing while every assertion here
+    // still passes. That is a test covering an invisible feature.
     return mount(CustomersView, {
-        global: { plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })] },
+        global: {
+            plugins: [createAppRouter(), createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
+        },
     });
 }
 
@@ -614,5 +620,31 @@ describe('CustomersView — §3.3 write controls', () => {
         expect(view.find('[data-testid="customer-form"]').exists()).toBe(false);
         // The list was asked again, so the new row can appear.
         expect(asked.filter((url) => url.includes('/customers?')).length).toBeGreaterThan(listCallsBefore);
+    });
+});
+
+describe('CustomersView — Point 4.4 row link', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /**
+     * `navigation.ts`'s rule is why the name was plain text through 4.1–4.3:
+     * "a dead link is not a permission problem, it is a lie". 4.4 registered
+     * `customer-detail`, so it resolves — and the `href` proves it resolved
+     * rather than rendering an anchor to nowhere.
+     */
+    it('links each row to that customer, by id', async () => {
+        stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        const link = view.find('[data-testid="customers-row-link"]');
+
+        expect(link.exists()).toBe(true);
+        expect(link.attributes('href')).toBe('/customers/c1');
+        expect(link.text()).toContain('Alpha Trading');
     });
 });

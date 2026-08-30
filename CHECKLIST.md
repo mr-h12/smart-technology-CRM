@@ -4094,7 +4094,50 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       against a stubbed response. No owner picker (above). No detail page to open a duplicate in
       (4.4). No archive or restore from the form, no bulk actions, no import screen — 4.5, 4.5a,
       4.6.)*
-- [ ] **4.4** detail page — summary first, related second, actions by permission
+- [x] **4.4** detail page — summary first, related second, actions by permission
+      *(**`CustomerDetailView.vue`** on the new route `/customers/:id`
+      (`customer-detail`), behind the same `customer.view` and **no scope** as the list — whether
+      *this* row is reachable is answered per row by `CustomerRowScope`. **No sidebar item:** §8
+      lists *Customers*, not a record.
+      **The 404 is one state and says nothing about which case applied.** `OpenAPI §5.1` defines it
+      as "does not exist **or is not visible to the caller**. Do not reveal which case applies",
+      which is why `CustomerNotFound` is a single exception; a screen saying "you do not have access
+      to this customer" would undo that in the one place a person reads it. A **403** is a different
+      answer — about the caller, not about a row — and gets `PermissionDeniedState`.
+      **Summary first** (§5.2): §4.2's fields, with a nullable one printed as an em-dash rather than
+      as `null`; §4.5's derived status as a chip with the reason beside it (never a control); and
+      **`is_archived` / `is_incomplete` drawn as chips** — the first place either flag is visible per
+      customer, since the table has no column for them.
+      **Related second:** `D-16` puts the communication history in `notes`, so that is the section.
+      **There is no deals or timeline section** — that is Module 5, and drawing an empty one would
+      imply a feature.
+      **Actions by permission:** Edit only, gated on `customer.edit`, reusing Point 4.3's modal, and
+      the page **re-reads** after a save rather than patching the object in hand — `is_incomplete`
+      is the server's calculation.
+      **Two links that could not exist before this point.** The table's name cell now resolves to the
+      record, and §10.2's similar customers became links — its other half, "or **open the existing
+      customer instead**", which 4.3 had to leave as plain names on `navigation.ts`'s rule.
+      **10 frontend tests · 1554 backend (9878 assertions) · 414 frontend (26 files).** The backend
+      delta is `+3` / `+4`, the same shape and mechanism as 4.3: a new `.vue` enters both
+      `LogicalPropertiesTest` providers, a new `.spec.ts` enters `markupFiles`, and
+      `NoHardCodedTextTest` asserts once more per vue file.
+      **Six deliberate breaks, each failing the tests it should and no others, all restored
+      byte-identical (`shasum -a 256 -c` → `OK`):** a 404 rendered as permission-denied · the
+      not-found sentence naming permission · no re-read after save · `orDash` returning the raw
+      value · the row link pointing at the wrong id · the duplicate names un-linked.
+      **Problems found: three.** (1) The first run failed six tests because the stub answered
+      **every** URL with the record — the detail page asks for two things on mount, so `listEntries`
+      received a customer and `items` stopped being an array. Point 4.2's lesson exactly; the stub
+      now routes by resource. (2) **Adding the `RouterLink`s made 51 tests pass while the links
+      rendered as nothing** — `Failed to resolve component: RouterLink` was a warning, not a
+      failure. Both specs now mount a real router and assert the resolved `href`. (3) The
+      persisted-cwd trap bit again: a relative path from a shell already inside `crm/`.
+      **Not covered:** no archive/restore (§3.3's merged `customer.archive` — Point 4.5) and **no
+      assign**, though Point 3.5 shipped the route: **no point in the approved list names a screen
+      for it**, and building one here would be going past the plan. Recorded as an open question.
+      **No "years of dealing"** — §4.2 says `start_date` "drives" it and that is the only mention:
+      no field on the wire, no definition of a partial year, no rounding rule. Computing one would
+      be the SPA inventing a business value (`D-67`).)*
 - [ ] **4.5** the archive screen — archive and restore individually, select-all restore
 - [ ] **4.5a** ⚠️ **backend**: bulk restore, `OpenAPI §7.3`'s shape (`{"ids": [...]}`, per-record
       results, no bypass of the row scope). Documented in Flow 7 and not built; **4.5 needs it**

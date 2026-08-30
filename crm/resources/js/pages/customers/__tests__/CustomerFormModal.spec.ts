@@ -5,6 +5,7 @@ import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import type { Customer } from '@/services/customers';
+import { createAppRouter } from '@/router';
 
 /**
  * Module 3, Point 4.3 — §4.2's add/edit form.
@@ -51,7 +52,12 @@ const SECTORS = [
 function render(editing: Customer | null = null, locale = 'en') {
     return mount(CustomerFormModal, {
         props: { open: true, editing, sectors: SECTORS },
-        global: { plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })] },
+        global: {
+            // §10.2's similar customers are `RouterLink`s as of Point 4.4;
+            // without a router they render as nothing and the assertions below
+            // would still pass.
+            plugins: [createAppRouter(), createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
+        },
     });
 }
 
@@ -225,6 +231,9 @@ describe('CustomerFormModal — §6.1 server refusals and §10.2 duplicates', ()
         expect(warning.exists()).toBe(true);
         expect(warning.text()).toContain('Alpha Trade');
         expect(view.emitted('saved')).toHaveLength(1);
+
+        // §10.2: "or open the existing customer instead" — Point 4.4's half.
+        expect(view.find('[data-testid="customer-form-similar-link"]').attributes('href')).toBe('/customers/c9');
     });
 
     it('raises no duplicate warning when the server named none', async () => {

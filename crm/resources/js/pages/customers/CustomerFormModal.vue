@@ -26,9 +26,10 @@
  * a warning about something that already happened. The dialog therefore stays
  * open to show it, rather than closing over it.
  *
- * The similar customers are listed by name and are **not** links: Point 4.4's
- * detail page does not exist yet, and `navigation.ts` already settles what to
- * do about that — "a dead link is not a permission problem, it is a lie".
+ * The similar customers are links to the detail page as of Point 4.4, which is
+ * §10.2's other half: "The employee may proceed, or open the existing customer
+ * instead." Until that route existed they were plain names, on `navigation.ts`'s
+ * rule — "a dead link is not a permission problem, it is a lie".
  *
  * ── Server validation is the server's sentence ─────────────────────────────
  *
@@ -296,8 +297,19 @@ function discard(): void {
                     </svg>
                     {{ t('customers.form.similarTitle') }}
                 </p>
+                <!-- §10.2: "The employee may proceed, or **open the existing
+                     customer instead**." The second half became possible at
+                     Point 4.4, when the detail route was registered. -->
                 <ul class="mt-1 list-disc ps-5">
-                    <li v-for="match in similar" :key="match.id">{{ match.name }}</li>
+                    <li v-for="match in similar" :key="match.id">
+                        <RouterLink
+                            :to="{ name: 'customer-detail', params: { id: match.id } }"
+                            class="similar-link focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            data-testid="customer-form-similar-link"
+                        >
+                            {{ match.name }}
+                        </RouterLink>
+                    </li>
                 </ul>
                 <p class="mt-1">{{ t('customers.form.similarHint') }}</p>
             </div>
@@ -581,6 +593,11 @@ function discard(): void {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+.similar-link {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
 .modal-discard {

@@ -22,6 +22,7 @@ import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
 import CustomersView from '@/pages/customers/CustomersView.vue';
+import CustomerDetailView from '@/pages/customers/CustomerDetailView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -96,6 +97,20 @@ export const routes: RouteRecordRaw[] = [
         name: 'customers',
         component: CustomersView,
         meta: { requiresAuth: true, requiredPermission: 'customer.view', titleKey: 'customers.title' },
+    },
+    {
+        // Design System §5.2's Detail view for one customer. The same
+        // `customer.view` as the list and the same reason for naming no scope:
+        // whether *this* row is reachable is answered per row by
+        // `CustomerRowScope`, and the endpoint says so with a 404 that does not
+        // reveal which case applied (`OpenAPI §5.1`).
+        //
+        // No sidebar item: §8 lists *Customers*, not a record. This is reached
+        // from the table, so `navigation.ts` has nothing to add.
+        path: '/customers/:id',
+        name: 'customer-detail',
+        component: CustomerDetailView,
+        meta: { requiresAuth: true, requiredPermission: 'customer.view', titleKey: 'customers.detail.title' },
     },
     {
         // §8's *Employees* screen. `admin.create_user` and not a `user.view.*`

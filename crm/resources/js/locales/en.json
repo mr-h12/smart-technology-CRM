@@ -590,6 +590,16 @@
             "discard": "Discard changes",
             "unreachable": "The server could not be reached. The customer was not saved.",
             "forbidden": "You do not have permission to save this customer."
+        },
+        "detail": {
+            "title": "Customer",
+            "backToList": "Back to customers",
+            "notFoundTitle": "This customer could not be opened",
+            "notFoundMessage": "The record is not available. Check the link, or return to the customer list.",
+            "notesTitle": "Notes and communication history",
+            "notesEmpty": "Nothing has been recorded yet.",
+            "archived": "Archived",
+            "incomplete": "Incomplete record"
         }
     }
 }

@@ -429,7 +429,18 @@ onMounted(async () => {
 
                 <tbody>
                     <tr v-for="customer in customers" :key="customer.id" class="table-row" data-testid="customers-row">
-                        <td class="p-3">{{ customer.name }}</td>
+                        <td class="p-3">
+                            <!-- Point 4.4 registered the detail route, so the
+                                 name resolves. `navigation.ts`'s rule is why it
+                                 was plain text until then. -->
+                            <RouterLink
+                                :to="{ name: 'customer-detail', params: { id: customer.id } }"
+                                class="row-link focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                data-testid="customers-row-link"
+                            >
+                                {{ customer.name }}
+                            </RouterLink>
+                        </td>
                         <td class="p-3">
                             <!-- §6.4: never colour alone — the chip carries its own word. -->
                             <span class="status-chip rounded-full px-2 py-0.5" data-testid="customers-status">
@@ -533,6 +544,11 @@ onMounted(async () => {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+.row-link {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
 /* §6.2's Primary: the one main permitted action on this screen. */

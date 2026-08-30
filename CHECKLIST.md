@@ -4720,9 +4720,24 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       ⚠️ **§8 and §3.7 disagree, and the API follows §3.7. Awaiting a `D-xx`.** §3.7 grants
       `catalog.view` to the CEO and the Outdoor Supervisor, while §8 gives the CEO no catalog or
       supplier screen at all and the Outdoor Supervisor a Catalog but no Suppliers. §3.12 rule 1
-      makes the API the enforcement point, so the route follows the matrix; **the sidebar is Point
-      4.1's decision**, and this is the same class of disagreement already recorded for
-      Procurement/Customers. `docs/` untouched.
+      makes the API the enforcement point, so the route follows the matrix, and this is the same
+      class of disagreement already recorded for Procurement/Customers. `docs/` untouched.
+      **⚠️ Owner's ruling, 2026-08-31 — the sidebar follows §3.7 as well.** Both navigation items,
+      Suppliers and Catalog, are keyed on `catalog.view` and on nothing else. The CEO and the
+      Outdoor Supervisor therefore see both, which is what §3.7 grants and what §8 does not
+      describe. Keying the sidebar on §8's screen list instead would have produced the mirror image
+      of the defect §5.1 forbids: a screen a person is permitted to open, with no way to reach it —
+      and `navigation.ts` already states the rule in the other direction, that a dead link is not a
+      permission problem but a lie. `SEC-09` is unaffected either way: hiding or showing a link is
+      presentation, and the API is still the gate. **A divergence from §8, recorded here awaiting a
+      `D-xx`; `docs/` is untouched.**
+      **The ruling is recorded, not yet applied, and it could not be applied here.** `navigation.ts`
+      may not name a route `router/index.ts` does not register:
+      `LogicalPropertiesTest::test_every_navigation_item_names_a_registered_route` fails on a dead
+      link, and `navigation.spec.ts` asserts an item's `permission` agrees with its route's
+      `meta.requiredPermission` — both read in the source, 2026-08-31. Each route arrives with its
+      screen, so the **Suppliers item lands in Point 4.1** and the **Catalog item in Point 4.3**,
+      each keyed on `catalog.view` exactly as ruled.
       **31 tests · 1631 backend (10304 assertions) · 442 frontend · pint 396 files · PHPStan level 10
       clean · deptrac violations 0 / uncovered 0 on both configs.**
       RED first: **31 failed, 0 passed** — no test passed for a wrong reason here, because the routes

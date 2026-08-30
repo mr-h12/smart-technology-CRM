@@ -638,5 +638,13 @@
             "showIncomplete": "Show the incomplete records",
             "error": "The import did not run. Nothing was changed."
         }
+    },
+    "suppliers": {
+        "rating": {
+            "green": "Excellent",
+            "yellow": "Average",
+            "red": "Problematic",
+            "white": "Not rated"
+        }
     }
 }

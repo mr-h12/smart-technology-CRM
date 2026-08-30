@@ -89,6 +89,14 @@ final class NoHardCodedTextTest extends TestCase
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // Module 4 Point 4.0 — §7.1's supplier rating chip. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. The file is the one place in the
+                // SPA that had a real temptation to hold a literal — Design
+                // System §6.4's "never color alone" means the chip must render
+                // a word — and the word comes from `suppliers.rating.*` in both
+                // dictionaries rather than from the template.
+                'SupplierRatingChip.vue',
                 // Module 2 Point 5.3 — §13 screen 6, on the same terms.
                 'SystemLimitsView.vue',
                 // Module 2 Point 5.1 — §13 screen 4. Added to this list only

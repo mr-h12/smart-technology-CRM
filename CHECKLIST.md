@@ -4381,6 +4381,67 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 
 **Tables** `catalog_items` · `suppliers`
 
+**Endpoints** *(none published by the build plan — §7.1's conventions govern; see Step 2)*
+
+#### Step 1 — schema *(point order approved 2026-08-30)*
+
+- [x] **1.1** `suppliers` — §7.1's fields, `DB-01`/`DB-02`'s block, `DB-04`'s actor keys.
+      **§7.1's field list is read out of the master documentation by the test**, the same way Module 3
+      Point 1.1 reads §4.2: a column dropped from both the migration and a hand-written list would
+      pass a check that only agrees with itself. The parser stops at `**Colour meanings:**` because
+      §7.1 carries a *second* table below it whose first column is a colour, not a field — a slice
+      running to §7.2 reads "🟢 Green" as a column name.
+      ⚠️ **`linked_quotations` is deliberately not a column.** §7.1 annotates it "Automatic" and §4.1
+      draws `Supplier ──► Supplier Quotation` with the key on the *quotation*; Module 6 derives the
+      link from `supplier_quotations.supplier_id`. A column here would be a denormalised copy whose
+      only guaranteed property is going stale. The test pins **both** halves — that the document
+      still says "Automatic", and that no column was written anyway — so the exemption cannot
+      outlive its reason.
+      **`color_rating` and `type` are CHECKs, not enum tables**, and `DB-05` is why: it names four
+      lists that must be enum tables — sectors, units, service types, delivery terms — and neither
+      of these is one. §7.1 fixes the four colours by giving each a *meaning*, so a fifth is a change
+      to that meaning table and therefore a migration, not a row an administrator adds in settings.
+      `color_rating` defaults to `white` because §7.1 defines white as "New / not yet rated";
+      `D-19` lets any employee change it, which is Point 2.2's endpoint, not a property of the column.
+      **Only the name is required.** §7.1 marks *nothing* required, unlike §4.2 which writes
+      "Required" beside the customer's name — so the name carries NOT NULL plus a not-blank CHECK
+      and everything else is nullable, validated at the boundary. The direction is deliberate:
+      tightening `type` later is a Form Request, while loosening a NOT NULL after rows exist is a
+      migration.
+      **`is_active` is not `DB-01`'s soft delete.** §3.7's write row is "create · edit · deactivate ·
+      set colour" and §3.12 rule 3 forbids hard-deleting a supplier outright — `catalog.delete` is
+      already seeded with an *empty* grant array, so no role can hold it. §10.4 describes what a
+      deactivated supplier still does. `deleted_at` is `DB-01`'s and nothing in this module sets it.
+      **No index beyond the block, and that is measured.** `DB-09` requires indexes on "customer ·
+      owner · deal status · dates · entity codes" and `suppliers` has none of them: §3.7's matrix
+      grants every operational role `Scope::All`, so there is no owner column and no row scoping to
+      serve; §4.7 gives `SQ` to the supplier *quotation*, not here. `standardAudit()` already indexes
+      `created_by`. The list's filters and sort arrive at Point 2.1.
+      **21 tests · 1581 backend (9963 assertions) · 442 frontend · pint 382 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **19 failed, 2 passed** — and the two that passed are named rather than glossed,
+      because one of them passed for the *wrong* reason: `linked_quotations`' absence is trivially
+      true when the table does not exist at all. That is why it was the first deliberate break.
+      **Two deliberate breaks, and neither was a deletion** — a plausible wrong value proves more:
+      (1) `linked_quotations` added as a real column → exactly one test failed, the derived-field
+      guard; (2) the unrated default changed `white` → `green` → exactly one test failed, "an unrated
+      supplier is white". Both restored and confirmed with `shasum -a 256 -c`. The second break
+      mattered: **every one of the 19 RED failures was only "table missing"**, so before it no
+      value-specific guard had ever been shown to catch a wrong *value*.
+      **Problems found:** the suite reported **9963** assertions where the handoff baseline (9908)
+      plus this file's standalone 54 predicts 9962 — one unexplained. Chased rather than waved
+      through, by measuring three full runs: neither file → **9908** (the baseline is exactly right),
+      migration only → **9909**, migration + test → **9963**. Bisected per suite and then per file to
+      `UserSchemaMigrationTest::test_down_restores_the_scaffolded_table_it_replaced`, which rolls
+      back **one migration at a time in a `while` loop** and asserts progress on each step. **Any**
+      migration dated after `2026_08_23_100000_replace_users_and_create_user_sessions` therefore adds
+      exactly **+1 assertion** to that test. Nothing is wrong; it is a structural property to expect
+      at Point 1.2 and at every later module's migration.
+      **Not covered:** 1.1 is the table. **No model, no repository, no endpoint, no seeder** — and no
+      supplier can be created through the application yet. No uniqueness on name or phone, because
+      §7.1 declares none. No `catalog_items` (that is 1.2), and no supplier *prices* ever — `D-21`
+      keeps them on the supplier quotation, which is Module 6's.
+
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
 - [ ] Red-rated supplier → red chip beside their name on **every** screen

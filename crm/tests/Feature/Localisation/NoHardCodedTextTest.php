@@ -73,7 +73,11 @@ final class NoHardCodedTextTest extends TestCase
                 'ConfirmDialog.vue',
                 // Module 2 Point 5.2 — §13 screen 5. Added after the scan below
                 // passed on it, on the same terms as the entry below.
-                'CurrenciesView.vue', 'CustomersView.vue',
+                'CurrenciesView.vue',
+                // Module 3 Point 4.3 — §4.2's add/edit form, on the same terms:
+                // added only after the scan below passed on it.
+                'CustomerFormModal.vue',
+                'CustomersView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',

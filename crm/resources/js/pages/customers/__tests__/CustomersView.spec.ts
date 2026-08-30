@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import CustomersView from '@/pages/customers/CustomersView.vue';
+import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
  * Module 3, Point 4.0 — the screen the route resolves to.
@@ -497,5 +498,121 @@ describe('CustomersView — §5.2 filters and search', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="empty-state"]').text()).toContain('filter');
+    });
+});
+
+/**
+ * Point 4.3 — the two write controls, and the permissions that draw them.
+ *
+ * `SEC-09` is the whole point of these four assertions: the button appearing is
+ * a *menu*, and `CustomerWriteEndpointTest` is the *gate*. So each test asserts
+ * both halves — drawn for the holder, absent for the one without — because a
+ * one-sided assertion passes against a screen that draws nothing at all.
+ */
+
+/** §3.3's Indoor Sales row: `create` yes, `edit` yes, both scoped `own`. */
+const SALES: AuthenticatedUser = {
+    id: '01a0-sales',
+    name: 'Indoor Sales',
+    email: 'indoor.sales@example.test',
+    is_active: true,
+    role: { id: '01a0-role-ind', slug: 'indoor_sales', name: 'Indoor Sales' },
+    permissions: ['customer.view.own', 'customer.create.own', 'customer.edit.own'],
+    unconditional_access: false,
+};
+
+/** A caller who may read the list and write nothing on it. */
+const READER: AuthenticatedUser = { ...SALES, permissions: ['customer.view.own'] };
+
+async function signIn(profile: AuthenticatedUser): Promise<void> {
+    const delegate = globalThis.fetch as typeof globalThis.fetch;
+
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+        /\/auth\/login$/.test(String(input))
+            ? Promise.resolve(json(201, {
+                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: profile },
+            }))
+            : delegate(input as unknown as RequestInfo, init));
+
+    await useAuth().login(profile.email, 'Passw0rd123');
+}
+
+describe('CustomersView — §3.3 write controls', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers New customer to a holder of customer.create and to nobody else', async () => {
+        stubScreen();
+        await signIn(SALES);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="customers-create"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(READER);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="customers-create"]').exists()).toBe(false);
+    });
+
+    it('offers a row Edit to a holder of customer.edit and to nobody else', async () => {
+        stubScreen();
+        await signIn(SALES);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="customers-row-edit"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(READER);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="customers-row-edit"]').exists()).toBe(false);
+    });
+
+    it('opens the form empty for a create and filled for an edit', async () => {
+        stubScreen();
+        await signIn(SALES);
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-row-edit"]').trigger('click');
+        expect((view.find('[data-testid="customer-form-name"]').element as HTMLInputElement).value)
+            .toBe('Alpha Trading');
+
+        await view.find('[data-testid="customer-form-cancel"]').trigger('click');
+        await view.find('[data-testid="customers-create"]').trigger('click');
+        expect((view.find('[data-testid="customer-form-name"]').element as HTMLInputElement).value).toBe('');
+    });
+
+    /**
+     * §10.2 · `D-35`: the warning must be *seen*. A clean save closes the
+     * dialog; one the server flagged keeps it open so the names can be read.
+     */
+    it('closes after a clean save and stays open when the server named a duplicate', async () => {
+        const asked = stubScreen();
+        await signIn(SALES);
+
+        const view = render();
+        await flushPromises();
+
+        const listCallsBefore = asked.filter((url) => url.includes('/customers?')).length;
+
+        await view.find('[data-testid="customers-create"]').trigger('click');
+        await view.find('[data-testid="customer-form-name"]').setValue('Zeta Industrial');
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-form"]').exists()).toBe(false);
+        // The list was asked again, so the new row can appear.
+        expect(asked.filter((url) => url.includes('/customers?')).length).toBeGreaterThan(listCallsBefore);
     });
 });

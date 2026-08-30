@@ -49,6 +49,14 @@
  * enforcement. The route already carries `customer.view`, so a 403 here means
  * the two disagree — and the screen says so rather than rendering an empty
  * list, which would read as "you have no customers".
+ *
+ * ── Two write controls, drawn by two different permissions (Point 4.3) ─────
+ *
+ * §3.3 gives `create` and `edit` separate rows with different scopes on the
+ * same roles, which is why `SaveCustomerRequest` sits behind two route
+ * middlewares and not one. The buttons mirror that split — and mirroring is
+ * all they do: `SEC-09` makes the API the enforcement, so a caller who
+ * reaches the endpoint another way is still refused by it.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -59,6 +67,8 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
 import { listCustomers, type Customer, type Pagination } from '@/services/customers';
+import { useAuth } from '@/stores/auth';
+import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 
 /**
  * The two date columns of `CustomerListCriteria::ALLOWED_SORTS`; `name` is the
@@ -98,6 +108,15 @@ const ownerInactiveOnly = ref(false);
 /** `CustomerListCriteria::DEFAULT_SORT`. */
 const sortField = ref<string>('name');
 const sortDescending = ref(false);
+
+const auth = useAuth();
+
+/** §3.3's two rows. `resource.action` matches any scope — the scope is the row's, not the button's. */
+const canCreate = computed(() => auth.hasPermission('customer.create'));
+const canEdit = computed(() => auth.hasPermission('customer.edit'));
+
+const formOpen = ref(false);
+const editing = ref<Customer | null>(null);
 
 const total = computed(() => pagination.value?.total ?? 0);
 
@@ -225,6 +244,27 @@ function addedOn(timestamp: string): string {
     return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
+function startCreate(): void {
+    editing.value = null;
+    formOpen.value = true;
+}
+
+function startEdit(customer: Customer): void {
+    editing.value = customer;
+    formOpen.value = true;
+}
+
+/**
+ * The list is refreshed either way; the dialog closes only when there is
+ * nothing left to read. §10.2's warning names records the person may want to
+ * open instead, and closing over it is how a warning becomes a thing nobody saw.
+ */
+async function onSaved(_customer: Customer, similar: Customer[]): Promise<void> {
+    formOpen.value = similar.length > 0;
+
+    await load();
+}
+
 onMounted(async () => {
     await Promise.all([load(), loadSectors()]);
 });
@@ -235,9 +275,22 @@ onMounted(async () => {
         <header class="flex flex-wrap items-baseline justify-between gap-2">
             <h1 class="text-page-title">{{ t('customers.title') }}</h1>
 
-            <p v-if="!loading && !failed && !denied" data-testid="customer-total" class="tabular-nums text-[var(--color-text-muted)]">
-                {{ t('customers.total', { count: total }) }}
-            </p>
+            <div class="flex flex-wrap items-baseline gap-3">
+                <p v-if="!loading && !failed && !denied" data-testid="customer-total" class="tabular-nums text-[var(--color-text-muted)]">
+                    {{ t('customers.total', { count: total }) }}
+                </p>
+
+                <!-- §6.2: one primary action per context. -->
+                <button
+                    v-if="canCreate"
+                    type="button"
+                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-create"
+                    @click="startCreate()"
+                >
+                    {{ t('customers.form.createTitle') }}
+                </button>
+            </div>
         </header>
 
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a
@@ -367,6 +420,10 @@ onMounted(async () => {
                                 <span aria-hidden="true">{{ sortIndicator(column.field) }}</span>
                             </button>
                         </th>
+                        <!-- §5.2's Detail/Form controls: "action controls only by permission". -->
+                        <th v-if="canEdit" scope="col" class="p-3 text-start">
+                            <span class="sr-only">{{ t('customers.column.actions') }}</span>
+                        </th>
                     </tr>
                 </thead>
 
@@ -386,6 +443,16 @@ onMounted(async () => {
                         <td class="hidden p-3 tabular-nums md:table-cell">{{ customer.phone ?? '—' }}</td>
                         <td class="hidden p-3 tabular-nums lg:table-cell">{{ customer.start_date ?? '—' }}</td>
                         <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(customer.created_at) }}</td>
+                        <td v-if="canEdit" class="p-3">
+                            <button
+                                type="button"
+                                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                data-testid="customers-row-edit"
+                                @click="startEdit(customer)"
+                            >
+                                {{ t('action.edit') }}
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -421,6 +488,13 @@ onMounted(async () => {
                 {{ t('customers.pagination.next') }}
             </button>
         </nav>
+        <CustomerFormModal
+            :open="formOpen"
+            :editing="editing"
+            :sectors="sectors"
+            @saved="onSaved"
+            @cancel="formOpen = false"
+        />
     </section>
 </template>
 
@@ -459,6 +533,12 @@ onMounted(async () => {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+/* §6.2's Primary: the one main permitted action on this screen. */
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .status-chip {

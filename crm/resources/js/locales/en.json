@@ -537,7 +537,8 @@
             "contact": "Contact",
             "phone": "Phone",
             "startDate": "Start date",
-            "added": "Added"
+            "added": "Added",
+            "actions": "Actions"
         },
         "status": {
             "prospect": "Prospect",
@@ -566,6 +567,29 @@
                 "title": "Nothing matched",
                 "message": "No customer matches these filters. Widen them or clear them to see the rest."
             }
+        },
+        "form": {
+            "createTitle": "New customer",
+            "editTitle": "Edit customer",
+            "required": "(required)",
+            "sectionIdentity": "Identity",
+            "sectionContact": "Contact",
+            "name": "Name",
+            "region": "Region",
+            "phone2": "Second phone",
+            "whatsapp": "WhatsApp",
+            "email": "Email",
+            "notes": "Notes",
+            "sectorNone": "No sector",
+            "nameRequired": "A name is required.",
+            "statusIsDerived": "The status is calculated from this customer's deals and cannot be edited.",
+            "similarTitle": "A similar customer already exists",
+            "similarHint": "The record was saved. Check the names above in case this is the same customer.",
+            "unsavedChanges": "This form has changes that have not been saved.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes",
+            "unreachable": "The server could not be reached. The customer was not saved.",
+            "forbidden": "You do not have permission to save this customer."
         }
     }
 }

@@ -98,7 +98,7 @@ final class CustomerListEndpointTest extends TestCase
     }
 
     /** Inserted directly: Point 3.2 is the read side, and there is no create endpoint until 3.3. */
-    private function customer(string $name, ?string $ownerId = null, bool $archived = false): string
+    private function customer(string $name, ?string $ownerId = null, bool $archived = false, bool $incomplete = false): string
     {
         $id = (string) Str::uuid7();
 
@@ -108,7 +108,7 @@ final class CustomerListEndpointTest extends TestCase
             'customer_status' => 'prospect',
             'sales_owner_id' => $ownerId,
             'is_archived' => $archived,
-            'is_incomplete' => false,
+            'is_incomplete' => $incomplete,
             'created_by' => $ownerId,
             'created_at' => now(),
             'updated_at' => now(),
@@ -395,5 +395,47 @@ final class CustomerListEndpointTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('meta.pagination.total', 1)
             ->assertJsonPath('data.0.name', 'Archived One');
+    }
+
+    /**
+     * §10's "dedicated filter", proved on the server rather than on the wire.
+     *
+     * The Module 3 acceptance criterion is *"import with missing fields →
+     * record saves flagged **incomplete**, in a dedicated filter"*. Its first
+     * two clauses are `CustomerImportEndpointTest`'s. The third was covered
+     * only by frontend specs asserting that `filter[is_incomplete]=true`
+     * **reaches** the URL — which proves the request is built, not that the
+     * server narrows anything. A filter that is accepted and ignored answers
+     * 200 with every row and passes every test that only reads the query
+     * string.
+     *
+     * Three assertions, because the interesting half is the third: unfiltered
+     * shows both, `true` shows only the flagged one, and **absence is not
+     * `false`** — `is_incomplete` is the one filter `CustomerListCriteria`
+     * leaves null rather than defaulting, so omitting it must not silently
+     * mean "complete records only".
+     */
+    public function test_that_the_incomplete_filter_selects_only_flagged_records(): void
+    {
+        $this->customer('Complete One');
+        $this->customer('Flagged One', null, false, true);
+
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->getJson(self::ENDPOINT, $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 2);
+
+        $this->getJson(self::ENDPOINT.'?filter[is_incomplete]=true', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.name', 'Flagged One')
+            ->assertJsonPath('data.0.is_incomplete', true);
+
+        // The other direction, so a filter stuck on one answer cannot pass.
+        $this->getJson(self::ENDPOINT.'?filter[is_incomplete]=false', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.name', 'Complete One');
     }
 }

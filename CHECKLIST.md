@@ -4306,7 +4306,31 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 
 **Acceptance criteria**
 - [ ] Sales employee sees only own customers · Team Leader sees team · Manager sees all
-- [ ] Excel import with missing fields → record saves flagged **"incomplete"**, in a dedicated filter
+- [x] Excel import with missing fields → record saves flagged **"incomplete"**, in a dedicated filter
+      *(**Ticked 2026-08-30, on the owner's instruction, with the third clause's missing evidence
+      supplied first.** Clause by clause:
+      **"import with missing fields"** and **"saves flagged incomplete"** —
+      `CustomerImportEndpointTest::test_that_a_row_with_a_missing_field_is_flagged_and_still_saved`
+      asserts `imported_count: 1` *and* `is_incomplete => true` in the table, with
+      `test_that_a_row_with_every_field_is_not_flagged` as its other half. `D-31`: the flag is not
+      a refusal.
+      **"in a dedicated filter"** — ⚠️ **this clause was NOT proved when the tick was requested.**
+      The only coverage was frontend specs asserting `filter[is_incomplete]=true` **reaches** the
+      URL, which proves the request is built and not that the server narrows anything: a filter
+      that is accepted and ignored answers 200 with every row and passes every test that reads
+      only a query string. `CustomerListEndpointTest` had tests for `is_archived` and
+      `owner_inactive` and **none for the one filter this criterion names**.
+      So `test_that_the_incomplete_filter_selects_only_flagged_records` was written before the
+      tick: unfiltered shows both · `=true` shows only the flagged row · `=false` shows only the
+      complete one, because absence is not `false` for this filter and a filter stuck on one
+      answer must not pass. **Broken on purpose** (`if (false)` around the `where`) — it failed
+      that test **and only that test**, 19 others still green, which is the measure of what was
+      missing. Restored byte-identical (`shasum -a 256 -c` → `OK`).
+      **The screens:** Point 4.2 draws the filter, Point 4.6 reports `incomplete_count` and sends
+      the person to it, and only when the count is above zero.
+      ⚠️ **One narrowing rides along with this tick:** the criterion says **Excel**, and the format
+      shipped is **CSV** (owner, 2026-08-29 — `fgetcsv`, no library). The mechanism the criterion
+      describes is met in full; the file format it names is not, and that still awaits a `D-xx`.)*
 - [ ] Incomplete records are **excluded from financial reports** until completed
 - [ ] Name similar to an existing customer → **yellow warning**; the employee decides, no blocking
 - [ ] Manually archived customer → visible only to Manager and Team Leader

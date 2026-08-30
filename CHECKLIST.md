@@ -4879,6 +4879,81 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       declared for **one** group; §7.3's grouping "by company/team name" is served, `API-06`'s
       "by employee" is not, and no catalog column holds an employee. The 500-row search cap is
       unchanged and remains Module 15's to lift.
+- [x] **3.2** `POST /catalog-items` + `PATCH /catalog-items/{id}` — §7.3's create and edit behind
+      `catalog.manage`, each audited inside its own transaction.
+      **One permission, and the CEO is the real negative case.** §3.7's write row is a single cell —
+      "create · edit · deactivate · set colour ✅" — so there is no `/deactivate` action route
+      (`OpenAPI §7.2` reserves an action suffix for what is "not a normal resource update", and
+      `is_active` is a field on the row) and **no DELETE at any permission** (§3.12 rule 3;
+      `catalog.delete` is seeded with an empty grant array, and the absence of the route is asserted
+      as a 405 rather than assumed). Point 2.1's negative test had to withdraw a seeded grant because
+      §3.7 grants `view` to everyone; writing needs no such trick — §3.7 annotates the CEO's ✅
+      **"read-only"**, which is the absence of the `manage` grant, so the CEO is the documented
+      negative case and is used as one on both verbs.
+      **The kind-conditional rules live only in the Form Request**, which is where Point 1.2 said
+      they would: a product needs a `name` and a `unit`, a service needs a `service_type`, carried by
+      `required_if` so a violation is a 422 naming the field instead of the 500 a cross-field CHECK
+      would have produced. A service without a name is accepted — §7.3 identifies it by its type,
+      which is why the column is nullable.
+      **`kind` is required to create and optional to edit.** A row in neither tab appears on no
+      screen §7.3 describes; on an edit, sending `kind` re-triggers the conditional rules against the
+      tab it is moving to, so a coherent move is possible and an incoherent one is refused.
+      **The price fields are refused, not ignored.** §7.3 opens "descriptive data only — no prices"
+      and `D-21` puts price, cost and margin on the supplier quotation. `CatalogItemDraft` would
+      filter them out anyway, so `price`, `cost` and `margin` are `prohibited` for the reason
+      `OpenAPI §6.2` refuses an unknown query parameter: answering 201 would confirm a wrong idea
+      about where a price lives. Asserted on the wire, with a zero-row check after each refusal.
+      **`AuditContract` added to Catalog's deptrac ruleset, and proved load-bearing:** removing the
+      entry produced **3 violations**, restoring it produced 0 — measured, not argued.
+      **⚠️ `unit` and `service_type` are validated for shape, not for membership — owner's decision,
+      2026-08-31, awaiting a `D-xx`.** Point 1.2's migration says both are "validated at the
+      boundary" against `enum_lists`, which is why neither carries a foreign key (PostgreSQL refuses
+      one against that table's partial unique index). **The same promise was made about
+      `customers.sector` in Module 3 and was not kept**: `SaveCustomerRequest` validates its length
+      and nothing more, and no class outside `app/Modules/Admin` references `ManagedList` anywhere in
+      the project (measured by grep). Keeping it here would mean Catalog reaching Admin's
+      `ManagedListRepositoryInterface`, which needs an `AdminContract` layer deptrac does not have —
+      a `Rule::exists` against `enum_lists` is the cheap alternative and is the direct cross-module
+      database access `CLAUDE.md` forbids outright. **Decision: match the existing precedent, record
+      the gap, and close both modules in one later point.** Until then the two migration comments
+      claim more than the code does, and this line is the record of that.
+      **⚠️ `required_if` fires only when `kind` is in the payload.** A `PATCH` sending
+      `{"unit": null}` without naming the kind blanks a product's unit, because a partial update has
+      no view of the stored row. Closing it means the boundary reading the database, a layer the Form
+      Request does not cross. Recorded, not fixed.
+      **1732 backend (10977 assertions) · 446 frontend (27 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs (modules:
+      728 allowed).**
+      RED first: **28 failed, 0 passed** — nothing passed for a wrong reason, and the count is 28
+      rather than 29 because `CatalogItemDraft::KINDS` did not exist yet, so the `kinds` data
+      provider errored as one failure instead of expanding into two tests.
+      **One deliberate break, not a deletion:** the update's audit event renamed
+      `CATALOG_ITEM_UPDATED` → `CATALOG_ITEM_EDITED`, the plausible other spelling → failed
+      **exactly** the one test that pins the acceptance criterion and no other. Restored, confirmed
+      with `shasum -a 256 -c`.
+      Assertion delta reconciled to the unit: **151** (this file) + **3** (`NoHardCodedTextTest`, one
+      per new `app/` PHP file) + **2** (`EndToEndConnectivityTest`, one per registered route) +
+      **2** (`AuditEnforcementTest`, which runs `assertFileExists` and the recorder-name check on
+      every register entry — read in the source, not inferred) = 158, and 10819 + 158 = 10977.
+      **`AuditEnforcementTest` was run and read, not predicted:** it failed on the first green run
+      with `SaveCatalogItem` unlisted, and the register now names it AUDITED. ⚠️
+      `EloquentCatalogItemDirectory` gained `->save(` in the same point and is **not** listed — the
+      diff named only `SaveCatalogItem`, so the scanner does not see a repository writing purely
+      through a module-aliased Eloquent model. **The blind spot was nine classes; it is now ten**,
+      and it is still owed its own point.
+      **Problems found:** restoring `deptrac.modules.yaml` after the deliberate break was done with
+      `git checkout <file>`, which discarded the point's own edit along with the break, because the
+      file was uncommitted. The baseline `shasum -a 256 -c` caught it immediately and the entry was
+      re-applied — which is the whole reason the baseline is taken in its own command before the
+      break rather than reconstructed afterwards.
+      **Not covered:** the two write routes are unreachable from the SPA — the catalog screen is
+      Point 4.3, and `services/catalog.ts` does not exist. Deactivation writes `is_active` and hides
+      the item from nothing: §10.4's selection lists are Modules 6 and 7. Nothing prevents a product
+      from carrying a `service_type` or a service a `unit` — the conditional rules require the right
+      field and do not forbid the wrong one, which no source asks for and which the tabs' own
+      `filter[kind]` makes invisible either way. No bulk create, no import, and no `D-35`-style
+      duplicate probe: two identical products can be created in a row without a warning, the same
+      gap Module 3's CSV import carries. `product_code` is not unique and nothing checks it.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
@@ -4889,7 +4964,12 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       numeric column at all; asserted three ways — §7.3 still forbids it, no `numeric` column
       exists, and no column name matches `/price|cost|margin|amount/i`. Proved by adding a real
       `money('price')` column and watching that one test fail.)*
-- [ ] Every catalog edit is written to the audit log
+- [x] Every catalog edit is written to the audit log *(Point 3.2: `SaveCatalogItem` records
+      `CATALOG_ITEM_CREATED` / `CATALOG_ITEM_UPDATED` inside the same transaction as the write
+      (`DB-11`), with `AUD-02`'s old values limited to the fields the write touched and no row at
+      all for a PATCH that changed nothing. `D-45` makes this the mitigation for opening catalog
+      editing to every employee. Proved by renaming the update event on purpose and watching that
+      one test fail.)*
 
 ---
 

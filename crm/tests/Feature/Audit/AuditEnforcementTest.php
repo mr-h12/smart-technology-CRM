@@ -9,6 +9,7 @@ use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
+use App\Modules\Catalog\Application\Writing\SaveCatalogItem;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Identity\Application\Administration\UpdateUser;
@@ -153,6 +154,25 @@ final class AuditEnforcementTest extends TestCase
             // passes with it unlisted. The hole was eight classes; this makes
             // it nine, and it is still owed its own point.
             SaveSupplier::class => self::AUDITED,
+
+            // Module 4 Point 3.2, the catalog's first write. Found by this test
+            // rather than predicted: the point was written expecting the
+            // scanner to see it, and the expectation was checked by running it
+            // and reading the diff, not by reasoning about the four signals.
+            //
+            // AUDITED for the same reason SaveSupplier is, and with more force:
+            // `D-45`'s mitigation for opening catalog editing to every employee
+            // is "every edit is written to the audit log", and the build plan
+            // makes it Module 4's acceptance criterion outright.
+            //
+            // ⚠️ EloquentCatalogItemDirectory gained `->save(` in the same
+            // point and is **not** listed — measured, not assumed: the diff
+            // above named only this class. It is invisible to scan() for the
+            // reason EloquentSupplierDirectory and EloquentCustomerDirectory
+            // are, a repository writing purely through a module-aliased
+            // Eloquent model. The hole was nine classes; this makes it ten, and
+            // it is still owed its own point.
+            SaveCatalogItem::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

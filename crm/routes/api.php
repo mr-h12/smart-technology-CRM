@@ -510,4 +510,21 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
 
     Route::get('/{catalogItem}', [CatalogItemController::class, 'show'])
         ->middleware('permission:catalog.view');
+
+    // Point 3.2. §3.7's write row is a single cell — "create · edit ·
+    // deactivate · set colour ✅" — so all of it is one permission and there is
+    // no `/deactivate` action: `OpenAPI §7.2` reserves an action suffix for
+    // what is "not a normal resource update", and `is_active` is a field on the
+    // row. Module 3 needed `/archive` because §3.3 made it a separate
+    // permission with its own grants; §3.7 does not.
+    //
+    // **No `Idempotency-Key`.** `OpenAPI §9.1` requires one for "critical POST
+    // commands, including creation of deals, quotations, supplier quotations,
+    // purchase orders, reports, versions" — a catalog item is on none of that
+    // list, the same reading Points 2.2 and Module 3 applied.
+    Route::post('/', [CatalogItemController::class, 'store'])
+        ->middleware('permission:catalog.manage');
+
+    Route::patch('/{catalogItem}', [CatalogItemController::class, 'update'])
+        ->middleware('permission:catalog.manage');
 });

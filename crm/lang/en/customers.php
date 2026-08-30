@@ -36,6 +36,7 @@ return [
     'import' => [
         'empty_file' => 'This file is empty. The first row must name the columns.',
         'unknown_columns' => 'This file has columns the importer does not accept: :columns.',
+        'duplicate_columns' => 'This file names the same field in more than one column: :columns.',
         'missing_name_column' => 'This file has no "name" column, and a customer cannot be imported without one.',
     ],
 

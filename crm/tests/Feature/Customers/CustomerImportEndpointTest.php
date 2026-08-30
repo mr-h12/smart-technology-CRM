@@ -358,6 +358,134 @@ final class CustomerImportEndpointTest extends TestCase
         $this->assertDatabaseCount('customers', 0);
     }
 
+    // ──────────────────── the header a spreadsheet actually writes (Point 3.7)
+
+    /**
+     * A header is matched by the *word*, not by its punctuation.
+     *
+     * §4.2 names the field `start_date`; a person exporting from a spreadsheet
+     * writes `Start date`. Nothing in the sources says the file must repeat the
+     * column identifier character for character, and a refusal over a space is
+     * a refusal nobody can act on without being told the schema.
+     */
+    public function test_that_a_capitalised_spaced_header_is_read_as_the_field(): void
+    {
+        $this->import("Name,Start date\nAlpha Trading,2026-01-01")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 1);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'start_date' => '2026-01-01']);
+    }
+
+    /** A hyphen is the other thing a spreadsheet puts between two words. */
+    public function test_that_a_hyphenated_header_is_read_as_the_field(): void
+    {
+        $this->import("name,Contact-Person\nAlpha Trading,Ahmed")
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'contact_person' => 'Ahmed']);
+    }
+
+    /**
+     * §4.2 describes `contact_person` as "Single contact (`D-18`)", so a column
+     * headed `Contact` is that field under the document's own shorter word.
+     */
+    public function test_that_contact_is_read_as_the_contact_person(): void
+    {
+        $this->import("name,Contact\nAlpha Trading,Ahmed")
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'contact_person' => 'Ahmed']);
+    }
+
+    /**
+     * `customers.attributes.phone2` is already the words **"second phone"** —
+     * the application's own name for the field, shown in every validation
+     * message. A file using it is not inventing a vocabulary.
+     */
+    public function test_that_second_phone_is_read_as_phone2(): void
+    {
+        $this->import("name,Second phone\nAlpha Trading,0101")
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'phone2' => '0101']);
+    }
+
+    /**
+     * The regression: the exact header line of the file that was refused in the
+     * running application on 2026-08-30, which is what this point exists for.
+     */
+    public function test_that_the_header_a_real_export_carried_is_accepted(): void
+    {
+        $this->import(
+            "Name,Sector,Region,Contact,Phone,Second phone,WhatsApp,Email,Start date\n"
+            .'Plan international,,,Abdalla.raslan,01069924445,01222588615,,a@example.test,'
+        )
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 1)
+            // Three of §4.2's ten fields are absent from the file, so `D-31`
+            // flags the row rather than refusing it.
+            ->assertJsonPath('data.incomplete_count', 1);
+
+        $this->assertDatabaseHas('customers', [
+            'name' => 'Plan international',
+            'contact_person' => 'Abdalla.raslan',
+            'phone' => '01069924445',
+            'phone2' => '01222588615',
+        ]);
+    }
+
+    /**
+     * Two headers that mean one field are refused, never merged.
+     *
+     * This is the failure the aliases make possible, so it is the one they owe
+     * a guard for: whichever column won would be a silent choice between two
+     * columns the person filled in on purpose.
+     */
+    public function test_that_two_headers_naming_one_field_are_refused(): void
+    {
+        $message = $this->import("name,contact,contact_person\nAlpha Trading,Ahmed,Mona")
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'file')
+            ->json('error.details.0.message');
+
+        // The **field** that was named twice, not the headers that named it —
+        // which is also what makes this test discriminate. Before the aliases
+        // existed this file was refused too, but for the wrong reason:
+        // `contact` was simply an unknown column. Asserting the mapped field
+        // name is what tells the two refusals apart.
+        self::assertIsString($message);
+        self::assertStringContainsString('contact_person', $message);
+
+        $this->assertDatabaseCount('customers', 0);
+    }
+
+    /** The same collision without any alias involved — one guard covers both. */
+    public function test_that_the_same_column_twice_is_refused(): void
+    {
+        $this->import("name,name\nAlpha Trading,Beta Trading")
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('customers', 0);
+    }
+
+    /**
+     * An unknown column is still refused, and named **as the person wrote it**.
+     *
+     * Reporting the normalised form would answer a complaint about `Sales rep`
+     * with the word `sales_rep`, which is the importer describing its own
+     * internals to somebody looking for their own spreadsheet column.
+     */
+    public function test_that_an_unknown_column_is_named_as_the_person_wrote_it(): void
+    {
+        $message = $this->import("name,Sales rep\nAlpha Trading,Mona")
+            ->assertStatus(422)
+            ->json('error.details.0.message');
+
+        self::assertIsString($message);
+        self::assertStringContainsString('Sales rep', $message);
+    }
+
     public function test_that_an_empty_file_is_refused(): void
     {
         $this->import('')->assertStatus(422);

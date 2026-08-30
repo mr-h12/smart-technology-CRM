@@ -4298,6 +4298,70 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       import, and **imported rows arrive unowned** with no screen able to assign them (Point 3.5's
       route still has no UI). The import history is not listed anywhere: `import_batches` is
       written and only the batch just created is ever shown.)*
+- [x] **3.7** the import reads a header by the **word**, not by the identifier — an unplanned point,
+      raised by the owner from the running application on 2026-08-30 and approved as a point of its
+      own the same day.
+      **The report.** A real export was refused with *"This file has columns the importer does not
+      accept: contact, second phone, start date"*. Its header line read
+      `Name,Sector,Region,Contact,Phone,Second phone,WhatsApp,Email,Start date`, and six of its nine
+      columns matched while three did not.
+      **The diagnosis: the refusal was correct, and the contract was too narrow.** `CustomerCsv`
+      compared each cell — lower-cased and trimmed — character for character against
+      `CustomerDraft::WRITABLE`, which is §4.2's list of column *identifiers*. Nothing in any source
+      says a file must repeat an identifier's punctuation, and a refusal over a space is one nobody
+      can act on without being shown the schema. Refusing rather than silently dropping was right
+      and is unchanged.
+      **Two mechanisms, and the split is deliberate.** (1) **Normalisation** — lower-case, and any
+      run of spaces or hyphens collapsed to one underscore — settles `Start date`,
+      `Contact-Person` and every future multi-word field. It invents no vocabulary: it is the same
+      word with the spreadsheet's punctuation. (2) **`ALIASES`, exactly two entries**, for the
+      headers that are a *different* word, and each is quoted rather than guessed: `contact` →
+      `contact_person` because §4.2 itself describes the field as *"Single contact (`D-18`)"*, and
+      `second_phone` → `phone2` because `customers.attributes.phone2` is **already** the words
+      "second phone" in the lang files — the name every validation message gives that field. Nothing
+      else: `phone_2`, `mobile`, an Arabic label would each be a guess about a file nobody has shown.
+      **The aliases are a constant, not a lang-file lookup**, and that was a decision rather than an
+      oversight: deriving the accepted set from `customers.attributes` would make a data-import
+      contract change whenever a translator edits a label, and make it depend on the caller's
+      locale — a file that imports for one user and is refused for another.
+      **One field, one column.** Aliases create a new way for two headers to mean one field, so they
+      owe a guard: a field named twice is refused with a new `duplicate_columns` message naming the
+      **field**, not the headers. The same guard also closes a pre-existing hole — `name,name` used
+      to be accepted with the last column silently winning. One check, both cases (`CLAUDE.md`: the
+      lazy fix is the root-cause fix).
+      **An unknown column is now named as the person wrote it.** Reporting the normalised form would
+      answer a complaint about `Sales rep` with the word `sales_rep`, which describes the importer's
+      internals to somebody hunting for their own spreadsheet column.
+      **1703 backend (10819 assertions) · 446 frontend (27 files) · `npm run build` clean · pint 412
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **8 failed, 29 passed** — and the 29 are the pre-existing controls in this file,
+      which is what proves the change did not move them. ⚠️ One new test **passed in RED and was
+      rewritten**: `two headers naming one field are refused` went green for the wrong reason —
+      `contact` was then simply an unknown column, so the file was refused by a different rule. It
+      now asserts the message names the mapped field `contact_person`, which only the collision
+      refusal prints, and it failed in RED after that.
+      **Two deliberate breaks, neither a deletion:** (1) the normalisation's replacement changed from
+      `'_'` to `''` — the plausible other reading of "remove the punctuation" → failed **exactly**
+      the four tests that need a separator to become an underscore, and correctly left the `contact`
+      alias test passing; (2) the unknown-column report changed back to `strtolower($written)` — the
+      previous behaviour, and the plausible regression → failed **exactly** the one test that pins
+      it. Both restored, confirmed with `shasum -a 256 -c`.
+      **Verified against the real file, not only against fixtures:** the owner's original
+      `customers_import.csv` — unmodified, BOM and CRLF intact — was parsed through `CustomerCsv`
+      itself inside the container: **18 rows accepted**, keyed
+      `name,sector,region,contact_person,phone,phone2,whatsapp,email,start_date`. It had been
+      refused before this point.
+      **Problems found:** the false-pass above, and nothing else. Assertion delta reconciled to the
+      unit **by measurement**: this test file was 141 assertions before and is 180 after — the whole
+      +39, since the point adds no `app/` file, no route and no migration, so
+      `NoHardCodedTextTest`, `EndToEndConnectivityTest` and `UserSchemaMigrationTest` all move by
+      zero. 10780 + 39 = 10819.
+      **Not covered:** the import still runs **no `D-35` duplicate probe** — importing the same file
+      twice creates duplicates in silence, which is Point 3.6's pre-existing gap and is unchanged
+      here. Arabic header labels are **not** accepted, deliberately. The upload modal still does not
+      tell the person which columns are accepted, so a refusal is the first place they learn the
+      vocabulary. Values are untouched: a phone written in Arabic-Indic digits (`٠١٢٠٤٧٢٦٣٤٠` in the
+      owner's file) is stored as typed and will not match a search in Latin digits.
 
 > **Out of scope for Module 3, stated so it is not looked for here.** Customer-status derivation
 > (`recompute_customer_status` → Module 5) · excluding incomplete records from financial reports

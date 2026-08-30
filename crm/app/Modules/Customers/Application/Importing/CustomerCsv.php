@@ -50,11 +50,62 @@ use Illuminate\Validation\ValidationException;
  * `OpenAPI §6.2` takes that line about unknown query parameters and Point 3.3
  * took it about unknown body fields. A column the importer silently drops is a
  * column the person believed they had imported.
+ *
+ * ── A header is matched by the word, not by the identifier (Point 3.7) ─────
+ *
+ * Added after a real export was refused in the running application on
+ * 2026-08-30: its header line read `Name,Sector,Region,Contact,Phone,Second
+ * phone,WhatsApp,Email,Start date`, and three of those nine were rejected
+ * because the reader compared them character for character against §4.2's
+ * column identifiers. Nothing in the sources says a file must repeat an
+ * identifier's punctuation, and a refusal over a space is one nobody can act on
+ * without being shown the schema.
+ *
+ * So a header cell is normalised — lower-cased, and any run of spaces or
+ * hyphens collapsed into a single underscore — before it is matched. That alone
+ * settles `Start date`, `Contact Person` and every other multi-word field, and
+ * it invents no vocabulary: it is the same word with the spreadsheet's
+ * punctuation.
+ *
+ * {@see self::ALIASES} then covers the two headers that are a *different* word
+ * for the same field, and each of the two is quoted from a source rather than
+ * guessed. **It is a constant, not a lookup into the lang files.** Deriving the
+ * accepted set from `customers.attributes` would make a data-import contract
+ * change whenever a translator edits a label, and make it depend on the
+ * caller's locale — a file that imports for one user and is refused for another.
+ *
+ * ── One field, one column ─────────────────────────────────────────────────
+ *
+ * Aliases create a way for two different headers to mean one field, so they owe
+ * a guard: a field named twice is refused. Whichever column won would be a
+ * silent choice between two columns a person filled in on purpose — the same
+ * defect as dropping an unknown one. The guard covers the plain case too
+ * (`name,name`), which the reader used to accept with the last column winning.
  */
 final readonly class CustomerCsv
 {
     /** The header cells a file may carry — §4.2's user-entered fields, and no others. */
     public const COLUMNS = CustomerDraft::WRITABLE;
+
+    /**
+     * Headers that are a different word for a field, normalised form on the left.
+     *
+     * Two entries, each quoted from a source rather than invented:
+     *
+     * - `contact` — §4.2 describes the field as *"Single contact (D-18)"*, so
+     *   the document's own shorter word for `contact_person`.
+     * - `second_phone` — `customers.attributes.phone2` is already the words
+     *   **"second phone"**, which is what every validation message calls the
+     *   field to the person now filling in the file.
+     *
+     * Nothing else is here. `phone_2`, `mobile`, an Arabic label: each would be
+     * a guess about a file nobody has shown, and each is one line the day
+     * somebody does.
+     */
+    private const ALIASES = [
+        'contact' => 'contact_person',
+        'second_phone' => 'phone2',
+    ];
 
     private const BOM = "\xEF\xBB\xBF";
 
@@ -119,22 +170,59 @@ final readonly class CustomerCsv
     private static function header(array $header): array
     {
         $columns = [];
+        $unknown = [];
+        $seen = [];
+        $twice = [];
 
         foreach ($header as $index => $cell) {
-            $name = strtolower(trim((string) $cell));
+            $written = trim((string) $cell);
 
             if ($index === 0) {
-                // The measured BOM, removed once and where it arrives.
-                $name = ltrim($name, self::BOM);
+                // The measured BOM, removed once and where it arrives — before
+                // anything tries to read the first cell as a word.
+                $written = ltrim($written, self::BOM);
             }
 
-            $columns[] = $name;
-        }
+            // An empty header cell is not a column. `row()` skips it, and a
+            // trailing separator is an ordinary way for a file to be written.
+            if ($written === '') {
+                $columns[] = '';
 
-        $unknown = array_values(array_diff(array_filter($columns), self::COLUMNS));
+                continue;
+            }
+
+            $column = self::field($written);
+
+            if ($column === null) {
+                // Kept **as the person wrote it**. Reporting the normalised
+                // form would answer a complaint about `Sales rep` with the word
+                // `sales_rep`, which describes the importer's internals to
+                // somebody looking for their own spreadsheet column.
+                $unknown[] = $written;
+                $columns[] = '';
+
+                continue;
+            }
+
+            if (in_array($column, $seen, true)) {
+                $twice[] = $column;
+            }
+
+            $seen[] = $column;
+            $columns[] = $column;
+        }
 
         if ($unknown !== []) {
             throw self::refuse('customers.import.unknown_columns', ['columns' => implode(', ', $unknown)]);
+        }
+
+        if ($twice !== []) {
+            // The **field**, not the headers that named it: two different words
+            // can collide here, and the field is the thing the person has to
+            // decide about.
+            throw self::refuse('customers.import.duplicate_columns', [
+                'columns' => implode(', ', array_values(array_unique($twice))),
+            ]);
         }
 
         if (! in_array('name', $columns, true)) {
@@ -144,6 +232,29 @@ final readonly class CustomerCsv
         }
 
         return $columns;
+    }
+
+    /**
+     * The §4.2 field a header cell names, or null when it names none.
+     *
+     * The normalisation is deliberately small: lower-case, and any run of
+     * spaces or hyphens collapsed to one underscore. It is not a fuzzy match —
+     * `Sales rep` still has to be refused, because a reader that guessed at it
+     * would import a column into a field nobody chose.
+     */
+    private static function field(string $written): ?string
+    {
+        $normalised = preg_replace('/[\s\-]+/', '_', strtolower($written));
+
+        // `preg_replace` answers null only on a malformed pattern; the pattern
+        // is a literal here, so this narrows rather than handles.
+        if (! is_string($normalised)) {
+            return null;
+        }
+
+        $normalised = self::ALIASES[$normalised] ?? $normalised;
+
+        return in_array($normalised, self::COLUMNS, true) ? $normalised : null;
     }
 
     /**

@@ -4967,6 +4967,34 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       says it resolves to nothing until this module exists; that debt is not repaid here, only the
       table it was waiting on now exists.
 
+#### Step 2 — the Deals API *(point order approved 2026-08-31)*
+
+- [x] **2.1** row-scope resolution (§3.4: All · Team · Out · Own · Asgn) + negative-authorization
+      tests, on `CustomerRowScope`'s precedent (Module 3 Point 3.1) transcribed rather than shared —
+      `deptrac.modules.yaml` gives `Deals` an empty ruleset, same as `Customers`.
+      ⚠️ **`Asgn` still fails closed, and the reason changed rather than closed.** Customers' own
+      `Asgn` failed because "`deals` is Module 5" — true until this week. §3.4's `Asgn` column
+      belongs to **Procurement**, not to `owner_id` (§4.3: "assigned sales employee"), and no field
+      anywhere in §4 says which procurement employee a deal is assigned to. Reusing `owner_id` would
+      silently redefine what §4.3 already documents it as, so `Asgn` resolves to no rows here too —
+      a fresh, still-open gap wearing the same name as the one Module 3 recorded, not the same gap
+      closing. `Team` and `Out` fail for their original, unchanged reasons (no team entity; `visits`
+      is Module 12).
+      **`DealRowScopeTest` reads §3.2's code table out of the same document `CustomerRowScopeTest`
+      reads**, so the two transcriptions are checked against one source rather than against each
+      other — two modules quietly drifting on what `own` means would be worse than either being wrong
+      on its own.
+      **11 tests · 1763 backend (10940 assertions) · pint 416 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs** (`Deals`'s empty ruleset is satisfied
+      outright — the class imports nothing but `InvalidArgumentException`).
+      **One deliberate break:** `Team` changed to return `unrestricted` — exactly the two tests
+      built to catch a widening scope failed (`test_that_a_scope_with_no_mechanism_permits_nothing`
+      and `test_that_team_adds_nothing_to_own`), nothing else. Restored, confirmed with
+      `shasum -a 256 -c`.
+      **Not covered:** no controller, no route, no HTTP-level negative-authorization test — those
+      arrive with 2.2's endpoint, the same order Module 3 used. No resolution of the `Asgn` gap; it
+      is recorded, not repaid.
+
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
 - [ ] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently

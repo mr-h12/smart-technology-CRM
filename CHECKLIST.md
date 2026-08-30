@@ -5027,10 +5027,71 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       on the wire — the `enum_lists` gap recorded at Point 3.2 is unchanged here.
       ⚠️ **This entry and Point 3.2's are inserted at the same anchor in this file**, so PR #49 and
       this one will conflict on `CHECKLIST.md`. The resolution is to keep both, 3.2 first.
+      *(Both merged 2026-08-30 with no conflict — git's three-way merge handled the two insertions.)*
+- [x] **4.1** `SuppliersView.vue` · the route · the sidebar item — §8's Suppliers screen, Design
+      System §5.2's Table/List.
+      **Everything is asked of the server, and the tests read the URL to prove it.** §5.2 requires
+      "server-side filters/sort/search" and §6.5 that "Every list is server-paginated. Do not create
+      a UI that requires loading all records." A client-side filter narrows the 25 rows in hand and
+      silently claims to have narrowed all of them, so every assertion about a filter or a sort reads
+      the **query string**, never the rendered rows. The surface is `SupplierListCriteria`'s, read
+      from the source: `ALLOWED_SORTS = ['name','created_at']`, `DEFAULT_SORT = 'name'`,
+      `ALLOWED_FILTERS` four. `OpenAPI §6.2` answers anything undeclared with a 400.
+      **No scope story, and that is §3.7.** `CustomersView` explains which of five row scopes a
+      caller holds; §3.7 grants `Scope::All` to every role in both its columns, so an empty list here
+      means the table is empty — not that a scope reached nothing.
+      **`filter[is_active]` has three positions, not two.** §10.4 hides a deactivated supplier from
+      **selection lists** (Modules 6/7), not from this management screen, so the default asks nothing
+      about the column. A screen that hid them by default would be one nobody could reactivate from.
+      **The sidebar item and the route both carry `catalog.view` — the owner's ruling of 2026-08-31,
+      already recorded above.** §8 gives the CEO no Suppliers screen while §3.7 grants them
+      `catalog.view`; keying the menu on §8's list would leave a screen a person may open with no way
+      to reach it. `navigation.spec.ts` pins the item's permission equal to the route's, so the menu
+      and the guard cannot describe different products. `SEC-09` unaffected: the API is the gate.
+      **§7.1's chip is on a screen for the first time** — "beside the supplier name on **every**
+      screen" — carrying a word, per Design System §6.4.
+      **A 403 is drawn as a refusal, never as an empty list**, which would read as "you have no
+      suppliers" when the truth is that the screen and the API disagree.
+      **1742 backend (10990 assertions) · 490 frontend (31 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Three deliberate breaks, one per new surface, none a deletion:** (1) `applyFilters` no longer
+      resetting `page` — the plausible omission → failed **exactly** the page-reset test; (2) the
+      tri-state select read as a boolean, `activeFilter === 'active'` — the plausible copy of a
+      two-position filter → failed **exactly** the `is_active` default test, because it sends `false`
+      on first load; (3) the nav item keyed on `catalog.manage` — the over-restriction the owner's
+      ruling rejected → failed **exactly** `navigation.spec.ts`'s permission-equality test. Three
+      breaks, three failures, no collateral. All restored, confirmed with `shasum -a 256 -c`.
+      Delta reconciled to the unit against a **measured** baseline, not a hand count. Frontend
+      471 → 490 = **16** (this spec) + **3** (`navigation.spec.ts`'s three `it.each` families, one row
+      each for the new item). Backend 1739 → 1742 tests and 10985 → 10990 assertions, and both guards
+      were measured on `main` and on the branch to prove nothing else moved:
+      `LogicalPropertiesTest` 111 → 114 tests and 140 → 144 assertions — three provider rows
+      (`styledFiles` over `vue|css` gains the component; `markupFiles` over `vue|php|ts` gains the
+      component and its spec) **plus one** inside
+      `test_every_navigation_item_names_a_registered_route`, which loops over `navigation.ts`;
+      `NoHardCodedTextTest` 370 → 371, one per scanned Vue file. 4 + 1 = 5.
+      **Problems found:** two. (1) `NoHardCodedTextTest`'s Vue inventory is a count-asserting guard
+      and broke by design on the new screen; updated with the reason written into the test, after the
+      scan itself had passed on the file. (2) The assertion delta was one more than predicted. It was
+      **not** waved through: the two guards were re-measured on `main` and on the branch, and the
+      missing assertion was found by opening `LogicalPropertiesTest` and reading the fourth test.
+      **Not covered:** **no write controls at all** — §3.7's `catalog.manage` covers create, edit,
+      deactivate and set colour, and all four arrive with Point 4.2's form modal, so a button here now
+      would open nothing. **No `filter[has_open_account]` control**, though the server declares it:
+      no source asks the screen for one, and it is one `select` when somebody does. No detail view and
+      no row link — §8 lists *Suppliers*, not a supplier record, and `navigation.ts`'s rule keeps the
+      name plain text until a route exists. No `linked_quotations` column: §7.1 marks it Automatic and
+      Module 6 derives it. The 500-row search cap is the driver's and unchanged.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
-- [ ] Red-rated supplier → red chip beside their name on **every** screen
+- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
+      renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
+      `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
+      be closed here** — the other screens that name a supplier are Module 6's supplier quotations
+      and Module 11's procurement, and neither exists.)*
 - [ ] Service appears under the Service tab, separate from products
 - [ ] Deactivated product is hidden from new selection lists
 - [x] Catalog holds **no prices** — descriptive data only *(Point 1.2: `catalog_items` has no

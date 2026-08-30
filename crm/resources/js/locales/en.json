@@ -87,7 +87,8 @@
             "accountSecurity": "Account security",
             "settings": "System settings",
             "managedLists": "Managed Lists",
-            "customers": "Customers"
+            "customers": "Customers",
+            "suppliers": "Suppliers"
         }
     },
     "theme": {
@@ -645,6 +646,53 @@
             "yellow": "Average",
             "red": "Problematic",
             "white": "Not rated"
+        },
+        "title": "Suppliers",
+        "loading": "Loading suppliers…",
+        "total": "No suppliers | 1 supplier | {count} suppliers",
+        "filter": {
+            "search": "Search",
+            "searchAction": "Search",
+            "rating": "Rating",
+            "ratingAll": "Any rating",
+            "type": "Type",
+            "typeAll": "Any type",
+            "active": "State",
+            "activeAll": "Active and inactive"
+        },
+        "column": {
+            "name": "Supplier",
+            "rating": "Rating",
+            "type": "Type",
+            "contact": "Contact person",
+            "phone": "Phone",
+            "account": "Open account",
+            "status": "State",
+            "added": "Added"
+        },
+        "type": {
+            "supplier": "Supplier",
+            "distributor": "Distributor"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "account": {
+            "open": "Yes",
+            "none": "No"
+        },
+        "empty": {
+            "filtered": {
+                "title": "No supplier matched",
+                "message": "Change the search or the filters and try again."
+            }
+        },
+        "pagination": {
+            "label": "Supplier pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} · {total} in total"
         }
     }
 }

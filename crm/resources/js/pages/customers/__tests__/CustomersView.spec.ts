@@ -39,11 +39,18 @@ const PAGINATION = {
 
 const CUSTOMER = { id: 'c1', name: 'Alpha Trading', customer_status: 'prospect', is_archived: false, is_incomplete: false };
 
-function render(locale = 'en') {
+function render(locale = 'en', options: { attachTo?: HTMLElement } = {}) {
     // The router is not decoration: Point 4.4 made the name cell a `RouterLink`,
     // and without a router it resolves to nothing while every assertion here
     // still passes. That is a test covering an invisible feature.
+    //
+    // `attachTo` is Point 4.5's: §6.6's "return focus to the invoking control"
+    // cannot be observed through `document.activeElement` unless the component
+    // is really in the document.
     return mount(CustomersView, {
+        // Spread rather than assigned: `exactOptionalPropertyTypes` refuses an
+        // explicit `undefined` where the property is optional.
+        ...(options.attachTo === undefined ? {} : { attachTo: options.attachTo }),
         global: {
             plugins: [createAppRouter(), createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
@@ -646,5 +653,286 @@ describe('CustomersView — Point 4.4 row link', () => {
         expect(link.exists()).toBe(true);
         expect(link.attributes('href')).toBe('/customers/c1');
         expect(link.text()).toContain('Alpha Trading');
+    });
+});
+
+/**
+ * Point 4.5 — the archive half of the list, and the select-all Flow 7 names.
+ *
+ * ── Why this is the list screen and not a new one ──────────────────────────
+ *
+ * §8 does name an **Archive** item, for the Manager and the Team Leader — but
+ * Flow 7's first row puts a rejected *quotation* in "the quotation archive"
+ * while "the customer stays in the list", so that item spans modules and its
+ * other half is Module 7. Module 3 can honestly fill one half, and it fills it
+ * where the rows already are: `filter[is_archived]`, which Point 4.2 left out
+ * on purpose. A dedicated Archive route holding customers alone would promise
+ * a screen §8 describes and this module cannot yet draw — `navigation.ts`'s
+ * rule in a third costume.
+ *
+ * ── The toggle has two positions because the server has two ────────────────
+ *
+ * `CustomerListCriteria` reads `$filters['is_archived'] ?? false`, so absence
+ * *is* `false` and there is no "both" to ask for. A three-way control would
+ * have a position the API cannot answer.
+ *
+ * ── Select-all is a loop over the singular route (owner, 2026-08-30) ───────
+ *
+ * `API-07` and `OpenAPI §7.3` describe a bulk endpoint and none exists. The
+ * owner chose the loop: each call carries the same `customer.archive`
+ * middleware and the same row-scoped lookup, so §7.3's "authorize and audit
+ * each affected record" and "do not allow a bulk request to bypass row scope"
+ * hold by construction rather than by a new server promise. The narrowing is
+ * recorded in `CHECKLIST.md` awaiting a `D-xx`.
+ */
+describe('CustomersView — Point 4.5, the archive half', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** §3.3's merged `archive / restore` row — one permission, both directions. */
+    const ARCHIVER: AuthenticatedUser = {
+        ...SALES,
+        permissions: ['customer.view.own', 'customer.edit.own', 'customer.archive.own'],
+    };
+
+    const ARCHIVED_ROW = { ...ROW, id: 'c9', name: 'Dormant Co', is_archived: true };
+
+    it('states which half it is showing, in both positions', async () => {
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        // The default view is the working list, and it says so rather than
+        // relying on the server's default to mean the same thing.
+        expect(customerCalls(asked)[0]).toContain('filter[is_archived]=false');
+
+        await view.find('[data-testid="customers-filter-archived"]').setValue('archived');
+        await flushPromises();
+
+        expect(customerCalls(asked)[1]).toContain('filter[is_archived]=true');
+    });
+
+    it('returns to page 1 when the half changes', async () => {
+        const asked = stubScreen({ pages: [page([ROW], { total: 40, total_pages: 2, has_next_page: true })] });
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-next"]').trigger('click');
+        await flushPromises();
+        expect(customerCalls(asked)[1]).toContain('page=2');
+
+        await view.find('[data-testid="customers-filter-archived"]').setValue('archived');
+        await flushPromises();
+
+        // "Page 2" addresses a position in a list. Swap the list and the number
+        // points at rows nobody asked for.
+        expect(customerCalls(asked)[2]).toContain('page=1');
+    });
+
+    /** `SEC-09`: the button is the menu and `CustomerArchiveEndpointTest` is the gate. */
+    it('offers a row Archive to a holder of customer.archive and to nobody else', async () => {
+        stubScreen();
+        await signIn(ARCHIVER);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="customers-row-archive"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(READER);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="customers-row-archive"]').exists()).toBe(false);
+    });
+
+    /**
+     * §6.2 puts Archive in the Danger variant and §6.6 requires the action to
+     * "show their consequence" before submission. Both halves are asserted:
+     * nothing is sent while the question is open, and it is sent once answered.
+     */
+    it('asks before archiving, and only then calls the endpoint', async () => {
+        const asked = stubScreen();
+        await signIn(ARCHIVER);
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-row-archive"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(true);
+        expect(asked.some((url) => url.includes('/archive'))).toBe(false);
+
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(asked.some((url) => url.endsWith('/customers/c1/archive'))).toBe(true);
+    });
+
+    it('sends nothing when the question is declined', async () => {
+        const asked = stubScreen();
+        await signIn(ARCHIVER);
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-row-archive"]').trigger('click');
+        await view.find('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect(asked.some((url) => url.includes('/archive'))).toBe(false);
+    });
+
+    /**
+     * The row decides, not the filter: an archived row offers Restore and an
+     * active one offers Archive, so a list holding both is still right.
+     */
+    it('offers Restore on an archived row and Archive on an active one', async () => {
+        stubScreen({ pages: [page([ARCHIVED_ROW])] });
+        await signIn(ARCHIVER);
+
+        const archived = render();
+        await flushPromises();
+
+        expect(archived.find('[data-testid="customers-row-restore"]').exists()).toBe(true);
+        expect(archived.find('[data-testid="customers-row-archive"]').exists()).toBe(false);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(ARCHIVER);
+        const active = render();
+        await flushPromises();
+
+        expect(active.find('[data-testid="customers-row-archive"]').exists()).toBe(true);
+        expect(active.find('[data-testid="customers-row-restore"]').exists()).toBe(false);
+    });
+
+    /** Flow 7 gives select-all to *Restore*. An active list has nothing to select for. */
+    it('offers selection only where there is something to restore', async () => {
+        stubScreen({ pages: [page([ARCHIVED_ROW])] });
+        await signIn(ARCHIVER);
+
+        const archived = render();
+        await flushPromises();
+
+        expect(archived.find('[data-testid="customers-select-all"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        stubScreen();
+        await signIn(ARCHIVER);
+        const active = render();
+        await flushPromises();
+
+        expect(active.find('[data-testid="customers-select-all"]').exists()).toBe(false);
+    });
+
+    /**
+     * §6.5 bounds this: "Every list is server-paginated. Do not create a UI
+     * that requires loading all records." Select-all is therefore the page in
+     * hand, and the assertion names the rows that were and were not restored.
+     */
+    it('restores every selected row and leaves the rest alone', async () => {
+        const second = { ...ARCHIVED_ROW, id: 'c8', name: 'Sleeping Ltd' };
+        const third = { ...ARCHIVED_ROW, id: 'c7', name: 'Quiet Bros' };
+        const asked = stubScreen({ pages: [page([ARCHIVED_ROW, second, third], { total: 3 })] });
+        await signIn(ARCHIVER);
+
+        const view = render();
+        await flushPromises();
+
+        const boxes = view.findAll('[data-testid="customers-select-row"]');
+        await boxes[0]!.setValue(true);
+        await boxes[1]!.setValue(true);
+        await flushPromises();
+
+        await view.find('[data-testid="customers-bulk-restore"]').trigger('click');
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        const restored = asked.filter((url) => url.endsWith('/restore'));
+
+        expect(restored).toContain('/api/v1/customers/c9/restore');
+        expect(restored).toContain('/api/v1/customers/c8/restore');
+        expect(restored).not.toContain('/api/v1/customers/c7/restore');
+    });
+
+    /**
+     * §7.3 asks a bulk operation to "return per-record result data". A loop
+     * produces exactly that, and a partial failure must survive as a partial
+     * failure — the alternative is one refused row silently reported as done.
+     */
+    it('reports a partial failure rather than claiming the whole batch worked', async () => {
+        const second = { ...ARCHIVED_ROW, id: 'c8', name: 'Sleeping Ltd' };
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string) => {
+                if (url.includes('/managed-lists/')) {
+                    return json(200, { data: [SECTOR], meta: { pagination: PAGINATION } });
+                }
+
+                if (url.endsWith('/c8/restore')) {
+                    return json(403, { error: { code: 'permission_denied', message: 'no' } });
+                }
+
+                if (url.endsWith('/restore')) {
+                    return json(200, { data: { ...ARCHIVED_ROW, is_archived: false } });
+                }
+
+                return json(200, page([ARCHIVED_ROW, second], { total: 2 }));
+            }),
+        );
+
+        await signIn(ARCHIVER);
+        const view = render();
+        await flushPromises();
+
+        for (const box of view.findAll('[data-testid="customers-select-row"]')) {
+            await box.setValue(true);
+        }
+
+        await view.find('[data-testid="customers-bulk-restore"]').trigger('click');
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        // One of the two was refused, and the screen says so rather than
+        // closing quietly on a batch that half happened.
+        expect(view.find('[data-testid="customers-bulk-result"]').text()).toContain('1');
+    });
+
+    /** §6.6: "return focus to the invoking control". */
+    it('returns focus to the control that opened the dialog', async () => {
+        stubScreen();
+        await signIn(ARCHIVER);
+
+        const view = render('en', { attachTo: document.body });
+        await flushPromises();
+
+        const trigger = view.find('[data-testid="customers-row-archive"]');
+        (trigger.element as HTMLButtonElement).focus();
+        await trigger.trigger('click');
+        await flushPromises();
+        // `ConfirmDialog` moves focus inside a `setTimeout(…, 0)`, and
+        // `flushPromises` drains microtasks only — so waiting on a macrotask is
+        // the difference between this assertion being deterministic and being
+        // a coin flip that lands differently under suite load.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // Not decoration: without this half, `invoker.focus()` below would
+        // "return" focus to a button that never lost it, and the test would
+        // pass against a dialog that steals focus and never gives it back.
+        expect(document.activeElement).not.toBe(trigger.element);
+
+        await view.find('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(document.activeElement).toBe(trigger.element);
     });
 });

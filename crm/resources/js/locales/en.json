@@ -538,7 +538,8 @@
             "phone": "Phone",
             "startDate": "Start date",
             "added": "Added",
-            "actions": "Actions"
+            "actions": "Actions",
+            "select": "Select"
         },
         "status": {
             "prospect": "Prospect",
@@ -560,7 +561,10 @@
             "sector": "Sector",
             "sectorAll": "Any sector",
             "incomplete": "Incomplete records only",
-            "ownerInactive": "Customers of deactivated employees"
+            "ownerInactive": "Customers of deactivated employees",
+            "archived": "Records",
+            "archivedActive": "Active",
+            "archivedArchived": "Archived"
         },
         "empty": {
             "filtered": {
@@ -600,6 +604,24 @@
             "notesEmpty": "Nothing has been recorded yet.",
             "archived": "Archived",
             "incomplete": "Incomplete record"
+        },
+        "archive": {
+            "action": "Archive",
+            "select": "Select {name}",
+            "selectAll": "Select every archived customer on this page",
+            "confirmTitle": "Archive this customer?",
+            "confirmMessage": "{name} will disappear from the customer list. Nothing is deleted, and a Manager or Team Leader can restore it.",
+            "confirmAction": "Archive",
+            "failed": "That did not work. Nothing was changed."
+        },
+        "restore": {
+            "action": "Restore",
+            "bulkAction": "Restore selected ({count})",
+            "confirmTitle": "Restore the selected customers?",
+            "confirmMessage": "{name} customers will return to the working customer list.",
+            "confirmAction": "Restore",
+            "done": "Restored {count} customers.",
+            "failed": "Restored {done}, {failed} refused. Nothing else changed — try the refused rows again."
         }
     }
 }

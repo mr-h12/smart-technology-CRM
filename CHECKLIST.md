@@ -3770,7 +3770,9 @@ Excel import · "customers of deactivated employees" filter
       **Not covered:** ⚠️ **no bulk restore.** Flow 7 grants restore *"individually or select-all"*
       and `OpenAPI §7.3` gives the shape (`{"ids": [...]}`, per-record results, no bypass of row
       scope) — it is documented and it is **not built here**, because the approved point names the
-      singular routes. Point 4.4's screen needs it; recorded on the register. No bulk archive either,
+      singular routes. *(Point 4.5 superseded this: the owner chose a client loop over the singular
+      route, so no screen blocks on it — but `API-07` still documents the endpoint and it is still
+      not built.)* No bulk archive either,
       and that one is not clearly documented at all. Nothing here changes who may *view* archived
       rows. `ArchiveCustomer` is invisible to `AuditEnforcementTest` — measured, see the register.)*
 - [x] **3.5** `PATCH /customers/{id}/assign` (Flow 10: owner and history transfer + audit entry)
@@ -4138,9 +4140,71 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       **No "years of dealing"** — §4.2 says `start_date` "drives" it and that is the only mention:
       no field on the wire, no definition of a partial year, no rounding rule. Computing one would
       be the SPA inventing a business value (`D-67`).)*
-- [ ] **4.5** the archive screen — archive and restore individually, select-all restore
-- [ ] **4.5a** ⚠️ **backend**: bulk restore, `OpenAPI §7.3`'s shape (`{"ids": [...]}`, per-record
-      results, no bypass of the row scope). Documented in Flow 7 and not built; **4.5 needs it**
+- [x] **4.5** the archive screen — archive and restore individually, select-all restore
+      *(**It is the list screen's other half, not a new screen.** §8 does name an **Archive** item
+      for the Manager and the Team Leader — but Flow 7's first row puts a rejected *quotation* in
+      "the quotation archive" while "**the customer stays in the list**", so that item spans modules
+      and its other half is Module 7's. Module 3 fills the half it can, where the rows already are:
+      **`filter[is_archived]`**, which Point 4.2 left out on purpose. A dedicated `/archive` route
+      holding customers alone would promise the §8 screen and draw a fraction of it —
+      `navigation.ts`'s "a dead link is not a permission problem, it is a lie" in a third costume.
+      **This is a reading, not a documented rule, and it is the reversible half of this point.**
+      **The toggle has two positions because the server has two.** `CustomerListCriteria:89` reads
+      `$filters['is_archived'] ?? false`, so absence **is** `false` and there is no "show both" for
+      a third position to ask for. The filter is sent in **both** positions, `false` included: the
+      server would default to the same thing, but a screen showing one half of the records should
+      say which half rather than leave it implied.
+      **One permission, both directions.** §3.3 writes `archive / restore` as a single merged row
+      (`All · Team · — · — · — · — · —`) and `PermissionMatrix` carries no `customer.restore`, so
+      both controls are drawn by `customer.archive`. `SEC-09`: the buttons are the menu and
+      `CustomerArchiveEndpointTest` is the gate.
+      **The row decides the action, not the filter** — a row carries `is_archived`, so a list
+      holding both kinds still offers the right control on each one.
+      **§6.2's Danger variant is the archive half only**; a restore puts a record back and is not
+      destructive. **§6.6's confirmation is asked for archive and for the bulk restore, and not for
+      a single restore** — §6.6 names archive, deactivate, rejection, return and approval, and a
+      single restore is none of them and is idempotent besides (Point 3.4). The archive question
+      states its consequence *and* what does not happen: nothing is deleted, and it can be restored.
+      **§6.6's "return focus to the invoking control" is implemented in the caller**, not by editing
+      Module 1's `ConfirmDialog` — which is **reused as it stands**: it is already generic and
+      text-driven, with `danger`, Escape and `role="alertdialog"`. Moving it to a shared folder would
+      edit Module 1's screens for a tidier import path; recorded as debt instead.
+      **⚠️ Select-all restore is a loop over the singular route — the owner's decision of
+      2026-08-30, and a narrowing of `API-07`.** `API-07` ("Bulk operations for archive and
+      restore") and `OpenAPI §7.3` describe an endpoint, and none is built. Each call in the loop
+      carries the same `customer.archive` middleware and the same row-scoped lookup, so §7.3's
+      "authorize and audit each affected record" and "do not allow a bulk request to bypass row
+      scope" hold **by construction** rather than by a new server promise. `Promise.allSettled`,
+      never `all`: §7.3 also asks for "per-record result data", and one refused row must survive as
+      a refusal instead of collapsing the batch. **Awaiting a `D-xx`.**
+      **Bounded by §6.5**, which is the rule and not a convenience: "Every list is server-paginated.
+      Do not create a UI that requires loading all records" — so select-all is the page in hand
+      (25 default, 100 max), and the selection is cleared on every reload, because ids from one page
+      address different rows on another.
+      **10 frontend tests · 1554 backend (9878 assertions, unchanged) · 424 frontend (26 files) ·
+      pint 380 · phpstan [OK] · deptrac 0/0 twice.** The backend number not moving **is** the check:
+      this point adds no `.vue`, `.ts` or `.php` **file**, and every per-file guard counts files.
+      **Five deliberate breaks, each failing the test written for it, restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the filter never sent · archive fired without asking ·
+      `allSettled` swapped for `all` · focus never returned · the loop restoring every row instead
+      of the selected ones.
+      **Problems found: three.** (1) **The focus test passed alone and failed in the full suite** —
+      `ConfirmDialog` moves focus inside a `setTimeout(…, 0)` and `flushPromises` drains microtasks
+      only, so the assertion was a coin flip that landed differently under suite load. It now waits
+      on a macrotask. The half that flaked is the half that makes the test non-vacuous: without it,
+      `invoker.focus()` would "return" focus to a button that never lost it. (2) **424 unit tests
+      passed while `vue-tsc` failed** — `exactOptionalPropertyTypes` refuses `attachTo: undefined`;
+      the option is spread conditionally now. The documented trap that `test:unit` is not the gate,
+      hit again. (3) The persisted-cwd trap bit once more on a relative path.
+      **Not covered:** `API-07`'s endpoint still does not exist, so **there is no bulk archive**
+      (which no source clearly documents anyway) and no server-side bulk anything. Select-all does
+      not cross pages. **Nothing here changes who may *view* an archived row** — §3.3's `view` row
+      carries no archived carve-out, so the acceptance criterion below stays unticked. Still no
+      assign screen (Point 3.5's route has no UI at all) and no import screen (4.6).)*
+- [ ] ~~**4.5a** bulk restore endpoint~~ — **superseded by the owner's decision of 2026-08-30**: 4.5
+      ships select-all as a client loop over `PATCH /customers/{id}/restore`, so the screen no longer
+      blocks on this. **The gap itself remains open**: `API-07` and `OpenAPI §7.3` document a bulk
+      archive/restore endpoint that is not built, and it stays on the register awaiting a `D-xx`
 - [ ] **4.6** the `.csv` import screen — the four counts, and a link to the incomplete filter
 
 > **Out of scope for Module 3, stated so it is not looked for here.** Customer-status derivation

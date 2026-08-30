@@ -538,7 +538,8 @@
             "phone": "الهاتف",
             "startDate": "تاريخ البداية",
             "added": "تاريخ الإضافة",
-            "actions": "إجراءات"
+            "actions": "إجراءات",
+            "select": "تحديد"
         },
         "status": {
             "prospect": "عميل محتمل",
@@ -560,7 +561,10 @@
             "sector": "القطاع",
             "sectorAll": "كل القطاعات",
             "incomplete": "السجلات الناقصة فقط",
-            "ownerInactive": "عملاء الموظفين المعطَّلين"
+            "ownerInactive": "عملاء الموظفين المعطَّلين",
+            "archived": "السجلات",
+            "archivedActive": "النشطة",
+            "archivedArchived": "المؤرشفة"
         },
         "empty": {
             "filtered": {
@@ -600,6 +604,24 @@
             "notesEmpty": "لم يُسجَّل شيء بعد.",
             "archived": "مؤرشف",
             "incomplete": "سجل ناقص"
+        },
+        "archive": {
+            "action": "أرشفة",
+            "select": "تحديد {name}",
+            "selectAll": "تحديد كل العملاء المؤرشفين في هذه الصفحة",
+            "confirmTitle": "أرشفة هذا العميل؟",
+            "confirmMessage": "سيختفي {name} من قائمة العملاء. لا يُحذف أي شيء، ويمكن للمدير أو قائد الفريق استعادته.",
+            "confirmAction": "أرشفة",
+            "failed": "لم تنجح العملية. لم يتغير أي شيء."
+        },
+        "restore": {
+            "action": "استعادة",
+            "bulkAction": "استعادة المحدد ({count})",
+            "confirmTitle": "استعادة العملاء المحددين؟",
+            "confirmMessage": "سيعود {name} من العملاء إلى قائمة العملاء العاملة.",
+            "confirmAction": "استعادة",
+            "done": "تمت استعادة {count} من العملاء.",
+            "failed": "تمت استعادة {done}، ورُفض {failed}. لم يتغير شيء آخر — أعد محاولة الصفوف المرفوضة."
         }
     }
 }

@@ -66,9 +66,13 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { listCustomers, type Customer, type Pagination } from '@/services/customers';
+import { archiveCustomer, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
+// ponytail: reused where it lives. It is already generic and text-driven — its
+// own docblock says so — and moving it to a shared folder would edit Module 1's
+// screens for a tidier import path. Recorded as debt instead.
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 
 /**
  * The two date columns of `CustomerListCriteria::ALLOWED_SORTS`; `name` is the
@@ -118,6 +122,37 @@ const canEdit = computed(() => auth.hasPermission('customer.edit'));
 const formOpen = ref(false);
 const editing = ref<Customer | null>(null);
 
+/**
+ * Point 4.5 — the archive half.
+ *
+ * Two positions, not three, because the server has two: `CustomerListCriteria`
+ * reads `$filters['is_archived'] ?? false`, so absence *is* `false` and there
+ * is no "show me both" for a third position to ask for.
+ */
+const archivedFilter = ref<'active' | 'archived'>('active');
+const archivedOnly = computed(() => archivedFilter.value === 'archived');
+
+/** §3.3 writes `archive / restore` as one merged row — one permission, both directions. */
+const canArchive = computed(() => auth.hasPermission('customer.archive'));
+
+const selectedIds = ref<string[]>([]);
+const acting = ref(false);
+/** §6.6: "a toast must not be the only place an error is explained" — so it is not a toast. */
+const actionMessage = ref('');
+const pending = ref<{ kind: 'archive'; customer: Customer } | { kind: 'restore-selected' } | null>(null);
+/** §6.6: "return focus to the invoking control". */
+let invoker: HTMLElement | null = null;
+
+/**
+ * Selection follows the row, never the filter. A row carries `is_archived`, so
+ * a list holding both kinds still offers the right action on each one.
+ */
+const restorableIds = computed(() => customers.value.filter((row) => row.is_archived).map((row) => row.id));
+const showSelection = computed(() => canArchive.value && restorableIds.value.length > 0);
+const allSelected = computed(
+    () => restorableIds.value.length > 0 && selectedIds.value.length === restorableIds.value.length,
+);
+
 const total = computed(() => pagination.value?.total ?? 0);
 
 /** Which of the two empty states is true: "you have none" or "none matched". */
@@ -127,7 +162,8 @@ const filtering = computed(
         statusFilter.value !== '' ||
         sectorFilter.value !== '' ||
         incompleteOnly.value ||
-        ownerInactiveOnly.value,
+        ownerInactiveOnly.value ||
+        archivedOnly.value,
 );
 
 /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
@@ -137,6 +173,9 @@ async function load(): Promise<void> {
     loading.value = true;
     failed.value = false;
     denied.value = false;
+    // A selection names rows on the page in hand. Fetch another page and those
+    // ids address rows the person never ticked.
+    selectedIds.value = [];
 
     try {
         const result = await listCustomers({
@@ -150,6 +189,10 @@ async function load(): Promise<void> {
             // a different question and would hide `D-31`'s rows entirely.
             isIncomplete: incompleteOnly.value ? true : null,
             ownerInactive: ownerInactiveOnly.value ? true : null,
+            // Sent in both positions, including `false`. The server would
+            // default to the same thing, but a screen that shows one half of
+            // the records should say which half rather than leave it implied.
+            isArchived: archivedOnly.value,
         });
 
         customers.value = result.items;
@@ -186,6 +229,7 @@ async function loadSectors(): Promise<void> {
 /** Any change to the question invalidates the page number, for `sortBy`'s reason. */
 async function applyFilters(): Promise<void> {
     page.value = 1;
+    actionMessage.value = '';
     await load();
 }
 
@@ -261,6 +305,93 @@ function startEdit(customer: Customer): void {
  */
 async function onSaved(_customer: Customer, similar: Customer[]): Promise<void> {
     formOpen.value = similar.length > 0;
+
+    await load();
+}
+
+function toggleAll(checked: boolean): void {
+    selectedIds.value = checked ? [...restorableIds.value] : [];
+}
+
+/** §6.6's focus contract, kept in the caller so Module 1's dialog is not edited. */
+function ask(request: { kind: 'archive'; customer: Customer } | { kind: 'restore-selected' }): void {
+    invoker = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    actionMessage.value = '';
+    pending.value = request;
+}
+
+function dismiss(): void {
+    pending.value = null;
+    invoker?.focus();
+    invoker = null;
+}
+
+/**
+ * Flow 7's select-all restore, as a loop over `PATCH /customers/{id}/restore`
+ * (owner's decision, 2026-08-30).
+ *
+ * `API-07` and `OpenAPI §7.3` describe a bulk endpoint and none is built. Each
+ * call here carries the same `customer.archive` middleware and the same
+ * row-scoped lookup, so §7.3's "authorize and audit each affected record" and
+ * "do not allow a bulk request to bypass row scope" hold by construction.
+ *
+ * `allSettled`, not `all`: §7.3 also asks a bulk operation to "return
+ * per-record result data", and one refused row must survive as a refusal
+ * rather than collapsing the batch into a single rejection.
+ *
+ * ponytail: N requests and no transaction, bounded to one page by §6.5's "do
+ * not create a UI that requires loading all records". `API-07`'s endpoint
+ * replaces this function body without touching anything else on the screen.
+ */
+async function restoreSelected(): Promise<void> {
+    const ids = [...selectedIds.value];
+    const results = await Promise.allSettled(ids.map((id) => restoreCustomer(id)));
+    const refused = results.filter((result) => result.status === 'rejected').length;
+
+    actionMessage.value = refused === 0
+        ? t('customers.restore.done', { count: ids.length })
+        : t('customers.restore.failed', { done: ids.length - refused, failed: refused });
+}
+
+/** One row, no question asked — see the template for why §6.6 does not ask for one. */
+async function restoreOne(customer: Customer): Promise<void> {
+    acting.value = true;
+    actionMessage.value = '';
+
+    try {
+        await restoreCustomer(customer.id);
+    } catch {
+        actionMessage.value = t('customers.archive.failed');
+    } finally {
+        acting.value = false;
+    }
+
+    await load();
+}
+
+async function onConfirm(): Promise<void> {
+    const request = pending.value;
+
+    if (request === null) {
+        return;
+    }
+
+    acting.value = true;
+
+    try {
+        if (request.kind === 'archive') {
+            await archiveCustomer(request.customer.id);
+        } else {
+            await restoreSelected();
+        }
+    } catch {
+        // Archive is one record, so a refusal is the whole outcome and is said
+        // in words. `CustomerArchiveEndpointTest` is what actually refuses it.
+        actionMessage.value = t('customers.archive.failed');
+    } finally {
+        acting.value = false;
+        dismiss();
+    }
 
     await load();
 }
@@ -351,6 +482,22 @@ onMounted(async () => {
                 <span>{{ t('customers.filter.incomplete') }}</span>
             </label>
 
+            <!-- Flow 7 takes an archived customer out of the working list.
+                 This is the control that asks for the other half — the one
+                 Point 4.2 deliberately left out. -->
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('customers.filter.archived') }}</span>
+                <select
+                    v-model="archivedFilter"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="customers-filter-archived"
+                    @change="applyFilters"
+                >
+                    <option value="active">{{ t('customers.filter.archivedActive') }}</option>
+                    <option value="archived">{{ t('customers.filter.archivedArchived') }}</option>
+                </select>
+            </label>
+
             <!-- §10.1, required in as many words: "a 'Customers of deactivated
                  employees' filter on the customer screen". -->
             <label class="flex min-h-11 items-center gap-2">
@@ -365,6 +512,18 @@ onMounted(async () => {
             </label>
         </form>
 
+        <!-- §6.6: the outcome is explained in the page, not only in a toast.
+             `aria-live` so a screen reader is told what a click just did. -->
+        <p
+            v-if="actionMessage !== ''"
+            class="action-message rounded-lg px-3 py-2"
+            role="status"
+            aria-live="polite"
+            data-testid="customers-bulk-result"
+        >
+            {{ actionMessage }}
+        </p>
+
         <LoadingState v-if="loading" label-key="customers.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
@@ -376,12 +535,40 @@ onMounted(async () => {
             :message-key="filtering ? 'customers.empty.filtered.message' : 'state.empty.message'"
         />
 
-        <div v-else class="table-frame overflow-x-auto rounded-xl">
+        <div v-else class="flex flex-col gap-3">
+            <!-- Flow 7: "Manager / TL (individually or select-all)". The count
+                 is on the button because it is the consequence of the click. -->
+            <div v-if="showSelection" class="flex flex-wrap items-center gap-3">
+                <button
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="selectedIds.length === 0 || acting"
+                    data-testid="customers-bulk-restore"
+                    @click="ask({ kind: 'restore-selected' })"
+                >
+                    {{ t('customers.restore.bulkAction', { count: selectedIds.length }) }}
+                </button>
+            </div>
+
+            <div class="table-frame overflow-x-auto rounded-xl">
             <table class="w-full text-table" data-testid="customers-table">
                 <!-- §6.5: a sticky header on long lists. The block axis does not
                      mirror, so `top` is correct in both directions. -->
                 <thead class="sticky top-0">
                     <tr class="table-head">
+                        <!-- Flow 7 gives select-all to *Restore*, so the column
+                             exists only where there is something to restore. -->
+                        <th v-if="showSelection" scope="col" class="p-3 text-start">
+                            <input
+                                type="checkbox"
+                                class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                :checked="allSelected"
+                                :aria-label="t('customers.archive.selectAll')"
+                                data-testid="customers-select-all"
+                                @change="toggleAll(($event.target as HTMLInputElement).checked)"
+                            />
+                        </th>
+
                         <th scope="col" class="p-3 text-start" :aria-sort="ariaSort('name')" data-testid="customers-column-name">
                             <button
                                 type="button"
@@ -421,7 +608,7 @@ onMounted(async () => {
                             </button>
                         </th>
                         <!-- §5.2's Detail/Form controls: "action controls only by permission". -->
-                        <th v-if="canEdit" scope="col" class="p-3 text-start">
+                        <th v-if="canEdit || canArchive" scope="col" class="p-3 text-start">
                             <span class="sr-only">{{ t('customers.column.actions') }}</span>
                         </th>
                     </tr>
@@ -429,6 +616,17 @@ onMounted(async () => {
 
                 <tbody>
                     <tr v-for="customer in customers" :key="customer.id" class="table-row" data-testid="customers-row">
+                        <td v-if="showSelection" class="p-3">
+                            <input
+                                v-model="selectedIds"
+                                type="checkbox"
+                                :value="customer.id"
+                                :disabled="!customer.is_archived"
+                                class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:opacity-40"
+                                :aria-label="t('customers.archive.select', { name: customer.name })"
+                                data-testid="customers-select-row"
+                            />
+                        </td>
                         <td class="p-3">
                             <!-- Point 4.4 registered the detail route, so the
                                  name resolves. `navigation.ts`'s rule is why it
@@ -454,19 +652,50 @@ onMounted(async () => {
                         <td class="hidden p-3 tabular-nums md:table-cell">{{ customer.phone ?? '—' }}</td>
                         <td class="hidden p-3 tabular-nums lg:table-cell">{{ customer.start_date ?? '—' }}</td>
                         <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(customer.created_at) }}</td>
-                        <td v-if="canEdit" class="p-3">
-                            <button
-                                type="button"
-                                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                                data-testid="customers-row-edit"
-                                @click="startEdit(customer)"
-                            >
-                                {{ t('action.edit') }}
-                            </button>
+                        <td v-if="canEdit || canArchive" class="p-3">
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-if="canEdit"
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    data-testid="customers-row-edit"
+                                    @click="startEdit(customer)"
+                                >
+                                    {{ t('action.edit') }}
+                                </button>
+
+                                <!-- §6.2 puts Archive in the Danger variant.
+                                     Restore is not destructive and is not one. -->
+                                <button
+                                    v-if="canArchive && !customer.is_archived"
+                                    type="button"
+                                    class="danger-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    data-testid="customers-row-archive"
+                                    @click="ask({ kind: 'archive', customer })"
+                                >
+                                    {{ t('customers.archive.action') }}
+                                </button>
+
+                                <!-- No confirmation: §6.6 lists archive,
+                                     deactivate, rejection, return and approval,
+                                     and a single restore is none of them. It is
+                                     also idempotent (Point 3.4). -->
+                                <button
+                                    v-if="canArchive && customer.is_archived"
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    :disabled="acting"
+                                    data-testid="customers-row-restore"
+                                    @click="restoreOne(customer)"
+                                >
+                                    {{ t('customers.restore.action') }}
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <nav
@@ -499,6 +728,20 @@ onMounted(async () => {
                 {{ t('customers.pagination.next') }}
             </button>
         </nav>
+        <!-- §6.6: the question names its consequence, and §6.2's Danger variant
+             is the archive half only — a restore puts a record back. -->
+        <ConfirmDialog
+            :open="pending !== null"
+            :title-key="pending?.kind === 'archive' ? 'customers.archive.confirmTitle' : 'customers.restore.confirmTitle'"
+            :message-key="pending?.kind === 'archive' ? 'customers.archive.confirmMessage' : 'customers.restore.confirmMessage'"
+            :confirm-key="pending?.kind === 'archive' ? 'customers.archive.confirmAction' : 'customers.restore.confirmAction'"
+            :subject="pending?.kind === 'archive' ? pending.customer.name : String(selectedIds.length)"
+            :busy="acting"
+            :danger="pending?.kind === 'archive'"
+            @confirm="onConfirm"
+            @cancel="dismiss"
+        />
+
         <CustomerFormModal
             :open="formOpen"
             :editing="editing"
@@ -555,6 +798,18 @@ onMounted(async () => {
 .create-action {
     background-color: var(--color-primary);
     color: var(--color-primary-text);
+}
+
+/* §6.2's Danger variant: "Archive, deactivate, reject, or irreversible-equivalent". */
+.danger-action {
+    background-color: var(--color-danger);
+    color: var(--color-text-inverse);
+}
+
+.action-message {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
 }
 
 .status-chip {

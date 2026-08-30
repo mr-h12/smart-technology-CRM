@@ -11,6 +11,7 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
+use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Administration\UpdateUser;
@@ -178,6 +179,11 @@ final class AuditEnforcementTest extends TestCase
             EloquentDealDirectory::class => 'AUD-01 is satisfied one layer out: SaveDeal owns the create/update '
                     .'transaction and records DEAL_CREATED and DEAL_UPDATED. This is a persistence adapter '
                     .'with no actor and no event vocabulary.',
+
+            // Module 5 Point 2.4, seen for the same two signals as its
+            // siblings: `->update(` beside an imported `ConnectionInterface`.
+            // It owns the assignment transaction and writes DEAL_REASSIGNED.
+            AssignDeal::class => self::AUDITED,
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

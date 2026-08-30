@@ -540,4 +540,16 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
 
     Route::patch('/{deal}', [DealController::class, 'update'])
         ->middleware('permission:deal.edit');
+
+    // §3.4 grants `assign_owner` `All · Team · — · — · — · — · —` — its own
+    // row beside `edit`, which five roles hold — so this checks
+    // `deal.assign_owner` and never `deal.edit`, on `customers`'s precedent.
+    //
+    // ⚠️ `Team` has no mechanism (Point 2.1): a Team Leader holding only that
+    // scope reaches the use case for every deal in the company and finds
+    // none of them reachable — half of this permission row is currently
+    // unreachable, the same debt `customer.assign`'s `Team` grant already
+    // carries.
+    Route::patch('/{deal}/assign', [DealController::class, 'assign'])
+        ->middleware('permission:deal.assign_owner');
 });

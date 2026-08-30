@@ -56,6 +56,19 @@ final readonly class DealDraft
         return new self(self::only($validated, self::WRITABLE));
     }
 
+    /**
+     * Point 2.4 — the one field `forUpdate()` deliberately refuses.
+     *
+     * §3.4 makes `assign_owner` a permission of its own and `OpenAPI §7.2`
+     * gives it its own route, so the transfer arrives here instead of through
+     * the generic update — `CustomerDraft::forAssignment()`'s precedent
+     * (Module 3 Point 3.5).
+     */
+    public static function forAssignment(string $ownerId): self
+    {
+        return new self(['owner_id' => $ownerId]);
+    }
+
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {

@@ -4901,8 +4901,8 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 **Tables** `deals` · customer-status engine (`recompute_customer_status`)
 
 **Endpoints**
-- [ ] CRUD `/api/v1/deals`
-- [ ] `PATCH /api/v1/deals/:id/assign` · `/approve` · `/reject` · `/status`
+- [x] `GET`/`POST`/`PATCH` `/api/v1/deals` (Points 2.2–2.3) — no `DELETE` at any permission (`DB-01`)
+- [x] `PATCH /api/v1/deals/:id/assign` (Point 2.4) · [ ] `/approve` · `/reject` · `/status`
 - [ ] `POST /api/v1/deals/:id/documents`
 
 #### Step 1 — schema *(point order approved 2026-08-31)*
@@ -5078,6 +5078,23 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       **Not covered:** no action routes (`/assign`, `/approve`, `/reject`, `/status`), no
       `/documents`. The `Asgn` gap from 2.1 is unchanged. Flow 3's "inactive" reading is an open
       owner question, not an implementation.
+- [x] **2.4** `PATCH /deals/{id}/assign` — `AssignCustomer`'s shape (Module 3 Point 3.5), on the
+      same reasoning throughout: idempotent, silent when nothing changed, nobody notified (§18.1's
+      badge list and §18.2's five-name email list both omit it).
+      ⚠️ **§3.4 grants `assign_owner` to Manager (`All`) and Team Leader (`Team`) only, and `Team`
+      still has no mechanism (Point 2.1).** A Team Leader reaches this endpoint for every deal in
+      the company and finds none of them — the exact half-unreachable permission row
+      `customer.assign`'s own `Team` grant already carries. Not resolved here; the debt is 2.1's.
+      **`DealDraft::forAssignment()` added**, the one field `forUpdate()` deliberately refuses, on
+      `CustomerDraft::forAssignment()`'s precedent — the transfer goes through its own permission
+      and its own route, never the generic `PATCH`.
+      **15 tests · 1819 backend (11262 assertions) · pint 435 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break:** the "already theirs" no-op guard deleted → exactly
+      `test_that_assigning_to_the_current_owner_changes_nothing_and_records_nothing` failed, nothing
+      else. Restored, confirmed with `shasum -a 256 -c`.
+      **Not covered:** `/approve`, `/reject`, `/status`, `/documents`. The `Team` gap on this row and
+      the `Asgn` gap from 2.1 are both unchanged.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

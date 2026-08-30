@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Presentation;
 
+use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Listing\ListDeals;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
@@ -62,6 +63,13 @@ final class DealController
             self::heldScopes($request),
             self::actorId($request),
         )));
+    }
+
+    public function assign(AssignDealRequest $request, string $deal, AssignDeal $deals): JsonResponse
+    {
+        return ApiEnvelope::single($request, DealPayload::of(
+            $deals->handle($deal, $request->ownerId(), self::heldScopes($request), self::actorId($request)),
+        ));
     }
 
     /**

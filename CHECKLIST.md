@@ -4500,6 +4500,74 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       `product_code` (§7.3 declares none). The "hidden from new selection lists" behaviour (`D-37`,
       §10.4) is **not** here — this point only stores the flag; the selection lists are Modules 6/7.
 
+#### Step 2 — the suppliers API *(point order approved 2026-08-30)*
+
+- [x] **2.1** `GET /suppliers` + `GET /suppliers/{id}` — `OpenAPI §6`'s query contract, `§4.2`'s
+      collection envelope, `§5.1`'s 404, and `D-48`'s search.
+      ⚠️ **No row scope, and that is the shape of the whole point.** §3.3 gives customers five
+      scopes and Module 3 needed `CustomerRowScope` to express them. §3.7 has **two columns** —
+      "All operational roles" and CEO — and the seeded matrix backs both with `Scope::All`
+      (`PermissionMatrix`, §3.7). So `SupplierDirectoryInterface` takes **no scope parameter**, the
+      controller reads **nothing** off the authorisation decision, and the module's deptrac ruleset
+      is two entries shorter than Customers': **no `IdentityContract`**, because a module that
+      scopes no rows never has to ask who the caller is. A `SupplierRowScope` resolving to
+      "everything" for every caller would be a speculative abstraction with one implementation *and*
+      would imply a row-level rule §3.7 does not contain.
+      **The negative test is the interesting one.** `CLAUDE.md` requires a negative-authorization
+      test per endpoint, and the usual form — find a role that lacks the permission — is impossible
+      here, because under §3.7 **no role lacks it**. So the test **withdraws the seeded grant row
+      from `role_permissions`** and expects 403, which proves the thing actually worth proving:
+      enforcement reads the matrix from the database (§3.12 rule 5, `SEC-07`) rather than hard-coding
+      it. All seven granted roles are also asserted to see every supplier — a two-column table is
+      exactly the kind that gets transcribed with one row missing.
+      ⚠️ **`filter[is_active]` is tri-state; unset lists deactivated suppliers too.** A deliberate
+      difference from Module 3's `is_archived`, which defaults to false because §9 Flow 7 archives a
+      customer *to take it out of the working list*. Nothing says that of a supplier: §10.4's hiding
+      rule governs the **selection lists** in Modules 6/7, not this screen — and a management list
+      that hid deactivated suppliers by default is one nobody could ever reactivate from.
+      **`color_rating` is filterable but not sortable.** Sorting it would order green/red/white/
+      yellow alphabetically, which is not the ranking §7.1 gives those colours. A meaningful ranking
+      is an unrecorded product decision, and quietly offering a meaningless one is worse than a 400.
+      **`SearchIndex::Suppliers` added** — the case the enum's own docblock anticipated. Its
+      `filterable()` is **empty on purpose**: that list is for filters that are *always* applied,
+      because `PostgresSearchDriver`'s `MAX_RESULTS = 500` cap makes narrowing-after-search return
+      the wrong page rather than fewer rows. Customers has two such filters (the owner scope and the
+      archived flag); suppliers has none. ⚠️ The 500-row cap is inherited: a `q` matching more than
+      500 suppliers by name truncates before `filter[...]` applies. That ceiling is the driver's,
+      not this point's, and Module 15 lifts it.
+      ⚠️ **§8 and §3.7 disagree, and the API follows §3.7. Awaiting a `D-xx`.** §3.7 grants
+      `catalog.view` to the CEO and the Outdoor Supervisor, while §8 gives the CEO no catalog or
+      supplier screen at all and the Outdoor Supervisor a Catalog but no Suppliers. §3.12 rule 1
+      makes the API the enforcement point, so the route follows the matrix; **the sidebar is Point
+      4.1's decision**, and this is the same class of disagreement already recorded for
+      Procurement/Customers. `docs/` untouched.
+      **31 tests · 1631 backend (10304 assertions) · 442 frontend · pint 396 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **31 failed, 0 passed** — no test passed for a wrong reason here, because the routes
+      did not exist at all.
+      **Two deliberate breaks, neither a deletion:** (1) `permission:catalog.view` removed from the
+      list route → failed **exactly** the withdrawn-grant test and nothing else, which is what proves
+      that test can detect missing enforcement rather than merely passing beside it; (2)
+      `filter[is_active]` defaulted to `true` — the plausible mistake of copying Module 3 — → failed
+      exactly the "deactivated supplier is listed" test. Both restored, both confirmed with
+      `shasum -a 256 -c`.
+      **Problems found:** three, all caught by the gates. (1) PHPStan required the exact
+      `array{page: int, …}` shape on `SupplierPayload::pagination()` and a `@return` on the test's
+      data provider. (2) pint's `ordered_imports` on the two shared files. (3) **deptrac reported 17
+      module violations** — `Suppliers: ~` denies *everything*, framework included, so the module's
+      first endpoint needed its ruleset written as this file requires: a named exception with a
+      reason. Granted `Framework` and `SharedContracts` only. Those fixes landed **after** a full
+      suite run had started, so **that run's number was discarded and the suite re-run**.
+      Assertion delta reconciled to the unit: 227 (this file) + **11** (`NoHardCodedTextTest` asserts
+      once per PHP file under `app/`, and this point adds 11) + **2**
+      (`EndToEndConnectivityTest::test_no_health_endpoint_has_appeared` asserts once per registered
+      route, and this point adds 2) = 240, and 10064 + 240 = 10304.
+      **Not covered:** **no write route of any kind** — create, edit, set colour and deactivate are
+      all Point 2.2, and no `AuditContract` is wired here because `AUD-01` records writes. No
+      `group_by` (that is the catalog's, Point 3.1). No chip — `color_rating` ships as its stored
+      code and Design System §6.4's "never colour alone" is Point 4.0's. Nothing in the SPA calls
+      either route yet.
+
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
 - [ ] Red-rated supplier → red chip beside their name on **every** screen

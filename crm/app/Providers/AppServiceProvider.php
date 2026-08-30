@@ -62,6 +62,8 @@ use App\Modules\Storage\Infrastructure\DenyAllAttachmentPermission;
 use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
+use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
+use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
 use App\Support\Search\PostgresSearchDriver;
@@ -149,6 +151,16 @@ class AppServiceProvider extends ServiceProvider
         // Module 3 Point 3.6. `bind` for the same reason as the directory
         // above: stateless, and a singleton would outlive nothing useful.
         $this->app->bind(ImportBatchesInterface::class, EloquentImportBatches::class);
+
+        // Module 4 Point 2.1. `bind` for the same reasons again, and with one
+        // collaborator rather than two: §3.7 gives suppliers no row scope, so
+        // there is no Identity contract to ask about owners.
+        $this->app->bind(
+            SupplierDirectoryInterface::class,
+            fn (): EloquentSupplierDirectory => new EloquentSupplierDirectory(
+                $this->app->make(SearchService::class),
+            ),
+        );
 
         $this->app->singleton(
             StorageServiceInterface::class,

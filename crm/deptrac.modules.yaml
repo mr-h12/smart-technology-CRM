@@ -191,7 +191,30 @@ parameters:
       - StorageContract
     Deals: ~
     Quotations: ~
-    Suppliers: ~
+    # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
+    # the module's first endpoint. Granted on the same terms as Customers, and
+    # deliberately **two entries shorter**.
+    #
+    # `Framework` because a controller and an Eloquent model are framework
+    # objects by definition. `SharedContracts` for `App\Support\Http`'s
+    # response envelope and `D-48`'s `SearchService` — which is the whole point
+    # of putting both in `App\Support`.
+    #
+    # **No `IdentityContract`, and that is the interesting half.** Customers
+    # needs it because `SEC-08` makes it scope rows by owner, and a module
+    # cannot scope rows without reading the caller's grant. §3.7 has no
+    # ownership at all — its two columns are "All operational roles" and CEO,
+    # and the seeded matrix gives every one of them `Scope::All` — so this
+    # module never asks Identity anything. The route's `permission:catalog.view`
+    # middleware is the enforcement (§3.12 rule 1), and it runs before the
+    # controller. If §3.7 ever gains a scope, this line changes and the crossing
+    # is a decision in a diff, which is what this file exists for.
+    #
+    # **No `AuditContract`** either: Point 2.1 publishes two GET routes and
+    # `AUD-01` records writes. Point 2.2 adds the writes and will need it.
+    Suppliers:
+      - Framework
+      - SharedContracts
     Catalog: ~
     Procurement: ~
     Outdoor: ~

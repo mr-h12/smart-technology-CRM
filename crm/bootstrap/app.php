@@ -17,6 +17,8 @@ use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
+use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
+use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use App\Support\Http\ApiExceptionRenderer;
 use App\Support\Performance\MeasureApiLatencyCommand;
 use Illuminate\Auth\AuthenticationException;
@@ -159,6 +161,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (CustomerNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::customerNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (InvalidSupplierListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidSupplierListQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (SupplierNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::supplierNotFound($e, $request)
                 : null,
         );
 

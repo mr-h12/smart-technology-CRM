@@ -15,6 +15,8 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
+use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
@@ -283,6 +285,47 @@ final class ApiExceptionRenderer
      * scope must be indistinguishable from a row that is not there.
      */
     public static function customerNotFound(CustomerNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * Module 4's list query, on the same two contract rows as the three above.
+     *
+     * A fourth method for a fourth exception, for the reason the third one
+     * gives: each lives in its own module's Domain, and Domain may depend on
+     * nothing — probed, not assumed. The rendered shape is identical on
+     * purpose: one envelope for one contract, whichever module produced it.
+     */
+    public static function invalidSupplierListQuery(InvalidSupplierListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidSupplierListQuery::ERROR_CODE,
+            (string) __('suppliers.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a supplier that is not there.
+     *
+     * Identical in shape to {@see self::customerNotFound()} though only one of
+     * §5.1's two cases can produce it: §3.7 grants every role `Scope::All`, so
+     * a supplier is never merely invisible. Shaped for both anyway, so that a
+     * future scope arrives at a handler that already cannot leak.
+     */
+    public static function supplierNotFound(SupplierNotFound $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,

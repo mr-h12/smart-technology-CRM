@@ -21,6 +21,7 @@ use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
+use App\Modules\Suppliers\Presentation\SupplierController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -434,4 +435,29 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
 
     Route::patch('/{customer}/restore', [CustomerController::class, 'restore'])
         ->middleware('permission:customer.archive');
+});
+
+// §8 puts a *Suppliers* screen on five roles' lists and §7.1 describes what it
+// shows. The permission is §3.7's `view` row — and §3.7 is one table covering
+// **both** the catalog and its suppliers, which is why the resource is
+// `catalog` and no `supplier.*` permission exists anywhere in the seeded
+// matrix. Inventing one here would be a permission no role holds.
+//
+// **No scope argument on the middleware**, and for a different reason than the
+// customers group gives. There it is omitted so a caller holding `own` still
+// reaches the screen; here §3.7 grants `All` to every role in both its columns,
+// so there is no narrower scope for anyone to hold.
+//
+// ⚠️ Two roles reach a screen §8 does not list for them: §3.7 grants the CEO
+// and the Outdoor Supervisor `catalog.view`, while §8 gives the CEO no catalog
+// or supplier screen at all and the Outdoor Supervisor a Catalog but no
+// Suppliers. The API follows §3.7 because §3.12 rule 1 makes the API the
+// enforcement point; the divergence is recorded in `CHECKLIST.md` awaiting a
+// `D-xx`, and it is the sidebar — not this route — that Point 4.1 must decide.
+Route::middleware('auth')->prefix('suppliers')->group(function (): void {
+    Route::get('/', [SupplierController::class, 'index'])
+        ->middleware('permission:catalog.view');
+
+    Route::get('/{supplier}', [SupplierController::class, 'show'])
+        ->middleware('permission:catalog.view');
 });

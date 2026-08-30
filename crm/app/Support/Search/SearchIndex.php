@@ -13,13 +13,17 @@ namespace App\Support\Search;
  * A case cannot be wrong, and both drivers — this one and Meilisearch's — read
  * the same declaration instead of each carrying a private map.
  *
- * **One case, because one table exists.** Catalog, Suppliers and Deals add
- * theirs when their modules land; `CLAUDE.md` forbids speculative scaffolding,
- * and an index for a table that does not exist cannot be tested.
+ * **A case per table that exists.** Catalog and Deals add theirs when their
+ * modules land; `CLAUDE.md` forbids speculative scaffolding, and an index for a
+ * table that does not exist cannot be tested. Suppliers arrived with Module 4
+ * Point 2.1, which is the first thing that searches them.
  */
 enum SearchIndex: string
 {
     case Customers = 'customers';
+
+    /** §7.1's suppliers, searched by the Module 4 Point 2.1 list endpoint. */
+    case Suppliers = 'suppliers';
 
     public function table(): string
     {
@@ -44,6 +48,12 @@ enum SearchIndex: string
     {
         return match ($this) {
             self::Customers => ['name'],
+
+            // §7.1 identifies a supplier by name, and `contact_person` is the
+            // only other free-text column on the table. Adding it would be the
+            // same unrecorded product decision the note above describes, so the
+            // floor is the same here: one column, one line to change.
+            self::Suppliers => ['name'],
         };
     }
 
@@ -67,6 +77,16 @@ enum SearchIndex: string
     {
         return match ($this) {
             self::Customers => ['sales_owner_id', 'is_archived'],
+
+            // **Empty, and measured against the rule above rather than left
+            // blank.** What belongs here is a filter that is *always* applied,
+            // because the cap makes narrowing-after-search return the wrong
+            // page rather than fewer rows. Customers has two such filters:
+            // §3.3 scopes every read by owner and Flow 7 hides the archived.
+            // §3.7 gives suppliers no scope at all, and §10.4's hiding rule
+            // governs a selection list in Modules 6/7, not this screen — so no
+            // supplier filter is always on, and none has to go inside.
+            self::Suppliers => [],
         };
     }
 }

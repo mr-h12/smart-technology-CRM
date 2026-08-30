@@ -4898,13 +4898,74 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 > As a Team Leader, I want to enter customer requests and assign them to employees, so that work
 > flows down the right path.
 
-**Tables** `deals` · `deal_documents` · `deal_status_history` · customer-status engine
-(`recompute_customer_status`)
+**Tables** `deals` · customer-status engine (`recompute_customer_status`)
 
 **Endpoints**
 - [ ] CRUD `/api/v1/deals`
 - [ ] `PATCH /api/v1/deals/:id/assign` · `/approve` · `/reject` · `/status`
 - [ ] `POST /api/v1/deals/:id/documents`
+
+#### Step 1 — schema *(point order approved 2026-08-31)*
+
+- [x] **1.1** `deals` — §4.3's fields, `DB-01`/`DB-02`'s block, `DB-09`'s four indexes, and closing
+      the `deal_files.deal_id → deals` debt Module 0 left open.
+      **`deal_documents` and `deal_status_history`, both named in the build plan, are not new
+      tables.** `deal_files` (Module 0 Point 5.1) already is the first — a pivot built before its
+      parent existed, exactly for this day. `deal_status_history` is deferred rather than built:
+      `audit_log` already stores `event`/`entity_type`/`entity_id`/`old_values`/`new_values`/
+      `user_id`/`created_at`, which is §4.4's "old status · new status · who · when" verbatim, and a
+      second table recording the same fact is the defect DB-11 and AUD-02 exist to prevent. Recorded
+      here rather than in `docs/`, awaiting a `D-xx`; the table line above is corrected to match.
+      **None of §4.3 says "Required"**, unlike §4.2's one explicit marker on `name` — `customer_id`
+      is `NOT NULL` on §4.1's entity map instead, not an annotation, and everything else follows
+      Module 3 Point 1.1's reading exactly: nullable unless something other than the word "Required"
+      forces otherwise. `status` is the one exception to that nullability, for the opposite reason —
+      §4.4 draws no "unset" state, so it defaults to `lead` (Flow 1 step 2).
+      ⚠️ **`approval_status` is nullable, and NULL is a fourth state, not a gap.** §4.3 ties the three
+      named values to employee-entered requests only; a Team-Leader-entered deal (Flow 1) never goes
+      through approval at all, which is a different fact from "pending" and needs a value none of the
+      three named ones can hold. `D-63`'s null `tax_percent` is the precedent followed rather than
+      reinvented.
+      ⚠️ **`rejection_reason` is mandatory for exactly one rejection, and §4.4 quietly names a
+      second one it does not cover.** §4.3 places the column directly under `approval_status`, so
+      the CHECK ties it to `approval_status = 'rejected'` only. §4.4 separately requires a reason for
+      a deal reaching **Lost**, and no field in §4.3's table is named for it — whether that transition
+      reuses this column or needs its own is an **open owner question**, left to whichever point first
+      builds the `Lost` transition rather than answered here.
+      **`service_type` shares a name with `catalog_items.service_type` and nothing else** — the
+      catalog's is an `enum_lists` code (installation, repair, …), this one is the request's own
+      Product/Service split, the same shape as `catalog_items.kind`. No source relates the two, so no
+      column here points at the other; stated so a future reader does not go looking for a
+      relationship neither table documents.
+      **`DB-09`'s four categories, and each has a named caller**: `customer_id` for the customer
+      detail page's own-deals list, `owner_id` (`scopeIndex`, paired with `deleted_at` on
+      `customers.sales_owner_id`'s precedent) for §3.4's `Own` scope, `status` for the Kanban board
+      and the dashboards, `last_activity_at` for `J-03`.
+      **49 tests · 1752 backend (10911 assertions) · pint 414 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.** Not RED-first in the usual sense — the
+      migration and its test were written together rather than the test first — stated rather than
+      hidden, since this project's own discipline is to say so plainly instead of implying a process
+      that did not happen.
+      **Two deliberate breaks, both real regressions the tests had to catch on the second try.**
+      (1) The `rejection_reason` mandatory-when-rejected CHECK deleted → exactly the two tests
+      naming it failed, nothing else. Restored, confirmed with `shasum -a 256 -c`. (2) The
+      `deal_files.deal_id → deals` key deleted → **every affected test still passed**, because
+      `RefreshDatabase` does not re-run a migration whose filename it has already recorded, so the
+      edited `up()` was never applied to `crm_test` at all until an explicit
+      `migrate:fresh --force` against it forced the schema to match the file. Once it did, the
+      constraint test *still* passed wrongly a second way: its random `file_id` alongside the random
+      `deal_id` tripped `deal_files.file_id`'s own pre-existing key, so a `23503` came back for a
+      reason that had nothing to do with the constraint under test. Fixed by inserting a real `files`
+      row and leaving only `deal_id` invalid — the same "a decoy that cannot fail the intended way
+      proves nothing" lesson Module 3 Point 2.1 recorded for `SearchService`'s escaping test, found
+      here the same way: by breaking the code and watching the test fail to notice.
+      **Not covered:** 1.1 is the table. No model, no repository, no endpoint, and no code generator
+      — `document_sequences` (Module 0) still has no consumer; allocating a real `DL-2026-0001` inside
+      a `DB-11` transaction is Step 2's `POST /deals`, not this point. No `recompute_customer_status`
+      (that table line is the engine, not this schema). No row-scope resolution for `owner_id` beyond
+      the index — §3.4's five scopes are Step 2's, and `CustomerRowScope`'s own `Asgn` case already
+      says it resolves to nothing until this module exists; that debt is not repaid here, only the
+      table it was waiting on now exists.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

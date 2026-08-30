@@ -176,7 +176,7 @@ final class FilesMigrationTest extends TestCase
         // would do worse: two concurrent requests can both pass a "does it
         // already exist" query and only one can win a primary key.
         $file = self::insertFile();
-        $parent = Uuid::uuid7()->toString();
+        $parent = self::parentId($table);
 
         DB::table($table)->insert([$column => $parent, 'file_id' => $file]);
 
@@ -221,7 +221,7 @@ final class FilesMigrationTest extends TestCase
         // a pivot row pointing at nothing, which is the state D-71 exists to
         // make impossible.
         $file = self::insertFile();
-        DB::table($table)->insert([$column => Uuid::uuid7()->toString(), 'file_id' => $file]);
+        DB::table($table)->insert([$column => self::parentId($table), 'file_id' => $file]);
 
         DB::table('files')->where('id', $file)->delete();
 
@@ -261,7 +261,6 @@ final class FilesMigrationTest extends TestCase
         }
 
         self::assertSame([
-            'deal_files.deal_id → deals',
             'supplier_quotation_files.supplier_quotation_id → supplier_quotations',
             'purchase_order_files.purchase_order_id → purchase_orders',
             'report_files.report_id → reports',
@@ -328,6 +327,50 @@ final class FilesMigrationTest extends TestCase
         }
 
         self::fail($message);
+    }
+
+    /**
+     * A parent id the pivot's foreign key will actually accept.
+     *
+     * Three of the four parents still do not exist (Module 5 closed only
+     * `deals` here), so a random id is indistinguishable from a real one to
+     * a constraint that cannot be written yet. Once a parent exists its key
+     * is real, and a random id is now a foreign-key violation rather than an
+     * unconstrained value — this inserts a genuine row instead of asserting
+     * against the debt that just closed.
+     */
+    private static function parentId(string $table): string
+    {
+        if ($table === 'deal_files') {
+            return self::insertDeal();
+        }
+
+        return Uuid::uuid7()->toString();
+    }
+
+    private static function insertDeal(): string
+    {
+        $customerId = Uuid::uuid7()->toString();
+
+        DB::table('customers')->insert([
+            'id' => $customerId,
+            'name' => 'Test Customer for a File Pivot',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $dealId = Uuid::uuid7()->toString();
+
+        DB::table('deals')->insert([
+            'id' => $dealId,
+            'code' => 'DL-2026-'.substr(str_replace('-', '', $dealId), -4),
+            'customer_id' => $customerId,
+            'last_activity_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $dealId;
     }
 
     /** @param  array<string, mixed>  $overrides */

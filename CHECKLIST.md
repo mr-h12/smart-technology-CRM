@@ -4201,6 +4201,45 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       not cross pages. **Nothing here changes who may *view* an archived row** — §3.3's `view` row
       carries no archived carve-out, so the acceptance criterion below stays unticked. Still no
       assign screen (Point 3.5's route has no UI at all) and no import screen (4.6).)*
+- [x] **4.5b** ⚠️ **unplanned, owner-approved 2026-08-30** — the Super Admin's menu drew every
+      business screen, including *Customers*, which §8 does not give them
+      *(**Reported from the running app by the owner.** §3.3's seven columns are
+      `Manager · TL · Out.Sup · Out.Sales · Indoor · Procure · CEO` — **there is no Super Admin
+      column** — and §8 gives the Super Admin *"22 administrative screens (section 13)"* with no
+      Customers among them. `navigation.ts:60` already knew: its comment says "§8 puts *Customers*
+      on **six** roles' screens".
+      **Cause:** `hasPermission()` answers §3.1's unconditional access first (`auth.ts`), and
+      `AppSidebar.vue` filtered the menu with it — so one function was answering two different
+      questions. **The old docblock's justification was measured and found false:** it claimed the
+      override was needed because the Super Admin's grant rows "authorise nothing for them"; the
+      seeded role holds **nine grants, every one `admin.*`** — precisely §13's screens.
+      **Fix:** a second question, `holdsPermission()`, identical to `hasPermission` minus the §3.1
+      override, used by the sidebar filter **only**. Exactly one item disappears — *Customers*; the
+      six others are either held (`admin.create_user`, `admin.manage_roles`, `admin.fx_rates`) or
+      carry `permission: null`.
+      **Deliberately NOT a gate (owner's decision, 2026-08-30).** The router guard and every
+      in-screen control still use `hasPermission`, and `AuthorizeAction` still short-circuits on the
+      server — so the Super Admin may still reach `/customers` by URL and the API still permits it.
+      A guard that refused where the API permits would be a client-side restriction with no server
+      counterpart, which is the shape `SEC-09` warns about.
+      **Landing checked before the change, not after:** `LANDING_ROUTE.super_admin = 'admin'`, which
+      is unregistered, so they fall back to `home` — hiding the item strands nobody.
+      **6 frontend tests · 430 frontend (26 files) · 1554 backend (9878, unchanged — no new file) ·
+      pint 380 · phpstan [OK] · deptrac 0/0 twice.** The sidebar's permission filter had **no test
+      coverage at all** before this; it does now.
+      **Two deliberate breaks, each failing the test written for it, restored byte-identical
+      (`shasum -a 256 -c` → `OK`):** the sidebar put back on `hasPermission` · `holdsPermission`
+      given the override back.
+      **Problems found: two.** (1) **The first assertions read the brand line, not the menu** — the
+      product name is "سمارت تكنولوجي — نظام إدارة **العملاء**", which contains the Customers label,
+      so `text()` matched it and the test failed against working code. The helper now reads
+      `nav a` link texts. A whole-component `text()` match is a substring trap in any localised UI.
+      (2) The persisted-cwd trap again.
+      **Not covered:** the same §8-vs-§3.1 split will apply to **every future module's screen** —
+      each new business nav item is correct for the Super Admin only because `holdsPermission` now
+      asks the right question; nothing enforces that a future item uses it. And §8's *Procurement*
+      list has **no Customers screen** while §3.3 grants them `view: Asgn` — an unrelated
+      document-level disagreement, recorded here and not acted on.)*
 - [ ] ~~**4.5a** bulk restore endpoint~~ — **superseded by the owner's decision of 2026-08-30**: 4.5
       ships select-all as a client loop over `PATCH /customers/{id}/restore`, so the screen no longer
       blocks on this. **The gap itself remains open**: `API-07` and `OpenAPI §7.3` document a bulk

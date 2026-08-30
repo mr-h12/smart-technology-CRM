@@ -47,7 +47,12 @@ const groups = computed<NavigationGroup[]>(() =>
         .map((group) => ({
             labelKey: group.labelKey,
             items: group.items.filter(
-                (item) => item.permission === null || auth.hasPermission(item.permission),
+                // `holdsPermission`, not `hasPermission`: §8 asks which
+                // screens belong to this role, and §3.1's unconditional access
+                // answers a different question. The Super Admin's nine grants
+                // are all `admin.*`, so this draws §13's screens and not the
+                // business ones. The API is still the gate (`SEC-09`).
+                (item) => item.permission === null || auth.holdsPermission(item.permission),
             ),
         }))
         .filter((group) => group.items.length > 0),

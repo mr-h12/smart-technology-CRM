@@ -224,6 +224,7 @@ export function useAuth() {
         impersonating: computed(() => state.impersonating),
 
         hasPermission,
+        holdsPermission,
         login,
         logout,
         forgetSession,
@@ -244,8 +245,14 @@ export function useAuth() {
  * scope; asking for a full triple matches exactly.
  *
  * §3.1's unconditional access is answered first, exactly as the backend's
- * `Actor::hasUnconditionalAccess()` does — otherwise the Super Admin's menu
- * would be drawn from grant rows that authorise nothing for them.
+ * `Actor::hasUnconditionalAccess()` does. This is the *authorisation* question
+ * — may this account act — and the Super Admin's answer is yes to everything.
+ *
+ * ⚠️ It is **not** the question a menu asks. Use `holdsPermission` for that.
+ * An earlier version of this comment justified the override by saying the
+ * Super Admin's grant rows "authorise nothing for them". That was measured and
+ * is false: the seeded role holds nine grants, every one of them `admin.*`,
+ * which is exactly §13's screens.
  */
 function hasPermission(ability: string): boolean {
     if (state.user === null) {
@@ -263,6 +270,42 @@ function hasPermission(ability: string): boolean {
     }
 
     // A `resource.action` pair — two segments — matches any scope.
+    if (ability.split('.').length !== 2) {
+        return false;
+    }
+
+    return held.some((triple) => triple.startsWith(`${ability}.`));
+}
+
+/**
+ * The §8 question: is this screen part of this role's set?
+ *
+ * §8 gives the Super Admin "22 administrative screens (section 13)" and no
+ * Customers screen, and §3.3's seven columns have no Super Admin at all — yet
+ * §3.1 gives them scope *All*, so `hasPermission` says yes to every business
+ * screen and the menu drew them all. Two different questions were being asked
+ * through one function.
+ *
+ * This one reads the grant rows and nothing else: the same matching as
+ * `hasPermission` — §3.2's scope rules, exact triple or bare pair — minus the
+ * §3.1 override.
+ *
+ * **A menu, never a gate** (`SEC-09`). `AuthorizeAction` still short-circuits
+ * on the server, so the Super Admin may still reach the screen by URL and the
+ * API still permits it — nothing here is a client-side restriction without a
+ * server counterpart (owner's decision, 2026-08-30).
+ */
+function holdsPermission(ability: string): boolean {
+    if (state.user === null) {
+        return false;
+    }
+
+    const held = state.user.permissions;
+
+    if (held.includes(ability)) {
+        return true;
+    }
+
     if (ability.split('.').length !== 2) {
         return false;
     }

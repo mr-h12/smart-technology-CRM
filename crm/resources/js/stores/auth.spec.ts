@@ -198,6 +198,67 @@ describe('hasPermission (SEC-09 — a menu, never a gate)', () => {
 
         expect(useAuth().hasPermission('customer.view.own')).toBe(false);
     });
+
+    /**
+     * §8 and §3.1 ask two different questions, and the Super Admin is the only
+     * account where the answers differ.
+     *
+     * §3.1 gives them scope *All*, which is why `hasPermission` short-circuits
+     * and why `AuthorizeAction` does the same on the server — they may act.
+     * But §8 gives them "22 administrative screens (section 13)" and **no
+     * Customers screen**, and §3.3's seven columns have no Super Admin at all.
+     * `holdsPermission` answers the §8 question — *is this screen part of this
+     * role's set* — from the grant rows alone.
+     *
+     * Measured rather than assumed: the seeded `super_admin` role holds exactly
+     * nine grants, all `admin.*`, and no business permission. So drawing the
+     * menu from the grants does not empty it — it produces §13's screens, which
+     * is what §8 asks for.
+     */
+    it('holdsPermission ignores §3.1 unconditional access where hasPermission honours it', async () => {
+        const superAdmin: AuthenticatedUser = {
+            ...PROFILE,
+            role: { id: '01a0-sa', slug: 'super_admin', name: 'Super Admin' },
+            permissions: ['admin.manage_roles.all'],
+            unconditional_access: true,
+        };
+
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(loginSuccess(superAdmin)));
+
+        const { useAuth } = await freshStore();
+        const auth = useAuth();
+        await auth.login('super.admin@example.test', 'Passw0rd123');
+
+        // Both halves in one test: the authorisation answer is unchanged, and
+        // only the menu answer differs. Asserting the second alone would pass
+        // against a function that always returned false.
+        expect(auth.hasPermission('customer.view')).toBe(true);
+        expect(auth.holdsPermission('customer.view')).toBe(false);
+
+        // And a grant they really hold still draws its screen.
+        expect(auth.holdsPermission('admin.manage_roles')).toBe(true);
+    });
+
+    it('holdsPermission keeps the exact and prefix matching hasPermission uses', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(loginSuccess()));
+
+        const { useAuth } = await freshStore();
+        const auth = useAuth();
+        await auth.login('indoor.sales@example.test', 'Passw0rd123');
+
+        // §3.2 makes the scope part of the identity: a bare pair matches any
+        // scope, a full triple matches exactly, and an unheld one matches
+        // nothing. Same rule as `hasPermission` — only the override differs.
+        expect(auth.holdsPermission('customer.view')).toBe(true);
+        expect(auth.holdsPermission('customer.view.own')).toBe(true);
+        expect(auth.holdsPermission('admin.manage_roles')).toBe(false);
+    });
+
+    it('holdsPermission answers false with no session at all', async () => {
+        const { useAuth } = await freshStore();
+
+        expect(useAuth().holdsPermission('customer.view.own')).toBe(false);
+    });
 });
 
 describe('logout and session loss', () => {

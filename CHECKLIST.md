@@ -4441,13 +4441,74 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       supplier can be created through the application yet. No uniqueness on name or phone, because
       §7.1 declares none. No `catalog_items` (that is 1.2), and no supplier *prices* ever — `D-21`
       keeps them on the supplier quotation, which is Module 6's.
+- [x] **1.2** `catalog_items` — §7.3's two tabs in one table, `DB-01`/`DB-02`'s block, `DB-04`'s
+      actor keys, and **no price of any kind**.
+      **One table, because the build plan names one:** "Tables: `catalog_items` · `suppliers`". A
+      product and a service are two *tabs*, not two tables, so `kind` carries the split and every
+      column belonging to one tab is nullable — the conditional rules (a product needs a unit, a
+      service a type) are Point 3.2's Form Request. A CHECK for them here would put a validation
+      rule where no error message can reach it.
+      ⚠️ **§7.3 is read differently from §7.1, because it is shaped differently.** §4.2 and §7.1 are
+      `| Field | Notes |` tables whose first cell *is* the column name, so Points 3/1.1 and 4/1.1
+      could map them mechanically. §7.3 is a two-column `| Product | Service |` layout of prose
+      labels — "Category (for search)", "Description · active product". The translation is therefore
+      written out as a `LABELS` map, and a **second test reads §7.3 and fails on any label the map
+      has not placed**. Without that, the map would be a hand-written list agreeing with itself,
+      which is the exact failure Point 1.1 exists to prevent.
+      ⚠️ **Owner decision, 2026-08-30 — `company` is one shared column, option (a). Awaiting a
+      `D-xx`.** §7.3's field table writes "Providing team / company" against **Service** only, while
+      its own prose groups the whole catalog "by company/team name" *and* the build plan's criterion
+      requires a **product** to appear "grouped by company". Two sources require it of a product and
+      one is merely silent. `docs/` is untouched.
+      **No price column, and that is what ticks the criterion.** §7.3 opens "Descriptive data only —
+      **no prices**" and `D-21` puts every price on the supplier quotation, where a price belongs to
+      an offer on a date rather than to the thing itself. The table has **no numeric column at all**,
+      and the test asserts that absence three ways — the documentation still forbids it, no `numeric`
+      column exists, and no column *name* matches `/price|cost|margin|amount/i`.
+      **`unit` and `service_type` carry no foreign key**, for the reason Module 3 measured on
+      `customers.sector`: `enum_lists`'s uniqueness is a *partial* index and PostgreSQL refuses a key
+      against one (`SQLSTATE[42830]`). Both halves pinned, so if that index becomes total the
+      decision is revisited rather than inherited.
+      **No index yet, and §4.7 is why `product_code` is not one.** `DB-09` names "customer · owner ·
+      deal status · dates · entity codes"; this table has no customer, no owner (§3.7 grants every
+      operational role `Scope::All`), no status and no date. **`product_code` is not an entity
+      code** — §4.7's codes are the generated document numbers `DL`, `QT`, `SQ`, `PO`, `RPT-*`, and
+      it assigns none to a catalog item; `product_code` is whatever the manufacturer prints on the
+      box. Grouping, filters and sort are defined at Point 3.1.
+      **19 tests · 1600 backend (10064 assertions) · 442 frontend · pint 384 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **16 failed, 3 passed** — the three passers named, because one of them ("the catalog
+      stores no price") passed for the *wrong* reason again: a table that does not exist has no price
+      column either. That made it the first deliberate break.
+      **Two deliberate breaks, neither a deletion:** (1) `$table->money('price', true)` added → failed
+      exactly one test, the no-price guard, proving the criterion is enforced rather than asserted;
+      (2) `company` renamed to `providing_company` → failed exactly the three predicted (the label
+      map plus both company data sets), proving the `LABELS` map really binds to the schema. Restored
+      and confirmed with `shasum -a 256 -c`.
+      **Problems found:** PHPStan level 10 rejected `Schema::getColumnListing()` twice — its elements
+      are `mixed`, so both `assertDoesNotMatchRegularExpression()` and the message interpolation
+      failed. Narrowed with `assertIsString()` rather than a cast, matching
+      `UserSchemaMigrationTest::columns()`; a cast is the escape hatch Coding Standards §5 forbids.
+      That edit landed **after** a full suite run had already started, so **that run's number was
+      discarded and the suite re-run** rather than reported. The +1 assertion in
+      `UserSchemaMigrationTest`'s rollback loop, first measured at Point 1.1, appeared again exactly
+      as predicted — 9963 + 84 + 1 = 10048 before the fix, + 16 columns = 10064 after.
+      **Not covered:** 1.2 is the table. **No model, no repository, no endpoint, no seeder** — nothing
+      can create a catalog item yet. **No cross-field constraint**: the database will accept a
+      `service` row carrying a `product_code`, because §7.3 states no such rule and every existing
+      table validates cross-field shape at the boundary. Point 3.2 owns it. No uniqueness on
+      `product_code` (§7.3 declares none). The "hidden from new selection lists" behaviour (`D-37`,
+      §10.4) is **not** here — this point only stores the flag; the selection lists are Modules 6/7.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company
 - [ ] Red-rated supplier → red chip beside their name on **every** screen
 - [ ] Service appears under the Service tab, separate from products
 - [ ] Deactivated product is hidden from new selection lists
-- [ ] Catalog holds **no prices** — descriptive data only
+- [x] Catalog holds **no prices** — descriptive data only *(Point 1.2: `catalog_items` has no
+      numeric column at all; asserted three ways — §7.3 still forbids it, no `numeric` column
+      exists, and no column name matches `/price|cost|margin|amount/i`. Proved by adding a real
+      `money('price')` column and watching that one test fail.)*
 - [ ] Every catalog edit is written to the audit log
 
 ---

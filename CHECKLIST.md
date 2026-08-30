@@ -4040,8 +4040,60 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       — open question 4). No saved or shareable filter state: nothing is written to the URL, so a
       filtered list cannot be linked or restored on reload. `is_incomplete` and `is_archived` remain
       undrawn **on the row** — the filter exists, the column does not.)*
-- [ ] **4.3** add/edit form — sector from the managed lists, region free text with suggestions
+- [x] **4.3** add/edit form — sector from the managed lists, region free text with suggestions
       (`D-20`), the yellow duplicate warning, 422 `details` bound to the fields
+      *(**`CustomerFormModal.vue`**, wired into the list screen. §4.2's **ten** user-entered fields
+      through `POST /customers` and `PATCH /customers/{id}` — Point 4.0's catalogue, unchanged; no
+      new service code.
+      **The three prohibited columns are never sent.** `customer_status`, `is_archived` and
+      `is_incomplete` are `prohibited` in `SaveCustomerRequest` — a 422, not a silent drop (§4.5,
+      `D-49`) — so a form that posted them would simply never save.
+      **No owner control, and that is a narrowing awaiting a `D-xx`.** `sales_owner_id` is writable
+      on create, but changing it is `customer.assign` with its own §3.3 row and its own route
+      (`OpenAPI §7.2`, Point 3.5), and filling a picker needs `GET /users`, which `customer.create`
+      does not carry. A control that 403s for the person looking at it is worse than no control.
+      **A customer created here therefore arrives unowned** unless the creator's scope files it
+      under them — the same state imported rows are in.
+      **§4.5's derived status is drawn read-only with its reason**, as text rather than a disabled
+      input: a disabled input still reads as a control somebody could be given.
+      **§10.2's `D-35` warning arrives after the write**, because the server does not block. The
+      dialog stays open so the names can be read and the list refreshes underneath; the similar
+      customers are **not** links, on `navigation.ts`'s rule — Point 4.4's detail page does not
+      exist yet.
+      **Design System §5.2's unsaved-change warning is implemented here** — the register's debt 13a,
+      owed since Module 1. Cancel, the scrim and Escape take one path (§6.1: Escape must not discard
+      silently); nothing typed closes at once, something typed asks first.
+      **§6.1's server validation lands on the field it names**, through the existing
+      `ApiError.messageFor()` rather than a second copy of a rule, and entered values survive a
+      refusal.
+      **`SEC-09`:** the New customer and Edit controls mirror §3.3's two permission rows and enforce
+      nothing; `CustomerWriteEndpointTest` is the gate. Each of those two tests asserts **both**
+      halves — drawn for the holder, absent for the one without — because a one-sided assertion
+      passes against a screen that draws nothing at all.
+      **17 frontend tests · 1551 backend (9874 assertions) · 404 frontend (25 files).**
+      **The backend number moved for the first time since 4.0, and the arithmetic is the check:**
+      the new `.vue` enters both `LogicalPropertiesTest` providers and the new `.spec.ts` enters
+      `markupFiles` (**+3 tests**), and `NoHardCodedTextTest` asserts once more per vue file
+      (**+4 assertions**).
+      **Six deliberate breaks, each failing the tests it should and no others, all restored
+      byte-identical (`shasum -a 256 -c` → `OK`):** a prohibited column in the payload · the
+      unsaved-change check bypassed · the `D-35` list dropped · the server field message discarded ·
+      `canEdit` forced true · client validation bypassed.
+      **Problems found: two.** The frontend RED ran **0 tests** — the component did not exist, so the
+      import did not resolve; that RED is no evidence at all, and the six breaks above are the only
+      proof the suite bites. And `NoHardCodedTextTest` caught a real defect: a bare `ℹ` glyph reads
+      as user-facing text (it does not flag `⚠`), so both markers now use the repo's inline
+      `aria-hidden` SVG convention from `states/ErrorState.vue`. The file entered that test's vue
+      inventory **only after the scan half passed on it** — the list is coverage, not suppression.
+      Two smaller ones, both caught by `vue-tsc` and both the same lesson: `ListEntry` has **no
+      `id`** (assumed, then read — the option is keyed on `code`), and an undeclared `vi.fn(async
+      () => …)` types `mock.calls` as the empty tuple.
+      **Not covered:** `D-20`'s region **suggestions** — the field is free text and no suggestions
+      endpoint exists; the other half is owed. `D-35`'s warning still never fires in practice, since
+      `limits.customer_similarity_threshold` is unseeded by owner decision — the path is tested
+      against a stubbed response. No owner picker (above). No detail page to open a duplicate in
+      (4.4). No archive or restore from the form, no bulk actions, no import screen — 4.5, 4.5a,
+      4.6.)*
 - [ ] **4.4** detail page — summary first, related second, actions by permission
 - [ ] **4.5** the archive screen — archive and restore individually, select-all restore
 - [ ] **4.5a** ⚠️ **backend**: bulk restore, `OpenAPI §7.3`'s shape (`{"ids": [...]}`, per-record

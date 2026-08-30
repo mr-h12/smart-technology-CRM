@@ -550,6 +550,22 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} · {total} customers"
+        },
+        "filter": {
+            "search": "Search",
+            "searchAction": "Search",
+            "status": "Status",
+            "statusAll": "Any status",
+            "sector": "Sector",
+            "sectorAll": "Any sector",
+            "incomplete": "Incomplete records only",
+            "ownerInactive": "Customers of deactivated employees"
+        },
+        "empty": {
+            "filtered": {
+                "title": "Nothing matched",
+                "message": "No customer matches these filters. Widen them or clear them to see the rest."
+            }
         }
     }
 }

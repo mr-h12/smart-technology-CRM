@@ -550,6 +550,22 @@
             "previous": "السابق",
             "next": "التالي",
             "position": "صفحة {page} من {pages} · {total} عميل"
+        },
+        "filter": {
+            "search": "بحث",
+            "searchAction": "ابحث",
+            "status": "الحالة",
+            "statusAll": "كل الحالات",
+            "sector": "القطاع",
+            "sectorAll": "كل القطاعات",
+            "incomplete": "السجلات الناقصة فقط",
+            "ownerInactive": "عملاء الموظفين المعطَّلين"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا توجد نتائج",
+                "message": "لا يوجد عميل يطابق هذه المرشِّحات. وسِّعها أو امسحها لعرض البقية."
+            }
         }
     }
 }

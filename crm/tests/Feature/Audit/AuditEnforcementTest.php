@@ -11,6 +11,8 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
+use App\Modules\Deals\Application\Writing\SaveDeal;
+use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
@@ -153,6 +155,29 @@ final class AuditEnforcementTest extends TestCase
             // passes with it unlisted. The hole was eight classes; this makes
             // it nine, and it is still owed its own point.
             SaveSupplier::class => self::AUDITED,
+
+            // Module 5 Point 2.3, and seen for the same two signals as
+            // SaveCustomer and SaveSupplier: `->update(` beside an imported
+            // `ConnectionInterface`. It owns the create/update transaction and
+            // writes DEAL_CREATED and DEAL_UPDATED, which `AUD-01` names
+            // explicitly.
+            SaveDeal::class => self::AUDITED,
+
+            // Module 5 Point 2.3, and **not** a repeat of the eight-class hole
+            // the notes above describe. `EloquentCustomerDirectory` and
+            // `EloquentSupplierDirectory` are invisible to this scanner
+            // because neither imports `ConnectionInterface`; this one does,
+            // for `document_sequences`' atomic upsert (§4.7) — so `->save(`
+            // beside that import makes it a writer the scanner actually
+            // finds, for once. It is not AUDITED: it never names
+            // `AuditRecorderInterface`, because AUD-01 is satisfied one layer
+            // out — `SaveDeal` owns the transaction and records both events.
+            // This is a persistence adapter with no actor and no event
+            // vocabulary, the same disposition `EloquentRoleDirectory` and
+            // the two `Database*Repository` rows below already carry.
+            EloquentDealDirectory::class => 'AUD-01 is satisfied one layer out: SaveDeal owns the create/update '
+                    .'transaction and records DEAL_CREATED and DEAL_UPDATED. This is a persistence adapter '
+                    .'with no actor and no event vocabulary.',
 
             // Point 4.1. Found by this test, and the register was wrong before
             // it ran: SyncRolePermissions was listed as the writer because it

@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Deals\Domain\Contracts;
+
+use App\Modules\Deals\Domain\Access\DealRowScope;
+use App\Modules\Deals\Domain\Listing\DealListCriteria;
+use App\Modules\Deals\Domain\Listing\DealPage;
+use App\Modules\Deals\Domain\Listing\DealSummary;
+use App\Modules\Deals\Domain\Writing\DealDraft;
+
+/**
+ * The `deals` table as §10's screens need to read it — `CustomerDirectoryInterface`'s
+ * shape (Module 3 Point 3.1), on the same reasoning.
+ *
+ * Both methods take a {@see DealRowScope}, and neither has an overload that
+ * omits it. `SEC-08` is row-level security, and a reader callable without a
+ * scope is a reader somebody will one day call without one — which returns
+ * every deal in the company to whoever asked.
+ *
+ * `find()` answers null for a row outside the scope, exactly as it does for a
+ * row that is not there. `OpenAPI §5.1` requires that: 404 covers "does not
+ * exist **or** is not visible to the caller. Do not reveal which case applies."
+ */
+interface DealDirectoryInterface
+{
+    public function list(DealListCriteria $criteria, DealRowScope $scope): DealPage;
+
+    /** Null when the row is absent **or** outside the scope — the caller cannot tell, by design. */
+    public function find(string $dealId, DealRowScope $scope): ?DealSummary;
+
+    /**
+     * Point 2.3.
+     *
+     * No scope parameter, on `CustomerDirectoryInterface::create()`'s precedent:
+     * a row that does not exist yet cannot be selected by a `WHERE`. §3.4's
+     * create scope constrains the **owner** the deal may be filed under, and
+     * that is decided in the use case before this is called.
+     *
+     * Allocates the `DL-YYYY-NNNN` code internally (§4.7, via
+     * `document_sequences`) — the caller supplies a draft, not a code, so it
+     * cannot collide with another writer's allocation.
+     *
+     * `$approvalStatus` is not part of `$draft`: `DealDraft` is what a caller
+     * may write, and approval status is derived from *who* is creating the
+     * deal (Flow 1 vs Flow 3), never typed by them. `SaveDeal` decides it and
+     * hands it across this one explicit seam rather than through the set of
+     * writable keys.
+     */
+    public function create(DealDraft $draft, string $actorId, ?string $approvalStatus): DealSummary;
+
+    /** Null on the same two indistinguishable cases as {@see find()} — absent, or out of reach. */
+    public function update(string $dealId, DealDraft $draft, DealRowScope $scope, string $actorId): ?DealSummary;
+}

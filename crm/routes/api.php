@@ -10,6 +10,7 @@ use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Admin\Presentation\SystemLimitController;
 use App\Modules\Catalog\Presentation\CatalogItemController;
 use App\Modules\Customers\Presentation\CustomerController;
+use App\Modules\Deals\Presentation\DealController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
 use App\Modules\Identity\Presentation\LeaveImpersonationController;
@@ -510,4 +511,33 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
 
     Route::get('/{catalogItem}', [CatalogItemController::class, 'show'])
         ->middleware('permission:catalog.view');
+});
+
+// §3.4 Requests / Deals — Module 5 Points 2.2–2.3.
+//
+// `OpenAPI §7.1`'s conventional resource routes, and §3.4's own rows —
+// `deal.view` for the two reads, `deal.create` and `deal.edit` for the two
+// writes, each its own permission with its own scopes rather than one
+// `deal.write`. **No scope argument on any of the four**, on `customers`'s
+// precedent: the middleware asks only whether the caller may reach the
+// endpoint at all, and which *rows* — or, on create, which owner — is `SEC-08`,
+// answered by `DealRowScope` from the reach the middleware leaves behind.
+//
+// The action routes (`/assign`, `/approve`, `/reject`, `/status`) and
+// `/documents` are later points in this step; there is no DELETE at any
+// permission, on `DB-01` and §3.12 rule 3's usual reading — a deal is
+// deactivated or archived, never physically removed, and nothing in §3.4
+// seeds a `delete` grant to spend.
+Route::middleware('auth')->prefix('deals')->group(function (): void {
+    Route::get('/', [DealController::class, 'index'])
+        ->middleware('permission:deal.view');
+
+    Route::get('/{deal}', [DealController::class, 'show'])
+        ->middleware('permission:deal.view');
+
+    Route::post('/', [DealController::class, 'store'])
+        ->middleware('permission:deal.create');
+
+    Route::patch('/{deal}', [DealController::class, 'update'])
+        ->middleware('permission:deal.edit');
 });

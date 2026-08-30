@@ -189,7 +189,30 @@ parameters:
       - IdentityContract
       - AuditContract
       - StorageContract
-    Deals: ~
+    # Deals → Framework, SharedContracts, IdentityContract, added 2026-08-31
+    # with Point 2.2, the module's first endpoint. Granted on exactly
+    # Customers' terms (2026-08-30): a controller, a Form Request and an
+    # Eloquent model are framework objects by definition; `App\Support\Http`'s
+    # envelope and `D-48`'s `SearchService` are `SharedContracts`' whole point.
+    #
+    # `IdentityContract` for the reason Customers took it: `SEC-08` requires
+    # row-level scoping, and `DealController` reads `PermissionDecision` off
+    # the request the same way `CustomerController` does. **No `UserDirectoryInterface`
+    # use, unlike Customers** — §3.4 has no analogue to §10.1's "customers of
+    # deactivated employees" filter, so only the two classes Customers' own
+    # crossing already named are reached here.
+    #
+    # `AuditContract` added 2026-08-31 with Point 2.3, the module's first
+    # write, on exactly the terms every other module's first write was
+    # granted it: `AUD-01` names create and update among what must be
+    # recorded, and the recorder is an interface in `Audit\Domain`. The
+    # *contract* half only; nothing points at `AuditDriver`, and nothing
+    # should.
+    Deals:
+      - Framework
+      - SharedContracts
+      - IdentityContract
+      - AuditContract
     Quotations: ~
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and

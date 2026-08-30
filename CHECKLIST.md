@@ -4994,6 +4994,90 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       **Not covered:** no controller, no route, no HTTP-level negative-authorization test — those
       arrive with 2.2's endpoint, the same order Module 3 used. No resolution of the `Asgn` gap; it
       is recorded, not repaid.
+- [x] **2.2** `GET /deals` and `GET /deals/{id}` — `OpenAPI §6`'s query contract, §4.2's collection
+      envelope, `§5.1`'s 404, `D-48`'s search — `CustomerController`'s shape (Module 3 Point 3.2), on
+      the same reasoning throughout.
+      **Filters are §4.3's own closed vocabularies** — `status`, `service_type`, `source`,
+      `approval_status` — rather than an invented set; the same reading `CustomerListCriteria` gave
+      §4.2's columns. **Default sort is `-last_activity_at`**, the one field §4.3 gives explicit
+      operational meaning (`D-17`, `J-03`); `code` and `created_at` are the other two allowed.
+      **`SearchIndex::Deals` added**, `title` the only searched column — §4.3's one free-text field,
+      the same "one column, one line to change" floor `Customers` and `Suppliers` were given.
+      `filterable()` is empty, on Suppliers' precedent rather than Customers': the row scope is
+      applied to the builder directly in `EloquentDealDirectory`, the same mechanism
+      `EloquentCustomerDirectory` actually uses regardless of what its own `filterable()` declares.
+      **The visible cost of Point 2.1's fails-closed scopes, tested rather than left implicit:**
+      Team Leader, Outdoor Supervisor and Procurement each see zero deals today, exactly as
+      `CustomerListEndpointTest` found for the equivalent three roles in Module 3.
+      **`deptrac.modules.yaml` grants `Deals` two entries fewer than a full Customers-style
+      crossing** — `Framework`, `SharedContracts`, `IdentityContract` — and no `UserDirectoryInterface`
+      use: §3.4 has no analogue to §10.1's deactivated-employee filter, so the crossing this point
+      actually makes is narrower than the one it was granted room for.
+      **18 tests · 1781 backend (11088 assertions) · pint 428 files · PHPStan level 10 clean (first
+      run) · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break, on the controller-adjacent layer rather than the schema:**
+      `EloquentDealDirectory::scoped()` changed to return every row unconditionally → exactly the
+      four tests that depend on real scoping failed (`indoor sales sees only their own`, `a role
+      whose scope has no mechanism sees nothing`, `a row outside scope is 404`, `q cannot reach
+      outside the row scope`) and nothing else. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** a test-fixture bug, not a production one — `substr(str_replace('-', '', $id), 0, 4)`
+      for a throwaway `DL-` code takes UUIDv7's **leading** hex digits, which encode a timestamp, so
+      several deals inserted in one test's loop collided on the same code and the insert raised
+      `23505` instead of the test running. Fixed by taking the **trailing** four digits instead — the
+      random tail — in all three files that had copied the pattern
+      (`DealSchemaMigrationTest`, `DealListEndpointTest`, `FilesMigrationTest`). Caught by running the
+      test, not by inspection.
+      **Not covered:** no `POST`, no action routes (`/assign`, `/approve`, `/reject`, `/status`), no
+      `/documents`, no `AuditContract` — all later points. The `Asgn` gap from 2.1 is unchanged.
+- [x] **2.3** `POST /deals` and `PATCH /deals/{id}` — `SaveCustomer`'s shape (Module 3 Point 3.3) end
+      to end: draft, ownership-within-scope, transaction, audit.
+      **`document_sequences` (Module 0) gets its first consumer.** `EloquentDealDirectory::nextCode()`
+      allocates `DL-YYYY-NNNN` with one `INSERT … ON CONFLICT (prefix, year) DO UPDATE … RETURNING`,
+      not a read-then-write — two concurrent creates serialise on the row lock instead of racing to
+      the same number, the same "the database enforces it" reasoning `D-71` gave the file-attachment
+      keys.
+      ⚠️ **`approval_status` is derived from *who* creates the deal, and that reading is recorded as
+      an inference, not a documented rule.** Flow 1 has a Team Leader enter a deal straight to
+      `Lead`, no approval; Flow 3 has an employee's request need one. Neither flow is named on the
+      request itself, so the signal used is §3.4's create scope: `unrestricted` (`all` — Manager,
+      Team Leader) skips approval (`null`); a scoped (`own`) create sets `pending`. **Flow 3's
+      "stays inactive until approved" is not built** — §4.3 has no visibility column, and none is
+      invented here; what "inactive" means structurally is left to whichever point builds
+      `/approve`/`/reject`.
+      **Five of §4.3's columns are prohibited on the boundary** (`code`, `status`, `approval_status`,
+      `rejection_reason`, `last_activity_at`) and two more on `PATCH` only (`customer_id`, `owner_id`)
+      — `SaveCustomerRequest`'s reading of which fields a generic write may never carry, extended by
+      one: `customer_id` has no documented transfer operation at all, so it is not even a future
+      action route the way `owner_id`'s `assign_owner` is.
+      **`deptrac.modules.yaml` grants `Deals` its fourth entry, `AuditContract`**, on identical terms
+      to every other module's first write.
+      ⚠️ **`EloquentDealDirectory` is not part of the eight-class (now growing) "invisible writer"
+      hole `AuditEnforcementTest` tracks.** `EloquentCustomerDirectory` and `EloquentSupplierDirectory`
+      escape that scanner because neither imports `ConnectionInterface`; this one does, for the
+      sequence allocator, so its `->save(` is actually found and the class is correctly registered
+      with a reason rather than falling through unseen. Not a fix for the hole — a different class
+      that happens not to have it.
+      **23 tests · 1804 backend (11202 assertions) · pint 432 files · PHPStan level 10 clean (after
+      one fix — see below) · deptrac violations 0 / uncovered 0 on both configs.**
+      **Two deliberate breaks, each isolating one of the point's two genuinely new mechanisms.**
+      (1) `nextCode()` changed to always return `…-0001` → exactly
+      `test_that_two_created_deals_receive_different_codes` failed, on the `UNIQUE` constraint the
+      migration already carries. (2) The ownership-within-scope refusal in
+      `SaveDeal::ownedWithinScope()` deleted → exactly
+      `test_that_indoor_sales_cannot_file_a_deal_under_somebody_else` failed. Both restored, both
+      confirmed with `shasum -a 256 -c`.
+      **Problems found:** (1) `customer_id` was missing from `Deal`'s `#[Fillable]` list — Eloquent's
+      mass assignment silently drops an unfillable key rather than erroring, so the first create
+      attempt inserted `customer_id = NULL` and failed on the column's own `NOT NULL`, not on
+      anything this point wrote. Caught by running the create test, not by review. (2) PHPStan level
+      10 rejected two things in the test file: `assertStringStartsWith()` against a `mixed` array
+      value (fixed with `assertIsString()` first) and `(string)` on an untyped `stdClass` property
+      read from `DB::table(...)->first()` (fixed on `columnType()`'s own precedent in
+      `FilesMigrationTest`: assert the property exists, then cast with an explicit
+      `@phpstan-ignore-line cast.string`, rather than trusting the cast silently).
+      **Not covered:** no action routes (`/assign`, `/approve`, `/reject`, `/status`), no
+      `/documents`. The `Asgn` gap from 2.1 is unchanged. Flow 3's "inactive" reading is an open
+      owner question, not an implementation.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

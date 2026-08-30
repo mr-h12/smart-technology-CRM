@@ -10,6 +10,8 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
+use App\Modules\Deals\Domain\Listing\DealNotFound;
+use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -187,6 +189,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (CatalogItemNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::catalogItemNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (InvalidDealListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidDealListQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (DealNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::dealNotFound($e, $request)
                 : null,
         );
 

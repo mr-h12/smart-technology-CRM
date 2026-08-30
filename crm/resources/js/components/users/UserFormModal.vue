@@ -55,6 +55,38 @@ const saving = ref(false);
 /** Lang-file keys, by field. `_form` holds anything not tied to one. */
 const errors = ref<Record<string, string>>({});
 
+/**
+ * The server's own sentences, by field — already localised for the request's
+ * `Accept-Language`.
+ *
+ * Kept apart from {@link errors} rather than merged into it, so a client-side
+ * message stays a *key* and keeps re-translating when the person switches
+ * AR/EN. A server sentence cannot do that — it was localised once, when the
+ * request was answered — and collapsing both into one map would quietly cost
+ * the client-side half that behaviour.
+ */
+const serverErrors = ref<Record<string, string>>({});
+
+/** The fields a server refusal can name, which are the inputs this form has. */
+const FIELDS = ['name', 'email', 'role_id', 'password'] as const;
+
+function hasError(field: string): boolean {
+    return errors.value[field] !== undefined || serverErrors.value[field] !== undefined;
+}
+
+/** The server's sentence when it sent one for this field, otherwise ours. */
+function errorText(field: string): string {
+    const sentence = serverErrors.value[field];
+
+    if (sentence !== undefined) {
+        return sentence;
+    }
+
+    const key = errors.value[field];
+
+    return key === undefined ? '' : t(key);
+}
+
 const isEdit = computed(() => props.editing !== null);
 
 const options = computed<RoleOption[]>(() => {
@@ -74,6 +106,7 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     }
 
     errors.value = {};
+    serverErrors.value = {};
     password.value = '';
     name.value = props.editing?.name ?? '';
     email.value = props.editing?.email ?? '';
@@ -100,6 +133,7 @@ function validate(): boolean {
     }
 
     errors.value = found;
+    serverErrors.value = {};
 
     return Object.keys(found).length === 0;
 }
@@ -112,12 +146,16 @@ function validate(): boolean {
 function applyServerErrors(error: unknown): void {
     if (!(error instanceof ApiError)) {
         errors.value = { _form: 'users.form.unreachable' };
+        serverErrors.value = {};
 
         return;
     }
 
     const found: Record<string, string> = {};
+    const sentences: Record<string, string> = {};
 
+    // A **domain** refusal — `AdministrationRefusal` — carries a stable code
+    // and names no field, so the field it belongs to is decided here.
     for (const detail of error.detailCodes) {
         if (detail === 'email_already_taken') {
             found.email = 'users.form.emailTaken';
@@ -130,11 +168,41 @@ function applyServerErrors(error: unknown): void {
         }
     }
 
-    if (Object.keys(found).length === 0) {
+    // A **validation** failure is the other half, and the half this form used
+    // to drop on the floor. `ApiExceptionRenderer::validation()` writes every
+    // Form Request error as `code: 'invalid'` with the field named and the
+    // server's own sentence attached — and a Form Request is validated *before*
+    // the controller runs, so a duplicate address never reaches the use case
+    // and never produces `email_already_taken`. Matching on the four codes
+    // above alone therefore left every validation error in a banner that said
+    // "something was wrong" while the server had already said exactly what.
+    //
+    // The sentence is used rather than re-written here: a rule copied into a
+    // screen is a second copy of that rule, and the copy that is wrong is
+    // always the one in the screen.
+    for (const field of FIELDS) {
+        // A recognised domain code wins. Its sentence above was written for
+        // that exact rule, while this one is whatever the validator produced —
+        // and when the server sends both, the specific one is the better
+        // sentence. So this fills the gap rather than taking the field over,
+        // which is also what keeps `UsersView`'s §5.1 test true.
+        if (found[field] !== undefined) {
+            continue;
+        }
+
+        const message = error.messageFor(field);
+
+        if (message !== null) {
+            sentences[field] = message;
+        }
+    }
+
+    if (Object.keys(found).length === 0 && Object.keys(sentences).length === 0) {
         found._form = error.status === 403 ? 'users.form.forbidden' : 'users.form.rejected';
     }
 
     errors.value = found;
+    serverErrors.value = sentences;
 }
 
 async function save(): Promise<void> {
@@ -200,11 +268,11 @@ async function save(): Promise<void> {
                     type="text"
                     autocomplete="off"
                     :disabled="saving"
-                    :aria-invalid="errors.name !== undefined"
+                    :aria-invalid="hasError('name')"
                     class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     data-testid="user-form-name"
                 />
-                <span v-if="errors.name !== undefined" class="text-[var(--color-danger)]">{{ t(errors.name) }}</span>
+                <span v-if="hasError('name')" class="text-[var(--color-danger)]">{{ errorText('name') }}</span>
             </label>
 
             <label class="flex flex-col gap-1.5">
@@ -215,11 +283,11 @@ async function save(): Promise<void> {
                     inputmode="email"
                     autocomplete="off"
                     :disabled="saving"
-                    :aria-invalid="errors.email !== undefined"
+                    :aria-invalid="hasError('email')"
                     class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     data-testid="user-form-email"
                 />
-                <span v-if="errors.email !== undefined" class="text-[var(--color-danger)]">{{ t(errors.email) }}</span>
+                <span v-if="hasError('email')" class="text-[var(--color-danger)]">{{ errorText('email') }}</span>
             </label>
 
             <label class="flex flex-col gap-1.5">
@@ -227,7 +295,7 @@ async function save(): Promise<void> {
                 <select
                     v-model="roleId"
                     :disabled="saving || options.length === 0"
-                    :aria-invalid="errors.role_id !== undefined"
+                    :aria-invalid="hasError('role_id')"
                     class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     data-testid="user-form-role"
                 >
@@ -237,7 +305,7 @@ async function save(): Promise<void> {
                 <span v-if="options.length === 0" class="text-[var(--color-text-muted)] text-pretty">
                     {{ t('users.form.noAssignableRoles') }}
                 </span>
-                <span v-if="errors.role_id !== undefined" class="text-[var(--color-danger)]">{{ t(errors.role_id) }}</span>
+                <span v-if="hasError('role_id')" class="text-[var(--color-danger)]">{{ errorText('role_id') }}</span>
             </label>
 
             <label v-if="!isEdit" class="flex flex-col gap-1.5">
@@ -247,12 +315,12 @@ async function save(): Promise<void> {
                     type="password"
                     autocomplete="new-password"
                     :disabled="saving"
-                    :aria-invalid="errors.password !== undefined"
+                    :aria-invalid="hasError('password')"
                     class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     data-testid="user-form-password"
                 />
                 <span class="text-[var(--color-text-muted)]">{{ t('users.form.passwordHint') }}</span>
-                <span v-if="errors.password !== undefined" class="text-[var(--color-danger)]">{{ t(errors.password) }}</span>
+                <span v-if="hasError('password')" class="text-[var(--color-danger)]">{{ errorText('password') }}</span>
             </label>
 
             <p v-else class="text-[var(--color-text-muted)] text-pretty">{{ t('users.form.passwordNotHere') }}</p>

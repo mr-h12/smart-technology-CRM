@@ -482,17 +482,45 @@ final class UserManagementTest extends TestCase
         self::assertFalse(User::query()->where('email', 'nadia@example.test')->firstOrFail()->is_hidden);
     }
 
+    /**
+     * ⚠️ **The `details` entry is asserted, not only the status.**
+     *
+     * This test used to check `422` and nothing else, and that gap is how a
+     * real defect reached the running application on 2026-08-30: the employee
+     * form matched `details[].code` against four `AdministrationRefusal` codes,
+     * none of which a Form Request can emit. `CreateUserRequest` carries
+     * `Rule::unique('users','email')` and a Form Request is validated **before**
+     * the controller runs — so a duplicate address never reaches the use case,
+     * never produces `email_already_taken`, and arrives as
+     * `ApiExceptionRenderer::validation()` writes it. The screen matched
+     * nothing and showed "the change was not accepted" with no field marked,
+     * while the server had already named the field and supplied the sentence.
+     *
+     * So the shape of that entry is a contract the SPA depends on, and a
+     * contract nothing pinned is a contract that drifts.
+     */
     public function test_a_duplicate_live_address_is_refused(): void
     {
         $manager = $this->userWith(RoleName::Manager);
         $existing = $this->userWith(RoleName::IndoorSales, 'taken@example.test');
 
-        $this->withToken($this->tokenFor($manager))->postJson(self::ENDPOINT, [
+        $response = $this->withToken($this->tokenFor($manager))->postJson(self::ENDPOINT, [
             'name' => 'Impostor',
             'email' => $existing->email,
             'password' => 'Str0ngpass',
             'role_id' => $this->roleId(RoleName::IndoorSales),
         ])->assertStatus(422);
+
+        $response->assertJsonPath('error.code', 'validation_failed');
+        $response->assertJsonPath('error.details.0.field', 'email');
+        $response->assertJsonPath('error.details.0.code', 'invalid');
+
+        // `OpenAPI §5.1` requires a message, and the SPA renders this one
+        // rather than composing its own — a validation rule written twice is a
+        // rule whose copy in the screen is the one that goes wrong.
+        $message = $response->json('error.details.0.message');
+        self::assertIsString($message);
+        self::assertNotSame('', trim($message));
 
         self::assertSame(1, User::query()->where('email', 'taken@example.test')->count());
     }

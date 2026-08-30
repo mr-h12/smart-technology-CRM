@@ -4500,6 +4500,58 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       `product_code` (§7.3 declares none). The "hidden from new selection lists" behaviour (`D-37`,
       §10.4) is **not** here — this point only stores the flag; the selection lists are Modules 6/7.
 
+#### Defect fix — ⚠️ unplanned, owner-approved 2026-08-30
+
+- [x] **D-1** The employee form showed "the change was not accepted" for **every** validation error,
+      with no field marked. Reported from the running application: adding an employee with an
+      address that already existed produced the generic banner instead of "that email already
+      belongs to an account".
+      **The backend was correct.** `yousefhasabo@gmail.com` was genuinely already an active row —
+      read out of the dev database, not inferred — so `422` was the right answer. The defect was
+      entirely in how the screen read it.
+      **Root cause.** `CreateUserRequest` carries `Rule::unique('users','email')`, and a Form Request
+      is validated **before** the controller runs. So a duplicate address never reaches the use case
+      and can never produce `AdministrationRefusal::EmailAlreadyTaken` — it arrives as
+      `ApiExceptionRenderer::validation()` writes it: `field: 'email'`, **`code: 'invalid'`**, and the
+      server's own localised sentence. `UserFormModal.applyServerErrors` matched `code` against a
+      hand-written list of four *domain* refusal codes, **none of which a Form Request can emit**, so
+      nothing matched and everything fell through to `_form`. `email_already_taken` was effectively
+      unreachable through that endpoint.
+      **The blast radius was wider than the report.** Every Form Request failure on that form — a
+      name over 255, a malformed address, a short password, a missing role — produced the same
+      generic banner.
+      **Fix:** when a detail names a field, use `ApiError.messageFor(field)` — the server's own
+      sentence, which `api.ts` already exposed for exactly this and which nothing was calling. A
+      recognised domain code still wins, because its sentence was written for that rule; the server
+      message fills the gap. Kept in a **separate** `serverErrors` map rather than merged into
+      `errors`, so a client-side message stays a *key* and keeps re-translating when the person
+      switches AR/EN — merging them would have quietly cost that.
+      **Why it was never caught:** `UserManagementTest::test_a_duplicate_live_address_is_refused`
+      asserted `422` **and nothing else**. The `details[]` shape is a contract the SPA depends on,
+      and a contract nothing pins is a contract that drifts. That test now pins `field`, `code`, and
+      that the message is non-empty.
+      **1631 backend (10309 assertions) · 446 frontend · pint 396 files · PHPStan level 10 clean ·
+      deptrac 0/0 both.**
+      RED: the two new frontend tests failed with the reported symptom in the assertion message
+      ("expected … to contain 'The email has already been taken.'"), while the two **control** tests
+      — a domain refusal, and the banner fallback — passed in RED, as controls pinning existing
+      behaviour are meant to. The strengthened backend test also **passed on the first run**, and
+      that is stated rather than dressed up as a fix: the server was already right.
+      **Two deliberate breaks, neither a deletion:** the renderer's `code => 'invalid'` renamed to
+      `validation_error` → the strengthened backend test failed, proving the new pin works; and the
+      component's `FIELDS` narrowed to `['email']` → failed **exactly** "marks whichever field the
+      server names, not only the email", which is the test written to catch a fix that only handled
+      the reported case. Both restored under `shasum -a 256 -c`.
+      **Problems found:** the first attempt let the server sentence win **over** a recognised domain
+      code, which broke `UsersView.spec.ts`'s existing §5.1 test — a pre-existing test catching a
+      real design error in my change, not a stale expectation. Precedence corrected so the specific
+      sentence wins. That edit also landed after a backend run had started, and since the suite scans
+      `resources/js`, **that run's number was discarded and the suite re-run**.
+      **Not covered:** only the employee form. `CustomerFormModal` and every other form still map
+      errors their own way — the same class of defect may live there and was not audited under this
+      fix. No change to any backend behaviour: the renderer, the codes and the messages are
+      untouched, and only the test around them got stricter.
+
 #### Step 2 — the suppliers API *(point order approved 2026-08-30)*
 
 - [x] **2.1** `GET /suppliers` + `GET /suppliers/{id}` — `OpenAPI §6`'s query contract, `§4.2`'s

@@ -1,10 +1,17 @@
-import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import UserFormModal from '@/components/users/UserFormModal.vue';
 import { MANAGER_MAY_CREATE, assignableBy } from '@/domain/roleAssignment';
+import { ApiError } from '@/api';
+import { createUser } from '@/services/identity';
+
+vi.mock('@/services/identity', () => ({
+    createUser: vi.fn(),
+    updateUser: vi.fn(),
+}));
 
 /**
  * Point 5.2 — §9 Flow 9's employee form, and the role filter §3.11 decides.
@@ -102,5 +109,81 @@ describe('the form', () => {
 
         expect(html).not.toMatch(/class="[^"]*\b(?:ml|mr|pl|pr)-\d/);
         expect(html).not.toMatch(/\btext-(?:left|right)\b/);
+    });
+});
+
+describe('a server refusal lands on the field that caused it', () => {
+    beforeEach(() => {
+        vi.mocked(createUser).mockReset();
+    });
+
+    /**
+     * The defect this suite was extended for, reported from the running app on
+     * 2026-08-30.
+     *
+     * `CreateUserRequest` carries `Rule::unique('users','email')`, and a Form
+     * Request is validated **before** the controller runs — so a duplicate
+     * address never reaches the use case and never produces
+     * `email_already_taken`. It arrives as `ApiExceptionRenderer::validation()`
+     * writes it: `field: 'email'`, `code: 'invalid'`, and the server's own
+     * localised sentence.
+     *
+     * The screen used to match `code` against a hand-written list of four
+     * domain refusals, none of which a Form Request can emit, so every
+     * validation failure fell through to the generic banner with no field
+     * marked. Using the server's sentence is also what stops a validation rule
+     * from being written a second time in a screen.
+     */
+    async function submitWith(error: unknown) {
+        vi.mocked(createUser).mockRejectedValue(error);
+
+        const wrapper = mountForm('super_admin');
+
+        await wrapper.find('[data-testid="user-form-name"]').setValue('test');
+        await wrapper.find('[data-testid="user-form-email"]').setValue('taken@example.test');
+        await wrapper.find('[data-testid="user-form-role"]').setValue('r-indoor');
+        await wrapper.find('[data-testid="user-form-password"]').setValue('Str0ngpass');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        return wrapper;
+    }
+
+    function validationError(field: string, message: string): ApiError {
+        return new ApiError(422, 'validation_failed', ['invalid'], 'validation failed', 'req-1', [
+            { field, code: 'invalid', message },
+        ]);
+    }
+
+    it('shows the server sentence beside the email input, not a generic banner', async () => {
+        const wrapper = await submitWith(validationError('email', 'The email has already been taken.'));
+
+        expect(wrapper.text()).toContain('The email has already been taken.');
+        expect(wrapper.find('[data-testid="user-form-email"]').attributes('aria-invalid')).toBe('true');
+        expect(wrapper.find('[data-testid="user-form-error"]').exists()).toBe(false);
+    });
+
+    it('marks whichever field the server names, not only the email', async () => {
+        const wrapper = await submitWith(validationError('password', 'The password must be at least 8 characters.'));
+
+        expect(wrapper.text()).toContain('The password must be at least 8 characters.');
+        expect(wrapper.find('[data-testid="user-form-password"]').attributes('aria-invalid')).toBe('true');
+    });
+
+    /** A domain refusal carries no `field`, so the hand-written map still earns its place. */
+    it('still maps a domain refusal that names no field', async () => {
+        const wrapper = await submitWith(
+            new ApiError(422, 'business_rule_blocked', ['role_not_assignable'], 'refused', 'req-2', []),
+        );
+
+        expect(wrapper.text()).toContain(en.users.form.roleNotAssignable);
+        expect(wrapper.find('[data-testid="user-form-role"]').attributes('aria-invalid')).toBe('true');
+    });
+
+    /** With nothing to attach it to, the banner is still the right answer. */
+    it('falls back to the banner when the refusal names neither field nor known code', async () => {
+        const wrapper = await submitWith(new ApiError(422, 'validation_failed', [], 'refused', 'req-3', []));
+
+        expect(wrapper.find('[data-testid="user-form-error"]').exists()).toBe(true);
     });
 });

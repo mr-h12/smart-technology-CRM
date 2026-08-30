@@ -25,6 +25,8 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
@@ -158,6 +160,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SupplierDirectoryInterface::class,
             fn (): EloquentSupplierDirectory => new EloquentSupplierDirectory(
+                $this->app->make(SearchService::class),
+            ),
+        );
+
+        // Module 4 Point 3.1. `bind` for the same reasons as the supplier
+        // directory above, and with the same single collaborator: §3.7 covers
+        // the catalog and its suppliers alike, and gives neither a row scope.
+        $this->app->bind(
+            CatalogItemDirectoryInterface::class,
+            fn (): EloquentCatalogItemDirectory => new EloquentCatalogItemDirectory(
                 $this->app->make(SearchService::class),
             ),
         );

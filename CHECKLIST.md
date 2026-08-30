@@ -4672,6 +4672,83 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       code and Design System §6.4's "never colour alone" is Point 4.0's. Nothing in the SPA calls
       either route yet, so a supplier can still only be created with an HTTP client. Deactivation
       does **not** yet hide anything from a selection list — `D-37`/§10.4 is Modules 6/7.
+- [x] **3.1** `GET /catalog-items` + `GET /catalog-items/{id}` — §7.3's catalog behind
+      `catalog.view`, with §7.3's two tabs as `filter[kind]` and `API-06`'s grouping as `group_by`.
+      **The same permission as the suppliers, because §3.7 is one table.** There is no
+      `catalog_item.*` resource in the matrix: §3.7 covers "the catalog and its suppliers" in a
+      single row pair, so a catalog read is authorised by `catalog.view` — the same grant the
+      supplier routes carry. Every grant in it is `Scope::All`, so there is **no row scope**:
+      `CatalogItemDirectoryInterface` takes no scope parameter, the controller reads nothing off the
+      authorisation decision, and the deptrac ruleset needs no `IdentityContract`. The negative test
+      therefore has to **withdraw the seeded grant** again — no role lacks `catalog.view` — which is
+      what proves enforcement reads the database matrix (§3.12 rule 5, `SEC-07`) rather than code.
+      **The two tabs are a filter, not a second route.** Point 1.2 put §7.3's Product and Service in
+      one table behind `kind`, so `filter[kind]=product|service` is the tab. Both build-plan
+      outcomes are asserted separately — a product appears alone under Product, a service alone
+      under Service — and an unset filter lists both.
+      **⚠️ `group_by` needed a response shape no source specifies, and this is that decision.**
+      `API-06` requires server-side grouping "by employee / company", §7.3 groups the catalog "by
+      company/team name", and `OpenAPI §6.2` requires each resource to declare its allowed groups
+      and to answer **400** for any other. What none of them gives is the *shape* of a grouped
+      collection — §4.2 shows exactly one collection envelope. **Decision: `group_by` changes the
+      ordering, not the envelope.** Every row of a company is adjacent, companies alphabetical, the
+      caller's `sort` applied inside each group, `data` still the flat paginated list §4.2
+      describes. A nested `{group, items}` body would have made `API-04`'s `per_page` count
+      something the caller never asked about, and would have given the SPA two shapes to handle for
+      one endpoint. It is still *server-side* grouping: the client names a declared group and can
+      never ask for an arbitrary one. **Awaiting a `D-xx`; `docs/` is untouched.**
+      A row with no company sorts **last** — `nulls last` is stated in the SQL rather than inherited
+      from PostgreSQL's default, because §7.3 leaves `company` optional and the ungrouped rows need
+      a defined place instead of an accidental one.
+      **`ALLOWED_GROUPS = ['company']`, and `unknown_group` is the first detail code this
+      application has published for §6.2's third column.**
+      **The declared filters are three, and each is a documented need**: `kind` (§7.3's tabs),
+      `category` (the one column §7.3 annotates "(for search)"), `is_active` (§3.7's "deactivate").
+      `unit`, `service_type`, `company` and `product_code` are **not** filterable — each would be a
+      product decision nobody has recorded, and each is one line when somebody makes it.
+      `filter[is_active]` is tri-state and unset lists deactivated items too, for the reason Point
+      2.1 gives: §10.4 hides them from **selection lists** (Modules 6/7), not from this management
+      screen, and a screen that hid them by default would be one nobody could reactivate from.
+      **`SearchIndex::Catalog` searches two columns and pushes one filter inside.** `columns()` is
+      `['name', 'category']` — the second is documented rather than guessed, since §7.3 annotates
+      that column "(for search)". `filterable()` is `['kind']`, which is a **departure from
+      Suppliers' empty list and a deliberate one**: `PostgresSearchDriver::MAX_RESULTS = 500` caps
+      before the caller's filters apply, and the tab is not one filter among several — it is which
+      screen the person is looking at. A capped search filled up by products and *then* narrowed to
+      services would show the wrong rows rather than fewer of the right ones, against the build
+      plan's "separate from products". `category` and `is_active` stay outside.
+      **No price on the wire**, asserted as a property of the payload's keys rather than of the
+      schema — the half a future Module 6 join could break without touching a migration.
+      **1695 backend (10780 assertions) · 446 frontend (27 files) · `npm run build` clean · pint 412
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **38 failed, 0 passed** — nothing passed for a wrong reason.
+      **Two deliberate breaks, neither a deletion:** (1) `nulls last` → `nulls first`, the plausible
+      other reading of where an ungrouped row belongs → failed **exactly** the one grouping test
+      that pins it, and no other; (2) the search's `kind` filter made unconditional rather than
+      conditional — the plausible simplification — → failed **exactly** the three search tests that
+      pass no tab, because the driver reads a null filter value as `is null`. Both restored,
+      confirmed with `shasum -a 256 -c`. The **deptrac ruleset was proved load-bearing** the same
+      way: reverting `Catalog` to `~` produced **17 violations**, restoring it produced 0.
+      **Problems found:** PHPStan level 10 refused `orderByRaw('catalog_items.'.$group.' …')` —
+      it requires a `literal-string`, and an allowlisted column concatenated in is still not one.
+      Rewritten as a `match` whose one arm is the literal and whose `default` throws; the default is
+      unreachable today and exists so that adding a group to `ALLOWED_GROUPS` without an ordering
+      fails loudly instead of being silently ignored. That edit landed after a completed gate run,
+      so **every backend number above is from the re-run**, not the voided one. Assertion delta
+      reconciled to the unit: **305** (this file) + **11** (`NoHardCodedTextTest`, one per new `app/`
+      PHP file) + **2** (`EndToEndConnectivityTest`, one per registered route) = 318, and
+      10462 + 318 = 10780. `AuditEnforcementTest` was run and read, not predicted: it needed **no**
+      new register entry, which is correct for a point that publishes two GET routes and no writer.
+      **Not covered:** no write route — `POST`/`PATCH` are Point 3.2, and **no catalog edit is
+      audited yet**, so `D-45`'s mitigation is not in place for the catalog. The kind-conditional
+      rules (a product needs a `unit`, a service a `service_type`) are **not enforced anywhere yet**:
+      Point 1.2 deliberately left them out of the schema and Point 3.2's Form Request is the only
+      place they will live. `unit` and `service_type` are still unvalidated against
+      `ManagedList::Units` / `ManagedList::ServiceTypes` on read, because nothing writes them.
+      Nothing in the SPA calls either route — the catalog screen is Point 4.3. `group_by` is
+      declared for **one** group; §7.3's grouping "by company/team name" is served, `API-06`'s
+      "by employee" is not, and no catalog column holds an employee. The 500-row search cap is
+      unchanged and remains Module 15's to lift.
 
 **Acceptance criteria**
 - [ ] New product appears under the Product tab, grouped by company

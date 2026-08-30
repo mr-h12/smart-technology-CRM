@@ -6,6 +6,8 @@ use App\Http\Middleware\ForgetResolvedGuards;
 use App\Http\Middleware\SetLocaleFromRequest;
 use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
+use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
@@ -173,6 +175,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (SupplierNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::supplierNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (InvalidCatalogItemListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidCatalogItemListQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (CatalogItemNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::catalogItemNotFound($e, $request)
                 : null,
         );
 

@@ -8,6 +8,7 @@ use App\Modules\Admin\Presentation\FxRateController;
 use App\Modules\Admin\Presentation\ManagedListController;
 use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Admin\Presentation\SystemLimitController;
+use App\Modules\Catalog\Presentation\CatalogItemController;
 use App\Modules\Customers\Presentation\CustomerController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
@@ -481,4 +482,32 @@ Route::middleware('auth')->prefix('suppliers')->group(function (): void {
 
     Route::patch('/{supplier}', [SupplierController::class, 'update'])
         ->middleware('permission:catalog.manage');
+});
+
+// §7.3's catalog — Module 4 Point 3.1.
+//
+// The same two permissions as the supplier group above, because §3.7 is **one**
+// table covering the catalog and its suppliers: there is no `catalog_item.*`
+// resource in the matrix, and a catalog read is authorised by `catalog.view`.
+//
+// **No scope argument**, for the reason the supplier group gives: every grant
+// in §3.7 is `Scope::All`, so there is no narrower scope for anyone to hold.
+//
+// ⚠️ The same §3.7-vs-§8 divergence applies here and lands differently. §8
+// gives the Outdoor Supervisor a Catalog screen and no Suppliers, and gives the
+// CEO neither — while §3.7 grants both roles `catalog.view`. The API follows
+// §3.7 (§3.12 rule 1 makes the API the enforcement point); the sidebar is
+// Point 4.3's decision, and the divergence is recorded in `CHECKLIST.md`
+// awaiting a `D-xx`.
+//
+// Two GET routes and nothing else at this point. `POST` and `PATCH` are Point
+// 3.2's, and there is **no DELETE at any permission**: §3.12 rule 3 forbids
+// hard-deleting catalog data and `catalog.delete` is seeded with an empty grant
+// array, so no role can ever hold it. Deactivation is `is_active` on the row.
+Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
+    Route::get('/', [CatalogItemController::class, 'index'])
+        ->middleware('permission:catalog.view');
+
+    Route::get('/{catalogItem}', [CatalogItemController::class, 'show'])
+        ->middleware('permission:catalog.view');
 });

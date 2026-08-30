@@ -1,0 +1,151 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Catalog\Infrastructure;
+
+use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
+use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
+use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
+use App\Modules\Catalog\Infrastructure\Eloquent\CatalogItem;
+use App\Support\Search\SearchIndex;
+use App\Support\Search\SearchService;
+use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use InvalidArgumentException;
+
+/**
+ * {@see CatalogItemDirectoryInterface} over `catalog_items`.
+ *
+ * ── `q` goes through `SearchService`, and narrows rather than replaces ─────
+ *
+ * `D-48` and `OpenAPI §6.2`: the free-text parameter "always passes through
+ * `SearchService`". The service answers with **ids**, which are intersected
+ * with the query already built here — so a search can only ever shrink the set,
+ * never widen it past a filter the caller asked for.
+ *
+ * ⚠️ **The inherited ceiling, and the one filter pushed inside it.**
+ * `PostgresSearchDriver` caps at `MAX_RESULTS = 500`, so a `q` matching more
+ * than 500 rows is truncated *before* this class applies `filter[...]`.
+ * `filter[kind]` is therefore passed **into** the search rather than applied
+ * after it: §7.3's two tabs are separate screens and the build plan asks that a
+ * service appear "separate from products", so a truncated search inside the
+ * Service tab that had been filled up by products would show the wrong rows
+ * rather than fewer of the right ones. `category` and `is_active` are left
+ * outside — neither splits the screen in two, and the cap is the driver's
+ * ceiling to lift in Module 15, not this point's.
+ */
+final readonly class EloquentCatalogItemDirectory implements CatalogItemDirectoryInterface
+{
+    public function __construct(private SearchService $search) {}
+
+    public function list(CatalogItemListCriteria $criteria): CatalogItemPage
+    {
+        $query = CatalogItem::query();
+
+        $this->applyFilters($query, $criteria);
+
+        $total = $query->count();
+
+        // `API-06`'s grouping, expressed as the first ordering key so every row
+        // of a company is adjacent and the caller's `sort` still applies inside
+        // each group. `nulls last` is stated rather than inherited: §7.3 leaves
+        // `company` optional, so the ungrouped rows need a defined place.
+        // The column is one of `ALLOWED_GROUPS`, checked before it reaches here.
+        if ($criteria->groupBy !== null) {
+            // Written out per group rather than concatenated. PHPStan level 10
+            // requires `orderByRaw` to receive a `literal-string`, and a `match`
+            // is the honest way to give it one: the allowlist is already checked
+            // in `CatalogItemListCriteria`, so the default arm is unreachable —
+            // its job is to fail loudly if a group is ever added to
+            // `ALLOWED_GROUPS` without an ordering to go with it, rather than to
+            // let the endpoint accept a group it then silently ignores.
+            $query->orderByRaw(match ($criteria->groupBy) {
+                'company' => 'catalog_items.company asc nulls last',
+                default => throw new InvalidArgumentException(
+                    'No ordering is defined for the declared group `'.$criteria->groupBy.'`.'
+                ),
+            });
+        }
+
+        foreach ($criteria->sorts as $sort) {
+            $query->orderBy('catalog_items.'.$sort['field'], $sort['descending'] ? 'desc' : 'asc');
+        }
+
+        // A deterministic tiebreak. Two items with the same name would otherwise
+        // page non-deterministically: PostgreSQL is free to return equal sort
+        // keys in any order, so a row can appear on page 1 and page 2 of the
+        // same listing, or on neither.
+        $query->orderBy('catalog_items.id');
+
+        $rows = $query->offset($criteria->offset())->limit($criteria->perPage)->get();
+
+        $items = [];
+
+        foreach ($rows as $row) {
+            $items[] = self::hydrate($row);
+        }
+
+        return new CatalogItemPage($items, $total, $criteria->page, $criteria->perPage);
+    }
+
+    public function find(string $catalogItemId): ?CatalogItemSummary
+    {
+        $row = CatalogItem::query()->whereKey($catalogItemId)->first();
+
+        return $row === null ? null : self::hydrate($row);
+    }
+
+    /** @param Builder<CatalogItem> $query */
+    private function applyFilters(Builder $query, CatalogItemListCriteria $criteria): void
+    {
+        if ($criteria->kind !== null) {
+            $query->where('catalog_items.kind', $criteria->kind);
+        }
+
+        if ($criteria->category !== null) {
+            $query->where('catalog_items.category', $criteria->category);
+        }
+
+        // Tri-state: unset lists both. See `CatalogItemListCriteria` for why.
+        if ($criteria->isActive !== null) {
+            $query->where('catalog_items.is_active', $criteria->isActive);
+        }
+
+        if ($criteria->q !== null) {
+            $query->whereIn(
+                'catalog_items.id',
+                $this->search->search(
+                    SearchIndex::Catalog,
+                    $criteria->q,
+                    // Only when it was asked for: the driver reads a null value
+                    // as `is null`, so an unconditional key would search for the
+                    // rows that have no tab at all.
+                    $criteria->kind === null ? [] : ['kind' => $criteria->kind],
+                ),
+            );
+        }
+    }
+
+    private static function hydrate(CatalogItem $row): CatalogItemSummary
+    {
+        return new CatalogItemSummary(
+            id: $row->id,
+            kind: $row->kind,
+            name: $row->name,
+            productCode: $row->product_code,
+            category: $row->category,
+            unit: $row->unit,
+            serviceType: $row->service_type,
+            company: $row->company,
+            description: $row->description,
+            notes: $row->notes,
+            isActive: $row->is_active,
+            // `DB-08`: stored UTC. The immutable copies keep a caller from
+            // mutating the model's Carbon instance through the read model.
+            createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),
+            updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),
+        );
+    }
+}

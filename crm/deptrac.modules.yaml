@@ -224,7 +224,25 @@ parameters:
       - Framework
       - SharedContracts
       - AuditContract
-    Catalog: ~
+    # Catalog → Framework, SharedContracts, added 2026-08-30 with Point 3.1,
+    # the module's first endpoint. The same two entries Suppliers was granted,
+    # and for the same reasons — a controller and an Eloquent model are
+    # framework objects by definition, and `App\Support\Http`'s envelope and
+    # `D-48`'s `SearchService` are what `SharedContracts` exists to publish.
+    #
+    # **No `IdentityContract`**, on exactly Suppliers' terms: §3.7 is one table
+    # covering the catalog *and* its suppliers, and every grant in it is
+    # `Scope::All`. This module never asks Identity anything; the route's
+    # `permission:catalog.view` middleware is the enforcement (§3.12 rule 1)
+    # and it runs before the controller.
+    #
+    # **No `AuditContract`** either: Point 3.1 publishes two GET routes and
+    # `AUD-01` records writes. Point 3.2 adds the writes and will need it —
+    # `D-45` makes it load-bearing there, since opening catalog editing to
+    # every employee is mitigated by *"every edit is written to the audit log"*.
+    Catalog:
+      - Framework
+      - SharedContracts
     Procurement: ~
     Outdoor: ~
     Reports: ~

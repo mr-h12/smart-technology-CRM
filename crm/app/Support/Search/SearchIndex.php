@@ -25,6 +25,9 @@ enum SearchIndex: string
     /** §7.1's suppliers, searched by the Module 4 Point 2.1 list endpoint. */
     case Suppliers = 'suppliers';
 
+    /** §7.3's catalog, searched by the Module 4 Point 3.1 list endpoint. */
+    case Catalog = 'catalog_items';
+
     public function table(): string
     {
         return $this->value;
@@ -54,6 +57,14 @@ enum SearchIndex: string
             // same unrecorded product decision the note above describes, so the
             // floor is the same here: one column, one line to change.
             self::Suppliers => ['name'],
+
+            // Two columns, and the second one is documented rather than
+            // guessed: §7.3 annotates the column "Category (for search)",
+            // which is the enumeration the note above says no source gives
+            // for the other tables. `product_code`, `company` and the two
+            // descriptions have no such annotation and stay out until one
+            // exists.
+            self::Catalog => ['name', 'category'],
         };
     }
 
@@ -87,6 +98,17 @@ enum SearchIndex: string
             // governs a selection list in Modules 6/7, not this screen — so no
             // supplier filter is always on, and none has to go inside.
             self::Suppliers => [],
+
+            // **`kind`, and only `kind`.** §7.3 publishes "Two tabs: Product ·
+            // Service" and the build plan asks that a service appear
+            // "separate from products" — so the tab is not one filter among
+            // several, it is which screen the person is looking at. A capped
+            // search filled up by products and *then* narrowed to services
+            // would show the wrong rows rather than fewer of the right ones,
+            // which is exactly the failure this list exists to prevent.
+            // `category` and `is_active` are optional refinements on one
+            // screen and stay outside.
+            self::Catalog => ['kind'],
         };
     }
 }

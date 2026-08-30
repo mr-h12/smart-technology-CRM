@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Support\Http;
 
 use App\Modules\Admin\Domain\Listing\InvalidListingQuery;
+use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
+use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
@@ -326,6 +328,48 @@ final class ApiExceptionRenderer
      * future scope arrives at a handler that already cannot leak.
      */
     public static function supplierNotFound(SupplierNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * Module 4's catalog list query, on the same two contract rows as the four
+     * above — and the first to reject a `group_by`.
+     *
+     * A fifth method for a fifth exception, for the reason the third one gives:
+     * each lives in its own module's Domain, and Domain may depend on nothing
+     * — probed, not assumed. The rendered shape is identical on purpose: one
+     * envelope for one contract, whichever module produced it.
+     */
+    public static function invalidCatalogItemListQuery(InvalidCatalogItemListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidCatalogItemListQuery::ERROR_CODE,
+            (string) __('catalog.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a catalog item that is not there.
+     *
+     * Identical in shape to {@see self::supplierNotFound()} and for the same
+     * reason: §3.7 grants every role `Scope::All`, so only one of §5.1's two
+     * cases can produce it, and the handler is shaped for both anyway so that a
+     * future scope arrives somewhere that already cannot leak.
+     */
+    public static function catalogItemNotFound(CatalogItemNotFound $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,

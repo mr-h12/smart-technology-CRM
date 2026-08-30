@@ -87,7 +87,8 @@
             "accountSecurity": "أمان الحساب",
             "settings": "إعدادات النظام",
             "managedLists": "القوائم المُدارة",
-            "customers": "العملاء"
+            "customers": "العملاء",
+            "suppliers": "الموردون"
         }
     },
     "theme": {
@@ -645,6 +646,53 @@
             "yellow": "متوسط",
             "red": "غير موثوق",
             "white": "غير مُقيَّم"
+        },
+        "title": "الموردون",
+        "loading": "جارٍ تحميل الموردين…",
+        "total": "لا موردين | مورد واحد | {count} موردًا",
+        "filter": {
+            "search": "بحث",
+            "searchAction": "ابحث",
+            "rating": "التقييم",
+            "ratingAll": "كل التقييمات",
+            "type": "النوع",
+            "typeAll": "كل الأنواع",
+            "active": "الحالة",
+            "activeAll": "المفعَّل وغير المفعَّل"
+        },
+        "column": {
+            "name": "المورد",
+            "rating": "التقييم",
+            "type": "النوع",
+            "contact": "مسؤول التواصل",
+            "phone": "الهاتف",
+            "account": "حساب مفتوح",
+            "status": "الحالة",
+            "added": "تاريخ الإضافة"
+        },
+        "type": {
+            "supplier": "مورد",
+            "distributor": "موزّع"
+        },
+        "status": {
+            "active": "مفعَّل",
+            "inactive": "غير مفعَّل"
+        },
+        "account": {
+            "open": "نعم",
+            "none": "لا"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا مورد مطابق",
+                "message": "غيّر البحث أو المرشّحات ثم أعد المحاولة."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الموردين",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} · {total} إجمالًا"
         }
     }
 }

@@ -97,6 +97,13 @@ final class NoHardCodedTextTest extends TestCase
                 // a word — and the word comes from `suppliers.rating.*` in both
                 // dictionaries rather than from the template.
                 'SupplierRatingChip.vue',
+                // Module 4 Point 4.1 — §8's Suppliers screen. Added on the same
+                // terms: the scan below was run against it first and passed.
+                // Its two closed sets — §7.1's four colours and two types —
+                // are stored codes in the template and localised words in the
+                // dictionaries, which is why the codes appear in the source and
+                // no sentence does.
+                'SuppliersView.vue',
                 // Module 2 Point 5.3 — §13 screen 6, on the same terms.
                 'SystemLimitsView.vue',
                 // Module 2 Point 5.1 — §13 screen 4. Added to this list only

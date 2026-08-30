@@ -8,6 +8,7 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
 use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
+use App\Modules\Catalog\Domain\Writing\CatalogItemDraft;
 use App\Modules\Catalog\Infrastructure\Eloquent\CatalogItem;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
@@ -95,6 +96,40 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
         $row = CatalogItem::query()->whereKey($catalogItemId)->first();
 
         return $row === null ? null : self::hydrate($row);
+    }
+
+    public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary
+    {
+        $row = new CatalogItem;
+        $row->fill($draft->attributes);
+
+        // `DB-02`. No model observer fills these: one guessing the actor would
+        // be wrong in exactly the cases that matter, so it is passed in from
+        // the request instead — the same arrangement Modules 3 and 4 use.
+        $row->created_by = $actorId;
+        $row->updated_by = $actorId;
+        $row->save();
+
+        // `is_active` is filled by the column's own DEFAULT (Point 1.2), so the
+        // in-memory model still holds null for it until it is read back.
+        $row->refresh();
+
+        return self::hydrate($row);
+    }
+
+    public function update(string $catalogItemId, CatalogItemDraft $draft, string $actorId): ?CatalogItemSummary
+    {
+        $row = CatalogItem::query()->whereKey($catalogItemId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->fill($draft->attributes);
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row->refresh());
     }
 
     /** @param Builder<CatalogItem> $query */

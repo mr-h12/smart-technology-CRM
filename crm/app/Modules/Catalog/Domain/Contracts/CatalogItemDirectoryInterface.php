@@ -7,6 +7,7 @@ namespace App\Modules\Catalog\Domain\Contracts;
 use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
 use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
+use App\Modules\Catalog\Domain\Writing\CatalogItemDraft;
 
 /**
  * The `catalog_items` table as §8's Catalog screen needs to read it.
@@ -29,4 +30,10 @@ interface CatalogItemDirectoryInterface
 
     /** Null when the row is absent or soft-deleted. */
     public function find(string $catalogItemId): ?CatalogItemSummary;
+
+    /** Point 3.2. */
+    public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary;
+
+    /** Null on the same case as {@see find()} — absent or soft-deleted. */
+    public function update(string $catalogItemId, CatalogItemDraft $draft, string $actorId): ?CatalogItemSummary;
 }

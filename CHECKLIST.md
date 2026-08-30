@@ -3906,14 +3906,65 @@ Excel import · "customers of deactivated employees" filter
       with a `ponytail:` comment naming the chunking upgrade. `customer_status` is still never
       derived, and **there is no import screen** — Point 4.5's.)*
 
-#### Step 4 — screens *(approved 2026-08-29)*
+#### Step 4 — screens *(re-decomposed and approved 2026-08-30; supersedes the five-point list of 2026-08-29)*
 
-- [ ] **4.1** the role-filtered list, both filters, four states, RTL/LTR
-- [ ] **4.2** add/edit form — sector from the managed lists, region free text with suggestions
-      (`D-20`), the yellow duplicate warning
-- [ ] **4.3** detail page
-- [ ] **4.4** archive, individually and select-all
-- [ ] **4.5** the `.csv` import screen
+The owner approved an eight-point decomposition after the sources were read: `4.0` was split out of
+`4.1` (a catalogue and a route are not a screen), and **`4.5a` is new** — Flow 7's select-all restore
+has no endpoint, and a screen cannot be built on one that does not exist.
+
+- [x] **4.0** `services/customers.ts` · the route · the sidebar item
+      *(**The catalogue is the eight endpoints Step 3 built, and nothing else.** `D-67`: the SPA
+      consumes `/api/v1` and never owns a calculation, a permission decision or a state transition,
+      so every rule this file could restate — who may archive, which scope reaches which row, what
+      makes a record incomplete — stays the server's.
+      **The query shape is `CustomerListCriteria`'s.** `OpenAPI §6.2` answers an unknown filter with
+      a 400 and `ALLOWED_FILTERS` is closed at five, so an unset filter is **omitted** rather than
+      sent empty. `false` is a filter and `null` is the absence of one — `filter[is_archived]=false`
+      asks for the unarchived, which is a different question from "do not filter on this".
+      **`api.ts` gained two things, both measured first.** `request()` JSON-stringifies every body
+      and pins `Content-Type: application/json`, so a `FormData` would have arrived as `{}` — hence
+      `apiUpload()`, which omits the header so the browser writes its own multipart boundary. And
+      `collection<T>()` moved out of `identity.ts` into `api.ts` rather than being copied a second
+      time; `identity.ts` now imports it. One unwrapper, one pagination fallback.
+      **The screen is real, not a placeholder.** `navigation.ts` states the rule — "a dead link is
+      not a permission problem, it is a lie" — so the sidebar item added here resolves to a screen
+      that calls `GET /customers` and renders Design System §5.2's loading, empty, error and
+      permission-denied states. The table, the filters, the sort and the paginator are 4.1 and 4.2.
+      A 403 and a 500 get different screens: one is a boundary, the other is a fault (`SEC-09`).
+      **The route names `customer.view` and no scope** — §3.3's scope is answered per row by
+      `CustomerRowScope`, and a guard naming one would refuse five of the six roles §8 lists.
+      **Two guards fired, and both were right.** (1) `guards.spec.ts` asserted that an Indoor Sales
+      caller lands on the fallback *"while §8's screen has not been built"* — it is built now, so the
+      redirect reaches `customers`, exactly as `LANDING_ROUTE`'s docblock promised: "each module
+      lands by registering its route, not by editing this file". The map was **not** edited.
+      (2) `RoleLandingTest` failed with its own instructions — *"'customers' is now a registered
+      route… remove it from this assertion and confirm the landing redirect is exercised by
+      guards.spec.ts"* — so it gained a `BUILT` list and the fallback is still asserted for every
+      role whose §8 screen is unbuilt.
+      **17 tests · 1548 backend · 368 frontend.** RED first: **2 test files failed to resolve, 0
+      tests ran** — the honest RED for a module that does not exist yet, and therefore one that
+      proves nothing on its own, which is why the breaks below matter more than usual.
+      **Four deliberate breaks, each restored byte-identical (`shasum -a 256 -c` → `OK`).** ⚠️ **The
+      first one passed** — the filter-omission test could not fail, because it only ever passed
+      `sector` and `q` and never a `null` boolean, so the defect it existed to catch was untested.
+      The test was strengthened (and a second added for `false`), then the same break failed it
+      correctly. The other three: the multipart header pinned back to JSON (1 failed) · the 403
+      branch collapsed into the error state (1 failed) · a landing route claimed `BUILT` but not
+      registered (1 failed).
+      **Problems found:** the vacuous test above, and nothing else.
+      **Not covered:** no table, no filters, no sort, no paginator, no row actions — 4.1 and 4.2. No
+      *My Customers* item for the Team Leader (§8 names one; it is an open question, and their scope
+      reaches nothing today anyway). The list body is a plain `<ul>` that 4.1 replaces.)*
+- [ ] **4.1** the list screen — §5.2's table, server-side sort, the paginator, column priorities
+- [ ] **4.2** the filters and the search — `customer_status` · `sector` · `is_incomplete` ·
+      §10.1's `owner_inactive` · `q`
+- [ ] **4.3** add/edit form — sector from the managed lists, region free text with suggestions
+      (`D-20`), the yellow duplicate warning, 422 `details` bound to the fields
+- [ ] **4.4** detail page — summary first, related second, actions by permission
+- [ ] **4.5** the archive screen — archive and restore individually, select-all restore
+- [ ] **4.5a** ⚠️ **backend**: bulk restore, `OpenAPI §7.3`'s shape (`{"ids": [...]}`, per-record
+      results, no bypass of the row scope). Documented in Flow 7 and not built; **4.5 needs it**
+- [ ] **4.6** the `.csv` import screen — the four counts, and a link to the incomplete filter
 
 > **Out of scope for Module 3, stated so it is not looked for here.** Customer-status derivation
 > (`recompute_customer_status` → Module 5) · excluding incomplete records from financial reports

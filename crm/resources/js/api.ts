@@ -23,6 +23,13 @@ export interface EnvelopeMeta {
     request_id?: string;
     /** `OpenAPI §4.2` — present on every list endpoint, absent on a single resource. */
     pagination?: Pagination;
+    /**
+     * `meta` is open by §4.1, and an endpoint may add to it: `D-35`'s
+     * `similar_customers` is the first. Declared as `unknown` so a reader has
+     * to narrow rather than trust — the alternative is every service editing
+     * this interface for a key only it knows about.
+     */
+    [key: string]: unknown;
 }
 
 export interface Envelope<T> {
@@ -168,6 +175,45 @@ export async function apiDelete<T>(path: string): Promise<ApiResult<T>> {
     return request<T>('DELETE', path);
 }
 
+/**
+ * A multipart upload — the one call shape `request()` cannot make.
+ *
+ * Measured, not assumed: `request()` JSON-stringifies every body and pins
+ * `Content-Type: application/json`, so a `FormData` would arrive as `{}`. The
+ * header is deliberately **absent** here: the browser writes
+ * `multipart/form-data` with the boundary it generated, and a hand-written one
+ * would have the wrong boundary.
+ *
+ * Everything else is `request()`'s: the bearer token, `Accept-Language`,
+ * §4.1's envelope, §5's error shape and `D-29`'s unauthorized handler.
+ */
+export async function apiUpload<T>(path: string, form: FormData): Promise<ApiResult<T>> {
+    return request<T>('POST', path, form);
+}
+
+/**
+ * `OpenAPI §4.2`'s collection envelope, unwrapped once for every service.
+ *
+ * The pagination fallback matters: a client that computed the total from the
+ * rows it received would report the page size as the total, which is the
+ * defect §4.2 avoids by sending all six keys.
+ */
+export function collection<T>(result: ApiResult<unknown>): { items: T[]; pagination: Pagination } {
+    const items = Array.isArray(result.data) ? (result.data as T[]) : [];
+
+    return {
+        items,
+        pagination: result.meta.pagination ?? {
+            page: 1,
+            per_page: items.length,
+            total: items.length,
+            total_pages: 1,
+            has_next_page: false,
+            has_previous_page: false,
+        },
+    };
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
     const token = bearerToken();
 
@@ -187,14 +233,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         headers.Authorization = `Bearer ${token}`;
     }
 
-    if (body !== undefined) {
+    // FormData writes its own `Content-Type`, boundary included. Setting one
+    // here would name a boundary the body does not use, and the server would
+    // read zero parts.
+    const multipart = body instanceof FormData;
+
+    if (body !== undefined && !multipart) {
         headers['Content-Type'] = 'application/json';
     }
 
     const response = await fetch(`/api/v1${path}`, {
         method,
         headers,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
     });
 
     const requestId = response.headers.get('X-Request-Id');

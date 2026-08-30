@@ -88,22 +88,52 @@ final class RoleLandingTest extends TestCase
         }
     }
 
+    /**
+     * Landing targets whose module has shipped its screen.
+     *
+     * One entry per registered landing route, added by the point that registers
+     * it. `customers` — §8's first screen for Indoor Sales — arrived with
+     * Module 3 Point 4.0.
+     *
+     * @var list<string>
+     */
+    private const BUILT = ['customers'];
+
+    /**
+     * The landing targets a module has **not** built yet, which must still fall back.
+     *
+     * ⚠️ **`customers` left this list with Module 3 Point 4.0**, which is what
+     * the assertion below told whoever registered it to do — and the other half
+     * of that instruction was carried out too: `guards.spec.ts` now asserts that
+     * an Indoor Sales caller redirected off `/login` lands on `customers`, and
+     * that a Manager still lands on the fallback.
+     *
+     * Everything else remains unbuilt: Dashboard is Module 14, Deals Module 5,
+     * Visits Module 12, §13's administration later still. `landingRouteFor`
+     * falls back rather than redirecting into a blank screen — `navigation.ts`
+     * calls that defect by its name: "a dead link is not a permission problem,
+     * it is a lie".
+     *
+     * This asserts the gap rather than hiding it. When the next module lands,
+     * this test fails and its module is added to `BUILT` in the same commit.
+     */
     public function test_the_landing_targets_are_honest_about_not_existing_yet(): void
     {
-        // Dashboard is Module 14, Customers Module 3, Deals Module 5, Visits
-        // Module 12, §13's administration later still. None of them is
-        // registered, and `landingRouteFor` falls back rather than redirecting
-        // into a blank screen — `navigation.ts` calls that defect by its name:
-        // "a dead link is not a permission problem, it is a lie".
-        //
-        // This asserts the gap rather than hiding it. When a module lands, this
-        // test fails and is updated in the same commit that registers the route.
         $router = self::read(base_path(self::ROUTER));
         $registered = self::registeredRouteNames($router);
 
         foreach (self::landingRoutes() as $roleSlug => $target) {
+            if (in_array($target, self::BUILT, true)) {
+                // Registered on purpose, and exercised by guards.spec.ts. The
+                // route still has to exist, or the redirect is a blank screen.
+                self::assertContains($target, $registered,
+                    "'{$target}' is listed as built but the router does not register it.");
+
+                continue;
+            }
+
             self::assertNotContains($target, $registered,
-                "'{$target}' is now a registered route for {$roleSlug}. Remove it from this assertion "
+                "'{$target}' is now a registered route for {$roleSlug}. Add it to BUILT "
                 .'and confirm the landing redirect is exercised by guards.spec.ts.');
         }
 

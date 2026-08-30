@@ -21,6 +21,7 @@ import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
+import CustomersView from '@/pages/customers/CustomersView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -85,6 +86,16 @@ export const routes: RouteRecordRaw[] = [
         name: 'home',
         component: Ping,
         meta: { requiresAuth: true, titleKey: 'nav.item.home' },
+    },
+    {
+        // §8's *Customers* screen — Manager · Team Leader · Outdoor Supervisor ·
+        // Outdoor Sales · Indoor Sales · CEO. `customer.view` and no scope: the
+        // scope is answered per row by `CustomerRowScope`, and a guard naming
+        // one would refuse five of the six roles the section lists.
+        path: '/customers',
+        name: 'customers',
+        component: CustomersView,
+        meta: { requiresAuth: true, requiredPermission: 'customer.view', titleKey: 'customers.title' },
     },
     {
         // §8's *Employees* screen. `admin.create_user` and not a `user.view.*`

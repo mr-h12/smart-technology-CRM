@@ -77,7 +77,8 @@
         "close": "إغلاق التنقّل",
         "group": {
             "system": "النظام",
-            "administration": "الإدارة"
+            "administration": "الإدارة",
+            "sales": "المبيعات"
         },
         "item": {
             "home": "تشخيص النظام",
@@ -85,7 +86,8 @@
             "roles": "الأدوار والصلاحيات",
             "accountSecurity": "أمان الحساب",
             "settings": "إعدادات النظام",
-            "managedLists": "القوائم المُدارة"
+            "managedLists": "القوائم المُدارة",
+            "customers": "العملاء"
         }
     },
     "theme": {
@@ -523,5 +525,9 @@
             "next": "التالي",
             "position": "صفحة {page} من {pages} — {total} بندًا"
         }
+    },
+    "customers": {
+        "title": "العملاء",
+        "total": "لا عملاء | عميل واحد | {count} عملاء"
     }
 }

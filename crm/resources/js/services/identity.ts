@@ -8,7 +8,7 @@
  *
  * Nothing here decides anything. Every function is one request (`D-67`).
  */
-import { apiDelete, apiGet, apiPatch, apiPost, type ApiResult, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, collection, type Pagination } from '@/api';
 
 /** `UserPayload::of()`. No `password`, and no `is_hidden` — §3.12 rule 6. */
 export interface AdministeredUser {
@@ -434,18 +434,4 @@ async function allPages<T>(path: string): Promise<T[]> {
     return items;
 }
 
-function collection<T>(result: ApiResult<unknown>): Page<T> {
-    const items = Array.isArray(result.data) ? (result.data as T[]) : [];
 
-    return {
-        items,
-        pagination: result.meta.pagination ?? {
-            page: 1,
-            per_page: items.length,
-            total: items.length,
-            total_pages: 1,
-            has_next_page: false,
-            has_previous_page: false,
-        },
-    };
-}

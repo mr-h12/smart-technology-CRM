@@ -51,6 +51,25 @@ export interface NavigationGroup {
 
 export const NAVIGATION: readonly NavigationGroup[] = [
     {
+        // §5.1: "group navigation by business module". Customers is the first
+        // business module to land, and Deals, Quotations and the rest join this
+        // group as they arrive — which is why it is not called "Customers".
+        labelKey: 'nav.group.sales',
+        items: [
+            {
+                // §8 puts *Customers* on six roles' screens; the permission is
+                // §3.3's `view` row, which is what `GET /customers` names.
+                // Scope is deliberately absent: a caller holding `own` must
+                // still reach the screen and see their own rows, so naming a
+                // scope here would hide it from five of the six.
+                name: 'customers',
+                labelKey: 'nav.item.customers',
+                icon: 'M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 7c0-2.8 2.7-5 6-5s6 2.2 6 5v1H4z',
+                permission: 'customer.view',
+            },
+        ],
+    },
+    {
         labelKey: 'nav.group.administration',
         items: [
             {

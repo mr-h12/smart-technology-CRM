@@ -116,10 +116,34 @@ describe('an authenticated visitor', () => {
         expect(router.currentRoute.value.name).not.toBe('login');
     });
 
-    it('lands on the fallback while §8\'s screen has not been built', async () => {
-        // §8 opens Indoor Sales with *Customers*, which is Module 3. Until that
-        // route is registered, redirecting to it would be a blank screen.
+    /**
+     * ⚠️ **Changed by Module 3 Point 4.0, and the change is the point.**
+     *
+     * This test used to assert `home` *"while §8's screen has not been built"*.
+     * §8 opens Indoor Sales with *Customers* and `LANDING_ROUTE.indoor_sales`
+     * has said `'customers'` since Point 5.1; `landingRouteFor` resolved it to
+     * the fallback only because the route was not registered. Registering it is
+     * what 4.0 did, so the redirect now reaches §8's own screen — the mapping
+     * was never edited, which is exactly what its docblock promised: "each
+     * module lands by registering its route, not by editing this file".
+     */
+    it('lands on §8\'s own first screen once that route is registered', async () => {
         const router = await freshRouter(PROFILE);
+
+        await router.push('/login');
+
+        expect(router.currentRoute.value.name).toBe('customers');
+    });
+
+    /** The fallback still has to work, and every other role's §8 screen is still unbuilt. */
+    it('still lands on the fallback for a role whose §8 screen does not exist yet', async () => {
+        // §8 opens the Manager with *Dashboard*, which is Module 14.
+        const router = await freshRouter({
+            ...PROFILE,
+            name: 'Test Manager',
+            email: 'manager@example.test',
+            role: { id: '01a0-manager', slug: 'manager', name: 'Manager' },
+        });
 
         await router.push('/login');
 

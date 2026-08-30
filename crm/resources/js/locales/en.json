@@ -77,7 +77,8 @@
         "close": "Close navigation",
         "group": {
             "system": "System",
-            "administration": "Administration"
+            "administration": "Administration",
+            "sales": "Sales"
         },
         "item": {
             "home": "System diagnostics",
@@ -85,7 +86,8 @@
             "roles": "Roles & Permissions",
             "accountSecurity": "Account security",
             "settings": "System settings",
-            "managedLists": "Managed Lists"
+            "managedLists": "Managed Lists",
+            "customers": "Customers"
         }
     },
     "theme": {
@@ -523,5 +525,9 @@
             "next": "Next",
             "position": "Page {page} of {pages} — {total} entries"
         }
+    },
+    "customers": {
+        "title": "Customers",
+        "total": "No customers | 1 customer | {count} customers"
     }
 }

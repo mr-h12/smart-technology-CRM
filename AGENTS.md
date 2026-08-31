@@ -133,8 +133,8 @@ A point is the smallest unit that can be verified on its own.
    proceed on assumed approval, and do not treat silence as approval.
 3. **Before starting a step, publish its point list** and get it approved. The decomposition
    itself is reviewable — an unapproved point list is an unapproved plan.
-4. **After every point, report as a checklist** with all six parts below. All six, every time,
-   even when the point was trivial.
+4. **After every point, report as a checklist** with all seven parts below. All seven, every
+   time, even when the point was trivial.
 
 ### The report after every point
 
@@ -144,11 +144,37 @@ A point is the smallest unit that can be verified on its own.
 | **Why it is correct** | Cited to `D-xx`, `§x`, `DB-xx`, `SEC-xx`, `ST-xx`, or an acceptance criterion. A claim of correctness with no citation is an opinion, and this project does not run on opinions. |
 | **Checks run** | The actual command and its actual output. Pass or fail. Never "should work" — run it. |
 | **Problems found** | Everything that went wrong, including what was hit and fixed mid-point. A point that reports no problems must say so explicitly rather than omitting the row. |
+| **Waste audit** | The four questions below, each answered with evidence. "Nothing found" is an answer only after the four were actually asked. |
 | **What this does NOT cover** | The honest gap. What a reader might wrongly assume is now handled. |
 | **Next point** | Named, then stop. |
 
 **Never report a point as complete on the strength of reasoning.** Run the check and paste the
 output. If a check cannot be run, say that plainly instead of substituting confidence for evidence.
+
+### The waste audit — every point, no exceptions
+
+Code that works is not the same as code worth keeping. Every point audits **what that point
+touched** for the four kinds of waste below. This is not a whole-repo sweep and not a refactor:
+it is four questions asked against `git diff main...HEAD`, answered with evidence.
+
+| What | How it is actually checked — not by eye |
+|---|---|
+| **Dead code** | Every symbol the point added is reached by something. `grep -rn "<name>"` over `app/` and `resources/js/`; one hit is the definition, so one hit means dead. PHPStan already reports an unused `private`; it says nothing about an unused public class, a lang key nobody reads, or a CSS class nobody applies. |
+| **Duplicate logic** | Before writing a helper, search for it — the same thing under another name a few files over is the most common form of this. After writing it, search again for its distinctive line. A second implementation of something the project already has is a defect even when both are correct. |
+| **Unused components** | A `.vue` file nobody imports, a route nobody links, a `data-testid` nothing queries, a translation key nothing renders, an exported function with no caller. |
+| **Unnecessary complexity** | An interface with one implementation, a parameter every caller passes the same value for, a config for a value that never changes, an abstraction added for a second case nobody has asked for. The smallest thing that satisfies the citation is the right size. |
+
+**Found waste is reported, not silently swept.** The rules above still hold: one point per turn,
+and the approved point list is the scope.
+
+- Waste **this point created** is removed inside this point. Leaving it for later is how it stays.
+- Waste **this point merely revealed** is written into the debt register in `CHECKLIST.md` and
+  named in the report. It is not fixed here — widening a point past its approved list is not the
+  agent's call, and a large opportunistic cleanup buried in an unrelated point is unreviewable.
+- A deliberate simplification with a known ceiling is not waste. Say what the ceiling is.
+
+**"Nothing found" is a legitimate result and often the true one** for a small point. It is only
+legitimate after the four questions were asked, and the report says how they were asked.
 
 ### A point is not done until its checks have been read
 
@@ -250,7 +276,7 @@ next one**, publish a **manual front-end test list**:
   should quietly skip.
 
 The list goes in the message, not only in a file, and it closes a module the
-way a six-part report closes a point.
+way a seven-part report closes a point.
 
 ## Engineering Behavior
 

@@ -128,6 +128,58 @@ final class LogicalPropertiesTest extends TestCase
         );
     }
 
+    // ──────────────────────────────────── surface 1b: the tokens those rules name
+
+    /**
+     * `Design_System_EN.md` §3.2 lists the semantic tokens a component may
+     * consume and §3.3 gives each a value; `resources/css/tokens.css` is where
+     * that table actually lives. A component naming a token nobody defined is
+     * **not** a mistake review catches by eye: CSS drops the whole declaration
+     * as invalid at computed-value time, so the property silently inherits
+     * instead — a `color` quietly becomes the parent's.
+     *
+     * That is exactly how `--color-on-primary`, which this project never
+     * defined anywhere, put the inherited dark `--color-text` on the primary
+     * chip and the primary button of **three** screens while every test passed.
+     * The screen looked wrong and nothing said so.
+     *
+     * Scoped to `--color-*` on purpose: that is the family §3.3 tabulates and
+     * the one whose failure mode is invisible. `--shadow-*` is elevation, and a
+     * missing shadow is visible the moment anyone looks.
+     */
+    public function test_that_every_colour_token_a_component_names_is_defined(): void
+    {
+        $tokens = self::read(self::root().'/resources/css/tokens.css');
+
+        if (preg_match_all('/(--color-[a-z0-9-]+)\s*:/i', $tokens, $declared) === false) {
+            throw new RuntimeException('Reading the token table failed: '.preg_last_error_msg());
+        }
+
+        $known = array_unique($declared[1]);
+        self::assertNotEmpty($known, 'tokens.css defines no colour tokens — the scan would pass vacuously.');
+
+        $offences = [];
+
+        foreach (array_keys(self::provider(['vue', 'css'])) as $relative) {
+            if (preg_match_all('/var\(\s*(--color-[a-z0-9-]+)/i', self::read(self::root().'/'.$relative), $used) === false) {
+                throw new RuntimeException("Reading {$relative} failed: ".preg_last_error_msg());
+            }
+
+            foreach (array_unique($used[1]) as $token) {
+                if (! in_array($token, $known, true)) {
+                    $offences[] = "{$relative}: var({$token})";
+                }
+            }
+        }
+
+        self::assertSame([], $offences, implode("\n", [
+            'A component names a colour token that tokens.css never defines.',
+            'CSS drops such a declaration silently and the property inherits instead.',
+            'Use the name from Design_System_EN.md §3.2, or add the token to tokens.css.',
+            ...$offences,
+        ]));
+    }
+
     // ─────────────────────────────────────────────── surface 2: utility classes
 
     /** @return array<string, array{0: string}> */

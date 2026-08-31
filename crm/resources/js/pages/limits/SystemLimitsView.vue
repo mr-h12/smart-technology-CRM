@@ -284,7 +284,7 @@ onMounted(load);
             <div class="flex">
                 <button
                     type="submit"
-                    class="action inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-[var(--color-on-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                    class="action inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-[var(--color-primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
                     :disabled="saving"
                 >
                     {{ saving ? t('action.saving') : t('action.save') }}
@@ -304,6 +304,18 @@ onMounted(load);
     transition-property: background-color, color;
     transition-duration: 160ms;
     transition-timing-function: ease-out;
+}
+
+/* §6.2: "All button variants have default, hover, active, focus, disabled, and
+   loading states." The transition above was declared for properties nothing
+   ever changed. The fill is a Tailwind utility on the element, so these two
+   rules are what override it — `.action:hover` outranks a single class. */
+.action:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.action:active:not(:disabled) {
+    background-color: var(--color-primary-active);
 }
 
 @media (prefers-reduced-motion: reduce) {

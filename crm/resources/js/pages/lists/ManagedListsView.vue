@@ -179,8 +179,8 @@ onMounted(load);
                 type="button"
                 class="chip min-h-11 rounded-lg border px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
                 :class="list === active
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-primary)]'
-                    : 'border-[var(--color-border-strong)] text-[var(--color-text)]'"
+                    ? 'chip-selected border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-text)]'
+                    : 'chip-idle border-[var(--color-border-strong)] text-[var(--color-text)]'"
                 :aria-pressed="list === active"
                 :data-list-name="list"
                 @click="choose(list)"
@@ -310,14 +310,22 @@ onMounted(load);
                 >{{ formErrors.position }}</span>
             </label>
 
-            <button
-                type="submit"
-                class="primary-action min-h-11 self-start rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="adding"
-                data-testid="lists-submit"
-            >
-                {{ adding ? t('lists.add.submitting') : t('lists.add.submit') }}
-            </button>
+            <!-- `w-full` puts the action on its own line **below** the four
+                 fields rather than beside the last of them, which is where a
+                 `flex-wrap` row had been leaving it. §6.3 reads a form top to
+                 bottom, and the submit is the end of that reading, not a fifth
+                 column of it. The two messages under it already break the line
+                 this same way. The button keeps its own width inside. -->
+            <div class="w-full">
+                <button
+                    type="submit"
+                    class="primary-action min-h-11 rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="adding"
+                    data-testid="lists-submit"
+                >
+                    {{ adding ? t('lists.add.submitting') : t('lists.add.submit') }}
+                </button>
+            </div>
 
             <p
                 v-if="added"
@@ -415,7 +423,40 @@ onMounted(load);
 
 .primary-action {
     background-color: var(--color-primary);
-    color: var(--color-on-primary);
+    color: var(--color-primary-text);
+}
+
+/* §6.2: "All button variants have default, hover, active, focus, disabled, and
+   loading states." The transition above was already declared for these three
+   properties and had nothing to transition to. `:not(:disabled)` so the button
+   stops answering the pointer once it is submitting — `LoginView`'s shape. */
+.primary-action:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.primary-action:active:not(:disabled) {
+    background-color: var(--color-primary-active);
+}
+
+/* The unselected chip has no fill at rest, so its hover has to supply one:
+   §6.2 again, and a chooser whose options do not answer the pointer reads as
+   disabled. The selected chip darkens instead, through the same token pair as
+   the button, so "more prominent than rest" holds in both states. */
+.chip-idle:hover {
+    background-color: var(--color-surface-muted);
+    border-color: var(--color-primary);
+}
+
+.chip-selected:hover {
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+}
+
+.chip-selected:active,
+.chip-idle:active {
+    background-color: var(--color-primary-active);
+    border-color: var(--color-primary-active);
+    color: var(--color-primary-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

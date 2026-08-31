@@ -791,6 +791,7 @@
                 "product": "تعديل المنتج",
                 "service": "تعديل الخدمة"
             },
+            "noSelection": "غير محدَّد",
             "requiredMarker": "(مطلوب)",
             "required": {
                 "name": "اسم المنتج مطلوب.",

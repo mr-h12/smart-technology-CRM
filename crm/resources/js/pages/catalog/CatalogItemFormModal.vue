@@ -28,6 +28,22 @@
  * selector that silently retypes a catalog item is a bigger claim than §7.3
  * makes. Recorded as a narrowing, not a decision.
  *
+ * ── Two closed lists and one open one (Point 6.4) ──────────────────────────
+ *
+ * `unit`, `service_type` and `company` are all `DB-05` lists, and the form does
+ * not draw them the same way, because the boundary does not treat them the
+ * same. `SaveCatalogItemRequest` checks the first two "for shape, not for
+ * membership" while `SaveCatalogItem::withListedCompany()` **registers** an
+ * unknown company rather than refusing it. So the two the server would have to
+ * refuse are `<select>`s over the list (owner's ruling ج) and the one it adopts
+ * is an `<input list>` over a `<datalist>` — the native control for "suggest,
+ * do not restrict", which no library is needed to be.
+ *
+ * A stored value the list does not carry stays in its own `<select>`: the
+ * column was free text before Point 6.3, so such rows exist, and a select that
+ * silently reports its first option instead would rewrite a column nobody
+ * touched.
+ *
  * ── No price, cost or margin, and not because they are hidden ──────────────
  *
  * §7.3 opens "Descriptive data only — no prices" and `D-21` puts all three on
@@ -41,6 +57,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { entryLabel, type ListEntry } from '@/services/admin';
 import { createCatalogItem, updateCatalogItem, type CatalogItem, type CatalogItemDraft } from '@/services/catalog';
 
 type Kind = 'product' | 'service';
@@ -51,11 +68,15 @@ const props = defineProps<{
     editing: CatalogItem | null;
     /** The tab the screen is standing on, which is the kind a create belongs to. */
     kind: Kind;
+    /** `DB-05`'s three lists, loaded by the screen (Point 6.4). */
+    units: readonly ListEntry[];
+    serviceTypes: readonly ListEntry[];
+    companies: readonly ListEntry[];
 }>();
 
 const emit = defineEmits<{ saved: [CatalogItem]; cancel: [] }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 /** Every box this form can draw. Which of them it *does* draw is `fields` below. */
 const TEXT_FIELDS = [
@@ -67,7 +88,10 @@ type TextField = (typeof TEXT_FIELDS)[number];
 /** §7.3's two field lists, in the order it prints them. */
 const FIELDS: Record<Kind, readonly TextField[]> = {
     product: ['name', 'product_code', 'category', 'unit', 'company', 'description'],
-    service: ['service_type', 'description', 'company', 'notes'],
+    // `name` is `required_if:kind,product`, so a service may carry one and is
+    // never asked for one. Without the box the Service tab's Name column has
+    // nothing to print but a dash (Point 6.4).
+    service: ['name', 'service_type', 'description', 'company', 'notes'],
 };
 
 /** The server's three `required_if` rules, mirrored so a refusal costs no round trip. */
@@ -133,6 +157,24 @@ function isRequired(field: TextField): boolean {
 
 function isProse(field: TextField): boolean {
     return PROSE.includes(field);
+}
+
+/** The two closed sets. `company` is deliberately not one of them — see above. */
+function isSelect(field: TextField): field is 'unit' | 'service_type' {
+    return field === 'unit' || field === 'service_type';
+}
+
+/**
+ * This field's options, plus the stored value when the list has lost it — a
+ * `<select>` cannot hold a code it was not given.
+ */
+function selectOptions(field: 'unit' | 'service_type'): readonly ListEntry[] {
+    const listed = field === 'unit' ? props.units : props.serviceTypes;
+    const current = values.value[field];
+
+    return current === '' || listed.some((entry) => entry.code === current)
+        ? listed
+        : [...listed, { code: current, label_en: current, label_ar: current, position: 0 }];
 }
 
 /** The server's sentence when it sent one for this field, otherwise ours. */
@@ -332,18 +374,39 @@ function discard(): void {
                     class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     :data-testid="testId(field)"
                 />
+                <select
+                    v-else-if="isSelect(field)"
+                    :id="fieldId(field)"
+                    v-model="values[field]"
+                    :disabled="saving"
+                    :aria-invalid="errorFor(field) !== null"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :data-testid="testId(field)"
+                >
+                    <option value="">{{ t('catalog.form.noSelection') }}</option>
+                    <option v-for="entry in selectOptions(field)" :key="entry.code" :value="entry.code">
+                        {{ entryLabel(entry, locale) }}
+                    </option>
+                </select>
                 <input
                     v-else
                     :id="fieldId(field)"
                     v-model="values[field]"
                     type="text"
                     :maxlength="MAX_LENGTH[field]"
+                    :list="field === 'company' ? 'catalog-form-company-options' : undefined"
                     autocomplete="off"
                     :disabled="saving"
                     :aria-invalid="errorFor(field) !== null"
                     class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     :data-testid="testId(field)"
                 />
+
+                <!-- Suggestions, not a restriction: an unlisted company is
+                     registered on save, not refused (Point 6.3). -->
+                <datalist v-if="field === 'company'" id="catalog-form-company-options">
+                    <option v-for="entry in companies" :key="entry.code" :value="entry.code" :label="entryLabel(entry, locale)" />
+                </datalist>
 
                 <span
                     v-if="errorFor(field) !== null"

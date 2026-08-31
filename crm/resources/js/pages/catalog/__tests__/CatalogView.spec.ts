@@ -83,9 +83,18 @@ function render(locale = 'en') {
     });
 }
 
-/** The URL of the nth fetch, so a filter can be read as the server will read it. */
+/**
+ * The catalog requests only. Point 6.4 has the screen also load `DB-05`'s three
+ * lists on mount, and those are not the question any assertion below is asking
+ * — an index that counted them would move every time a list is added.
+ */
+function catalogCalls(fetchMock: ReturnType<typeof vi.fn>): unknown[][] {
+    return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/catalog-items'));
+}
+
+/** The URL of the nth catalog fetch, so a filter can be read as the server will read it. */
 function urlOf(fetchMock: ReturnType<typeof vi.fn>, index = 0): string {
-    const call = fetchMock.mock.calls[index];
+    const call = catalogCalls(fetchMock)[index];
 
     expect(call).toBeDefined();
 
@@ -139,7 +148,7 @@ describe('CatalogView — the four states', () => {
         await view.find('[data-testid="error-retry"]').trigger('click');
         await flushPromises();
 
-        expect(fetchMock.mock.calls.length).toBe(2);
+        expect(catalogCalls(fetchMock).length).toBe(2);
     });
 
     /** A 403 is a boundary and a 500 is a fault; an empty list is neither. */
@@ -510,5 +519,38 @@ describe('CatalogView — §3.7 write controls', () => {
         expect(view.find('[data-testid="catalog-form-modal"]').exists()).toBe(false);
         // The PATCH, and then the list again.
         expect(fetchMock.mock.calls.length).toBe(before + 2);
+    });
+});
+
+/**
+ * Point 6.4 — the screen owns the lists and the form draws them.
+ *
+ * `CustomersView` already loads its sectors this way and for the same reason:
+ * `GET /managed-lists/{list}` names no permission, so a screen anyone may open
+ * may fill its own dropdowns. A failure there is one dropdown short, not a
+ * broken screen — which is why the lists load beside the page rather than
+ * before it.
+ */
+describe('CatalogView — DB-05 fills the form (Point 6.4)', () => {
+    it('loads the three lists and hands them to the form', async () => {
+        const fetchMock = vi.fn(async (input: string) => (String(input).includes('/managed-lists/units')
+            ? json(200, { data: [{ code: 'metre', label_en: 'Metre', label_ar: 'متر', position: 1 }], meta: { pagination: PAGINATION } })
+            : page([PRODUCT])));
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(PROCUREMENT);
+
+        const view = render();
+        await flushPromises();
+
+        const asked = fetchMock.mock.calls.map((call) => String(call[0]));
+
+        for (const list of ['units', 'service_types', 'companies']) {
+            expect(asked.some((url) => url.includes(`/managed-lists/${list}?`))).toBe(true);
+        }
+
+        await view.find('[data-testid="catalog-row-edit"]').trigger('click');
+
+        expect(view.findAll('select[data-testid="catalog-form-unit"] option').map((option) => option.attributes('value')))
+            .toContain('metre');
     });
 });

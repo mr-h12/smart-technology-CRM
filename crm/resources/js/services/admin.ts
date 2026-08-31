@@ -254,6 +254,17 @@ export interface ListEntry {
 }
 
 /**
+ * The label to show a reader, in their language.
+ *
+ * `DB-05` keeps both labels on every entry, so neither language falls back to a
+ * code. Shared rather than written per screen: the same ternary already exists
+ * three times under `pages/customers/`, and Point 6.4 would have made a fourth.
+ */
+export function entryLabel(entry: ListEntry, locale: string): string {
+    return locale.startsWith('ar') ? entry.label_ar : entry.label_en;
+}
+
+/**
  * `page` is the only parameter, on `listFxRates`'s terms: `ListingQuery`
  * declares no filter and no sort for this resource, and §6.2 makes an
  * undeclared one a 400 rather than something quietly ignored.

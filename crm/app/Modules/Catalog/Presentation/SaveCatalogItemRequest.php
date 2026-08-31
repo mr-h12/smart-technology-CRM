@@ -34,14 +34,22 @@ use Illuminate\Validation\Rule;
  * Both are `enum_lists` codes (`DB-05`), and Point 1.2 gave neither a foreign
  * key because PostgreSQL refuses one against that table's partial unique index.
  * Its comment says they are "validated at the boundary" — and the same promise
- * was made about `customers.sector` in Module 3 and **not kept**:
- * `SaveCustomerRequest` validates its length and nothing more, and no class
- * outside `app/Modules/Admin` references `ManagedList` anywhere in the project.
- * Keeping the promise here means Catalog reaching Admin's
- * `ManagedListRepositoryInterface`, which needs an `AdminContract` layer that
- * deptrac does not have. **Owner's decision, 2026-08-31: match the existing
- * precedent, record the gap, and fix both modules in one later point.** The
- * debt is in `CHECKLIST.md` awaiting a `D-xx`.
+ * was made about `customers.sector` in Module 3 and **not kept**.
+ *
+ * ⚠️ **Point 6.3 removed the obstacle but deliberately not the gap.** The
+ * `AdminContract` deptrac layer this used to say did not exist now does, and
+ * Catalog reaches `ManagedListRepositoryInterface` through it — so "the layer
+ * is missing" is no longer the reason `unit` and `service_type` go unchecked.
+ * They are simply still unchecked, and closing them is a different decision
+ * from the one 6.3 made: **`company` is not validated against the list either.
+ * It is *registered into* it.** An unknown company becomes a listed company; an
+ * unknown unit would have to be refused, because §7.3 fixes the unit vocabulary
+ * ("piece · metre · kilo · extendable") in a way it does not fix the set of
+ * companies a business trades with. So the two are not the same problem wearing
+ * one name, and 6.3 answers only the one the owner ruled on.
+ *
+ * `customers.sector` is untouched by any of this. The debt stays in
+ * `CHECKLIST.md` awaiting a `D-xx`, with its reason corrected.
  *
  * ── The price fields are refused, not ignored ──────────────────────────────
  *

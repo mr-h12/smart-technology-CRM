@@ -5420,6 +5420,79 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.3** A company typed into the catalog form joins `DB-05`'s companies list, and the item
+      stores its **code**. The owner ordered this started without answering the three questions
+      6.2's plan raised, so it proceeds under the recommended answers, **each recorded here awaiting
+      a `D-xx`**: (أ) the registration is a **system consequence of a permitted action**, not the
+      actor exercising `admin.system_settings`, and the audit names the actor; (ب) `code` is derived
+      from the typed text, **both labels take that text**, `position` goes last; (ج) `unit` and
+      `service_type` stay closed sets.
+      **Why the module crosses into Admin.** Point 5.1 made `company` a managed list so that "Acme",
+      "acme" and "Acme Ltd" stop being three companies on one screen — `R-03`'s free-text risk, for a
+      value §7.3 **groups** by and 5.2 made **filterable**. 5.2 then made it **required**, which left
+      every catalog edit waiting on a Super Admin. This closes that: the list fills from use. The
+      alternative — Catalog keeping its own idea of a company — is the exact duplication `DB-05`
+      exists to prevent.
+      **The `AdminContract` layer, on the precedent of three others.** `deptrac.modules.yaml` had one
+      undivided `Admin` layer; it is now split `AdminContract` (Domain|Application) / `AdminDriver`
+      (Infrastructure|Presentation), the split Audit, Storage and Identity already have and for the
+      stated reason. **Nothing depended on `Admin` before this point**, so no ruleset moved except
+      Catalog's, which gains `AdminContract` and points at nothing in `AdminDriver`. Allowed edges
+      796 → **1007**.
+      **`Str::slug` was measured before anything was built on it**, and the measurement changed the
+      design twice: `شركة ألفا` → `shrk_alfa` (transliterated — ugly, stable, and the code is
+      internal while both labels carry the real text), but **`3M` → `3m` fails `^[a-z][a-z0-9_]*$`**
+      and a name of nothing but punctuation slugs to the **empty string** — which `required` +
+      `regex:/\S/` lets through. Both are handled: a leading non-letter takes a `c_` prefix, and an
+      empty slug becomes `c_` plus eight hex of the name's digest, so unrelated unsluggable names
+      stay apart and the same name always maps to the same code.
+      **Normalising is the feature.** Three spellings collapse to one code and therefore one entry —
+      asserted directly. **Stated ceiling:** two genuinely different companies whose names reduce to
+      one code share an entry, and two names over 64 characters agreeing on their first 64 share a
+      code (`code` is `max:64`, the column's own limit).
+      **`AddListEntry` is reused rather than the repository written to directly**, so the list write
+      carries `LIST_ENTRY_ADDED` against the acting user for free — the audit is what makes ruling
+      (أ) visible rather than silent. Its `ValidationException` on a duplicate is caught and ignored:
+      reaching it means somebody added the same company between the read and the write, which is the
+      state this wanted anyway.
+      **1957 backend (11847 assertions) · 577 frontend (34 files) · `npm run build` clean · pint 459
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1638 and 1007 allowed).**
+      **+11 tests / +49 assertions** against 6.2c's 1946/11798. Frontend **+0**: no screen changes —
+      the form still sends free text and the server normalises it.
+      RED first: **11 failed** — the eight provider rows and three named tests, and nothing else.
+      **Deliberate break — one, and it caught a second problem on the way back.** The `c_` prefix for
+      a leading non-letter was removed: **exactly two tests failed**, the `3M` provider row in both
+      the list-membership and the stored-code assertions, 40 others passing.
+      **Problems found: three.**
+      (1) ⚠️ **The restore from that break did not reproduce the file.** `shasum -c` reported
+      **FAILED** — re-inserting text left **two surplus blank lines** where the guard had been. This
+      is the trap `CLAUDE.md` records verbatim ("restore with the inverse `sed`, never by
+      re-inserting text"), hit by doing exactly what it forbids. **Nothing but the checksum would
+      have caught it:** the tests passed, Pint passed, PHPStan passed. Removed and re-verified `OK`.
+      (2) Pint refused the new import ordering (`class_attributes_separation`); fixed by running Pint
+      on the file rather than by hand.
+      (3) **A claim this point falsified**, found by the waste audit:
+      `SaveCatalogItemRequest`'s docblock said keeping the membership promise "needs an
+      `AdminContract` layer that deptrac does not have". It has one now. The comment is rewritten to
+      say something more useful than its own obsolescence: **the obstacle is gone but the gap is
+      deliberate**, because `company` is not *validated* against the list — it is *registered into*
+      it — while an unknown `unit` would have to be **refused**, since §7.3 fixes the unit vocabulary
+      in a way it does not fix the set of companies a business trades with. They are two problems,
+      not one wearing a single name.
+      **Waste audit.** *Dead code:* every added symbol grepped; nothing at one hit. *Duplicate
+      logic:* `grep -rn "Str::slug" app/` returns **only this file**, so the code derivation exists
+      once. *Unused components:* the falsified claim above — corrected here. *Unnecessary
+      complexity:* no new class. `withListedCompany`, `codeFor` and `nextPosition` are private to the
+      use case that needs them; a `CompanyRegistry` service with one caller would be the interface
+      with one implementation the rules forbid.
+      **Not covered:** **`unit`, `service_type` and `customers.sector` are still unchecked against
+      `enum_lists`** — debt 23 stands, with its *reason* now corrected. **The form is unchanged**:
+      it still sends free text, there is no drop-down, and a person typing "Alpha Co" gets an entry
+      whose **Arabic label reads "Alpha Co"** until a Super Admin corrects it on the lists screen —
+      accepted, and it belongs in the manual test list. **Existing rows keep their free-text
+      company** and no migration normalises them, so a row saved before this point holds "Alpha Co"
+      while a row saved after holds `alpha_co`, and `filter[company]` will not match both. That is
+      the largest open consequence of this point and it wants a decision of its own.
 - [x] **6.2c** The archived view and the restore control — 6.2b's endpoints, made reachable, and
       the point that closes the withdraw → restore loop on screen.
       **A view chooser, not a filter, because that is what the server offers.** `listEntries()` gains

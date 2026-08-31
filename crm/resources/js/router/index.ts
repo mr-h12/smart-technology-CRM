@@ -24,6 +24,7 @@ import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
 import CustomersView from '@/pages/customers/CustomersView.vue';
 import CustomerDetailView from '@/pages/customers/CustomerDetailView.vue';
 import SuppliersView from '@/pages/suppliers/SuppliersView.vue';
+import CatalogView from '@/pages/catalog/CatalogView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -126,6 +127,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'suppliers',
         component: SuppliersView,
         meta: { requiresAuth: true, requiredPermission: 'catalog.view', titleKey: 'suppliers.title' },
+    },
+    {
+        // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`
+        // the Suppliers route carries: §3.7 is one row pair covering the
+        // catalog and its suppliers, and there is no `catalog_item.*` resource
+        // to name. §8 lists a Catalog screen for six roles and none for the
+        // CEO; the owner's ruling of 2026-08-31 keys both the route and the
+        // sidebar on §3.7 instead. Recorded in `CHECKLIST.md` awaiting a `D-xx`.
+        path: '/catalog',
+        name: 'catalog',
+        component: CatalogView,
+        meta: { requiresAuth: true, requiredPermission: 'catalog.view', titleKey: 'catalog.title' },
     },
     {
         // §8's *Employees* screen. `admin.create_user` and not a `user.view.*`

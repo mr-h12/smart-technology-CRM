@@ -5158,15 +5158,81 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       and there is no route at any permission. Still **no `filter[has_open_account]` control**
       (debt 26) and still no supplier detail view. The dialog does not warn that deactivating a
       supplier hides them from Modules 6/7 selection lists, because those lists do not exist yet.
+- [x] **4.3** `CatalogView.vue` · the route · the sidebar item — §8's Catalog screen, §7.3's two
+      tabs and its grouping.
+      **§7.3 read from the source, line 665:** "Descriptive data only — **no prices**. Two tabs:
+      Product · Service, grouped by company/team name." All three clauses are decisions here and all
+      three are asserted. **No prices:** `D-21` puts price, cost and margin on the supplier
+      quotation, `CatalogItemPayload` carries none of them, and a test greps the rendered screen for
+      `/price|cost|margin/i` so a future label cannot reintroduce one. **Two tabs and no third:**
+      Point 1.2 put both in one table behind `kind`, so a tab is `filter[kind]` against one endpoint
+      and one of the two is always active — there is no "everything" position, because §7.3 names
+      none. **Grouped by company:** `group_by=company` is sent on **every** load rather than offered
+      as a toggle, because §7.3 states it as how the catalog is read.
+      **The grouping is the server's order; the screen only notices it.** `group_by` changes the
+      ordering, not the envelope — `data` is still the flat paginated list, companies adjacent and
+      alphabetical, nulls last. So a heading is drawn where the value *changes*. There is no
+      client-side `sort()` or `reduce()` into buckets, which would be §6.5's forbidden "UI that
+      requires loading all records" wearing a different hat.
+      **The columns follow the tab**, because §7.3's two field lists are not the same list: the
+      Product tab names product code, category and unit; the Service tab names service type and
+      notes. One union with half the cells empty would misdescribe both.
+      **The sidebar item and the route carry `catalog.view`** — the owner's ruling of 2026-08-31,
+      applied for the second time and now consistent across both Module 4 screens. §3.7 is one row
+      pair covering the catalog *and* its suppliers, so there is no `catalog_item.*` resource to
+      name. `navigation.spec.ts` pins the item's permission equal to the route's.
+      **Category is free text on the search form, not a select.** §7.3 calls it "for search" and no
+      endpoint enumerates the values, so there is nothing to populate a dropdown from — and firing a
+      request per keystroke is what §5.2's search button exists to avoid.
+      **1748 backend (10999 assertions) · 529 frontend (33 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Three deliberate breaks, one per new surface, none a deletion:** (1) `groupBy` sent as `null`
+      — the plausible omission, since the list still renders without it → failed **exactly** the
+      `group_by=company` test; (2) an **off-by-one** in the group boundary, comparing `index + 1`
+      instead of `index - 1` — the plausible slip, and one that still draws headings, just the wrong
+      ones → failed **exactly** the heading-order test; (3) the nav item keyed on `catalog.manage` —
+      the over-restriction the owner's ruling rejected → failed **exactly**
+      `navigation.spec.ts`'s permission-equality test. Three breaks, three failures, no collateral.
+      All restored with inverse edits and confirmed with `shasum -a 256 -c`.
+      Delta predicted before the run and matched to the unit. Backend 1745 → 1748 = three
+      `LogicalPropertiesTest` provider rows (`styledFiles` over `vue|css` gains the component;
+      `markupFiles` over `vue|php|ts` gains the component and its spec). Assertions 10994 → 10999 =
+      those three, **plus one** from `test_every_navigation_item_names_a_registered_route` for the
+      new item, **plus one** from `NoHardCodedTextTest`'s per-Vue-file scan loop (measured 372 → 373).
+      Frontend 507 → 529 = **19** (the new spec) + **3** (`navigation.spec.ts`'s three `it.each`
+      families, one row each for the new item).
+      **Problems found:** one. `NoHardCodedTextTest`'s Vue inventory broke by design again; updated
+      with the reason written into the test, after the scan itself had passed on the file (48 passed
+      / 373 assertions). Nothing else went wrong — the two operating errors of Point 4.2 did not
+      recur, because the suite was checked for a live run before starting and was run alone.
+      **Not covered:** **no write controls at all** — §3.7's `catalog.manage` covers create, edit and
+      deactivate for items too, and all three arrive with Point 4.4's form modal. **A group that
+      spans a page boundary is given its heading again on the next page**, because the screen keeps
+      no memory of the previous page's last row; the alternative is state this screen does not hold
+      and `API-06` does not report. No detail view and no row link. No `product_code` or `company`
+      filter — `ALLOWED_FILTERS` is `kind · category · is_active` and inventing one would be a 400.
+      Sorting is `name` and `created_at` only, so the Service tab sorts by a `name` that may be null.
+      Deactivation still hides nothing from a selection list (`D-37`/§10.4 → Modules 6/7).
 
 **Acceptance criteria**
-- [ ] New product appears under the Product tab, grouped by company
+- [~] New product appears under the Product tab, grouped by company *(Point 4.3: the Product tab
+      asks `filter[kind]=product` and every load asks `group_by=company`, both asserted on the query
+      string, and the company headings are asserted to appear once per company in the server's own
+      order — including a heading of their own for the items with no company. **The word "new"
+      cannot be closed here**: creating a product is Point 4.4's form, so what is proved today is
+      that a product which exists appears under the right tab in the right group.)*
 - [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
       renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
       `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
       be closed here** — the other screens that name a supplier are Module 6's supplier quotations
       and Module 11's procurement, and neither exists.)*
-- [ ] Service appears under the Service tab, separate from products
+- [~] Service appears under the Service tab, separate from products *(Point 4.3: the Service tab
+      asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a client-side
+      split, and the two tabs draw §7.3's two **different** column lists — asserted in both
+      directions, that the Product tab shows Unit and no Service type and the Service tab the
+      reverse. Creating a service is Point 4.4.)*
 - [ ] Deactivated product is hidden from new selection lists
 - [x] Catalog holds **no prices** — descriptive data only *(Point 1.2: `catalog_items` has no
       numeric column at all; asserted three ways — §7.3 still forbids it, no `numeric` column

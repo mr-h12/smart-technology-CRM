@@ -7,6 +7,7 @@ namespace App\Modules\Deals\Presentation;
 use App\Modules\Deals\Application\Approval\ChangeDealStatus;
 use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
+use App\Modules\Deals\Application\Documents\AttachDealDocument;
 use App\Modules\Deals\Application\Listing\ListDeals;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
@@ -97,6 +98,20 @@ final class DealController
             self::heldScopes($request),
             self::actorId($request),
         )));
+    }
+
+    public function uploadDocument(AttachDealDocumentRequest $request, string $deal, AttachDealDocument $documents): JsonResponse
+    {
+        $file = $request->document();
+
+        return ApiEnvelope::single($request, DealDocumentPayload::of($documents->handle(
+            $deal,
+            $file->getPathname(),
+            // The name the browser sent — display-only (§17); never the path.
+            $file->getClientOriginalName(),
+            self::heldScopes($request),
+            self::actorId($request),
+        )), 201);
     }
 
     /**

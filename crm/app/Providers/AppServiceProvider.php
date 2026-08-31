@@ -33,6 +33,7 @@ use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
+use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
@@ -59,12 +60,13 @@ use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
+use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\Contracts\UploadValidatorInterface;
 use App\Modules\Storage\Domain\Contracts\VirusScannerInterface;
 use App\Modules\Storage\Infrastructure\ClamAvScanner;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
-use App\Modules\Storage\Infrastructure\DenyAllAttachmentPermission;
+use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
@@ -234,6 +236,13 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        $this->app->bind(
+            FileWriterInterface::class,
+            fn (): DatabaseFileWriter => new DatabaseFileWriter(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
         // §5.3's currencies and their rounding units, read from the table.
         // bind and not singleton, for PermissionRepositoryInterface's reason:
         // AP-08 makes the unit configuration, and an instance memoised for the
@@ -290,12 +299,15 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
-        // D-38 cannot be answered yet: the permission matrix is Module 1 and the
-        // parent entities are Modules 5, 6, 10 and 13. The binding that ships
-        // therefore denies everything. Replacing this line is how those modules
-        // switch the download endpoint on — and until one of them does, a
-        // failing download is the honest report of an unfinished feature.
-        $this->app->bind(AttachmentPermissionInterface::class, DenyAllAttachmentPermission::class);
+        // D-38, for the first of the four parents to exist. `DenyAllAttachmentPermission`
+        // shipped because the permission matrix was Module 1 and every parent
+        // entity was still Modules 5, 6, 10 and 13 — its own docblock named
+        // "replacing this line" as how a parent module switches the download
+        // endpoint on. Deals Point 4.1 is that replacement: `DealAttachmentPermission`
+        // answers for `AttachmentParent::Deal` and still denies the other three,
+        // which do not exist yet — a failing download for one of those remains
+        // the honest report of an unfinished feature.
+        $this->app->bind(AttachmentPermissionInterface::class, DealAttachmentPermission::class);
 
         // SEC-15. `bind` and not `singleton` for the same reason as the
         // validator: the choice is configuration, and a cached instance would

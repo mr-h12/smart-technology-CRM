@@ -5597,7 +5597,7 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 **Endpoints**
 - [x] `GET`/`POST`/`PATCH` `/api/v1/deals` (Points 2.2–2.3) — no `DELETE` at any permission (`DB-01`)
 - [x] `PATCH /api/v1/deals/:id/assign` (2.4) · `/approve` · `/reject` (2.5) · `/status` (2.6)
-- [ ] `POST /api/v1/deals/:id/documents`
+- [x] `POST /api/v1/deals/:id/documents` (4.1)
 
 #### Step 1 — schema *(point order approved 2026-08-31)*
 
@@ -5933,6 +5933,59 @@ flagged here for review rather than assumed)*
       goes stale with no new event triggers nothing yet. `/documents` is still open (2.1's note). The
       quotation-expiry clause and the multi-deal interpretation above are both recorded gaps, not
       silent ones.
+
+#### Step 4 — `POST /deals/{id}/documents` *(§17, D-38, D-71; the module's last open endpoint)*
+
+- [x] **4.1** §17's upload flow, with `AttachmentParent::Deal` as the parent — the first write
+      `StorageServiceInterface::store()` has ever had a database row put behind it, and the first
+      real answer to `D-38` for any of the four parents `AttachmentPermissionInterface` names.
+      **Permission is `SaveDeal`'s pattern, not a new mechanism.** §3.4 seeds no separate "attach
+      document" row; the route carries `permission:deal.edit` and the use case resolves the same
+      `DealRowScope` every other deal write does, letting `DealDirectoryInterface->find()` return
+      null mean "absent or out of reach" — `DealNotFound`'s own 404, not a new refusal shape.
+      **`Customers` is not touched; `Storage` is the crossing.** `deptrac.modules.yaml` grants `Deals`
+      `StorageContract` — `StorageServiceInterface`, `UploadValidatorInterface`, and the new
+      `FileWriterInterface`, Storage's write-only sibling to `FileRepositoryInterface` on
+      `CustomerStatusWriterInterface`'s precedent (Point 3.1): a contract split by verb, not bolted
+      onto a reader framed from the start as "reads the `files` row".
+      **`files.id` is read off the stored path, not generated twice.** The migration's own comment
+      says `{uuid}` in the §17 path *is* `files.id`, "so no second identifier column exists to
+      drift" — `StoragePath::fileId()` is new, and it is the only way to get that uuid back out of
+      `store()`, which mints it internally and never hands it back on its own.
+      **`DealAttachmentPermission` answers D-38 for `Deal` and still denies the other three.**
+      `SupplierQuotation`, `PurchaseOrder` and `Report` are still `.gitkeep`; the class checks
+      `$link->parent` first and falls through to `false` for anything that is not a deal — the same
+      fail-closed shape `DenyAllAttachmentPermission` had, now narrowed by one case instead of zero.
+      Lives in `Application`, not `Infrastructure`: `deptrac.layers.yaml` refuses Infrastructure
+      depending on any Application layer, and answering `mayView` means calling `AuthorizeAction`
+      outside a route's own middleware — caught by deptrac on the first run, not anticipated.
+      **The virus scan runs after the transaction commits, not inside it.** `DB-11` covers the `files`
+      row, the `deal_files` pivot and the audit entry as one fact; the scan is not that fact, and a
+      `ScannerUnavailable` inside the transaction would roll the whole upload back on a scanner
+      outage. Caught and left `pending` instead — the upload already succeeded, and `pending` is
+      already "not yet servable", the same state a scan that simply has not run yet would leave.
+      ⚠️ **A decision, not a further deferral, closes `AuditEnforcementTest`'s standing debt.**
+      `DatabaseFileRepository`'s entry has named this point as owner since Point 5.5: "record
+      `FILE_SCANNED` or say here why a scan result is not an auditable change." Decided: not
+      audited, because a scan result is the system's own classification of bytes
+      `DEAL_DOCUMENT_ATTACHED` already names, not an actor's decision, and `files.scan_status` is not
+      user-editable — nothing an audit row would catch that the column does not already show.
+      **15 new tests (87 assertions) · 1940 backend (11762 assertions) · 565 frontend (34 files) ·
+      pint 466 files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break.** The reach check flipped from `=== null` to `!== null` → 10 of 12
+      `DealDocumentUploadTest` tests failed; only the two that never reach the line (unauthenticated,
+      missing-file validation) kept passing. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** two, both caught by the gates rather than assumed away. (1)
+      `AttachDealDocument` called `filesize()` directly — `StorageServiceTest`'s filesystem-boundary
+      scan failed on it, fixed by adding `StorageServiceInterface::sourceSizeBytes()` so the one
+      remaining raw call lives in `LocalStorageService`, where the scan already permits it. (2)
+      `DealAttachmentPermission` first lived in `Infrastructure` — `deptrac.layers.yaml` refused it
+      for depending on `AuthorizeAction` (Application); moved to `Application\Access`.
+      **Not covered:** nothing retries a scan left `pending` by a scanner outage — no such trigger
+      exists yet. Image compression (§17's own row) is not implemented; no compression contract
+      exists anywhere in `Storage`, and building one was judged out of scope for wiring this
+      endpoint's first consumer. The quotation-expiry clause and multi-deal interpretation recorded
+      under Point 3.1 remain open for the same reasons given there.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

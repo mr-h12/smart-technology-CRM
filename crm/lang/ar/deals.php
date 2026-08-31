@@ -51,5 +51,6 @@ return [
         'rejection_reason' => 'سبب الرفض',
         'lost_reason' => 'السبب',
         'last_activity_at' => 'آخر نشاط',
+        'document' => 'المستند',
     ],
 ];

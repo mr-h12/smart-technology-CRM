@@ -5345,6 +5345,67 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **5.2** `company` required at the write boundary, and `filter[company]` on the list. The
+      server half of the owner's ruling; the dropdowns are 5.3's and the filter control is 5.4's.
+      **Why required, when §7.3 does not say so.** §7.3 lists "Providing team / company" in the
+      **Service** column only and marks nothing required. **Owner's ruling of 2026-08-31, recorded
+      here awaiting a `D-xx`:** it is required for **both** tabs, because §7.3 also opens "Two tabs:
+      Product · Service, **grouped by company/team name**" — a row with no company falls out of the
+      only grouping the screen has, and `EloquentCatalogItemDirectory` already has to invent a place
+      for it (`nulls last`, Point 3.1). The **column stays nullable**: a `NOT NULL` migration would
+      fail on the rows that already have none, so the rule lives at the boundary, the same shape
+      `name` uses for `required_if:kind,product`.
+      **`required` to create, `sometimes|required` to edit** — the shape `kind` already uses in this
+      class. A `PATCH` that does not name the column is not asking to blank it; one that *does* name
+      it must give a real value. `regex:/\S/` beside it for `name`'s reason: `required` accepts
+      `"   "`.
+      **Why `company` becomes filterable.** `CatalogItemListCriteria` said in as many words that it
+      was *not* filterable and that "each is one line here when somebody makes it" — this is that
+      line. `group_by=company` only **orders** the whole list (Point 3.1 deliberately kept §4.2's
+      flat envelope), so a screen that groups by a column has to be able to ask for one group of it.
+      Matched as written with `where`, exactly like `category`: both are the name of a thing rather
+      than a code, so neither goes through `code()`. Left **outside** the `q` search intersection for
+      the reason the class comment already gives about `category` — it does not split the screen in
+      two the way `filter[kind]` does.
+      **⚠️ The owner accepted the empty-companies bootstrap as a setup step (option ب, 2026-08-31).**
+      `ManagedList::Companies` is seeded empty and `POST /managed-lists/{list}` carries
+      `admin.system_settings`, so **on a fresh install the Super Admin must add a company before any
+      catalog item can be created**. That is deliberate, not a defect, and **it belongs in the manual
+      test list as a named first step**.
+      **1918 backend (11633 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      RED first, and **both halves failed for the documented reason rather than merely failing**:
+      the write test answered **201, not 422** (the rule did not exist yet), and the list test
+      answered **400, not 200** — which is the exact "undeclared filter" refusal `OpenAPI §6.2`
+      requires and the before-state this point removes.
+      Delta **measured, not predicted**, by running `tests/Feature/Catalog` with the change and again
+      under `git stash`: **89 tests / 571 assertions → 86 / 556**, so **+3 tests and +15
+      assertions** — the whole of 1915/11618 → 1918/11633. No guard moved, because no file was added.
+      **Deliberate break — one, restored and `shasum -c` confirmed.** The subtle half of this change
+      is `sometimes`, not `required`: a plain `required` on the `PATCH` branch is the plausible slip,
+      and it is invisible to every test that only creates. Dropping `sometimes` failed **exactly the
+      five `PATCH` tests** — edit-changes-only-what-it-names, deactivation-is-an-edit, the edit audit
+      pair, and editing-an-unknown-item — and nothing else. Restored with the inverse `sed`, never by
+      re-inserting text.
+      **Problems found: two.**
+      (1) The first draft wrote `company` as a flat `['required', ...]` for both verbs. That is the
+      defect the break above hunts, written by hand: it would have made **every** `PATCH` resend the
+      company, including the deactivate toggle. Caught by reading `kind`'s own two-branch rule three
+      lines above it, before any test ran.
+      (2) Five existing write tests built payloads with no company. Two are the `product()` /
+      `service()` helpers — one line each — but three build a payload inline to test something else
+      (`no kind`, `unknown kind`, `blank name`). Those already asserted 422 and would have kept
+      passing **for the wrong reason**, so `company` was added to each so they still fail only for
+      the thing they name. Anchors were replaced by an asserted script, one match each, 5/5.
+      **Not covered:** the server still validates `company` for **shape, not membership** — nothing
+      checks it against `enum_lists`, so any 255-character string is accepted and debt entry 23
+      stands unchanged. The screen is **not** touched here: `CatalogItemFormModal` already renders a
+      company input on both tabs and will now receive a 422 naming the field, drawn by the shared
+      `error.messageFor()` mapping — but the field carries **no required marker**, so the refusal
+      arrives on submit rather than before it. That, the dropdown, and the service's optional `name`
+      are Point 5.3; the filter control is 5.4. **Every existing `catalog_items` row keeps its
+      free-text company** and there is no data migration — a row whose company is not a listed one
+      still saves, because membership is unchecked.
 - [x] **6.0** The undefined colour token, the missing hover states, and the submit button's place.
       Owner-ordered after testing the running app; the point list for Step 6 was published and
       approved first, and **the owner approved crossing into Module 2's `Admin` screens** the same
@@ -5725,10 +5786,78 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       point, most likely a domain event `DealStatusChanged` with a listener, on `AP-05`'s "event-driven
       internally" principle rather than a direct write into `customers` from here.
 
+#### Step 3 — `recompute_customer_status` *(§4.5, `D-49`, `J-02`; not a pre-approved step —
+flagged here for review rather than assumed)*
+
+- [x] **3.1** `J-02`'s event-triggered half — wired into `POST /deals` and `PATCH /deals/{id}/status`,
+      the two writes that change what §4.5's rule reads. The nightly correction half (`J-02`'s other
+      trigger) is **not this point** — it is the first scheduled job this codebase would implement at
+      all (`Reports`/`Notifications`/`Outdoor`/`Procurement`/`Quotations` are still `.gitkeep`), and
+      deserves its own point rather than riding in on this one's size.
+      ⚠️ **This point uses a direct interface call, not the domain-event-with-listener shape 2.6's own
+      "not covered" note speculated on.** `CLAUDE.md` names interfaces *or* domain events as the two
+      legitimate crossings, and every existing cross-module side effect in this codebase already
+      picked the first — `AuditRecorderInterface` is called directly, synchronously, inside the same
+      transaction as the write it records, not dispatched as an event with a listener. `DB-11` needs
+      this recompute in the *same* transaction as the deal write it follows, and a direct call makes
+      that trivially visible in `SaveDeal`/`ChangeDealStatus` rather than resting on a listener being
+      registered synchronously. 2.6's note also specifically objected to *"a direct write into
+      `customers` from here"* — this point does not do that: `Deals` never touches the `customers`
+      table or `Customer` model, only `CustomerStatusWriterInterface`, a contract **Customers** exposes
+      for exactly this.
+      **`Customers` is split into `CustomersContract`/`CustomersDriver`**, on Identity/Audit/Storage's
+      exact precedent (`deptrac.modules.yaml`) — the crossing that file's own header predicted:
+      *"when a legitimate shared interface appears it is added here as a named exception"*. Before this
+      point nothing outside Customers depended on it, so the flat layer cost nothing; `Deals` is now
+      the first, granted `CustomersContract` only — nothing reaches `CustomersDriver`, and nothing
+      should. `CustomerStatusWriterInterface` is write-only and one method: Deals never needs to read
+      a stored status back, since §4.5 derives it fresh every time.
+      **"Won or beyond, now or historically" is read off `DealStatusTransition`'s graph, not restated**:
+      a deal's *current* status already proves it, because the graph has no edge leaving
+      `won`/`purchasing`/`delivery`/`delivery_complete` back toward an earlier state.
+      ⚠️ **One interpretation recorded rather than documented**: §4.5 rules 2 and 3 read as if a
+      customer has one deal. With several concurrent ones (Business Invariants), this reads *any fresh
+      active deal keeps the customer Prospect* — owed a `D-xx` if the owner disagrees.
+      ⚠️ **Two gaps, both named rather than approximated.** Rule 3's *"or a quotation went Expired with
+      no reply"* clause needs Module 7 (`app/Modules/Quotations` is still `.gitkeep`) — absent, not
+      guessed at. `SystemLimit::StaleDealDays` (`limits.stale_deal_days`) is one of the enum's own
+      documented "deliberately unvalued" limits — `null` until an administrator sets it, and `null`
+      here means rule 3's clause never fires (every active deal reads as fresh), the same reading
+      already established for `OD-08`'s similarity threshold. `SettingReader` gained
+      `nullableInteger()` for this — `integer()`'s config-file floor would have been exactly the
+      invented default `SystemLimit`'s docblock warns against, on the technicality of living in PHP
+      instead of a database row.
+      **No new audit entry for the derived write.** `AUD-01` is satisfied one layer out, by whichever
+      of `DEAL_CREATED`/`DEAL_STATUS_CHANGED` triggered the recompute — a derived projection of an
+      already-audited fact is not a second decision to record, the same disposition `EloquentDealDirectory`
+      itself already carries.
+      **`EloquentCustomerStatusWriter` *is* visible to `AuditEnforcementTest`'s scanner** — measured,
+      not assumed, and initially wrong the first time: an early draft's own docblock explained the
+      scanner's four signals by name, including the literal string `Eloquent\Model`, which the
+      scanner reads from raw file text and does not distinguish from code. The comment describing why
+      the class *should* be invisible made it visible. Rewritten without the literal signal string;
+      re-run confirmed it is, in fact, invisible to scan() like its siblings — not audited, and not
+      meant to be, for the same one-layer-out reason above.
+      **6 new tests (35 assertions) · 1913 backend (11636 assertions) · pint 456 files · PHPStan
+      level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break.** The fresh-deal comparison flipped from `>=` to `<` → exactly the one
+      test exercising a configured threshold against a stale deal failed; the unset-threshold test and
+      every rule-1/rule-4/rule-5 test kept passing, which is the coverage this rule's five-way branch
+      needs. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** the audit-scanner false positive above; `EloquentDealDirectory::activityForCustomer()`
+      initially failed PHPStan level 10 (`array` vs `list`) — `Collection::map()->all()` cannot be
+      proven a list by static analysis alone, fixed with `array_values()`. The Form Request's rejection
+      reason field is `reason`, not `lost_reason` (the column name) — caught by two failing tests in
+      this point, not assumed from the column.
+      **Not covered:** the nightly correction half of `J-02` — a customer whose only active deal simply
+      goes stale with no new event triggers nothing yet. `/documents` is still open (2.1's note). The
+      quotation-expiry clause and the multi-deal interpretation above are both recorded gaps, not
+      silent ones.
+
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
-- [ ] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
-- [ ] All deals Lost → status **"Deal Not Completed"**
+- [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
+- [x] All deals Lost → status **"Deal Not Completed"**
 - [ ] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
 - [ ] Rejected request → mandatory reason + badge for the employee
 - [ ] Status change → timeline entry with old status, new status, who, when

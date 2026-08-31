@@ -6,6 +6,7 @@ namespace App\Modules\Deals\Application\Writing;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
+use App\Modules\Deals\Application\CustomerStatus\RecomputeCustomerStatus;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
@@ -63,6 +64,7 @@ final readonly class SaveDeal
         private AuditRecorderInterface $audit,
         private UserDirectoryInterface $users,
         private ConnectionInterface $connection,
+        private RecomputeCustomerStatus $customerStatus,
     ) {}
 
     /**
@@ -93,6 +95,11 @@ final readonly class SaveDeal
                 null,
                 $draft->attributes,
             );
+
+            // §4.5: a brand-new deal can turn a `Deal Not Completed` or
+            // `No Response` customer back into an active `Prospect` even
+            // though no *status* changed — a deal simply started existing.
+            $this->customerStatus->forCustomer($deal->customerId);
 
             return $deal;
         });

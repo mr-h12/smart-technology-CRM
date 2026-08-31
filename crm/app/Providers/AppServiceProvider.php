@@ -28,8 +28,10 @@ use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
+use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
@@ -155,6 +157,11 @@ class AppServiceProvider extends ServiceProvider
         // Module 3 Point 3.6. `bind` for the same reason as the directory
         // above: stateless, and a singleton would outlive nothing useful.
         $this->app->bind(ImportBatchesInterface::class, EloquentImportBatches::class);
+
+        // Module 5 Point 3.1. `bind` for the same reason as its siblings:
+        // stateless, and this write is a single conditional `UPDATE` with no
+        // per-request collaborator to resolve.
+        $this->app->bind(CustomerStatusWriterInterface::class, EloquentCustomerStatusWriter::class);
 
         // Module 4 Point 2.1. `bind` for the same reasons again, and with one
         // collaborator rather than two: §3.7 gives suppliers no row scope, so

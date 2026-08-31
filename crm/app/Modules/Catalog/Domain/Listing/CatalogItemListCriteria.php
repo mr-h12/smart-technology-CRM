@@ -18,9 +18,14 @@ namespace App\Modules\Catalog\Domain\Listing;
  * - `is_active` is §3.7's "deactivate" and §7.3's "active product" / "Active
  *   service (yes/no)".
  *
- * `unit`, `service_type`, `company` and `product_code` are **not** filterable.
- * Each would be a product decision nobody has recorded, and each is one line
- * here when somebody makes it — the same floor `SearchIndex` sets for columns.
+ * - `company` is §7.3's "grouped by company/team name". `group_by=company` only
+ *   *orders* the whole list, and a screen that groups by a column has to be
+ *   able to ask for one group of it. Added 2026-08-31 on the owner's ruling,
+ *   in the same point that made the column required at the write boundary.
+ *
+ * `unit`, `service_type` and `product_code` are **not** filterable. Each would
+ * be a product decision nobody has recorded, and each is one line here when
+ * somebody makes it — the same floor `SearchIndex` sets for columns.
  *
  * ── `group_by`, and the response shape it deliberately does not change ─────
  *
@@ -58,7 +63,7 @@ final readonly class CatalogItemListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active'];
+    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active', 'company'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'created_at'];
@@ -79,6 +84,7 @@ final readonly class CatalogItemListCriteria
         public ?string $kind = null,
         public ?string $category = null,
         public ?bool $isActive = null,
+        public ?string $company = null,
         public ?string $groupBy = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
     ) {}
@@ -109,6 +115,7 @@ final readonly class CatalogItemListCriteria
             kind: $filters['kind'],
             category: $filters['category'],
             isActive: $filters['is_active'],
+            company: $filters['company'],
             groupBy: self::group($query['group_by'] ?? null),
             sorts: self::sorts($query['sort'] ?? null),
         );
@@ -216,13 +223,13 @@ final readonly class CatalogItemListCriteria
     }
 
     /**
-     * @return array{kind: string|null, category: string|null, is_active: bool|null}
+     * @return array{kind: string|null, category: string|null, is_active: bool|null, company: string|null}
      *
      * @throws InvalidCatalogItemListQuery
      */
     private static function filters(mixed $value): array
     {
-        $empty = ['kind' => null, 'category' => null, 'is_active' => null];
+        $empty = ['kind' => null, 'category' => null, 'is_active' => null, 'company' => null];
 
         if ($value === null) {
             return $empty;
@@ -244,6 +251,9 @@ final readonly class CatalogItemListCriteria
             // so it is checked for being text and matched as written.
             'category' => self::text($value['category'] ?? null, 'filter[category]'),
             'is_active' => self::boolean($value['is_active'] ?? null, 'filter[is_active]'),
+            // A company is a name a person wrote, not a code — matched as
+            // written, exactly like `category` above.
+            'company' => self::text($value['company'] ?? null, 'filter[company]'),
         ];
     }
 

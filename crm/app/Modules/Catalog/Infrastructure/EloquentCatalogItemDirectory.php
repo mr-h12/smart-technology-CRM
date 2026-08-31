@@ -143,6 +143,13 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
             $query->where('catalog_items.category', $criteria->category);
         }
 
+        // Matched as written, like `category`: both are the name of a thing
+        // rather than a code. Left outside the `q` search below for the reason
+        // the class comment gives — it does not split the screen in two.
+        if ($criteria->company !== null) {
+            $query->where('catalog_items.company', $criteria->company);
+        }
+
         // Tri-state: unset lists both. See `CatalogItemListCriteria` for why.
         if ($criteria->isActive !== null) {
             $query->where('catalog_items.is_active', $criteria->isActive);

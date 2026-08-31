@@ -48,4 +48,31 @@ interface ManagedListRepositoryInterface
      * @throws ListEntryAlreadyExists when the list already has that code
      */
     public function add(ManagedList $list, ListEntry $entry): void;
+
+    /**
+     * Withdraw one entry, so the list stops offering it.
+     *
+     * **A soft delete and nothing else** (`DB-01`). The row stays, which is why
+     * the verb here is *archive*: `entriesFor()` and `page()` already exclude a
+     * withdrawn row, so the whole read half of this was true before the write
+     * existed — the docblock above has said so since Point 2.2.
+     *
+     * **Nothing cascades.** There is no foreign key from a column that carries
+     * one of these codes back to this table — PostgreSQL refuses one against
+     * `(list, code) WHERE deleted_at IS NULL` — and none is wanted. Owner's
+     * ruling of 2026-08-31: a row already filed under a code keeps it, and the
+     * code merely stops being offered for new ones, which is the line §10.4
+     * takes about a deactivated catalog item.
+     *
+     * The row's id comes back because the audit record needs it and this is the
+     * layer that has the row in hand — `audit_log.entity_id` is a `UUID`
+     * column, and a caller left to fetch it would have to reach past this
+     * interface into `enum_lists` itself.
+     *
+     * @return string|null null when the list has no live entry with that code —
+     *                     the caller turns that into the 404, because an
+     *                     already-archived entry and one that never existed are
+     *                     the same answer here
+     */
+    public function archive(ManagedList $list, string $code): ?string;
 }

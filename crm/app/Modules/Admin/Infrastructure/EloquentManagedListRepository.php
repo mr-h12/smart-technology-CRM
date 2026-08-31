@@ -90,6 +90,33 @@ final readonly class EloquentManagedListRepository implements ManagedListReposit
         }
     }
 
+    public function archive(ManagedList $list, string $code): ?string
+    {
+        // The global scope `SoftDeletes` installs means an already-archived row
+        // is not found here at all, so a second call reports absent rather than
+        // re-stamping `deleted_at` and losing when the withdrawal happened.
+        $row = EnumListEntry::query()
+            ->where('list', $list->value)
+            ->where('code', $code)
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $id = $row->id;
+
+        // A soft delete: an UPDATE of `deleted_at` and nothing else (`DB-01`).
+        $row->delete();
+
+        // The id is returned rather than left for the caller to fetch, because
+        // the caller would have to reach past this class into `enum_lists` to
+        // get it — which is how `AddListEntry` ended up with a raw query in the
+        // Application layer, and how this class nearly ended up with a second
+        // copy of it.
+        return $id;
+    }
+
     private function map(EnumListEntry $row): ListEntry
     {
         return new ListEntry($row->code, $row->label_en, $row->label_ar, $row->position);

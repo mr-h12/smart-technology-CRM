@@ -11,6 +11,7 @@ use Database\Seeders\ManagedListSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -291,6 +292,160 @@ final class ManagedListEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/sectors?page=0', $bearer)->assertStatus(400);
         $this->getJson(self::ENDPOINT.'/sectors?filter[code]=banks', $bearer)->assertStatus(400);
         $this->getJson(self::ENDPOINT.'/sectors?sort=code', $bearer)->assertStatus(400);
+    }
+
+    // ── archiving an entry (Step 6 Point 6.1) ───────────────────────────────
+
+    public function test_that_an_unauthenticated_caller_cannot_archive(): void
+    {
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks')->assertStatus(401);
+    }
+
+    /**
+     * The same authority as adding: `admin.system_settings`, Super Admin alone.
+     * §3.11 has no row for managed lists, so the write side borrows the
+     * settings permission — `routes/api.php` carries that reasoning for `POST`
+     * and this verb answers to it identically.
+     */
+    public function test_that_a_manager_may_not_archive_an_entry(): void
+    {
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(403);
+
+        self::assertSame(0, DB::table('enum_lists')
+            ->where('list', 'sectors')->where('code', 'banks')->whereNotNull('deleted_at')->count());
+    }
+
+    /**
+     * `DB-01`: the row is soft-deleted and still there, so the answer says
+     * `archived`, not `deleted` — `RoleController`'s wording, for its reason.
+     * A 200 rather than a 204 because `OpenAPI §3.3` puts a request id on every
+     * response and §4.1 puts it in `meta`, which a 204 has no body to carry.
+     */
+    public function test_that_the_super_admin_archives_an_entry(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.archived', true);
+
+        $row = DB::table('enum_lists')->where('list', 'sectors')->where('code', 'banks')->first();
+        self::assertNotNull($row, 'DB-01 forbids physical deletion — the row must still be there.');
+        self::assertNotNull($row->deleted_at);
+    }
+
+    /** The read half was already true (`test_that_an_archived_entry_is_not_offered`); this reaches it through the API. */
+    public function test_that_an_archived_entry_stops_being_offered(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $before = $this->getJson(self::ENDPOINT.'/sectors', $bearer)->json('meta.pagination.total');
+
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)->assertStatus(200);
+
+        $this->getJson(self::ENDPOINT.'/sectors', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', is_int($before) ? $before - 1 : null);
+    }
+
+    /**
+     * `AUD-01`. `AddListEntry` records the create because *who added this, and
+     * when* is what the first disagreement about a report asks; withdrawing a
+     * choice customers are already filed under asks it louder.
+     *
+     * `new_values` is null, which is the shape `AuditRecorderInterface`
+     * documents for a delete — the mirror of the create's null `old_values`.
+     */
+    public function test_that_archiving_is_written_to_the_audit_log(): void
+    {
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(200);
+
+        $row = DB::table('audit_log')->where('event', 'LIST_ENTRY_ARCHIVED')->first();
+
+        self::assertNotNull($row, 'AUD-01 requires a record of the withdrawal.');
+        self::assertSame('enum_lists', $row->entity_type);
+        self::assertNull($row->new_values, 'AuditRecorderInterface: new values are absent on a delete.');
+
+        $old = json_decode(is_string($row->old_values) ? $row->old_values : '[]', true);
+        self::assertIsArray($old);
+        self::assertSame('banks', $old['code']);
+        self::assertSame('sectors', $old['list']);
+    }
+
+    public function test_that_archiving_an_entry_that_is_not_there_is_not_found(): void
+    {
+        $this->deleteJson(self::ENDPOINT.'/sectors/nonesuch', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(404);
+    }
+
+    /** The same 404 the read side gives for a list this system does not keep. */
+    public function test_that_archiving_inside_an_unknown_list_is_not_found(): void
+    {
+        $this->deleteJson(self::ENDPOINT.'/colours/banks', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(404);
+    }
+
+    /** Already archived is indistinguishable from never there, and answers the same. */
+    public function test_that_archiving_the_same_entry_twice_is_not_found_the_second_time(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)->assertStatus(200);
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)->assertStatus(404);
+    }
+
+    /**
+     * Point 1.3's index is `(list, code) WHERE deleted_at IS NULL`, so the code
+     * a withdrawal freed is available again. Without this the archive would be
+     * a one-way door on the name itself, not only on the entry.
+     */
+    public function test_that_an_archived_code_can_be_used_again(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)->assertStatus(200);
+
+        $this->postJson(self::ENDPOINT.'/sectors', self::entry('banks'), $bearer)->assertStatus(201);
+    }
+
+    /**
+     * **The owner's ruling of 2026-08-31, option (أ).** There is no foreign key
+     * between `enum_lists` and the columns that carry its codes — PostgreSQL
+     * refuses one against a partial unique index — and none is wanted: a row
+     * already filed under a company keeps what it was filed under, and the code
+     * merely stops being offered for new ones. §10.4 takes the same line about
+     * a deactivated catalog item: hidden from **new** selection lists.
+     *
+     * This test exists so that a later "tidy-up" cascade is a failing test
+     * rather than a silent rewrite of history.
+     */
+    public function test_that_archiving_a_company_leaves_the_items_filed_under_it_alone(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->postJson(self::ENDPOINT.'/companies', [
+            'code' => 'alpha_co', 'label_en' => 'Alpha Co', 'label_ar' => 'ألفا', 'position' => 1,
+        ], $bearer)->assertStatus(201);
+
+        DB::table('catalog_items')->insert([
+            'id' => (string) Str::uuid7(),
+            'kind' => 'product',
+            'name' => 'Copper Cable',
+            'unit' => 'piece',
+            'company' => 'alpha_co',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->deleteJson(self::ENDPOINT.'/companies/alpha_co', [], $bearer)->assertStatus(200);
+
+        $item = DB::table('catalog_items')->where('name', 'Copper Cable')->first();
+        self::assertNotNull($item);
+        self::assertSame('alpha_co', $item->company, 'Option (أ): the row keeps what it was filed under.');
+        self::assertNull($item->deleted_at, 'Archiving a company never touches a catalog item.');
     }
 
     // ── the acceptance criterion ────────────────────────────────────────────

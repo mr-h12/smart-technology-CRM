@@ -5345,6 +5345,82 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.1** `DELETE /managed-lists/{list}/{code}` — the archive. Owner's ruling of 2026-08-31,
+      recorded here awaiting a `D-xx`: **option (أ)** — nothing cascades — and the word is
+      **archive**, not delete.
+      **This route was previously refused in writing, and that refusal is rewritten rather than
+      ignored.** `routes/api.php` carried a comment saying "**No `PATCH` and no `DELETE`.** `DB-01`
+      forbids physical deletion, and withdrawing a sector customers are already filed under is a
+      decision with consequences". Its first half was always about a **hard** delete, which this is
+      not — this soft-deletes, so `DB-01` holds. Its second half was a **decision**, and the owner
+      has now made the other one. Point 5.1 is what forced the question: `companies` is seeded empty
+      and filled by hand, so a mistyped company name was permanent until this existed. The comment
+      is replaced in the same commit, and so is `services/admin.ts`'s copy of the same claim.
+      **The read half was already true and already documented.** `EnumListEntry` has used
+      `SoftDeletes` since Point 1.3, and `ManagedListRepositoryInterface`'s docblock has said since
+      Point 2.2 that "archived rows do not come back at all (`DB-01`, `D-34`)". So this point adds a
+      write and nothing else; `test_that_an_archived_entry_is_not_offered` proved the read side
+      before by stamping `deleted_at` by hand, and the new test reaches the same state through the
+      API.
+      **The shapes are borrowed, not invented.** `200` with `{"archived": true}` rather than `204`,
+      because `OpenAPI §3.3` puts a request id on every response and §4.1 puts it in `meta`, which a
+      204 has no body to carry — `RoleController::destroy` writes that reasoning out and this
+      mirrors it, including `archived` over `deleted` (`DB-01`: the row is still there). The audit's
+      `new_values` is **null**, which is the shape `AuditRecorderInterface` documents in as many
+      words for a delete — the mirror of the create's null `old_values`. `admin.system_settings`,
+      the same authority as the `POST`, for the reason `routes/api.php` already gives: §3.11 has no
+      row for managed lists.
+      **1925 backend (11666 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 452
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1597 and 803 allowed).**
+      Branch cut from `main` (`d8ea2d2`), baseline 1915/11618, so **+10 tests / +48 assertions** —
+      the ten new endpoint tests. Pint 451 → 452 and the deptrac allowed counts move because the
+      point adds exactly one file.
+      ⚠️ **The first full-suite run was voided and re-run.** The `services/admin.ts` comment fix
+      landed after that run started, and `LogicalPropertiesTest` scans `ts`. Both runs read
+      1925/11666; the reported number is the **second**.
+      RED first: **8 of the 10 failed**, and reading *which* two passed mattered — the two 404 tests
+      passed before any code existed, because Laravel already 404s a route that is not registered.
+      They were passing for the wrong reason and only became meaningful once the route existed.
+      **Deliberate break — one, restored, re-run green.** `LIST_ENTRY_ARCHIVED` was renamed
+      `LIST_ENTRY_REMOVED`; **exactly** the audit test failed, 33 others passed.
+      ⛔ **The break I wanted most could not be run.** Stripping `permission:admin.system_settings`
+      off the new route — to prove `test_that_a_manager_may_not_archive_an_entry` detects an
+      unguarded route rather than merely a missing one — was **refused by the environment's
+      permission classifier**, correctly, since the command reads as removing an authorisation
+      guard. It was not attempted by another route. `routes/api.php` was verified untouched by
+      `shasum -c` afterwards. **So that test's RED was "no route → 404", never "no permission →
+      200", and the guard is unproven in that direction.** Named in the report and left for the
+      owner to decide.
+      **Waste audit** — the first point under the new rule.
+      *Dead code:* every symbol added was grepped over `app/`, `routes/`, `tests/` and
+      `resources/js` — `ArchiveListEntry` 3, `->archive(` 2, `liveEntry` 2, `destroy` 3,
+      `LIST_ENTRY_ARCHIVED` 3. None sits at one hit, so none is dead.
+      *Duplicate logic:* **one found, and removed inside this point.** `ArchiveListEntry` first
+      carried its own `identifierOf()` — a byte-for-byte copy of `AddListEntry`'s raw
+      `enum_lists` query. The fix removed the need rather than sharing the copy: `archive()` now
+      returns the archived row's id, since the repository is the layer holding the row and a caller
+      left to fetch it has to reach past the interface into the table. Verified: `grep -c
+      identifierOf ArchiveListEntry.php` → 0.
+      *Unused components:* **one found.** `services/admin.ts` said `POST` was "the only write this
+      resource has" and that no `DELETE` existed — false the moment this route landed. Corrected in
+      the same commit, and it now says plainly that **no SPA caller exists yet**, which is 6.2.
+      *Unnecessary complexity:* `ConnectionInterface` is still used (the transaction) and is not a
+      dead dependency. The two null checks in `handle()` are **not** redundant: `liveEntry()` reads
+      without a lock, so the second is a genuine race guard. `liveEntry()` scans `entriesFor()`
+      rather than opening a second query path — the largest seeded list has six entries, and a
+      second path would need its own guarantee of agreeing with the first. Stated ceiling: if a
+      managed list ever grows past a few hundred entries, that scan is the thing to replace.
+      **Problems found: two.** (1) The `identifierOf` duplication above — created and removed inside
+      the point, and it is what the new waste-audit rule was written to catch. (2) The voided
+      first suite run, above.
+      **Not covered:** **no screen.** There is no archive control, no confirm dialog and no
+      `deleteListEntry()` in `services/admin.ts` — all of that is Point 6.2, so today the endpoint is
+      reachable only by an API client. **There is still no `PATCH`**, so a mistyped *label* remains
+      uncorrectable — only the whole entry can be withdrawn and a fresh one added. **Nothing
+      un-archives:** the row keeps `deleted_at` forever and no endpoint clears it, so a withdrawal
+      made in error is fixed by adding the code again, not by restoring the row — the audit log then
+      shows both events, which is the honest history but not a restore. And the authorisation guard
+      is unproven in the direction described above.
 
 **Acceptance criteria**
 - [x] New product appears under the Product tab, grouped by company *(Points 4.3 and 4.4, both

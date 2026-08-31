@@ -354,6 +354,20 @@ final class CatalogItemListEndpointTest extends TestCase
         self::assertSame(['Drill'], $this->names('?filter[category]=power tools'));
     }
 
+    /**
+     * §7.3 groups the catalog "by company/team name", and `group_by=company`
+     * only orders the whole list — a screen that groups by a column needs to be
+     * able to ask for one group. Matched as written, the way `category` is:
+     * both are the name of a thing rather than a code.
+     */
+    public function test_that_the_company_filter_narrows(): void
+    {
+        $this->item('Drill', company: 'Alpha Co');
+        $this->item('Hammer', company: 'Beta Co');
+
+        self::assertSame(['Drill'], $this->names('?filter[company]=Alpha Co'));
+    }
+
     public function test_that_the_active_filter_narrows_to_the_deactivated_when_asked(): void
     {
         $this->item('Drill', active: true);

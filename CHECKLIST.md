@@ -5345,6 +5345,67 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **5.2** `company` required at the write boundary, and `filter[company]` on the list. The
+      server half of the owner's ruling; the dropdowns are 5.3's and the filter control is 5.4's.
+      **Why required, when §7.3 does not say so.** §7.3 lists "Providing team / company" in the
+      **Service** column only and marks nothing required. **Owner's ruling of 2026-08-31, recorded
+      here awaiting a `D-xx`:** it is required for **both** tabs, because §7.3 also opens "Two tabs:
+      Product · Service, **grouped by company/team name**" — a row with no company falls out of the
+      only grouping the screen has, and `EloquentCatalogItemDirectory` already has to invent a place
+      for it (`nulls last`, Point 3.1). The **column stays nullable**: a `NOT NULL` migration would
+      fail on the rows that already have none, so the rule lives at the boundary, the same shape
+      `name` uses for `required_if:kind,product`.
+      **`required` to create, `sometimes|required` to edit** — the shape `kind` already uses in this
+      class. A `PATCH` that does not name the column is not asking to blank it; one that *does* name
+      it must give a real value. `regex:/\S/` beside it for `name`'s reason: `required` accepts
+      `"   "`.
+      **Why `company` becomes filterable.** `CatalogItemListCriteria` said in as many words that it
+      was *not* filterable and that "each is one line here when somebody makes it" — this is that
+      line. `group_by=company` only **orders** the whole list (Point 3.1 deliberately kept §4.2's
+      flat envelope), so a screen that groups by a column has to be able to ask for one group of it.
+      Matched as written with `where`, exactly like `category`: both are the name of a thing rather
+      than a code, so neither goes through `code()`. Left **outside** the `q` search intersection for
+      the reason the class comment already gives about `category` — it does not split the screen in
+      two the way `filter[kind]` does.
+      **⚠️ The owner accepted the empty-companies bootstrap as a setup step (option ب, 2026-08-31).**
+      `ManagedList::Companies` is seeded empty and `POST /managed-lists/{list}` carries
+      `admin.system_settings`, so **on a fresh install the Super Admin must add a company before any
+      catalog item can be created**. That is deliberate, not a defect, and **it belongs in the manual
+      test list as a named first step**.
+      **1918 backend (11633 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      RED first, and **both halves failed for the documented reason rather than merely failing**:
+      the write test answered **201, not 422** (the rule did not exist yet), and the list test
+      answered **400, not 200** — which is the exact "undeclared filter" refusal `OpenAPI §6.2`
+      requires and the before-state this point removes.
+      Delta **measured, not predicted**, by running `tests/Feature/Catalog` with the change and again
+      under `git stash`: **89 tests / 571 assertions → 86 / 556**, so **+3 tests and +15
+      assertions** — the whole of 1915/11618 → 1918/11633. No guard moved, because no file was added.
+      **Deliberate break — one, restored and `shasum -c` confirmed.** The subtle half of this change
+      is `sometimes`, not `required`: a plain `required` on the `PATCH` branch is the plausible slip,
+      and it is invisible to every test that only creates. Dropping `sometimes` failed **exactly the
+      five `PATCH` tests** — edit-changes-only-what-it-names, deactivation-is-an-edit, the edit audit
+      pair, and editing-an-unknown-item — and nothing else. Restored with the inverse `sed`, never by
+      re-inserting text.
+      **Problems found: two.**
+      (1) The first draft wrote `company` as a flat `['required', ...]` for both verbs. That is the
+      defect the break above hunts, written by hand: it would have made **every** `PATCH` resend the
+      company, including the deactivate toggle. Caught by reading `kind`'s own two-branch rule three
+      lines above it, before any test ran.
+      (2) Five existing write tests built payloads with no company. Two are the `product()` /
+      `service()` helpers — one line each — but three build a payload inline to test something else
+      (`no kind`, `unknown kind`, `blank name`). Those already asserted 422 and would have kept
+      passing **for the wrong reason**, so `company` was added to each so they still fail only for
+      the thing they name. Anchors were replaced by an asserted script, one match each, 5/5.
+      **Not covered:** the server still validates `company` for **shape, not membership** — nothing
+      checks it against `enum_lists`, so any 255-character string is accepted and debt entry 23
+      stands unchanged. The screen is **not** touched here: `CatalogItemFormModal` already renders a
+      company input on both tabs and will now receive a 422 naming the field, drawn by the shared
+      `error.messageFor()` mapping — but the field carries **no required marker**, so the refusal
+      arrives on submit rather than before it. That, the dropdown, and the service's optional `name`
+      are Point 5.3; the filter control is 5.4. **Every existing `catalog_items` row keeps its
+      free-text company** and there is no data migration — a row whose company is not a listed one
+      still saves, because membership is unchecked.
 
 **Acceptance criteria**
 - [x] New product appears under the Product tab, grouped by company *(Points 4.3 and 4.4, both

@@ -170,13 +170,13 @@ final class CatalogItemWriteEndpointTest extends TestCase
 
     public function test_that_an_item_in_neither_tab_is_refused(): void
     {
-        $this->postJson(self::ENDPOINT, ['name' => 'Orphan'], $this->bearerFor(RoleName::Manager))
+        $this->postJson(self::ENDPOINT, ['name' => 'Orphan', 'company' => 'Alpha Co'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(422);
     }
 
     public function test_that_a_kind_section_7_3_does_not_define_is_refused(): void
     {
-        $this->postJson(self::ENDPOINT, ['kind' => 'bundle', 'name' => 'X'], $this->bearerFor(RoleName::Manager))
+        $this->postJson(self::ENDPOINT, ['kind' => 'bundle', 'name' => 'X', 'company' => 'Alpha Co'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(422);
     }
 
@@ -192,7 +192,7 @@ final class CatalogItemWriteEndpointTest extends TestCase
     /** `required` accepts "   ", and the table's CHECK would answer with a 500. */
     public function test_that_a_blank_name_is_refused_at_the_boundary(): void
     {
-        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => '   ', 'unit' => 'piece'], $this->bearerFor(RoleName::Manager))
+        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => '   ', 'unit' => 'piece', 'company' => 'Alpha Co'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(422);
     }
 
@@ -210,6 +210,26 @@ final class CatalogItemWriteEndpointTest extends TestCase
         unset($payload['service_type']);
 
         $this->postJson(self::ENDPOINT, $payload, $this->bearerFor(RoleName::Manager))->assertStatus(422);
+    }
+
+    /**
+     * §7.3 lists "Providing team / company" in the Service column and marks
+     * nothing required. **Owner's ruling, 2026-08-31: it is required for both
+     * tabs**, because §7.3 also opens with "grouped by company/team name" and a
+     * row with no company falls out of the only grouping the screen has. The
+     * column stays nullable — a `NOT NULL` migration would fail on the rows
+     * that already have none — so the rule lives at the boundary, the same
+     * shape as `name`. Awaiting a `D-xx`; recorded in `CHECKLIST.md`.
+     */
+    #[DataProvider('kinds')]
+    public function test_that_an_item_without_a_company_is_refused(string $kind): void
+    {
+        $payload = $kind === 'product' ? self::product() : self::service();
+        unset($payload['company']);
+
+        $this->postJson(self::ENDPOINT, $payload, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'company');
     }
 
     /** §7.3's Service row is identified by its type; the name is the product tab's requirement. */
@@ -333,13 +353,13 @@ final class CatalogItemWriteEndpointTest extends TestCase
     /** @return array<string, mixed> */
     private static function product(): array
     {
-        return ['kind' => 'product', 'name' => 'Copper Cable', 'unit' => 'piece'];
+        return ['kind' => 'product', 'name' => 'Copper Cable', 'unit' => 'piece', 'company' => 'Alpha Co'];
     }
 
     /** @return array<string, mixed> */
     private static function service(): array
     {
-        return ['kind' => 'service', 'name' => 'Rack Install', 'service_type' => 'installation'];
+        return ['kind' => 'service', 'name' => 'Rack Install', 'service_type' => 'installation', 'company' => 'Alpha Co'];
     }
 
     /**

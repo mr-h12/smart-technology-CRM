@@ -73,6 +73,10 @@ final class SaveCatalogItemRequest extends FormRequest
             ? ['required', Rule::in(CatalogItemDraft::KINDS)]
             : ['sometimes', 'required', Rule::in(CatalogItemDraft::KINDS)];
 
+        $company = $this->isMethod('POST')
+            ? ['required', 'string', 'max:255', 'regex:/\S/']
+            : ['sometimes', 'required', 'string', 'max:255', 'regex:/\S/'];
+
         return [
             'kind' => $kind,
 
@@ -94,7 +98,26 @@ final class SaveCatalogItemRequest extends FormRequest
             // §7.3's Service row: "Service type". A product has none.
             'service_type' => ['required_if:kind,service', 'nullable', 'string', 'max:64'],
 
-            'company' => ['nullable', 'string', 'max:255'],
+            // §7.3 lists "Providing team / company" in the Service column and
+            // marks nothing required. **Owner's ruling, 2026-08-31: required
+            // for both tabs** — §7.3 also opens "grouped by company/team name",
+            // and a row with no company falls out of the only grouping the
+            // screen has. The column stays nullable: a `NOT NULL` migration
+            // would fail on the rows that already have none, so the rule lives
+            // here, the same shape as `name` above. `regex:/\S/` for the same
+            // reason as `name` — `required` accepts "   ". Awaiting a `D-xx`.
+            //
+            // ⚠️ `ManagedList::Companies` is seeded **empty** and only the
+            // Super Admin may add to it (`admin.system_settings` on
+            // `POST /managed-lists/{list}`), so a fresh install cannot create a
+            // catalog item until a company is added. Owner accepted that as a
+            // setup step, 2026-08-31; it belongs in the manual test list.
+            //
+            // Required to create, `sometimes|required` to edit — the shape
+            // `kind` uses above, and for the same reason: a `PATCH` that does
+            // not name the column is not asking to blank it, while one that
+            // *does* name it must give a real value.
+            'company' => $company,
             'description' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
 

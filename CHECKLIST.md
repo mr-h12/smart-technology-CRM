@@ -5276,6 +5276,81 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       validated for shape and not membership against `enum_lists` (debt 23, owner's decision of
       2026-08-31), so the form offers no dropdown for either and a typo is accepted. No bulk create
       and no import. Deactivation still hides nothing from a selection list (Modules 6/7).
+- [x] **5.0** `SupplierRatingChip.vue` — §6.4's icon half, which Point 4.0 left out. **A defect the
+      owner found on the running screen, not a new feature.**
+      **What was wrong.** Design System §6.4 line 216 reads "Success … **Green icon + text/chip**;
+      never color alone", and line 218 "Danger … **Red icon** + label". Point 4.0 read the second
+      half of that sentence, shipped the word alone, and cited §6.4 as satisfied — in this file, at
+      the criterion below. It was not: the chip carried no icon, and its fill was
+      `color-mix(var(--color-success) 14%, transparent)`, which over `#FFFFFF` computes to
+      **`#DEE9E3`** — a grey. The red chip computed to `#F6E4E3`. The dark theme was no better:
+      `#5DDB90` at 14% over `#111827` is `#1C3336`. And `SuppliersView`'s neutral status chip uses
+      the **same 14% recipe**, so the rating chip and the status chip beside it had identical visual
+      weight. §7.1 says "The colour **appears** as a chip"; on screen it did not.
+      **Why the suite did not catch it, which is the part worth keeping.** Every assertion in
+      `SupplierRatingChip.spec.ts` asked about **text** or about **class names** — "carries a
+      localised word", "gives each rating its own class". Both remained true of a grey chip. `jsdom`
+      does not apply an SFC's scoped `<style>`, so no `getComputedStyle` assertion could have helped
+      either. **The tests were not weak by accident: nothing in reach of this suite can see a
+      colour.** Recorded rather than papered over.
+      **The repair.** An inline `<svg>` circle, `aria-hidden` and `focusable="false"`, filled with
+      `currentColor` so it takes the chip's own token and cannot drift from the word beside it —
+      §6.4's icon, and §7.1's own 🟢🟡🔴⚪ presentation. The fills rise to 18–22% and each rating
+      gains a `border-color` at 45% of its token, so the chip reads as coloured in a row of neutral
+      ones. Owner chose the coloured circle over meaning-glyphs (✓ ! ✕) on 2026-08-31, because the
+      circle is what §7.1 itself draws and the glyphs would be invented.
+      **The new guard, and its honest limit.** Three families were added: the circle exists for each
+      of the four ratings; it is `aria-hidden` so the word stays the whole accessible name; and each
+      rating's `border-color` is not `transparent` — the last read from the component's **source
+      text**, because `jsdom` cannot report the computed value. ⚠️ **The degree of tint is still not
+      machine-checkable.** A future change that halves the percentages would pass every test here.
+      Said plainly rather than claimed closed.
+      **1907 backend (11596 assertions) · 541 frontend (33 files) · `npm run build` clean · pint 450
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      ⚠️ These baselines are **higher than Point 4.4's** because this branch is cut from a `main`
+      that now carries PR #54, the second developer's Module 5 (Deals) work — not a regression and
+      not this point's doing. Verified as unrelated: `git diff origin/main~1 origin/main` touches no
+      supplier, catalog, locale, navigation or router file.
+      RED first: **11 failed, 9 passed** — and the 9 are the point. Every pre-existing assertion went
+      on passing against the defective chip while the new ones failed, which is the finding stated
+      above, demonstrated rather than asserted. (The white chip's border test passed from the start:
+      white already carried `--color-border-strong`, because it is the *absence* of a rating and a
+      white fill on a white surface would be invisible. Only the three coloured ones were bare.)
+      Delta measured, not predicted: frontend `main` 529 → branch 541 = **+12**, the twelve new
+      `it.each` rows (4 ratings × 3 families), **with no new file**. And because no file was added,
+      the two count-asserting backend guards do not move at all — proved by running
+      `LogicalPropertiesTest|NoHardCodedTextTest` with the change and then again under `git stash`:
+      **168 tests / 548 assertions both times.**
+      **Deliberate breaks — three, each restored:** (1) green's `border-color` set back to
+      `transparent`, which is the original defect re-created → failed **exactly** the green border
+      test; (2) `aria-hidden="false"` → failed **exactly** the four decorative tests; (3) the `<svg>`
+      removed entirely, which is Point 4.0's literal shape → failed **exactly** the eight icon tests
+      and nothing else.
+      **Problems found:** three, all mine and all caught by a check rather than by luck.
+      (1) The first version of the border assertion searched the whole CSS rule for the word
+      `transparent` and so failed against a **correct** `color-mix(..., transparent)` border. The
+      assertion was wrong, not the code; it now reads the `border-color` **value**. A verifier that
+      fails for the wrong reason is not a verifier.
+      (2) Restoring break 3 by re-inserting the markup left the HTML comment **duplicated**, because
+      the break had removed the `<svg>` by slicing lines rather than by an inverse edit. `shasum -c`
+      reported FAILED and the duplicate was found and removed; the file is byte-identical to the
+      pre-break baseline. This is the second time in this project that a non-`sed` restoration was
+      wrong, and the checksum is the only reason it did not ship.
+      (3) `vue-tsc` refused `declaration?.[1].trim()` — `TS2532`, the capture group is possibly
+      undefined — **after `npm run test:unit` had already passed 541 green**. The fix landed while
+      the backend suite was running, and `LogicalPropertiesTest::markupFiles()` scans `ts`, so that
+      run was **voided and re-run clean**; both runs happened to agree at 1907/11596, which the guard
+      measurement above independently predicts. The reported figure is the clean run's.
+      **Not covered:** the chip's **placement** is unchanged — it sits in its own `التقييم` column,
+      adjacent to the name column but not inside the name cell. §7.1's "beside the supplier name" is
+      read as satisfied by adjacency; if the owner meant *inside* the name cell, that is a separate
+      change to `SuppliersView`. Contrast ratios were computed by hand from the token values, not
+      measured with a tool against the rendered page. The neutral status chip still uses the old 14%
+      recipe — deliberately, since it is a status and not a rating, but the two now differ in weight
+      by design rather than by accident. Nothing was changed on any other screen, because §7.1's
+      "every screen" still has only this one.
+      ⚠️ **This entry and Point 4.4's are inserted at the same anchor**, so PR #57 and this one will
+      both touch `CHECKLIST.md` here. Keep both, 4.4 first.
 - [x] **5.1** `ManagedList::Companies` — `DB-05`'s fifth list, and the migration it turned out to
       need. **Owner's ruling of 2026-08-31, recorded here awaiting a `D-xx`:** `DB-05` names four
       lists — "sectors · units · service types · delivery terms" — and does not name companies.
@@ -5480,11 +5555,16 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       `kind: 'product'` with §7.3's product fields, and a save closes the dialog and re-asks the
       server so the new row arrives in its group rather than being pushed into the page by the
       client. The write itself is `CatalogWriteEndpointTest`'s, per `D-67`.)*
-- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
-      renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
-      `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
-      be closed here** — the other screens that name a supplier are Module 6's supplier quotations
-      and Module 11's procurement, and neither exists.)*
+- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1 put the chip
+      on the Suppliers screen; **Point 5.0 made its colour actually visible.** ⚠️ The wording here
+      previously claimed the chip carried "§7.1's word as Design System §6.4 requires" — that
+      citation was **half of §6.4**, which asks for an "icon + text/chip". The chip had no icon and
+      its 14% fill computed to a grey, and the owner found that on the running screen after this
+      line had already been written. It now carries the circle and a real border, and
+      `SupplierRatingChip.spec.ts` guards both. **"Every screen" still cannot be closed here** — the
+      other screens that name a supplier are Module 6's supplier quotations and Module 11's
+      procurement, and neither exists. **The degree of tint remains unguarded**, because nothing in
+      a `jsdom` suite can see a colour.)*
 - [x] Service appears under the Service tab, separate from products *(Points 4.3 and 4.4. The
       Service tab asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a
       client-side split, and the two tabs draw §7.3's two **different** column lists — asserted in

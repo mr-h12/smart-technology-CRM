@@ -104,7 +104,16 @@ describe('ManagedListsView', () => {
         expect(view.find('[data-testid="loading-state"]').exists()).toBe(true);
     });
 
-    it('offers exactly the four lists DB-05 names', async () => {
+    /**
+     * `DB-05` names four; `companies` is the fifth, added by the owner's ruling
+     * of 2026-08-31 (Point 5.1) because §7.3 groups the catalog by company and
+     * the owner asked to filter by it — and a value that is grouped *and*
+     * filtered cannot stay free text without fragmenting.
+     *
+     * This is a count-asserting guard and it broke on purpose. Updated with the
+     * reason rather than widened.
+     */
+    it('offers exactly the lists this system keeps', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
 
         const view = await render();
@@ -115,6 +124,7 @@ describe('ManagedListsView', () => {
             'units',
             'service_types',
             'delivery_terms',
+            'companies',
         ]);
     });
 

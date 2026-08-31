@@ -5276,6 +5276,75 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       validated for shape and not membership against `enum_lists` (debt 23, owner's decision of
       2026-08-31), so the form offers no dropdown for either and a typo is accepted. No bulk create
       and no import. Deactivation still hides nothing from a selection list (Modules 6/7).
+- [x] **5.1** `ManagedList::Companies` — `DB-05`'s fifth list, and the migration it turned out to
+      need. **Owner's ruling of 2026-08-31, recorded here awaiting a `D-xx`:** `DB-05` names four
+      lists — "sectors · units · service types · delivery terms" — and does not name companies.
+      **Why a list and not the free text it was.** §7.3 groups the catalog "by company/team name",
+      and the owner asked to filter by it as well so the same product can be compared across
+      companies. A value that is both **grouped and filtered** cannot stay free text without
+      fragmenting: "Acme", "acme" and "Acme Ltd" become three companies on one screen. That is
+      `R-03`'s recorded free-text risk — logged there about regions — arriving a second time, and
+      the register already prescribes "convert to a managed list later" as its answer.
+      **Seeded empty, for `delivery_terms`' reason applied to a different list.** No document in this
+      project names a single company; they are the owner's own trading partners and brands. A
+      plausible-sounding "Acme" seeded here would become a heading real products are grouped under
+      and a value real users filter by — business content nobody wrote. ⚠️ **The consequence belongs
+      to Point 5.2 and is deliberate:** once `company` becomes `required`, an empty list means **no
+      catalog item can be created until the Super Admin adds a company**, because `POST
+      /managed-lists/{list}` carries `admin.system_settings`. The owner has been asked whether to
+      seed real names, accept it as a setup step, or relax that permission; **5.2 does not start
+      until that is answered.**
+      **⚠️ This point edits Module 2's `Admin` module while Module 4 is the module in hand**, which
+      `CLAUDE.md`'s module-isolation rule would normally refuse. It is deliberate: `DB-05`'s lists
+      are one shared mechanism with one table, one endpoint and one admin screen, and the
+      alternative — Catalog keeping its own list of companies — is a second implementation of the
+      thing `DB-05` exists to prevent. No Catalog code is touched here at all.
+      **1915 backend (11618 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      RED first, in two halves. Backend: **5 failed, 47 passed** — the five new or narrowed
+      expectations and nothing else. Frontend: **1 failed, 13 passed** — `ManagedListsView`'s
+      "offers exactly the four lists" guard, updated to five with the reason written into it.
+      Delta **measured, not predicted**, by running every guard that could move
+      (`ManagedList|UserSchemaMigrationTest|LogicalPropertiesTest|NoHardCodedTextTest|EndToEndConnectivityTest`)
+      with the change and again under `git stash`: **292 tests / 1150 assertions → 287 / 1132**, so
+      **+5 tests and +18 assertions**, which is the whole of 1910/11600 → 1915/11618. Frontend
+      **+0**, because the list guard was *edited* rather than added — confirmed twice, since Point
+      5.0 measured this same `main` at 553/34 from the other side.
+      **Deliberate breaks — three, all restored and `shasum -c` confirmed:** (1) the case value
+      written singular, `'company'` — the plausible slip → failed **exactly** the enum guard and both
+      endpoint tests, no collateral; (2) a plausible company seeded (`acme / Acme / أكمي`) — the
+      exact thing the comment forbids → failed **three independent** guards: the empty-by-design
+      assertion, the documented-count provider, and the registry-size assertion that pins 13 entries;
+      (3) `'companies'` dropped from the SPA's `MANAGED_LISTS` → failed **exactly** the view guard.
+      **Problems found:** two, and the first is the important one.
+      (1) ⚠️ **A claim I wrote into the code was wrong, and the full suite caught it.** Both
+      `ManagedList` and `create_enum_lists` argue that "adding a fifth list means adding the column
+      that points at it, which is a migration either way", and I extended that to say `companies`
+      needed **no** migration because `catalog_items.company` already existed. It does not need a
+      *column* — but `create_enum_lists` CHECKs `list` against four **literals**, so the first
+      `companies` row answered `SQLSTATE[23514]: violates check constraint "enum_lists_known_list"`.
+      I had run only `--filter=ManagedListsDataTest|ManagedListEndpointTest` and missed
+      `ManagedListSchemaMigrationTest` entirely; the unfiltered suite is what found it. The claim is
+      now corrected **in the docblock as well as in the code**, and
+      `2026_08_31_020000_extend_enum_lists_with_companies` drops and re-adds the constraint with five
+      names — the original migration untouched, per `DEV-03` and `CLAUDE.md`. `down()` restores the
+      four and was **proved, not assumed**: `migrate:rollback --step=1` then `migrate`, reading
+      `pg_get_constraintdef` before and after each. The 23514 failure is also this migration's
+      verifier — it failed on its own, before the fix existed, for exactly the right reason.
+      (2) `ManagedListSchemaMigrationTest`'s drift guard asserted `assertCount(4, ManagedList::cases())`
+      against the `DB-05` line in the master documentation. It was **narrowed rather than widened**:
+      the four documented names must each still be present, and the set difference must be exactly
+      `['companies']`. A bare `assertCount(5)` would have stopped catching a removal.
+      **Not covered:** nothing yet **uses** the list. `company` is still free text on the wire and
+      still optional — the `required` rule and the `filter[company]` are Point 5.2's, and the
+      dropdowns are 5.3's. The list is empty, so the admin screen shows its empty state for it. There
+      is no migration of existing `catalog_items.company` values into `enum_lists`, and none is
+      possible before the owner says which of the strings already there are real companies — every
+      existing row keeps its free-text value and will fail 5.2's validation on its next save until
+      somebody picks a listed company. `DELETE`/`PATCH` on a list entry still do not exist
+      (`DB-01`), so a company added by mistake can only be archived.
+      ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
+      both touch `CHECKLIST.md` here. Keep both, 5.0 first.
 
 **Acceptance criteria**
 - [x] New product appears under the Product tab, grouped by company *(Points 4.3 and 4.4, both

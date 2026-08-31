@@ -209,7 +209,33 @@ final class ManagedListEndpointTest extends TestCase
             ->assertJsonPath('meta.pagination.total_pages', 1);
     }
 
-    /** `ManagedList`'s four cases are the set; a fifth list is a migration. */
+    /**
+     * `companies` is the fifth list (Point 5.1, owner's ruling of 2026-08-31),
+     * and it is seeded empty for `delivery_terms`' reason. Asserted here because
+     * a list the enum knows must be reachable through the route: `tryFrom` is
+     * the only thing standing between a 200 and a 404, so the enum case and the
+     * endpoint cannot be verified apart.
+     */
+    public function test_that_the_companies_list_is_served_and_starts_empty(): void
+    {
+        $this->getJson(self::ENDPOINT.'/companies', $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(200)
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('meta.pagination.total', 0);
+    }
+
+    /**
+     * The catalog screens read this list, and §8 puts Catalog on five roles'
+     * screens — so the read must work for one of them, not only for the Super
+     * Admin. The route names no permission for exactly this reason.
+     */
+    public function test_that_a_catalog_role_may_read_the_companies_list(): void
+    {
+        $this->getJson(self::ENDPOINT.'/companies', $this->bearerFor(RoleName::Procurement))
+            ->assertStatus(200);
+    }
+
+    /** `ManagedList`'s cases are the set; a list outside them is a 404. */
     public function test_that_a_list_this_system_does_not_keep_is_not_found(): void
     {
         $bearer = $this->bearerFor(RoleName::SuperAdmin);

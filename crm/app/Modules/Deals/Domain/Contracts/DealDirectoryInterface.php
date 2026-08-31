@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Deals\Domain\Contracts;
 
 use App\Modules\Deals\Domain\Access\DealRowScope;
+use App\Modules\Deals\Domain\CustomerStatus\DealActivitySnapshot;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
 use App\Modules\Deals\Domain\Listing\DealPage;
 use App\Modules\Deals\Domain\Listing\DealSummary;
@@ -89,4 +90,18 @@ interface DealDirectoryInterface
         DealRowScope $scope,
         string $actorId,
     ): ?DealSummary;
+
+    /**
+     * Point 3.1 — §4.5's inputs, every deal belonging to one customer.
+     *
+     * No scope parameter, unlike every read above: `RecomputeCustomerStatus`
+     * runs as a system-level consequence of a write that already passed its
+     * own authorisation, not on behalf of a caller whose row-level reach
+     * needs narrowing. §4.5 rule 1 also requires *every* deal the customer
+     * has, regardless of who owns it — a scoped read would silently derive
+     * the wrong status for a customer whose deals are split across owners.
+     *
+     * @return list<DealActivitySnapshot>
+     */
+    public function activityForCustomer(string $customerId): array;
 }

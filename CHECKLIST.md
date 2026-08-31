@@ -5276,6 +5276,81 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       validated for shape and not membership against `enum_lists` (debt 23, owner's decision of
       2026-08-31), so the form offers no dropdown for either and a typo is accepted. No bulk create
       and no import. Deactivation still hides nothing from a selection list (Modules 6/7).
+- [x] **5.0** `SupplierRatingChip.vue` — §6.4's icon half, which Point 4.0 left out. **A defect the
+      owner found on the running screen, not a new feature.**
+      **What was wrong.** Design System §6.4 line 216 reads "Success … **Green icon + text/chip**;
+      never color alone", and line 218 "Danger … **Red icon** + label". Point 4.0 read the second
+      half of that sentence, shipped the word alone, and cited §6.4 as satisfied — in this file, at
+      the criterion below. It was not: the chip carried no icon, and its fill was
+      `color-mix(var(--color-success) 14%, transparent)`, which over `#FFFFFF` computes to
+      **`#DEE9E3`** — a grey. The red chip computed to `#F6E4E3`. The dark theme was no better:
+      `#5DDB90` at 14% over `#111827` is `#1C3336`. And `SuppliersView`'s neutral status chip uses
+      the **same 14% recipe**, so the rating chip and the status chip beside it had identical visual
+      weight. §7.1 says "The colour **appears** as a chip"; on screen it did not.
+      **Why the suite did not catch it, which is the part worth keeping.** Every assertion in
+      `SupplierRatingChip.spec.ts` asked about **text** or about **class names** — "carries a
+      localised word", "gives each rating its own class". Both remained true of a grey chip. `jsdom`
+      does not apply an SFC's scoped `<style>`, so no `getComputedStyle` assertion could have helped
+      either. **The tests were not weak by accident: nothing in reach of this suite can see a
+      colour.** Recorded rather than papered over.
+      **The repair.** An inline `<svg>` circle, `aria-hidden` and `focusable="false"`, filled with
+      `currentColor` so it takes the chip's own token and cannot drift from the word beside it —
+      §6.4's icon, and §7.1's own 🟢🟡🔴⚪ presentation. The fills rise to 18–22% and each rating
+      gains a `border-color` at 45% of its token, so the chip reads as coloured in a row of neutral
+      ones. Owner chose the coloured circle over meaning-glyphs (✓ ! ✕) on 2026-08-31, because the
+      circle is what §7.1 itself draws and the glyphs would be invented.
+      **The new guard, and its honest limit.** Three families were added: the circle exists for each
+      of the four ratings; it is `aria-hidden` so the word stays the whole accessible name; and each
+      rating's `border-color` is not `transparent` — the last read from the component's **source
+      text**, because `jsdom` cannot report the computed value. ⚠️ **The degree of tint is still not
+      machine-checkable.** A future change that halves the percentages would pass every test here.
+      Said plainly rather than claimed closed.
+      **1907 backend (11596 assertions) · 541 frontend (33 files) · `npm run build` clean · pint 450
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      ⚠️ These baselines are **higher than Point 4.4's** because this branch is cut from a `main`
+      that now carries PR #54, the second developer's Module 5 (Deals) work — not a regression and
+      not this point's doing. Verified as unrelated: `git diff origin/main~1 origin/main` touches no
+      supplier, catalog, locale, navigation or router file.
+      RED first: **11 failed, 9 passed** — and the 9 are the point. Every pre-existing assertion went
+      on passing against the defective chip while the new ones failed, which is the finding stated
+      above, demonstrated rather than asserted. (The white chip's border test passed from the start:
+      white already carried `--color-border-strong`, because it is the *absence* of a rating and a
+      white fill on a white surface would be invisible. Only the three coloured ones were bare.)
+      Delta measured, not predicted: frontend `main` 529 → branch 541 = **+12**, the twelve new
+      `it.each` rows (4 ratings × 3 families), **with no new file**. And because no file was added,
+      the two count-asserting backend guards do not move at all — proved by running
+      `LogicalPropertiesTest|NoHardCodedTextTest` with the change and then again under `git stash`:
+      **168 tests / 548 assertions both times.**
+      **Deliberate breaks — three, each restored:** (1) green's `border-color` set back to
+      `transparent`, which is the original defect re-created → failed **exactly** the green border
+      test; (2) `aria-hidden="false"` → failed **exactly** the four decorative tests; (3) the `<svg>`
+      removed entirely, which is Point 4.0's literal shape → failed **exactly** the eight icon tests
+      and nothing else.
+      **Problems found:** three, all mine and all caught by a check rather than by luck.
+      (1) The first version of the border assertion searched the whole CSS rule for the word
+      `transparent` and so failed against a **correct** `color-mix(..., transparent)` border. The
+      assertion was wrong, not the code; it now reads the `border-color` **value**. A verifier that
+      fails for the wrong reason is not a verifier.
+      (2) Restoring break 3 by re-inserting the markup left the HTML comment **duplicated**, because
+      the break had removed the `<svg>` by slicing lines rather than by an inverse edit. `shasum -c`
+      reported FAILED and the duplicate was found and removed; the file is byte-identical to the
+      pre-break baseline. This is the second time in this project that a non-`sed` restoration was
+      wrong, and the checksum is the only reason it did not ship.
+      (3) `vue-tsc` refused `declaration?.[1].trim()` — `TS2532`, the capture group is possibly
+      undefined — **after `npm run test:unit` had already passed 541 green**. The fix landed while
+      the backend suite was running, and `LogicalPropertiesTest::markupFiles()` scans `ts`, so that
+      run was **voided and re-run clean**; both runs happened to agree at 1907/11596, which the guard
+      measurement above independently predicts. The reported figure is the clean run's.
+      **Not covered:** the chip's **placement** is unchanged — it sits in its own `التقييم` column,
+      adjacent to the name column but not inside the name cell. §7.1's "beside the supplier name" is
+      read as satisfied by adjacency; if the owner meant *inside* the name cell, that is a separate
+      change to `SuppliersView`. Contrast ratios were computed by hand from the token values, not
+      measured with a tool against the rendered page. The neutral status chip still uses the old 14%
+      recipe — deliberately, since it is a status and not a rating, but the two now differ in weight
+      by design rather than by accident. Nothing was changed on any other screen, because §7.1's
+      "every screen" still has only this one.
+      ⚠️ **This entry and Point 4.4's are inserted at the same anchor**, so PR #57 and this one will
+      both touch `CHECKLIST.md` here. Keep both, 4.4 first.
 - [x] **5.1** `ManagedList::Companies` — `DB-05`'s fifth list, and the migration it turned out to
       need. **Owner's ruling of 2026-08-31, recorded here awaiting a `D-xx`:** `DB-05` names four
       lists — "sectors · units · service types · delivery terms" — and does not name companies.
@@ -5345,6 +5420,130 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **5.2** `company` required at the write boundary, and `filter[company]` on the list. The
+      server half of the owner's ruling; the dropdowns are 5.3's and the filter control is 5.4's.
+      **Why required, when §7.3 does not say so.** §7.3 lists "Providing team / company" in the
+      **Service** column only and marks nothing required. **Owner's ruling of 2026-08-31, recorded
+      here awaiting a `D-xx`:** it is required for **both** tabs, because §7.3 also opens "Two tabs:
+      Product · Service, **grouped by company/team name**" — a row with no company falls out of the
+      only grouping the screen has, and `EloquentCatalogItemDirectory` already has to invent a place
+      for it (`nulls last`, Point 3.1). The **column stays nullable**: a `NOT NULL` migration would
+      fail on the rows that already have none, so the rule lives at the boundary, the same shape
+      `name` uses for `required_if:kind,product`.
+      **`required` to create, `sometimes|required` to edit** — the shape `kind` already uses in this
+      class. A `PATCH` that does not name the column is not asking to blank it; one that *does* name
+      it must give a real value. `regex:/\S/` beside it for `name`'s reason: `required` accepts
+      `"   "`.
+      **Why `company` becomes filterable.** `CatalogItemListCriteria` said in as many words that it
+      was *not* filterable and that "each is one line here when somebody makes it" — this is that
+      line. `group_by=company` only **orders** the whole list (Point 3.1 deliberately kept §4.2's
+      flat envelope), so a screen that groups by a column has to be able to ask for one group of it.
+      Matched as written with `where`, exactly like `category`: both are the name of a thing rather
+      than a code, so neither goes through `code()`. Left **outside** the `q` search intersection for
+      the reason the class comment already gives about `category` — it does not split the screen in
+      two the way `filter[kind]` does.
+      **⚠️ The owner accepted the empty-companies bootstrap as a setup step (option ب, 2026-08-31).**
+      `ManagedList::Companies` is seeded empty and `POST /managed-lists/{list}` carries
+      `admin.system_settings`, so **on a fresh install the Super Admin must add a company before any
+      catalog item can be created**. That is deliberate, not a defect, and **it belongs in the manual
+      test list as a named first step**.
+      **1918 backend (11633 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      RED first, and **both halves failed for the documented reason rather than merely failing**:
+      the write test answered **201, not 422** (the rule did not exist yet), and the list test
+      answered **400, not 200** — which is the exact "undeclared filter" refusal `OpenAPI §6.2`
+      requires and the before-state this point removes.
+      Delta **measured, not predicted**, by running `tests/Feature/Catalog` with the change and again
+      under `git stash`: **89 tests / 571 assertions → 86 / 556**, so **+3 tests and +15
+      assertions** — the whole of 1915/11618 → 1918/11633. No guard moved, because no file was added.
+      **Deliberate break — one, restored and `shasum -c` confirmed.** The subtle half of this change
+      is `sometimes`, not `required`: a plain `required` on the `PATCH` branch is the plausible slip,
+      and it is invisible to every test that only creates. Dropping `sometimes` failed **exactly the
+      five `PATCH` tests** — edit-changes-only-what-it-names, deactivation-is-an-edit, the edit audit
+      pair, and editing-an-unknown-item — and nothing else. Restored with the inverse `sed`, never by
+      re-inserting text.
+      **Problems found: two.**
+      (1) The first draft wrote `company` as a flat `['required', ...]` for both verbs. That is the
+      defect the break above hunts, written by hand: it would have made **every** `PATCH` resend the
+      company, including the deactivate toggle. Caught by reading `kind`'s own two-branch rule three
+      lines above it, before any test ran.
+      (2) Five existing write tests built payloads with no company. Two are the `product()` /
+      `service()` helpers — one line each — but three build a payload inline to test something else
+      (`no kind`, `unknown kind`, `blank name`). Those already asserted 422 and would have kept
+      passing **for the wrong reason**, so `company` was added to each so they still fail only for
+      the thing they name. Anchors were replaced by an asserted script, one match each, 5/5.
+      **Not covered:** the server still validates `company` for **shape, not membership** — nothing
+      checks it against `enum_lists`, so any 255-character string is accepted and debt entry 23
+      stands unchanged. The screen is **not** touched here: `CatalogItemFormModal` already renders a
+      company input on both tabs and will now receive a 422 naming the field, drawn by the shared
+      `error.messageFor()` mapping — but the field carries **no required marker**, so the refusal
+      arrives on submit rather than before it. That, the dropdown, and the service's optional `name`
+      are Point 5.3; the filter control is 5.4. **Every existing `catalog_items` row keeps its
+      free-text company** and there is no data migration — a row whose company is not a listed one
+      still saves, because membership is unchecked.
+- [x] **6.0** The undefined colour token, the missing hover states, and the submit button's place.
+      Owner-ordered after testing the running app; the point list for Step 6 was published and
+      approved first, and **the owner approved crossing into Module 2's `Admin` screens** the same
+      way Point 5.1 did.
+      **The complaint was "the text in the coloured box is dark". The cause was not a colour
+      choice.** Three screens wrote `var(--color-on-primary)`, and **this project has never defined
+      that token anywhere** — `Design_System_EN.md` §3.2 and `resources/css/tokens.css` both name it
+      `--color-primary-text`. A `var()` with no fallback and no definition makes the whole
+      declaration *invalid at computed-value time*, so `color` is dropped and the element inherits
+      the parent's — the dark `--color-text`. Nothing failed, because nothing was looking.
+      Fixed in **`ManagedListsView` (×2), `SystemSettingsView:447` and `SystemLimitsView:287`** — the
+      owner reported one screen; the defect was on three, and fixing only the reported one would
+      have left the other two wrong.
+      **`LogicalPropertiesTest::test_that_every_colour_token_a_component_names_is_defined`** is the
+      new guard, added to the scanner that already reads styling as source text rather than to a new
+      file. It reads every `--color-*` declaration out of `tokens.css`, then every `var(--color-*)`
+      reference out of every `.vue` and `.css` under `resources/`, and fails naming each reference
+      with no definition. Scoped to `--color-*` deliberately: that is the family §3.3 tabulates and
+      the one whose failure mode is silent inheritance. A missing `--shadow-*` is visible.
+      **Hover, cited rather than invented.** §6.2: "All button variants have default, **hover**,
+      active, focus, disabled, and loading states." `ManagedListsView` had **zero** `hover` in it
+      (`grep -c hover` → 0) while its `<style scoped>` already declared
+      `transition-property: background-color, color, border-color` — a transition wired to nothing.
+      The shape used is `LoginView.vue:216`'s, unchanged: `:hover:not(:disabled)` →
+      `--color-primary-hover`, `:active:not(:disabled)` → `--color-primary-active`. The unselected
+      chip has no fill at rest, so its hover supplies one (`--color-surface-muted` + a primary
+      border); the selected chip darkens through the same pair as the button, so the Web Interface
+      Guidelines' "interactive states increase contrast" holds in **both** chip states, not just the
+      selected one. `prefers-reduced-motion` was already honoured and is untouched.
+      **The submit button** was a flex sibling of the four fields inside `flex-wrap`, so it settled
+      beside Order. It is now wrapped in a `w-full` div — **the line-break mechanism the two status
+      messages under it already used**, so no field needed re-indenting and no `data-testid` moved.
+      `self-start` was dropped with it: inside a block wrapper it addressed nothing.
+      **1916 backend (11620 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      ⚠️ **This branch is cut from `main` (`d8ea2d2`), not from Point 5.2's branch**, so its baseline
+      is 1915/11618 and the delta is **+1 test / +2 assertions** — the one new scan and its two
+      assertions. Predicted before the run and matched it exactly. No per-file provider moved,
+      because no file was added.
+      RED first: the guard named **exactly three files and no others**, which is also how the blast
+      radius was established as fact rather than estimate.
+      **Deliberate break — one, restored by inverse `sed`, `shasum -c` confirmed.** The RED above
+      proves the guard catches the defect it was written for; it does not prove it catches the
+      *next* one. So `--color-primary-hover` was mistyped `--color-primary-hovr` — the plausible
+      future slip — and the guard named that file and that token alone.
+      **Problems found: two.**
+      (1) ⚠️ **The edits were made while still checked out on `main`.** The previous point ends by
+      rebuilding the served bundle from `main` (§2.2 of the handoff), and the branch was never cut
+      again afterwards. Caught by `git branch --show-current` **before any commit**, and the work was
+      moved with `git checkout -b`; nothing reached `main`. This is the exact trap the handoff
+      records, and it fired at the exact seam the handoff predicts.
+      (2) `grep -rln ":hover" resources/js` returns **7 files**, and only **one** of them
+      (`LoginView`) styles a *button* hover — the rest are table rows. So the gap this point closes
+      on three screens is open across most of the application. Recorded as debt rather than fixed
+      here, because widening the point past the approved list is not this point's call.
+      **Not covered:** **no test asserts that a hover rule exists or what colour it produces.** A
+      `jsdom` suite does not apply `<style scoped>` and cannot see a colour — debt entry 29 already
+      says so — and the new guard checks only that a token is *defined*, never that it is the *right*
+      one or that the contrast it yields passes 4.5:1. **The appearance is unverified by machine and
+      needs the owner's eye.** It could not be verified in a browser either: the screen is behind
+      authentication and entering credentials is not something I do. Nothing here touches the delete
+      or archive of a list entry — that is Points 6.1 and 6.2, and the repository still exposes only
+      `entriesFor`, `page` and `add`.
 - [x] **6.1** `DELETE /managed-lists/{list}/{code}` — the archive. Owner's ruling of 2026-08-31,
       recorded here awaiting a `D-xx`: **option (أ)** — nothing cascades — and the word is
       **archive**, not delete.
@@ -5432,11 +5631,16 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       `kind: 'product'` with §7.3's product fields, and a save closes the dialog and re-asks the
       server so the new row arrives in its group rather than being pushed into the page by the
       client. The write itself is `CatalogWriteEndpointTest`'s, per `D-67`.)*
-- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
-      renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
-      `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
-      be closed here** — the other screens that name a supplier are Module 6's supplier quotations
-      and Module 11's procurement, and neither exists.)*
+- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1 put the chip
+      on the Suppliers screen; **Point 5.0 made its colour actually visible.** ⚠️ The wording here
+      previously claimed the chip carried "§7.1's word as Design System §6.4 requires" — that
+      citation was **half of §6.4**, which asks for an "icon + text/chip". The chip had no icon and
+      its 14% fill computed to a grey, and the owner found that on the running screen after this
+      line had already been written. It now carries the circle and a real border, and
+      `SupplierRatingChip.spec.ts` guards both. **"Every screen" still cannot be closed here** — the
+      other screens that name a supplier are Module 6's supplier quotations and Module 11's
+      procurement, and neither exists. **The degree of tint remains unguarded**, because nothing in
+      a `jsdom` suite can see a colour.)*
 - [x] Service appears under the Service tab, separate from products *(Points 4.3 and 4.4. The
       Service tab asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a
       client-side split, and the two tabs draw §7.3's two **different** column lists — asserted in
@@ -5738,10 +5942,78 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       point, most likely a domain event `DealStatusChanged` with a listener, on `AP-05`'s "event-driven
       internally" principle rather than a direct write into `customers` from here.
 
+#### Step 3 — `recompute_customer_status` *(§4.5, `D-49`, `J-02`; not a pre-approved step —
+flagged here for review rather than assumed)*
+
+- [x] **3.1** `J-02`'s event-triggered half — wired into `POST /deals` and `PATCH /deals/{id}/status`,
+      the two writes that change what §4.5's rule reads. The nightly correction half (`J-02`'s other
+      trigger) is **not this point** — it is the first scheduled job this codebase would implement at
+      all (`Reports`/`Notifications`/`Outdoor`/`Procurement`/`Quotations` are still `.gitkeep`), and
+      deserves its own point rather than riding in on this one's size.
+      ⚠️ **This point uses a direct interface call, not the domain-event-with-listener shape 2.6's own
+      "not covered" note speculated on.** `CLAUDE.md` names interfaces *or* domain events as the two
+      legitimate crossings, and every existing cross-module side effect in this codebase already
+      picked the first — `AuditRecorderInterface` is called directly, synchronously, inside the same
+      transaction as the write it records, not dispatched as an event with a listener. `DB-11` needs
+      this recompute in the *same* transaction as the deal write it follows, and a direct call makes
+      that trivially visible in `SaveDeal`/`ChangeDealStatus` rather than resting on a listener being
+      registered synchronously. 2.6's note also specifically objected to *"a direct write into
+      `customers` from here"* — this point does not do that: `Deals` never touches the `customers`
+      table or `Customer` model, only `CustomerStatusWriterInterface`, a contract **Customers** exposes
+      for exactly this.
+      **`Customers` is split into `CustomersContract`/`CustomersDriver`**, on Identity/Audit/Storage's
+      exact precedent (`deptrac.modules.yaml`) — the crossing that file's own header predicted:
+      *"when a legitimate shared interface appears it is added here as a named exception"*. Before this
+      point nothing outside Customers depended on it, so the flat layer cost nothing; `Deals` is now
+      the first, granted `CustomersContract` only — nothing reaches `CustomersDriver`, and nothing
+      should. `CustomerStatusWriterInterface` is write-only and one method: Deals never needs to read
+      a stored status back, since §4.5 derives it fresh every time.
+      **"Won or beyond, now or historically" is read off `DealStatusTransition`'s graph, not restated**:
+      a deal's *current* status already proves it, because the graph has no edge leaving
+      `won`/`purchasing`/`delivery`/`delivery_complete` back toward an earlier state.
+      ⚠️ **One interpretation recorded rather than documented**: §4.5 rules 2 and 3 read as if a
+      customer has one deal. With several concurrent ones (Business Invariants), this reads *any fresh
+      active deal keeps the customer Prospect* — owed a `D-xx` if the owner disagrees.
+      ⚠️ **Two gaps, both named rather than approximated.** Rule 3's *"or a quotation went Expired with
+      no reply"* clause needs Module 7 (`app/Modules/Quotations` is still `.gitkeep`) — absent, not
+      guessed at. `SystemLimit::StaleDealDays` (`limits.stale_deal_days`) is one of the enum's own
+      documented "deliberately unvalued" limits — `null` until an administrator sets it, and `null`
+      here means rule 3's clause never fires (every active deal reads as fresh), the same reading
+      already established for `OD-08`'s similarity threshold. `SettingReader` gained
+      `nullableInteger()` for this — `integer()`'s config-file floor would have been exactly the
+      invented default `SystemLimit`'s docblock warns against, on the technicality of living in PHP
+      instead of a database row.
+      **No new audit entry for the derived write.** `AUD-01` is satisfied one layer out, by whichever
+      of `DEAL_CREATED`/`DEAL_STATUS_CHANGED` triggered the recompute — a derived projection of an
+      already-audited fact is not a second decision to record, the same disposition `EloquentDealDirectory`
+      itself already carries.
+      **`EloquentCustomerStatusWriter` *is* visible to `AuditEnforcementTest`'s scanner** — measured,
+      not assumed, and initially wrong the first time: an early draft's own docblock explained the
+      scanner's four signals by name, including the literal string `Eloquent\Model`, which the
+      scanner reads from raw file text and does not distinguish from code. The comment describing why
+      the class *should* be invisible made it visible. Rewritten without the literal signal string;
+      re-run confirmed it is, in fact, invisible to scan() like its siblings — not audited, and not
+      meant to be, for the same one-layer-out reason above.
+      **6 new tests (35 assertions) · 1913 backend (11636 assertions) · pint 456 files · PHPStan
+      level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break.** The fresh-deal comparison flipped from `>=` to `<` → exactly the one
+      test exercising a configured threshold against a stale deal failed; the unset-threshold test and
+      every rule-1/rule-4/rule-5 test kept passing, which is the coverage this rule's five-way branch
+      needs. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** the audit-scanner false positive above; `EloquentDealDirectory::activityForCustomer()`
+      initially failed PHPStan level 10 (`array` vs `list`) — `Collection::map()->all()` cannot be
+      proven a list by static analysis alone, fixed with `array_values()`. The Form Request's rejection
+      reason field is `reason`, not `lost_reason` (the column name) — caught by two failing tests in
+      this point, not assumed from the column.
+      **Not covered:** the nightly correction half of `J-02` — a customer whose only active deal simply
+      goes stale with no new event triggers nothing yet. `/documents` is still open (2.1's note). The
+      quotation-expiry clause and the multi-deal interpretation above are both recorded gaps, not
+      silent ones.
+
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
-- [ ] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
-- [ ] All deals Lost → status **"Deal Not Completed"**
+- [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
+- [x] All deals Lost → status **"Deal Not Completed"**
 - [ ] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
 - [ ] Rejected request → mandatory reason + badge for the employee
 - [ ] Status change → timeline entry with old status, new status, who, when

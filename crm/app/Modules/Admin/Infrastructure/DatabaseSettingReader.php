@@ -68,4 +68,19 @@ final readonly class DatabaseSettingReader implements SettingReader
 
         return null;
     }
+
+    public function nullableInteger(string $key): ?int
+    {
+        $stored = $this->limits->all()[$key]['value'] ?? null;
+
+        // `is_numeric` for the same reason `integer()` and `decimal()` both use
+        // it, and `null` on anything else rather than a config fallback — this
+        // method exists precisely for the limits `integer()`'s config floor is
+        // wrong for.
+        if (is_string($stored) && is_numeric($stored)) {
+            return (int) $stored;
+        }
+
+        return null;
+    }
 }

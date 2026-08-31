@@ -5420,6 +5420,94 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.2b** The way back out of the archive — `PATCH /managed-lists/{list}/{code}/restore` and
+      `GET /managed-lists/{list}/archived`. Owner's ruling of 2026-08-31, after asking whether a
+      withdrawal could be undone. **It could not.**
+      **This half was documented before it was built, which is why it is a gap and not a feature.**
+      §3.3 line 223 writes the permission row as a single merged **`archive / restore`**; §7's Flow 7
+      gives archiving a **Restore** column; and §3.12 rule 4 names **"restore from archive"** among
+      the mandatory audit entries — a rule that cannot apply to an action nobody can perform. Point
+      6.1 shipped the withdrawal alone and left the row withdrawn permanently: the *code* could be
+      re-used (the partial index frees it) but that creates a **new row with a new id**, and the
+      audit then reads "archived" then "added", never "restored".
+      **One permission for both directions**, so no matrix row was invented: `admin.system_settings`
+      guards the restore exactly as it guards the withdrawal — the reading `routes/api.php` already
+      applies to `PATCH /customers/{customer}/restore`, which carries `customer.archive` and has no
+      `customer.restore` beside it.
+      **The archived set is a route, not a `filter[archived]`.** `ListingQuery` is **shared with the
+      FX-rate history** and refuses `filter[...]` outright, because §6.2 has each resource declare
+      its own allowed filters and these two declare none. Teaching the shared parser one filter that
+      only one of its resources may use is worse than a second collection, and §6.2 constrains query
+      parameters rather than how many collections a resource has.
+      **The archived collection carries the write permission, unlike the live list** — and the
+      contrast is the reasoning. The live read is open because §8 puts Customers on six roles'
+      screens and Catalog on five and not one renders without a sector or a unit; **nothing renders
+      from the archived set at all.** It exists to serve the restore, so it answers to the same
+      authority.
+      **What the audit records, and what it deliberately does not.** `old_values` null, `new_values`
+      `{list, code}` — the act, not the entry. A restore does not choose the labels; it clears
+      `deleted_at`, and the labels it uncovers are the ones the archive already recorded on the way
+      out, against the same `entity_id`. Copying them here would describe the row rather than what
+      was done to it.
+      **A defect this point found in its own work, measured and then fixed.** The entry first read
+      "a restore can still fail on a collision … surfaces as a 500" — written from reasoning, not
+      from a run. The rule against "should" applies to one's own report, so it was **probed**: the
+      partial index is `(list, code) WHERE deleted_at IS NULL`, so restoring `banks` after somebody
+      added a fresh `banks` answered **`PROBE STATUS: 500`**. Fixed inside the point rather than
+      recorded as a gap: `restore()` reads the database's own `23505` and raises the
+      `ListEntryAlreadyExists` the module already had — the exact shape `add()` uses, and for the
+      same reason, since a read-then-write check is a race. The controller answers
+      **`409 state_transition_invalid`** (`OpenAPI §5.1`), *not* a 422: the request is well-formed
+      and names a real archived entry, and there is no field the caller sent that is wrong. The
+      probe became the regression test, which also asserts the transaction rolled back and left
+      **no** `LIST_ENTRY_RESTORED` row behind.
+      **1946 backend (11798 assertions) · 571 frontend (34 files) · `npm run build` clean · pint 459
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1631 and 877 allowed).**
+      **+11 tests / +75 assertions** against 6.2's 1935/11723. Pint 458 → 459 and the deptrac counts
+      move because the point adds exactly one file.
+      RED first: **8 of 10 failed.** The two that passed are the pair this file keeps producing —
+      the "not found" cases, which Laravel already answers with a 404 when no route is registered.
+      They were passing for the wrong reason and only became meaningful once the routes existed.
+      **Deliberate break — one, restored by inverse `sed`, `shasum -c` confirmed.** `onlyTrashed()`
+      was swapped for `withTrashed()` in the archived scope — the plausible slip, and the one no RED
+      could have caught, since both spellings return rows and only one returns the *right* rows.
+      **Exactly two tests failed:** the archived collection listing "the withdrawn and nothing else",
+      and the withdraw → restore → withdraw round trip. 42 others passed.
+      **Waste audit.**
+      *Dead code:* every added symbol grepped — `RestoreListEntry` 3, `->restore(` 3,
+      `LIST_ENTRY_RESTORED` 2, `scope` 19. **`function archived` reads as 1 hit and is not dead:** a
+      controller action is reached through a route **string**, so the definition is the only textual
+      match; `'archived'` is at 10 and its endpoint test passes, which is the evidence rather than
+      the grep.
+      *Duplicate logic:* none created. `scope()` **removed** duplication rather than adding it — the
+      `where('list', …)` had to be built twice per page, once for the rows and once for the total,
+      because an Eloquent builder is stateful and `count()` on the one already carrying
+      `offset`/`limit` counts the page instead of the list.
+      *Unused components:* **three found, all corrected here, and all the same defect recurring.**
+      "There is still no `PATCH`" was written into `ManagedListsView.vue`, `services/admin.ts` and
+      `routes/api.php`, and this point made all three false. ⚠️ **This is the third consecutive point
+      to find a stale copy of the same claim** — 6.1 corrected two, 6.2 found a third, and 6.2b found
+      three more. The claim keeps being restated in prose in several files at once, which is what
+      makes it keep going stale. A fourth occurrence in `ArchiveListEntry` is a **quotation of what
+      `routes/api.php` used to say** and is still accurate as history — left alone. **There is no
+      SPA caller for either new endpoint**, which is Point 6.2c.
+      *Unnecessary complexity:* the `bool $archived = false` parameter has two callers passing two
+      different values, so it is not a parameter every caller passes the same value for.
+      **Problems found: three.** (1) ⚠️ **A `python3` anchored replacement split `entry()` from its
+      docblock.** The anchor was the function signature and the insertion landed between the two, so
+      `/** @return array<string, mixed> */` came to sit above the *new* method — **PHPStan level 10
+      caught it** (`missingType.iterableValue`) and nothing else would have. Anchoring on a signature
+      without its docblock is the lesson. (2) Pint refused the interface's `@param` continuation
+      alignment; fixed by running Pint on that file rather than by hand. (3) Both were **found by
+      running the gates and reading them** — the point was not reported until they were green.
+      **Not covered:** **no screen** — no "show archived" toggle, no restore button, no
+      `restoreListEntry()` in `services/admin.ts`. That is **Point 6.2c**, and a service function
+      added now would be a caller-less export, which is the waste this rule exists to prevent.
+      **The collision answers 409 but no screen explains it** — a person who hits it will see
+      whatever the SPA does with an unmapped 409, because there is no caller yet. **Still no label
+      editing** — the only `PATCH` here is the restore. **Nothing bulk-restores**, though `API-07`
+      asks for "bulk operations for archive and restore"; that is a documented requirement this
+      point does not meet and is left on the register.
 - [x] **6.2** The archive control on the Managed Lists screen — 6.1's endpoint, made reachable.
       **Branched from 6.1, not from `main`.** The endpoint it calls is in PR #64, so this is a
       stacked branch and **#64 has to merge first**; merging this alone would ship a button whose

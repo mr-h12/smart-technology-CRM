@@ -99,6 +99,13 @@ final class ManagedListEndpointTest extends TestCase
         return ['Authorization' => 'Bearer '.$token];
     }
 
+    /** Withdraw through the endpoint, so the tests exercise the real path. */
+    private function archive(string $list, string $code): void
+    {
+        $this->deleteJson(self::ENDPOINT."/{$list}/{$code}", [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(200);
+    }
+
     /** @return array<string, mixed> */
     private static function entry(string $code = 'education'): array
     {
@@ -446,6 +453,170 @@ final class ManagedListEndpointTest extends TestCase
         self::assertNotNull($item);
         self::assertSame('alpha_co', $item->company, 'Option (أ): the row keeps what it was filed under.');
         self::assertNull($item->deleted_at, 'Archiving a company never touches a catalog item.');
+    }
+
+    // ── restoring an archived entry (Step 6 Point 6.2b) ─────────────────────
+
+    /**
+     * **One permission for both directions.** §3.3 line 223 writes the row as a
+     * single merged `archive / restore`, and `routes/api.php` already applies
+     * that reading to `PATCH /customers/{customer}/restore`, which carries
+     * `customer.archive`. Inventing a second permission here would be a matrix
+     * row no document contains.
+     */
+    public function test_that_an_unauthenticated_caller_cannot_restore(): void
+    {
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore')->assertStatus(401);
+    }
+
+    public function test_that_a_manager_may_not_restore_an_entry(): void
+    {
+        $this->archive('sectors', 'banks');
+
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(403);
+    }
+
+    /** §3.12 rule 4 names "restore from archive" among the mandatory audit entries. */
+    public function test_that_the_super_admin_restores_an_archived_entry(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->archive('sectors', 'banks');
+
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.restored', true);
+
+        $row = DB::table('enum_lists')->where('list', 'sectors')->where('code', 'banks')->first();
+        self::assertNotNull($row);
+        self::assertNull($row->deleted_at, 'A restore clears the withdrawal, it does not add a row.');
+    }
+
+    /** The whole point: the choice is offered again. */
+    public function test_that_a_restored_entry_is_offered_again(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $before = $this->getJson(self::ENDPOINT.'/sectors', $bearer)->json('meta.pagination.total');
+
+        $this->archive('sectors', 'banks');
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $bearer)->assertStatus(200);
+
+        $this->getJson(self::ENDPOINT.'/sectors', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', $before);
+    }
+
+    /**
+     * `AUD-01`, and §3.12 rule 4 names this one explicitly rather than leaving
+     * it to the general requirement.
+     *
+     * `old_values` is null and `new_values` carries what the action actually
+     * did — the row is live again, so its labels are readable from the list
+     * itself and copying them here would record the entry rather than the act.
+     */
+    public function test_that_restoring_is_written_to_the_audit_log(): void
+    {
+        $this->archive('sectors', 'banks');
+
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(200);
+
+        $row = DB::table('audit_log')->where('event', 'LIST_ENTRY_RESTORED')->first();
+
+        self::assertNotNull($row, '§3.12 rule 4 names restore from archive.');
+        self::assertSame('enum_lists', $row->entity_type);
+        self::assertNull($row->old_values);
+
+        $new = json_decode(is_string($row->new_values) ? $row->new_values : '[]', true);
+        self::assertIsArray($new);
+        self::assertSame('banks', $new['code']);
+    }
+
+    /** An entry that was never withdrawn has nothing to restore. */
+    public function test_that_restoring_a_live_entry_is_not_found(): void
+    {
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(404);
+    }
+
+    public function test_that_restoring_an_unknown_code_is_not_found(): void
+    {
+        $this->patchJson(self::ENDPOINT.'/sectors/nonesuch/restore', [], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(404);
+    }
+
+    /**
+     * The archived collection — you cannot restore what you cannot see.
+     *
+     * Unlike the live list, this one **carries the write permission**. The live
+     * read is open because §8 puts Customers on six roles' screens and Catalog
+     * on five and not one renders without a sector; nothing renders from the
+     * archived set at all. It exists to serve the restore, so it answers to the
+     * same authority the restore does.
+     */
+    public function test_that_the_archived_collection_lists_the_withdrawn_and_nothing_else(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->getJson(self::ENDPOINT.'/sectors/archived', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 0);
+
+        $this->archive('sectors', 'banks');
+
+        $codes = $this->getJson(self::ENDPOINT.'/sectors/archived', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->json('data.0.code');
+
+        self::assertSame('banks', $codes);
+    }
+
+    public function test_that_a_reader_may_not_see_the_archived_collection(): void
+    {
+        $this->getJson(self::ENDPOINT.'/sectors/archived', $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(403);
+    }
+
+    /** Archiving twice around a restore is the round trip, and it has to close. */
+    public function test_that_an_entry_can_be_withdrawn_again_after_a_restore(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->archive('sectors', 'banks');
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $bearer)->assertStatus(200);
+        $this->deleteJson(self::ENDPOINT.'/sectors/banks', [], $bearer)->assertStatus(200);
+
+        $this->getJson(self::ENDPOINT.'/sectors/archived', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1);
+    }
+
+    /**
+     * **The path that made this a 500 before it was measured.** The partial
+     * unique index is `(list, code) WHERE deleted_at IS NULL`, so a code freed
+     * by a withdrawal can be taken again — and then the withdrawn row has
+     * nowhere to come back to.
+     *
+     * `OpenAPI §5.1`'s 409 `state_transition_invalid`, not a 422: the request
+     * is well-formed and names a real archived entry, and there is no field the
+     * caller sent that is wrong. It is the world that moved.
+     */
+    public function test_that_restoring_onto_a_taken_code_is_a_conflict_and_not_a_fault(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $this->archive('sectors', 'banks');
+        $this->postJson(self::ENDPOINT.'/sectors', self::entry('banks'), $bearer)->assertStatus(201);
+
+        $this->patchJson(self::ENDPOINT.'/sectors/banks/restore', [], $bearer)
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'state_transition_invalid');
+
+        // The failed restore left no audit row: the transaction rolled back.
+        self::assertSame(0, DB::table('audit_log')->where('event', 'LIST_ENTRY_RESTORED')->count());
     }
 
     // ── the acceptance criterion ────────────────────────────────────────────

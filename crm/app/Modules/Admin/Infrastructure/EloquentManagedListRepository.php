@@ -11,6 +11,7 @@ use App\Modules\Admin\Domain\Reference\ListEntry;
 use App\Modules\Admin\Domain\Reference\ListEntryAlreadyExists;
 use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Admin\Infrastructure\Eloquent\EnumListEntry;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 
 /**
@@ -40,10 +41,9 @@ final readonly class EloquentManagedListRepository implements ManagedListReposit
         return $entries;
     }
 
-    public function page(ManagedList $list, ListingQuery $query): Page
+    public function page(ManagedList $list, ListingQuery $query, bool $archived = false): Page
     {
-        $rows = EnumListEntry::query()
-            ->where('list', $list->value)
+        $rows = $this->scope($list, $archived)
             ->orderBy('position')
             ->orderBy('code')
             ->offset($query->offset())
@@ -58,10 +58,28 @@ final readonly class EloquentManagedListRepository implements ManagedListReposit
 
         return new Page(
             items: $entries,
-            total: EnumListEntry::query()->where('list', $list->value)->count(),
+            total: $this->scope($list, $archived)->count(),
             page: $query->page,
             perPage: $query->perPage,
         );
+    }
+
+    /**
+     * One list, live or withdrawn.
+     *
+     * Built twice per page — once for the rows and once for the total — because
+     * an Eloquent builder is stateful and `count()` on the one that already
+     * carries `offset`/`limit` counts the page rather than the list.
+     *
+     * @return Builder<EnumListEntry>
+     */
+    private function scope(ManagedList $list, bool $archived): Builder
+    {
+        $query = EnumListEntry::query()->where('list', $list->value);
+
+        // `SoftDeletes` excludes withdrawn rows by default, so only the
+        // archived view has to say anything at all.
+        return $archived ? $query->onlyTrashed() : $query;
     }
 
     public function add(ManagedList $list, ListEntry $entry): void
@@ -114,6 +132,41 @@ final readonly class EloquentManagedListRepository implements ManagedListReposit
         // get it — which is how `AddListEntry` ended up with a raw query in the
         // Application layer, and how this class nearly ended up with a second
         // copy of it.
+        return $id;
+    }
+
+    public function restore(ManagedList $list, string $code): ?string
+    {
+        // `onlyTrashed()` is what makes "already live" and "never existed" the
+        // same answer here: neither is in this set, so both fall out as null
+        // and the caller gives one 404 for both — `OpenAPI §5.1`'s "do not
+        // reveal which case applies".
+        $row = EnumListEntry::onlyTrashed()
+            ->where('list', $list->value)
+            ->where('code', $code)
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $id = $row->id;
+
+        // Clears `deleted_at` — and the partial unique index is
+        // `(list, code) WHERE deleted_at IS NULL`, so this collides when the
+        // freed code was taken while this row was withdrawn. Read from the
+        // database's own refusal rather than a read-then-write check, exactly
+        // as `add()` does and for the same reason: a check is a race.
+        try {
+            $row->restore();
+        } catch (QueryException $refused) {
+            if ($refused->getCode() === '23505') {
+                throw new ListEntryAlreadyExists($list, $code);
+            }
+
+            throw $refused;
+        }
+
         return $id;
     }
 

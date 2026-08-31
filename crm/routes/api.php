@@ -352,7 +352,7 @@ Route::middleware(['auth', 'permission:admin.system_limits'])->group(function ()
 // as `DELETE /roles/{role}`: the endpoint is defensible, the matrix does not
 // name it, and inventing a permission row would be worse than saying so.
 //
-// **`DELETE` archives; there is still no `PATCH`.** `DB-01` forbids physical
+// **`DELETE` archives; the only `PATCH` is a restore.** `DB-01` forbids physical
 // deletion, and the `DELETE` here does not perform one: it soft-deletes, which
 // is why the response says `archived`. This route replaces a comment that used
 // to refuse it outright — the refusal's first half was always about a *hard*
@@ -374,6 +374,22 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('permission:admin.system_settings');
 
     Route::delete('/managed-lists/{list}/{code}', [ManagedListController::class, 'destroy'])
+        ->middleware('permission:admin.system_settings');
+
+    // Step 6 Point 6.2b. **One permission for both directions**, the reading
+    // `PATCH /customers/{customer}/restore` already applies below: §3.3 line
+    // 223 writes the row as a single merged `archive / restore`, so a separate
+    // permission here would be a matrix row no document contains. §3.12 rule 4
+    // names "restore from archive" among the mandatory audit entries, and §7's
+    // Flow 7 gives archiving a **Restore** column — this half was described
+    // before it was built.
+    //
+    // The archived collection carries the same permission and the live one
+    // carries none; `ManagedListController::archived()` sets out why.
+    Route::get('/managed-lists/{list}/archived', [ManagedListController::class, 'archived'])
+        ->middleware('permission:admin.system_settings');
+
+    Route::patch('/managed-lists/{list}/{code}/restore', [ManagedListController::class, 'restore'])
         ->middleware('permission:admin.system_settings');
 });
 

@@ -273,11 +273,11 @@ export async function listEntries(
 /**
  * `POST /managed-lists/{list}`.
  *
- * There is still no `PATCH`, but `DELETE /managed-lists/{list}/{code}` now
- * exists and **archives** — a soft delete, so `DB-01` holds and the response
- * says `archived` rather than `deleted`. Step 6 Point 6.1 added it on the
- * owner's ruling of 2026-08-31; **this file has no caller for it yet**, which
- * is Point 6.2's screen work.
+ * `DELETE /managed-lists/{list}/{code}` **archives** — a soft delete, so
+ * `DB-01` holds and the response says `archived` rather than `deleted` (Point
+ * 6.1). `PATCH .../restore` puts it back and `GET .../archived` is the set to
+ * choose from (Point 6.2b). **No editing:** the only `PATCH` is the restore, so
+ * a mistyped label is corrected by withdrawing the entry and adding it again.
  */
 export async function addListEntry(list: ManagedListName, entry: ListEntry): Promise<ListEntry> {
     const result = await apiPost<{ entry: ListEntry }>(`/managed-lists/${list}`, entry);

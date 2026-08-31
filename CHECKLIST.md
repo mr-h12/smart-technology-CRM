@@ -5215,24 +5215,91 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       filter — `ALLOWED_FILTERS` is `kind · category · is_active` and inventing one would be a 400.
       Sorting is `name` and `created_at` only, so the Service tab sorts by a `name` that may be null.
       Deactivation still hides nothing from a selection list (`D-37`/§10.4 → Modules 6/7).
+- [x] **4.4** `CatalogItemFormModal.vue` · the create button · the row Edit button — §7.3's catalog
+      add/edit form. **Last point of Module 4.**
+      **Two tabs are two field sets, not one union.** §7.3 lists "Product code · Product name ·
+      Category · Unit · Description" against "Service type · Service description · Providing
+      team/company · Active · Notes", and `SaveCatalogItemRequest` turns that into three
+      `required_if` rules — read from the source at lines 85, 92 and 95. A single union form would
+      ask for what the server refuses and hide what it demands, so the field list, the required
+      markers and the payload all follow the kind.
+      **`kind` is named on every write, and that is this point's answer to debt 24.**
+      `required_if:kind,product` fires **only when `kind` is in the payload**; the boundary says so
+      in its own docblock, and a `PATCH` of `{"unit": null}` alone therefore blanks a product's unit
+      because a partial update has no view of the stored row. Closing it there would mean the
+      boundary reading the database — a layer it does not cross. This form names the kind on create
+      **and** edit so the conditional rules always have something to fire on, and a test guards that
+      promise. ⚠️ **The server-side gap is unchanged for every other caller** and debt 24 stays open;
+      what changed is that this screen can no longer walk into it.
+      **The kind is not a control.** On a create it is the tab the person is standing on; on an edit
+      it is the row's own — asserted by opening a *service* record while the *product* tab is
+      active and watching the form follow the record. The server does allow a PATCH to move a row
+      between tabs and re-checks the whole row when it does, but no source asks for that, and a
+      selector that silently retypes a catalog item is a bigger claim than §7.3 makes. **Recorded as
+      a narrowing, not a decision.**
+      **No price, cost or margin control, and not because they are hidden.** All three are
+      `prohibited` on the server (§7.3, `D-21`), so a control for one could never save. Asserted
+      twice: no such testid exists, and the dialog's rendered text matches none of the three words.
+      **Server errors follow `UserFormModal`, as `SupplierFormModal` does** — a field refusal shows
+      the server's own sentence, a form-level refusal is a lang key. Two of the four forms in this
+      SPA now share one approach deliberately; debt 17 covers the rest.
+      **1751 backend (11003 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist.
+      **Three deliberate breaks, one per new surface, none a deletion:** (1) `kind` dropped from the
+      payload — **the exact defect debt 24 describes**, and the plausible one, since the write still
+      succeeds → failed **exactly** the three payload tests; (2) the service's required field copied
+      from the product's (`['name']` for `['service_type']`) — the plausible copy-paste → failed five
+      tests, and that spread is itself the finding: a wrong required rule blocks every service save,
+      so the two refusal tests fail as collateral rather than by coincidence; (3) `canManage` keyed
+      on `catalog.view` → failed **exactly** the two `SEC-09` tests. All restored with inverse `sed`,
+      confirmed with `shasum -a 256 -c`.
+      Delta predicted before the run and matched to the unit. Backend 1748 → 1751 = three
+      `LogicalPropertiesTest` provider rows; assertions 10999 → 11003 = those three plus one from
+      `NoHardCodedTextTest`'s scan loop (measured 373 → 374). No new route and no new nav item, so
+      neither of the two guards that move for those does. Frontend 529 → 553 = **19** (the new spec)
+      + **5** (the write-control tests added to `CatalogView.spec.ts`).
+      **Problems found:** two. (1) `NoHardCodedTextTest`'s Vue inventory broke by design again;
+      updated with the reason written into the test, after the scan passed on the file (48 passed /
+      374 assertions). (2) ⚠️ **A wrinkle Point 4.3 introduced and this point exposes:** the Catalog
+      screen draws a sortable **Name** column on *both* tabs, but §7.3 gives a service no name and
+      this form therefore offers none — so the Name column on the Service tab shows `—` for every
+      row. The two allowed sorts are `name` and `created_at`, so removing the column would leave the
+      Service tab with one sort. **Not fixed here, because both repairs are a judgement about §7.3
+      rather than a defect:** either a service gets an optional name, or the Service tab's first
+      column becomes Service type and loses a sort. **Owner's ruling wanted.**
+      **Not covered:** no focus trap and no focus return on close — the same gap as
+      `SupplierFormModal` and `ConfirmDialog` (debt 15), and all three want one shared fix. No
+      optimistic locking: catalog items have no version column, so concurrent edits are
+      last-write-wins. No delete and no archive — `catalog.delete` is an empty grant array (§3.12
+      rule 3) and there is no route at any permission. `unit` and `service_type` are still free text
+      validated for shape and not membership against `enum_lists` (debt 23, owner's decision of
+      2026-08-31), so the form offers no dropdown for either and a typo is accepted. No bulk create
+      and no import. Deactivation still hides nothing from a selection list (Modules 6/7).
 
 **Acceptance criteria**
-- [~] New product appears under the Product tab, grouped by company *(Point 4.3: the Product tab
-      asks `filter[kind]=product` and every load asks `group_by=company`, both asserted on the query
-      string, and the company headings are asserted to appear once per company in the server's own
-      order — including a heading of their own for the items with no company. **The word "new"
-      cannot be closed here**: creating a product is Point 4.4's form, so what is proved today is
-      that a product which exists appears under the right tab in the right group.)*
+- [x] New product appears under the Product tab, grouped by company *(Points 4.3 and 4.4, both
+      halves. **Appears under the tab, grouped:** the Product tab asks `filter[kind]=product` and
+      every load asks `group_by=company`, both asserted on the query string, and the company
+      headings are asserted to appear once per company in the server's own order — including a
+      heading of their own for the items with no company. **New:** the create button starts the form
+      in the tab the person is standing on (asserted in both tabs), the payload carries
+      `kind: 'product'` with §7.3's product fields, and a save closes the dialog and re-asks the
+      server so the new row arrives in its group rather than being pushed into the page by the
+      client. The write itself is `CatalogWriteEndpointTest`'s, per `D-67`.)*
 - [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
       renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
       `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
       be closed here** — the other screens that name a supplier are Module 6's supplier quotations
       and Module 11's procurement, and neither exists.)*
-- [~] Service appears under the Service tab, separate from products *(Point 4.3: the Service tab
-      asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a client-side
-      split, and the two tabs draw §7.3's two **different** column lists — asserted in both
-      directions, that the Product tab shows Unit and no Service type and the Service tab the
-      reverse. Creating a service is Point 4.4.)*
+- [x] Service appears under the Service tab, separate from products *(Points 4.3 and 4.4. The
+      Service tab asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a
+      client-side split, and the two tabs draw §7.3's two **different** column lists — asserted in
+      both directions, that the Product tab shows Unit and no Service type and the Service tab the
+      reverse. Point 4.4 carries the same split into the form: creating from the Service tab sends
+      `kind: 'service'` with `service_type` required and **no** `unit` or `product_code` in the body
+      at all, asserted on the decoded payload. ⚠️ See Point 4.4's second finding: the Service tab's
+      **Name** column is always `—`, and which way to repair that is an owner's ruling.)*
 - [ ] Deactivated product is hidden from new selection lists
 - [x] Catalog holds **no prices** — descriptive data only *(Point 1.2: `catalog_items` has no
       numeric column at all; asserted three ways — §7.3 still forbids it, no `numeric` column

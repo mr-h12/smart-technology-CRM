@@ -37,10 +37,20 @@
  * reach it. Recorded in `CHECKLIST.md` awaiting a `D-xx`. `SEC-09` is
  * unaffected: the API is still the gate.
  *
- * ── No write controls, and that is Point 4.4 ───────────────────────────────
+ * ── One permission draws the write controls (Point 4.4) ────────────────────
  *
- * §3.7's `catalog.manage` covers create, edit and deactivate for items too, and
- * all three arrive with the form modal. A button here now would open nothing.
+ * §3.7's `catalog.manage` covers create, edit and deactivate for items too, in
+ * the same single cell it covers them for suppliers, so `canManage` draws every
+ * control and there is no second permission to ask about. There is no DELETE at
+ * any permission: `catalog.delete` is an empty grant array (§3.12 rule 3), so
+ * deactivation is the only removal there is. The CEO is the documented negative
+ * case — §3.7 grants them `catalog.view` and annotates the write column
+ * "read-only". `SEC-09`: these buttons are a menu, and
+ * `CatalogWriteEndpointTest` is the gate.
+ *
+ * **A create belongs to the tab it was started from.** The form takes the kind
+ * rather than offering a selector, so a new row lands in the tab the person was
+ * looking at — which is also the only tab that would show it afterwards.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -50,6 +60,8 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
+import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
+import { useAuth } from '@/stores/auth';
 
 /** §7.3's two tabs, which are `CatalogItemDraft::KINDS` on the server. */
 const KINDS = ['product', 'service'] as const;
@@ -68,6 +80,13 @@ const COLUMNS: Record<Kind, readonly string[]> = {
 };
 
 const { t, locale } = useI18n();
+const auth = useAuth();
+
+/** §3.7's write row is one cell, so one permission draws create, edit and deactivate. */
+const canManage = computed(() => auth.hasPermission('catalog.manage'));
+
+const formOpen = ref(false);
+const editing = ref<CatalogItem | null>(null);
 
 const items = ref<CatalogItem[]>([]);
 const pagination = ref<Pagination | null>(null);
@@ -108,8 +127,8 @@ const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortFi
 
 const columns = computed<readonly string[]>(() => COLUMNS[kind.value]);
 
-/** Name, the tab's own fields, status, added. */
-const columnCount = computed(() => columns.value.length + 3);
+/** Name, the tab's own fields, status, added — and the actions column when it is drawn. */
+const columnCount = computed(() => columns.value.length + 3 + (canManage.value ? 1 : 0));
 
 /**
  * Where the server's ordering changes company, which is the only thing this
@@ -217,6 +236,28 @@ function addedOn(timestamp: string): string {
     return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
+function startCreate(): void {
+    editing.value = null;
+    formOpen.value = true;
+}
+
+function startEdit(item: CatalogItem): void {
+    editing.value = item;
+    formOpen.value = true;
+}
+
+/**
+ * The saved row may no longer belong on the page in view — a rename moves it
+ * under `sort=name`, a new company moves it into another group, a deactivation
+ * drops it out of `filter[is_active]` — so the list is asked again rather than
+ * patched in place (§5.2, §6.5).
+ */
+async function onSaved(): Promise<void> {
+    formOpen.value = false;
+
+    await load();
+}
+
 onMounted(load);
 </script>
 
@@ -232,6 +273,18 @@ onMounted(load);
             >
                 {{ t(`catalog.total.${kind}`, { count: total }) }}
             </p>
+
+            <!-- §6.2: one primary action per context. Its label names the tab,
+                 because that is the kind the new row will be. -->
+            <button
+                v-if="canManage"
+                type="button"
+                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="catalog-create"
+                @click="startCreate()"
+            >
+                {{ t(`catalog.form.createTitle.${kind}`) }}
+            </button>
         </header>
 
         <!-- §7.3's two tabs. `aria-selected` rather than colour alone (§6.4),
@@ -369,6 +422,11 @@ onMounted(load);
                                     <span aria-hidden="true">{{ sortIndicator('created_at') }}</span>
                                 </button>
                             </th>
+
+                            <!-- §5.2's Detail/Form controls: "action controls only by permission". -->
+                            <th v-if="canManage" scope="col" class="p-3 text-start">
+                                <span class="sr-only">{{ t('catalog.column.actions') }}</span>
+                            </th>
                         </tr>
                     </thead>
 
@@ -400,6 +458,17 @@ onMounted(load);
                                 <!-- D-70: Inter draws Western digits in both locales;
                                      tabular-nums keeps a column of figures aligned. -->
                                 <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(row.item.created_at) }}</td>
+
+                                <td v-if="canManage" class="p-3">
+                                    <button
+                                        type="button"
+                                        class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        data-testid="catalog-row-edit"
+                                        @click="startEdit(row.item)"
+                                    >
+                                        {{ t('action.edit') }}
+                                    </button>
+                                </td>
                             </tr>
                         </template>
                     </tbody>
@@ -437,6 +506,14 @@ onMounted(load);
                 </button>
             </nav>
         </div>
+
+        <CatalogItemFormModal
+            :open="formOpen"
+            :editing="editing"
+            :kind="kind"
+            @saved="onSaved"
+            @cancel="formOpen = false"
+        />
     </section>
 </template>
 
@@ -500,6 +577,12 @@ onMounted(load);
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+/* §6.2's Primary: the one main permitted action on this screen. */
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .status-chip {

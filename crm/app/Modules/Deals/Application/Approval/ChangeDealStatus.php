@@ -6,6 +6,7 @@ namespace App\Modules\Deals\Application\Approval;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
+use App\Modules\Deals\Application\CustomerStatus\RecomputeCustomerStatus;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Access\DealStatusTransition;
 use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
@@ -52,6 +53,7 @@ final readonly class ChangeDealStatus
         private AuditRecorderInterface $audit,
         private AuthorizeAction $authorizeAction,
         private ConnectionInterface $connection,
+        private RecomputeCustomerStatus $customerStatus,
     ) {}
 
     /**
@@ -101,6 +103,11 @@ final readonly class ChangeDealStatus
                 ['status' => $before->status],
                 ['status' => $after->status],
             );
+
+            // §4.5's event trigger: every status change is a candidate to
+            // move the customer between Prospect, Customer, No Response and
+            // Deal Not Completed.
+            $this->customerStatus->forCustomer($after->customerId);
 
             return $after;
         });

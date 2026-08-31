@@ -4902,7 +4902,7 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 
 **Endpoints**
 - [x] `GET`/`POST`/`PATCH` `/api/v1/deals` (Points 2.2–2.3) — no `DELETE` at any permission (`DB-01`)
-- [x] `PATCH /api/v1/deals/:id/assign` (2.4) · `/approve` · `/reject` (2.5) · [ ] `/status`
+- [x] `PATCH /api/v1/deals/:id/assign` (2.4) · `/approve` · `/reject` (2.5) · `/status` (2.6)
 - [ ] `POST /api/v1/deals/:id/documents`
 
 #### Step 1 — schema *(point order approved 2026-08-31)*
@@ -5125,6 +5125,52 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       does not touch `status` or `owner_id` — Flow 3's "activated and assigned" is not built; nothing
       in §4.3 names what "activated" sets, and `owner_id` is already set at creation (2.3) for the
       one case (`Own`-scoped, employee-entered) that reaches `pending` at all.
+- [x] **2.6** `PATCH /deals/{id}/status` — §4.4's transition graph, closing the `lost_reason` open
+      question Point 1.1 recorded, and this module's first two-permission action.
+      **A new migration adds `lost_reason`, not a reuse of `rejection_reason`.** That column is tied
+      by its own CHECK to exactly one rejection (Flow 3's pre-pipeline `approval_status = 'rejected'`);
+      `Lost` is a deal that *entered* the pipeline and did not close, a different fact. Its own
+      mandatory-when-`lost` CHECK mirrors the rejection one exactly. Full reasoning in the migration's
+      own docblock.
+      **`DealStatusTransition` is built from §4.4's table, not its ASCII diagram** — the diagram draws
+      `↘ Lost` once, near `Won`, which reads as branching from one place; the table names both real
+      sources explicitly (`Quotation Sent` and `Negotiations`), and the table is what this class
+      follows. `Lost` and `Delivery Complete` are terminal — an empty edge list, not a self-loop.
+      ⚠️ **§4.4's "Who changes it" column is not enforced beyond the coarse `deal.change_status`
+      scope, on purpose.** Every name in that column is a role already covered by `change_status`'s
+      own seeded scopes, and no second permission exists in `PermissionMatrix` for any transition
+      except one. Building finer-grained checks the matrix does not seed would be inventing
+      authorisation, the same restraint every row-scope class in this module already exercises.
+      **`Delivery → Delivery Complete` is the one exception, and it needed a real second permission
+      check inside the use case rather than route middleware** — `D-14`'s four roles
+      (`deal.mark_delivery_complete`) are a genuinely *different* set from `change_status`'s (Outdoor
+      Supervisor and Outdoor Sales hold one and not the other), and which permission applies depends
+      on the request body's target status, which middleware cannot see. `ChangeDealStatus` asks
+      `AuthorizeAction` directly — legal because `Deals` already holds `IdentityContract` — and
+      resolves a *second* `DealRowScope` from that decision to check the row again.
+      **`DealStatusTransitionRefused` is a new exception, not a reuse of `DealApprovalRefused`**,
+      despite sharing `409 state_transition_invalid`: the two guard different rules (§4.4's graph vs.
+      Flow 3's one-time decision), the same way `InvalidCustomerListQuery`/`InvalidSupplierListQuery`
+      stay separate despite an identical rendered shape.
+      **19 endpoint tests + 6 migration tests · 1862 backend (11416 assertions) · pint 446 files ·
+      PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **Three deliberate breaks.** (1) The `lost_reason` CHECK deleted → exactly the two tests naming
+      it failed. (2) `DealStatusTransition::isAllowed()` changed to always return true → exactly the
+      five undocumented-edge tests failed, nothing else. (3) The `mark_delivery_complete` re-check
+      deleted from `ChangeDealStatus` → exactly `test_that_an_outdoor_sales_owner_cannot_mark_delivery_complete`
+      failed — the one test that actually proves the second permission does anything. All three
+      restored, all confirmed with `shasum -a 256 -c`.
+      **Problems found:** Point 1.1's own `test_that_each_status_section_4_4_draws_is_accepted` broke
+      the moment the `lost_reason` CHECK existed — it iterates all twelve statuses including `lost`
+      with no reason, which the new constraint correctly refuses. Fixed by giving that one iteration
+      a reason; caught by running the full suite after this point's migration landed, not by
+      inspecting the older test.
+      **Not covered:** `/documents`. The `Team`/`Out`/`Asgn` gaps from 2.1 are unchanged — a Team
+      Leader still reaches this endpoint for every deal and finds none of them. `recompute_customer_status`
+      (Won → customer becomes "Customer"; all-Lost → "Deal Not Completed") is **not built** — it is a
+      cross-module event this point deliberately does not reach into Customers for; it needs its own
+      point, most likely a domain event `DealStatusChanged` with a listener, on `AP-05`'s "event-driven
+      internally" principle rather than a direct write into `customers` from here.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

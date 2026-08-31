@@ -162,6 +162,34 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         return self::hydrate($row);
     }
 
+    public function changeStatus(
+        string $dealId,
+        string $newStatus,
+        ?string $lostReason,
+        DealRowScope $scope,
+        string $actorId,
+    ): ?DealSummary {
+        $query = $this->scoped($scope);
+
+        if ($query === null) {
+            return null;
+        }
+
+        $row = $query->whereKey($dealId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->status = $newStatus;
+        $row->lost_reason = $lostReason;
+        $row->last_activity_at = now();
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row);
+    }
+
     /**
      * §4.7's `DL-YYYY-NNNN`, allocated from `document_sequences` (Module 0) —
      * its first consumer.
@@ -268,6 +296,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
             ownerId: $row->owner_id,
             approvalStatus: $row->approval_status,
             rejectionReason: $row->rejection_reason,
+            lostReason: $row->lost_reason,
             lastActivityAt: new DateTimeImmutable((string) $row->last_activity_at?->toIso8601String()),
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),
             updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),

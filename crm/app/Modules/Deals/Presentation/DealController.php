@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Presentation;
 
+use App\Modules\Deals\Application\Approval\ChangeDealStatus;
 use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Listing\ListDeals;
@@ -85,6 +86,17 @@ final class DealController
         return ApiEnvelope::single($request, DealPayload::of(
             $deals->reject($deal, $request->reason(), self::heldScopes($request), self::actorId($request)),
         ));
+    }
+
+    public function changeStatus(ChangeDealStatusRequest $request, string $deal, ChangeDealStatus $deals): JsonResponse
+    {
+        return ApiEnvelope::single($request, DealPayload::of($deals->handle(
+            $deal,
+            $request->status(),
+            $request->reason(),
+            self::heldScopes($request),
+            self::actorId($request),
+        )));
     }
 
     /**

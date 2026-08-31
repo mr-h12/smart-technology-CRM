@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $owner_id
  * @property string|null $approval_status
  * @property string|null $rejection_reason
+ * @property string|null $lost_reason
  * @property \Illuminate\Support\Carbon|null $last_activity_at
  * @property string|null $created_by
  * @property string|null $updated_by

@@ -561,4 +561,12 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
 
     Route::patch('/{deal}/reject', [DealController::class, 'reject'])
         ->middleware('permission:deal.approve');
+
+    // §4.4's transition. The route carries only `deal.change_status` — the
+    // one edge needing a second permission, Delivery → Delivery Complete
+    // (`D-14`, `deal.mark_delivery_complete`), is checked inside
+    // `ChangeDealStatus` because which permission applies depends on the
+    // request body's target status, not on the URL a middleware can see.
+    Route::patch('/{deal}/status', [DealController::class, 'changeStatus'])
+        ->middleware('permission:deal.change_status');
 });

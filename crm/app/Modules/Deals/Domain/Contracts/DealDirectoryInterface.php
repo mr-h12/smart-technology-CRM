@@ -69,4 +69,24 @@ interface DealDirectoryInterface
         DealRowScope $scope,
         string $actorId,
     ): ?DealSummary;
+
+    /**
+     * Point 2.6 — §4.4's transition, recorded directly rather than through
+     * `DealDraft`, on {@see reviewApproval()}'s precedent: `status` is never
+     * a caller-writable field, only ever set by a use case
+     * (`ChangeDealStatus`) that has already validated the edge against
+     * `DealStatusTransition`.
+     *
+     * `$lostReason` is null on every transition except into `lost`, where
+     * the boundary already refused a blank one before this is called.
+     *
+     * Null on the same two indistinguishable cases as {@see find()}.
+     */
+    public function changeStatus(
+        string $dealId,
+        string $newStatus,
+        ?string $lostReason,
+        DealRowScope $scope,
+        string $actorId,
+    ): ?DealSummary;
 }

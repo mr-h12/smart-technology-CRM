@@ -38,6 +38,7 @@ final class DealPayload
             'owner_id' => $deal->ownerId,
             'approval_status' => $deal->approvalStatus,
             'rejection_reason' => $deal->rejectionReason,
+            'lost_reason' => $deal->lostReason,
             'last_activity_at' => $deal->lastActivityAt->format(DATE_ATOM),
             'created_at' => $deal->createdAt->format(DATE_ATOM),
             'updated_at' => $deal->updatedAt->format(DATE_ATOM),

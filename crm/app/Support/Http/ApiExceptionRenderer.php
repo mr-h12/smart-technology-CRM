@@ -10,6 +10,7 @@ use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
 use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
+use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
@@ -457,6 +458,21 @@ final class ApiExceptionRenderer
             $request,
             409,
             DealApprovalRefused::ERROR_CODE,
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 409 `state_transition_invalid`, on
+     * {@see self::dealApprovalRefused()}'s precedent: same code, a different
+     * domain rule (§4.4's graph rather than Flow 3's one-time decision).
+     */
+    public static function dealStatusTransitionRefused(DealStatusTransitionRefused $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            409,
+            DealStatusTransitionRefused::ERROR_CODE,
             (string) __($exception->messageKey()),
         );
     }

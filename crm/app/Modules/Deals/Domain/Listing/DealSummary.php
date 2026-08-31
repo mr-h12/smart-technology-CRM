@@ -26,6 +26,7 @@ final readonly class DealSummary
         public ?string $ownerId,
         public ?string $approvalStatus,
         public ?string $rejectionReason,
+        public ?string $lostReason,
         public DateTimeImmutable $lastActivityAt,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,

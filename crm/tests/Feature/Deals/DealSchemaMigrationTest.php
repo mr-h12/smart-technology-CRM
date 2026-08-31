@@ -213,10 +213,18 @@ final class DealSchemaMigrationTest extends TestCase
         self::assertSame('lead', DB::table('deals')->where('id', $id)->value('status'));
     }
 
+    /**
+     * `lost` carries a reason on Point 2.6's `deals_lost_reason_required_when_lost`
+     * CHECK — see `DealLostReasonMigrationTest` for that constraint on its own.
+     * This test is about the status column accepting every §4.4 value, not
+     * about that later constraint, so the one status needing a reason gets one.
+     */
     #[DataProvider('statuses')]
     public function test_that_each_status_section_4_4_draws_is_accepted(string $status): void
     {
-        $id = $this->insert(['status' => $status]);
+        $id = $this->insert($status === 'lost'
+            ? ['status' => $status, 'lost_reason' => 'Customer chose a competitor.']
+            : ['status' => $status]);
 
         self::assertSame($status, DB::table('deals')->where('id', $id)->value('status'));
     }

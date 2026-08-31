@@ -5345,6 +5345,69 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.0** The undefined colour token, the missing hover states, and the submit button's place.
+      Owner-ordered after testing the running app; the point list for Step 6 was published and
+      approved first, and **the owner approved crossing into Module 2's `Admin` screens** the same
+      way Point 5.1 did.
+      **The complaint was "the text in the coloured box is dark". The cause was not a colour
+      choice.** Three screens wrote `var(--color-on-primary)`, and **this project has never defined
+      that token anywhere** — `Design_System_EN.md` §3.2 and `resources/css/tokens.css` both name it
+      `--color-primary-text`. A `var()` with no fallback and no definition makes the whole
+      declaration *invalid at computed-value time*, so `color` is dropped and the element inherits
+      the parent's — the dark `--color-text`. Nothing failed, because nothing was looking.
+      Fixed in **`ManagedListsView` (×2), `SystemSettingsView:447` and `SystemLimitsView:287`** — the
+      owner reported one screen; the defect was on three, and fixing only the reported one would
+      have left the other two wrong.
+      **`LogicalPropertiesTest::test_that_every_colour_token_a_component_names_is_defined`** is the
+      new guard, added to the scanner that already reads styling as source text rather than to a new
+      file. It reads every `--color-*` declaration out of `tokens.css`, then every `var(--color-*)`
+      reference out of every `.vue` and `.css` under `resources/`, and fails naming each reference
+      with no definition. Scoped to `--color-*` deliberately: that is the family §3.3 tabulates and
+      the one whose failure mode is silent inheritance. A missing `--shadow-*` is visible.
+      **Hover, cited rather than invented.** §6.2: "All button variants have default, **hover**,
+      active, focus, disabled, and loading states." `ManagedListsView` had **zero** `hover` in it
+      (`grep -c hover` → 0) while its `<style scoped>` already declared
+      `transition-property: background-color, color, border-color` — a transition wired to nothing.
+      The shape used is `LoginView.vue:216`'s, unchanged: `:hover:not(:disabled)` →
+      `--color-primary-hover`, `:active:not(:disabled)` → `--color-primary-active`. The unselected
+      chip has no fill at rest, so its hover supplies one (`--color-surface-muted` + a primary
+      border); the selected chip darkens through the same pair as the button, so the Web Interface
+      Guidelines' "interactive states increase contrast" holds in **both** chip states, not just the
+      selected one. `prefers-reduced-motion` was already honoured and is untouched.
+      **The submit button** was a flex sibling of the four fields inside `flex-wrap`, so it settled
+      beside Order. It is now wrapped in a `w-full` div — **the line-break mechanism the two status
+      messages under it already used**, so no field needed re-indenting and no `data-testid` moved.
+      `self-start` was dropped with it: inside a block wrapper it addressed nothing.
+      **1916 backend (11620 assertions) · 553 frontend (34 files) · `npm run build` clean · pint 451
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1583 and 796 allowed).**
+      ⚠️ **This branch is cut from `main` (`d8ea2d2`), not from Point 5.2's branch**, so its baseline
+      is 1915/11618 and the delta is **+1 test / +2 assertions** — the one new scan and its two
+      assertions. Predicted before the run and matched it exactly. No per-file provider moved,
+      because no file was added.
+      RED first: the guard named **exactly three files and no others**, which is also how the blast
+      radius was established as fact rather than estimate.
+      **Deliberate break — one, restored by inverse `sed`, `shasum -c` confirmed.** The RED above
+      proves the guard catches the defect it was written for; it does not prove it catches the
+      *next* one. So `--color-primary-hover` was mistyped `--color-primary-hovr` — the plausible
+      future slip — and the guard named that file and that token alone.
+      **Problems found: two.**
+      (1) ⚠️ **The edits were made while still checked out on `main`.** The previous point ends by
+      rebuilding the served bundle from `main` (§2.2 of the handoff), and the branch was never cut
+      again afterwards. Caught by `git branch --show-current` **before any commit**, and the work was
+      moved with `git checkout -b`; nothing reached `main`. This is the exact trap the handoff
+      records, and it fired at the exact seam the handoff predicts.
+      (2) `grep -rln ":hover" resources/js` returns **7 files**, and only **one** of them
+      (`LoginView`) styles a *button* hover — the rest are table rows. So the gap this point closes
+      on three screens is open across most of the application. Recorded as debt rather than fixed
+      here, because widening the point past the approved list is not this point's call.
+      **Not covered:** **no test asserts that a hover rule exists or what colour it produces.** A
+      `jsdom` suite does not apply `<style scoped>` and cannot see a colour — debt entry 29 already
+      says so — and the new guard checks only that a token is *defined*, never that it is the *right*
+      one or that the contrast it yields passes 4.5:1. **The appearance is unverified by machine and
+      needs the owner's eye.** It could not be verified in a browser either: the screen is behind
+      authentication and entering credentials is not something I do. Nothing here touches the delete
+      or archive of a list entry — that is Points 6.1 and 6.2, and the repository still exposes only
+      `entriesFor`, `page` and `add`.
 
 **Acceptance criteria**
 - [x] New product appears under the Product tab, grouped by company *(Points 4.3 and 4.4, both

@@ -5420,6 +5420,67 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.2c** The archived view and the restore control — 6.2b's endpoints, made reachable, and
+      the point that closes the withdraw → restore loop on screen.
+      **A view chooser, not a filter, because that is what the server offers.** `listEntries()` gains
+      a third argument that picks the address rather than adding a query parameter: `ListingQuery` is
+      shared with the FX-rate history and refuses `filter[...]` outright (Point 6.2b), so §6.2's
+      "each resource declares its own filters" is answered by a second collection.
+      **The chooser is drawn for a writer only, and the table for everyone** — the asymmetry is the
+      whole reasoning. `GET .../archived` carries `admin.system_settings` while the live list carries
+      none, because §8 puts Customers on six roles' screens and Catalog on five and not one renders
+      without a sector, while **nothing renders from the archived set at all**. Offering a reader the
+      chooser would offer a view whose every request is a 403.
+      **No confirmation on the restore, and that is cited rather than assumed.** §6.6 lists what must
+      be confirmed — archive, deactivate, rejection, return, approval — and a single restore is none
+      of them. `CustomersView` already reads §6.6 the same way for the same act, and its comment says
+      so. So the archive keeps its dialog and the restore does not get one.
+      **The 409 is explained, not retried.** `OpenAPI §5.1`'s `state_transition_invalid` means the
+      code this entry wants back was taken while it was away, which no amount of retrying fixes. The
+      handler reads `ApiError.code` and shows a sentence naming the two ways out — withdraw the entry
+      holding the code, or add this one under a different code — instead of the generic "try again"
+      every other failure gets.
+      **The add form is hidden in the archived view**, because a row added while looking at the
+      archived set lands in the live list, out of sight of the person who just added it.
+      **577 frontend (34 files, +6) · `npm run build` clean · 1946 backend (11798 assertions) · pint
+      459 files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1631 and 877
+      allowed).** Backend **+0**, as expected: no `.php` and no new `.vue` file.
+      RED first: **5 of 6 failed**. The sixth — "draws no archived view for a reader who cannot
+      write" — passed before any chooser existed, the same wrong reason 6.1's 404s and 6.2's
+      permission test passed. **Third occurrence of that pattern**, and it is why the deliberate
+      break matters more than the RED on this screen.
+      **Deliberate break — one, restored by inverse replacement, `shasum -c` confirmed.** The 409
+      branch was flattened to the generic message — the plausible "simplification", and one no RED
+      could catch since both paths set an error and both render. **Exactly the 409 test failed**, 25
+      others passed.
+      **A side effect worth naming:** the restore button reuses `.chip`, which had a `transition`
+      declared and no `:hover` to use it. Adding `.chip:hover` gives the **pagination buttons** one
+      too — they had none. Source order was checked rather than assumed: `.chip:hover` sits at 648
+      and `.chip-idle:hover` / `.chip-selected:hover` at 652 and 657, so the chooser's own hovers
+      still win at equal specificity.
+      **Waste audit.**
+      *Dead code:* every symbol grepped, and all six new lang keys resolved **through both locale
+      files and the source** rather than by a literal grep — the check Point 6.2 had to invent after
+      a naive grep produced a false positive. Nothing at one hit; nothing dead.
+      *Duplicate logic:* **one considered and deliberately not extracted.** `CustomersView` has
+      `archivedFilter`/`archivedOnly`, the same *shape* as this screen's `view`/`showingArchived`.
+      The mechanism differs — that screen sends `filter[is_archived]`, this one changes address — and
+      what is common is a two-option `<select>`, which is markup rather than logic. **Stated ceiling:
+      a third screen needing an archived toggle is when this becomes a component**, not before.
+      *Unused components:* **none, and that is itself the finding.** The three previous points each
+      turned up a stale copy of "there is no `PATCH`/`DELETE`"; this point falsifies no standing
+      claim, and the sweep is clean.
+      *Unnecessary complexity:* `switchView()` has one caller and four lines, and exists because the
+      page number does not carry between two collections of different lengths — the same reason
+      `choose()` resets it, stated in both places.
+      **Problems found: none.** No gate failed on a first run, nothing was voided, and the deliberate
+      break behaved exactly as predicted. Said explicitly rather than by omitting the row.
+      **Not covered:** **there is no "restore all"** though `API-07` asks for "bulk operations for
+      archive and restore" — `CustomersView` has select-all for exactly this and this screen does
+      not; it stays on the register. **The archived view has no pagination test**, and its pager is
+      the live one's code path with a different total, so a defect there would be invisible.
+      **Nothing shows *when* an entry was withdrawn or by whom** — the audit log holds both and no
+      screen renders it, which is the same gap Module 4 recorded. **Still no label editing.**
 - [x] **6.2b** The way back out of the archive — `PATCH /managed-lists/{list}/{code}/restore` and
       `GET /managed-lists/{list}/archived`. Owner's ruling of 2026-08-31, after asking whether a
       withdrawal could be undone. **It could not.**

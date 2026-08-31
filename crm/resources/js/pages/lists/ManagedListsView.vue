@@ -44,6 +44,16 @@
  * restore. Correcting a wording means withdrawing the entry and adding it
  * again. That remains owed and is named in `CHECKLIST.md`.
  *
+ * ── The two collections do not answer to the same authority ───────────────
+ *
+ * The live list carries **no permission** and the archived one carries
+ * `admin.system_settings`, which is why the view chooser is drawn for a writer
+ * only while the table itself is drawn for everyone. The asymmetry is
+ * deliberate and `routes/api.php` sets out why: §8 puts Customers on six roles'
+ * screens and Catalog on five and not one of them renders without a sector or a
+ * unit, while **nothing renders from the archived set at all** — it exists to
+ * serve the restore, so it answers to the authority the restore does.
+ *
  * ── `position` is the one number here ──────────────────────────────────────
  *
  * It is a sort key rather than an amount, so `DB-07` has nothing to say about
@@ -62,7 +72,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import { useAuth } from '@/stores/auth';
-import { MANAGED_LISTS, addListEntry, archiveListEntry, listEntries, type ListEntry, type ManagedListName } from '@/services/admin';
+import { MANAGED_LISTS, addListEntry, archiveListEntry, listEntries, restoreListEntry, type ListEntry, type ManagedListName } from '@/services/admin';
 
 const { t } = useI18n();
 const auth = useAuth();
@@ -87,18 +97,29 @@ const adding = ref(false);
 const added = ref(false);
 const addError = ref<string | null>(null);
 
+/**
+ * Which collection is on screen. `GET .../archived` carries the write
+ * permission while the live list carries none, so this is a writer's control.
+ */
+const view = ref<'active' | 'archived'>('active');
+const showingArchived = computed(() => view.value === 'archived');
+
 /** The entry a person has asked to withdraw, and has not yet confirmed. */
 const archiving = ref<ListEntry | null>(null);
 const archiveBusy = ref(false);
 /** A lang-file key, or null. */
 const archiveError = ref<string | null>(null);
 
+const restoring = ref(false);
+/** A lang-file key, or null. */
+const restoreError = ref<string | null>(null);
+
 async function load(): Promise<void> {
     loading.value = true;
     loadError.value = null;
 
     try {
-        const result = await listEntries(active.value, page.value);
+        const result = await listEntries(active.value, page.value, showingArchived.value);
 
         entries.value = result.items;
         pagination.value = result.pagination;
@@ -122,6 +143,41 @@ async function choose(list: ManagedListName): Promise<void> {
     page.value = 1;
     resetForm();
     await load();
+}
+
+/**
+ * The same reset as `choose()`, for the same reason: the archived set of a list
+ * is a different length from its live set, so the page number does not carry.
+ */
+async function switchView(): Promise<void> {
+    page.value = 1;
+    archiveError.value = null;
+    restoreError.value = null;
+    await load();
+}
+
+/**
+ * **No confirmation, deliberately.** §6.6 lists what must be confirmed —
+ * archive, deactivate, rejection, return, approval — and a single restore is
+ * none of them. `CustomersView` reads §6.6 the same way for the same act.
+ */
+async function restore(entry: ListEntry): Promise<void> {
+    restoring.value = true;
+    restoreError.value = null;
+
+    try {
+        await restoreListEntry(active.value, entry.code);
+        await load();
+    } catch (error) {
+        // A 409 is not a fault and retrying cannot fix it: the code this entry
+        // wants back belongs to something else now. Saying "try again" would
+        // send the person round a loop with no exit.
+        restoreError.value = error instanceof ApiError && error.code === 'state_transition_invalid'
+            ? 'lists.error.restoreTaken'
+            : 'lists.error.restore';
+    } finally {
+        restoring.value = false;
+    }
 }
 
 async function goToPage(next: number): Promise<void> {
@@ -240,10 +296,28 @@ onMounted(load);
             </button>
         </nav>
 
+        <!-- Drawn for a writer only: unlike the live list, `GET .../archived`
+             carries `admin.system_settings`, so offering this to a reader would
+             be offering a view whose every request is a 403. -->
+        <label v-if="canEdit" class="flex w-fit flex-col gap-1.5">
+            <span class="text-form-label text-[var(--color-text)]">{{ t('lists.view.label') }}</span>
+            <select
+                v-model="view"
+                class="field min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                data-testid="lists-view"
+                @change="switchView"
+            >
+                <option value="active">{{ t('lists.view.active') }}</option>
+                <option value="archived">{{ t('lists.view.archived') }}</option>
+            </select>
+        </label>
+
         <!-- `SEC-09`: hiding this is presentation. The API refuses a write from
-             anyone without `admin.system_settings` whether it is drawn or not. -->
+             anyone without `admin.system_settings` whether it is drawn or not.
+             Hidden in the archived view because a row added there lands in the
+             live list, out of sight of the person who just added it. -->
         <form
-            v-if="canEdit"
+            v-if="canEdit && !showingArchived"
             class="flex flex-wrap items-start gap-4"
             data-testid="lists-add"
             @submit.prevent="add"
@@ -422,7 +496,12 @@ onMounted(load);
                         <td class="p-3" lang="ar" dir="rtl">{{ entry.label_ar }}</td>
                         <td class="p-3 tabular-nums">{{ entry.position }}</td>
                         <td v-if="canEdit" class="p-3 text-end">
+                            <!-- The view decides: an archived entry cannot be
+                                 archived again, and a live one has nothing to
+                                 restore. §6.2 puts Archive under Danger and
+                                 Restore is not destructive, so it is not one. -->
                             <button
+                                v-if="!showingArchived"
                                 type="button"
                                 class="archive-action min-h-11 rounded-lg border px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
                                 :data-list-code="entry.code"
@@ -430,6 +509,18 @@ onMounted(load);
                                 @click="archiving = entry"
                             >
                                 {{ t('lists.archive.action') }}
+                            </button>
+
+                            <button
+                                v-else
+                                type="button"
+                                class="chip min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="restoring"
+                                :data-list-code="entry.code"
+                                data-testid="lists-restore"
+                                @click="restore(entry)"
+                            >
+                                {{ t('lists.restore.action') }}
                             </button>
                         </td>
                     </tr>
@@ -471,6 +562,13 @@ onMounted(load);
                 {{ t('lists.pagination.next') }}
             </button>
         </nav>
+        <p
+            v-if="restoreError !== null"
+            class="text-[var(--color-danger)] text-pretty"
+            role="alert"
+            data-testid="lists-restore-error"
+        >{{ t(restoreError) }}</p>
+
         <p
             v-if="archiveError !== null"
             class="text-[var(--color-danger)]"
@@ -554,6 +652,13 @@ onMounted(load);
    §6.2 again, and a chooser whose options do not answer the pointer reads as
    disabled. The selected chip darkens instead, through the same token pair as
    the button, so "more prominent than rest" holds in both states. */
+/* The restore button borrows `.chip`'s transition and adds the hover §6.2
+   requires. It is not a Danger variant: §6.2 puts "Archive, deactivate,
+   reject" there, and putting something back is none of those. */
+.chip:hover:not(:disabled) {
+    background-color: var(--color-surface-muted);
+}
+
 .chip-idle:hover {
     background-color: var(--color-surface-muted);
     border-color: var(--color-primary);

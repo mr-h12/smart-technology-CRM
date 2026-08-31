@@ -41,12 +41,26 @@ use PHPUnit\Framework\TestCase;
  */
 final class ManagedListsDataTest extends TestCase
 {
-    // ───────────────────────────────────────────── the four lists
+    // ───────────────────────────────────────────── the lists
 
-    public function test_the_four_lists_db05_names_are_defined(): void
+    /**
+     * `DB-05` names four. `companies` is a **fifth, added by the owner's ruling
+     * of 2026-08-31** and recorded in `CHECKLIST.md` awaiting a `D-xx`.
+     *
+     * The reason it is a managed list rather than the free text it was: §7.3
+     * groups the catalog "by company/team name" and the owner asked to filter by
+     * it too, and a value that is both grouped and filtered cannot be free text
+     * without fragmenting — "Acme", "acme" and "Acme Ltd" become three
+     * companies on one screen. That is `R-03`'s recorded risk about free-text
+     * regions, arriving a second time.
+     *
+     * This guard is a count assertion and it broke on purpose. It is updated
+     * here rather than widened, so the fifth name had to be written down.
+     */
+    public function test_the_lists_this_system_keeps_are_defined(): void
     {
         self::assertSame(
-            ['sectors', 'units', 'service_types', 'delivery_terms'],
+            ['sectors', 'units', 'service_types', 'delivery_terms', 'companies'],
             array_map(static fn (ManagedList $l): string => $l->value, ManagedList::cases()),
         );
     }
@@ -63,6 +77,8 @@ final class ManagedListsDataTest extends TestCase
             'four service types' => [ManagedList::ServiceTypes, 4],
             // DB-05 names it; no document gives it a value.
             'no delivery terms' => [ManagedList::DeliveryTerms, 0],
+            // Owner's ruling of 2026-08-31; no document names a single company.
+            'no companies' => [ManagedList::Companies, 0],
         ];
     }
 
@@ -79,6 +95,23 @@ final class ManagedListsDataTest extends TestCase
         // payment (D-26) and warranty; no value appears in either language.
         // The business supplies these, the way it supplies FX rates.
         self::assertSame([], ManagedLists::for(ManagedList::DeliveryTerms));
+    }
+
+    /**
+     * Empty for `delivery_terms`' reason, not for a new one: **only the business
+     * knows its own companies.** Seeding a plausible-sounding "Acme" here would
+     * be business content nobody wrote, and it would then be grouped under and
+     * filtered by on a real screen.
+     *
+     * ⚠️ The consequence is deliberate and belongs to Point 5.2, not here:
+     * once `company` becomes `required`, an empty list means **no catalog item
+     * can be created until the Super Admin adds a company** — `POST
+     * /managed-lists/{list}` carries `admin.system_settings`. Recorded in
+     * `CHECKLIST.md`; the owner has been asked.
+     */
+    public function test_companies_is_empty_because_only_the_business_knows_them(): void
+    {
+        self::assertSame([], ManagedLists::for(ManagedList::Companies));
     }
 
     public function test_the_lists_that_do_have_entries_are_not_empty(): void

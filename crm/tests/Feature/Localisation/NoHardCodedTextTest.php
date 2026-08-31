@@ -70,6 +70,12 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                // Module 4 Point 4.4 — §7.3's catalog add/edit form. Added on
+                // the same terms: the scan below was run against it first and
+                // passed. Its labels are looked up by the *field name* —
+                // `catalog.column.{field}` — so the bare strings in the source
+                // are column keys and stored `kind` codes, never a sentence.
+                'CatalogItemFormModal.vue',
                 // Module 4 Point 4.3 — §8's Catalog screen. Added on the same
                 // terms as every entry here: the scan below was run against it
                 // first and passed. §7.3's two tabs, its per-tab column names

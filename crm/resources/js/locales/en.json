@@ -487,7 +487,8 @@
             "sectors": "Sectors",
             "units": "Units",
             "service_types": "Service types",
-            "delivery_terms": "Delivery terms"
+            "delivery_terms": "Delivery terms",
+            "companies": "Companies"
         },
         "column": {
             "code": "Code",

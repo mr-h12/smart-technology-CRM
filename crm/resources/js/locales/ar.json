@@ -487,7 +487,8 @@
             "sectors": "القطاعات",
             "units": "الوحدات",
             "service_types": "أنواع الخدمات",
-            "delivery_terms": "شروط التسليم"
+            "delivery_terms": "شروط التسليم",
+            "companies": "الشركات"
         },
         "column": {
             "code": "الرمز",

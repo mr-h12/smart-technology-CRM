@@ -139,7 +139,24 @@ final class ManagedListSchemaMigrationTest extends TestCase
             self::assertStringContainsString($named, $rule, "DB-05 no longer names {$named}.");
         }
 
-        self::assertCount(4, ManagedList::cases(), 'ManagedList and DB-05 have drifted apart.');
+        // `DB-05`'s four must all still be cases — that is the drift this guard
+        // was written to catch. What it may no longer assert is that there are
+        // *only* four: `companies` is a fifth, added by the owner's ruling of
+        // 2026-08-31 and recorded in `CHECKLIST.md` awaiting a `D-xx`. So the
+        // assertion is narrowed to "the documented four are present, and every
+        // extra one is a name written down here", rather than widened to a
+        // bare count that would stop catching a removal.
+        $cases = array_map(static fn (ManagedList $l): string => $l->value, ManagedList::cases());
+
+        foreach (['sectors', 'units', 'service_types', 'delivery_terms'] as $documented) {
+            self::assertContains($documented, $cases, "ManagedList no longer keeps DB-05's {$documented}.");
+        }
+
+        self::assertSame(
+            ['companies'],
+            array_values(array_diff($cases, ['sectors', 'units', 'service_types', 'delivery_terms'])),
+            'A list outside DB-05 was added without being named here.',
+        );
     }
 
     // ─────────────────────────────────────────────────────────── the constraints

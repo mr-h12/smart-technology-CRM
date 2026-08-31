@@ -24,10 +24,6 @@ parameters:
   paths:
     - ./app/Modules
   layers:
-    - name: Customers
-      collectors:
-        - type: directory
-          value: app/Modules/Customers/.*
     - name: Deals
       collectors:
         - type: directory
@@ -106,6 +102,27 @@ parameters:
         - type: directory
           value: app/Modules/Storage/(Infrastructure|Presentation)/.*
 
+    # Customers is split for the reason Identity, Audit and Storage already
+    # are, on the crossing this file's own header names as the pattern: "when
+    # a legitimate shared interface appears it is added here as a named
+    # exception with a reason". Added 2026-08-31 with Deals' Point 3.1 —
+    # `recompute_customer_status` (§4.5, `D-49`) is Module 5's rule, and the
+    # rule writes one column on a table Module 5 does not own. Before this
+    # point nothing outside Customers depended on it, so the flat `Customers`
+    # layer cost nothing; this is that crossing actually happening. Contract
+    # is `CustomerStatusWriterInterface` (`Domain/Contracts`) — the *only*
+    # thing Deals is allowed to reach; nothing points at `CustomersDriver`,
+    # and nothing should.
+    - name: CustomersContract
+      collectors:
+        - type: directory
+          value: app/Modules/Customers/(Domain|Application)/.*
+
+    - name: CustomersDriver
+      collectors:
+        - type: directory
+          value: app/Modules/Customers/(Infrastructure|Presentation)/.*
+
     # Model factories are test and seed scaffolding rather than a module, and
     # they live in `database/factories` because that is where Laravel's tooling
     # looks. A model naming its own factory is the framework's own pattern, so
@@ -183,7 +200,20 @@ parameters:
     # `AUD-01` names create and update among what must be recorded, and the
     # recorder is an interface in `Audit\Domain`. The *contract* half only;
     # nothing points at `AuditDriver`, and nothing should.
-    Customers:
+    #
+    # Split into CustomersContract / CustomersDriver 2026-08-31 with Deals'
+    # Point 3.1 — the crossing that made a flat `Customers` layer insufficient
+    # (see the layer definitions above). Both halves keep every entry the flat
+    # layer held, on `IdentityContract`/`IdentityDriver`'s own precedent:
+    # the split narrows who may reach *this* module, not what it may reach.
+    CustomersContract:
+      - Framework
+      - SharedContracts
+      - IdentityContract
+      - AuditContract
+      - StorageContract
+    CustomersDriver:
+      - CustomersContract
       - Framework
       - SharedContracts
       - IdentityContract
@@ -208,11 +238,18 @@ parameters:
     # recorded, and the recorder is an interface in `Audit\Domain`. The
     # *contract* half only; nothing points at `AuditDriver`, and nothing
     # should.
+    #
+    # `CustomersContract` added 2026-08-31 with Point 3.1, the crossing that
+    # forced the split above: `recompute_customer_status` (§4.5, `D-49`)
+    # writes `customers.customer_status` through
+    # `CustomerStatusWriterInterface`. The *contract* half only; nothing
+    # points at `CustomersDriver`, and nothing should.
     Deals:
       - Framework
       - SharedContracts
       - IdentityContract
       - AuditContract
+      - CustomersContract
     Quotations: ~
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and

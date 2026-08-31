@@ -6,6 +6,7 @@ namespace App\Modules\Deals\Infrastructure;
 
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
+use App\Modules\Deals\Domain\CustomerStatus\DealActivitySnapshot;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
 use App\Modules\Deals\Domain\Listing\DealPage;
 use App\Modules\Deals\Domain\Listing\DealSummary;
@@ -188,6 +189,20 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         $row->save();
 
         return self::hydrate($row);
+    }
+
+    public function activityForCustomer(string $customerId): array
+    {
+        return array_values(
+            Deal::query()
+                ->where('customer_id', $customerId)
+                ->get(['status', 'last_activity_at'])
+                ->map(static fn (Deal $row): DealActivitySnapshot => new DealActivitySnapshot(
+                    status: $row->status,
+                    lastActivityAt: new DateTimeImmutable((string) $row->last_activity_at?->toIso8601String()),
+                ))
+                ->all(),
+        );
     }
 
     /**

@@ -53,4 +53,20 @@ interface SettingReader
      * which is where the score is produced.
      */
     public function decimal(string $key): ?string;
+
+    /**
+     * The stored limit for $key as an integer, or **null when it is unset**.
+     *
+     * `D-17`'s stale-deal threshold (Module 5, `SystemLimit::StaleDealDays`)
+     * is `integer`-typed like {@see integer()}'s callers, but carries
+     * {@see decimal()}'s asymmetry: `SystemLimit`'s own docblock lists it
+     * among the limits **deliberately left unseeded**, with no defensible
+     * number to fall back to — the same reasoning `OD-08` already gave, on a
+     * different type. Adding a `config/limits.php` default here would be
+     * exactly the thing that docblock warns against, on the technicality that
+     * the default lives in a PHP file instead of a database row. `null` means
+     * "not configured yet", and — like {@see decimal()} — the caller does
+     * nothing rather than guess.
+     */
+    public function nullableInteger(string $key): ?int;
 }

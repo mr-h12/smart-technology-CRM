@@ -67,6 +67,22 @@ final class ManagedLists
             // ones; until the business supplies them, empty is the accurate
             // answer. Same rule as the exchange rates in Point 7.3.
             ManagedList::DeliveryTerms => [],
+
+            // Empty for the reason above, applied to a different list. §7.3
+            // names "Providing team / company" but gives no company, and no
+            // document in this project names one — they are the owner's own
+            // trading partners and brands.
+            //
+            // A plausible-sounding "Acme" seeded here would become a heading
+            // real products are grouped under and a value real users filter by.
+            // Empty is the accurate answer until the business supplies them.
+            //
+            // ⚠️ Point 5.2 makes `company` required, and `POST
+            // /managed-lists/{list}` carries `admin.system_settings`. So from
+            // that point on, **no catalog item can be created until the Super
+            // Admin adds a company here.** That is a setup step, not a defect,
+            // and it is written into the module's manual test list.
+            ManagedList::Companies => [],
         };
     }
 

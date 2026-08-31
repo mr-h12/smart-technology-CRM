@@ -487,7 +487,8 @@
             "sectors": "Sectors",
             "units": "Units",
             "service_types": "Service types",
-            "delivery_terms": "Delivery terms"
+            "delivery_terms": "Delivery terms",
+            "companies": "Companies"
         },
         "column": {
             "code": "Code",
@@ -740,7 +741,9 @@
             "service_type": "Service type",
             "notes": "Notes",
             "status": "State",
-            "added": "Added"
+            "added": "Added",
+            "company": "Company",
+            "actions": "Actions"
         },
         "status": {
             "active": "Active",
@@ -760,6 +763,28 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} · {total} in total"
+        },
+        "form": {
+            "createTitle": {
+                "product": "New product",
+                "service": "New service"
+            },
+            "editTitle": {
+                "product": "Edit product",
+                "service": "Edit service"
+            },
+            "requiredMarker": "(required)",
+            "required": {
+                "name": "The product name is required.",
+                "unit": "The unit is required for a product.",
+                "service_type": "The service type is required for a service."
+            },
+            "forbidden": "You do not have permission to save this catalog item.",
+            "rejected": "The change was not accepted. Review the fields and try again.",
+            "unreachable": "The server could not be reached. Nothing was saved.",
+            "unsavedChanges": "This form has changes that were not saved.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes"
         }
     }
 }

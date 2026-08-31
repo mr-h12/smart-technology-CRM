@@ -266,6 +266,11 @@ parameters:
     Catalog:
       - Framework
       - SharedContracts
+      # AuditContract, added 2026-08-31 with Point 3.2 — the module's first
+      # write. `D-45` opened catalog editing to every employee and named the
+      # mitigation: "every edit is written to the audit log". The same entry
+      # Suppliers holds, for the same requirement.
+      - AuditContract
     Procurement: ~
     Outdoor: ~
     Reports: ~

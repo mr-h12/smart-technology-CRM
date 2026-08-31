@@ -4720,9 +4720,24 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       ⚠️ **§8 and §3.7 disagree, and the API follows §3.7. Awaiting a `D-xx`.** §3.7 grants
       `catalog.view` to the CEO and the Outdoor Supervisor, while §8 gives the CEO no catalog or
       supplier screen at all and the Outdoor Supervisor a Catalog but no Suppliers. §3.12 rule 1
-      makes the API the enforcement point, so the route follows the matrix; **the sidebar is Point
-      4.1's decision**, and this is the same class of disagreement already recorded for
-      Procurement/Customers. `docs/` untouched.
+      makes the API the enforcement point, so the route follows the matrix, and this is the same
+      class of disagreement already recorded for Procurement/Customers. `docs/` untouched.
+      **⚠️ Owner's ruling, 2026-08-31 — the sidebar follows §3.7 as well.** Both navigation items,
+      Suppliers and Catalog, are keyed on `catalog.view` and on nothing else. The CEO and the
+      Outdoor Supervisor therefore see both, which is what §3.7 grants and what §8 does not
+      describe. Keying the sidebar on §8's screen list instead would have produced the mirror image
+      of the defect §5.1 forbids: a screen a person is permitted to open, with no way to reach it —
+      and `navigation.ts` already states the rule in the other direction, that a dead link is not a
+      permission problem but a lie. `SEC-09` is unaffected either way: hiding or showing a link is
+      presentation, and the API is still the gate. **A divergence from §8, recorded here awaiting a
+      `D-xx`; `docs/` is untouched.**
+      **The ruling is recorded, not yet applied, and it could not be applied here.** `navigation.ts`
+      may not name a route `router/index.ts` does not register:
+      `LogicalPropertiesTest::test_every_navigation_item_names_a_registered_route` fails on a dead
+      link, and `navigation.spec.ts` asserts an item's `permission` agrees with its route's
+      `meta.requiredPermission` — both read in the source, 2026-08-31. Each route arrives with its
+      screen, so the **Suppliers item lands in Point 4.1** and the **Catalog item in Point 4.3**,
+      each keyed on `catalog.view` exactly as ruled.
       **31 tests · 1631 backend (10304 assertions) · 442 frontend · pint 396 files · PHPStan level 10
       clean · deptrac violations 0 / uncovered 0 on both configs.**
       RED first: **31 failed, 0 passed** — no test passed for a wrong reason here, because the routes
@@ -4879,17 +4894,356 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       declared for **one** group; §7.3's grouping "by company/team name" is served, `API-06`'s
       "by employee" is not, and no catalog column holds an employee. The 500-row search cap is
       unchanged and remains Module 15's to lift.
+- [x] **3.2** `POST /catalog-items` + `PATCH /catalog-items/{id}` — §7.3's create and edit behind
+      `catalog.manage`, each audited inside its own transaction.
+      **One permission, and the CEO is the real negative case.** §3.7's write row is a single cell —
+      "create · edit · deactivate · set colour ✅" — so there is no `/deactivate` action route
+      (`OpenAPI §7.2` reserves an action suffix for what is "not a normal resource update", and
+      `is_active` is a field on the row) and **no DELETE at any permission** (§3.12 rule 3;
+      `catalog.delete` is seeded with an empty grant array, and the absence of the route is asserted
+      as a 405 rather than assumed). Point 2.1's negative test had to withdraw a seeded grant because
+      §3.7 grants `view` to everyone; writing needs no such trick — §3.7 annotates the CEO's ✅
+      **"read-only"**, which is the absence of the `manage` grant, so the CEO is the documented
+      negative case and is used as one on both verbs.
+      **The kind-conditional rules live only in the Form Request**, which is where Point 1.2 said
+      they would: a product needs a `name` and a `unit`, a service needs a `service_type`, carried by
+      `required_if` so a violation is a 422 naming the field instead of the 500 a cross-field CHECK
+      would have produced. A service without a name is accepted — §7.3 identifies it by its type,
+      which is why the column is nullable.
+      **`kind` is required to create and optional to edit.** A row in neither tab appears on no
+      screen §7.3 describes; on an edit, sending `kind` re-triggers the conditional rules against the
+      tab it is moving to, so a coherent move is possible and an incoherent one is refused.
+      **The price fields are refused, not ignored.** §7.3 opens "descriptive data only — no prices"
+      and `D-21` puts price, cost and margin on the supplier quotation. `CatalogItemDraft` would
+      filter them out anyway, so `price`, `cost` and `margin` are `prohibited` for the reason
+      `OpenAPI §6.2` refuses an unknown query parameter: answering 201 would confirm a wrong idea
+      about where a price lives. Asserted on the wire, with a zero-row check after each refusal.
+      **`AuditContract` added to Catalog's deptrac ruleset, and proved load-bearing:** removing the
+      entry produced **3 violations**, restoring it produced 0 — measured, not argued.
+      **⚠️ `unit` and `service_type` are validated for shape, not for membership — owner's decision,
+      2026-08-31, awaiting a `D-xx`.** Point 1.2's migration says both are "validated at the
+      boundary" against `enum_lists`, which is why neither carries a foreign key (PostgreSQL refuses
+      one against that table's partial unique index). **The same promise was made about
+      `customers.sector` in Module 3 and was not kept**: `SaveCustomerRequest` validates its length
+      and nothing more, and no class outside `app/Modules/Admin` references `ManagedList` anywhere in
+      the project (measured by grep). Keeping it here would mean Catalog reaching Admin's
+      `ManagedListRepositoryInterface`, which needs an `AdminContract` layer deptrac does not have —
+      a `Rule::exists` against `enum_lists` is the cheap alternative and is the direct cross-module
+      database access `CLAUDE.md` forbids outright. **Decision: match the existing precedent, record
+      the gap, and close both modules in one later point.** Until then the two migration comments
+      claim more than the code does, and this line is the record of that.
+      **⚠️ `required_if` fires only when `kind` is in the payload.** A `PATCH` sending
+      `{"unit": null}` without naming the kind blanks a product's unit, because a partial update has
+      no view of the stored row. Closing it means the boundary reading the database, a layer the Form
+      Request does not cross. Recorded, not fixed.
+      **1732 backend (10977 assertions) · 446 frontend (27 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs (modules:
+      728 allowed).**
+      RED first: **28 failed, 0 passed** — nothing passed for a wrong reason, and the count is 28
+      rather than 29 because `CatalogItemDraft::KINDS` did not exist yet, so the `kinds` data
+      provider errored as one failure instead of expanding into two tests.
+      **One deliberate break, not a deletion:** the update's audit event renamed
+      `CATALOG_ITEM_UPDATED` → `CATALOG_ITEM_EDITED`, the plausible other spelling → failed
+      **exactly** the one test that pins the acceptance criterion and no other. Restored, confirmed
+      with `shasum -a 256 -c`.
+      Assertion delta reconciled to the unit: **151** (this file) + **3** (`NoHardCodedTextTest`, one
+      per new `app/` PHP file) + **2** (`EndToEndConnectivityTest`, one per registered route) +
+      **2** (`AuditEnforcementTest`, which runs `assertFileExists` and the recorder-name check on
+      every register entry — read in the source, not inferred) = 158, and 10819 + 158 = 10977.
+      **`AuditEnforcementTest` was run and read, not predicted:** it failed on the first green run
+      with `SaveCatalogItem` unlisted, and the register now names it AUDITED. ⚠️
+      `EloquentCatalogItemDirectory` gained `->save(` in the same point and is **not** listed — the
+      diff named only `SaveCatalogItem`, so the scanner does not see a repository writing purely
+      through a module-aliased Eloquent model. **The blind spot was nine classes; it is now ten**,
+      and it is still owed its own point.
+      **Problems found:** restoring `deptrac.modules.yaml` after the deliberate break was done with
+      `git checkout <file>`, which discarded the point's own edit along with the break, because the
+      file was uncommitted. The baseline `shasum -a 256 -c` caught it immediately and the entry was
+      re-applied — which is the whole reason the baseline is taken in its own command before the
+      break rather than reconstructed afterwards.
+      **Not covered:** the two write routes are unreachable from the SPA — the catalog screen is
+      Point 4.3, and `services/catalog.ts` does not exist. Deactivation writes `is_active` and hides
+      the item from nothing: §10.4's selection lists are Modules 6 and 7. Nothing prevents a product
+      from carrying a `service_type` or a service a `unit` — the conditional rules require the right
+      field and do not forbid the wrong one, which no source asks for and which the tabs' own
+      `filter[kind]` makes invisible either way. No bulk create, no import, and no `D-35`-style
+      duplicate probe: two identical products can be created in a row without a warning, the same
+      gap Module 3's CSV import carries. `product_code` is not unique and nothing checks it.
+
+#### Step 4 — screens *(point order approved 2026-08-30)*
+
+- [x] **4.0** `services/suppliers.ts` · `services/catalog.ts` · `SupplierRatingChip.vue` — the API
+      catalogue for Step 2 and Step 3's eight routes, and §7.1's chip.
+      **The services restate the server's names, never their own.** `OpenAPI §6.2` answers an
+      unknown filter with a 400 and both `ALLOWED_FILTERS` sets are closed, so an unset filter is
+      **omitted rather than sent empty** — `filter[type]=` asks for suppliers whose type is the
+      empty string, a different question from "any type". The three boolean filters are tri-state:
+      `false` is a question and absence is not `false`.
+      **No deactivate call and no delete call, in either service.** §3.7's write row is one cell, so
+      `is_active` and `color_rating` are fields on a `PATCH`; the server publishes no action route
+      for either and no `DELETE` at any permission (§3.12 rule 3). A convenience wrapper here would
+      have produced a 405 at runtime, so both services assert the absence rather than paper over it.
+      **The catalog tab is `filter[kind]`, not a second endpoint**, and `group_by=company` is the
+      one group `ALLOWED_GROUPS` declares. `CatalogItemDraft` has no price, cost or margin field
+      (§7.3, `D-21`), and the create test pins that the body carries nothing the caller did not name.
+      **The chip carries a word, because Design System §6.4 ends its badge table with "never color
+      alone"** and names these four "supplier rating chips only". §7.1's meanings are the source —
+      🟢 excellent · 🟡 average · 🔴 problematic · ⚪ new / not yet rated — and the label is also the
+      `title`, so nothing in the component conveys meaning by hue. Four modifier classes over
+      `--color-success` / `--color-warning` / `--color-danger`, and the white chip borrows **no**
+      status colour at all: it is the *absence* of a rating, and a white fill on a white surface is
+      invisible, so the border carries the shape and muted text carries the word.
+      ⚠️ **The Arabic labels are a translation, not a reading.** Every other Arabic string in this
+      project came from an Arabic row in the documentation; `docs/` has no Arabic counterpart and
+      §7.1's colour table is English only (checked). `ممتاز · متوسط · غير موثوق · غير مُقيَّم` are
+      therefore this point's words and an owner may restate any of them without touching code.
+      **1710 backend (10827 assertions) · 471 frontend (30 files) · `npm run build` clean · pint 412
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.** The
+      backend and pint numbers are **lower than Point 3.2's** because this branch is cut from `main`
+      and Point 3.2 is not merged yet — not a regression.
+      RED first: **3 files failed, 0 tests ran** — the imports did not resolve, so nothing passed for
+      a wrong reason.
+      **Two deliberate breaks, neither a deletion:** (1) `filter[kind]` → `kind`, the plausible
+      simplification → failed **exactly** the one tab test and no other; (2) the chip's label taken
+      from `props.rating` instead of the dictionary, the plausible shortcut → failed the four
+      "colour is never alone" tests **and** the Arabic-script test. ⚠️ It did **not** fail the
+      English-uniqueness test, because four raw codes are also four distinct strings — that test
+      cannot tell a translation from a code, and the Arabic assertion is what actually catches it.
+      Both restored, confirmed with `shasum -a 256 -c`.
+      Assertion and test delta reconciled to the unit against a measured baseline
+      (`--list-tests` on `main` = **1703**, on this branch = **1710**): `LogicalPropertiesTest`
+      generates one test per scanned file through two providers — `styledFiles()` over `vue|css`
+      (+1, the chip) and `markupFiles()` over `vue|php|ts` (+6, the chip and five new `.ts` files) —
+      which is +7, read in the source rather than inferred. Assertions +8 = those 7, plus 1 from
+      `NoHardCodedTextTest`'s per-Vue-file scan loop.
+      **Problems found:** `NoHardCodedTextTest`'s Vue inventory is a **count-asserting guard** and
+      broke by design on the new component. Updated with the reason written into the test, not
+      widened silently — and only after the scan itself had passed on the file.
+      **Not covered:** nothing renders any of this — no screen imports either service and no screen
+      mounts the chip, so §7.1's "on **every** screen" is unproved until Points 4.1 and 4.3. The
+      chip's `rating` prop is a TypeScript union backed by the table's CHECK; a fifth rating added
+      server-side would render an empty label, and no runtime fallback exists. The services carry no
+      retry, no cache and no request cancellation. `unit` and `service_type` are still plain strings
+      on the wire — the `enum_lists` gap recorded at Point 3.2 is unchanged here.
+      ⚠️ **This entry and Point 3.2's are inserted at the same anchor in this file**, so PR #49 and
+      this one will conflict on `CHECKLIST.md`. The resolution is to keep both, 3.2 first.
+      *(Both merged 2026-08-30 with no conflict — git's three-way merge handled the two insertions.)*
+- [x] **4.1** `SuppliersView.vue` · the route · the sidebar item — §8's Suppliers screen, Design
+      System §5.2's Table/List.
+      **Everything is asked of the server, and the tests read the URL to prove it.** §5.2 requires
+      "server-side filters/sort/search" and §6.5 that "Every list is server-paginated. Do not create
+      a UI that requires loading all records." A client-side filter narrows the 25 rows in hand and
+      silently claims to have narrowed all of them, so every assertion about a filter or a sort reads
+      the **query string**, never the rendered rows. The surface is `SupplierListCriteria`'s, read
+      from the source: `ALLOWED_SORTS = ['name','created_at']`, `DEFAULT_SORT = 'name'`,
+      `ALLOWED_FILTERS` four. `OpenAPI §6.2` answers anything undeclared with a 400.
+      **No scope story, and that is §3.7.** `CustomersView` explains which of five row scopes a
+      caller holds; §3.7 grants `Scope::All` to every role in both its columns, so an empty list here
+      means the table is empty — not that a scope reached nothing.
+      **`filter[is_active]` has three positions, not two.** §10.4 hides a deactivated supplier from
+      **selection lists** (Modules 6/7), not from this management screen, so the default asks nothing
+      about the column. A screen that hid them by default would be one nobody could reactivate from.
+      **The sidebar item and the route both carry `catalog.view` — the owner's ruling of 2026-08-31,
+      already recorded above.** §8 gives the CEO no Suppliers screen while §3.7 grants them
+      `catalog.view`; keying the menu on §8's list would leave a screen a person may open with no way
+      to reach it. `navigation.spec.ts` pins the item's permission equal to the route's, so the menu
+      and the guard cannot describe different products. `SEC-09` unaffected: the API is the gate.
+      **§7.1's chip is on a screen for the first time** — "beside the supplier name on **every**
+      screen" — carrying a word, per Design System §6.4.
+      **A 403 is drawn as a refusal, never as an empty list**, which would read as "you have no
+      suppliers" when the truth is that the screen and the API disagree.
+      **1742 backend (10990 assertions) · 490 frontend (31 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Three deliberate breaks, one per new surface, none a deletion:** (1) `applyFilters` no longer
+      resetting `page` — the plausible omission → failed **exactly** the page-reset test; (2) the
+      tri-state select read as a boolean, `activeFilter === 'active'` — the plausible copy of a
+      two-position filter → failed **exactly** the `is_active` default test, because it sends `false`
+      on first load; (3) the nav item keyed on `catalog.manage` — the over-restriction the owner's
+      ruling rejected → failed **exactly** `navigation.spec.ts`'s permission-equality test. Three
+      breaks, three failures, no collateral. All restored, confirmed with `shasum -a 256 -c`.
+      Delta reconciled to the unit against a **measured** baseline, not a hand count. Frontend
+      471 → 490 = **16** (this spec) + **3** (`navigation.spec.ts`'s three `it.each` families, one row
+      each for the new item). Backend 1739 → 1742 tests and 10985 → 10990 assertions, and both guards
+      were measured on `main` and on the branch to prove nothing else moved:
+      `LogicalPropertiesTest` 111 → 114 tests and 140 → 144 assertions — three provider rows
+      (`styledFiles` over `vue|css` gains the component; `markupFiles` over `vue|php|ts` gains the
+      component and its spec) **plus one** inside
+      `test_every_navigation_item_names_a_registered_route`, which loops over `navigation.ts`;
+      `NoHardCodedTextTest` 370 → 371, one per scanned Vue file. 4 + 1 = 5.
+      **Problems found:** two. (1) `NoHardCodedTextTest`'s Vue inventory is a count-asserting guard
+      and broke by design on the new screen; updated with the reason written into the test, after the
+      scan itself had passed on the file. (2) The assertion delta was one more than predicted. It was
+      **not** waved through: the two guards were re-measured on `main` and on the branch, and the
+      missing assertion was found by opening `LogicalPropertiesTest` and reading the fourth test.
+      **Not covered:** **no write controls at all** — §3.7's `catalog.manage` covers create, edit,
+      deactivate and set colour, and all four arrive with Point 4.2's form modal, so a button here now
+      would open nothing. **No `filter[has_open_account]` control**, though the server declares it:
+      no source asks the screen for one, and it is one `select` when somebody does. No detail view and
+      no row link — §8 lists *Suppliers*, not a supplier record, and `navigation.ts`'s rule keeps the
+      name plain text until a route exists. No `linked_quotations` column: §7.1 marks it Automatic and
+      Module 6 derives it. The 500-row search cap is the driver's and unchanged.
+- [x] **4.2** `SupplierFormModal.vue` · the create button · the row Edit button — §7.1's supplier
+      add/edit form, Design System §5.2's Detail/Form.
+      **One permission draws all four verbs.** §3.7's write row is a single cell — "create · edit ·
+      deactivate · set colour" — so `canManage = auth.hasPermission('catalog.manage')` draws every
+      write control on the screen and there is no second permission to ask about. There is also no
+      action route: the server publishes neither `/deactivate` nor `/color`, so `is_active` and
+      `color_rating` travel as ordinary fields on the same PATCH, and the spec reads the request
+      **method and URL** to prove the screen agrees rather than trusting the comment that says so.
+      **The CEO is the documented negative case**, not an invented one. §3.7 grants them
+      `catalog.view` and annotates the write column "read-only", so they are the role the
+      documentation itself nominates for "reaches the screen, writes nothing". Both SEC-09 tests
+      assert **both halves** — drawn for Procurement, absent for the CEO — because a one-sided
+      assertion passes against a screen that draws nothing at all. `SupplierWriteEndpointTest`
+      remains the gate; these buttons are the menu.
+      **Seven fields, and deliberately not the eighth.** §7.1 marks `linked_quotations` "Automatic"
+      and `SaveSupplierRequest` answers it with `prohibited` — a 422, not a silent drop — so a
+      control for it would be one that can never save. The spec asserts its **absence**.
+      **The create sends the table's own defaults explicitly** — `color_rating: 'white'` (§7.1's
+      "new / not yet rated"), `has_open_account: false`, `is_active: true` — read from the Point 1.1
+      migration rather than recalled. An empty box is sent as `null` and not `""`: the columns are
+      nullable and "" is a value no filter or export expects.
+      **`name` is the only required field**, and the client check is a courtesy, not the rule.
+      `SaveSupplierRequest` carries `regex:/\S/` beside `required` because `required` accepts "   "
+      and the table's `CHECK (btrim(name) <> '')` would answer a blank one with a 500. The screen
+      refuses first to save a round trip; `D-67` keeps the server the authority.
+      **Standing debt 17 is settled for this form by following `UserFormModal`, not by inventing a
+      third way.** A field-level refusal shows the server's own sentence — the server said exactly
+      what was wrong, and copying that rule into the screen would make a second copy of it. A
+      form-level refusal is a **lang key** (`suppliers.form.forbidden` / `rejected` / `unreachable`),
+      because a server sentence was localised once, when the request was answered, and a banner
+      holding one stops re-translating when the reader switches AR/EN. The remaining forms still map
+      errors their own way; that spread is unchanged and is not this point's to close.
+      **The saved row is not patched in place.** A rename moves it under `sort=name` and a
+      deactivation drops it out of `filter[is_active]`, so the dialog closes and the list is asked
+      again (§5.2, §6.5).
+      **1745 backend (10994 assertions) · 507 frontend (32 files) · `npm run build` clean
+      (`vue-tsc --noEmit && vite build`) · pint 416 files · PHPStan level 10 clean · deptrac
+      violations 0 / uncovered 0 on both configs (1404 and 728 allowed).**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Two deliberate breaks, neither a deletion:** (1) `canManage` keyed on `catalog.view` instead
+      of `catalog.manage` — the plausible copy of the *view* key the sidebar legitimately uses →
+      failed **exactly** the two SEC-09 tests, by name, and no other of the twenty; (2) the
+      form-level refusal taken from `error.message` instead of a key — the plausible shortcut, and
+      the one this point argued against → failed **exactly** the 403 test. Both restored with the
+      inverse `sed` and confirmed against a checksum baseline taken **before** the first break
+      (`shasum -a 256 -c` → OK on both files).
+      Delta reconciled to the unit against the measured `main` baseline (1742 / 10990 backend, 490 /
+      31 frontend). Backend **+3 tests** — `LogicalPropertiesTest` generates one test per scanned
+      file through two providers: `styledFiles()` over `vue|css` gains the component, `markupFiles()`
+      over `vue|php|ts` gains the component **and** its spec. Backend **+4 assertions** = those three
+      provider rows plus one from `NoHardCodedTextTest`'s per-Vue-file scan loop (measured 371 → 372).
+      No new nav item, so the fourth guard that surprised Point 4.1 does not move here. Frontend
+      490 → 507 = **13** (the new spec) + **4** (the write-control tests added to
+      `SuppliersView.spec.ts`). Predicted before the run and matched exactly.
+      **Problems found:** three. (1) `NoHardCodedTextTest`'s Vue inventory is a count-asserting guard
+      and broke by design; updated with the reason written into the test, after the scan itself had
+      passed on the file (48 passed / 372 assertions). (2) **Two `artisan test` runs were alive at
+      once** and the suite came back `48 failed` with `DeadlockException`. The cause was an operating
+      error, not the code: a suite backgrounded with a shell `&` was assumed dead because its log had
+      no summary, and a second was started over it. `ps` on the host showed both. (3) Killing the
+      host-side `docker compose exec` does **not** immediately kill the PHP process inside the
+      container, so the first re-run still contended. The container has **no `pgrep`**, and a
+      `pgrep || echo gone` probe therefore reported "gone" from the *error* path — a false all-clear.
+      Read `/proc/*/cmdline` instead. Clean re-run: 1745 passed, 0 failed.
+      **Not covered:** no focus trap and no focus return — the dialog is `role="dialog"`
+      `aria-modal="true"` with Escape and scrim handled, but focus is not moved into it on open nor
+      restored to the opener on close; `ConfirmDialog.vue` has the same gap (debt 15) and both want
+      one shared fix rather than two. No optimistic locking — suppliers have no version column, so
+      two people editing one supplier is last-write-wins (`DB-12` scopes `If-Match` to quotations).
+      No delete and no archive control: `catalog.delete` is an **empty grant array** (§3.12 rule 3)
+      and there is no route at any permission. Still **no `filter[has_open_account]` control**
+      (debt 26) and still no supplier detail view. The dialog does not warn that deactivating a
+      supplier hides them from Modules 6/7 selection lists, because those lists do not exist yet.
+- [x] **4.3** `CatalogView.vue` · the route · the sidebar item — §8's Catalog screen, §7.3's two
+      tabs and its grouping.
+      **§7.3 read from the source, line 665:** "Descriptive data only — **no prices**. Two tabs:
+      Product · Service, grouped by company/team name." All three clauses are decisions here and all
+      three are asserted. **No prices:** `D-21` puts price, cost and margin on the supplier
+      quotation, `CatalogItemPayload` carries none of them, and a test greps the rendered screen for
+      `/price|cost|margin/i` so a future label cannot reintroduce one. **Two tabs and no third:**
+      Point 1.2 put both in one table behind `kind`, so a tab is `filter[kind]` against one endpoint
+      and one of the two is always active — there is no "everything" position, because §7.3 names
+      none. **Grouped by company:** `group_by=company` is sent on **every** load rather than offered
+      as a toggle, because §7.3 states it as how the catalog is read.
+      **The grouping is the server's order; the screen only notices it.** `group_by` changes the
+      ordering, not the envelope — `data` is still the flat paginated list, companies adjacent and
+      alphabetical, nulls last. So a heading is drawn where the value *changes*. There is no
+      client-side `sort()` or `reduce()` into buckets, which would be §6.5's forbidden "UI that
+      requires loading all records" wearing a different hat.
+      **The columns follow the tab**, because §7.3's two field lists are not the same list: the
+      Product tab names product code, category and unit; the Service tab names service type and
+      notes. One union with half the cells empty would misdescribe both.
+      **The sidebar item and the route carry `catalog.view`** — the owner's ruling of 2026-08-31,
+      applied for the second time and now consistent across both Module 4 screens. §3.7 is one row
+      pair covering the catalog *and* its suppliers, so there is no `catalog_item.*` resource to
+      name. `navigation.spec.ts` pins the item's permission equal to the route's.
+      **Category is free text on the search form, not a select.** §7.3 calls it "for search" and no
+      endpoint enumerates the values, so there is nothing to populate a dropdown from — and firing a
+      request per keystroke is what §5.2's search button exists to avoid.
+      **1748 backend (10999 assertions) · 529 frontend (33 files) · `npm run build` clean · pint 416
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      RED first: **1 file failed, 0 tests ran** — the component did not exist, so nothing passed for
+      a wrong reason.
+      **Three deliberate breaks, one per new surface, none a deletion:** (1) `groupBy` sent as `null`
+      — the plausible omission, since the list still renders without it → failed **exactly** the
+      `group_by=company` test; (2) an **off-by-one** in the group boundary, comparing `index + 1`
+      instead of `index - 1` — the plausible slip, and one that still draws headings, just the wrong
+      ones → failed **exactly** the heading-order test; (3) the nav item keyed on `catalog.manage` —
+      the over-restriction the owner's ruling rejected → failed **exactly**
+      `navigation.spec.ts`'s permission-equality test. Three breaks, three failures, no collateral.
+      All restored with inverse edits and confirmed with `shasum -a 256 -c`.
+      Delta predicted before the run and matched to the unit. Backend 1745 → 1748 = three
+      `LogicalPropertiesTest` provider rows (`styledFiles` over `vue|css` gains the component;
+      `markupFiles` over `vue|php|ts` gains the component and its spec). Assertions 10994 → 10999 =
+      those three, **plus one** from `test_every_navigation_item_names_a_registered_route` for the
+      new item, **plus one** from `NoHardCodedTextTest`'s per-Vue-file scan loop (measured 372 → 373).
+      Frontend 507 → 529 = **19** (the new spec) + **3** (`navigation.spec.ts`'s three `it.each`
+      families, one row each for the new item).
+      **Problems found:** one. `NoHardCodedTextTest`'s Vue inventory broke by design again; updated
+      with the reason written into the test, after the scan itself had passed on the file (48 passed
+      / 373 assertions). Nothing else went wrong — the two operating errors of Point 4.2 did not
+      recur, because the suite was checked for a live run before starting and was run alone.
+      **Not covered:** **no write controls at all** — §3.7's `catalog.manage` covers create, edit and
+      deactivate for items too, and all three arrive with Point 4.4's form modal. **A group that
+      spans a page boundary is given its heading again on the next page**, because the screen keeps
+      no memory of the previous page's last row; the alternative is state this screen does not hold
+      and `API-06` does not report. No detail view and no row link. No `product_code` or `company`
+      filter — `ALLOWED_FILTERS` is `kind · category · is_active` and inventing one would be a 400.
+      Sorting is `name` and `created_at` only, so the Service tab sorts by a `name` that may be null.
+      Deactivation still hides nothing from a selection list (`D-37`/§10.4 → Modules 6/7).
 
 **Acceptance criteria**
-- [ ] New product appears under the Product tab, grouped by company
-- [ ] Red-rated supplier → red chip beside their name on **every** screen
-- [ ] Service appears under the Service tab, separate from products
+- [~] New product appears under the Product tab, grouped by company *(Point 4.3: the Product tab
+      asks `filter[kind]=product` and every load asks `group_by=company`, both asserted on the query
+      string, and the company headings are asserted to appear once per company in the server's own
+      order — including a heading of their own for the items with no company. **The word "new"
+      cannot be closed here**: creating a product is Point 4.4's form, so what is proved today is
+      that a product which exists appears under the right tab in the right group.)*
+- [~] Red-rated supplier → red chip beside their name on **every** screen *(Point 4.1: the chip
+      renders on the Suppliers screen, carrying §7.1's word as Design System §6.4 requires, and
+      `SuppliersView.spec.ts` asserts it for a rated and an unrated supplier. **"Every screen" cannot
+      be closed here** — the other screens that name a supplier are Module 6's supplier quotations
+      and Module 11's procurement, and neither exists.)*
+- [~] Service appears under the Service tab, separate from products *(Point 4.3: the Service tab
+      asks `filter[kind]=service`, so the separation is the server's `WHERE` and not a client-side
+      split, and the two tabs draw §7.3's two **different** column lists — asserted in both
+      directions, that the Product tab shows Unit and no Service type and the Service tab the
+      reverse. Creating a service is Point 4.4.)*
 - [ ] Deactivated product is hidden from new selection lists
 - [x] Catalog holds **no prices** — descriptive data only *(Point 1.2: `catalog_items` has no
       numeric column at all; asserted three ways — §7.3 still forbids it, no `numeric` column
       exists, and no column name matches `/price|cost|margin|amount/i`. Proved by adding a real
       `money('price')` column and watching that one test fail.)*
-- [ ] Every catalog edit is written to the audit log
+- [x] Every catalog edit is written to the audit log *(Point 3.2: `SaveCatalogItem` records
+      `CATALOG_ITEM_CREATED` / `CATALOG_ITEM_UPDATED` inside the same transaction as the write
+      (`DB-11`), with `AUD-02`'s old values limited to the fields the write touched and no row at
+      all for a PATCH that changed nothing. `D-45` makes this the mitigation for opening catalog
+      editing to every employee. Proved by renaming the update event on purpose and watching that
+      one test fail.)*
 
 ---
 

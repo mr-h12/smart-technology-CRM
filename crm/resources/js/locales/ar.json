@@ -87,7 +87,9 @@
             "accountSecurity": "أمان الحساب",
             "settings": "إعدادات النظام",
             "managedLists": "القوائم المُدارة",
-            "customers": "العملاء"
+            "customers": "العملاء",
+            "suppliers": "الموردون",
+            "catalog": "الكتالوج"
         }
     },
     "theme": {
@@ -637,6 +639,127 @@
             "failed": "غير المستورَدة",
             "showIncomplete": "اعرض السجلّات الناقصة",
             "error": "لم يُنفَّذ الاستيراد. لم يتغيّر أي شيء."
+        }
+    },
+    "suppliers": {
+        "rating": {
+            "green": "ممتاز",
+            "yellow": "متوسط",
+            "red": "غير موثوق",
+            "white": "غير مُقيَّم"
+        },
+        "title": "الموردون",
+        "loading": "جارٍ تحميل الموردين…",
+        "total": "لا موردين | مورد واحد | {count} موردًا",
+        "filter": {
+            "search": "بحث",
+            "searchAction": "ابحث",
+            "rating": "التقييم",
+            "ratingAll": "كل التقييمات",
+            "type": "النوع",
+            "typeAll": "كل الأنواع",
+            "active": "الحالة",
+            "activeAll": "المفعَّل وغير المفعَّل"
+        },
+        "column": {
+            "name": "المورد",
+            "rating": "التقييم",
+            "type": "النوع",
+            "contact": "مسؤول التواصل",
+            "phone": "الهاتف",
+            "account": "حساب مفتوح",
+            "status": "الحالة",
+            "added": "تاريخ الإضافة",
+            "actions": "إجراءات"
+        },
+        "type": {
+            "supplier": "مورد",
+            "distributor": "موزّع"
+        },
+        "status": {
+            "active": "مفعَّل",
+            "inactive": "غير مفعَّل"
+        },
+        "account": {
+            "open": "نعم",
+            "none": "لا"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا مورد مطابق",
+                "message": "غيّر البحث أو المرشّحات ثم أعد المحاولة."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الموردين",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} · {total} إجمالًا"
+        },
+        "form": {
+            "createTitle": "مورّد جديد",
+            "editTitle": "تعديل المورّد",
+            "name": "اسم المورّد",
+            "required": "(مطلوب)",
+            "nameRequired": "اسم المورّد مطلوب.",
+            "typeNone": "بدون نوع",
+            "forbidden": "لا تملك صلاحية حفظ هذا المورّد.",
+            "rejected": "لم يُقبل التغيير. راجع الحقول وحاول مرة أخرى.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يتم حفظ المورّد.",
+            "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
+            "keepEditing": "متابعة التعديل",
+            "discard": "تجاهل التغييرات"
+        }
+    },
+    "catalog": {
+        "title": "الكتالوج",
+        "loading": "جارٍ تحميل الكتالوج…",
+        "total": {
+            "product": "لا منتجات | منتج واحد | {count} منتجًا",
+            "service": "لا خدمات | خدمة واحدة | {count} خدمة"
+        },
+        "tabs": {
+            "label": "تبويبات الكتالوج"
+        },
+        "tab": {
+            "product": "المنتجات",
+            "service": "الخدمات"
+        },
+        "filter": {
+            "search": "بحث",
+            "searchAction": "بحث",
+            "active": "الحالة",
+            "activeAll": "المفعّل وغير المفعّل"
+        },
+        "column": {
+            "name": "الاسم",
+            "product_code": "كود المنتج",
+            "category": "الفئة",
+            "unit": "الوحدة",
+            "description": "الوصف",
+            "service_type": "نوع الخدمة",
+            "notes": "ملاحظات",
+            "status": "الحالة",
+            "added": "أُضيف"
+        },
+        "status": {
+            "active": "مفعّل",
+            "inactive": "غير مفعّل"
+        },
+        "group": {
+            "none": "بدون شركة"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا نتيجة مطابقة",
+                "message": "غيّر البحث أو المرشّحات ثم أعد المحاولة."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الكتالوج",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} · {total} إجمالًا"
         }
     }
 }

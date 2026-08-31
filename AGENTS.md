@@ -224,6 +224,34 @@ without this conversation.
 - Include the term for anything asserted as a constraint, so the claim can be checked
   independently rather than taken on trust.
 
+### At the end of every module — the manual test list
+
+A module is not handed over until the owner has been given a list of things to
+click. The gates prove the code compiles, type-checks and passes its tests;
+only a person at the screen proves the module does what the owner wanted.
+
+When the last point of a module is done, and **before the first point of the
+next one**, publish a **manual front-end test list**:
+
+- **In Arabic**, like every other explanation to the owner.
+- **One line per check, written as an action and the result it must produce** —
+  "افتح … ثم اضغط … ⇒ يجب أن ترى …". "Test the catalog screen" is not a check.
+- **Grouped by screen, in the order a person would actually walk them**, so the
+  list can be run top to bottom without jumping between roles and pages.
+- **Name the role each check needs.** A check only a Manager can run is useless
+  to somebody signed in as the CEO, and the role *is* half of what is being
+  tested (`SEC-07`).
+- **Every acceptance criterion of the module appears at least once, named**, so
+  the list and `CHECKLIST.md` can be read against each other.
+- **Both languages and both directions**, and the states a happy path hides:
+  empty, loading, error, and refused-by-permission.
+- **Say plainly what cannot be tested yet and why.** A criterion whose screen
+  belongs to a later module is a gap the owner should see, not one the list
+  should quietly skip.
+
+The list goes in the message, not only in a file, and it closes a module the
+way a six-part report closes a point.
+
 ## Engineering Behavior
 
 - Translate each request into observable success criteria before coding. For multi-file work, show `step → verification` and wait for approval before editing.

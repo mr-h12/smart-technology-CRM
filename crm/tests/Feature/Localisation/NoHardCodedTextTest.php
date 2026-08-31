@@ -70,6 +70,13 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                // Module 4 Point 4.3 — §8's Catalog screen. Added on the same
+                // terms as every entry here: the scan below was run against it
+                // first and passed. §7.3's two tabs, its per-tab column names
+                // and the "no company" group heading are all dictionary keys;
+                // the only bare strings in the template are the stored `kind`
+                // codes and the column *keys* used to look a label up.
+                'CatalogView.vue',
                 'ConfirmDialog.vue',
                 // Module 2 Point 5.2 — §13 screen 5. Added after the scan below
                 // passed on it, on the same terms as the entry below.
@@ -89,6 +96,29 @@ final class NoHardCodedTextTest extends TestCase
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. Its two closed sets are the same
+                // stored codes the list screen holds, and every label beside
+                // them — including the form-level refusals, which are keys and
+                // not the server's own sentence — comes from `suppliers.form.*`
+                // in both dictionaries.
+                'SupplierFormModal.vue',
+                // Module 4 Point 4.0 — §7.1's supplier rating chip. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. The file is the one place in the
+                // SPA that had a real temptation to hold a literal — Design
+                // System §6.4's "never color alone" means the chip must render
+                // a word — and the word comes from `suppliers.rating.*` in both
+                // dictionaries rather than from the template.
+                'SupplierRatingChip.vue',
+                // Module 4 Point 4.1 — §8's Suppliers screen. Added on the same
+                // terms: the scan below was run against it first and passed.
+                // Its two closed sets — §7.1's four colours and two types —
+                // are stored codes in the template and localised words in the
+                // dictionaries, which is why the codes appear in the source and
+                // no sentence does.
+                'SuppliersView.vue',
                 // Module 2 Point 5.3 — §13 screen 6, on the same terms.
                 'SystemLimitsView.vue',
                 // Module 2 Point 5.1 — §13 screen 4. Added to this list only

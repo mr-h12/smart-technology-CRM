@@ -23,6 +23,8 @@ import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
 import CustomersView from '@/pages/customers/CustomersView.vue';
 import CustomerDetailView from '@/pages/customers/CustomerDetailView.vue';
+import SuppliersView from '@/pages/suppliers/SuppliersView.vue';
+import CatalogView from '@/pages/catalog/CatalogView.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -111,6 +113,32 @@ export const routes: RouteRecordRaw[] = [
         name: 'customer-detail',
         component: CustomerDetailView,
         meta: { requiresAuth: true, requiredPermission: 'customer.view', titleKey: 'customers.detail.title' },
+    },
+    {
+        // §8's *Suppliers* screen — Module 4 Point 4.1. `catalog.view`, because
+        // §3.7 is one permission pair covering the catalog **and** its
+        // suppliers: there is no `supplier.*` resource in the matrix. No scope,
+        // because every grant in §3.7 is `Scope::All`.
+        //
+        // ⚠️ §8 gives the CEO no Suppliers screen while §3.7 grants them
+        // `catalog.view`. Owner's ruling, 2026-08-31: the route and the sidebar
+        // both follow §3.7, recorded in `CHECKLIST.md` awaiting a `D-xx`.
+        path: '/suppliers',
+        name: 'suppliers',
+        component: SuppliersView,
+        meta: { requiresAuth: true, requiredPermission: 'catalog.view', titleKey: 'suppliers.title' },
+    },
+    {
+        // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`
+        // the Suppliers route carries: §3.7 is one row pair covering the
+        // catalog and its suppliers, and there is no `catalog_item.*` resource
+        // to name. §8 lists a Catalog screen for six roles and none for the
+        // CEO; the owner's ruling of 2026-08-31 keys both the route and the
+        // sidebar on §3.7 instead. Recorded in `CHECKLIST.md` awaiting a `D-xx`.
+        path: '/catalog',
+        name: 'catalog',
+        component: CatalogView,
+        meta: { requiresAuth: true, requiredPermission: 'catalog.view', titleKey: 'catalog.title' },
     },
     {
         // §8's *Employees* screen. `admin.create_user` and not a `user.view.*`

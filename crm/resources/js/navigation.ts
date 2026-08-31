@@ -67,6 +67,38 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 icon: 'M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 7c0-2.8 2.7-5 6-5s6 2.2 6 5v1H4z',
                 permission: 'customer.view',
             },
+            {
+                // §8's *Suppliers*. The permission is `catalog.view` because
+                // §3.7 is one row pair covering the catalog and its suppliers —
+                // there is no `supplier.*` resource to name.
+                //
+                // ⚠️ §8 and §3.7 disagree about who gets this screen: §3.7
+                // grants `catalog.view` to the CEO and the Outdoor Supervisor,
+                // §8 gives neither a Suppliers screen. **Owner's ruling,
+                // 2026-08-31: the sidebar follows §3.7.** Keying it on §8's
+                // screen list would leave a screen the person may open with no
+                // way to reach it — the mirror image of the defect §5.1
+                // forbids, and the same defect this file names from the other
+                // side. Recorded in `CHECKLIST.md` awaiting a `D-xx`, and
+                // `navigation.spec.ts` pins this string equal to the route's.
+                name: 'suppliers',
+                labelKey: 'nav.item.suppliers',
+                icon: 'M2 6h9v8H2zm10 2h3.2l1.8 2.4V14h-5zM5 17a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+                permission: 'catalog.view',
+            },
+            {
+                // §8's *Catalog*, on the **same** permission as the item above.
+                // §3.7 is one row pair covering the catalog and its suppliers,
+                // so there is no `catalog_item.*` resource to name — and the
+                // owner's ruling of 2026-08-31 applies here exactly as it did
+                // there: §8 gives the CEO no Catalog screen while §3.7 grants
+                // them `catalog.view`, and the sidebar follows §3.7 so that no
+                // screen a person may open is left unreachable.
+                name: 'catalog',
+                labelKey: 'nav.item.catalog',
+                icon: 'M4 3h5v6H4zm7 0h5v6h-5zM4 11h5v6H4zm7 0h5v6h-5z',
+                permission: 'catalog.view',
+            },
         ],
     },
     {

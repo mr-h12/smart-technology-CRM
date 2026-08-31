@@ -5662,10 +5662,78 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       point, most likely a domain event `DealStatusChanged` with a listener, on `AP-05`'s "event-driven
       internally" principle rather than a direct write into `customers` from here.
 
+#### Step 3 — `recompute_customer_status` *(§4.5, `D-49`, `J-02`; not a pre-approved step —
+flagged here for review rather than assumed)*
+
+- [x] **3.1** `J-02`'s event-triggered half — wired into `POST /deals` and `PATCH /deals/{id}/status`,
+      the two writes that change what §4.5's rule reads. The nightly correction half (`J-02`'s other
+      trigger) is **not this point** — it is the first scheduled job this codebase would implement at
+      all (`Reports`/`Notifications`/`Outdoor`/`Procurement`/`Quotations` are still `.gitkeep`), and
+      deserves its own point rather than riding in on this one's size.
+      ⚠️ **This point uses a direct interface call, not the domain-event-with-listener shape 2.6's own
+      "not covered" note speculated on.** `CLAUDE.md` names interfaces *or* domain events as the two
+      legitimate crossings, and every existing cross-module side effect in this codebase already
+      picked the first — `AuditRecorderInterface` is called directly, synchronously, inside the same
+      transaction as the write it records, not dispatched as an event with a listener. `DB-11` needs
+      this recompute in the *same* transaction as the deal write it follows, and a direct call makes
+      that trivially visible in `SaveDeal`/`ChangeDealStatus` rather than resting on a listener being
+      registered synchronously. 2.6's note also specifically objected to *"a direct write into
+      `customers` from here"* — this point does not do that: `Deals` never touches the `customers`
+      table or `Customer` model, only `CustomerStatusWriterInterface`, a contract **Customers** exposes
+      for exactly this.
+      **`Customers` is split into `CustomersContract`/`CustomersDriver`**, on Identity/Audit/Storage's
+      exact precedent (`deptrac.modules.yaml`) — the crossing that file's own header predicted:
+      *"when a legitimate shared interface appears it is added here as a named exception"*. Before this
+      point nothing outside Customers depended on it, so the flat layer cost nothing; `Deals` is now
+      the first, granted `CustomersContract` only — nothing reaches `CustomersDriver`, and nothing
+      should. `CustomerStatusWriterInterface` is write-only and one method: Deals never needs to read
+      a stored status back, since §4.5 derives it fresh every time.
+      **"Won or beyond, now or historically" is read off `DealStatusTransition`'s graph, not restated**:
+      a deal's *current* status already proves it, because the graph has no edge leaving
+      `won`/`purchasing`/`delivery`/`delivery_complete` back toward an earlier state.
+      ⚠️ **One interpretation recorded rather than documented**: §4.5 rules 2 and 3 read as if a
+      customer has one deal. With several concurrent ones (Business Invariants), this reads *any fresh
+      active deal keeps the customer Prospect* — owed a `D-xx` if the owner disagrees.
+      ⚠️ **Two gaps, both named rather than approximated.** Rule 3's *"or a quotation went Expired with
+      no reply"* clause needs Module 7 (`app/Modules/Quotations` is still `.gitkeep`) — absent, not
+      guessed at. `SystemLimit::StaleDealDays` (`limits.stale_deal_days`) is one of the enum's own
+      documented "deliberately unvalued" limits — `null` until an administrator sets it, and `null`
+      here means rule 3's clause never fires (every active deal reads as fresh), the same reading
+      already established for `OD-08`'s similarity threshold. `SettingReader` gained
+      `nullableInteger()` for this — `integer()`'s config-file floor would have been exactly the
+      invented default `SystemLimit`'s docblock warns against, on the technicality of living in PHP
+      instead of a database row.
+      **No new audit entry for the derived write.** `AUD-01` is satisfied one layer out, by whichever
+      of `DEAL_CREATED`/`DEAL_STATUS_CHANGED` triggered the recompute — a derived projection of an
+      already-audited fact is not a second decision to record, the same disposition `EloquentDealDirectory`
+      itself already carries.
+      **`EloquentCustomerStatusWriter` *is* visible to `AuditEnforcementTest`'s scanner** — measured,
+      not assumed, and initially wrong the first time: an early draft's own docblock explained the
+      scanner's four signals by name, including the literal string `Eloquent\Model`, which the
+      scanner reads from raw file text and does not distinguish from code. The comment describing why
+      the class *should* be invisible made it visible. Rewritten without the literal signal string;
+      re-run confirmed it is, in fact, invisible to scan() like its siblings — not audited, and not
+      meant to be, for the same one-layer-out reason above.
+      **6 new tests (35 assertions) · 1913 backend (11636 assertions) · pint 456 files · PHPStan
+      level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break.** The fresh-deal comparison flipped from `>=` to `<` → exactly the one
+      test exercising a configured threshold against a stale deal failed; the unset-threshold test and
+      every rule-1/rule-4/rule-5 test kept passing, which is the coverage this rule's five-way branch
+      needs. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** the audit-scanner false positive above; `EloquentDealDirectory::activityForCustomer()`
+      initially failed PHPStan level 10 (`array` vs `list`) — `Collection::map()->all()` cannot be
+      proven a list by static analysis alone, fixed with `array_values()`. The Form Request's rejection
+      reason field is `reason`, not `lost_reason` (the column name) — caught by two failing tests in
+      this point, not assumed from the column.
+      **Not covered:** the nightly correction half of `J-02` — a customer whose only active deal simply
+      goes stale with no new event triggers nothing yet. `/documents` is still open (2.1's note). The
+      quotation-expiry clause and the multi-deal interpretation above are both recorded gaps, not
+      silent ones.
+
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
-- [ ] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
-- [ ] All deals Lost → status **"Deal Not Completed"**
+- [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
+- [x] All deals Lost → status **"Deal Not Completed"**
 - [ ] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
 - [ ] Rejected request → mandatory reason + badge for the employee
 - [ ] Status change → timeline entry with old status, new status, who, when

@@ -39,10 +39,17 @@
  * be true. Design System §6.4 requires the chip to carry a word, which
  * `SupplierRatingChip` does.
  *
- * ── No write controls, and that is Point 4.2 ───────────────────────────────
+ * ── One permission draws all four write controls (Point 4.2) ───────────────
  *
- * §3.7's `catalog.manage` covers create, edit, deactivate and set colour, and
- * all four arrive with the form modal. A button here now would open nothing.
+ * §3.7's `catalog.manage` covers create, edit, deactivate and set colour in a
+ * single cell, so `canManage` draws every control below and there is no second
+ * permission to ask about — and no action route either: `is_active` and
+ * `color_rating` travel as fields on the form's PATCH.
+ *
+ * The CEO is the documented negative case. §3.7 grants them `catalog.view` and
+ * annotates the write column "read-only", so they reach this screen through the
+ * sidebar and see no Edit button on it. `SEC-09` holds regardless: the button
+ * is a menu and `SupplierWriteEndpointTest` is the gate.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -53,6 +60,8 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import SupplierRatingChip from '@/components/suppliers/SupplierRatingChip.vue';
 import { listSuppliers, type Pagination, type Supplier } from '@/services/suppliers';
+import SupplierFormModal from '@/pages/suppliers/SupplierFormModal.vue';
+import { useAuth } from '@/stores/auth';
 
 /**
  * §7.1's colour meanings and its two types, restated here because both are a
@@ -64,6 +73,13 @@ const RATINGS = ['green', 'yellow', 'red', 'white'] as const;
 const TYPES = ['supplier', 'distributor'] as const;
 
 const { t, locale } = useI18n();
+const auth = useAuth();
+
+/** §3.7's write row is one cell, so one permission draws all four verbs. */
+const canManage = computed(() => auth.hasPermission('catalog.manage'));
+
+const formOpen = ref(false);
+const editing = ref<Supplier | null>(null);
 
 const suppliers = ref<Supplier[]>([]);
 const pagination = ref<Pagination | null>(null);
@@ -173,6 +189,27 @@ function addedOn(timestamp: string): string {
     return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
+function startCreate(): void {
+    editing.value = null;
+    formOpen.value = true;
+}
+
+function startEdit(supplier: Supplier): void {
+    editing.value = supplier;
+    formOpen.value = true;
+}
+
+/**
+ * The saved row may no longer belong on the page in view — a rename moves it
+ * under `sort=name`, a deactivation drops it out of `filter[is_active]` — so
+ * the list is asked again rather than patched in place (§5.2, §6.5).
+ */
+async function onSaved(): Promise<void> {
+    formOpen.value = false;
+
+    await load();
+}
+
 onMounted(load);
 </script>
 
@@ -188,6 +225,18 @@ onMounted(load);
             >
                 {{ t('suppliers.total', { count: total }) }}
             </p>
+
+            <!-- §6.2: one primary action per context, drawn only for the
+                 permission that can complete it. -->
+            <button
+                v-if="canManage"
+                type="button"
+                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="suppliers-create"
+                @click="startCreate()"
+            >
+                {{ t('suppliers.form.createTitle') }}
+            </button>
         </header>
 
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a
@@ -315,6 +364,11 @@ onMounted(load);
                                     <span aria-hidden="true">{{ sortIndicator('created_at') }}</span>
                                 </button>
                             </th>
+
+                            <!-- §5.2's Detail/Form controls: "action controls only by permission". -->
+                            <th v-if="canManage" scope="col" class="p-3 text-start">
+                                <span class="sr-only">{{ t('suppliers.column.actions') }}</span>
+                            </th>
                         </tr>
                     </thead>
 
@@ -342,6 +396,17 @@ onMounted(load);
                                 </span>
                             </td>
                             <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(supplier.created_at) }}</td>
+
+                            <td v-if="canManage" class="p-3">
+                                <button
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    data-testid="suppliers-row-edit"
+                                    @click="startEdit(supplier)"
+                                >
+                                    {{ t('action.edit') }}
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -378,6 +443,13 @@ onMounted(load);
                 </button>
             </nav>
         </div>
+
+        <SupplierFormModal
+            :open="formOpen"
+            :editing="editing"
+            @saved="onSaved"
+            @cancel="formOpen = false"
+        />
     </section>
 </template>
 
@@ -416,6 +488,12 @@ onMounted(load);
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+/* §6.2's Primary: the one main permitted action on this screen. */
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .status-chip {

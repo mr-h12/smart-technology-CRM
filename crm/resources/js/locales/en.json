@@ -668,7 +668,8 @@
             "phone": "Phone",
             "account": "Open account",
             "status": "State",
-            "added": "Added"
+            "added": "Added",
+            "actions": "Actions"
         },
         "type": {
             "supplier": "Supplier",
@@ -693,6 +694,20 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} · {total} in total"
+        },
+        "form": {
+            "createTitle": "New supplier",
+            "editTitle": "Edit supplier",
+            "name": "Supplier name",
+            "required": "(required)",
+            "nameRequired": "The supplier name is required.",
+            "typeNone": "No type",
+            "forbidden": "You do not have permission to save this supplier.",
+            "rejected": "The change was not accepted. Review the fields and try again.",
+            "unreachable": "The server could not be reached. The supplier was not saved.",
+            "unsavedChanges": "This form has changes that were not saved.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes"
         }
     }
 }

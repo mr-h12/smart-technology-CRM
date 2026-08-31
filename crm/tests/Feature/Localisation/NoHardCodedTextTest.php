@@ -89,6 +89,14 @@ final class NoHardCodedTextTest extends TestCase
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. Its two closed sets are the same
+                // stored codes the list screen holds, and every label beside
+                // them — including the form-level refusals, which are keys and
+                // not the server's own sentence — comes from `suppliers.form.*`
+                // in both dictionaries.
+                'SupplierFormModal.vue',
                 // Module 4 Point 4.0 — §7.1's supplier rating chip. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. The file is the one place in the

@@ -57,5 +57,6 @@ return [
         'rejection_reason' => 'rejection reason',
         'lost_reason' => 'reason',
         'last_activity_at' => 'last activity',
+        'document' => 'document',
     ],
 ];

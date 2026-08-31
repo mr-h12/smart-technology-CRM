@@ -21,6 +21,7 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use Illuminate\Auth\AuthenticationException;
@@ -474,6 +475,30 @@ final class ApiExceptionRenderer
             409,
             DealStatusTransitionRefused::ERROR_CODE,
             (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 422 `validation_failed`, for a §17 bytes-level refusal.
+     *
+     * Shaped exactly like {@see self::passwordChange()}: from the SPA's side,
+     * a rejected upload is the same thing as a Form Request failure on the
+     * `document` field, and `field` says so even though no Form Request rule
+     * produced it — `UploadValidatorInterface::validate()` did, after the
+     * boundary had already let a syntactically valid file through.
+     */
+    public static function uploadRejected(UploadRejected $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            422,
+            'validation_failed',
+            (string) __('identity.errors.validation_failed'),
+            [[
+                'field' => 'document',
+                'code' => $exception->reason->value,
+                'message' => (string) __($exception->translationKey()),
+            ]],
         );
     }
 

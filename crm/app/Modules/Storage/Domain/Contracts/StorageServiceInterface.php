@@ -90,6 +90,22 @@ interface StorageServiceInterface
      */
     public function readUploadStream(string $sourcePath);
 
+    /**
+     * The size, in bytes, of an **upload temp file** — `readUploadStream()`'s
+     * pair for a caller that must record a size rather than parse bytes.
+     *
+     * `filesize()` is one of `StorageServiceTest`'s forbidden calls outside
+     * this module's Infrastructure, same reasoning as `readUploadStream()`'s
+     * own docblock: a caller that must know how large an upload is cannot
+     * measure it itself, and the alternative — counting bytes off a stream
+     * `readUploadStream()` already hands out — would read a file already
+     * proven a sane size by `UploadValidatorInterface::validate()` a second
+     * time to learn a number that check already computed.
+     *
+     * @throws \RuntimeException when the path is missing or unreadable
+     */
+    public function sourceSizeBytes(string $sourcePath): int;
+
     public function exists(StoragePath $path): bool;
 
     public function delete(StoragePath $path): void;

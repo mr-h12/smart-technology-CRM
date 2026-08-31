@@ -244,12 +244,23 @@ parameters:
     # writes `customers.customer_status` through
     # `CustomerStatusWriterInterface`. The *contract* half only; nothing
     # points at `CustomersDriver`, and nothing should.
+    #
+    # `StorageContract` added 2026-08-31 with Point 4.1, `POST /deals/{id}/documents`
+    # — the crossing this file's own header anticipated for Customers and
+    # Deals is now real: §17's upload flow lives behind `StorageServiceInterface`,
+    # `UploadValidatorInterface` and the new `FileWriterInterface`, and
+    # `DealAttachmentPermission` *implements* `AttachmentPermissionInterface`
+    # rather than calling it — the same contract half either direction, since
+    # deptrac does not distinguish "depends on" from "implements". The
+    # *contract* half only; nothing points at `StorageDriver`, and nothing
+    # should.
     Deals:
       - Framework
       - SharedContracts
       - IdentityContract
       - AuditContract
       - CustomersContract
+      - StorageContract
     Quotations: ~
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and

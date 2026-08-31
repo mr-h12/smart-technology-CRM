@@ -5,6 +5,7 @@ import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import CatalogView from '@/pages/catalog/CatalogView.vue';
 import { createAppRouter } from '@/router';
+import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
  * Module 4, Point 4.3 — §8's *Catalog* screen.
@@ -366,5 +367,148 @@ describe('CatalogView — both languages', () => {
         await flushPromises();
 
         expect(/[؀-ۿ]/.test(view.text())).toBe(true);
+    });
+});
+
+/**
+ * Point 4.4 — §3.7's write controls, and the one permission that draws them.
+ *
+ * `SEC-09`: the button appearing is a *menu* and `CatalogWriteEndpointTest` is
+ * the *gate*. Each test asserts **both halves** — drawn for the holder, absent
+ * for the one without — because a one-sided assertion passes against a screen
+ * that draws nothing at all. The negative case is the CEO on purpose: §3.7
+ * grants them `catalog.view` and annotates the write column "read-only".
+ */
+
+/** §3.7's write column: `catalog.manage`, `Scope::All`. */
+const PROCUREMENT: AuthenticatedUser = {
+    id: '01a0-proc',
+    name: 'Procurement',
+    email: 'procurement@example.test',
+    is_active: true,
+    role: { id: '01a0-role-proc', slug: 'procurement', name: 'Procurement' },
+    permissions: ['catalog.view.all', 'catalog.manage.all'],
+    unconditional_access: false,
+};
+
+/** §3.7's read-only ✅: the CEO reaches the screen and writes nothing on it. */
+const CEO: AuthenticatedUser = {
+    ...PROCUREMENT,
+    id: '01a0-ceo',
+    name: 'CEO',
+    email: 'ceo@example.test',
+    role: { id: '01a0-role-ceo', slug: 'ceo', name: 'CEO' },
+    permissions: ['catalog.view.all'],
+};
+
+async function signIn(profile: AuthenticatedUser): Promise<void> {
+    const delegate = globalThis.fetch as typeof globalThis.fetch;
+
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+        /\/auth\/login$/.test(String(input))
+            ? Promise.resolve(json(201, {
+                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: profile },
+            }))
+            : delegate(input as unknown as RequestInfo, init));
+
+    await useAuth().login(profile.email, 'Passw0rd123');
+}
+
+describe('CatalogView — §3.7 write controls', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers the create button to a holder of catalog.manage and to nobody else', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(PROCUREMENT);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="catalog-create"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(CEO);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="catalog-create"]').exists()).toBe(false);
+    });
+
+    it('offers Edit on the row under the same permission, and no second one', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(PROCUREMENT);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="catalog-row-edit"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(CEO);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="catalog-row-edit"]').exists()).toBe(false);
+    });
+
+    /**
+     * §7.3's tabs are the only place a kind is chosen, so a create belongs to
+     * the tab it was started from — and the form draws that tab's field set.
+     */
+    it('starts a create in the tab the person is standing on', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(PROCUREMENT);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-create"]').trigger('click');
+        expect(view.find('[data-testid="catalog-form-unit"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-form-service-type"]').exists()).toBe(false);
+
+        await view.find('[data-testid="catalog-form-cancel"]').trigger('click');
+        await view.find('[data-testid="catalog-tab-service"]').trigger('click');
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-create"]').trigger('click');
+        expect(view.find('[data-testid="catalog-form-service-type"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-form-unit"]').exists()).toBe(false);
+    });
+
+    it('opens an edit with the row already in the boxes', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
+        await signIn(PROCUREMENT);
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-form-modal"]').exists()).toBe(false);
+
+        await view.find('[data-testid="catalog-row-edit"]').trigger('click');
+
+        expect((view.find('[data-testid="catalog-form-name"]').element as HTMLInputElement).value).toBe(PRODUCT.name);
+    });
+
+    /** A rename moves the row under `sort=name` and a new company moves its group. */
+    it('closes the dialog and asks the server again once an item is saved', async () => {
+        const fetchMock = vi.fn(async (input: string) => (/\/catalog-items\/c1$/.test(String(input))
+            ? json(200, { data: { ...PRODUCT, name: 'Renamed' } })
+            : page([PRODUCT])));
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(PROCUREMENT);
+        const view = render();
+        await flushPromises();
+
+        const before = fetchMock.mock.calls.length;
+
+        await view.find('[data-testid="catalog-row-edit"]').trigger('click');
+        await view.find('[data-testid="catalog-form-name"]').setValue('Renamed');
+        await view.find('[data-testid="catalog-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-form-modal"]').exists()).toBe(false);
+        // The PATCH, and then the list again.
+        expect(fetchMock.mock.calls.length).toBe(before + 2);
     });
 });

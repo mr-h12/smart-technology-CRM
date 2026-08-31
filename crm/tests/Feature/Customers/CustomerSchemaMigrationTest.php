@@ -248,8 +248,20 @@ final class CustomerSchemaMigrationTest extends TestCase
 
     // ────────────────────────────────────────────────────────────── DEV-03
 
+    /**
+     * `deals.customer_id` (Module 5 Point 1.1) is a real foreign key onto this
+     * table, so `customers` can no longer roll back in isolation — PostgreSQL
+     * refuses to drop a table a live constraint still references
+     * (`SQLSTATE[2BP01]`). This is `UserSchemaMigrationTest`'s situation on
+     * `users`, not a defect here: the dependent migration rolls back first,
+     * in the reverse of the order it was applied, and forward again in that
+     * same reversed order once `customers` is back.
+     */
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
+        $dealsMigration = 'database/migrations/2026_08_31_000000_create_deals.php';
+
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => $dealsMigration]));
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
 
         self::assertFalse(Schema::hasTable('customers'), 'down() left `customers` behind (DEV-03).');
@@ -257,6 +269,9 @@ final class CustomerSchemaMigrationTest extends TestCase
         self::assertSame(0, Artisan::call('migrate'));
 
         self::assertTrue(Schema::hasTable('customers'), '`customers` did not come back.');
+
+        self::assertSame(0, Artisan::call('migrate'));
+        self::assertTrue(Schema::hasTable('deals'), '`deals` did not come back.');
     }
 
     // ───────────────────────────────────────────────────────────── helpers

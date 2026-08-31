@@ -9,6 +9,10 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
+use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
+use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
+use App\Modules\Deals\Domain\Listing\DealNotFound;
+use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -399,6 +403,77 @@ final class ApiExceptionRenderer
             $reason->errorCode(),
             (string) __($reason->messageKey()),
             [['code' => $reason->value, 'message' => (string) __($reason->messageKey())]],
+        );
+    }
+
+    /**
+     * Module 5's list query, on the same two contract rows as the five above.
+     *
+     * A sixth method for a sixth exception, for the reason the third one
+     * gives: each lives in its own module's Domain, and Domain may depend on
+     * nothing — probed, not assumed.
+     */
+    public static function invalidDealListQuery(InvalidDealListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidDealListQuery::ERROR_CODE,
+            (string) __('deals.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a deal that is absent **or** out of reach.
+     *
+     * Identical in shape to {@see self::customerNotFound()} and for the same
+     * reason: §3.4 gives several roles a narrower-than-`All` scope, so both of
+     * §5.1's two cases are real here, unlike the two catalog-side handlers
+     * above.
+     */
+    public static function dealNotFound(DealNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 409 `state_transition_invalid`, this codebase's first
+     * use of that row: "Requested state change violates the documented
+     * workflow." Flow 3 gives approval exactly one decision point, and
+     * deciding a deal that is not `pending` is exactly that violation.
+     */
+    public static function dealApprovalRefused(DealApprovalRefused $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            409,
+            DealApprovalRefused::ERROR_CODE,
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 409 `state_transition_invalid`, on
+     * {@see self::dealApprovalRefused()}'s precedent: same code, a different
+     * domain rule (§4.4's graph rather than Flow 3's one-time decision).
+     */
+    public static function dealStatusTransitionRefused(DealStatusTransitionRefused $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            409,
+            DealStatusTransitionRefused::ERROR_CODE,
+            (string) __($exception->messageKey()),
         );
     }
 

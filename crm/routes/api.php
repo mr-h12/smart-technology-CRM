@@ -10,6 +10,7 @@ use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Admin\Presentation\SystemLimitController;
 use App\Modules\Catalog\Presentation\CatalogItemController;
 use App\Modules\Customers\Presentation\CustomerController;
+use App\Modules\Deals\Presentation\DealController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
 use App\Modules\Identity\Presentation\LeaveImpersonationController;
@@ -527,4 +528,62 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
 
     Route::patch('/{catalogItem}', [CatalogItemController::class, 'update'])
         ->middleware('permission:catalog.manage');
+});
+
+// §3.4 Requests / Deals — Module 5 Points 2.2–2.3.
+//
+// `OpenAPI §7.1`'s conventional resource routes, and §3.4's own rows —
+// `deal.view` for the two reads, `deal.create` and `deal.edit` for the two
+// writes, each its own permission with its own scopes rather than one
+// `deal.write`. **No scope argument on any of the four**, on `customers`'s
+// precedent: the middleware asks only whether the caller may reach the
+// endpoint at all, and which *rows* — or, on create, which owner — is `SEC-08`,
+// answered by `DealRowScope` from the reach the middleware leaves behind.
+//
+// The action routes (`/assign`, `/approve`, `/reject`, `/status`) and
+// `/documents` are later points in this step; there is no DELETE at any
+// permission, on `DB-01` and §3.12 rule 3's usual reading — a deal is
+// deactivated or archived, never physically removed, and nothing in §3.4
+// seeds a `delete` grant to spend.
+Route::middleware('auth')->prefix('deals')->group(function (): void {
+    Route::get('/', [DealController::class, 'index'])
+        ->middleware('permission:deal.view');
+
+    Route::get('/{deal}', [DealController::class, 'show'])
+        ->middleware('permission:deal.view');
+
+    Route::post('/', [DealController::class, 'store'])
+        ->middleware('permission:deal.create');
+
+    Route::patch('/{deal}', [DealController::class, 'update'])
+        ->middleware('permission:deal.edit');
+
+    // §3.4 grants `assign_owner` `All · Team · — · — · — · — · —` — its own
+    // row beside `edit`, which five roles hold — so this checks
+    // `deal.assign_owner` and never `deal.edit`, on `customers`'s precedent.
+    //
+    // ⚠️ `Team` has no mechanism (Point 2.1): a Team Leader holding only that
+    // scope reaches the use case for every deal in the company and finds
+    // none of them reachable — half of this permission row is currently
+    // unreachable, the same debt `customer.assign`'s `Team` grant already
+    // carries.
+    Route::patch('/{deal}/assign', [DealController::class, 'assign'])
+        ->middleware('permission:deal.assign_owner');
+
+    // Flow 3's decision. §3.4 seeds one permission, `deal.approve`, for both
+    // directions — there is no `deal.reject` row to check instead, on
+    // `customer.archive`'s precedent for `archive`/`restore` sharing one row.
+    Route::patch('/{deal}/approve', [DealController::class, 'approve'])
+        ->middleware('permission:deal.approve');
+
+    Route::patch('/{deal}/reject', [DealController::class, 'reject'])
+        ->middleware('permission:deal.approve');
+
+    // §4.4's transition. The route carries only `deal.change_status` — the
+    // one edge needing a second permission, Delivery → Delivery Complete
+    // (`D-14`, `deal.mark_delivery_complete`), is checked inside
+    // `ChangeDealStatus` because which permission applies depends on the
+    // request body's target status, not on the URL a middleware can see.
+    Route::patch('/{deal}/status', [DealController::class, 'changeStatus'])
+        ->middleware('permission:deal.change_status');
 });

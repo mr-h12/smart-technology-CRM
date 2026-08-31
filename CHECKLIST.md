@@ -5252,13 +5252,279 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 > As a Team Leader, I want to enter customer requests and assign them to employees, so that work
 > flows down the right path.
 
-**Tables** `deals` · `deal_documents` · `deal_status_history` · customer-status engine
-(`recompute_customer_status`)
+**Tables** `deals` · customer-status engine (`recompute_customer_status`)
 
 **Endpoints**
-- [ ] CRUD `/api/v1/deals`
-- [ ] `PATCH /api/v1/deals/:id/assign` · `/approve` · `/reject` · `/status`
+- [x] `GET`/`POST`/`PATCH` `/api/v1/deals` (Points 2.2–2.3) — no `DELETE` at any permission (`DB-01`)
+- [x] `PATCH /api/v1/deals/:id/assign` (2.4) · `/approve` · `/reject` (2.5) · `/status` (2.6)
 - [ ] `POST /api/v1/deals/:id/documents`
+
+#### Step 1 — schema *(point order approved 2026-08-31)*
+
+- [x] **1.1** `deals` — §4.3's fields, `DB-01`/`DB-02`'s block, `DB-09`'s four indexes, and closing
+      the `deal_files.deal_id → deals` debt Module 0 left open.
+      **`deal_documents` and `deal_status_history`, both named in the build plan, are not new
+      tables.** `deal_files` (Module 0 Point 5.1) already is the first — a pivot built before its
+      parent existed, exactly for this day. `deal_status_history` is deferred rather than built:
+      `audit_log` already stores `event`/`entity_type`/`entity_id`/`old_values`/`new_values`/
+      `user_id`/`created_at`, which is §4.4's "old status · new status · who · when" verbatim, and a
+      second table recording the same fact is the defect DB-11 and AUD-02 exist to prevent. Recorded
+      here rather than in `docs/`, awaiting a `D-xx`; the table line above is corrected to match.
+      **None of §4.3 says "Required"**, unlike §4.2's one explicit marker on `name` — `customer_id`
+      is `NOT NULL` on §4.1's entity map instead, not an annotation, and everything else follows
+      Module 3 Point 1.1's reading exactly: nullable unless something other than the word "Required"
+      forces otherwise. `status` is the one exception to that nullability, for the opposite reason —
+      §4.4 draws no "unset" state, so it defaults to `lead` (Flow 1 step 2).
+      ⚠️ **`approval_status` is nullable, and NULL is a fourth state, not a gap.** §4.3 ties the three
+      named values to employee-entered requests only; a Team-Leader-entered deal (Flow 1) never goes
+      through approval at all, which is a different fact from "pending" and needs a value none of the
+      three named ones can hold. `D-63`'s null `tax_percent` is the precedent followed rather than
+      reinvented.
+      ⚠️ **`rejection_reason` is mandatory for exactly one rejection, and §4.4 quietly names a
+      second one it does not cover.** §4.3 places the column directly under `approval_status`, so
+      the CHECK ties it to `approval_status = 'rejected'` only. §4.4 separately requires a reason for
+      a deal reaching **Lost**, and no field in §4.3's table is named for it — whether that transition
+      reuses this column or needs its own is an **open owner question**, left to whichever point first
+      builds the `Lost` transition rather than answered here.
+      **`service_type` shares a name with `catalog_items.service_type` and nothing else** — the
+      catalog's is an `enum_lists` code (installation, repair, …), this one is the request's own
+      Product/Service split, the same shape as `catalog_items.kind`. No source relates the two, so no
+      column here points at the other; stated so a future reader does not go looking for a
+      relationship neither table documents.
+      **`DB-09`'s four categories, and each has a named caller**: `customer_id` for the customer
+      detail page's own-deals list, `owner_id` (`scopeIndex`, paired with `deleted_at` on
+      `customers.sales_owner_id`'s precedent) for §3.4's `Own` scope, `status` for the Kanban board
+      and the dashboards, `last_activity_at` for `J-03`.
+      **49 tests · 1752 backend (10911 assertions) · pint 414 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.** Not RED-first in the usual sense — the
+      migration and its test were written together rather than the test first — stated rather than
+      hidden, since this project's own discipline is to say so plainly instead of implying a process
+      that did not happen.
+      **Two deliberate breaks, both real regressions the tests had to catch on the second try.**
+      (1) The `rejection_reason` mandatory-when-rejected CHECK deleted → exactly the two tests
+      naming it failed, nothing else. Restored, confirmed with `shasum -a 256 -c`. (2) The
+      `deal_files.deal_id → deals` key deleted → **every affected test still passed**, because
+      `RefreshDatabase` does not re-run a migration whose filename it has already recorded, so the
+      edited `up()` was never applied to `crm_test` at all until an explicit
+      `migrate:fresh --force` against it forced the schema to match the file. Once it did, the
+      constraint test *still* passed wrongly a second way: its random `file_id` alongside the random
+      `deal_id` tripped `deal_files.file_id`'s own pre-existing key, so a `23503` came back for a
+      reason that had nothing to do with the constraint under test. Fixed by inserting a real `files`
+      row and leaving only `deal_id` invalid — the same "a decoy that cannot fail the intended way
+      proves nothing" lesson Module 3 Point 2.1 recorded for `SearchService`'s escaping test, found
+      here the same way: by breaking the code and watching the test fail to notice.
+      **Not covered:** 1.1 is the table. No model, no repository, no endpoint, and no code generator
+      — `document_sequences` (Module 0) still has no consumer; allocating a real `DL-2026-0001` inside
+      a `DB-11` transaction is Step 2's `POST /deals`, not this point. No `recompute_customer_status`
+      (that table line is the engine, not this schema). No row-scope resolution for `owner_id` beyond
+      the index — §3.4's five scopes are Step 2's, and `CustomerRowScope`'s own `Asgn` case already
+      says it resolves to nothing until this module exists; that debt is not repaid here, only the
+      table it was waiting on now exists.
+
+#### Step 2 — the Deals API *(point order approved 2026-08-31)*
+
+- [x] **2.1** row-scope resolution (§3.4: All · Team · Out · Own · Asgn) + negative-authorization
+      tests, on `CustomerRowScope`'s precedent (Module 3 Point 3.1) transcribed rather than shared —
+      `deptrac.modules.yaml` gives `Deals` an empty ruleset, same as `Customers`.
+      ⚠️ **`Asgn` still fails closed, and the reason changed rather than closed.** Customers' own
+      `Asgn` failed because "`deals` is Module 5" — true until this week. §3.4's `Asgn` column
+      belongs to **Procurement**, not to `owner_id` (§4.3: "assigned sales employee"), and no field
+      anywhere in §4 says which procurement employee a deal is assigned to. Reusing `owner_id` would
+      silently redefine what §4.3 already documents it as, so `Asgn` resolves to no rows here too —
+      a fresh, still-open gap wearing the same name as the one Module 3 recorded, not the same gap
+      closing. `Team` and `Out` fail for their original, unchanged reasons (no team entity; `visits`
+      is Module 12).
+      **`DealRowScopeTest` reads §3.2's code table out of the same document `CustomerRowScopeTest`
+      reads**, so the two transcriptions are checked against one source rather than against each
+      other — two modules quietly drifting on what `own` means would be worse than either being wrong
+      on its own.
+      **11 tests · 1763 backend (10940 assertions) · pint 416 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs** (`Deals`'s empty ruleset is satisfied
+      outright — the class imports nothing but `InvalidArgumentException`).
+      **One deliberate break:** `Team` changed to return `unrestricted` — exactly the two tests
+      built to catch a widening scope failed (`test_that_a_scope_with_no_mechanism_permits_nothing`
+      and `test_that_team_adds_nothing_to_own`), nothing else. Restored, confirmed with
+      `shasum -a 256 -c`.
+      **Not covered:** no controller, no route, no HTTP-level negative-authorization test — those
+      arrive with 2.2's endpoint, the same order Module 3 used. No resolution of the `Asgn` gap; it
+      is recorded, not repaid.
+- [x] **2.2** `GET /deals` and `GET /deals/{id}` — `OpenAPI §6`'s query contract, §4.2's collection
+      envelope, `§5.1`'s 404, `D-48`'s search — `CustomerController`'s shape (Module 3 Point 3.2), on
+      the same reasoning throughout.
+      **Filters are §4.3's own closed vocabularies** — `status`, `service_type`, `source`,
+      `approval_status` — rather than an invented set; the same reading `CustomerListCriteria` gave
+      §4.2's columns. **Default sort is `-last_activity_at`**, the one field §4.3 gives explicit
+      operational meaning (`D-17`, `J-03`); `code` and `created_at` are the other two allowed.
+      **`SearchIndex::Deals` added**, `title` the only searched column — §4.3's one free-text field,
+      the same "one column, one line to change" floor `Customers` and `Suppliers` were given.
+      `filterable()` is empty, on Suppliers' precedent rather than Customers': the row scope is
+      applied to the builder directly in `EloquentDealDirectory`, the same mechanism
+      `EloquentCustomerDirectory` actually uses regardless of what its own `filterable()` declares.
+      **The visible cost of Point 2.1's fails-closed scopes, tested rather than left implicit:**
+      Team Leader, Outdoor Supervisor and Procurement each see zero deals today, exactly as
+      `CustomerListEndpointTest` found for the equivalent three roles in Module 3.
+      **`deptrac.modules.yaml` grants `Deals` two entries fewer than a full Customers-style
+      crossing** — `Framework`, `SharedContracts`, `IdentityContract` — and no `UserDirectoryInterface`
+      use: §3.4 has no analogue to §10.1's deactivated-employee filter, so the crossing this point
+      actually makes is narrower than the one it was granted room for.
+      **18 tests · 1781 backend (11088 assertions) · pint 428 files · PHPStan level 10 clean (first
+      run) · deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break, on the controller-adjacent layer rather than the schema:**
+      `EloquentDealDirectory::scoped()` changed to return every row unconditionally → exactly the
+      four tests that depend on real scoping failed (`indoor sales sees only their own`, `a role
+      whose scope has no mechanism sees nothing`, `a row outside scope is 404`, `q cannot reach
+      outside the row scope`) and nothing else. Restored, confirmed with `shasum -a 256 -c`.
+      **Problems found:** a test-fixture bug, not a production one — `substr(str_replace('-', '', $id), 0, 4)`
+      for a throwaway `DL-` code takes UUIDv7's **leading** hex digits, which encode a timestamp, so
+      several deals inserted in one test's loop collided on the same code and the insert raised
+      `23505` instead of the test running. Fixed by taking the **trailing** four digits instead — the
+      random tail — in all three files that had copied the pattern
+      (`DealSchemaMigrationTest`, `DealListEndpointTest`, `FilesMigrationTest`). Caught by running the
+      test, not by inspection.
+      **Not covered:** no `POST`, no action routes (`/assign`, `/approve`, `/reject`, `/status`), no
+      `/documents`, no `AuditContract` — all later points. The `Asgn` gap from 2.1 is unchanged.
+- [x] **2.3** `POST /deals` and `PATCH /deals/{id}` — `SaveCustomer`'s shape (Module 3 Point 3.3) end
+      to end: draft, ownership-within-scope, transaction, audit.
+      **`document_sequences` (Module 0) gets its first consumer.** `EloquentDealDirectory::nextCode()`
+      allocates `DL-YYYY-NNNN` with one `INSERT … ON CONFLICT (prefix, year) DO UPDATE … RETURNING`,
+      not a read-then-write — two concurrent creates serialise on the row lock instead of racing to
+      the same number, the same "the database enforces it" reasoning `D-71` gave the file-attachment
+      keys.
+      ⚠️ **`approval_status` is derived from *who* creates the deal, and that reading is recorded as
+      an inference, not a documented rule.** Flow 1 has a Team Leader enter a deal straight to
+      `Lead`, no approval; Flow 3 has an employee's request need one. Neither flow is named on the
+      request itself, so the signal used is §3.4's create scope: `unrestricted` (`all` — Manager,
+      Team Leader) skips approval (`null`); a scoped (`own`) create sets `pending`. **Flow 3's
+      "stays inactive until approved" is not built** — §4.3 has no visibility column, and none is
+      invented here; what "inactive" means structurally is left to whichever point builds
+      `/approve`/`/reject`.
+      **Five of §4.3's columns are prohibited on the boundary** (`code`, `status`, `approval_status`,
+      `rejection_reason`, `last_activity_at`) and two more on `PATCH` only (`customer_id`, `owner_id`)
+      — `SaveCustomerRequest`'s reading of which fields a generic write may never carry, extended by
+      one: `customer_id` has no documented transfer operation at all, so it is not even a future
+      action route the way `owner_id`'s `assign_owner` is.
+      **`deptrac.modules.yaml` grants `Deals` its fourth entry, `AuditContract`**, on identical terms
+      to every other module's first write.
+      ⚠️ **`EloquentDealDirectory` is not part of the eight-class (now growing) "invisible writer"
+      hole `AuditEnforcementTest` tracks.** `EloquentCustomerDirectory` and `EloquentSupplierDirectory`
+      escape that scanner because neither imports `ConnectionInterface`; this one does, for the
+      sequence allocator, so its `->save(` is actually found and the class is correctly registered
+      with a reason rather than falling through unseen. Not a fix for the hole — a different class
+      that happens not to have it.
+      **23 tests · 1804 backend (11202 assertions) · pint 432 files · PHPStan level 10 clean (after
+      one fix — see below) · deptrac violations 0 / uncovered 0 on both configs.**
+      **Two deliberate breaks, each isolating one of the point's two genuinely new mechanisms.**
+      (1) `nextCode()` changed to always return `…-0001` → exactly
+      `test_that_two_created_deals_receive_different_codes` failed, on the `UNIQUE` constraint the
+      migration already carries. (2) The ownership-within-scope refusal in
+      `SaveDeal::ownedWithinScope()` deleted → exactly
+      `test_that_indoor_sales_cannot_file_a_deal_under_somebody_else` failed. Both restored, both
+      confirmed with `shasum -a 256 -c`.
+      **Problems found:** (1) `customer_id` was missing from `Deal`'s `#[Fillable]` list — Eloquent's
+      mass assignment silently drops an unfillable key rather than erroring, so the first create
+      attempt inserted `customer_id = NULL` and failed on the column's own `NOT NULL`, not on
+      anything this point wrote. Caught by running the create test, not by review. (2) PHPStan level
+      10 rejected two things in the test file: `assertStringStartsWith()` against a `mixed` array
+      value (fixed with `assertIsString()` first) and `(string)` on an untyped `stdClass` property
+      read from `DB::table(...)->first()` (fixed on `columnType()`'s own precedent in
+      `FilesMigrationTest`: assert the property exists, then cast with an explicit
+      `@phpstan-ignore-line cast.string`, rather than trusting the cast silently).
+      **Not covered:** no action routes (`/assign`, `/approve`, `/reject`, `/status`), no
+      `/documents`. The `Asgn` gap from 2.1 is unchanged. Flow 3's "inactive" reading is an open
+      owner question, not an implementation.
+- [x] **2.4** `PATCH /deals/{id}/assign` — `AssignCustomer`'s shape (Module 3 Point 3.5), on the
+      same reasoning throughout: idempotent, silent when nothing changed, nobody notified (§18.1's
+      badge list and §18.2's five-name email list both omit it).
+      ⚠️ **§3.4 grants `assign_owner` to Manager (`All`) and Team Leader (`Team`) only, and `Team`
+      still has no mechanism (Point 2.1).** A Team Leader reaches this endpoint for every deal in
+      the company and finds none of them — the exact half-unreachable permission row
+      `customer.assign`'s own `Team` grant already carries. Not resolved here; the debt is 2.1's.
+      **`DealDraft::forAssignment()` added**, the one field `forUpdate()` deliberately refuses, on
+      `CustomerDraft::forAssignment()`'s precedent — the transfer goes through its own permission
+      and its own route, never the generic `PATCH`.
+      **15 tests · 1819 backend (11262 assertions) · pint 435 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **One deliberate break:** the "already theirs" no-op guard deleted → exactly
+      `test_that_assigning_to_the_current_owner_changes_nothing_and_records_nothing` failed, nothing
+      else. Restored, confirmed with `shasum -a 256 -c`.
+      **Not covered:** `/approve`, `/reject`, `/status`, `/documents`. The `Team` gap on this row and
+      the `Asgn` gap from 2.1 are both unchanged.
+- [x] **2.5** `PATCH /deals/{id}/approve` and `/reject` — Flow 3's decision, one use case and one
+      permission for both directions, on `ArchiveCustomer`'s shape (Module 3 Point 3.4) with one
+      deliberate difference.
+      ⚠️ **Re-deciding is refused, not treated as an idempotent repeat.** Archive/restore's
+      idempotence rests on Flow 7's own select-all UI, where "already in that state" is the ordinary
+      case. No source describes re-approving an approved deal or un-rejecting a rejected one, so both
+      — and deciding a deal whose `approval_status` is `NULL` (Flow 1, never submitted) — are refused
+      with **`409 state_transition_invalid`**, this codebase's first use of that `OpenAPI §5.1` row.
+      `DealApprovalRefused` is the new exception; `ApiExceptionRenderer`/`bootstrap/app.php` gain
+      their sixth and first-409 handler pair.
+      **`deal.approve` is the only permission — there is no `deal.reject` row**, on `customer.archive`
+      covering both `archive` and `restore`. Both routes carry `permission:deal.approve`.
+      **`rejection_reason` is validated at the boundary before it ever reaches the CHECK** (Point
+      1.1) that would otherwise turn a blank reason into a 500 — `RejectDealRequest`'s `regex:/\S/`
+      beside `required`, on `SaveCustomerRequest`'s reading of `name`.
+      **`EloquentDealDirectory::reviewApproval()` sets `approval_status`/`rejection_reason` directly**,
+      never through `DealDraft`, on `nextCode()`'s precedent (Point 2.3): neither field is ever
+      caller-writable, only ever set by a use case that has already decided the value.
+      **18 tests · 1837 backend (11332 assertions) · pint 439 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs** (`ReviewDealApproval` needed no
+      `AuditEnforcementTest` register entry — it calls `reviewApproval(`, not a DML verb the scanner
+      matches, the same hole `ArchiveCustomer`'s `setArchived(` call already has).
+      **One deliberate break:** the pending-only guard deleted → exactly the four tests naming a
+      non-`pending` source state failed (never-submitted, already-approved-then-approve,
+      already-rejected-then-approve, already-approved-then-reject), nothing else. Restored, confirmed
+      with `shasum -a 256 -c`.
+      **Not covered:** `/status`, `/documents`. The `Team` and `Asgn` gaps are unchanged. Approving
+      does not touch `status` or `owner_id` — Flow 3's "activated and assigned" is not built; nothing
+      in §4.3 names what "activated" sets, and `owner_id` is already set at creation (2.3) for the
+      one case (`Own`-scoped, employee-entered) that reaches `pending` at all.
+- [x] **2.6** `PATCH /deals/{id}/status` — §4.4's transition graph, closing the `lost_reason` open
+      question Point 1.1 recorded, and this module's first two-permission action.
+      **A new migration adds `lost_reason`, not a reuse of `rejection_reason`.** That column is tied
+      by its own CHECK to exactly one rejection (Flow 3's pre-pipeline `approval_status = 'rejected'`);
+      `Lost` is a deal that *entered* the pipeline and did not close, a different fact. Its own
+      mandatory-when-`lost` CHECK mirrors the rejection one exactly. Full reasoning in the migration's
+      own docblock.
+      **`DealStatusTransition` is built from §4.4's table, not its ASCII diagram** — the diagram draws
+      `↘ Lost` once, near `Won`, which reads as branching from one place; the table names both real
+      sources explicitly (`Quotation Sent` and `Negotiations`), and the table is what this class
+      follows. `Lost` and `Delivery Complete` are terminal — an empty edge list, not a self-loop.
+      ⚠️ **§4.4's "Who changes it" column is not enforced beyond the coarse `deal.change_status`
+      scope, on purpose.** Every name in that column is a role already covered by `change_status`'s
+      own seeded scopes, and no second permission exists in `PermissionMatrix` for any transition
+      except one. Building finer-grained checks the matrix does not seed would be inventing
+      authorisation, the same restraint every row-scope class in this module already exercises.
+      **`Delivery → Delivery Complete` is the one exception, and it needed a real second permission
+      check inside the use case rather than route middleware** — `D-14`'s four roles
+      (`deal.mark_delivery_complete`) are a genuinely *different* set from `change_status`'s (Outdoor
+      Supervisor and Outdoor Sales hold one and not the other), and which permission applies depends
+      on the request body's target status, which middleware cannot see. `ChangeDealStatus` asks
+      `AuthorizeAction` directly — legal because `Deals` already holds `IdentityContract` — and
+      resolves a *second* `DealRowScope` from that decision to check the row again.
+      **`DealStatusTransitionRefused` is a new exception, not a reuse of `DealApprovalRefused`**,
+      despite sharing `409 state_transition_invalid`: the two guard different rules (§4.4's graph vs.
+      Flow 3's one-time decision), the same way `InvalidCustomerListQuery`/`InvalidSupplierListQuery`
+      stay separate despite an identical rendered shape.
+      **19 endpoint tests + 6 migration tests · 1862 backend (11416 assertions) · pint 446 files ·
+      PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **Three deliberate breaks.** (1) The `lost_reason` CHECK deleted → exactly the two tests naming
+      it failed. (2) `DealStatusTransition::isAllowed()` changed to always return true → exactly the
+      five undocumented-edge tests failed, nothing else. (3) The `mark_delivery_complete` re-check
+      deleted from `ChangeDealStatus` → exactly `test_that_an_outdoor_sales_owner_cannot_mark_delivery_complete`
+      failed — the one test that actually proves the second permission does anything. All three
+      restored, all confirmed with `shasum -a 256 -c`.
+      **Problems found:** Point 1.1's own `test_that_each_status_section_4_4_draws_is_accepted` broke
+      the moment the `lost_reason` CHECK existed — it iterates all twelve statuses including `lost`
+      with no reason, which the new constraint correctly refuses. Fixed by giving that one iteration
+      a reason; caught by running the full suite after this point's migration landed, not by
+      inspecting the older test.
+      **Not covered:** `/documents`. The `Team`/`Out`/`Asgn` gaps from 2.1 are unchanged — a Team
+      Leader still reaches this endpoint for every deal and finds none of them. `recompute_customer_status`
+      (Won → customer becomes "Customer"; all-Lost → "Deal Not Completed") is **not built** — it is a
+      cross-module event this point deliberately does not reach into Customers for; it needs its own
+      point, most likely a domain event `DealStatusChanged` with a listener, on `AP-05`'s "event-driven
+      internally" principle rather than a direct write into `customers` from here.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

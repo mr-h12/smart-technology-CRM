@@ -87,9 +87,36 @@ final class VirusScanningTest extends TestCase
             'scanned_at' => $status === ScanStatus::Pending ? null : now(),
         ]);
 
+        self::seedDeal();
         DB::table('deal_files')->insert(['deal_id' => self::DEAL_ID, 'file_id' => $id]);
 
         return $id;
+    }
+
+    /**
+     * `deal_files.deal_id` is a real foreign key onto `deals` (Module 5 Point
+     * 1.1), so attaching a file needs a row it actually references rather than
+     * the bare identifier this file used before that constraint existed.
+     */
+    private static function seedDeal(): void
+    {
+        $customerId = Str::uuid7()->toString();
+
+        DB::table('customers')->insert([
+            'id' => $customerId,
+            'name' => 'Test Customer for a Virus-Scanning Fixture',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('deals')->insert([
+            'id' => self::DEAL_ID,
+            'code' => 'DL-2026-9002',
+            'customer_id' => $customerId,
+            'last_activity_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function scanner(): VirusScannerInterface

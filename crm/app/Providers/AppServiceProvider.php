@@ -31,6 +31,8 @@ use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
+use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
+use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
@@ -171,6 +173,18 @@ class AppServiceProvider extends ServiceProvider
             CatalogItemDirectoryInterface::class,
             fn (): EloquentCatalogItemDirectory => new EloquentCatalogItemDirectory(
                 $this->app->make(SearchService::class),
+            ),
+        );
+
+        // Module 5 Points 2.2–2.3. `bind` for the reason
+        // `CustomerDirectoryInterface` is: stateless, and a singleton would
+        // outlive nothing useful. `ConnectionInterface` added with Point 2.3 —
+        // `document_sequences`' atomic upsert (§4.7) is issued from here.
+        $this->app->bind(
+            DealDirectoryInterface::class,
+            fn (): EloquentDealDirectory => new EloquentDealDirectory(
+                $this->app->make(SearchService::class),
+                $this->app->make(ConnectionInterface::class),
             ),
         );
 

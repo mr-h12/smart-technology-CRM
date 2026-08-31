@@ -28,6 +28,9 @@ enum SearchIndex: string
     /** §7.3's catalog, searched by the Module 4 Point 3.1 list endpoint. */
     case Catalog = 'catalog_items';
 
+    /** §4.3's deals, searched by the Module 5 Point 2.2 list endpoint. */
+    case Deals = 'deals';
+
     public function table(): string
     {
         return $this->value;
@@ -65,6 +68,13 @@ enum SearchIndex: string
             // descriptions have no such annotation and stay out until one
             // exists.
             self::Catalog => ['name', 'category'],
+
+            // `title` is the one free-text field §4.3 names for a deal —
+            // "Short description of the request" — and the only column a
+            // caller's typed words could plausibly mean. `code` is a lookup by
+            // an exact known value, not a search, and no other column on the
+            // table is free text.
+            self::Deals => ['title'],
         };
     }
 
@@ -109,6 +119,15 @@ enum SearchIndex: string
             // `category` and `is_active` are optional refinements on one
             // screen and stay outside.
             self::Catalog => ['kind'],
+
+            // **Empty, on Suppliers' precedent rather than Customers'.** The
+            // row scope that always applies here is `owner_id`, and
+            // `EloquentDealDirectory` applies it to the builder the same way
+            // `EloquentCustomerDirectory` does — intersecting search results
+            // with an already-scoped query — rather than through this
+            // allowlist. Nothing about a deal's own fields needs to be
+            // *always* narrowed the way an archived customer does.
+            self::Deals => [],
         };
     }
 }

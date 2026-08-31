@@ -52,4 +52,21 @@ interface DealDirectoryInterface
 
     /** Null on the same two indistinguishable cases as {@see find()} — absent, or out of reach. */
     public function update(string $dealId, DealDraft $draft, DealRowScope $scope, string $actorId): ?DealSummary;
+
+    /**
+     * Point 2.5 — Flow 3's decision, recorded directly rather than through
+     * `DealDraft`: `approval_status` and `rejection_reason` are never
+     * caller-writable fields, only ever set by a use case that has already
+     * decided the value (`ReviewDealApproval` checks the current state
+     * before this is called).
+     *
+     * Null on the same two indistinguishable cases as {@see find()}.
+     */
+    public function reviewApproval(
+        string $dealId,
+        string $newApprovalStatus,
+        ?string $rejectionReason,
+        DealRowScope $scope,
+        string $actorId,
+    ): ?DealSummary;
 }

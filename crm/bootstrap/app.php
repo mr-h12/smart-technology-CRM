@@ -10,6 +10,7 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
+use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
@@ -201,6 +202,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (DealNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::dealNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (DealApprovalRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::dealApprovalRefused($e, $request)
                 : null,
         );
 

@@ -135,6 +135,33 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         return self::hydrate($row);
     }
 
+    public function reviewApproval(
+        string $dealId,
+        string $newApprovalStatus,
+        ?string $rejectionReason,
+        DealRowScope $scope,
+        string $actorId,
+    ): ?DealSummary {
+        $query = $this->scoped($scope);
+
+        if ($query === null) {
+            return null;
+        }
+
+        $row = $query->whereKey($dealId)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->approval_status = $newApprovalStatus;
+        $row->rejection_reason = $rejectionReason;
+        $row->updated_by = $actorId;
+        $row->save();
+
+        return self::hydrate($row);
+    }
+
     /**
      * §4.7's `DL-YYYY-NNNN`, allocated from `document_sequences` (Module 0) —
      * its first consumer.

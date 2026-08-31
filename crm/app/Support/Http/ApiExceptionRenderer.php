@@ -9,6 +9,7 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
+use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
@@ -440,6 +441,22 @@ final class ApiExceptionRenderer
             $request,
             404,
             'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 409 `state_transition_invalid`, this codebase's first
+     * use of that row: "Requested state change violates the documented
+     * workflow." Flow 3 gives approval exactly one decision point, and
+     * deciding a deal that is not `pending` is exactly that violation.
+     */
+    public static function dealApprovalRefused(DealApprovalRefused $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            409,
+            DealApprovalRefused::ERROR_CODE,
             (string) __($exception->messageKey()),
         );
     }

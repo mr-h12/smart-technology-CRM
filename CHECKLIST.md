@@ -4902,7 +4902,7 @@ has no endpoint, and a screen cannot be built on one that does not exist.
 
 **Endpoints**
 - [x] `GET`/`POST`/`PATCH` `/api/v1/deals` (Points 2.2–2.3) — no `DELETE` at any permission (`DB-01`)
-- [x] `PATCH /api/v1/deals/:id/assign` (Point 2.4) · [ ] `/approve` · `/reject` · `/status`
+- [x] `PATCH /api/v1/deals/:id/assign` (2.4) · `/approve` · `/reject` (2.5) · [ ] `/status`
 - [ ] `POST /api/v1/deals/:id/documents`
 
 #### Step 1 — schema *(point order approved 2026-08-31)*
@@ -5095,6 +5095,36 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       else. Restored, confirmed with `shasum -a 256 -c`.
       **Not covered:** `/approve`, `/reject`, `/status`, `/documents`. The `Team` gap on this row and
       the `Asgn` gap from 2.1 are both unchanged.
+- [x] **2.5** `PATCH /deals/{id}/approve` and `/reject` — Flow 3's decision, one use case and one
+      permission for both directions, on `ArchiveCustomer`'s shape (Module 3 Point 3.4) with one
+      deliberate difference.
+      ⚠️ **Re-deciding is refused, not treated as an idempotent repeat.** Archive/restore's
+      idempotence rests on Flow 7's own select-all UI, where "already in that state" is the ordinary
+      case. No source describes re-approving an approved deal or un-rejecting a rejected one, so both
+      — and deciding a deal whose `approval_status` is `NULL` (Flow 1, never submitted) — are refused
+      with **`409 state_transition_invalid`**, this codebase's first use of that `OpenAPI §5.1` row.
+      `DealApprovalRefused` is the new exception; `ApiExceptionRenderer`/`bootstrap/app.php` gain
+      their sixth and first-409 handler pair.
+      **`deal.approve` is the only permission — there is no `deal.reject` row**, on `customer.archive`
+      covering both `archive` and `restore`. Both routes carry `permission:deal.approve`.
+      **`rejection_reason` is validated at the boundary before it ever reaches the CHECK** (Point
+      1.1) that would otherwise turn a blank reason into a 500 — `RejectDealRequest`'s `regex:/\S/`
+      beside `required`, on `SaveCustomerRequest`'s reading of `name`.
+      **`EloquentDealDirectory::reviewApproval()` sets `approval_status`/`rejection_reason` directly**,
+      never through `DealDraft`, on `nextCode()`'s precedent (Point 2.3): neither field is ever
+      caller-writable, only ever set by a use case that has already decided the value.
+      **18 tests · 1837 backend (11332 assertions) · pint 439 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs** (`ReviewDealApproval` needed no
+      `AuditEnforcementTest` register entry — it calls `reviewApproval(`, not a DML verb the scanner
+      matches, the same hole `ArchiveCustomer`'s `setArchived(` call already has).
+      **One deliberate break:** the pending-only guard deleted → exactly the four tests naming a
+      non-`pending` source state failed (never-submitted, already-approved-then-approve,
+      already-rejected-then-approve, already-approved-then-reject), nothing else. Restored, confirmed
+      with `shasum -a 256 -c`.
+      **Not covered:** `/status`, `/documents`. The `Team` and `Asgn` gaps are unchanged. Approving
+      does not touch `status` or `owner_id` — Flow 3's "activated and assigned" is not built; nothing
+      in §4.3 names what "activated" sets, and `owner_id` is already set at creation (2.3) for the
+      one case (`Own`-scoped, employee-entered) that reaches `pending` at all.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

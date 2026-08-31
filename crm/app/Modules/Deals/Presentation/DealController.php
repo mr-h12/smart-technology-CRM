@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Presentation;
 
+use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Listing\ListDeals;
 use App\Modules\Deals\Application\Writing\SaveDeal;
@@ -69,6 +70,20 @@ final class DealController
     {
         return ApiEnvelope::single($request, DealPayload::of(
             $deals->handle($deal, $request->ownerId(), self::heldScopes($request), self::actorId($request)),
+        ));
+    }
+
+    public function approve(Request $request, string $deal, ReviewDealApproval $deals): JsonResponse
+    {
+        return ApiEnvelope::single($request, DealPayload::of(
+            $deals->approve($deal, self::heldScopes($request), self::actorId($request)),
+        ));
+    }
+
+    public function reject(RejectDealRequest $request, string $deal, ReviewDealApproval $deals): JsonResponse
+    {
+        return ApiEnvelope::single($request, DealPayload::of(
+            $deals->reject($deal, $request->reason(), self::heldScopes($request), self::actorId($request)),
         ));
     }
 

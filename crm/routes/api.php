@@ -552,4 +552,13 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // carries.
     Route::patch('/{deal}/assign', [DealController::class, 'assign'])
         ->middleware('permission:deal.assign_owner');
+
+    // Flow 3's decision. §3.4 seeds one permission, `deal.approve`, for both
+    // directions — there is no `deal.reject` row to check instead, on
+    // `customer.archive`'s precedent for `archive`/`restore` sharing one row.
+    Route::patch('/{deal}/approve', [DealController::class, 'approve'])
+        ->middleware('permission:deal.approve');
+
+    Route::patch('/{deal}/reject', [DealController::class, 'reject'])
+        ->middleware('permission:deal.approve');
 });

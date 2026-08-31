@@ -86,6 +86,19 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 icon: 'M2 6h9v8H2zm10 2h3.2l1.8 2.4V14h-5zM5 17a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
                 permission: 'catalog.view',
             },
+            {
+                // §8's *Catalog*, on the **same** permission as the item above.
+                // §3.7 is one row pair covering the catalog and its suppliers,
+                // so there is no `catalog_item.*` resource to name — and the
+                // owner's ruling of 2026-08-31 applies here exactly as it did
+                // there: §8 gives the CEO no Catalog screen while §3.7 grants
+                // them `catalog.view`, and the sidebar follows §3.7 so that no
+                // screen a person may open is left unreachable.
+                name: 'catalog',
+                labelKey: 'nav.item.catalog',
+                icon: 'M4 3h5v6H4zm7 0h5v6h-5zM4 11h5v6H4zm7 0h5v6h-5z',
+                permission: 'catalog.view',
+            },
         ],
     },
     {

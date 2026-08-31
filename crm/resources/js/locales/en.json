@@ -88,7 +88,8 @@
             "settings": "System settings",
             "managedLists": "Managed Lists",
             "customers": "Customers",
-            "suppliers": "Suppliers"
+            "suppliers": "Suppliers",
+            "catalog": "Catalog"
         }
     },
     "theme": {
@@ -708,6 +709,57 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes"
+        }
+    },
+    "catalog": {
+        "title": "Catalog",
+        "loading": "Loading the catalog…",
+        "total": {
+            "product": "No products | 1 product | {count} products",
+            "service": "No services | 1 service | {count} services"
+        },
+        "tabs": {
+            "label": "Catalog tabs"
+        },
+        "tab": {
+            "product": "Products",
+            "service": "Services"
+        },
+        "filter": {
+            "search": "Search",
+            "searchAction": "Search",
+            "active": "State",
+            "activeAll": "Active and inactive"
+        },
+        "column": {
+            "name": "Name",
+            "product_code": "Product code",
+            "category": "Category",
+            "unit": "Unit",
+            "description": "Description",
+            "service_type": "Service type",
+            "notes": "Notes",
+            "status": "State",
+            "added": "Added"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "group": {
+            "none": "No company"
+        },
+        "empty": {
+            "filtered": {
+                "title": "Nothing matched",
+                "message": "Change the search or the filters and try again."
+            }
+        },
+        "pagination": {
+            "label": "Catalog pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} · {total} in total"
         }
     }
 }

@@ -88,7 +88,8 @@
             "settings": "إعدادات النظام",
             "managedLists": "القوائم المُدارة",
             "customers": "العملاء",
-            "suppliers": "الموردون"
+            "suppliers": "الموردون",
+            "catalog": "الكتالوج"
         }
     },
     "theme": {
@@ -708,6 +709,57 @@
             "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
             "keepEditing": "متابعة التعديل",
             "discard": "تجاهل التغييرات"
+        }
+    },
+    "catalog": {
+        "title": "الكتالوج",
+        "loading": "جارٍ تحميل الكتالوج…",
+        "total": {
+            "product": "لا منتجات | منتج واحد | {count} منتجًا",
+            "service": "لا خدمات | خدمة واحدة | {count} خدمة"
+        },
+        "tabs": {
+            "label": "تبويبات الكتالوج"
+        },
+        "tab": {
+            "product": "المنتجات",
+            "service": "الخدمات"
+        },
+        "filter": {
+            "search": "بحث",
+            "searchAction": "بحث",
+            "active": "الحالة",
+            "activeAll": "المفعّل وغير المفعّل"
+        },
+        "column": {
+            "name": "الاسم",
+            "product_code": "كود المنتج",
+            "category": "الفئة",
+            "unit": "الوحدة",
+            "description": "الوصف",
+            "service_type": "نوع الخدمة",
+            "notes": "ملاحظات",
+            "status": "الحالة",
+            "added": "أُضيف"
+        },
+        "status": {
+            "active": "مفعّل",
+            "inactive": "غير مفعّل"
+        },
+        "group": {
+            "none": "بدون شركة"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا نتيجة مطابقة",
+                "message": "غيّر البحث أو المرشّحات ثم أعد المحاولة."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الكتالوج",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} · {total} إجمالًا"
         }
     }
 }

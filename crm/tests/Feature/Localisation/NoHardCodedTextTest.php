@@ -70,6 +70,13 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                // Module 4 Point 4.3 — §8's Catalog screen. Added on the same
+                // terms as every entry here: the scan below was run against it
+                // first and passed. §7.3's two tabs, its per-tab column names
+                // and the "no company" group heading are all dictionary keys;
+                // the only bare strings in the template are the stored `kind`
+                // codes and the column *keys* used to look a label up.
+                'CatalogView.vue',
                 'ConfirmDialog.vue',
                 // Module 2 Point 5.2 — §13 screen 5. Added after the scan below
                 // passed on it, on the same terms as the entry below.

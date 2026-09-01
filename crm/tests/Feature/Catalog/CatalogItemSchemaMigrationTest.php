@@ -57,8 +57,6 @@ final class CatalogItemSchemaMigrationTest extends TestCase
 
     private const MASTER_DOCUMENTATION = '/opt/crm/docs/CRM_Documentation_EN.md';
 
-    private const MIGRATION = 'database/migrations/2026_08_30_110000_create_catalog_items.php';
-
     private const CHECK_VIOLATION = '23514';
 
     private const FOREIGN_KEY_VIOLATION = '23503';
@@ -338,9 +336,21 @@ final class CatalogItemSchemaMigrationTest extends TestCase
 
     // ────────────────────────────────────────────────────────────── DEV-03
 
+    /**
+     * `migrate:reset`, not `migrate:rollback --path`: `--path` does not choose
+     * which migrations roll back. `Migrator::rollback()` takes the whole last
+     * batch from the repository and uses the path only to resolve each entry to
+     * a file, skipping what it cannot resolve ("Migration not found") — so under
+     * `RefreshDatabase`, where the schema is a single batch, a one-file path
+     * means "run this down() while every later table still stands", and any new
+     * child foreign key turns this red (`SQLSTATE[2BP01]`) without this down()
+     * having changed. Module 6 Point 1.2's `supplier_quotation_items` is that
+     * child — it is what reddened this test, and this test's subject did not
+     * change. Same shelf life, same fix, as the four converted in Point 1.1.
+     */
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         self::assertFalse(Schema::hasTable('catalog_items'), 'down() left `catalog_items` behind (DEV-03).');
 

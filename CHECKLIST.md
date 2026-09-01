@@ -429,7 +429,7 @@ would hide them behind `OD-03` indefinitely.
       server's sentence instead. Owed: one entry in each `REQUIRED` list plus a `catalog.form.required.company`
       key in both locales. Not done in 6.4: the approved point list names the controls, not the
       validation mirror
-- [ ] **Six more schema tests still roll back with `migrate:rollback --path`, and each is one
+- [ ] **Five more schema tests still roll back with `migrate:rollback --path`, and each is one
       foreign key from red** — revealed 2026-09-02 by Module 6 Point 1.1. `--path` does **not**
       select which migrations roll back: `Migrator::rollback()` takes the whole last batch from the
       repository and uses the path only to resolve each entry to a file, skipping what it cannot
@@ -439,11 +439,20 @@ would hide them behind `OD-03` indefinitely.
       `currencies`, none of their `down()` methods having changed (`SQLSTATE[2BP01]`). Those four
       were converted to `migrate:reset` in 1.1 because they were failing. Still on the old idiom and
       still green only because nothing references them yet: `TrigramExtensionMigrationTest`,
-      `ImportBatchSchemaMigrationTest`, `CatalogItemSchemaMigrationTest`,
-      `ManagedListSchemaMigrationTest`, `DealLostReasonMigrationTest`, `SettingsSchemaMigrationTest`.
-      Owed: the same four-line swap in each. Not done in 1.1 — they are green, they belong to four
-      other modules, and converting a passing test on suspicion is a change with no failure to prove
-      it
+      `ImportBatchSchemaMigrationTest`, `ManagedListSchemaMigrationTest`, `DealLostReasonMigrationTest`,
+      `SettingsSchemaMigrationTest`. Owed: the same four-line swap in each. Not done in 1.1 — they are
+      green, they belong to four other modules, and converting a passing test on suspicion is a change
+      with no failure to prove it. **`CatalogItemSchemaMigrationTest` was the sixth and is no longer
+      owed**: Point 1.2 gave `catalog_items` its first child (`supplier_quotation_items`) and the test
+      went red exactly as predicted, so it was converted there — with a failure to prove it
+- [ ] **Ten schema tests each carry their own private `refusedWith()`** — revealed 2026-09-02 by
+      Module 6 Point 1.2, which added the tenth. The helper is identical in all of them: run a write,
+      catch `QueryException`, return `errorInfo[0]`, and fail if the database accepted the row. It
+      spans six modules (`Customers`, `Suppliers`, `Catalog`, `Admin`, `Deals`, `SupplierQuotations`),
+      so extracting it is a cross-module edit with no failing test behind it — which is why 1.2
+      recorded it instead of doing it. Owed: one trait under `tests/`, ten call sites deleted. The
+      four `SQLSTATE` constants beside it duplicate the same way
+
 - [ ] **Thirteen test helpers mint a "unique" code from four hex characters, and CI goes red at
       random because of it** — revealed 2026-09-02 by Module 6 Point 1.1's own CI run, which failed
       on a test the diff does not touch. `'DL-2026-'.substr(str_replace('-', '', $id), -4)` takes the
@@ -6582,7 +6591,27 @@ Module 5 is finished.
       failure mode. The alternative — reaching into each ancestor's test again for every future child
       table — is the same override paid repeatedly instead of once. Six tests still on the old idiom
       are recorded in the debt register rather than converted here.
-- [ ] **1.2** `supplier_quotation_items`
+- [x] **1.2** `supplier_quotation_items` — §7.2's one `Line items` row ("Product · **price** ·
+      quantity") as three `NOT NULL` columns, `DB-01`/`DB-02`'s block, and an index on each of the two
+      joins. **All three are required**, which is §4.1's argument from 1.1 rather than a new one: a
+      line with no product, no price or no quantity is not the row §7.2 describes. §5.6 states the
+      price half outright — "Product or price missing at the supplier → **block save**" — and §10.4
+      lists "missing price" among the red inline validations. **`unit_price` uses `money()` and
+      `quantity` uses `quantity()`** (`DB-07`, `D-68`); `decimal()` would be (8,2) and silently
+      truncate, which the test pins by round-tripping `1234.567891`. Two CHECKs: `unit_price >= 0`
+      (zero is a price — a free accessory is a real offer; a negative one is not a discount, §5.2 puts
+      discount on the customer quotation as a percentage) and **`quantity > 0`, which goes beyond the
+      literal wording of the approved point list** — §5.1 computes `line_total = unit_price ×
+      quantity`, so a line for none of something totals nothing while still appearing on the offer.
+      **No unique key on (quotation, product)**: §7.2's "+ to add more" places no limit and a quantity
+      break is the ordinary reason to quote one product twice — a constraint no source asks for would
+      be a rule invented here. **Nothing here decides whether the parent's `total_price` is typed or
+      summed** — Step 2's open question, and a cross-row rule no CHECK can express.
+      ⚠️ **`CatalogItemSchemaMigrationTest` was converted to `migrate:reset` in this point**, a second
+      module-isolation override. It is the case the 1.1 debt entry predicted: `catalog_items` had no
+      child until this table, and the test went red (`SQLSTATE[2BP01]`) on a `down()` that did not
+      change. Converted here because it was failing, not on suspicion. Its now-unused
+      `private const MIGRATION` went with it
 - [ ] **1.3** domain draft, `SupplierQuotationDirectoryInterface`, Eloquent directory, and `SQ-`
       allocation reusing the existing `document_sequences`
 

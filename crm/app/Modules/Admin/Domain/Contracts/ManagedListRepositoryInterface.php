@@ -37,9 +37,12 @@ interface ManagedListRepositoryInterface
      * §4.2 and §7.3 both write *"(extendable)"*, which is this module's
      * acceptance criterion rather than a caveat.
      *
+     * @param  bool  $archived  the withdrawn set instead of the live one — the
+     *                          collection a restore is chosen from, and the
+     *                          only reader of `deleted_at` rows anywhere
      * @return Page<ListEntry>
      */
-    public function page(ManagedList $list, ListingQuery $query): Page;
+    public function page(ManagedList $list, ListingQuery $query, bool $archived = false): Page;
 
     /**
      * Append one entry — the write that makes *"a new sector appears in the
@@ -75,4 +78,25 @@ interface ManagedListRepositoryInterface
      *                     the same answer here
      */
     public function archive(ManagedList $list, string $code): ?string;
+
+    /**
+     * Put a withdrawn entry back, so the list offers it again.
+     *
+     * **The mirror of `archive()`, under the same authority.** §3.3 line 223
+     * writes the permission row as a single merged `archive / restore`, and
+     * §3.12 rule 4 names "restore from archive" among the mandatory audit
+     * entries — so the act is one the documentation expects to exist, not a
+     * convenience invented here.
+     *
+     * @return string|null null when the list has no **archived** entry with
+     *                     that code — an entry that is already live and one
+     *                     that never existed are the same answer, and the
+     *                     caller turns both into the 404
+     *
+     * @throws ListEntryAlreadyExists when the freed code was taken while this
+     *                                entry was withdrawn — the partial unique
+     *                                index is on the live set, so the row
+     *                                cannot come back to an occupied name
+     */
+    public function restore(ManagedList $list, string $code): ?string;
 }

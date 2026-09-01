@@ -35,9 +35,14 @@
  * keep it — the owner's option (أ) of 2026-08-31, for which there is no foreign
  * key to cascade along in the first place.
  *
- * There is still **no `PATCH`**, so a mistyped label cannot be corrected in
- * place: the entry is withdrawn and a fresh one added. That remains owed and is
- * named in `CHECKLIST.md`.
+ * Point 6.2b added the way back: `PATCH /managed-lists/{list}/{code}/restore`
+ * clears the withdrawal, and the withdrawn set is its own collection. §3.3 line
+ * 223 writes the permission as a single merged `archive / restore`, so both
+ * directions answer to `admin.system_settings`.
+ *
+ * **A label still cannot be edited in place** — the only `PATCH` here is the
+ * restore. Correcting a wording means withdrawing the entry and adding it
+ * again. That remains owed and is named in `CHECKLIST.md`.
  *
  * ── `position` is the one number here ──────────────────────────────────────
  *

@@ -103,6 +103,19 @@ final readonly class LocalStorageService implements StorageServiceInterface
         return $handle;
     }
 
+    public function sourceSizeBytes(string $sourcePath): int
+    {
+        // Not through the disk, on `readUploadStream()`'s own reasoning: an
+        // upload temp file is not on `secure_uploads`.
+        $size = @filesize($sourcePath);
+
+        if ($size === false) {
+            throw new RuntimeException('The uploaded file could not be measured.');
+        }
+
+        return $size;
+    }
+
     public function exists(StoragePath $path): bool
     {
         return $this->disk->exists($path->value);

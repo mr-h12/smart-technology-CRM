@@ -86,6 +86,24 @@ final readonly class StoragePath
         return new self($value);
     }
 
+    /**
+     * The stored file's own id — `files.id`, per the migration's own comment:
+     * "`{uuid}` is `files.id`, so no second identifier column exists to
+     * drift." `store()` mints this uuid and folds it straight into the path
+     * without handing it back separately, so a writer that must persist the
+     * row this path belongs to reads it from here rather than generating a
+     * second one that would drift from the name already on disk.
+     */
+    public function fileId(): string
+    {
+        $segments = explode('/', $this->value);
+
+        /** @var string $filename */
+        $filename = end($segments);
+
+        return pathinfo($filename, PATHINFO_FILENAME);
+    }
+
     private static function assertUuid(string $candidate, string $label): void
     {
         if (preg_match(self::UUID, $candidate) !== 1) {

@@ -570,11 +570,11 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
 // endpoint at all, and which *rows* — or, on create, which owner — is `SEC-08`,
 // answered by `DealRowScope` from the reach the middleware leaves behind.
 //
-// The action routes (`/assign`, `/approve`, `/reject`, `/status`) and
-// `/documents` are later points in this step; there is no DELETE at any
-// permission, on `DB-01` and §3.12 rule 3's usual reading — a deal is
-// deactivated or archived, never physically removed, and nothing in §3.4
-// seeds a `delete` grant to spend.
+// The action routes (`/assign`, `/approve`, `/reject`, `/status`, `/documents`)
+// were later points in this step; there is no DELETE at any permission, on
+// `DB-01` and §3.12 rule 3's usual reading — a deal is deactivated or
+// archived, never physically removed, and nothing in §3.4 seeds a `delete`
+// grant to spend.
 Route::middleware('auth')->prefix('deals')->group(function (): void {
     Route::get('/', [DealController::class, 'index'])
         ->middleware('permission:deal.view');
@@ -616,4 +616,11 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // request body's target status, not on the URL a middleware can see.
     Route::patch('/{deal}/status', [DealController::class, 'changeStatus'])
         ->middleware('permission:deal.change_status');
+
+    // §17's upload flow, its parent chosen. §3.4 seeds no separate "attach
+    // document" row, so this carries `deal.edit` — the closest documented
+    // permission, and the one AttachDealDocument's own docblock explains
+    // choosing over inventing a new grant nothing in §3 asks for.
+    Route::post('/{deal}/documents', [DealController::class, 'uploadDocument'])
+        ->middleware('permission:deal.edit');
 });

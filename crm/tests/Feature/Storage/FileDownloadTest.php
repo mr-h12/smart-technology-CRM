@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Storage;
 
+use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Storage\Domain\AllowedFileType;
 use App\Modules\Storage\Domain\AttachmentLink;
@@ -286,13 +287,15 @@ final class FileDownloadTest extends TestCase
         self::assertSame([200, 404, 200], [$allowed, $revoked, $restored]);
     }
 
-    public function test_the_default_policy_grants_nothing(): void
+    public function test_the_default_policy_is_deals_own_implementation(): void
     {
-        // Nothing has implemented D-38 yet — Identity is Module 1 and the parent
-        // entities are Modules 5, 6, 10 and 13. The binding that ships denies,
-        // because the alternative default is one that grants.
+        // Deals Point 4.1 replaced the deny-all default with `DealAttachmentPermission`
+        // — the crossing `DenyAllAttachmentPermission`'s own docblock predicted.
+        // `DealAttachmentPermissionTest` (Deals module) covers what this class
+        // does for each of the four `AttachmentParent` cases; this test only
+        // pins which class is bound.
         self::assertInstanceOf(
-            DenyAllAttachmentPermission::class,
+            DealAttachmentPermission::class,
             $this->app->make(AttachmentPermissionInterface::class),
         );
     }

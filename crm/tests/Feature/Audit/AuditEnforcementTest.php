@@ -18,6 +18,7 @@ use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
+use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -252,17 +253,37 @@ final class AuditEnforcementTest extends TestCase
                     .'the transaction and records SYSTEM_LIMITS_UPDATED with the old and new value per field. '
                     .'This is a persistence adapter with no actor and no event vocabulary.',
 
-            // Found by this test on its first run, which is the point of it.
-            // recordScan() flips files.scan_status from `pending` to `clean` or
-            // `infected` (SEC-15, Point 5.5) — a security-relevant state change on
-            // a business entity, and AUD-01 lists update among what is recorded.
-            // It is not audited, and it is not audited yet rather than by
-            // decision: there is no upload endpoint, no actor to record until
-            // Module 1, and no event name for it in §3.12. Owner: whoever wires
-            // attachments in Module 5, who must either record FILE_SCANNED or say
-            // here why a scan result is not an auditable change.
-            DatabaseFileRepository::class => 'SEC-15 scan results are written unaudited; owed by Module 5, when an upload '
-                    .'endpoint and an actor exist. See CHECKLIST deployment/step debt.',
+            // Module 5 Point 4.1 answers the debt this row used to carry
+            // ("owed by Module 5, when an upload endpoint and an actor
+            // exist") with a decision rather than a further deferral:
+            // recordScan()'s write stays unaudited, on purpose. A scan result
+            // is not a decision any actor made — it is the system's own
+            // classification of bytes already named by DEAL_DOCUMENT_ATTACHED's
+            // own entry (AttachDealDocument, below), the same distinction
+            // AUD-01's mandatory list draws between an actor's decision
+            // (a margin edit, a reassignment) and a server-computed fact
+            // nobody could tamper into a false trail — `files.scan_status`
+            // is not user-editable, so there is nothing an audit row would
+            // catch that the column itself does not already show.
+            DatabaseFileRepository::class => 'AUD-01 does not cover this write by decision, not by omission: a scan '
+                    .'result is the system\'s own classification of already-audited bytes '
+                    .'(DEAL_DOCUMENT_ATTACHED names the file), not an actor decision, and '
+                    .'files.scan_status is not user-editable.',
+
+            // Module 5 Point 4.1, the first write StorageServiceInterface::store()
+            // has ever had a database row put behind it. `create(` is the DML
+            // scanner deliberately does not match (too common a method name),
+            // but `attach(` does not exist among the DML consts either — this
+            // is caught the same way EloquentDealDirectory is, on `->insert(`
+            // plus an imported ConnectionInterface. AUD-01 is satisfied one
+            // layer out: AttachDealDocument owns the transaction and records
+            // DEAL_DOCUMENT_ATTACHED with the file id and original name. This
+            // is a persistence adapter with no actor and no event vocabulary,
+            // the same disposition as its sibling DatabaseFileRepository and
+            // EloquentDealDirectory above.
+            DatabaseFileWriter::class => 'AUD-01 is satisfied one layer out: AttachDealDocument owns the transaction '
+                    .'and records DEAL_DOCUMENT_ATTACHED with the file id and original name. This is a '
+                    .'persistence adapter with no actor and no event vocabulary.',
         ];
     }
 

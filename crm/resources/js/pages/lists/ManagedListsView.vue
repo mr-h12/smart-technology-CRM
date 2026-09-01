@@ -26,12 +26,18 @@
  * refuses regardless) but so that nobody is offered a control whose every use
  * would come back 403.
  *
- * ── No editing and no deleting, and that is the endpoint's shape ───────────
+ * ── Withdrawal is an archive; there is still no editing ───────────────────
  *
- * There is no `PATCH` and no `DELETE` behind this screen. `DB-01` forbids
- * physical deletion, and withdrawing a sector customers are already filed under
- * is a decision with consequences that the API deliberately does not offer.
- * Renaming a label is owed and named in `CHECKLIST.md`.
+ * Step 6 Point 6.1 added `DELETE /managed-lists/{list}/{code}` and 6.2 put this
+ * screen's control on it. It **archives**: a soft delete, so `DB-01` holds, the
+ * row stays, and nothing here says "delete". A code that is withdrawn stops
+ * being offered everywhere the list is used, and rows already filed under it
+ * keep it — the owner's option (أ) of 2026-08-31, for which there is no foreign
+ * key to cascade along in the first place.
+ *
+ * There is still **no `PATCH`**, so a mistyped label cannot be corrected in
+ * place: the entry is withdrawn and a fresh one added. That remains owed and is
+ * named in `CHECKLIST.md`.
  *
  * ── `position` is the one number here ──────────────────────────────────────
  *
@@ -46,11 +52,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import type { Pagination } from '@/api';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import { useAuth } from '@/stores/auth';
-import { MANAGED_LISTS, addListEntry, listEntries, type ListEntry, type ManagedListName } from '@/services/admin';
+import { MANAGED_LISTS, addListEntry, archiveListEntry, listEntries, type ListEntry, type ManagedListName } from '@/services/admin';
 
 const { t } = useI18n();
 const auth = useAuth();
@@ -74,6 +81,12 @@ const formErrors = ref<Record<string, string | null>>({ code: null, label_en: nu
 const adding = ref(false);
 const added = ref(false);
 const addError = ref<string | null>(null);
+
+/** The entry a person has asked to withdraw, and has not yet confirmed. */
+const archiving = ref<ListEntry | null>(null);
+const archiveBusy = ref(false);
+/** A lang-file key, or null. */
+const archiveError = ref<string | null>(null);
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -109,6 +122,39 @@ async function choose(list: ManagedListName): Promise<void> {
 async function goToPage(next: number): Promise<void> {
     page.value = next;
     await load();
+}
+
+async function confirmArchive(): Promise<void> {
+    const entry = archiving.value;
+
+    if (entry === null) {
+        return;
+    }
+
+    archiveBusy.value = true;
+    archiveError.value = null;
+
+    try {
+        await archiveListEntry(active.value, entry.code);
+
+        archiving.value = null;
+        await load();
+
+        // The last row of the last page leaves an empty page behind it, with a
+        // pager still offering the number it is standing on. `choose()` solves
+        // the same problem by resetting to page 1; stepping back one keeps the
+        // person nearer to where they were.
+        if (entries.value.length === 0 && page.value > 1) {
+            page.value -= 1;
+            await load();
+        }
+    } catch {
+        // The row is still there, so the screen has to look like it. Swallowing
+        // this would leave a table that disagrees with the database.
+        archiveError.value = 'lists.error.archive';
+    } finally {
+        archiveBusy.value = false;
+    }
 }
 
 function resetForm(): void {
@@ -357,6 +403,10 @@ onMounted(load);
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.label_en') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.label_ar') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.position') }}</th>
+                        <!-- `SEC-09`: hiding the column is presentation. The API
+                             refuses a `DELETE` from anyone without
+                             `admin.system_settings` whether it is drawn or not. -->
+                        <th v-if="canEdit" scope="col" class="p-3 text-end">{{ t('lists.column.actions') }}</th>
                     </tr>
                 </thead>
 
@@ -366,6 +416,17 @@ onMounted(load);
                         <td class="p-3" lang="en" dir="ltr">{{ entry.label_en }}</td>
                         <td class="p-3" lang="ar" dir="rtl">{{ entry.label_ar }}</td>
                         <td class="p-3 tabular-nums">{{ entry.position }}</td>
+                        <td v-if="canEdit" class="p-3 text-end">
+                            <button
+                                type="button"
+                                class="archive-action min-h-11 rounded-lg border px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                :data-list-code="entry.code"
+                                data-testid="lists-archive"
+                                @click="archiving = entry"
+                            >
+                                {{ t('lists.archive.action') }}
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -405,6 +466,28 @@ onMounted(load);
                 {{ t('lists.pagination.next') }}
             </button>
         </nav>
+        <p
+            v-if="archiveError !== null"
+            class="text-[var(--color-danger)]"
+            role="alert"
+            data-testid="lists-archive-error"
+        >{{ t(archiveError) }}</p>
+
+        <!-- §6.2's Danger variant is "Archive, deactivate, reject". The row
+             button is the way in and stays quiet; the destructive answer is the
+             one inside the dialog, which is where `danger` belongs. Reused
+             rather than rebuilt — it already traps Escape and returns focus. -->
+        <ConfirmDialog
+            :open="archiving !== null"
+            title-key="lists.archive.title"
+            message-key="lists.archive.message"
+            confirm-key="lists.archive.confirm"
+            :subject="archiving?.code ?? ''"
+            :busy="archiveBusy"
+            danger
+            @confirm="confirmArchive"
+            @cancel="archiving = null"
+        />
     </section>
 </template>
 
@@ -424,6 +507,30 @@ onMounted(load);
 .primary-action {
     background-color: var(--color-primary);
     color: var(--color-primary-text);
+}
+
+/* §6.2 puts "Archive, deactivate, reject" under Danger. It is drawn as an
+   outline rather than a filled red button because it repeats on every row, and
+   a table of filled danger buttons reads as a warning about the table itself;
+   the filled one lives in the dialog, where the answer is actually given. */
+.archive-action {
+    background-color: var(--color-surface);
+    border-color: var(--color-border-strong);
+    color: var(--color-danger);
+    touch-action: manipulation;
+    transition-property: background-color, color, border-color;
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+}
+
+.archive-action:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+    border-color: var(--color-danger);
+}
+
+.archive-action:active:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-danger) 18%, var(--color-surface));
+    border-color: var(--color-danger);
 }
 
 /* §6.2: "All button variants have default, hover, active, focus, disabled, and
@@ -461,7 +568,8 @@ onMounted(load);
 
 @media (prefers-reduced-motion: reduce) {
     .chip,
-    .primary-action {
+    .primary-action,
+    .archive-action {
         transition: none;
     }
 }

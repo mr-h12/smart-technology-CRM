@@ -17,7 +17,7 @@
  * this file never parses one — a screen that wants to compare two of them has
  * the same obligation.
  */
-import { apiGet, apiPatch, apiPost, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, type Pagination } from '@/api';
 
 /**
  * §13 screen 4's fields, keyed by `SystemSetting::value`.
@@ -283,4 +283,20 @@ export async function addListEntry(list: ManagedListName, entry: ListEntry): Pro
     const result = await apiPost<{ entry: ListEntry }>(`/managed-lists/${list}`, entry);
 
     return result.data.entry;
+}
+
+/**
+ * `DELETE /managed-lists/{list}/{code}` — Step 6 Point 6.1's withdrawal.
+ *
+ * **Archive, not delete.** The server soft-deletes (`DB-01`) and answers
+ * `{ archived: true }`, so nothing here says "deleted": the row is still in the
+ * table and a name that claimed otherwise would be this file telling the screen
+ * something untrue about storage.
+ *
+ * The code is the address, not a body — `OpenAPI §7.1`'s resource route. The
+ * caller reloads afterwards rather than splicing the row out locally, because
+ * the page it is on and the total it shows are the server's answers.
+ */
+export async function archiveListEntry(list: ManagedListName, code: string): Promise<void> {
+    await apiDelete<{ archived: boolean }>(`/managed-lists/${list}/${encodeURIComponent(code)}`);
 }

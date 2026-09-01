@@ -5420,6 +5420,71 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.2** The archive control on the Managed Lists screen — 6.1's endpoint, made reachable.
+      **Branched from 6.1, not from `main`.** The endpoint it calls is in PR #64, so this is a
+      stacked branch and **#64 has to merge first**; merging this alone would ship a button whose
+      route does not exist.
+      **`ConfirmDialog` is reused, not rebuilt.** It already takes `titleKey`/`messageKey`/
+      `confirmKey`/`subject`/`busy`/`danger`, already traps `Escape` and already returns focus. Its
+      `data-testid`s were **read before the tests were written**, not guessed, which is why the RED
+      run failed on behaviour rather than on selectors.
+      **§6.2's Danger variant, split across the two controls.** The documented row is "Archive,
+      deactivate, reject", and the row button is drawn as an **outline** with danger-coloured text
+      rather than a filled red button: it repeats on every row, and a table of filled danger buttons
+      reads as a warning about the table. The filled danger answer is the dialog's, which is where
+      the decision is actually made (`:danger` on `ConfirmDialog`). The new button carries
+      `:hover`/`:active` and is added to the `prefers-reduced-motion` block — §6.2's "all button
+      variants have … hover" applied to a button written *after* Point 6.0 rather than before it.
+      **`SEC-09`'s presentation half**: both the column and the cell are `v-if="canEdit"`, so a
+      reader who cannot write is not offered a control whose every use would be a 403 — the same
+      reasoning this screen already applies to the add form, and the API refuses either way.
+      **An edge this point had to answer:** archiving the last row of the last page leaves an empty
+      page with a pager still offering the number it stands on. `choose()` solves the same problem by
+      resetting to page 1; this steps back one instead, which keeps the person nearer to where they
+      were.
+      **571 frontend (34 files) · `npm run build` clean · 1935 backend (11723 assertions) · pint 458
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1605 and 862 allowed).**
+      Frontend **+6 tests** (565 → 571). **Backend moved by 0**, and that is the expected result
+      rather than a missing check: no `.vue`, `.css` or `.php` file was **added**, so no per-file
+      provider moved — `ConfirmDialog` was reused instead of a new component being written, which is
+      exactly why `NoHardCodedTextTest`'s inventory did not need an entry.
+      RED first: **5 of 6 failed**, and the sixth is worth naming — "draws no archive control for a
+      reader who cannot write" **passed before any control existed**, for the same wrong reason
+      6.1's two 404 tests passed. It is the test the deliberate break below was aimed at.
+      **Deliberate break — one, restored by inverse edit, `shasum -c` confirmed.** `v-if="canEdit"`
+      was removed from the action cell — the plausible slip, and the one the RED could not prove
+      against. **Exactly that test failed**, 19 others passed.
+      **Waste audit.**
+      *Dead code:* **one found, and removed inside the point.** A naive `grep` put `error.archive` at
+      one hit, which the rule reads as dead; the grep was wrong (JSON nests the key, so the literal
+      never appears), so every new key was instead resolved through both locale files **and** the
+      source. That check found the real one: **`lists.archive.archived` was defined in both languages
+      and rendered nowhere.** It was **deleted rather than given a home** — the row leaving the table
+      already is the feedback, which is why the add form needs an "added" message and this does not.
+      *Duplicate logic:* none. `ConfirmDialog` was searched for before anything was written and is
+      reused by five screens now; no second dialog was introduced.
+      *Unused components:* **one found — the third stale copy of a claim 6.1 falsified.** This file's
+      own class docblock still said "There is no `PATCH` and no `DELETE` behind this screen". 6.1
+      corrected `routes/api.php` and `services/admin.ts`; this one was missed and is corrected here.
+      A sweep for further copies found three more mentions, all about **catalog items**, where
+      "no DELETE at any permission" is still true (§3.12 rule 3) — left alone.
+      *Unnecessary complexity:* none. No new component, no new service abstraction, no props added to
+      `ConfirmDialog`. The page-step-back is four lines against a real empty-page bug, not a general
+      pagination rework.
+      **Problems found: three.** (1) The dead lang key above. (2) ⚠️ **`npm run test:unit` passing is
+      not the frontend gate, again.** 571 tests were green and then `vue-tsc` failed with `TS2493`:
+      two mocks written as `vi.fn(async () => …)` type `mock.calls` as an **empty tuple**, so
+      destructuring `init` off them cannot compile. Fixed by giving those mocks the signature their
+      own assertions read. (3) ⚠️ **A backend run was voided and re-run** — the locale edit landed
+      mid-run and `tests/Feature/Localisation/SpaShellTest.php` reads the locale files. Both reads
+      were 1935/11723; the reported figure is the re-run.
+      **Not covered:** **nothing un-archives from this screen** — 6.1 clears `deleted_at` nowhere, so
+      a withdrawal made by mistake is undone by adding the code again, not by restoring the row.
+      **There is still no `PATCH`**, so a mistyped *label* cannot be corrected in place. The dialog's
+      subject is the entry's **`code`**, not its label, because that is the value the endpoint
+      addresses and the one that is unambiguous in both languages — a person who thinks in labels
+      sees an internal name in the question. **No test asserts the button's colour or its hover**,
+      for `jsdom`'s reason (debt 29); the outline-vs-filled decision above is unverified by machine.
 - [x] **5.2** `company` required at the write boundary, and `filter[company]` on the list. The
       server half of the owner's ruling; the dropdowns are 5.3's and the filter control is 5.4's.
       **Why required, when §7.3 does not say so.** §7.3 lists "Providing team / company" in the

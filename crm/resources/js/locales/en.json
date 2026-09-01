@@ -494,7 +494,8 @@
             "code": "Code",
             "label_en": "English label",
             "label_ar": "Arabic label",
-            "position": "Order"
+            "position": "Order",
+            "actions": "Actions"
         },
         "empty": {
             "title": "Nothing in this list yet",
@@ -502,7 +503,8 @@
         },
         "error": {
             "load": "This list could not be loaded. Try again.",
-            "add": "The entry was not added. Try again."
+            "add": "The entry was not added. Try again.",
+            "archive": "The entry was not archived. Try again."
         },
         "add": {
             "title": "Add an entry",
@@ -527,6 +529,12 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} entries"
+        },
+        "archive": {
+            "action": "Archive",
+            "title": "Archive this entry?",
+            "message": "“{name}” will stop being offered anywhere this list is used. Rows already filed under it keep it, and the entry itself is kept — it is archived, never deleted.",
+            "confirm": "Archive entry"
         }
     },
     "customers": {

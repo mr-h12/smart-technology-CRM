@@ -286,6 +286,114 @@ describe('ManagedListsView', () => {
         expect(view.find('[data-testid="error-state"]').exists()).toBe(true);
     });
 
+    // ── archiving an entry (Step 6 Point 6.2) ───────────────────────────────
+
+    /**
+     * `SEC-09`'s presentation half. `DELETE /managed-lists/{list}/{code}` carries
+     * `admin.system_settings`, so drawing the control for a reader would offer a
+     * button whose only possible answer is 403 — the same reasoning this file
+     * already applies to the add form.
+     */
+    it('draws no archive control for a reader who cannot write', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render('en', INDOOR_SALES);
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-table"]').exists()).toBe(true);
+        expect(view.find('[data-testid="lists-archive"]').exists()).toBe(false);
+    });
+
+    /** Withdrawing a choice every form offers is not a click to take on trust. */
+    it('asks before archiving, and sends nothing until the answer is yes', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-archive"]').trigger('click');
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(true);
+        expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+    });
+
+    it('cancelling the confirmation sends nothing', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-archive"]').trigger('click');
+        await view.find('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+    });
+
+    /** The entry's own address, not a body — `OpenAPI §7.1`'s resource route. */
+    it('archives the entry at its own address', async () => {
+        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'DELETE'
+                ? json(200, { data: { archived: true, list: 'sectors', code: 'government' } })
+                : page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-archive"]').trigger('click');
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        const sent = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE');
+
+        expect(sent).toBeDefined();
+        // SECTORS[0] is the row the first control belongs to.
+        expect(String(sent?.[0])).toContain('/managed-lists/sectors/government');
+    });
+
+    /** The archived row has to leave the table, and the server is what says so. */
+    it('reloads the list once the entry is archived', async () => {
+        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'DELETE'
+                ? json(200, { data: { archived: true, list: 'sectors', code: 'government' } })
+                : page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        const readsBefore = fetchMock.mock.calls.filter(([, init]) => init?.method !== 'DELETE').length;
+
+        await view.find('[data-testid="lists-archive"]').trigger('click');
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        const readsAfter = fetchMock.mock.calls.filter(([, init]) => init?.method !== 'DELETE').length;
+
+        expect(readsAfter).toBeGreaterThan(readsBefore);
+    });
+
+    /** A refusal is drawn, never swallowed — the row is still there and must look it. */
+    it('reports a refused archive instead of pretending it worked', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'DELETE'
+                ? json(403, { error: { code: 'forbidden', message: 'This action is not allowed.' } })
+                : page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-archive"]').trigger('click');
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-archive-error"]').exists()).toBe(true);
+    });
+
     it('renders the column headings in Arabic when the locale is Arabic', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
 

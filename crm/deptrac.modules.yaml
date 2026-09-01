@@ -40,6 +40,10 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Catalog/.*
+    - name: SupplierQuotations
+      collectors:
+        - type: directory
+          value: app/Modules/SupplierQuotations/.*
     - name: Procurement
       collectors:
         - type: directory
@@ -170,6 +174,16 @@ parameters:
         # same entry since Point 2.1.
         - type: classLike
           value: ^App\\Support\\Search\\.*
+        # `App\Support\Database\Precision` — `D-68`'s column scales, added
+        # 2026-09-02 with Module 6 Point 1.3, the first Eloquent model to cast a
+        # money column. The class exists so that a column's scale and its cast's
+        # scale cannot drift apart, which is only possible if the model may name
+        # it. Narrow to the one class, **not** `^App\Support\Database\.*`:
+        # `StandardColumns` is migration scaffolding and a module has no
+        # business calling it, so the namespace would grant more than the
+        # dependency needs.
+        - type: classLike
+          value: ^App\\Support\\Database\\Precision$
 
     - name: Framework
       collectors:
@@ -274,6 +288,40 @@ parameters:
       - CustomersContract
       - StorageContract
     Quotations: ~
+    # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
+    # module's first code. **One entry, which is the shortest ruleset any module
+    # has been granted**, and each absence is a decision:
+    #
+    # `Framework` because an Eloquent model and a `ConnectionInterface` are
+    # framework objects by definition — the same reason every module before it
+    # took this entry.
+    #
+    # `SharedContracts` for **one class**: `App\Support\Database\Precision`,
+    # `D-68`'s column scales, which the model names so that its cast cannot
+    # drift from the column. Not for `App\Support\Http`'s envelope — there is
+    # no controller yet — and not for `D-48`'s `SearchService`, which is Step
+    # 4's concern. The layer was widened by exactly one `classLike` entry rather
+    # than by the `App\Support\Database` namespace, so `StandardColumns` — the
+    # migration scaffolding next door — stays out of every module's reach.
+    #
+    # Written twice, because the first version of this comment said "No
+    # `SharedContracts`" and was wrong: deptrac reported the dependency as
+    # *uncovered* until `Precision` was given a layer, and as a **violation**
+    # the moment it had one. The reasoning was checked by running the tool, not
+    # by arguing with it.
+    #
+    # **No `IdentityContract`**, on Suppliers' terms rather than Customers':
+    # §3.6 grants every role that sees this resource `Scope::All` — "a shared
+    # screen — not restricted by ownership" — so the module never asks Identity
+    # anything. If §3.6 ever gains a scope, this line changes and the crossing
+    # is a decision in a diff, which is what this file exists for.
+    #
+    # **No `AuditContract`**: `AUD-01` records writes, and the write this point
+    # adds is a persistence adapter with no actor vocabulary. Step 2 Point 2.1's
+    # use case owns the transaction and the events, and will need this entry.
+    SupplierQuotations:
+      - Framework
+      - SharedContracts
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

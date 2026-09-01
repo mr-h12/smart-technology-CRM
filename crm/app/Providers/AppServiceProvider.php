@@ -70,6 +70,8 @@ use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
 use App\Support\Database\StandardColumns;
@@ -193,6 +195,18 @@ class AppServiceProvider extends ServiceProvider
             DealDirectoryInterface::class,
             fn (): EloquentDealDirectory => new EloquentDealDirectory(
                 $this->app->make(SearchService::class),
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 6 Point 1.3. `bind` for the reason every directory above is
+        // bound rather than shared: stateless, and a singleton would outlive
+        // nothing useful. **One collaborator, not two** — `ConnectionInterface`
+        // for `document_sequences`' atomic upsert (§4.7), and no `SearchService`
+        // because nothing searches supplier quotations until Step 4.
+        $this->app->bind(
+            SupplierQuotationDirectoryInterface::class,
+            fn (): EloquentSupplierQuotationDirectory => new EloquentSupplierQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

@@ -445,6 +445,18 @@ would hide them behind `OD-03` indefinitely.
       with no failure to prove it. **`CatalogItemSchemaMigrationTest` was the sixth and is no longer
       owed**: Point 1.2 gave `catalog_items` its first child (`supplier_quotation_items`) and the test
       went red exactly as predicted, so it was converted there — with a failure to prove it
+- [ ] **`SQ-` and `DL-` allocation is the same twenty lines in two modules** — created 2026-09-02 by
+      Module 6 Point 1.3. `EloquentSupplierQuotationDirectory::nextCode()` and
+      `EloquentDealDirectory::nextCode()` differ only in a two-letter prefix and the string in their
+      `RuntimeException`; `QT`, `PO` and `RPT-*` (§4.7) will each want a third, fourth and fifth copy.
+      **Not extracted to `App\Support`, and the reason is architectural rather than effort:**
+      `AuditEnforcementTest::test_nothing_outside_a_module_writes_to_the_database` forbids
+      `app/Http`, `app/Support` and `routes` from writing to the database at all, and a sequence
+      allocator is a write. Its scanner would miss this one — the DML is a raw SQL string passed to
+      `->selectOne(`, not a `->insert(` call — so putting it there would pass the gate on a spelling
+      technicality while breaking exactly what the gate protects. Owed: a decision on where a
+      cross-module *write* helper is allowed to live, before §4.7's third prefix needs one
+
 - [ ] **Ten schema tests each carry their own private `refusedWith()`** — revealed 2026-09-02 by
       Module 6 Point 1.2, which added the tenth. The helper is identical in all of them: run a write,
       catch `QueryException`, return `errorInfo[0]`, and fail if the database accepted the row. It
@@ -6612,8 +6624,34 @@ Module 5 is finished.
       child until this table, and the test went red (`SQLSTATE[2BP01]`) on a `down()` that did not
       change. Converted here because it was failing, not on suspicion. Its now-unused
       `private const MIGRATION` went with it
-- [ ] **1.3** domain draft, `SupplierQuotationDirectoryInterface`, Eloquent directory, and `SQ-`
-      allocation reusing the existing `document_sequences`
+- [x] **1.3** domain draft, `SupplierQuotationDirectoryInterface`, Eloquent directory, and `SQ-`
+      allocation reusing the existing `document_sequences`. The module's first code:
+      `SupplierQuotationDraft` (§7.2's fields minus `code`, which §7.2 marks "Automatic", and minus
+      `entered_by`, which is `DB-02`'s `created_by` from the authenticated actor), a one-method
+      contract, `EloquentSupplierQuotationDirectory`, and the `SupplierQuotation` model.
+      **No `RowScope` parameter anywhere**, unlike Deals and Customers: §3.6 gives every role that
+      sees this resource `Scope::All` — "a shared screen — not restricted by ownership" — so a scope
+      argument would be the parameter every caller passes the same value for.
+      **One method on the interface**, because `find()` is Point 2.2 and `list()` is Point 4.1.
+      **`SQ-YYYY-NNNN` from `document_sequences`** with the identical single-statement
+      `INSERT … ON CONFLICT … DO UPDATE … RETURNING` §4.7's `DL` uses — one round trip under one row
+      lock, so two concurrent creates serialise instead of both losing to the unique index. The
+      table keys on `(prefix, year)`, which a test pins by moving `DL` to 41 and watching `SQ` still
+      start at 1.
+      **`total_price` casts through `Precision::CAST_MONEY`** (`D-68`) — the constant's first
+      caller; it had been dead since it was written. `offer_date`/`valid_until` are deliberately
+      **not** cast: a PostgreSQL `date` arrives as the `YYYY-MM-DD` string §7.2 wants, and `DB-08` is
+      a rule about instants, not about the day a supplier priced an offer.
+      ⚠️ **Two verifiers were found not to verify, and both were rewritten before this point closed.**
+      Adding `code` to the draft's writable list left every test green (the model's `#[Fillable]`
+      drops it and the directory overwrites it afterwards), and deleting the money cast left every
+      test green (the test fed a six-decimal string straight back to itself). Now a separate test
+      asserts the draft's filter directly, and the money test sends seven decimals to get six.
+      ⚠️ **`SharedContracts` was widened by one `classLike` entry in both deptrac configs** —
+      `^App\Support\Database\Precision$`, not the namespace, so `StandardColumns` stays out of
+      every module's reach. The first version of the module's ruleset said "No `SharedContracts`"
+      and was wrong: deptrac reported the dependency as *uncovered* until `Precision` had a layer,
+      and as a **violation** the moment it had one
 
 ---
 

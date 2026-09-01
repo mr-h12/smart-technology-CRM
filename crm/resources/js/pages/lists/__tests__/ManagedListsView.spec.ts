@@ -394,6 +394,121 @@ describe('ManagedListsView', () => {
         expect(view.find('[data-testid="lists-archive-error"]').exists()).toBe(true);
     });
 
+    // ── restoring from the archive (Step 6 Point 6.2c) ──────────────────────
+
+    /**
+     * `GET /managed-lists/{list}/archived` carries `admin.system_settings`,
+     * unlike the live list which carries none. So the control that reaches it
+     * is drawn for a writer only — offering a reader a view whose every request
+     * is a 403 is the defect this screen already avoids for the add form.
+     */
+    it('draws no archived view for a reader who cannot write', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render('en', INDOOR_SALES);
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-view"]').exists()).toBe(false);
+    });
+
+    it('asks the archived collection when the view is switched', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-view"]').setValue('archived');
+        await flushPromises();
+
+        const asked = fetchMock.mock.calls.map(([url]) => String(url));
+
+        expect(asked.some((url) => url.includes('/managed-lists/sectors/archived'))).toBe(true);
+    });
+
+    /** The view decides which action a row offers; an archived row cannot be archived again. */
+    it('offers Restore in the archived view and Archive in the live one', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-archive"]').exists()).toBe(true);
+        expect(view.find('[data-testid="lists-restore"]').exists()).toBe(false);
+
+        await view.find('[data-testid="lists-view"]').setValue('archived');
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-restore"]').exists()).toBe(true);
+        expect(view.find('[data-testid="lists-archive"]').exists()).toBe(false);
+    });
+
+    /**
+     * **No confirmation, deliberately.** §6.6 lists what must be confirmed —
+     * archive, deactivate, rejection, return, approval — and a single restore
+     * is none of them. `CustomersView` already reads §6.6 the same way.
+     */
+    it('restores without asking, at the entry own address', async () => {
+        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'PATCH'
+                ? json(200, { data: { restored: true, list: 'sectors', code: 'government' } })
+                : page(SECTORS));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-view"]').setValue('archived');
+        await flushPromises();
+
+        await view.find('[data-testid="lists-restore"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+
+        const sent = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+
+        expect(sent).toBeDefined();
+        expect(String(sent?.[0])).toContain('/managed-lists/sectors/government/restore');
+    });
+
+    /**
+     * `OpenAPI §5.1`'s 409 `state_transition_invalid`: the code this entry wants
+     * back was taken while it was away. A generic "try again" would send the
+     * person round a loop that cannot succeed.
+     */
+    it('explains a refused restore rather than offering a retry', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
+            init?.method === 'PATCH'
+                ? json(409, { error: { code: 'state_transition_invalid', message: 'That code is already used in this list.' } })
+                : page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-view"]').setValue('archived');
+        await flushPromises();
+        await view.find('[data-testid="lists-restore"]').trigger('click');
+        await flushPromises();
+
+        expect(view.text()).toContain(en.lists.error.restoreTaken);
+    });
+
+    /** Adding into a list you are not looking at lands the new row out of sight. */
+    it('hides the add form while the archived view is showing', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-add"]').exists()).toBe(true);
+
+        await view.find('[data-testid="lists-view"]').setValue('archived');
+        await flushPromises();
+
+        expect(view.find('[data-testid="lists-add"]').exists()).toBe(false);
+    });
+
     it('renders the column headings in Arabic when the locale is Arabic', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
 

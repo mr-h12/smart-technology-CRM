@@ -504,7 +504,9 @@
         "error": {
             "load": "This list could not be loaded. Try again.",
             "add": "The entry was not added. Try again.",
-            "archive": "The entry was not archived. Try again."
+            "archive": "The entry was not archived. Try again.",
+            "restore": "The entry was not restored. Try again.",
+            "restoreTaken": "This code has been used again since the entry was archived, so the entry cannot come back to it. Withdraw the entry that holds the code now, or add this one under a different code."
         },
         "add": {
             "title": "Add an entry",
@@ -535,6 +537,14 @@
             "title": "Archive this entry?",
             "message": "“{name}” will stop being offered anywhere this list is used. Rows already filed under it keep it, and the entry itself is kept — it is archived, never deleted.",
             "confirm": "Archive entry"
+        },
+        "view": {
+            "label": "View",
+            "active": "Active",
+            "archived": "Archived"
+        },
+        "restore": {
+            "action": "Restore"
         }
     },
     "customers": {

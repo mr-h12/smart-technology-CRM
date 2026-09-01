@@ -240,14 +240,21 @@ final class CurrencySchemaMigrationTest extends TestCase
 
     // ─────────────────────────────────────────────────────────────── DEV-03
 
+    /**
+     * `migrate:reset`, not `migrate:rollback --path`: `--path` does not choose
+     * which migrations roll back. `Migrator::rollback()` takes the whole last
+     * batch from the repository and uses the path only to resolve each entry to
+     * a file, skipping what it cannot resolve ("Migration not found") — so under
+     * `RefreshDatabase`, where the schema is a single batch, a one-file path
+     * means "run this down() while every later table still stands", and any new
+     * child foreign key turns this red (`SQLSTATE[2BP01]`) without this down()
+     * having changed. Same shelf life, same fix, as `RbacSchemaMigrationTest`
+     * and `AuditLogMigrationTest`. `DEV-03` asks that rollback work; rolling the
+     * chain back and forward proves more of it, not less.
+     */
     public function test_that_the_migration_rolls_back_and_forward_again(): void
     {
-        // Named, not `--step 1`. A step is "whatever migrated last", so the
-        // next migration anyone adds silently points this test at itself —
-        // which is exactly what happened when 1.2 landed behind 1.1.
-        self::assertSame(0, Artisan::call('migrate:rollback', [
-            '--path' => 'database/migrations/2026_08_27_010000_create_currencies_and_fx_rates.php',
-        ]));
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         foreach (self::TABLES as $table) {
             self::assertFalse(Schema::hasTable($table), "down() left `{$table}` behind (DEV-03).");

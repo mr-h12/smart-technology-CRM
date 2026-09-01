@@ -429,6 +429,21 @@ would hide them behind `OD-03` indefinitely.
       server's sentence instead. Owed: one entry in each `REQUIRED` list plus a `catalog.form.required.company`
       key in both locales. Not done in 6.4: the approved point list names the controls, not the
       validation mirror
+- [ ] **Six more schema tests still roll back with `migrate:rollback --path`, and each is one
+      foreign key from red** — revealed 2026-09-02 by Module 6 Point 1.1. `--path` does **not**
+      select which migrations roll back: `Migrator::rollback()` takes the whole last batch from the
+      repository and uses the path only to resolve each entry to a file, skipping what it cannot
+      resolve. Under `RefreshDatabase` the schema is a single batch, so a one-file path means "run
+      this `down()` while every later table still stands" — which is why four such tests went red
+      the moment `supplier_quotations` added foreign keys onto `suppliers`, `deals`, `customers` and
+      `currencies`, none of their `down()` methods having changed (`SQLSTATE[2BP01]`). Those four
+      were converted to `migrate:reset` in 1.1 because they were failing. Still on the old idiom and
+      still green only because nothing references them yet: `TrigramExtensionMigrationTest`,
+      `ImportBatchSchemaMigrationTest`, `CatalogItemSchemaMigrationTest`,
+      `ManagedListSchemaMigrationTest`, `DealLostReasonMigrationTest`, `SettingsSchemaMigrationTest`.
+      Owed: the same four-line swap in each. Not done in 1.1 — they are green, they belong to four
+      other modules, and converting a passing test on suspicion is a change with no failure to prove
+      it
 
 
 ---
@@ -6512,6 +6527,47 @@ flagged here for review rather than assumed)*
 - [ ] Offer not linked to a deal → saves normally, available to any deal
 - [ ] File upload → type, size and **true MIME** validated, stored under a UUID name
 - [ ] Shared screen — not restricted by ownership
+
+⚠️ **This module is being built out of the documented delivery order, by the owner's instruction.**
+`CLAUDE.md`'s Required Delivery Order reads `… 5 Deals → 6 Supplier Quotations`, and Module 5 still
+has open acceptance criteria owned by a second developer. Recorded here rather than in `docs/`, and
+**awaiting a `D-xx`** — no authoritative source has been reinterpreted, and nothing below assumes
+Module 5 is finished.
+
+#### Step 1 — schema *(point order approved 2026-09-02; only Step 1 is approved)*
+
+- [x] **1.1** `supplier_quotations` — §7.2's fields, `DB-01`/`DB-02`'s block, `DB-09`'s indexes, and
+      closing the `supplier_quotation_files.supplier_quotation_id → supplier_quotations` debt Module 0
+      Point 5.1 left open, in the same migration that creates the parent it was waiting for.
+      **`supplier_id` is `NOT NULL` and `deal_id` is nullable** — §4.1's entity map draws exactly one
+      line into this entity, and `D-51` states the purpose of the second being optional: the offer is
+      standalone and "available to any deal", which a required link would forbid.
+      **`currency_id`, not §7.2's literal `currency`.** `currencies_code_unique_alive` is a *partial*
+      unique index — deliberately, so an archived currency does not reserve `USD` forever — and
+      PostgreSQL cannot point a foreign key at a partial unique index. `fx_rates` already made this
+      choice; this table follows it rather than inventing a second convention.
+      **`total_price` uses the `money()` macro, not `decimal()`** (`DB-07`, `D-68`): Laravel's
+      default (8,2) truncates silently. A CHECK allows both money columns or neither and refuses one
+      alone — a price with no currency cannot be converted or printed. **Whether the write path fills
+      `total_price` from a typed figure or from the sum of Point 1.2's items is Step 2's question and
+      is deliberately not decided by this column.**
+      **No `scopeIndex()`**: §3.6 grants every role `Scope::All` ("a shared screen — not restricted by
+      ownership"), so there is no scope column to index.
+      ⚠️ **Four schema tests in four other modules were rewritten in this point, which is an explicit
+      override of module isolation.** `SupplierSchemaMigrationTest`, `CurrencySchemaMigrationTest`,
+      `DealSchemaMigrationTest` and `CustomerSchemaMigrationTest` each rolled back with
+      `migrate:rollback --path=<one file>` and each went red on this point's foreign keys without its
+      own `down()` changing. The cause is not a defect in this migration: `--path` does not choose
+      which migrations roll back — `Migrator::rollback()` takes the last batch and uses the path only
+      to resolve entries to files — so under `RefreshDatabase`, where the schema is one batch, that
+      idiom runs a `down()` while every later table still stands. All four now use `migrate:reset`,
+      the fix `RbacSchemaMigrationTest` and `AuditLogMigrationTest` already chose for the same
+      failure mode. The alternative — reaching into each ancestor's test again for every future child
+      table — is the same override paid repeatedly instead of once. Six tests still on the old idiom
+      are recorded in the debt register rather than converted here.
+- [ ] **1.2** `supplier_quotation_items`
+- [ ] **1.3** domain draft, `SupplierQuotationDirectoryInterface`, Eloquent directory, and `SQ-`
+      allocation reusing the existing `document_sequences`
 
 ---
 

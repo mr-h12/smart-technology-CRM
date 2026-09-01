@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Presentation;
 
 use App\Modules\Admin\Application\Reference\AddListEntry;
+use App\Modules\Admin\Application\Reference\ArchiveListEntry;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Listing\ListingQuery;
 use App\Modules\Admin\Domain\Reference\ListEntry;
@@ -43,6 +44,22 @@ final class ManagedListController
         ));
 
         return ApiEnvelope::single($request, ['entry' => self::payload($entry)], 201);
+    }
+
+    public function destroy(Request $request, string $list, string $code, ArchiveListEntry $archive): JsonResponse
+    {
+        if (! $archive->handle(self::listNamed($list), $code)) {
+            // An entry already archived and one that never existed are the same
+            // answer — `OpenAPI §5.1`: "do not reveal which case applies".
+            throw new NotFoundHttpException;
+        }
+
+        // 200 and not 204, and `archived` and not `deleted`, both for the
+        // reasons `RoleController::destroy` writes out: §3.3 puts a request id
+        // on every response and §4.1 puts it in `meta`, which a 204 has no body
+        // to carry; and `DB-01` soft-deletes, so a field saying `deleted` would
+        // be the API telling the SPA something untrue about storage.
+        return ApiEnvelope::single($request, ['archived' => true, 'list' => $list, 'code' => $code]);
     }
 
     /**

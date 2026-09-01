@@ -352,14 +352,28 @@ Route::middleware(['auth', 'permission:admin.system_limits'])->group(function ()
 // as `DELETE /roles/{role}`: the endpoint is defensible, the matrix does not
 // name it, and inventing a permission row would be worse than saying so.
 //
-// **No `PATCH` and no `DELETE`.** `DB-01` forbids physical deletion, and
-// withdrawing a sector customers are already filed under is a decision with
-// consequences — `ManagedListSeeder` refuses to do it silently and so does
-// this. Renaming a label is owed and named in `CHECKLIST.md`.
+// **`DELETE` archives; there is still no `PATCH`.** `DB-01` forbids physical
+// deletion, and the `DELETE` here does not perform one: it soft-deletes, which
+// is why the response says `archived`. This route replaces a comment that used
+// to refuse it outright — the refusal's first half was always about a *hard*
+// delete, and its second half ("withdrawing a sector customers are filed under
+// is a decision with consequences") was a decision the owner has now made the
+// other way (2026-08-31, in `CHECKLIST.md` awaiting a `D-xx`). Point 5.1 forced
+// the question: `companies` is seeded empty and filled by hand, so a mistyped
+// company name was permanent until this existed.
+//
+// **Nothing cascades** — owner's option (أ): a row already filed under a code
+// keeps it, and the code merely stops being offered. §10.4's line about a
+// deactivated catalog item, applied to the list that names one.
+//
+// Renaming a label is still owed and named in `CHECKLIST.md`.
 Route::middleware('auth')->group(function (): void {
     Route::get('/managed-lists/{list}', [ManagedListController::class, 'index']);
 
     Route::post('/managed-lists/{list}', [ManagedListController::class, 'store'])
+        ->middleware('permission:admin.system_settings');
+
+    Route::delete('/managed-lists/{list}/{code}', [ManagedListController::class, 'destroy'])
         ->middleware('permission:admin.system_settings');
 });
 

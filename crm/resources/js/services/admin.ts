@@ -271,11 +271,13 @@ export async function listEntries(
 }
 
 /**
- * `POST /managed-lists/{list}` — the only write this resource has.
+ * `POST /managed-lists/{list}`.
  *
- * There is no `PATCH` and no `DELETE` to pair with it: `DB-01` forbids physical
- * deletion, and withdrawing a sector customers are already filed under is a
- * decision with consequences the endpoint deliberately does not offer.
+ * There is still no `PATCH`, but `DELETE /managed-lists/{list}/{code}` now
+ * exists and **archives** — a soft delete, so `DB-01` holds and the response
+ * says `archived` rather than `deleted`. Step 6 Point 6.1 added it on the
+ * owner's ruling of 2026-08-31; **this file has no caller for it yet**, which
+ * is Point 6.2's screen work.
  */
 export async function addListEntry(list: ManagedListName, entry: ListEntry): Promise<ListEntry> {
     const result = await apiPost<{ entry: ListEntry }>(`/managed-lists/${list}`, entry);

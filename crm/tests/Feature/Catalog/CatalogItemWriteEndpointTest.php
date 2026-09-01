@@ -253,6 +253,108 @@ final class CatalogItemWriteEndpointTest extends TestCase
         self::assertSame(0, DB::table('catalog_items')->count());
     }
 
+    // ── the company joins the list (Step 6 Point 6.3) ───────────────────────
+
+    /**
+     * **Owner's ruling of 2026-08-31.** Point 5.1 made `company` a managed list
+     * precisely so that "Acme", "acme" and "Acme Ltd" stop being three
+     * companies on one screen — `R-03`'s recorded free-text risk. Point 5.2
+     * made it required. This is the half that keeps the list filled without
+     * making every catalog edit wait on a Super Admin.
+     *
+     * @return array<string, array{string, string}> typed name => derived code
+     */
+    public static function companyNames(): array
+    {
+        return [
+            'plain' => ['Alpha Co', 'alpha_co'],
+            'punctuated' => ['ACME Ltd.', 'acme_ltd'],
+            // The app is Arabic-first, so this is the ordinary case and not an
+            // edge. `Str::slug` transliterates; the code is internal ("never
+            // shown to anyone") and the labels carry the real text.
+            'arabic' => ['شركة ألفا', 'shrk_alfa'],
+            // `^[a-z][a-z0-9_]*$` — a code may not begin with a digit.
+            'leading digit' => ['3M', 'c_3m'],
+        ];
+    }
+
+    #[DataProvider('companyNames')]
+    public function test_that_a_company_not_in_the_list_is_added_to_it(string $typed, string $code): void
+    {
+        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => $typed],
+            $this->bearerFor(RoleName::Manager))->assertStatus(201);
+
+        self::assertSame(1, DB::table('enum_lists')
+            ->where('list', 'companies')->where('code', $code)->whereNull('deleted_at')->count(),
+            "'{$typed}' should have joined the companies list as '{$code}'.");
+    }
+
+    /**
+     * **The row stores the code, not the words.** Point 6.4's drop-down writes
+     * `code` — the shape `CustomerFormModal` already uses for `sector` — so a
+     * row saved today has to hold what that control will later offer, or the
+     * list and the rows stop agreeing.
+     */
+    #[DataProvider('companyNames')]
+    public function test_that_the_item_stores_the_code_and_not_the_typed_words(string $typed, string $code): void
+    {
+        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => $typed],
+            $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->assertJsonPath('data.company', $code);
+    }
+
+    /** Both labels take the typed text; §13's own hint says an entry with one wording shows blank in the other. */
+    public function test_that_the_added_entry_carries_the_typed_text_in_both_languages(): void
+    {
+        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => 'Alpha Co'],
+            $this->bearerFor(RoleName::Manager))->assertStatus(201);
+
+        $row = DB::table('enum_lists')->where('list', 'companies')->where('code', 'alpha_co')->first();
+
+        self::assertNotNull($row);
+        self::assertSame('Alpha Co', $row->label_en);
+        self::assertSame('Alpha Co', $row->label_ar,
+            'The Arabic label holds the typed text until a Super Admin corrects it — owner accepted.');
+    }
+
+    /** Adding twice is one entry: the whole point is that the list stops fragmenting. */
+    public function test_that_a_company_already_listed_is_not_added_twice(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        foreach (['Alpha Co', 'alpha co', 'ALPHA CO'] as $spelling) {
+            $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => $spelling], $bearer)
+                ->assertStatus(201);
+        }
+
+        self::assertSame(1, DB::table('enum_lists')->where('list', 'companies')->count(),
+            'Three spellings of one company are one entry — R-03, and the reason 5.1 made this a list.');
+    }
+
+    /**
+     * **The permission question this point had to answer.** Writing a managed
+     * list carries `admin.system_settings` (Super Admin), while a catalog write
+     * carries `catalog.manage` (six operational roles). A Manager saving an item
+     * therefore causes a list write it could not make directly.
+     *
+     * Owner's ruling, 2026-08-31: it is a **system consequence of a permitted
+     * action**, not the actor exercising a permission it does not hold — and
+     * the audit names the actor, so it is visible rather than silent. Recorded
+     * in `CHECKLIST.md` awaiting a `D-xx`.
+     */
+    public function test_that_a_role_without_the_settings_permission_still_fills_the_list(): void
+    {
+        $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => 'Beta Systems'],
+            $this->bearerFor(RoleName::IndoorSales))->assertStatus(201);
+
+        self::assertSame(1, DB::table('enum_lists')->where('list', 'companies')->where('code', 'beta_systems')->count());
+
+        // The entry is not anonymous: `AUD-01`, and the same record `AddListEntry`
+        // writes when a Super Admin adds one by hand.
+        self::assertSame(1, DB::table('audit_log')->where('event', 'LIST_ENTRY_ADDED')->count());
+    }
+
     // ──────────────────────────────────────────────────────────── the update
 
     public function test_that_an_edit_changes_only_what_it_names(): void

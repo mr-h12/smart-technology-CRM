@@ -521,3 +521,64 @@ describe('ManagedListsView', () => {
         expect(view.text()).not.toContain(en.lists.column.position);
     });
 });
+
+/**
+ * Point 6.6 — the code fills itself from the English label.
+ *
+ * `AddListEntryRequest` requires `code` to match `^[a-z][a-z0-9_]*$`, and until
+ * now a Super Admin had to compose that by hand for every entry, next to a
+ * label that already says the same thing. Owner's request, 2026-09-01: fill it
+ * automatically.
+ *
+ * **From the English label only** (owner's answer). The server's regex is Latin
+ * to begin with, and the transliteration `Str::slug` applies to Arabic —
+ * `شركة ألفا → shrk_alfa` — is a PHP table the browser does not have, so
+ * deriving from the Arabic box here would produce a *different* code from the
+ * one Point 6.3's auto-registration produces for the same company.
+ *
+ * **Still editable** (owner's answer), which is only true if the derivation
+ * stops the moment a person edits the box. A field that silently reverts on the
+ * next keystroke is a read-only field wearing a text box's clothes.
+ */
+describe('ManagedListsView — the code fills itself (Point 6.6)', () => {
+    it('derives a valid code from the English label as it is typed', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-label-en"]').setValue('Alpha Co');
+
+        expect((view.find('[data-testid="lists-code"]').element as HTMLInputElement).value).toBe('alpha_co');
+    });
+
+    /** The server's regex, from the labels a person actually types. */
+    it('answers the boundary regex for labels that do not start with a letter', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        for (const [label, code] of [['3M Gulf', 'c_3m_gulf'], ['  Éclair & Co.  ', 'eclair_co']] as const) {
+            await view.find('[data-testid="lists-label-en"]').setValue(label);
+
+            const derived = (view.find('[data-testid="lists-code"]').element as HTMLInputElement).value;
+
+            expect(derived).toBe(code);
+            expect(derived).toMatch(/^[a-z][a-z0-9_]*$/);
+        }
+    });
+
+    it('stops deriving once the code has been edited by hand', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-label-en"]').setValue('Alpha Co');
+        await view.find('[data-testid="lists-code"]').setValue('alpha');
+        await view.find('[data-testid="lists-label-en"]').setValue('Alpha Company');
+
+        expect((view.find('[data-testid="lists-code"]').element as HTMLInputElement).value).toBe('alpha');
+    });
+});

@@ -521,7 +521,7 @@
             "position": "Order"
         },
         "hint": {
-            "code": "A short internal name for this entry, never shown to anyone. Use small English letters, digits and underscores only, and choose one you will not want to change later.",
+            "code": "A short internal name for this entry, never shown to anyone. It fills itself in from the English label; change it only if you want a different one, and choose one you will not want to change later.",
             "label_en": "How this entry reads for someone using the system in English. This is the wording people actually see.",
             "label_ar": "How this entry reads for someone using the system in Arabic. Both languages are required, because an entry with one wording shows blank in the other.",
             "position": "Where this entry sits when the choices are listed. Start at 1 and count upwards; the smallest number comes first."

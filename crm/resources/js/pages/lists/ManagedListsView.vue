@@ -63,7 +63,7 @@
  * once, at the moment of sending, rather than letting a browser hand back
  * `1.5`.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import type { Pagination } from '@/api';
@@ -91,6 +91,47 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 
 const form = ref({ code: '', label_en: '', label_ar: '', position: '' });
+
+/**
+ * The code writes itself from the English label — owner's request, 2026-09-01.
+ *
+ * **From the English label and not the Arabic one** (owner's answer). The
+ * boundary's own rule is Latin — `AddListEntryRequest` requires
+ * `^[a-z][a-z0-9_]*$` — and the transliteration `Str::slug` applies to Arabic
+ * (`شركة ألفا → shrk_alfa`) is a PHP table the browser does not have. Deriving
+ * from the Arabic box here would hand the same company a *different* code from
+ * the one Point 6.3's auto-registration gives it.
+ *
+ * ponytail: a Latin-only slug, not `Str::slug`. The accent fold covers the
+ * Latin-1 names that actually appear; anything the fold cannot reduce falls out
+ * as an empty code, which is the case the person types by hand.
+ */
+function codeFrom(label: string): string {
+    const slug = label
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+    // `c_` for a code that starts with a digit, the prefix Point 6.3 already
+    // uses on the server for exactly this case.
+    return slug === '' || /^[a-z]/.test(slug) ? slug.slice(0, 64) : `c_${slug}`.slice(0, 64);
+}
+
+/**
+ * A code the person has edited is theirs, and the derivation stops there. The
+ * owner asked for a field that fills itself **and stays editable**, and the
+ * second half is only true if a later keystroke in the label box cannot quietly
+ * take the edit back.
+ */
+const codeEdited = ref(false);
+
+watch(() => form.value.label_en, (label) => {
+    if (!codeEdited.value) {
+        form.value.code = codeFrom(label);
+    }
+});
 /** The server's own sentences, per field. Never composed here. */
 const formErrors = ref<Record<string, string | null>>({ code: null, label_en: null, label_ar: null, position: null });
 const adding = ref(false);
@@ -220,6 +261,7 @@ async function confirmArchive(): Promise<void> {
 
 function resetForm(): void {
     form.value = { code: '', label_en: '', label_ar: '', position: '' };
+    codeEdited.value = false;
     formErrors.value = { code: null, label_en: null, label_ar: null, position: null };
     added.value = false;
     addError.value = null;
@@ -336,6 +378,7 @@ onMounted(load);
                     :aria-invalid="formErrors.code !== null"
                     :aria-describedby="formErrors.code === null ? 'hint-list-code' : 'hint-list-code error-list-code'"
                     data-testid="lists-code"
+                    @input="codeEdited = true"
                 >
                 <span
                     id="hint-list-code"

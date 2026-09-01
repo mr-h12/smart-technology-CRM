@@ -414,6 +414,22 @@ would hide them behind `OD-03` indefinitely.
       namespace), then register whatever it finds. Not done in Point 3.2: two of the three classes
       are Point 2.2's, widening the scanner is its own change with its own failure proof, and
       `CLAUDE.md` says to mention an unrelated issue rather than change it
+- [ ] **Three copies of the managed-list label ternary remain under `pages/customers/`** —
+      revealed 2026-08-31 by Point 6.4. `locale.startsWith('ar') ? entry.label_ar : entry.label_en`
+      is written out in `CustomersView.vue`, `CustomerFormModal.vue` and `CustomerDetailView.vue`.
+      Point 6.4 removed the fourth copy it was about to add by exporting `entryLabel(entry, locale)`
+      from `services/admin.ts`, which is now the shared one. Owed: three one-line swaps to the
+      import. Not done in 6.4 — the files are outside its approved list and a cleanup buried in an
+      unrelated point is unreviewable
+- [ ] **`company` is required on the server but is not in the catalog form's `REQUIRED` mirror** —
+      recorded 2026-08-31 with Point 6.4. `SaveCatalogItemRequest` has made it `required` on POST
+      and `sometimes|required` on PATCH since Point 5.2, but `CatalogItemFormModal`'s `REQUIRED` map
+      still lists only the three `required_if` rules. So the field carries **no required marker**
+      (§6.3 asks for an explicit one) and a blank company costs a round trip, coming back as the
+      server's sentence instead. Owed: one entry in each `REQUIRED` list plus a `catalog.form.required.company`
+      key in both locales. Not done in 6.4: the approved point list names the controls, not the
+      validation mirror
+
 
 ---
 
@@ -5420,6 +5436,76 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.4** The catalog form stops asking a person to retype `DB-05`. `unit` and `service_type`
+      become `<select>`s over their lists, `company` becomes an `<input list>` over a `<datalist>`,
+      and a service gains an optional `name`.
+      **Why the three are not drawn the same way.** The boundary does not treat them the same, and
+      the form follows the boundary. `SaveCatalogItemRequest` says in its own docblock that `unit`
+      and `service_type` are checked "for shape, not for membership", while
+      `SaveCatalogItem::withListedCompany()` (Point 6.3) **registers** an unknown company rather
+      than refusing it. So the two the server would have to refuse are closed sets — the owner's
+      ruling (ج) recorded at 6.3 — and the one it adopts stays open, exactly as the owner asked for
+      it: "optional droplist and the user can write it". `company` remains **required** (5.2's
+      ruling), because open is not the same as optional.
+      **`<datalist>` and not a combobox component.** It is the native control for "suggest, do not
+      restrict", it is keyboard- and screen-reader-handled by the browser, and it needs no library
+      and no focus management — which is the one place `CatalogItemFormModal` is already weak (debt
+      28). Its `<option>` carries the **code** as its value and the locale label as its `label`,
+      because the code is what the column stores after 6.3 and what `filter[company]` will match in
+      6.5. `Str::slug` is idempotent on an already-derived code — **measured, not assumed**:
+      `alpha_co → alpha_co`, `c_3m → c_3m` — so a picked suggestion round-trips to the same entry
+      rather than registering a second one.
+      **A stored value the list does not carry stays selectable.** `unit` was free text before this
+      point, so rows exist whose value is in no list; a `<select>` cannot hold an option it was not
+      given and the browser would report its **first** option instead — a silent rewrite of a column
+      nobody touched. `selectOptions()` appends the stored value when the list has lost it. That is
+      data-loss prevention, not a convenience, and it is the one test in this point that would fail
+      silently in production rather than loudly.
+      **Why a service gains a name.** `name` is `required_if:kind,product` **and** `nullable`, so a
+      service may carry one and is never asked for one — no backend change was needed or made. Until
+      now the Service tab's Name column had nothing to print but a dash on every row, because no
+      control existed to fill it. Drawn with no required marker, since the server does not require it.
+      **The lists load beside the page, not before it.** `CustomersView::loadSectors` already
+      establishes the shape and the reason: `GET /managed-lists/{list}` names no permission, and a
+      dropdown that could not be filled is one control short rather than a broken screen, so the
+      failure is swallowed and the catalog still renders. Page 1 only, as the sectors are.
+      **Checks: 1957 backend (11847 assertions) · 582 frontend (34 files) · `npm run build` clean ·
+      pint PASS 459 files · PHPStan level 10 `[OK] No errors` · deptrac 0 / 0 on both configs.**
+      No backend file changed, so the backend figure is 6.3's, unmoved. Frontend 577 → **582**, the
+      five tests added here.
+      **RED first, and read rather than counted:** the five new tests failed and the 43 existing ones
+      passed, so the new assertions were the only thing failing. Two existing refusal tests then
+      broke on GREEN — `setValue('repair')` on what was now a closed `<select>` cannot set a code the
+      options do not carry, so validation blocked the submit and the server refusal under test never
+      happened. That is the closed set doing its job, and the fixture list gained `repair` rather
+      than the tests being rewritten.
+      **Problems found: two.** (1) The two refusal tests above. (2) `CatalogView.spec.ts` indexes its
+      `fetch` calls (`urlOf(mock, 1)`, `(…, 2)`) and mount now fires three more requests, which would
+      have moved every indexed assertion. The helper was narrowed to the `/catalog-items` calls
+      instead, so the index means what it says and does not move again when a fourth list is added.
+      **Waste audit.** *Dead code:* every symbol added — `isSelect`, `selectOptions`, `entryLabel`,
+      `loadLists`, `serviceTypes`, `catalogCalls`, the `noSelection` key and the
+      `catalog-form-company-options` id — greps to **two or more** hits over `app/` and
+      `resources/`, so none is a definition standing alone. *Duplicate logic:* found, and it was
+      **this point's own**. `locale.startsWith('ar') ? entry.label_ar : entry.label_en` already
+      exists three times under `pages/customers/`, and the first draft of this point wrote a fourth.
+      It was removed inside the point: `entryLabel(entry, locale)` now lives beside `ListEntry` in
+      `services/admin.ts` and the form imports it. The **three pre-existing copies are revealed, not
+      created**, and go to the debt register rather than being migrated in an unrelated point.
+      *Unused components:* no `.vue`, route or lang key was added without a caller; no guard moved,
+      because no file was added. *Unnecessary complexity:* `selectOptions`'s fallback entry is the
+      data-loss guard above and not a speculative option; `isSelect` is a type predicate that exists
+      so `selectOptions` can be typed to the two fields it serves.
+      **Not covered:** the **company filter control is still 6.5's** — `filter[company]` has had no
+      caller since 5.2. `unit` and `service_type` are still **unvalidated against `enum_lists` on the
+      server** (debt 23); this point closes the screen's half and not the boundary's, so another
+      client may still send an unlisted unit. `company` is required on the server but **not in this
+      form's `REQUIRED` mirror**, so a blank one still costs a round trip and comes back as the
+      server's own sentence rather than as a required marker — reported on the debt register, not
+      changed, because the approved point list does not name it. Nothing migrates the **old free-text
+      `company` values** (§1.2's open decision, unchanged). No focus trap or focus return in the
+      modal (debt 28), and the `<datalist>` inherits that. The stored-value fallback covers `unit`
+      and `service_type` only — `company` needs none, being an open field.
 - [x] **6.3** A company typed into the catalog form joins `DB-05`'s companies list, and the item
       stores its **code**. The owner ordered this started without answering the three questions
       6.2's plan raised, so it proceeds under the recommended answers, **each recorded here awaiting

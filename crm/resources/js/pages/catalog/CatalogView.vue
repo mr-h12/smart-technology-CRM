@@ -59,6 +59,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import { listEntries, type ListEntry } from '@/services/admin';
 import { listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
@@ -87,6 +88,11 @@ const canManage = computed(() => auth.hasPermission('catalog.manage'));
 
 const formOpen = ref(false);
 const editing = ref<CatalogItem | null>(null);
+
+/** `DB-05`'s three lists, which the form draws its controls from (Point 6.4). */
+const units = ref<ListEntry[]>([]);
+const serviceTypes = ref<ListEntry[]>([]);
+const companies = ref<ListEntry[]>([]);
 
 const items = ref<CatalogItem[]>([]);
 const pagination = ref<Pagination | null>(null);
@@ -258,7 +264,37 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
-onMounted(load);
+/**
+ * The form's three lists, on `CustomersView::loadSectors`'s terms.
+ *
+ * `GET /managed-lists/{list}` names no permission — authentication alone — and
+ * a dropdown that could not be filled is one control short, not a broken
+ * screen, so a failure here is swallowed and the catalog still loads.
+ *
+ * ponytail: page 1 only, as the sectors are. The seeded sets are small and the
+ * endpoint pages at 25; a 26th unit needs a paged fetch, not a redesign.
+ */
+async function loadLists(): Promise<void> {
+    try {
+        const [unitPage, servicePage, companyPage] = await Promise.all([
+            listEntries('units', 1),
+            listEntries('service_types', 1),
+            listEntries('companies', 1),
+        ]);
+
+        units.value = unitPage.items;
+        serviceTypes.value = servicePage.items;
+        companies.value = companyPage.items;
+    } catch {
+        units.value = [];
+        serviceTypes.value = [];
+        companies.value = [];
+    }
+}
+
+onMounted(async () => {
+    await Promise.all([load(), loadLists()]);
+});
 </script>
 
 <template>
@@ -511,6 +547,9 @@ onMounted(load);
             :open="formOpen"
             :editing="editing"
             :kind="kind"
+            :units="units"
+            :service-types="serviceTypes"
+            :companies="companies"
             @saved="onSaved"
             @cancel="formOpen = false"
         />

@@ -791,6 +791,7 @@
                 "product": "Edit product",
                 "service": "Edit service"
             },
+            "noSelection": "Not chosen",
             "requiredMarker": "(required)",
             "required": {
                 "name": "The product name is required.",

@@ -433,6 +433,59 @@ would hide them behind `OD-03` indefinitely.
 
 ---
 
+## Agent guide revisions — owner-directed
+
+Changes to `CLAUDE.md` and `AGENTS.md` themselves. They belong to no module, and they are recorded
+because `CLAUDE.md` requires every point to update this file — the earlier rule change that added
+the waste audit to both guides (PR #63) left no row here, which is how this section came to be
+missing in the first place.
+
+- [x] **G-01** `Current State` in **both guides** replaced with what is true. *(2026-09-02, owner's
+      request.)* Both files opened with **"No application code yet"** while `main` carried 13 modules
+      and 1981 passing backend tests, and both say in their own text *"Update this section whenever
+      it stops being true"* — `AGENTS.md` adds that it *"must stay identical in meaning to the same
+      section in `CLAUDE.md`"*. So the staleness was not a cosmetic lag: it was the one instruction
+      every agent reads first, saying the opposite of the repository it describes.
+      **Every figure is measured, none recalled.** On `main` at `862c0c0`: `ls crm/app/Modules/` → 13
+      modules, `ls crm/database/migrations/*.php | wc -l` → 22, `php artisan test` → **1981 passed
+      (11958 assertions)**, `npm run test:unit` → **582 passed (34 files)**. Module progress is
+      counted from this file's own checkboxes by `awk`, not estimated: 0 → 56/56 · 1 → 38 closed, 2
+      open · 2 → 16/3 · 3 → 22/6 · 4 → 26/1 · 5 → 15/5 · 6 → 0/5.
+      **One claim was not stale but wrong.** The old bullet read *"OD-03 remains unresolved and still
+      blocks Module 0"*, while the same file's Start Conditions said `D-66` had already lifted that
+      block and Module 0 is 56/56. The two sentences contradicted each other inside one file; the new
+      bullet keeps `OD-03` open against the server, `P-02` and the deployment-debt register, and
+      drops the module claim.
+      **Checks: none of the six gates applies, and that is read from the workflow rather than
+      assumed.** `.github/workflows/php-image.yml` filters `push` **and** `pull_request` on
+      `docker/php/**`, `crm/**` and itself, so a change to root `*.md` triggers **no CI run at all** —
+      its absence is correct, not a pending result. `grep -rn` over `crm/tests` for a runtime read of
+      either guide (`file_get_contents`, `base_path`) returns **nothing**: the ten test files that
+      mention `CLAUDE.md` cite it in comments. No suite can observe this change.
+      **The sync check was verified by breaking it.** The two sections are extracted with `awk` and
+      compared: identical, `91adc06a…`. ⚠️ The **first** version of that check was vacuous — its
+      `sed` range ran past the section and its `shasum` came back `e3b0c442…b855`, the hash of an
+      **empty file**, so it would have reported "identical" for any two inputs including none. Caught
+      by reading the hash instead of the word PASS. The corrected check was then proved: changing
+      `22 migrations` to `21` in `AGENTS.md` alone made it report **DIVERGENCE DETECTED**, and the
+      file was restored and re-compared identical.
+      **Problems found: two.** (1) The vacuous verifier above. (2) A claim in the report that preceded
+      this point — that the stale `Current State` was *"item 27 on the debt register"* — was wrong:
+      `grep` finds no such row in this file. It was an item in a private session handoff, not here.
+      Corrected to the owner in the same message, and nothing was struck from the register.
+      **Waste audit.** *Dead code:* none added — this point adds prose only, and both guides render
+      it. *Duplicate logic:* the section is deliberately duplicated across the two files, which is
+      the documented requirement rather than waste; the `awk` comparison is the guard on it.
+      *Unused components:* this section is new and holds one entry — created because there was
+      nowhere to record a guide change, which PR #63 demonstrated by recording nothing. *Unnecessary
+      complexity:* none; the alternative considered was filing this under *Shell revisions*, rejected
+      because that section's own text scopes it to the shell.
+      **Not covered:** the sync between the two guides is checked **by hand in this point only** —
+      nothing in CI or the suites will catch the next divergence, and the wording outside
+      `Current State` still differs by design, so a byte-comparison of the whole files would be the
+      wrong guard. `README.md` was **not** examined and may carry its own stale claims. PR #63's
+      missing row is named above but **not backfilled** — that is somebody's point, not this one's.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

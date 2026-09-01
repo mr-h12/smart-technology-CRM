@@ -104,4 +104,24 @@ interface DealDirectoryInterface
      * @return list<DealActivitySnapshot>
      */
     public function activityForCustomer(string $customerId): array;
+
+    /**
+     * Point 4.2 — every customer whose §4.5 status *can* depend on the clock,
+     * for `J-02`'s nightly sweep. No scope parameter, on {@see activityForCustomer()}'s
+     * precedent: this runs as a system-level maintenance pass, not on behalf
+     * of a caller whose row-level reach needs narrowing.
+     *
+     * Excludes only what is provably unaffected by time passing: a customer
+     * with no deal but `lost` ones is `Deal Not Completed` regardless of how
+     * long ago that happened (rule 4 fires on `active === []`, not on an
+     * elapsed duration), so `status != 'lost'` is the whole filter — a
+     * customer already `Customer` via rule 1 is *included* and simply
+     * reconfirms the same answer, since narrowing further would mean
+     * duplicating rule 1's "won or beyond" reading here instead of leaving
+     * every rule where {@see \App\Modules\Deals\Domain\CustomerStatus\CustomerStatusDerivation}
+     * alone decides them.
+     *
+     * @return list<string>
+     */
+    public function customerIdsWithActiveDeals(): array;
 }

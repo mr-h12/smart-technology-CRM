@@ -6435,6 +6435,58 @@ flagged here for review rather than assumed)*
       exists anywhere in `Storage`, and building one was judged out of scope for wiring this
       endpoint's first consumer. The quotation-expiry clause and multi-deal interpretation recorded
       under Point 3.1 remain open for the same reasons given there.
+- [x] **4.2** `J-02`'s nightly half (§4.5, `D-49`) — Point 3.1's own deferral, closed. A customer
+      whose only active deal simply goes stale, with neither `POST /deals` nor `PATCH
+      /deals/{id}/status` ever firing again, now gets recomputed anyway.
+      **Reuses `RecomputeCustomerStatus` rather than re-deriving §4.5.** The new class,
+      `RecomputeStaleCustomerStatuses`, only decides *which* customers to ask and *when*; the five
+      rules stay in exactly one place, `CustomerStatusDerivation`, called once per candidate the same
+      way the event-triggered half already does.
+      **The candidate query, `DealDirectoryInterface::customerIdsWithActiveDeals()`, excludes only
+      what §4.5 proves is unaffected by the clock.** `status != 'lost'` is the whole filter — a
+      customer with only `Lost` deals is `Deal Not Completed` regardless of elapsed time (rule 4
+      fires on `active === []`, not on a duration), and a customer with no deals at all is
+      `Prospect` for the same reason (rule 5). A `Won`-or-beyond customer is *included* rather than
+      filtered out separately, and simply reconfirms the same answer — narrowing further would mean
+      restating rule 1's reading here instead of leaving it where `CustomerStatusDerivation` alone
+      decides it.
+      **Queued onto `maintenance`, not scheduler-run like `J-15`.** §15's default is a queued job;
+      `J-15` is its one documented exception, for a failure mode (`audit_log` silently running out of
+      months while nothing drains a queue with no Horizon to watch it) this job does not share — a
+      missed night here is repaired by tomorrow's run or the next deal-write event, whichever comes
+      first. `RecomputeStaleCustomerStatusesJob` dispatches onto `QueueName::Maintenance`, where
+      `worker-maintenance` already drains it with its own `--tries=3`.
+      **No catch-up entry (`D-55`, `ST-05`), on `J-15`'s own precedent.** `routes/console.php`'s
+      comment on `J-15` records why *it* needs none: idempotent and always evaluated against *now*,
+      so a run missed for a week is repaired by the next run's fresh read rather than by replaying
+      the nights that did not happen. `CustomerStatusDerivation::derive()` is exactly that kind of
+      function — a pure read of current deals against the current clock — so the same reasoning
+      carries over exactly, not by analogy.
+      **9 new tests (22 assertions) · 1981 backend (11958 assertions) · 582 frontend (34 files) ·
+      pint 471 files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      Covers the candidate query directly (won/lost/mixed/no-deal fixtures), the sweep's effect
+      through `run()`, the job's `handle()` resolved through the container, the schedule's frequency
+      (`0 0 * * *`, `Schedule::job()`'s `CallbackEvent`, on `EnsureAuditPartitionsTest`'s own
+      schedule-testing pattern), and — separately — that firing the scheduled event actually
+      dispatches onto `maintenance` (`Queue::fake()` plus `$event->run($this->app)`, since a
+      `CallbackEvent`'s closure is otherwise opaque to a test).
+      **One deliberate break.** The candidate query's filter flipped from `!= 'lost'` to `=
+      'lost'` — inverted exactly which customers the sweep considers → 4 of 9 tests failed (the
+      candidate-query test, the won-reconfirms test, the stale-becomes-no_response test, the job
+      test, the idempotency test); the unconfigured-threshold test passed coincidentally, since an
+      excluded customer that was already `Prospect` stays `Prospect` either way. Restored, confirmed
+      with `shasum -a 256 -c`.
+      **Problems found:** one. `customerIdsWithActiveDeals()`'s return type (`Deal::query()->pluck('customer_id')->all()`)
+      failed PHPStan level 10 the same way `activityForCustomer()` did in Point 3.1 — `pluck()`'s
+      element type is not provably `string` — fixed with an explicit `->map()` cast, the same
+      `@phpstan-ignore-line cast.string` precedent `DatabaseFileRepository` already uses for a
+      property read PHPStan cannot narrow either.
+      **Not covered:** the quotation-expiry clause of rule 3 and the multi-deal interpretation remain
+      open, unchanged from Point 3.1 — this point processes existing deals against the existing
+      derivation, and neither gap is in that function's reach. No manual trigger command exists for
+      an operator who wants to run the sweep on demand outside its nightly schedule; the job is
+      dispatched only by `Schedule::job()`. Module 5's own manual test list — required before Module
+      6 work is allowed to start — has not been published yet; this was the last point blocking it.
 
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses

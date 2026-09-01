@@ -5468,7 +5468,19 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       **Deliberate break — one, aimed at the vacuous test.** Removing the `if (!codeEdited.value)`
       guard failed **exactly that test** — `expected 'alpha_company' to be 'alpha'` — and nothing
       else. Restored with the inverse edit, `shasum -a 256 -c` OK.
-      **Problems found: one.** The vacuous RED above. Nothing else went wrong.
+      **Problems found: two, and the second was found by the owner on the running app.**
+      (1) The vacuous RED above.
+      (2) ⚠️ **The first version did not fill anything for the owner, and the tests could not have
+      caught it.** The code box was the **first field on the form**, so a person filling it top to
+      bottom lands in it before any label exists to derive from — and the latch fired on *any*
+      `input`, so one stray character typed and deleted killed the derivation for the rest of the
+      form's life. Diagnosed by measurement rather than by theory: the served bundle was grepped and
+      **did** contain `codeFrom` and the new hint (`normalize(\`NFD\`).replace(/[\u0300-\u036f]/g…`),
+      and `curl` confirmed the served page referenced that exact asset — so it was never a stale
+      build. The fix is the root cause, not the symptom: the code box **moves below the two labels**
+      it is derived from, and emptying it **un-latches** the derivation, because clearing a box is
+      asking for the suggestion back rather than editing it. Two tests added for both halves; both
+      failed first.
       **Waste audit.** *Dead code:* `codeFrom` and `codeEdited` grep to 2 and 4 hits over `app/` and
       `resources/`. *Duplicate logic:* searched before writing — `grep -rn "normalize('NFD')"` over
       `resources/js` returns **this file only**, so there was no existing slug helper to reuse and

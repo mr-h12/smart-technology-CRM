@@ -569,6 +569,35 @@ describe('ManagedListsView — the code fills itself (Point 6.6)', () => {
         }
     });
 
+    /** The root cause of the owner's "it does not fill itself": the code box was the first field. */
+    it('puts the code after the labels it is derived from', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        const order = view.findAll('[data-testid^="lists-"]')
+            .map((box) => box.attributes('data-testid'))
+            .filter((id) => ['lists-code', 'lists-label-en', 'lists-label-ar'].includes(id ?? ''));
+
+        expect(order).toEqual(['lists-label-en', 'lists-label-ar', 'lists-code']);
+    });
+
+    /** Emptying the box is not an edit — it is asking for the suggestion back. */
+    it('resumes deriving when the code box is cleared again', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
+
+        const view = await render();
+        await flushPromises();
+
+        await view.find('[data-testid="lists-label-en"]').setValue('Alpha Co');
+        await view.find('[data-testid="lists-code"]').setValue('alpha');
+        await view.find('[data-testid="lists-code"]').setValue('');
+        await view.find('[data-testid="lists-label-en"]').setValue('Alpha Company');
+
+        expect((view.find('[data-testid="lists-code"]').element as HTMLInputElement).value).toBe('alpha_company');
+    });
+
     it('stops deriving once the code has been edited by hand', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page(SECTORS)));
 

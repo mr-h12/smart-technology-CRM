@@ -124,6 +124,13 @@ function codeFrom(label: string): string {
  * owner asked for a field that fills itself **and stays editable**, and the
  * second half is only true if a later keystroke in the label box cannot quietly
  * take the edit back.
+ *
+ * **Emptying the box is not an edit — it is asking for the suggestion back.**
+ * Without that, one stray character typed and deleted kills the derivation for
+ * the rest of the form's life, which is exactly what the owner hit: the code
+ * box used to be the *first* field, so a person filling the form top to bottom
+ * landed in it before any label existed to derive from. The box now sits after
+ * the two labels, which is the root cause; this latch is the other half.
  */
 const codeEdited = ref(false);
 
@@ -365,34 +372,6 @@ onMounted(load);
             @submit.prevent="add"
         >
             <label class="flex flex-col gap-1.5">
-                <span class="text-form-label text-[var(--color-text)]">{{ t('lists.field.code') }}</span>
-                <input
-                    v-model="form.code"
-                    type="text"
-                    maxlength="64"
-                    autocapitalize="none"
-                    class="field min-h-11 w-48 rounded-lg border px-3 text-[var(--color-text)]"
-                    :class="formErrors.code === null
-                        ? 'border-[var(--color-border-strong)]'
-                        : 'border-[var(--color-danger)]'"
-                    :aria-invalid="formErrors.code !== null"
-                    :aria-describedby="formErrors.code === null ? 'hint-list-code' : 'hint-list-code error-list-code'"
-                    data-testid="lists-code"
-                    @input="codeEdited = true"
-                >
-                <span
-                    id="hint-list-code"
-                    class="text-table text-[var(--color-text-muted)] text-pretty"
-                    data-testid="list-hint"
-                >{{ t('lists.hint.code') }}</span>
-                <span
-                    v-if="formErrors.code !== null"
-                    id="error-list-code"
-                    class="text-table text-[var(--color-danger)]"
-                >{{ formErrors.code }}</span>
-            </label>
-
-            <label class="flex flex-col gap-1.5">
                 <span class="text-form-label text-[var(--color-text)]">{{ t('lists.field.label_en') }}</span>
                 <input
                     v-model="form.label_en"
@@ -450,6 +429,34 @@ onMounted(load);
                     id="error-list-label-ar"
                     class="text-table text-[var(--color-danger)]"
                 >{{ formErrors.label_ar }}</span>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span class="text-form-label text-[var(--color-text)]">{{ t('lists.field.code') }}</span>
+                <input
+                    v-model="form.code"
+                    type="text"
+                    maxlength="64"
+                    autocapitalize="none"
+                    class="field min-h-11 w-48 rounded-lg border px-3 text-[var(--color-text)]"
+                    :class="formErrors.code === null
+                        ? 'border-[var(--color-border-strong)]'
+                        : 'border-[var(--color-danger)]'"
+                    :aria-invalid="formErrors.code !== null"
+                    :aria-describedby="formErrors.code === null ? 'hint-list-code' : 'hint-list-code error-list-code'"
+                    data-testid="lists-code"
+                    @input="codeEdited = form.code !== ''"
+                >
+                <span
+                    id="hint-list-code"
+                    class="text-table text-[var(--color-text-muted)] text-pretty"
+                    data-testid="list-hint"
+                >{{ t('lists.hint.code') }}</span>
+                <span
+                    v-if="formErrors.code !== null"
+                    id="error-list-code"
+                    class="text-table text-[var(--color-danger)]"
+                >{{ formErrors.code }}</span>
             </label>
 
             <label class="flex flex-col gap-1.5">

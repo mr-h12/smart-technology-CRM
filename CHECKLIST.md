@@ -444,6 +444,23 @@ would hide them behind `OD-03` indefinitely.
       Owed: the same four-line swap in each. Not done in 1.1 — they are green, they belong to four
       other modules, and converting a passing test on suspicion is a change with no failure to prove
       it
+- [ ] **Thirteen test helpers mint a "unique" code from four hex characters, and CI goes red at
+      random because of it** — revealed 2026-09-02 by Module 6 Point 1.1's own CI run, which failed
+      on a test the diff does not touch. `'DL-2026-'.substr(str_replace('-', '', $id), -4)` takes the
+      last 16 bits of a UUID, so a test inserting three deals draws three values out of 65,536 and
+      `deals_code_unique` eventually loses the birthday bet:
+      `SQLSTATE[23505] duplicate key value ... Key (code)=(DL-2026-b328) already exists`, in
+      `DealListEndpointTest::test_that_pagination_splits_the_result`. **Proven a flake, not a
+      regression:** re-running the identical commit `0c20822` turned the same job green. The pattern
+      is in `DealListEndpointTest`, `DealLostReasonMigrationTest`, `CustomerStatusRecomputeTest`,
+      `DealDocumentUploadTest`, `DealSchemaMigrationTest`, `DealAssignEndpointTest`,
+      `DealWriteEndpointTest`, `DealStatusEndpointTest`, `DealApprovalEndpointTest`,
+      `RecomputeStaleCustomerStatusesTest`, `FilesMigrationTest` (twice) and
+      `SupplierQuotationSchemaMigrationTest` — the last two written to the same convention rather
+      than against it, because a lone exception would have hidden the shared defect. Owed: one
+      expression, once, that cannot collide (the whole uuid, or a per-test counter). Not done in 1.1
+      — it spans four modules and a random red is exactly the defect that must be reproduced
+      deliberately before it is called fixed
 
 
 ---

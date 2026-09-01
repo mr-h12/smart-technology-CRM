@@ -205,6 +205,18 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         );
     }
 
+    public function customerIdsWithActiveDeals(): array
+    {
+        return array_values(
+            Deal::query()
+                ->where('status', '!=', 'lost')
+                ->distinct()
+                ->pluck('customer_id')
+                ->map(static fn (mixed $id): string => (string) $id)   // @phpstan-ignore-line cast.string
+                ->all(),
+        );
+    }
+
     /**
      * §4.7's `DL-YYYY-NNNN`, allocated from `document_sequences` (Module 0) —
      * its first consumer.

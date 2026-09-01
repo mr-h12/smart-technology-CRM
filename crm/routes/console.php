@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
+use App\Support\Queue\QueueName;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -29,3 +31,23 @@ Artisan::command('inspire', function (): void {
 // exists to prevent. Moving it onto the `maintenance` queue is owed once
 // Horizon lands, and is recorded as such.
 Schedule::command(EnsureAuditPartitionsCommand::class)->daily();
+
+// J-02 recompute_customer_status, the nightly half (§4.5, D-49). Deals Point
+// 3.1 already wired the event-triggered half into POST /deals and PATCH
+// /deals/{id}/status; this catches the one case neither event fires for — a
+// customer's only active deal simply going stale with nothing else
+// happening.
+//
+// Queued, unlike J-15 above: J-15's scheduler-run shape is §15's one
+// documented exception, for a failure mode (audit_log silently running out
+// of months) this job does not share — a missed night here is repaired by
+// tomorrow's run or the next deal-write event, whichever comes first.
+// Everything else follows §15's default: dispatched onto `maintenance`
+// (QueueName::Maintenance — "cleanup, indexing, aggregates"), where the
+// worker-maintenance service already drains it with its own --tries=3.
+//
+// No catch-up entry (D-55, ST-05), on J-15's own precedent: idempotent and
+// always evaluated against *now*, so a run missed during downtime is
+// repaired by the next run's fresh read of the current state, not by
+// replaying the nights that did not happen.
+Schedule::job(new RecomputeStaleCustomerStatusesJob, QueueName::Maintenance->value)->daily();

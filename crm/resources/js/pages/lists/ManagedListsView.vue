@@ -26,12 +26,33 @@
  * refuses regardless) but so that nobody is offered a control whose every use
  * would come back 403.
  *
- * ── No editing and no deleting, and that is the endpoint's shape ───────────
+ * ── Withdrawal is an archive; there is still no editing ───────────────────
  *
- * There is no `PATCH` and no `DELETE` behind this screen. `DB-01` forbids
- * physical deletion, and withdrawing a sector customers are already filed under
- * is a decision with consequences that the API deliberately does not offer.
- * Renaming a label is owed and named in `CHECKLIST.md`.
+ * Step 6 Point 6.1 added `DELETE /managed-lists/{list}/{code}` and 6.2 put this
+ * screen's control on it. It **archives**: a soft delete, so `DB-01` holds, the
+ * row stays, and nothing here says "delete". A code that is withdrawn stops
+ * being offered everywhere the list is used, and rows already filed under it
+ * keep it — the owner's option (أ) of 2026-08-31, for which there is no foreign
+ * key to cascade along in the first place.
+ *
+ * Point 6.2b added the way back: `PATCH /managed-lists/{list}/{code}/restore`
+ * clears the withdrawal, and the withdrawn set is its own collection. §3.3 line
+ * 223 writes the permission as a single merged `archive / restore`, so both
+ * directions answer to `admin.system_settings`.
+ *
+ * **A label still cannot be edited in place** — the only `PATCH` here is the
+ * restore. Correcting a wording means withdrawing the entry and adding it
+ * again. That remains owed and is named in `CHECKLIST.md`.
+ *
+ * ── The two collections do not answer to the same authority ───────────────
+ *
+ * The live list carries **no permission** and the archived one carries
+ * `admin.system_settings`, which is why the view chooser is drawn for a writer
+ * only while the table itself is drawn for everyone. The asymmetry is
+ * deliberate and `routes/api.php` sets out why: §8 puts Customers on six roles'
+ * screens and Catalog on five and not one of them renders without a sector or a
+ * unit, while **nothing renders from the archived set at all** — it exists to
+ * serve the restore, so it answers to the authority the restore does.
  *
  * ── `position` is the one number here ──────────────────────────────────────
  *
@@ -46,11 +67,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import type { Pagination } from '@/api';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import { useAuth } from '@/stores/auth';
-import { MANAGED_LISTS, addListEntry, listEntries, type ListEntry, type ManagedListName } from '@/services/admin';
+import { MANAGED_LISTS, addListEntry, archiveListEntry, listEntries, restoreListEntry, type ListEntry, type ManagedListName } from '@/services/admin';
 
 const { t } = useI18n();
 const auth = useAuth();
@@ -75,12 +97,29 @@ const adding = ref(false);
 const added = ref(false);
 const addError = ref<string | null>(null);
 
+/**
+ * Which collection is on screen. `GET .../archived` carries the write
+ * permission while the live list carries none, so this is a writer's control.
+ */
+const view = ref<'active' | 'archived'>('active');
+const showingArchived = computed(() => view.value === 'archived');
+
+/** The entry a person has asked to withdraw, and has not yet confirmed. */
+const archiving = ref<ListEntry | null>(null);
+const archiveBusy = ref(false);
+/** A lang-file key, or null. */
+const archiveError = ref<string | null>(null);
+
+const restoring = ref(false);
+/** A lang-file key, or null. */
+const restoreError = ref<string | null>(null);
+
 async function load(): Promise<void> {
     loading.value = true;
     loadError.value = null;
 
     try {
-        const result = await listEntries(active.value, page.value);
+        const result = await listEntries(active.value, page.value, showingArchived.value);
 
         entries.value = result.items;
         pagination.value = result.pagination;
@@ -106,9 +145,77 @@ async function choose(list: ManagedListName): Promise<void> {
     await load();
 }
 
+/**
+ * The same reset as `choose()`, for the same reason: the archived set of a list
+ * is a different length from its live set, so the page number does not carry.
+ */
+async function switchView(): Promise<void> {
+    page.value = 1;
+    archiveError.value = null;
+    restoreError.value = null;
+    await load();
+}
+
+/**
+ * **No confirmation, deliberately.** §6.6 lists what must be confirmed —
+ * archive, deactivate, rejection, return, approval — and a single restore is
+ * none of them. `CustomersView` reads §6.6 the same way for the same act.
+ */
+async function restore(entry: ListEntry): Promise<void> {
+    restoring.value = true;
+    restoreError.value = null;
+
+    try {
+        await restoreListEntry(active.value, entry.code);
+        await load();
+    } catch (error) {
+        // A 409 is not a fault and retrying cannot fix it: the code this entry
+        // wants back belongs to something else now. Saying "try again" would
+        // send the person round a loop with no exit.
+        restoreError.value = error instanceof ApiError && error.code === 'state_transition_invalid'
+            ? 'lists.error.restoreTaken'
+            : 'lists.error.restore';
+    } finally {
+        restoring.value = false;
+    }
+}
+
 async function goToPage(next: number): Promise<void> {
     page.value = next;
     await load();
+}
+
+async function confirmArchive(): Promise<void> {
+    const entry = archiving.value;
+
+    if (entry === null) {
+        return;
+    }
+
+    archiveBusy.value = true;
+    archiveError.value = null;
+
+    try {
+        await archiveListEntry(active.value, entry.code);
+
+        archiving.value = null;
+        await load();
+
+        // The last row of the last page leaves an empty page behind it, with a
+        // pager still offering the number it is standing on. `choose()` solves
+        // the same problem by resetting to page 1; stepping back one keeps the
+        // person nearer to where they were.
+        if (entries.value.length === 0 && page.value > 1) {
+            page.value -= 1;
+            await load();
+        }
+    } catch {
+        // The row is still there, so the screen has to look like it. Swallowing
+        // this would leave a table that disagrees with the database.
+        archiveError.value = 'lists.error.archive';
+    } finally {
+        archiveBusy.value = false;
+    }
 }
 
 function resetForm(): void {
@@ -189,10 +296,28 @@ onMounted(load);
             </button>
         </nav>
 
+        <!-- Drawn for a writer only: unlike the live list, `GET .../archived`
+             carries `admin.system_settings`, so offering this to a reader would
+             be offering a view whose every request is a 403. -->
+        <label v-if="canEdit" class="flex w-fit flex-col gap-1.5">
+            <span class="text-form-label text-[var(--color-text)]">{{ t('lists.view.label') }}</span>
+            <select
+                v-model="view"
+                class="field min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                data-testid="lists-view"
+                @change="switchView"
+            >
+                <option value="active">{{ t('lists.view.active') }}</option>
+                <option value="archived">{{ t('lists.view.archived') }}</option>
+            </select>
+        </label>
+
         <!-- `SEC-09`: hiding this is presentation. The API refuses a write from
-             anyone without `admin.system_settings` whether it is drawn or not. -->
+             anyone without `admin.system_settings` whether it is drawn or not.
+             Hidden in the archived view because a row added there lands in the
+             live list, out of sight of the person who just added it. -->
         <form
-            v-if="canEdit"
+            v-if="canEdit && !showingArchived"
             class="flex flex-wrap items-start gap-4"
             data-testid="lists-add"
             @submit.prevent="add"
@@ -357,6 +482,10 @@ onMounted(load);
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.label_en') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.label_ar') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('lists.column.position') }}</th>
+                        <!-- `SEC-09`: hiding the column is presentation. The API
+                             refuses a `DELETE` from anyone without
+                             `admin.system_settings` whether it is drawn or not. -->
+                        <th v-if="canEdit" scope="col" class="p-3 text-end">{{ t('lists.column.actions') }}</th>
                     </tr>
                 </thead>
 
@@ -366,6 +495,34 @@ onMounted(load);
                         <td class="p-3" lang="en" dir="ltr">{{ entry.label_en }}</td>
                         <td class="p-3" lang="ar" dir="rtl">{{ entry.label_ar }}</td>
                         <td class="p-3 tabular-nums">{{ entry.position }}</td>
+                        <td v-if="canEdit" class="p-3 text-end">
+                            <!-- The view decides: an archived entry cannot be
+                                 archived again, and a live one has nothing to
+                                 restore. §6.2 puts Archive under Danger and
+                                 Restore is not destructive, so it is not one. -->
+                            <button
+                                v-if="!showingArchived"
+                                type="button"
+                                class="archive-action min-h-11 rounded-lg border px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                :data-list-code="entry.code"
+                                data-testid="lists-archive"
+                                @click="archiving = entry"
+                            >
+                                {{ t('lists.archive.action') }}
+                            </button>
+
+                            <button
+                                v-else
+                                type="button"
+                                class="chip min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="restoring"
+                                :data-list-code="entry.code"
+                                data-testid="lists-restore"
+                                @click="restore(entry)"
+                            >
+                                {{ t('lists.restore.action') }}
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -405,6 +562,35 @@ onMounted(load);
                 {{ t('lists.pagination.next') }}
             </button>
         </nav>
+        <p
+            v-if="restoreError !== null"
+            class="text-[var(--color-danger)] text-pretty"
+            role="alert"
+            data-testid="lists-restore-error"
+        >{{ t(restoreError) }}</p>
+
+        <p
+            v-if="archiveError !== null"
+            class="text-[var(--color-danger)]"
+            role="alert"
+            data-testid="lists-archive-error"
+        >{{ t(archiveError) }}</p>
+
+        <!-- §6.2's Danger variant is "Archive, deactivate, reject". The row
+             button is the way in and stays quiet; the destructive answer is the
+             one inside the dialog, which is where `danger` belongs. Reused
+             rather than rebuilt — it already traps Escape and returns focus. -->
+        <ConfirmDialog
+            :open="archiving !== null"
+            title-key="lists.archive.title"
+            message-key="lists.archive.message"
+            confirm-key="lists.archive.confirm"
+            :subject="archiving?.code ?? ''"
+            :busy="archiveBusy"
+            danger
+            @confirm="confirmArchive"
+            @cancel="archiving = null"
+        />
     </section>
 </template>
 
@@ -426,6 +612,30 @@ onMounted(load);
     color: var(--color-primary-text);
 }
 
+/* §6.2 puts "Archive, deactivate, reject" under Danger. It is drawn as an
+   outline rather than a filled red button because it repeats on every row, and
+   a table of filled danger buttons reads as a warning about the table itself;
+   the filled one lives in the dialog, where the answer is actually given. */
+.archive-action {
+    background-color: var(--color-surface);
+    border-color: var(--color-border-strong);
+    color: var(--color-danger);
+    touch-action: manipulation;
+    transition-property: background-color, color, border-color;
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+}
+
+.archive-action:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+    border-color: var(--color-danger);
+}
+
+.archive-action:active:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-danger) 18%, var(--color-surface));
+    border-color: var(--color-danger);
+}
+
 /* §6.2: "All button variants have default, hover, active, focus, disabled, and
    loading states." The transition above was already declared for these three
    properties and had nothing to transition to. `:not(:disabled)` so the button
@@ -442,6 +652,13 @@ onMounted(load);
    §6.2 again, and a chooser whose options do not answer the pointer reads as
    disabled. The selected chip darkens instead, through the same token pair as
    the button, so "more prominent than rest" holds in both states. */
+/* The restore button borrows `.chip`'s transition and adds the hover §6.2
+   requires. It is not a Danger variant: §6.2 puts "Archive, deactivate,
+   reject" there, and putting something back is none of those. */
+.chip:hover:not(:disabled) {
+    background-color: var(--color-surface-muted);
+}
+
 .chip-idle:hover {
     background-color: var(--color-surface-muted);
     border-color: var(--color-primary);
@@ -461,7 +678,8 @@ onMounted(load);
 
 @media (prefers-reduced-motion: reduce) {
     .chip,
-    .primary-action {
+    .primary-action,
+    .archive-action {
         transition: none;
     }
 }

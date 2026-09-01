@@ -494,7 +494,8 @@
             "code": "Code",
             "label_en": "English label",
             "label_ar": "Arabic label",
-            "position": "Order"
+            "position": "Order",
+            "actions": "Actions"
         },
         "empty": {
             "title": "Nothing in this list yet",
@@ -502,7 +503,10 @@
         },
         "error": {
             "load": "This list could not be loaded. Try again.",
-            "add": "The entry was not added. Try again."
+            "add": "The entry was not added. Try again.",
+            "archive": "The entry was not archived. Try again.",
+            "restore": "The entry was not restored. Try again.",
+            "restoreTaken": "This code has been used again since the entry was archived, so the entry cannot come back to it. Withdraw the entry that holds the code now, or add this one under a different code."
         },
         "add": {
             "title": "Add an entry",
@@ -527,6 +531,20 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} entries"
+        },
+        "archive": {
+            "action": "Archive",
+            "title": "Archive this entry?",
+            "message": "“{name}” will stop being offered anywhere this list is used. Rows already filed under it keep it, and the entry itself is kept — it is archived, never deleted.",
+            "confirm": "Archive entry"
+        },
+        "view": {
+            "label": "View",
+            "active": "Active",
+            "archived": "Archived"
+        },
+        "restore": {
+            "action": "Restore"
         }
     },
     "customers": {
@@ -773,6 +791,7 @@
                 "product": "Edit product",
                 "service": "Edit service"
             },
+            "noSelection": "Not chosen",
             "requiredMarker": "(required)",
             "required": {
                 "name": "The product name is required.",

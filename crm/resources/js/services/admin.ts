@@ -17,7 +17,7 @@
  * this file never parses one — a screen that wants to compare two of them has
  * the same obligation.
  */
-import { apiGet, apiPatch, apiPost, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, type Pagination } from '@/api';
 
 /**
  * §13 screen 4's fields, keyed by `SystemSetting::value`.
@@ -254,6 +254,17 @@ export interface ListEntry {
 }
 
 /**
+ * The label to show a reader, in their language.
+ *
+ * `DB-05` keeps both labels on every entry, so neither language falls back to a
+ * code. Shared rather than written per screen: the same ternary already exists
+ * three times under `pages/customers/`, and Point 6.4 would have made a fourth.
+ */
+export function entryLabel(entry: ListEntry, locale: string): string {
+    return locale.startsWith('ar') ? entry.label_ar : entry.label_en;
+}
+
+/**
  * `page` is the only parameter, on `listFxRates`'s terms: `ListingQuery`
  * declares no filter and no sort for this resource, and §6.2 makes an
  * undeclared one a 400 rather than something quietly ignored.
@@ -264,8 +275,17 @@ export interface ListEntry {
 export async function listEntries(
     list: ManagedListName,
     page: number,
+    archived = false,
 ): Promise<{ items: ListEntry[]; pagination: Pagination | null }> {
-    const result = await apiGet<ListEntry[]>(`/managed-lists/${list}?page=${page}`);
+    // Two collections rather than one filtered collection, because that is what
+    // the server offers: `ListingQuery` is shared with the FX-rate history and
+    // refuses `filter[...]`, so §6.2's "each resource declares its own filters"
+    // is answered here by a second address (Point 6.2b).
+    //
+    // ⚠️ The archived one carries `admin.system_settings` while the live one
+    // carries nothing, so only a writer may pass `archived`.
+    const path = archived ? `/managed-lists/${list}/archived` : `/managed-lists/${list}`;
+    const result = await apiGet<ListEntry[]>(`${path}?page=${page}`);
 
     return { items: result.data, pagination: result.meta.pagination ?? null };
 }
@@ -273,14 +293,46 @@ export async function listEntries(
 /**
  * `POST /managed-lists/{list}`.
  *
- * There is still no `PATCH`, but `DELETE /managed-lists/{list}/{code}` now
- * exists and **archives** — a soft delete, so `DB-01` holds and the response
- * says `archived` rather than `deleted`. Step 6 Point 6.1 added it on the
- * owner's ruling of 2026-08-31; **this file has no caller for it yet**, which
- * is Point 6.2's screen work.
+ * `DELETE /managed-lists/{list}/{code}` **archives** — a soft delete, so
+ * `DB-01` holds and the response says `archived` rather than `deleted` (Point
+ * 6.1). `PATCH .../restore` puts it back and `GET .../archived` is the set to
+ * choose from (Point 6.2b). **No editing:** the only `PATCH` is the restore, so
+ * a mistyped label is corrected by withdrawing the entry and adding it again.
  */
 export async function addListEntry(list: ManagedListName, entry: ListEntry): Promise<ListEntry> {
     const result = await apiPost<{ entry: ListEntry }>(`/managed-lists/${list}`, entry);
 
     return result.data.entry;
+}
+
+/**
+ * `DELETE /managed-lists/{list}/{code}` — Step 6 Point 6.1's withdrawal.
+ *
+ * **Archive, not delete.** The server soft-deletes (`DB-01`) and answers
+ * `{ archived: true }`, so nothing here says "deleted": the row is still in the
+ * table and a name that claimed otherwise would be this file telling the screen
+ * something untrue about storage.
+ *
+ * The code is the address, not a body — `OpenAPI §7.1`'s resource route. The
+ * caller reloads afterwards rather than splicing the row out locally, because
+ * the page it is on and the total it shows are the server's answers.
+ */
+export async function archiveListEntry(list: ManagedListName, code: string): Promise<void> {
+    await apiDelete<{ archived: boolean }>(`/managed-lists/${list}/${encodeURIComponent(code)}`);
+}
+
+/**
+ * `PATCH /managed-lists/{list}/{code}/restore` — Point 6.2b's way back.
+ *
+ * The mirror of `archiveListEntry`, under the same permission: §3.3 line 223
+ * writes the row as a single merged `archive / restore`.
+ *
+ * ⚠️ **This one can be refused for a reason retrying will not fix.** The live
+ * unique index is `(list, code)`, so a code taken while the entry was archived
+ * leaves it nowhere to return to, and the server answers `409
+ * state_transition_invalid`. The caller has to say that in words rather than
+ * offer a retry.
+ */
+export async function restoreListEntry(list: ManagedListName, code: string): Promise<void> {
+    await apiPatch<{ restored: boolean }>(`/managed-lists/${list}/${encodeURIComponent(code)}/restore`);
 }

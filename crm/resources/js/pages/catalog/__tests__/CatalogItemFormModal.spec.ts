@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
+import type { ListEntry } from '@/services/admin';
 import type { CatalogItem } from '@/services/catalog';
 
 /**
@@ -66,9 +67,28 @@ const SERVICE: CatalogItem = {
     notes: 'Two technicians',
 };
 
+/**
+ * `DB-05`'s three lists, as Point 6.4 hands them to the form. `metre` and
+ * `installation` are the fixtures' own stored values: a select cannot hold a
+ * code its options do not carry, so the list has to contain what the row does.
+ */
+const UNITS: ListEntry[] = [
+    { code: 'metre', label_en: 'Metre', label_ar: 'متر', position: 1 },
+    { code: 'piece', label_en: 'Piece', label_ar: 'قطعة', position: 2 },
+];
+
+const SERVICE_TYPES: ListEntry[] = [
+    { code: 'installation', label_en: 'Installation', label_ar: 'تركيب', position: 1 },
+    { code: 'repair', label_en: 'Repair', label_ar: 'إصلاح', position: 2 },
+];
+
+const COMPANIES: ListEntry[] = [
+    { code: 'acme', label_en: 'Acme Industrial', label_ar: 'أكمي الصناعية', position: 1 },
+];
+
 function render(editing: CatalogItem | null = null, kind: 'product' | 'service' = 'product', locale = 'en') {
     return mount(CatalogItemFormModal, {
-        props: { open: true, editing, kind },
+        props: { open: true, editing, kind, units: UNITS, serviceTypes: SERVICE_TYPES, companies: COMPANIES },
         global: {
             plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
@@ -377,5 +397,84 @@ describe('CatalogItemFormModal — both languages', () => {
 
         expect(text).toMatch(/[؀-ۿ]/);
         expect(text).not.toContain('catalog.form');
+    });
+});
+
+
+/**
+ * Point 6.4 — the three `DB-05` fields stop being free-text boxes.
+ *
+ * ── Two closed sets and one open one, and the asymmetry is the ruling ──────
+ *
+ * `SaveCatalogItemRequest` checks `unit` and `service_type` "for shape, not for
+ * membership", and `SaveCatalogItem::withListedCompany()` **registers** an
+ * unknown company instead of refusing it. So the two the server would have to
+ * refuse are drawn closed (owner's ruling ج) and the one it adopts is drawn
+ * open — `<input list>` over a `<datalist>`, which is the native control for
+ * "suggest, do not restrict" and needs no library to be either.
+ *
+ * ── A stored value the list does not carry ─────────────────────────────────
+ *
+ * `unit` was free text before this point, so rows exist whose value is in no
+ * list. A `<select>` cannot hold an option it was not given, and the browser
+ * would report the first one instead — a silent rewrite of a column the person
+ * never touched. The form keeps the stored value selectable for exactly that.
+ */
+describe('CatalogItemFormModal — DB-05 fills the three list fields (Point 6.4)', () => {
+    it('draws unit and service_type as closed selects over the lists', () => {
+        const product = render(null, 'product');
+        const unit = product.find('select[data-testid="catalog-form-unit"]');
+
+        expect(unit.exists()).toBe(true);
+        expect(unit.findAll('option').map((option) => option.attributes('value'))).toEqual(['', 'metre', 'piece']);
+        // The label is the person's, the code is the server's.
+        expect(unit.findAll('option')[1]?.text()).toBe('Metre');
+
+        const service = render(null, 'service');
+        const serviceType = service.find('select[data-testid="catalog-form-service-type"]');
+
+        expect(serviceType.exists()).toBe(true);
+        expect(serviceType.findAll('option').map((option) => option.attributes('value')))
+            .toEqual(['', 'installation', 'repair']);
+    });
+
+    it('suggests the listed companies without closing the field to them', () => {
+        const view = render(null, 'product');
+        const input = view.find('input[data-testid="catalog-form-company"]');
+
+        expect(input.exists()).toBe(true);
+        expect(input.attributes('list')).toBe('catalog-form-company-options');
+        expect(view.findAll('#catalog-form-company-options option').map((option) => option.attributes('value')))
+            .toEqual(['acme']);
+    });
+
+    it('keeps a stored unit the list no longer carries selectable', () => {
+        const view = render({ ...PRODUCT, unit: 'gross' }, 'product');
+        const unit = view.find('select[data-testid="catalog-form-unit"]');
+
+        expect(unit.findAll('option').map((option) => option.attributes('value'))).toContain('gross');
+        expect((unit.element as HTMLSelectElement).value).toBe('gross');
+    });
+
+    /**
+     * §7.3 names the service by its type, and `name` is `required_if:kind,product`
+     * — so a service may carry one and is not asked for one. Without the box the
+     * Service tab's Name column has nothing to show but a dash.
+     */
+    it('gives a service an optional name and sends it', async () => {
+        const fetchMock = vi.fn(async () => json(201, { data: SERVICE }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = render(null, 'service');
+
+        expect(view.find('[data-testid="catalog-form-name"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-form-name-required"]').exists()).toBe(false);
+
+        await view.find('[data-testid="catalog-form-name"]').setValue('On-site installation');
+        await view.find('select[data-testid="catalog-form-service-type"]').setValue('installation');
+        await view.find('[data-testid="catalog-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBodies(fetchMock)[0]).toMatchObject({ kind: 'service', name: 'On-site installation' });
     });
 });

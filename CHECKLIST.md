@@ -414,6 +414,22 @@ would hide them behind `OD-03` indefinitely.
       namespace), then register whatever it finds. Not done in Point 3.2: two of the three classes
       are Point 2.2's, widening the scanner is its own change with its own failure proof, and
       `CLAUDE.md` says to mention an unrelated issue rather than change it
+- [ ] **Three copies of the managed-list label ternary remain under `pages/customers/`** —
+      revealed 2026-08-31 by Point 6.4. `locale.startsWith('ar') ? entry.label_ar : entry.label_en`
+      is written out in `CustomersView.vue`, `CustomerFormModal.vue` and `CustomerDetailView.vue`.
+      Point 6.4 removed the fourth copy it was about to add by exporting `entryLabel(entry, locale)`
+      from `services/admin.ts`, which is now the shared one. Owed: three one-line swaps to the
+      import. Not done in 6.4 — the files are outside its approved list and a cleanup buried in an
+      unrelated point is unreviewable
+- [ ] **`company` is required on the server but is not in the catalog form's `REQUIRED` mirror** —
+      recorded 2026-08-31 with Point 6.4. `SaveCatalogItemRequest` has made it `required` on POST
+      and `sometimes|required` on PATCH since Point 5.2, but `CatalogItemFormModal`'s `REQUIRED` map
+      still lists only the three `required_if` rules. So the field carries **no required marker**
+      (§6.3 asks for an explicit one) and a blank company costs a round trip, coming back as the
+      server's sentence instead. Owed: one entry in each `REQUIRED` list plus a `catalog.form.required.company`
+      key in both locales. Not done in 6.4: the approved point list names the controls, not the
+      validation mirror
+
 
 ---
 
@@ -5420,6 +5436,363 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.4** The catalog form stops asking a person to retype `DB-05`. `unit` and `service_type`
+      become `<select>`s over their lists, `company` becomes an `<input list>` over a `<datalist>`,
+      and a service gains an optional `name`.
+      **Why the three are not drawn the same way.** The boundary does not treat them the same, and
+      the form follows the boundary. `SaveCatalogItemRequest` says in its own docblock that `unit`
+      and `service_type` are checked "for shape, not for membership", while
+      `SaveCatalogItem::withListedCompany()` (Point 6.3) **registers** an unknown company rather
+      than refusing it. So the two the server would have to refuse are closed sets — the owner's
+      ruling (ج) recorded at 6.3 — and the one it adopts stays open, exactly as the owner asked for
+      it: "optional droplist and the user can write it". `company` remains **required** (5.2's
+      ruling), because open is not the same as optional.
+      **`<datalist>` and not a combobox component.** It is the native control for "suggest, do not
+      restrict", it is keyboard- and screen-reader-handled by the browser, and it needs no library
+      and no focus management — which is the one place `CatalogItemFormModal` is already weak (debt
+      28). Its `<option>` carries the **code** as its value and the locale label as its `label`,
+      because the code is what the column stores after 6.3 and what `filter[company]` will match in
+      6.5. `Str::slug` is idempotent on an already-derived code — **measured, not assumed**:
+      `alpha_co → alpha_co`, `c_3m → c_3m` — so a picked suggestion round-trips to the same entry
+      rather than registering a second one.
+      **A stored value the list does not carry stays selectable.** `unit` was free text before this
+      point, so rows exist whose value is in no list; a `<select>` cannot hold an option it was not
+      given and the browser would report its **first** option instead — a silent rewrite of a column
+      nobody touched. `selectOptions()` appends the stored value when the list has lost it. That is
+      data-loss prevention, not a convenience, and it is the one test in this point that would fail
+      silently in production rather than loudly.
+      **Why a service gains a name.** `name` is `required_if:kind,product` **and** `nullable`, so a
+      service may carry one and is never asked for one — no backend change was needed or made. Until
+      now the Service tab's Name column had nothing to print but a dash on every row, because no
+      control existed to fill it. Drawn with no required marker, since the server does not require it.
+      **The lists load beside the page, not before it.** `CustomersView::loadSectors` already
+      establishes the shape and the reason: `GET /managed-lists/{list}` names no permission, and a
+      dropdown that could not be filled is one control short rather than a broken screen, so the
+      failure is swallowed and the catalog still renders. Page 1 only, as the sectors are.
+      **Checks: 1957 backend (11847 assertions) · 582 frontend (34 files) · `npm run build` clean ·
+      pint PASS 459 files · PHPStan level 10 `[OK] No errors` · deptrac 0 / 0 on both configs.**
+      No backend file changed, so the backend figure is 6.3's, unmoved. Frontend 577 → **582**, the
+      five tests added here.
+      **RED first, and read rather than counted:** the five new tests failed and the 43 existing ones
+      passed, so the new assertions were the only thing failing. Two existing refusal tests then
+      broke on GREEN — `setValue('repair')` on what was now a closed `<select>` cannot set a code the
+      options do not carry, so validation blocked the submit and the server refusal under test never
+      happened. That is the closed set doing its job, and the fixture list gained `repair` rather
+      than the tests being rewritten.
+      **Problems found: two.** (1) The two refusal tests above. (2) `CatalogView.spec.ts` indexes its
+      `fetch` calls (`urlOf(mock, 1)`, `(…, 2)`) and mount now fires three more requests, which would
+      have moved every indexed assertion. The helper was narrowed to the `/catalog-items` calls
+      instead, so the index means what it says and does not move again when a fourth list is added.
+      **Waste audit.** *Dead code:* every symbol added — `isSelect`, `selectOptions`, `entryLabel`,
+      `loadLists`, `serviceTypes`, `catalogCalls`, the `noSelection` key and the
+      `catalog-form-company-options` id — greps to **two or more** hits over `app/` and
+      `resources/`, so none is a definition standing alone. *Duplicate logic:* found, and it was
+      **this point's own**. `locale.startsWith('ar') ? entry.label_ar : entry.label_en` already
+      exists three times under `pages/customers/`, and the first draft of this point wrote a fourth.
+      It was removed inside the point: `entryLabel(entry, locale)` now lives beside `ListEntry` in
+      `services/admin.ts` and the form imports it. The **three pre-existing copies are revealed, not
+      created**, and go to the debt register rather than being migrated in an unrelated point.
+      *Unused components:* no `.vue`, route or lang key was added without a caller; no guard moved,
+      because no file was added. *Unnecessary complexity:* `selectOptions`'s fallback entry is the
+      data-loss guard above and not a speculative option; `isSelect` is a type predicate that exists
+      so `selectOptions` can be typed to the two fields it serves.
+      **Not covered:** the **company filter control is still 6.5's** — `filter[company]` has had no
+      caller since 5.2. `unit` and `service_type` are still **unvalidated against `enum_lists` on the
+      server** (debt 23); this point closes the screen's half and not the boundary's, so another
+      client may still send an unlisted unit. `company` is required on the server but **not in this
+      form's `REQUIRED` mirror**, so a blank one still costs a round trip and comes back as the
+      server's own sentence rather than as a required marker — reported on the debt register, not
+      changed, because the approved point list does not name it. Nothing migrates the **old free-text
+      `company` values** (§1.2's open decision, unchanged). No focus trap or focus return in the
+      modal (debt 28), and the `<datalist>` inherits that. The stored-value fallback covers `unit`
+      and `service_type` only — `company` needs none, being an open field.
+- [x] **6.3** A company typed into the catalog form joins `DB-05`'s companies list, and the item
+      stores its **code**. The owner ordered this started without answering the three questions
+      6.2's plan raised, so it proceeds under the recommended answers, **each recorded here awaiting
+      a `D-xx`**: (أ) the registration is a **system consequence of a permitted action**, not the
+      actor exercising `admin.system_settings`, and the audit names the actor; (ب) `code` is derived
+      from the typed text, **both labels take that text**, `position` goes last; (ج) `unit` and
+      `service_type` stay closed sets.
+      **Why the module crosses into Admin.** Point 5.1 made `company` a managed list so that "Acme",
+      "acme" and "Acme Ltd" stop being three companies on one screen — `R-03`'s free-text risk, for a
+      value §7.3 **groups** by and 5.2 made **filterable**. 5.2 then made it **required**, which left
+      every catalog edit waiting on a Super Admin. This closes that: the list fills from use. The
+      alternative — Catalog keeping its own idea of a company — is the exact duplication `DB-05`
+      exists to prevent.
+      **The `AdminContract` layer, on the precedent of three others.** `deptrac.modules.yaml` had one
+      undivided `Admin` layer; it is now split `AdminContract` (Domain|Application) / `AdminDriver`
+      (Infrastructure|Presentation), the split Audit, Storage and Identity already have and for the
+      stated reason. **Nothing depended on `Admin` before this point**, so no ruleset moved except
+      Catalog's, which gains `AdminContract` and points at nothing in `AdminDriver`. Allowed edges
+      796 → **1007**.
+      **`Str::slug` was measured before anything was built on it**, and the measurement changed the
+      design twice: `شركة ألفا` → `shrk_alfa` (transliterated — ugly, stable, and the code is
+      internal while both labels carry the real text), but **`3M` → `3m` fails `^[a-z][a-z0-9_]*$`**
+      and a name of nothing but punctuation slugs to the **empty string** — which `required` +
+      `regex:/\S/` lets through. Both are handled: a leading non-letter takes a `c_` prefix, and an
+      empty slug becomes `c_` plus eight hex of the name's digest, so unrelated unsluggable names
+      stay apart and the same name always maps to the same code.
+      **Normalising is the feature.** Three spellings collapse to one code and therefore one entry —
+      asserted directly. **Stated ceiling:** two genuinely different companies whose names reduce to
+      one code share an entry, and two names over 64 characters agreeing on their first 64 share a
+      code (`code` is `max:64`, the column's own limit).
+      **`AddListEntry` is reused rather than the repository written to directly**, so the list write
+      carries `LIST_ENTRY_ADDED` against the acting user for free — the audit is what makes ruling
+      (أ) visible rather than silent. Its `ValidationException` on a duplicate is caught and ignored:
+      reaching it means somebody added the same company between the read and the write, which is the
+      state this wanted anyway.
+      **1957 backend (11847 assertions) · 577 frontend (34 files) · `npm run build` clean · pint 459
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1638 and 1007 allowed).**
+      **+11 tests / +49 assertions** against 6.2c's 1946/11798. Frontend **+0**: no screen changes —
+      the form still sends free text and the server normalises it.
+      RED first: **11 failed** — the eight provider rows and three named tests, and nothing else.
+      **Deliberate break — one, and it caught a second problem on the way back.** The `c_` prefix for
+      a leading non-letter was removed: **exactly two tests failed**, the `3M` provider row in both
+      the list-membership and the stored-code assertions, 40 others passing.
+      **Problems found: three.**
+      (1) ⚠️ **The restore from that break did not reproduce the file.** `shasum -c` reported
+      **FAILED** — re-inserting text left **two surplus blank lines** where the guard had been. This
+      is the trap `CLAUDE.md` records verbatim ("restore with the inverse `sed`, never by
+      re-inserting text"), hit by doing exactly what it forbids. **Nothing but the checksum would
+      have caught it:** the tests passed, Pint passed, PHPStan passed. Removed and re-verified `OK`.
+      (2) Pint refused the new import ordering (`class_attributes_separation`); fixed by running Pint
+      on the file rather than by hand.
+      (3) **A claim this point falsified**, found by the waste audit:
+      `SaveCatalogItemRequest`'s docblock said keeping the membership promise "needs an
+      `AdminContract` layer that deptrac does not have". It has one now. The comment is rewritten to
+      say something more useful than its own obsolescence: **the obstacle is gone but the gap is
+      deliberate**, because `company` is not *validated* against the list — it is *registered into*
+      it — while an unknown `unit` would have to be **refused**, since §7.3 fixes the unit vocabulary
+      in a way it does not fix the set of companies a business trades with. They are two problems,
+      not one wearing a single name.
+      **Waste audit.** *Dead code:* every added symbol grepped; nothing at one hit. *Duplicate
+      logic:* `grep -rn "Str::slug" app/` returns **only this file**, so the code derivation exists
+      once. *Unused components:* the falsified claim above — corrected here. *Unnecessary
+      complexity:* no new class. `withListedCompany`, `codeFor` and `nextPosition` are private to the
+      use case that needs them; a `CompanyRegistry` service with one caller would be the interface
+      with one implementation the rules forbid.
+      **Not covered:** **`unit`, `service_type` and `customers.sector` are still unchecked against
+      `enum_lists`** — debt 23 stands, with its *reason* now corrected. **The form is unchanged**:
+      it still sends free text, there is no drop-down, and a person typing "Alpha Co" gets an entry
+      whose **Arabic label reads "Alpha Co"** until a Super Admin corrects it on the lists screen —
+      accepted, and it belongs in the manual test list. **Existing rows keep their free-text
+      company** and no migration normalises them, so a row saved before this point holds "Alpha Co"
+      while a row saved after holds `alpha_co`, and `filter[company]` will not match both. That is
+      the largest open consequence of this point and it wants a decision of its own.
+- [x] **6.2c** The archived view and the restore control — 6.2b's endpoints, made reachable, and
+      the point that closes the withdraw → restore loop on screen.
+      **A view chooser, not a filter, because that is what the server offers.** `listEntries()` gains
+      a third argument that picks the address rather than adding a query parameter: `ListingQuery` is
+      shared with the FX-rate history and refuses `filter[...]` outright (Point 6.2b), so §6.2's
+      "each resource declares its own filters" is answered by a second collection.
+      **The chooser is drawn for a writer only, and the table for everyone** — the asymmetry is the
+      whole reasoning. `GET .../archived` carries `admin.system_settings` while the live list carries
+      none, because §8 puts Customers on six roles' screens and Catalog on five and not one renders
+      without a sector, while **nothing renders from the archived set at all**. Offering a reader the
+      chooser would offer a view whose every request is a 403.
+      **No confirmation on the restore, and that is cited rather than assumed.** §6.6 lists what must
+      be confirmed — archive, deactivate, rejection, return, approval — and a single restore is none
+      of them. `CustomersView` already reads §6.6 the same way for the same act, and its comment says
+      so. So the archive keeps its dialog and the restore does not get one.
+      **The 409 is explained, not retried.** `OpenAPI §5.1`'s `state_transition_invalid` means the
+      code this entry wants back was taken while it was away, which no amount of retrying fixes. The
+      handler reads `ApiError.code` and shows a sentence naming the two ways out — withdraw the entry
+      holding the code, or add this one under a different code — instead of the generic "try again"
+      every other failure gets.
+      **The add form is hidden in the archived view**, because a row added while looking at the
+      archived set lands in the live list, out of sight of the person who just added it.
+      **577 frontend (34 files, +6) · `npm run build` clean · 1946 backend (11798 assertions) · pint
+      459 files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1631 and 877
+      allowed).** Backend **+0**, as expected: no `.php` and no new `.vue` file.
+      RED first: **5 of 6 failed**. The sixth — "draws no archived view for a reader who cannot
+      write" — passed before any chooser existed, the same wrong reason 6.1's 404s and 6.2's
+      permission test passed. **Third occurrence of that pattern**, and it is why the deliberate
+      break matters more than the RED on this screen.
+      **Deliberate break — one, restored by inverse replacement, `shasum -c` confirmed.** The 409
+      branch was flattened to the generic message — the plausible "simplification", and one no RED
+      could catch since both paths set an error and both render. **Exactly the 409 test failed**, 25
+      others passed.
+      **A side effect worth naming:** the restore button reuses `.chip`, which had a `transition`
+      declared and no `:hover` to use it. Adding `.chip:hover` gives the **pagination buttons** one
+      too — they had none. Source order was checked rather than assumed: `.chip:hover` sits at 648
+      and `.chip-idle:hover` / `.chip-selected:hover` at 652 and 657, so the chooser's own hovers
+      still win at equal specificity.
+      **Waste audit.**
+      *Dead code:* every symbol grepped, and all six new lang keys resolved **through both locale
+      files and the source** rather than by a literal grep — the check Point 6.2 had to invent after
+      a naive grep produced a false positive. Nothing at one hit; nothing dead.
+      *Duplicate logic:* **one considered and deliberately not extracted.** `CustomersView` has
+      `archivedFilter`/`archivedOnly`, the same *shape* as this screen's `view`/`showingArchived`.
+      The mechanism differs — that screen sends `filter[is_archived]`, this one changes address — and
+      what is common is a two-option `<select>`, which is markup rather than logic. **Stated ceiling:
+      a third screen needing an archived toggle is when this becomes a component**, not before.
+      *Unused components:* **none, and that is itself the finding.** The three previous points each
+      turned up a stale copy of "there is no `PATCH`/`DELETE`"; this point falsifies no standing
+      claim, and the sweep is clean.
+      *Unnecessary complexity:* `switchView()` has one caller and four lines, and exists because the
+      page number does not carry between two collections of different lengths — the same reason
+      `choose()` resets it, stated in both places.
+      **Problems found: none.** No gate failed on a first run, nothing was voided, and the deliberate
+      break behaved exactly as predicted. Said explicitly rather than by omitting the row.
+      **Not covered:** **there is no "restore all"** though `API-07` asks for "bulk operations for
+      archive and restore" — `CustomersView` has select-all for exactly this and this screen does
+      not; it stays on the register. **The archived view has no pagination test**, and its pager is
+      the live one's code path with a different total, so a defect there would be invisible.
+      **Nothing shows *when* an entry was withdrawn or by whom** — the audit log holds both and no
+      screen renders it, which is the same gap Module 4 recorded. **Still no label editing.**
+- [x] **6.2b** The way back out of the archive — `PATCH /managed-lists/{list}/{code}/restore` and
+      `GET /managed-lists/{list}/archived`. Owner's ruling of 2026-08-31, after asking whether a
+      withdrawal could be undone. **It could not.**
+      **This half was documented before it was built, which is why it is a gap and not a feature.**
+      §3.3 line 223 writes the permission row as a single merged **`archive / restore`**; §7's Flow 7
+      gives archiving a **Restore** column; and §3.12 rule 4 names **"restore from archive"** among
+      the mandatory audit entries — a rule that cannot apply to an action nobody can perform. Point
+      6.1 shipped the withdrawal alone and left the row withdrawn permanently: the *code* could be
+      re-used (the partial index frees it) but that creates a **new row with a new id**, and the
+      audit then reads "archived" then "added", never "restored".
+      **One permission for both directions**, so no matrix row was invented: `admin.system_settings`
+      guards the restore exactly as it guards the withdrawal — the reading `routes/api.php` already
+      applies to `PATCH /customers/{customer}/restore`, which carries `customer.archive` and has no
+      `customer.restore` beside it.
+      **The archived set is a route, not a `filter[archived]`.** `ListingQuery` is **shared with the
+      FX-rate history** and refuses `filter[...]` outright, because §6.2 has each resource declare
+      its own allowed filters and these two declare none. Teaching the shared parser one filter that
+      only one of its resources may use is worse than a second collection, and §6.2 constrains query
+      parameters rather than how many collections a resource has.
+      **The archived collection carries the write permission, unlike the live list** — and the
+      contrast is the reasoning. The live read is open because §8 puts Customers on six roles'
+      screens and Catalog on five and not one renders without a sector or a unit; **nothing renders
+      from the archived set at all.** It exists to serve the restore, so it answers to the same
+      authority.
+      **What the audit records, and what it deliberately does not.** `old_values` null, `new_values`
+      `{list, code}` — the act, not the entry. A restore does not choose the labels; it clears
+      `deleted_at`, and the labels it uncovers are the ones the archive already recorded on the way
+      out, against the same `entity_id`. Copying them here would describe the row rather than what
+      was done to it.
+      **A defect this point found in its own work, measured and then fixed.** The entry first read
+      "a restore can still fail on a collision … surfaces as a 500" — written from reasoning, not
+      from a run. The rule against "should" applies to one's own report, so it was **probed**: the
+      partial index is `(list, code) WHERE deleted_at IS NULL`, so restoring `banks` after somebody
+      added a fresh `banks` answered **`PROBE STATUS: 500`**. Fixed inside the point rather than
+      recorded as a gap: `restore()` reads the database's own `23505` and raises the
+      `ListEntryAlreadyExists` the module already had — the exact shape `add()` uses, and for the
+      same reason, since a read-then-write check is a race. The controller answers
+      **`409 state_transition_invalid`** (`OpenAPI §5.1`), *not* a 422: the request is well-formed
+      and names a real archived entry, and there is no field the caller sent that is wrong. The
+      probe became the regression test, which also asserts the transaction rolled back and left
+      **no** `LIST_ENTRY_RESTORED` row behind.
+      **1946 backend (11798 assertions) · 571 frontend (34 files) · `npm run build` clean · pint 459
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1631 and 877 allowed).**
+      **+11 tests / +75 assertions** against 6.2's 1935/11723. Pint 458 → 459 and the deptrac counts
+      move because the point adds exactly one file.
+      RED first: **8 of 10 failed.** The two that passed are the pair this file keeps producing —
+      the "not found" cases, which Laravel already answers with a 404 when no route is registered.
+      They were passing for the wrong reason and only became meaningful once the routes existed.
+      **Deliberate break — one, restored by inverse `sed`, `shasum -c` confirmed.** `onlyTrashed()`
+      was swapped for `withTrashed()` in the archived scope — the plausible slip, and the one no RED
+      could have caught, since both spellings return rows and only one returns the *right* rows.
+      **Exactly two tests failed:** the archived collection listing "the withdrawn and nothing else",
+      and the withdraw → restore → withdraw round trip. 42 others passed.
+      **Waste audit.**
+      *Dead code:* every added symbol grepped — `RestoreListEntry` 3, `->restore(` 3,
+      `LIST_ENTRY_RESTORED` 2, `scope` 19. **`function archived` reads as 1 hit and is not dead:** a
+      controller action is reached through a route **string**, so the definition is the only textual
+      match; `'archived'` is at 10 and its endpoint test passes, which is the evidence rather than
+      the grep.
+      *Duplicate logic:* none created. `scope()` **removed** duplication rather than adding it — the
+      `where('list', …)` had to be built twice per page, once for the rows and once for the total,
+      because an Eloquent builder is stateful and `count()` on the one already carrying
+      `offset`/`limit` counts the page instead of the list.
+      *Unused components:* **three found, all corrected here, and all the same defect recurring.**
+      "There is still no `PATCH`" was written into `ManagedListsView.vue`, `services/admin.ts` and
+      `routes/api.php`, and this point made all three false. ⚠️ **This is the third consecutive point
+      to find a stale copy of the same claim** — 6.1 corrected two, 6.2 found a third, and 6.2b found
+      three more. The claim keeps being restated in prose in several files at once, which is what
+      makes it keep going stale. A fourth occurrence in `ArchiveListEntry` is a **quotation of what
+      `routes/api.php` used to say** and is still accurate as history — left alone. **There is no
+      SPA caller for either new endpoint**, which is Point 6.2c.
+      *Unnecessary complexity:* the `bool $archived = false` parameter has two callers passing two
+      different values, so it is not a parameter every caller passes the same value for.
+      **Problems found: three.** (1) ⚠️ **A `python3` anchored replacement split `entry()` from its
+      docblock.** The anchor was the function signature and the insertion landed between the two, so
+      `/** @return array<string, mixed> */` came to sit above the *new* method — **PHPStan level 10
+      caught it** (`missingType.iterableValue`) and nothing else would have. Anchoring on a signature
+      without its docblock is the lesson. (2) Pint refused the interface's `@param` continuation
+      alignment; fixed by running Pint on that file rather than by hand. (3) Both were **found by
+      running the gates and reading them** — the point was not reported until they were green.
+      **Not covered:** **no screen** — no "show archived" toggle, no restore button, no
+      `restoreListEntry()` in `services/admin.ts`. That is **Point 6.2c**, and a service function
+      added now would be a caller-less export, which is the waste this rule exists to prevent.
+      **The collision answers 409 but no screen explains it** — a person who hits it will see
+      whatever the SPA does with an unmapped 409, because there is no caller yet. **Still no label
+      editing** — the only `PATCH` here is the restore. **Nothing bulk-restores**, though `API-07`
+      asks for "bulk operations for archive and restore"; that is a documented requirement this
+      point does not meet and is left on the register.
+- [x] **6.2** The archive control on the Managed Lists screen — 6.1's endpoint, made reachable.
+      **Branched from 6.1, not from `main`.** The endpoint it calls is in PR #64, so this is a
+      stacked branch and **#64 has to merge first**; merging this alone would ship a button whose
+      route does not exist.
+      **`ConfirmDialog` is reused, not rebuilt.** It already takes `titleKey`/`messageKey`/
+      `confirmKey`/`subject`/`busy`/`danger`, already traps `Escape` and already returns focus. Its
+      `data-testid`s were **read before the tests were written**, not guessed, which is why the RED
+      run failed on behaviour rather than on selectors.
+      **§6.2's Danger variant, split across the two controls.** The documented row is "Archive,
+      deactivate, reject", and the row button is drawn as an **outline** with danger-coloured text
+      rather than a filled red button: it repeats on every row, and a table of filled danger buttons
+      reads as a warning about the table. The filled danger answer is the dialog's, which is where
+      the decision is actually made (`:danger` on `ConfirmDialog`). The new button carries
+      `:hover`/`:active` and is added to the `prefers-reduced-motion` block — §6.2's "all button
+      variants have … hover" applied to a button written *after* Point 6.0 rather than before it.
+      **`SEC-09`'s presentation half**: both the column and the cell are `v-if="canEdit"`, so a
+      reader who cannot write is not offered a control whose every use would be a 403 — the same
+      reasoning this screen already applies to the add form, and the API refuses either way.
+      **An edge this point had to answer:** archiving the last row of the last page leaves an empty
+      page with a pager still offering the number it stands on. `choose()` solves the same problem by
+      resetting to page 1; this steps back one instead, which keeps the person nearer to where they
+      were.
+      **571 frontend (34 files) · `npm run build` clean · 1935 backend (11723 assertions) · pint 458
+      files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 (1605 and 862 allowed).**
+      Frontend **+6 tests** (565 → 571). **Backend moved by 0**, and that is the expected result
+      rather than a missing check: no `.vue`, `.css` or `.php` file was **added**, so no per-file
+      provider moved — `ConfirmDialog` was reused instead of a new component being written, which is
+      exactly why `NoHardCodedTextTest`'s inventory did not need an entry.
+      RED first: **5 of 6 failed**, and the sixth is worth naming — "draws no archive control for a
+      reader who cannot write" **passed before any control existed**, for the same wrong reason
+      6.1's two 404 tests passed. It is the test the deliberate break below was aimed at.
+      **Deliberate break — one, restored by inverse edit, `shasum -c` confirmed.** `v-if="canEdit"`
+      was removed from the action cell — the plausible slip, and the one the RED could not prove
+      against. **Exactly that test failed**, 19 others passed.
+      **Waste audit.**
+      *Dead code:* **one found, and removed inside the point.** A naive `grep` put `error.archive` at
+      one hit, which the rule reads as dead; the grep was wrong (JSON nests the key, so the literal
+      never appears), so every new key was instead resolved through both locale files **and** the
+      source. That check found the real one: **`lists.archive.archived` was defined in both languages
+      and rendered nowhere.** It was **deleted rather than given a home** — the row leaving the table
+      already is the feedback, which is why the add form needs an "added" message and this does not.
+      *Duplicate logic:* none. `ConfirmDialog` was searched for before anything was written and is
+      reused by five screens now; no second dialog was introduced.
+      *Unused components:* **one found — the third stale copy of a claim 6.1 falsified.** This file's
+      own class docblock still said "There is no `PATCH` and no `DELETE` behind this screen". 6.1
+      corrected `routes/api.php` and `services/admin.ts`; this one was missed and is corrected here.
+      A sweep for further copies found three more mentions, all about **catalog items**, where
+      "no DELETE at any permission" is still true (§3.12 rule 3) — left alone.
+      *Unnecessary complexity:* none. No new component, no new service abstraction, no props added to
+      `ConfirmDialog`. The page-step-back is four lines against a real empty-page bug, not a general
+      pagination rework.
+      **Problems found: three.** (1) The dead lang key above. (2) ⚠️ **`npm run test:unit` passing is
+      not the frontend gate, again.** 571 tests were green and then `vue-tsc` failed with `TS2493`:
+      two mocks written as `vi.fn(async () => …)` type `mock.calls` as an **empty tuple**, so
+      destructuring `init` off them cannot compile. Fixed by giving those mocks the signature their
+      own assertions read. (3) ⚠️ **A backend run was voided and re-run** — the locale edit landed
+      mid-run and `tests/Feature/Localisation/SpaShellTest.php` reads the locale files. Both reads
+      were 1935/11723; the reported figure is the re-run.
+      **Not covered:** **nothing un-archives from this screen** — 6.1 clears `deleted_at` nowhere, so
+      a withdrawal made by mistake is undone by adding the code again, not by restoring the row.
+      **There is still no `PATCH`**, so a mistyped *label* cannot be corrected in place. The dialog's
+      subject is the entry's **`code`**, not its label, because that is the value the endpoint
+      addresses and the one that is unambiguous in both languages — a person who thinks in labels
+      sees an internal name in the question. **No test asserts the button's colour or its hover**,
+      for `jsdom`'s reason (debt 29); the outline-vs-filled decision above is unverified by machine.
 - [x] **5.2** `company` required at the write boundary, and `filter[company]` on the list. The
       server half of the owner's ruling; the dropdowns are 5.3's and the filter control is 5.4's.
       **Why required, when §7.3 does not say so.** §7.3 lists "Providing team / company" in the

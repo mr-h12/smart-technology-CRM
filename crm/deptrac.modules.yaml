@@ -56,10 +56,22 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Notifications/.*
-    - name: Admin
+    # Admin is split for the reason Audit, Storage and Identity are, approved
+    # 2026-08-31 with Point 6.3 — the first crossing into it. `DB-05`'s managed
+    # lists are the thing another module needs: Catalog files an item under a
+    # company and the list is where a company is defined. What it must never
+    # reach is `enum_lists` itself, the Eloquent model, or the HTTP surface —
+    # the split puts that line where the others already are. Nothing depended
+    # on `Admin` before this point, so no ruleset moves except Catalog's.
+    - name: AdminContract
       collectors:
         - type: directory
-          value: app/Modules/Admin/.*
+          value: app/Modules/Admin/(Domain|Application)/.*
+
+    - name: AdminDriver
+      collectors:
+        - type: directory
+          value: app/Modules/Admin/(Infrastructure|Presentation)/.*
 
     # Identity is split for the reason Audit and Storage are, approved
     # 2026-08-23 with Point 2.1. Its Infrastructure holds the Eloquent models
@@ -319,6 +331,15 @@ parameters:
       # mitigation: "every edit is written to the audit log". The same entry
       # Suppliers holds, for the same requirement.
       - AuditContract
+      # AdminContract, added 2026-08-31 with Point 6.3. §7.3 files an item under
+      # a company and Point 5.1 made the company a `DB-05` managed list, so the
+      # place a company is *defined* is Admin. Owner's ruling of the same day:
+      # a company typed into the catalog form joins the list, which means this
+      # module reaching Admin's contract rather than keeping a second list of
+      # its own — the exact duplication `DB-05` exists to prevent, and the
+      # crossing `SaveCatalogItemRequest`'s docblock predicted would be needed.
+      # It points at the contract half only; nothing points at AdminDriver.
+      - AdminContract
     Procurement: ~
     Outdoor: ~
     Reports: ~
@@ -331,7 +352,7 @@ parameters:
     # model lives in Infrastructure precisely because of it. No split into
     # AdminContract / AdminDriver yet: nothing outside Admin points at it, and
     # the Identity split exists to serve a crossing that actually happened.
-    Admin:
+    AdminContract:
       - Framework
       # Admin implements the settings contract; Identity reads through it. See
       # App\Support\Settings\SettingReader for why the contract sits outside
@@ -345,6 +366,14 @@ parameters:
       # a change that should not happen without a trace. It points at the
       # *contract* half only; nothing points at AuditDriver, and nothing should.
       - AuditContract
+
+    # The driver half holds the Eloquent models and the controllers, and needs
+    # its own contract half plus everything that half needs.
+    AdminDriver:
+      - Framework
+      - SharedContracts
+      - AuditContract
+      - AdminContract
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.

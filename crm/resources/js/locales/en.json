@@ -748,6 +748,7 @@
             "search": "Search",
             "searchAction": "Search",
             "active": "State",
+            "companyAll": "All companies",
             "activeAll": "Active and inactive"
         },
         "column": {

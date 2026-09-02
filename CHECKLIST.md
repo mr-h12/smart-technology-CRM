@@ -5436,6 +5436,55 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       (`DB-01`), so a company added by mistake can only be archived.
       ⚠️ **This entry and Point 5.0's are inserted at the same anchor**, so PR #58 and this one will
       both touch `CHECKLIST.md` here. Keep both, 5.0 first.
+- [x] **6.5** The company filter control on the Catalog screen — the caller `filter[company]` has
+      been waiting for since Point 5.2. **Step 6 is complete.**
+      **Why the parameter existed with nobody calling it.** 5.2 added `company` to
+      `CatalogItemListCriteria::ALLOWED_FILTERS` and said so in as many words; `§6.2` answers an
+      undeclared parameter with a **400**, so the URL is the whole assertion and the test reads it
+      rather than the rendered rows. `group_by=company` only **orders** the list (Point 3.1 kept
+      §4.2's flat envelope), so a screen that groups by a column has to be able to ask for one group
+      of it — that sentence is 5.2's, and this is the control it was written for.
+      **A `<select>`, not a text box.** After Point 6.3 the column stores a **code**, and
+      `EloquentCatalogItemDirectory` matches it with `where` — an exact match against a value nobody
+      can spell from memory (`alpha_co`, `c_3m`). The options are the list Point 6.4 already loads
+      for the form, so this point adds **no request**: `companies` was already in hand.
+      `entryLabel(entry, locale)` is the one 6.4 moved into `services/admin.ts`, reused rather than
+      copied — the check that helper was extracted for, one point later.
+      **`filtering` gains the control too**, so an empty result under a chosen company reads "nothing
+      matched" and not "there are none". Those are different sentences and only one is ever true.
+      **Checks: 1981 backend (11958 assertions) · 584 frontend (34 files) · `npm run build` clean ·
+      pint PASS 471 files · PHPStan level 10 `[OK] No errors` · deptrac 0 / 0 (1682 and 1041
+      allowed).** No backend file changed, so the backend figure is `main`'s. Frontend delta
+      **measured, not remembered** — `git stash` then the suite: **582 → 584**, the two tests here.
+      **RED first:** both new tests failed and the 25 existing ones passed.
+      **Deliberate break — one, restored and `shasum -c` confirmed.** Deleting
+      `['filter[company]', query.company]` from `listCatalogItems` failed **exactly one** test —
+      `expected '/api/v1/catalog-items?page=1&sort=nam…' to contain 'filter%5Bcompany%5D=acme'` —
+      and nothing else, which is the point: the control can be wired to a `ref` that reaches no URL,
+      and that is the failure a rendered-rows assertion would have missed. Restored with the inverse
+      edit, never by re-inserting text.
+      **Problems found: one, and it was procedural.** `main` moved underneath this point while it was
+      being written — PR #71 landed the whole six-PR catalog/admin stack and #72 landed the deals
+      nightly recompute — and the working tree was left **on `main`**, which is §2.6's documented
+      trap. `git branch --show-current` before the commit caught it, exactly as the rule says it
+      should, and the work was branched before anything was committed. Every figure above was
+      re-measured on the new `main` (`862c0c0`); the backend total moved 1957 → **1981** and pint
+      451 → **471 files** because of #72, not because of this point.
+      **Waste audit.** *Dead code:* `companyFilter`, `companyAll`, `catalog-filter-company`,
+      `filter[company]` and `query.company` each grep to at least one **use** beyond their
+      declaration over `app/` and `resources/`. *Duplicate logic:* none created — the label helper
+      is imported and the `<select>` follows `activeFilter`'s existing markup rather than inventing
+      a second shape for the same control. *Unused components:* no `.vue`, route or guard moved;
+      one lang key added and rendered. *Unnecessary complexity:* the filter needs no
+      stored-value fallback the way 6.4's selects did — a filter has no stored value to preserve,
+      only a question to ask.
+      **Not covered:** **legacy free-text `company` values cannot be filtered for.** They are in no
+      list, so they are in no option, and this is §1.2's open decision surfacing as a visible symptom
+      rather than a new defect — a row saved as `Alpha Co` before 6.3 is unreachable from this
+      control until it is either migrated or saved again. Still no `filter[has_open_account]` control
+      on the Suppliers screen (debt register, unchanged). The control is a single select, so there is
+      **no multi-company filter** and none is asked for. Nothing here touches the server: the filter,
+      its `where` and its 400-on-undeclared were all shipped in 5.2.
 - [x] **6.4** The catalog form stops asking a person to retype `DB-05`. `unit` and `service_type`
       become `<select>`s over their lists, `company` becomes an `<input list>` over a `<datalist>`,
       and a service gains an optional `name`.

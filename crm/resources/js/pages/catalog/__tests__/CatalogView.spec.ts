@@ -554,3 +554,53 @@ describe('CatalogView — DB-05 fills the form (Point 6.4)', () => {
             .toContain('metre');
     });
 });
+
+/**
+ * Point 6.5 — the company filter control.
+ *
+ * `filter[company]` has been on the server since Point 5.2 and had no caller
+ * until now: `CatalogItemListCriteria::ALLOWED_FILTERS` carries `company`, and
+ * §6.2 answers an undeclared parameter with a 400, so the URL is the assertion.
+ *
+ * A `<select>` over `DB-05`'s companies rather than a text box, because after
+ * Point 6.3 the column stores a **code** and the server matches it with `where`
+ * — an exact match against a value nobody can spell from memory. The list is
+ * the one 6.4 already loads for the form.
+ */
+describe('CatalogView — filtering by company (Point 6.5)', () => {
+    function listing(): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string) => (String(input).includes('/managed-lists/companies')
+            ? json(200, { data: [{ code: 'acme', label_en: 'Acme Industrial', label_ar: 'أكمي الصناعية', position: 1 }], meta: { pagination: PAGINATION } })
+            : page([PRODUCT])));
+    }
+
+    it('asks the server for one company, and asks nothing about it until it is chosen', async () => {
+        const fetchMock = listing();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = render();
+        await flushPromises();
+
+        expect(urlOf(fetchMock)).not.toContain('filter%5Bcompany%5D');
+
+        await view.find('[data-testid="catalog-filter-company"]').setValue('acme');
+        await flushPromises();
+
+        expect(urlOf(fetchMock, 1)).toContain('filter%5Bcompany%5D=acme');
+    });
+
+    /** "There are none" and "none matched" are different sentences, and the filter changes which is true. */
+    it('reads an empty result as filtered once a company is chosen', async () => {
+        const fetchMock = vi.fn(async (input: string) => (String(input).includes('/managed-lists/companies')
+            ? json(200, { data: [{ code: 'acme', label_en: 'Acme Industrial', label_ar: 'أكمي الصناعية', position: 1 }], meta: { pagination: PAGINATION } })
+            : page([], { total: 0 })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = render();
+        await flushPromises();
+        await view.find('[data-testid="catalog-filter-company"]').setValue('acme');
+        await flushPromises();
+
+        expect(view.find('[data-testid="empty-state"]').text()).toContain(en.catalog.empty.filtered.title);
+    });
+});

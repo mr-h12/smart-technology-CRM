@@ -5485,6 +5485,65 @@ has no endpoint, and a screen cannot be built on one that does not exist.
       on the Suppliers screen (debt register, unchanged). The control is a single select, so there is
       **no multi-company filter** and none is asked for. Nothing here touches the server: the filter,
       its `where` and its 400-on-undeclared were all shipped in 5.2.
+- [x] **6.6** The `code` box on the Managed Lists screen fills itself from the English label.
+      **Owner's request, 2026-09-01**, and the two answers it was given before any code was written:
+      the field is **filled and stays editable** (not locked, not removed), and it derives from the
+      **English label only**.
+      **Why the English label and not the Arabic one.** `AddListEntryRequest` requires
+      `^[a-z][a-z0-9_]*$` — the boundary's own rule is Latin. The transliteration `Str::slug`
+      applies to Arabic (`شركة ألفا → shrk_alfa`, measured at Point 6.3) is a PHP table the browser
+      does not have, so deriving from the Arabic box in the SPA would give the same company a
+      **different code** from the one Point 6.3's auto-registration gives it. That divergence was
+      put to the owner as the cost of the alternative, and the alternative was declined.
+      **Why "editable" needed a second mechanism.** A box that fills itself and then silently
+      reverts on the next keystroke in the label is a read-only box wearing a text box's clothes.
+      `codeEdited` latches on the code field's own `input` event — which a programmatic `v-model`
+      write does not fire — so the derivation stops the moment a person touches it, and `resetForm()`
+      clears the latch with the rest of the form.
+      **What the derivation is, and its stated ceiling.** Accent fold (`NFD` + combining-mark strip),
+      lowercase, non-alphanumeric runs to `_`, trimmed, and the `c_` prefix Point 6.3 already uses on
+      the server when the result starts with a digit. It is **not** `Str::slug`: it covers the Latin-1
+      names that actually appear and anything it cannot reduce falls out as an empty code, which is
+      the case the person types by hand. Marked `ponytail:` in the source with that ceiling named.
+      **This is a suggestion, not a rule (`D-67`).** The server still validates `code` exactly as
+      before; nothing about who may write, or what is accepted, moved into the browser.
+      **Checks: 1981 backend (11958 assertions) · 585 frontend (34 files) · `npm run build` clean ·
+      pint PASS 471 files · PHPStan level 10 `[OK] No errors` · deptrac 0 / 0.** No backend file
+      changed. Frontend **582 → 585**, the three tests here, measured on this branch's own base.
+      **RED first, and read rather than counted: only *two* of the three failed.** The third — "stops
+      deriving once the code has been edited by hand" — passed vacuously, because nothing derived at
+      all yet. That is a verifier proving nothing, and it is why the deliberate break below targets
+      exactly it rather than the derivation.
+      **Deliberate break — one, aimed at the vacuous test.** Removing the `if (!codeEdited.value)`
+      guard failed **exactly that test** — `expected 'alpha_company' to be 'alpha'` — and nothing
+      else. Restored with the inverse edit, `shasum -a 256 -c` OK.
+      **Problems found: two, and the second was found by the owner on the running app.**
+      (1) The vacuous RED above.
+      (2) ⚠️ **The first version did not fill anything for the owner, and the tests could not have
+      caught it.** The code box was the **first field on the form**, so a person filling it top to
+      bottom lands in it before any label exists to derive from — and the latch fired on *any*
+      `input`, so one stray character typed and deleted killed the derivation for the rest of the
+      form's life. Diagnosed by measurement rather than by theory: the served bundle was grepped and
+      **did** contain `codeFrom` and the new hint (`normalize(\`NFD\`).replace(/[\u0300-\u036f]/g…`),
+      and `curl` confirmed the served page referenced that exact asset — so it was never a stale
+      build. The fix is the root cause, not the symptom: the code box **moves below the two labels**
+      it is derived from, and emptying it **un-latches** the derivation, because clearing a box is
+      asking for the suggestion back rather than editing it. Two tests added for both halves; both
+      failed first.
+      **Waste audit.** *Dead code:* `codeFrom` and `codeEdited` grep to 2 and 4 hits over `app/` and
+      `resources/`. *Duplicate logic:* searched before writing — `grep -rn "normalize('NFD')"` over
+      `resources/js` returns **this file only**, so there was no existing slug helper to reuse and
+      there is now exactly one. *Unused components:* no file, route or guard added; the one lang
+      string changed is the hint that told people to compose the code themselves and would now be
+      false. *Unnecessary complexity:* the latch is a `ref` and an `@input`, not a watcher on the
+      code field — a watcher cannot tell a person's edit from the derivation's own write.
+      **Not covered:** the hint is **prose, and prose is not a test** — nothing asserts it stopped
+      contradicting the screen. There is still **no label editing** on a list entry, so a code
+      derived from a typo is corrected by archiving and re-adding, not in place. The derivation runs
+      only on the **add** form; it has nothing to attach to on an edit, because there is no edit.
+      Two labels that reduce to one code still collide — the server answers that, as it did before.
+      ⚠️ **This entry and Point 6.5's are inserted at the same anchor**, so PR #73 and this one will
+      both touch `CHECKLIST.md` here. Keep both, 6.5 first.
 - [x] **6.4** The catalog form stops asking a person to retype `DB-05`. `unit` and `service_type`
       become `<select>`s over their lists, `company` becomes an `<input list>` over a `<datalist>`,
       and a service gains an optional `name`.

@@ -9,6 +9,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Modules\SupplierQuotations\Infrastructure\Eloquent\SupplierQuotation;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -17,6 +18,20 @@ use RuntimeException;
  * §3.6 removes: there is no scoped builder factory and no `SearchService`
  * collaborator, because every role reads this resource with `Scope::All` and
  * nothing searches it until Step 4.
+ *
+ * ── The lines go in with one statement, and with no model of their own ─────
+ *
+ * Point 2.1. `supplier_quotation_items` has no Eloquent class: the only thing
+ * this module does with a line is insert a batch of them and, from Point 2.2,
+ * read them back — neither needs casts, events or a soft-delete trait, and a
+ * model added for a second use nobody has asked for is the speculative file
+ * `CLAUDE.md`'s waste audit names. `insert()` with the whole batch is also one
+ * round trip where a model would be one per line.
+ *
+ * The transaction is **not** opened here. `CreateSupplierQuotation` owns it,
+ * because `DB-11` puts the audit row inside the same commit and this class has
+ * no audit vocabulary — the same division `SaveDeal` and `EloquentDealDirectory`
+ * already draw.
  */
 final readonly class EloquentSupplierQuotationDirectory implements SupplierQuotationDirectoryInterface
 {
@@ -35,7 +50,43 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         $row->updated_by = $actorId;
         $row->save();
 
+        $this->writeLines($row->id, $draft->items, $actorId);
+
         return self::hydrate($row);
+    }
+
+    /**
+     * §7.2's lines, into Point 1.2's table.
+     *
+     * No `id` from the caller and no timestamps either: `insert()` bypasses the
+     * model, so everything `standardColumns()` would have filled is filled here
+     * instead. `DB-02`'s actor is the use case's on a line exactly as on the
+     * header — a line has no separate author.
+     *
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function writeLines(string $quotationId, array $items, string $actorId): void
+    {
+        if ($items === []) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+
+        foreach ($items as $item) {
+            $rows[] = [
+                'id' => Str::uuid()->toString(),
+                'supplier_quotation_id' => $quotationId,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+                ...$item,
+            ];
+        }
+
+        $this->connection->table('supplier_quotation_items')->insert($rows);
     }
 
     /**

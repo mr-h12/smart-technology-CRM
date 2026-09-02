@@ -210,15 +210,24 @@ final class AuditEnforcementTest extends TestCase
             // invisible for want of the same import — the ten-class hole the
             // notes above describe is unchanged by this row.
             //
-            // Not AUDITED, and the reason is a **forward** one rather than the
-            // settled one EloquentDealDirectory carries: Step 2 Point 2.1's use
-            // case does not exist yet, so at this commit nothing outside the
-            // module's own test calls this class at all. When that point lands
-            // it owns the transaction and records the create, and this string
-            // becomes the same statement its Deals sibling makes today.
-            EloquentSupplierQuotationDirectory::class => 'AUD-01 is satisfied one layer out, by a use case '
-                    .'Step 2 Point 2.1 has not written yet: at this commit nothing but this module\'s own '
-                    .'test calls this class. It is a persistence adapter with no actor and no event vocabulary.',
+            // Not AUDITED: `CreateSupplierQuotation` (Point 2.1) owns the
+            // transaction and records SUPPLIER_QUOTATION_CREATED, which is the
+            // settled statement EloquentDealDirectory has carried since Module
+            // 5. Point 1.3's version of this note said the use case did not
+            // exist yet; it does now.
+            //
+            // ⚠️ **Point 2.1 makes the hole eleven.** That use case is a writer
+            // by every meaning of the word and this scanner does not see it: it
+            // calls `->create(`, `->record(` and `->transaction(`, none of which
+            // is a DML verb — the same spelling accident that hides
+            // `ArchiveCustomer` and `ImportCustomers`. Measured, not assumed:
+            // this test passes with it unlisted, and listing it would fail the
+            // identity assertion instead. So the *audited* half of this module
+            // is invisible here while its persistence adapter is visible, which
+            // is the hole's clearest illustration yet.
+            EloquentSupplierQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateSupplierQuotation '
+                    .'owns the create transaction and records SUPPLIER_QUOTATION_CREATED. This is a persistence '
+                    .'adapter with no actor and no event vocabulary.',
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

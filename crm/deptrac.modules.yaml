@@ -316,12 +316,19 @@ parameters:
     # anything. If §3.6 ever gains a scope, this line changes and the crossing
     # is a decision in a diff, which is what this file exists for.
     #
-    # **No `AuditContract`**: `AUD-01` records writes, and the write this point
-    # adds is a persistence adapter with no actor vocabulary. Step 2 Point 2.1's
-    # use case owns the transaction and the events, and will need this entry.
+    # `AuditContract` added 2026-09-02 with Point 2.1, the module's first write
+    # that has an actor and an event to record — on exactly the terms every
+    # other module's first write was granted it: `AUD-01` names create among
+    # what must be recorded, and the recorder is an interface in `Audit\Domain`.
+    # `CreateSupplierQuotation` owns the transaction and records
+    # SUPPLIER_QUOTATION_CREATED. The *contract* half only; nothing points at
+    # `AuditDriver`, and nothing should. Point 1.3's version of this comment
+    # said the entry was not needed yet and named the point that would need it —
+    # this is that point.
     SupplierQuotations:
       - Framework
       - SharedContracts
+      - AuditContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

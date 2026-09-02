@@ -282,7 +282,15 @@ would hide them behind `OD-03` indefinitely.
       `EloquentAccountDirectory`, `EloquentUserDirectory`). **Nothing is unrecorded today** — every
       one is audited a layer out — but `AUD-01`'s enforcement is weaker than it reads. It is its own
       point because widening the signal re-classifies four already-shipped Identity classes, and
-      each needs its disposition decided rather than guessed
+      each needs its disposition decided rather than guessed.
+      **Grown to eleven by Module 6 Point 2.1, and the newest one is the clearest illustration yet:**
+      `CreateSupplierQuotation` is the class that *does* the auditing — it owns the transaction and
+      records `SUPPLIER_QUOTATION_CREATED` — and the scanner cannot see it, because it calls
+      `->create(`, `->record(` and `->transaction(` and none of those is a DML verb. Its persistence
+      adapter, which records nothing, **is** seen. Measured: the test passes with the use case
+      unlisted, and listing it fails the identity assertion instead. The second signal family this
+      pass owes is therefore not only "module-aliased Eloquent model" but "owns a transaction around
+      a writer" 
 - [x] **`ApiEnvelope` now lives in a shared layer** — *closed 2026-08-29, as its own point, on the
       trigger this entry itself named: "before a third module needs one".* Module 3's customers
       endpoints were that third module. `App\Support\Http\ApiEnvelope` is now the single copy;
@@ -6680,7 +6688,7 @@ has open acceptance criteria owned by a second developer. Recorded here rather t
 **awaiting a `D-xx`** — no authoritative source has been reinterpreted, and nothing below assumes
 Module 5 is finished.
 
-#### Step 1 — schema *(point order approved 2026-09-02; only Step 1 is approved)*
+#### Step 1 — schema *(point order approved 2026-09-02)*
 
 - [x] **1.1** `supplier_quotations` — §7.2's fields, `DB-01`/`DB-02`'s block, `DB-09`'s indexes, and
       closing the `supplier_quotation_files.supplier_quotation_id → supplier_quotations` debt Module 0
@@ -6760,6 +6768,42 @@ Module 5 is finished.
       every module's reach. The first version of the module's ruleset said "No `SharedContracts`"
       and was wrong: deptrac reported the dependency as *uncovered* until `Precision` had a layer,
       and as a **violation** the moment it had one
+
+#### Step 2 — the write path and one read *(point list approved 2026-09-02)*
+
+> **Owner's ruling, 2026-09-02 — `total_price` is entered by the user.** §7.2 lists it as a field of
+> its own, which permits it to differ from the sum of the lines; the owner chose that reading over
+> "always computed" and over "typed with a warning". Nothing in this module computes it, and
+> `CreateSupplierQuotationTest` submits a total that contradicts its lines to keep it that way.
+> **Awaiting a `D-xx`**; `docs/` is untouched.
+>
+> The four points below replace the three the module's shape sketched. 2.1 as sketched was the
+> largest point in the module — transaction, audit, lines, Form Request, route, permission and
+> `Idempotency-Key` in one turn — which is not "the smallest unit that can be verified on its own".
+> The split puts the layers below HTTP in 2.1 and the HTTP surface in 2.2.
+
+- [x] **2.1** `CreateSupplierQuotation` — the header, its lines and `AUD-01`'s record in one
+      transaction (`DB-11`). `SupplierQuotationDraft` now carries `items` beside `attributes`: one
+      submitted payload, two tables, so `fill()` cannot be handed a key that is not a column.
+      **No scope parameter and no scope resolution**, unlike `SaveDeal`: §3.4's create row carries
+      scopes and §3.6's does not — every role that may create here holds `Scope::All` under "a shared
+      screen — not restricted by ownership", so there is no owner column to file under. The
+      permission is checked at the route (§3.12 rule 1), which is 2.2's.
+      **The lines are written with one `insert()` and no Eloquent model.** The only things this
+      module does with a line are insert a batch and (from 2.2) read them back; neither needs casts,
+      events or a soft-delete trait, and one statement beats one save per line.
+      **The rollback is the point, and it was proven by breaking it:** removing the transaction
+      reddened `test_that_a_refused_line_rolls_back_the_whole_offer` alone, and computing
+      `total_price` from the lines reddened the owner's-ruling test alone. Both restored by inverse
+      edit, `shasum` back to `7f47a342…`.
+      ⚠️ **The `AuditEnforcementTest` signal hole grew to eleven here** — see the debt register.
+- [ ] **2.2** `POST /api/v1/supplier-quotations` — route, `permission:supplier_quotation.create`,
+      Form Request, API Resource, `Idempotency-Key` (`OpenAPI §295`). An unknown product is a **422**
+      here; `D-22`'s auto-add is Step 3.
+- [ ] **2.3** `GET /supplier-quotations/{id}` — `find()` on the contract, no scope (§3.6), lines
+      included.
+- [ ] **2.4** `PATCH /supplier-quotations/{id}` — which fields survive an edit, and optimistic
+      locking if it is decided here (`DB-12`, `API-12`).
 
 ---
 

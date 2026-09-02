@@ -62,6 +62,7 @@ export interface CatalogItemListQuery {
     groupBy?: string | null;
     kind?: string | null;
     category?: string | null;
+    company?: string | null;
     isActive?: boolean | null;
 }
 
@@ -96,6 +97,7 @@ export async function listCatalogItems(query: CatalogItemListQuery = {}): Promis
         ['group_by', query.groupBy],
         ['filter[kind]', query.kind],
         ['filter[category]', query.category],
+        ['filter[company]', query.company],
     ] as const) {
         if (typeof value === 'string' && value !== '') {
             parameters.set(key, value);

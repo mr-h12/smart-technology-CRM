@@ -59,7 +59,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
-import { listEntries, type ListEntry } from '@/services/admin';
+import { entryLabel, listEntries, type ListEntry } from '@/services/admin';
 import { listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
@@ -103,6 +103,14 @@ const denied = ref(false);
 const page = ref(1);
 const search = ref('');
 const categoryFilter = ref('');
+
+/**
+ * §7.3 groups the catalog by company, so the screen has to be able to ask for
+ * one group of it (Point 6.5). A `<select>` over `DB-05` rather than a text
+ * box: after Point 6.3 the column stores a **code**, and the server matches it
+ * exactly — a value nobody can spell from memory.
+ */
+const companyFilter = ref('');
 const kind = ref<Kind>('product');
 
 /**
@@ -125,7 +133,8 @@ const total = computed(() => pagination.value?.total ?? 0);
  * products" are still different sentences.
  */
 const filtering = computed(
-    () => search.value !== '' || categoryFilter.value !== '' || activeFilter.value !== '',
+    () => search.value !== '' || categoryFilter.value !== '' || companyFilter.value !== ''
+        || activeFilter.value !== '',
 );
 
 /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
@@ -161,6 +170,7 @@ async function load(): Promise<void> {
             kind: kind.value,
             q: search.value === '' ? null : search.value,
             category: categoryFilter.value === '' ? null : categoryFilter.value,
+            company: companyFilter.value === '' ? null : companyFilter.value,
             // `null`, never `false`, when unset. An unset select asks nothing
             // about the column; `false` would ask for the deactivated ones only.
             isActive: activeFilter.value === '' ? null : activeFilter.value === 'active',
@@ -375,6 +385,23 @@ onMounted(async () => {
             >
                 {{ t('catalog.filter.searchAction') }}
             </button>
+
+            <!-- The list 6.4 already loads for the form, asked of the server
+                 rather than narrowed in the browser (§5.2, §6.5). -->
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('catalog.column.company') }}</span>
+                <select
+                    v-model="companyFilter"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="catalog-filter-company"
+                    @change="applyFilters"
+                >
+                    <option value="">{{ t('catalog.filter.companyAll') }}</option>
+                    <option v-for="entry in companies" :key="entry.code" :value="entry.code">
+                        {{ entryLabel(entry, locale) }}
+                    </option>
+                </select>
+            </label>
 
             <!-- Three positions, because §10.4's hiding belongs to a selection
                  list and not to this screen. -->

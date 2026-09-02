@@ -24,6 +24,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use App\Support\Http\ApiExceptionRenderer;
@@ -180,6 +181,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (SupplierNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::supplierNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (SupplierQuotationNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::supplierQuotationNotFound($e, $request)
                 : null,
         );
 

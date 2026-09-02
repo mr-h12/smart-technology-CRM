@@ -477,6 +477,34 @@ would hide them behind `OD-03` indefinitely.
       **needs an owner decision on where it lives**, because a persisting middleware is a database
       writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
 
+- [ ] **`supplier_quotation_items` records no line order, so §7.2's "+ to add more" cannot be read
+      back in the order it was typed** — revealed 2026-09-02 by Module 6 Point 2.3, the first point
+      to read the lines. Point 2.1 writes the whole batch with one `insert()` under a single `now()`
+      and gives each row a random UUID, so `created_at` ties and `id` sorts arbitrarily; without an
+      `ORDER BY` PostgreSQL may return two calls differently. The read orders by `id` — deterministic,
+      but not the user's order — and its test asserts the lines by content rather than by position,
+      because asserting position would pass or fail on a coin toss. Owed: either a `sort_order`
+      column on the child table (a new migration, `DEV-03`'s `down()` included) or a documented
+      decision that line order is not preserved. **Not fixed in 2.3**: adding a column to satisfy a
+      read point would widen the approved point list, and §7.2 does not state the requirement
+      outright — it is implied by "+ to add more". Point 2.4 (`PATCH`) has to answer it anyway,
+      because editing lines without identity or order is a set replacement
+
+- [ ] **A test's HTTP client stays authenticated across requests, so a header-less call after an
+      authenticated one is not anonymous** — revealed 2026-09-02 by Module 6 Point 2.3, whose 401
+      test created an offer first and then got **404** (the Manager's answer for an absent row)
+      instead of 401. Measured, not inferred: with no login at all the same call is 401; after a
+      Manager request it answers as the Manager; after an Outdoor Supervisor request it answers 403.
+      A request presenting a *different* bearer token does re-resolve correctly, so assertions made
+      **with** a token are sound — the leak only affects a call that deliberately sends none.
+      `Illuminate\Auth\RequestGuard::user()` caches the resolved user and nothing in the framework
+      calls `AuthManager::forgetGuards()` between requests. **Not a production defect** — a real
+      caller gets a fresh process per request — but it is a live trap for every endpoint test in the
+      repository: any "unauthenticated is refused" case written after a login in the same method
+      passes or fails for the wrong reason. 2.3's own test now makes that assertion its only request.
+      Owed: a sweep of the existing 401 tests, and a `forgetGuards()` in the base `TestCase` so the
+      trap cannot be stepped in again
+
 - [ ] **Ten schema tests each carry their own private `refusedWith()`** — revealed 2026-09-02 by
       Module 6 Point 1.2, which added the tenth. The helper is identical in all of them: run a write,
       catch `QueryException`, return `errorInfo[0]`, and fail if the database accepted the row. It
@@ -6852,8 +6880,41 @@ Module 5 is finished.
       `AuditEnforcementTest::test_nothing_outside_a_module_writes_to_the_database` forbids `app/Http`,
       `app/Support` and `routes` from writing at all. So the store is either its own module or a
       named exception to that rule — and it is shared by Modules 5, 6, 7, 10 and 13
-- [ ] **2.3** `GET /supplier-quotations/{id}` — `find()` on the contract, no scope (§3.6), lines
-      included.
+- [x] **2.3** `GET /supplier-quotations/{id}` — `find()` on the contract, no scope (§3.6), lines
+      included. `SupplierQuotationDetail`, `SupplierQuotationLine`, `SupplierQuotationNotFound`,
+      `ListSupplierQuotations`, the directory's `find()`/`readLines()`, the controller's `show()`,
+      `SupplierQuotationPayload::detail()`, the route, the renderer arm and both lang files.
+      **The route carries `permission:supplier_quotation.view`, not `create`, and §3.6's two rows
+      are why:** the CEO holds `view` as `All` and a dash under `create / edit`, so the caller Point
+      2.2 refuses with a 403 is served with a 200 here. Proven by breaking it — swapping the
+      middleware to `create` reddened three tests and nothing else.
+      **`SupplierQuotationDetail` composes `SupplierQuotationSummary` rather than repeating its nine
+      fields.** A second header shape would be the duplicate the waste audit names — two classes that
+      must change together and eventually do not — so `detail()` delegates to `of()`.
+      **The lines are not on `SupplierQuotationSummary`**: `create()` returns that type and Point
+      2.2's 201 does not carry them (`OpenAPI §4.1`), so a field there would have no reader.
+      **`DB-01` is enforced twice, because it arrives twice.** The header is filtered by the model's
+      `SoftDeletes`; the lines are read through the connection with no model, so they carry an
+      explicit `whereNull('deleted_at')`. Each half has its own test and each test was proven by
+      breaking its own guard.
+      **The 404 says nothing about which of `OpenAPI §5.1`'s two cases applied** — an absent row and
+      an archived one answer identically, and `SupplierQuotationNotFound` records that only the first
+      is reachable under §3.6.
+      **`readLines()` refuses a non-string column rather than casting it.** PHPStan reported three
+      `Cannot cast mixed to string`; a `(string)` cast would have silenced it and turned a driver
+      returning a float into a silently rounded price, which is the one failure `DB-07` exists to
+      prevent. `nextCode()` already refuses loudly for the same reason.
+      **`SupplierQuotationLine` carries no `id`.** §7.2 names three things on a line and nothing
+      addresses a single line yet; whether `PATCH` edits lines by identity or replaces the set is
+      Point 2.4's decision, not this point's.
+      ⚠️ **Ordered by `id`, which is stability and not insertion order** — the table has no ordering
+      column at all. See the debt register.
+      ⚠️ **Two verifiers were found not to verify and both were fixed inside this point.** The 401
+      test authenticated itself before asserting 401 (see the harness debt below), and nothing read
+      the new lang file — `__()` returns the key when the file is missing, so `supplier_quotations.php`
+      could have been deleted and stayed green. The 404 test now asserts the sentence, and removing
+      the file reddens it; removing the Arabic half reddens `LocaleTest`.
+      **18 tests (140 assertions). RED first: 16 failed before any of it existed.**
 - [ ] **2.4** `PATCH /supplier-quotations/{id}` — which fields survive an edit, and optimistic
       locking if it is decided here (`DB-12`, `API-12`).
 

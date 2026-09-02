@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\SupplierQuotations\Infrastructure;
 
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationLine;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Modules\SupplierQuotations\Infrastructure\Eloquent\SupplierQuotation;
@@ -53,6 +55,71 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         $this->writeLines($row->id, $draft->items, $actorId);
 
         return self::hydrate($row);
+    }
+
+    /**
+     * Point 2.3. The header through the model — `SoftDeletes` is what makes an
+     * archived offer invisible here, so `DB-01` costs no `where` of its own —
+     * and the lines through the connection, for the reason `writeLines()`
+     * gives: `supplier_quotation_items` has no Eloquent class and needs none to
+     * be read.
+     *
+     * ── Ordered by `id`, which is stability rather than insertion order ────
+     *
+     * The table has no ordering column. Point 2.1 writes the whole batch with
+     * one `insert()` under a single `now()`, and the ids are random UUIDs, so
+     * the order the lines were typed in is not recorded anywhere and cannot be
+     * recovered. Without an `ORDER BY`, PostgreSQL is free to return the rows
+     * differently on two calls for the same offer. Ordering by `id` is
+     * arbitrary but deterministic, which is the most this schema can honestly
+     * offer; §7.2's "+ to add more" implies a user-visible order, and that gap
+     * is on the debt register rather than invented here.
+     */
+    public function find(string $quotationId): ?SupplierQuotationDetail
+    {
+        $row = SupplierQuotation::query()->whereKey($quotationId)->first();
+
+        if (! $row instanceof SupplierQuotation) {
+            return null;
+        }
+
+        return new SupplierQuotationDetail(self::hydrate($row), $this->readLines($row->id));
+    }
+
+    /** @return list<SupplierQuotationLine> */
+    private function readLines(string $quotationId): array
+    {
+        $rows = $this->connection->table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $quotationId)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->get(['catalog_item_id', 'unit_price', 'quantity']);
+
+        $lines = [];
+
+        foreach ($rows as $row) {
+            $catalogItemId = $row->catalog_item_id;
+            $unitPrice = $row->unit_price;
+            $quantity = $row->quantity;
+
+            if (! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity)) {
+                // Unreachable while the columns stand as Point 1.2 built them:
+                // all three are `NOT NULL`, and PostgreSQL hands `uuid` and
+                // `numeric` back as strings. Refusing loudly is `nextCode()`'s
+                // choice for the same situation — a `(string)` cast here would
+                // turn a driver returning a float into a silently rounded price,
+                // which is the one failure `DB-07` exists to prevent.
+                throw new RuntimeException('supplier_quotation_items returned a line that is not decimal text.');
+            }
+
+            $lines[] = new SupplierQuotationLine(
+                catalogItemId: $catalogItemId,
+                unitPrice: $unitPrice,
+                quantity: $quantity,
+            );
+        }
+
+        return $lines;
     }
 
     /**

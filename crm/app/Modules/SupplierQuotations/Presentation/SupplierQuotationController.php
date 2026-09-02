@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Presentation;
 
+use App\Modules\SupplierQuotations\Application\Listing\ListSupplierQuotations;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,20 @@ use RuntimeException;
  */
 final class SupplierQuotationController
 {
+    /**
+     * Point 2.3. The 404 is not decided here — `ListSupplierQuotations::one()`
+     * throws `OpenAPI §5.1`'s case and the renderer shapes it, so this method
+     * stays the three things `CLAUDE.md` allows: invoke, serialise, answer.
+     *
+     * Nothing is read off the authorisation decision here either. §3.6 grants
+     * `view` as `All` to every role that reaches this route, so there is no
+     * scope to narrow the read by.
+     */
+    public function show(Request $request, string $supplierQuotation, ListSupplierQuotations $quotations): JsonResponse
+    {
+        return ApiEnvelope::single($request, SupplierQuotationPayload::detail($quotations->one($supplierQuotation)));
+    }
+
     public function store(SaveSupplierQuotationRequest $request, CreateSupplierQuotation $quotations): JsonResponse
     {
         return ApiEnvelope::single(

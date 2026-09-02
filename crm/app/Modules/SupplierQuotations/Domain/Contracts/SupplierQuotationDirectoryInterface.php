@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Domain\Contracts;
 
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 
@@ -23,11 +24,14 @@ use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
  * §3.6 ever gains a scope, this signature changes and the crossing is a
  * decision in a diff.
  *
- * ── One method, because Point 1.3 owes one ────────────────────────────────
+ * ── Two methods, added one point at a time ────────────────────────────────
  *
- * `find()` is Point 2.2, `list()` is Point 4.1, and an interface published
- * ahead of its implementation is a promise the next point has to keep in a
- * shape it did not choose.
+ * Point 1.3 published `create()` alone, on the rule that an interface ahead
+ * of its implementation is a promise the next point must keep in a shape it
+ * did not choose. `find()` arrives now with Point 2.3, which implements it.
+ * (1.3's docblock said "`find()` is Point 2.2"; the owner's four-way split of
+ * Step 2, approved 2026-09-02, moved the read to 2.3.) `list()` is Point 4.1
+ * and is still not here.
  */
 interface SupplierQuotationDirectoryInterface
 {
@@ -44,4 +48,16 @@ interface SupplierQuotationDirectoryInterface
      * Step 2 Point 2.1's transaction.
      */
     public function create(SupplierQuotationDraft $draft, string $actorId): SupplierQuotationSummary;
+
+    /**
+     * §7.2's screen for one offer — the header **and** its lines, which is
+     * what separates this from `create()`'s return.
+     *
+     * Returns `null` for an absent or `DB-01` soft-deleted row rather than
+     * throwing: `OpenAPI §5.1`'s 404 is a contract decision, and it is made
+     * once in the use case instead of once per caller.
+     *
+     * No scope parameter, for the reason this interface already gives.
+     */
+    public function find(string $quotationId): ?SupplierQuotationDetail;
 }

@@ -22,6 +22,7 @@ use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use Illuminate\Auth\AuthenticationException;
@@ -333,6 +334,25 @@ final class ApiExceptionRenderer
      * future scope arrives at a handler that already cannot leak.
      */
     public static function supplierNotFound(SupplierNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a supplier quotation that is not there.
+     *
+     * The third of these, and identical to the two above on purpose: one
+     * envelope for one contract, whichever module produced the exception. §3.6
+     * makes only §5.1's "does not exist" case reachable — every reader holds
+     * `Scope::All` — and an absent row and a `DB-01` soft-deleted one answer
+     * the same, because §5.1 forbids revealing which.
+     */
+    public static function supplierQuotationNotFound(SupplierQuotationNotFound $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,

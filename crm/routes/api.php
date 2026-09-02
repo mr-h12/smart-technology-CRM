@@ -655,4 +655,12 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
 Route::middleware('auth')->prefix('supplier-quotations')->group(function (): void {
     Route::post('/', [SupplierQuotationController::class, 'store'])
         ->middleware('permission:supplier_quotation.create');
+
+    // Point 2.3. `view`, not `create` — §3.6's two rows are not the same set:
+    // the CEO holds `view` as `All` and a dash under `create / edit`, so the
+    // caller Point 2.2 refuses is served here. Registered after the collection
+    // route so `/` cannot be swallowed by `{supplierQuotation}`; the list is
+    // Point 4.1.
+    Route::get('/{supplierQuotation}', [SupplierQuotationController::class, 'show'])
+        ->middleware('permission:supplier_quotation.view');
 });

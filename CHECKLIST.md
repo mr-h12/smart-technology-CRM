@@ -465,6 +465,18 @@ would hide them behind `OD-03` indefinitely.
       technicality while breaking exactly what the gate protects. Owed: a decision on where a
       cross-module *write* helper is allowed to live, before §4.7's third prefix needs one
 
+- [ ] **`Idempotency-Key` is required by `OpenAPI §9.1` and exists nowhere** — recorded 2026-09-02
+      by Module 6 Point 2.2, the first point to publish an endpoint that the contract actually names.
+      §9.1 lists "deals, quotations, supplier quotations, purchase orders, reports, versions"; every
+      earlier module read that list and correctly found its own resource absent, so the header's
+      absence was a *reading* each time. It is not one here, and **`POST /deals` is in the same
+      position without saying so** — Module 5's routes do not mention the header at all. Owed: the
+      persisted store §9.1 describes (actor · route · key · request hash · final status · response),
+      replay without repeating the side effect, `409 idempotency_conflict` on a reused key with a
+      changed payload, and authorisation re-checked on each replay. Proposed as Module 6 Point 2.2b;
+      **needs an owner decision on where it lives**, because a persisting middleware is a database
+      writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
+
 - [ ] **Ten schema tests each carry their own private `refusedWith()`** — revealed 2026-09-02 by
       Module 6 Point 1.2, which added the tenth. The helper is identical in all of them: run a write,
       catch `QueryException`, return `errorInfo[0]`, and fail if the database accepted the row. It
@@ -6797,9 +6809,49 @@ Module 5 is finished.
       `total_price` from the lines reddened the owner's-ruling test alone. Both restored by inverse
       edit, `shasum` back to `7f47a342…`.
       ⚠️ **The `AuditEnforcementTest` signal hole grew to eleven here** — see the debt register.
-- [ ] **2.2** `POST /api/v1/supplier-quotations` — route, `permission:supplier_quotation.create`,
-      Form Request, API Resource, `Idempotency-Key` (`OpenAPI §295`). An unknown product is a **422**
-      here; `D-22`'s auto-add is Step 3.
+- [x] **2.2** `POST /api/v1/supplier-quotations` — the route, `permission:supplier_quotation.create`,
+      `SaveSupplierQuotationRequest`, `SupplierQuotationController` and `SupplierQuotationPayload`.
+      **Every rule that mirrors a database constraint is there for one reason:** a constraint
+      violation reaches the caller as a **500**. Points 1.1 and 1.2 put four on these tables — the
+      foreign keys, `unit_price >= 0`, `quantity > 0`, and the CHECK allowing both money columns or
+      neither — and each is mirrored so the boundary answers 422 first. Proven by deletion: removing
+      the `exists` rule on `catalog_item_id` turned that test's failure into
+      *"Expected response status code [422] but received 500"*.
+      **`whereNull('deleted_at')` on every existence rule** — `DB-01` soft-deletes everything and
+      Laravel's `exists` is a raw table query that would accept an archived supplier, deal, currency
+      or product.
+      **§3.6 supplies two documented negative cases and neither had to be invented:** the CEO holds
+      `view` and a dash under `create / edit`; the Outdoor Supervisor holds a dash in every column.
+      Both are 403s, and `SEC-09` is proven separately by deleting the grant row from the database.
+      **The 201 carries the header, not the lines** — `OpenAPI §4.1` asks for a single-resource
+      envelope and says nothing about nesting children; reading them back is 2.3, and a payload
+      field with no read path behind it would be this point inventing one. The lines are asserted
+      against the table instead.
+      **`code` is `prohibited`**, on `SaveCatalogItemRequest`'s reading of `OpenAPI §6.2`: refusing
+      beats ignoring, because a caller who sends one has a wrong idea about where a code comes from.
+      **`total_price` has `min:0`, which has no citation** — it mirrors the `unit_price >= 0` CHECK
+      on a line, because §5 has no negative price anywhere. Flagged as a boundary rule with no
+      source rather than presented as one.
+      ⚠️ **No `Idempotency-Key`, and this is a real gap rather than a reading** — see the point
+      proposed below and the debt register.
+      **23 tests. RED first: 23 failed before any of it existed.**
+- [ ] **2.2b — proposed, not approved: the `Idempotency-Key` store.** `OpenAPI §9.1` names *supplier
+      quotations* outright among the critical POSTs that require the header — unlike a customer, a
+      supplier or a catalog item, each of which Modules 3 and 4 correctly found **absent** from that
+      list and said so in the route file. Module 6 is the first module that actually owes one, and
+      **Module 5 owes one too**: deals are on the same list and `routes/api.php` does not mention the
+      header on `POST /deals` at all.
+      §9.1 is not one middleware. It requires a **persisted** store — actor, route, key, request
+      hash, final status and response, for a retention period — replay of the original response
+      without repeating the side effect, and `409 idempotency_conflict` when a key is reused with a
+      changed payload, with authorisation re-checked on every replay. That is a table, a migration,
+      a middleware and its own tests, and folding it into 2.2 would have rebuilt exactly the
+      oversized point the owner's four-way split removed.
+      **It also needs an owner decision this point cannot make: where the store lives.** A middleware
+      that persists is a database writer, and
+      `AuditEnforcementTest::test_nothing_outside_a_module_writes_to_the_database` forbids `app/Http`,
+      `app/Support` and `routes` from writing at all. So the store is either its own module or a
+      named exception to that rule — and it is shared by Modules 5, 6, 7, 10 and 13
 - [ ] **2.3** `GET /supplier-quotations/{id}` — `find()` on the contract, no scope (§3.6), lines
       included.
 - [ ] **2.4** `PATCH /supplier-quotations/{id}` — which fields survive an edit, and optimistic

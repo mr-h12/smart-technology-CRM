@@ -23,6 +23,7 @@ use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
+use App\Modules\SupplierQuotations\Presentation\SupplierQuotationController;
 use App\Modules\Suppliers\Presentation\SupplierController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -623,4 +624,35 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // choosing over inventing a new grant nothing in §3 asks for.
     Route::post('/{deal}/documents', [DealController::class, 'uploadDocument'])
         ->middleware('permission:deal.edit');
+});
+
+// §3.6 Supplier Quotations — Module 6 Point 2.2.
+//
+// `OpenAPI §7.1`'s conventional resource route, and §3.6's own rows:
+// `supplier_quotation.create` for the write. **No scope argument**, on the
+// catalog's precedent rather than the deals': §3.6 grants `Scope::All` to every
+// role in every column it fills — "a shared screen — not restricted by
+// ownership" — so there is no row scoping for the middleware to leave behind
+// and no owner for a create to be filed under.
+//
+// **§3.6 has two documented negative cases and neither needs inventing.** The
+// CEO holds `view` and a dash under `create / edit`; the Outdoor Supervisor
+// holds a dash in every column. Both are asserted as 403s.
+//
+// ⚠️ **No `Idempotency-Key`, and this time the omission is a gap rather than a
+// reading.** `OpenAPI §9.1` names "supplier quotations" outright among the
+// critical POSTs that require one — unlike a customer, a supplier or a catalog
+// item, each of which the earlier modules correctly found absent from that
+// list. §9.1 also requires a persisted store (actor, route, key, request hash,
+// final status and response), replay of the original response, and
+// `409 idempotency_conflict` on a reused key with a changed payload. **No such
+// infrastructure exists anywhere in this codebase**, and building it inside
+// this point would rebuild the oversized point the owner's four-way split just
+// removed. Recorded in `CHECKLIST.md` and proposed as its own point.
+//
+// **And no DELETE, at any permission.** §3.6 seeds no `delete` grant, and
+// `DB-01` forbids physically removing business data.
+Route::middleware('auth')->prefix('supplier-quotations')->group(function (): void {
+    Route::post('/', [SupplierQuotationController::class, 'store'])
+        ->middleware('permission:supplier_quotation.create');
 });

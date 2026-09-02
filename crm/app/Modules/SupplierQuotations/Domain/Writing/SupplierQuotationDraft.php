@@ -36,12 +36,24 @@ namespace App\Modules\SupplierQuotations\Domain\Writing;
  * that contradicts its lines to keep it that way. Recorded in `CHECKLIST.md`
  * awaiting a `D-xx`; `docs/` is untouched.
  *
- * ── There is no `forUpdate()`, and that is not an oversight ────────────────
+ * ── `forUpdate()` answers the question Point 1.3 left open ─────────────────
  *
- * `PATCH` is Point 2.3. Which of these fields survive an edit — whether an
- * offer may change supplier, above all — is a question that point asks with
- * §7.2 open. A `forUpdate()` written now would be answering it here, in the
- * class least able to explain itself.
+ * Point 2.4 asked it with §7.2 open: **all seven survive an edit**, including
+ * `supplier_id`. Nothing freezes them — §3.6 grants "edit" over the screen,
+ * `D-51` makes the offer standalone and reusable, and `D-36` has a supplier's
+ * price changing under a customer quotation that survives by holding its own
+ * snapshot. The two rows that stay out are the two with a source: `code` is
+ * "Automatic" and `entered_by` is `DB-02`'s author. So there is one writable
+ * list, not two, and `forUpdate()` differs from `forCreate()` in exactly one
+ * way — what an absent `items` key means.
+ *
+ * ── `items` is three-valued on an edit, and that is the whole difference ───
+ *
+ * `null` means the caller said nothing about the lines and they are left alone,
+ * which is what `PATCH` means. `[]` means the caller asked for no lines and is
+ * obeyed. A non-empty list replaces the set (the owner's ruling, 2026-09-02).
+ * A create cannot distinguish the first two — an offer created without lines
+ * has none either way — so `forCreate()` keeps folding absent into empty.
  */
 final readonly class SupplierQuotationDraft
 {
@@ -67,9 +79,9 @@ final readonly class SupplierQuotationDraft
 
     /**
      * @param  array<string, mixed>  $attributes  already validated at the boundary
-     * @param  list<array<string, mixed>>  $items
+     * @param  list<array<string, mixed>>|null  $items  null only on an edit that named none
      */
-    private function __construct(public array $attributes, public array $items) {}
+    private function __construct(public array $attributes, public ?array $items) {}
 
     /** @param  array<string, mixed>  $validated */
     public static function forCreate(array $validated): self
@@ -78,6 +90,27 @@ final readonly class SupplierQuotationDraft
             self::only($validated, self::WRITABLE_ON_CREATE),
             self::lines($validated),
         );
+    }
+
+    /** @param  array<string, mixed>  $validated */
+    public static function forUpdate(array $validated): self
+    {
+        return new self(
+            self::only($validated, self::WRITABLE_ON_CREATE),
+            array_key_exists('items', $validated) ? self::lines($validated) : null,
+        );
+    }
+
+    /**
+     * Whether this edit asks for anything at all.
+     *
+     * `SaveSupplier` skips the audit row for an edit that changes nothing, and
+     * `AUD-01` agrees: an event that did not happen is not an event. An empty
+     * `items` list is *not* nothing — it asks for the lines to go.
+     */
+    public function isEmpty(): bool
+    {
+        return $this->attributes === [] && $this->items === null;
     }
 
     /**

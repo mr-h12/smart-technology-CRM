@@ -31,7 +31,7 @@ use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
  * did not choose. `find()` arrives now with Point 2.3, which implements it.
  * (1.3's docblock said "`find()` is Point 2.2"; the owner's four-way split of
  * Step 2, approved 2026-09-02, moved the read to 2.3.) `list()` is Point 4.1
- * and is still not here.
+ * and is still not here. `update()` arrives with Point 2.4.
  */
 interface SupplierQuotationDirectoryInterface
 {
@@ -60,4 +60,16 @@ interface SupplierQuotationDirectoryInterface
      * No scope parameter, for the reason this interface already gives.
      */
     public function find(string $quotationId): ?SupplierQuotationDetail;
+
+    /**
+     * §7.2's edit. Returns `null` for an absent or `DB-01` soft-deleted row,
+     * for `find()`'s reason — `OpenAPI §5.1`'s 404 is decided once, in the use
+     * case, not once per caller.
+     *
+     * A `null` `$draft->items` leaves the lines untouched; a list replaces the
+     * whole set, soft-deleting what it replaces (the owner's ruling,
+     * 2026-09-02). `$actorId` is `DB-02`'s `updated_by` only — an edit never
+     * rewrites `created_by`.
+     */
+    public function update(string $quotationId, SupplierQuotationDraft $draft, string $actorId): ?SupplierQuotationSummary;
 }

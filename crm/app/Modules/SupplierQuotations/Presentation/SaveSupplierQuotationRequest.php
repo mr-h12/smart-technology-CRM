@@ -53,8 +53,14 @@ final class SaveSupplierQuotationRequest extends FormRequest
     {
         return [
             // §4.1 draws exactly one line into this entity, and Point 1.1 made
-            // the column `NOT NULL` for it.
-            'supplier_id' => ['required', 'uuid', $this->alive('suppliers')],
+            // the column `NOT NULL` for it. On a `PATCH` it becomes
+            // `sometimes|required` — `SaveSupplierRequest`'s pattern: an edit
+            // that does not name the supplier keeps the one it has, but an edit
+            // that names it may not blank it. §7.2 does not freeze it, so it is
+            // editable (Point 2.4).
+            'supplier_id' => $this->isMethod('POST')
+                ? ['required', 'uuid', $this->alive('suppliers')]
+                : ['sometimes', 'required', 'uuid', $this->alive('suppliers')],
 
             // `D-51`: standalone, and available to any deal.
             'deal_id' => ['nullable', 'uuid', $this->alive('deals')],

@@ -477,6 +477,26 @@ would hide them behind `OD-03` indefinitely.
       **needs an owner decision on where it lives**, because a persisting middleware is a database
       writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
 
+- [ ] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
+      it** — recorded 2026-09-02 by Module 6 Point 2.4, which read §9.2 and correctly found supplier
+      quotations *outside* it. §9.2 owes a version token on a quotation read (`"etag":
+      "quotation:uuid:7"`), `If-Match` on a quotation mutation, and `409 concurrency_conflict` with a
+      safe refresh reference and no silent merge. `DB-12` and `API-12` say the same. Nothing in the
+      codebase carries a version column, an `If-Match` reader, or that error code. **Not owed by
+      Module 6**: §9.2's closing sentence allows adopting the pattern for other resources "only
+      through a documented contract update", and the owner confirmed on 2026-09-02 that 2.4 builds
+      none. It becomes due with Module 7, and if supplier quotations are ever to have it, that needs
+      a `D-xx` first
+
+- [ ] **Five modules each carry a private `changedFrom()` that limits `AUD-02`'s old values to the
+      fields an edit touched** — the fifth was added 2026-09-02 by Module 6 Point 2.4. `SaveCustomer`,
+      `SaveSupplier`, `SaveCatalogItem`, `SaveDeal` and `UpdateSupplierQuotation` implement the same
+      four lines over five different summary types. 2.4 originally named its copy `replaced()`, which
+      made the duplication ungreppable; it was renamed to match its siblings inside that point, but
+      the duplication itself is a cross-module edit with no failing test behind it, so it is recorded
+      rather than extracted. Owed: one generic helper — the obstacle is that each takes a different
+      readonly summary class, so extraction needs either an interface or an array projection
+
 - [ ] **`supplier_quotation_items` records no line order, so §7.2's "+ to add more" cannot be read
       back in the order it was typed** — revealed 2026-09-02 by Module 6 Point 2.3, the first point
       to read the lines. Point 2.1 writes the whole batch with one `insert()` under a single `now()`
@@ -6915,8 +6935,40 @@ Module 5 is finished.
       could have been deleted and stayed green. The 404 test now asserts the sentence, and removing
       the file reddens it; removing the Arabic half reddens `LocaleTest`.
       **18 tests (140 assertions). RED first: 16 failed before any of it existed.**
-- [ ] **2.4** `PATCH /supplier-quotations/{id}` — which fields survive an edit, and optimistic
-      locking if it is decided here (`DB-12`, `API-12`).
+- [x] **2.4** `PATCH /supplier-quotations/{id}` — `SupplierQuotationDraft::forUpdate()`,
+      `UpdateSupplierQuotation`, the directory's `update()`/`replaceLines()`, the controller's
+      `update()`, the route, and `supplier_id` becoming `sometimes|required` on a `PATCH`.
+      **Which fields survive an edit: all seven, `supplier_id` included.** Two §7.2 rows stay out and
+      each has a source — `code` is "Automatic" (§7.2, §4.7) and stays `prohibited`, and `entered_by`
+      is `DB-02`'s author, which an edit may not rewrite. Nothing else is frozen because nothing
+      freezes it: §3.6 grants "edit" over the screen, `D-51` makes the offer standalone and reusable,
+      and `D-36` has a supplier's price changing under a customer quotation that survives by holding
+      its own snapshot. Inventing an immutability rule with no citation is what `CLAUDE.md` forbids.
+      **The permission is `supplier_quotation.create`, because §3.6's write row is one cell** —
+      "create / edit ✅" — which is how `SupplierController` already reads §3.7's write cell. The CEO
+      therefore reads an offer (2.3) and cannot edit it, and both halves are tested.
+      **`items` is three-valued on an edit:** absent leaves the lines alone (that is what `PATCH`
+      means), `[]` clears them, a list replaces the whole set. **Replaced lines are soft-deleted, not
+      removed** (`DB-01`), and `readLines()` already filters them out of the read.
+      ⚠️ **No optimistic locking, and that is a citation rather than a deferral.** `OpenAPI §9.2`
+      scopes the version-token/`If-Match`/409 pattern to *quotations* and closes with "the same
+      pattern may be adopted later for other high-contention resources **only through a documented
+      contract update**"; §9.1, three lines above, lists "deals, quotations, **supplier quotations**"
+      as separate resources, so §9's "quotation" is Module 7's. `DB-12` reads the same way. **Owner
+      confirmed 2026-09-02.** On the debt register, because Module 7 will need it built.
+      ⚠️ **A verifier was found not to verify, and the fix was a new test file.** The endpoint test
+      named `..._rolls_back_the_whole_edit` proved nothing about `DB-11`: with the transaction
+      removed, all 26 endpoint tests still passed, because Point 2.2's Form Request refuses a bad
+      line with a 422 before any write is attempted. The rollback is now proved in
+      `UpdateSupplierQuotationTest`, which calls the use case directly with a `catalog_item_id` the
+      foreign key refuses — that test reddens when the transaction is removed. The endpoint test was
+      renamed to what it actually proves.
+      ⚠️ **`AuditEnforcementTest` caught the new writer on its first full-suite run**, exactly as
+      designed, and `UpdateSupplierQuotation` is now listed AUDITED. It is the first use case in this
+      module the detector can see: it calls `->update(`, one of the scanned DML verbs, while
+      `CreateSupplierQuotation` reaches the database only through `->transaction(` and stays part of
+      the eleven-class hole.
+      **29 tests (26 endpoint + 3 use case). RED first: 26 failed before any of it existed.**
 
 ---
 

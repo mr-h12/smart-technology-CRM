@@ -52,9 +52,60 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         $row->updated_by = $actorId;
         $row->save();
 
-        $this->writeLines($row->id, $draft->items, $actorId);
+        $this->writeLines($row->id, $draft->items ?? [], $actorId);
 
         return self::hydrate($row);
+    }
+
+    /**
+     * Point 2.4. `fill()` takes only what the draft kept, so a `PATCH` that
+     * names three fields writes three fields; `DB-02`'s `updated_by` is the
+     * caller and `created_by` is deliberately not touched.
+     *
+     * `save()` is called unconditionally rather than only when something
+     * changed: Eloquent already writes nothing when no attribute is dirty, and
+     * the use case decides separately whether an audit row is owed.
+     */
+    public function update(string $quotationId, SupplierQuotationDraft $draft, string $actorId): ?SupplierQuotationSummary
+    {
+        $row = SupplierQuotation::query()->whereKey($quotationId)->first();
+
+        if (! $row instanceof SupplierQuotation) {
+            return null;
+        }
+
+        $row->fill($draft->attributes);
+        $row->updated_by = $actorId;
+        $row->save();
+
+        if ($draft->items !== null) {
+            $this->replaceLines($row->id, $draft->items, $actorId);
+        }
+
+        return self::hydrate($row->refresh());
+    }
+
+    /**
+     * The owner's ruling of 2026-09-02: a submitted `items` list replaces the
+     * whole set rather than being merged into it.
+     *
+     * **Soft-deleted, not deleted.** `DB-01` forbids physically removing
+     * business data, and a replaced line is business data — it is what the
+     * supplier had quoted before this edit. `readLines()` filters on
+     * `deleted_at`, so the old rows leave the read the moment they are stamped.
+     * `updated_by` is stamped with them, because `AUD-02`'s question about a
+     * removed line is who removed it.
+     *
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function replaceLines(string $quotationId, array $items, string $actorId): void
+    {
+        $this->connection->table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $quotationId)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now(), 'updated_at' => now(), 'updated_by' => $actorId]);
+
+        $this->writeLines($quotationId, $items, $actorId);
     }
 
     /**

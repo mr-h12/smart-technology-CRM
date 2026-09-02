@@ -6,6 +6,7 @@ namespace App\Modules\SupplierQuotations\Presentation;
 
 use App\Modules\SupplierQuotations\Application\Listing\ListSupplierQuotations;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
+use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,21 @@ final class SupplierQuotationController
                 $quotations->create($request->validated(), self::actorId($request)),
             ),
             201,
+        );
+    }
+
+    /**
+     * Point 2.4. §3.6's write row is one cell — "create / edit" — so the route
+     * carries the same `supplier_quotation.create` grant `store()` does, and a
+     * caller with `view` alone (the CEO) is refused here.
+     */
+    public function update(SaveSupplierQuotationRequest $request, string $supplierQuotation, UpdateSupplierQuotation $quotations): JsonResponse
+    {
+        return ApiEnvelope::single(
+            $request,
+            SupplierQuotationPayload::of(
+                $quotations->update($supplierQuotation, $request->validated(), self::actorId($request)),
+            ),
         );
     }
 

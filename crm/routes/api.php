@@ -663,4 +663,12 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
     // Point 4.1.
     Route::get('/{supplierQuotation}', [SupplierQuotationController::class, 'show'])
         ->middleware('permission:supplier_quotation.view');
+
+    // Point 2.4. §3.6's write row is a single cell, "create / edit ✅", so the
+    // edit is the create grant — `SupplierController` reads §3.7's write cell
+    // the same way. No `If-Match`: `OpenAPI §9.2` scopes optimistic concurrency
+    // to quotations and allows adopting it elsewhere only through a documented
+    // contract update, and §9.1 lists supplier quotations separately.
+    Route::patch('/{supplierQuotation}', [SupplierQuotationController::class, 'update'])
+        ->middleware('permission:supplier_quotation.create');
 });

@@ -19,6 +19,7 @@ use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
+use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -228,6 +229,17 @@ final class AuditEnforcementTest extends TestCase
             EloquentSupplierQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateSupplierQuotation '
                     .'owns the create transaction and records SUPPLIER_QUOTATION_CREATED. This is a persistence '
                     .'adapter with no actor and no event vocabulary.',
+
+            // Module 6 Point 2.4, and the first use case in this module the
+            // detector actually sees: it calls `->update(` on the directory,
+            // which is one of the DML verbs scanned for, while
+            // `CreateSupplierQuotation` reaches the database only through
+            // `->transaction(` and stays invisible. AUDITED because it records
+            // SUPPLIER_QUOTATION_UPDATED inside that transaction, with
+            // `AUD-02`'s old values read in the same transaction — asserted by
+            // `SupplierQuotationEditEndpointTest`, and by the sibling assertion
+            // in this file that a class claiming AUDITED reaches the recorder.
+            UpdateSupplierQuotation::class => self::AUDITED,
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

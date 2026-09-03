@@ -31,6 +31,24 @@ interface CatalogItemDirectoryInterface
     /** Null when the row is absent or soft-deleted. */
     public function find(string $catalogItemId): ?CatalogItemSummary;
 
+    /**
+     * The id of a live product with exactly this name, ignoring case — Module 6
+     * Point 3.1, the lookup `D-22`'s automatic add is decided by.
+     *
+     * Returns an id rather than a `CatalogItemSummary` because the only caller
+     * needs a foreign key, and `list()`'s `q` is the wrong instrument: that is
+     * `D-48`'s fuzzy `SearchService`, which is built to return near matches and
+     * would happily call "Split unit 2HP" a match for "Split unit 1.5HP".
+     *
+     * **Live** means not soft-deleted (`DB-01` — an archived row is out of the
+     * set), and **product** means §7.3's `kind`, so a service of the same name
+     * is not it. A **deactivated** product still matches: `is_active` is not an
+     * archive, and §10.4 (`D-37`) gives a deactivated item a documented life on
+     * an open quotation, so pointing at one is a handled situation where a
+     * second row of the same name would not be.
+     */
+    public function findProductIdByName(string $name): ?string;
+
     /** Point 3.2. */
     public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary;
 

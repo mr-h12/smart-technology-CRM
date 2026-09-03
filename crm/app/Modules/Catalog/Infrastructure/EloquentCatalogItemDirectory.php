@@ -98,6 +98,28 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
         return $row === null ? null : self::hydrate($row);
     }
 
+    /**
+     * Module 6 Point 3.1. `lower(name) = lower(?)` rather than `ILIKE`: the
+     * caller's name is a literal, and `ILIKE` would read `%` and `_` in it as
+     * wildcards — a product genuinely called "50% glycol" would match rows it
+     * is not.
+     *
+     * `SoftDeletes` on the model supplies `DB-01`; `kind` and the ordering are
+     * stated here. `orderBy('id')` makes the answer deterministic if two live
+     * rows already share a name, which nothing prevents — the column has no
+     * unique index and this lookup is the convention, not a constraint.
+     */
+    public function findProductIdByName(string $name): ?string
+    {
+        $id = CatalogItem::query()
+            ->whereRaw('lower(name) = lower(?)', [$name])
+            ->where('kind', 'product')
+            ->orderBy('id')
+            ->value('id');
+
+        return is_string($id) ? $id : null;
+    }
+
     public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary
     {
         $row = new CatalogItem;

@@ -25,7 +25,9 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Catalog\Application\Writing\ProvisionCatalogProduct;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
@@ -186,6 +188,14 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(SearchService::class),
             ),
         );
+
+        // Module 6 Point 3.1 — `D-22`'s automatic product add, published by
+        // Catalog because the product is added to the catalog. `bind` for the
+        // reason every directory here is bound: stateless, and a singleton
+        // would outlive nothing useful. The concrete class is resolved rather
+        // than constructed by hand so `SaveCatalogItem`'s five collaborators
+        // stay its own business.
+        $this->app->bind(CatalogProductProvisionerInterface::class, ProvisionCatalogProduct::class);
 
         // Module 5 Points 2.2–2.3. `bind` for the reason
         // `CustomerDirectoryInterface` is: stateless, and a singleton would

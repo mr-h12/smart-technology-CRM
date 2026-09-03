@@ -497,6 +497,17 @@ would hide them behind `OD-03` indefinitely.
       rather than extracted. Owed: one generic helper — the obstacle is that each takes a different
       readonly summary class, so extraction needs either an interface or an array projection
 
+- [ ] **`catalog_items.name` carries no uniqueness, so `D-22`'s reuse is a convention the lookup
+      enforces rather than a constraint** — recorded 2026-09-03 by Module 6 Point 3.1. The owner
+      ruled that a name already present is the same product, and `findProductIdByName()` implements
+      that with `lower(name) = lower(?)` plus `orderBy('id')` for determinism. Nothing stops two live
+      products sharing a name: the column is nullable, most existing rows may have one, and a unique
+      index would refuse the rows that do not. Two consequences are accepted rather than hidden —
+      two genuinely different products that share a name become one catalog item, and a name typed
+      with different surrounding whitespace makes a second row, because 3.1 deliberately normalises
+      only case and leaves trimming to the boundary in Point 3.3. Owed: a decision on whether
+      product names are meant to be unique at all, which is a `D-xx` and not a migration
+
 - [ ] **`supplier_quotation_items` records no line order, so §7.2's "+ to add more" cannot be read
       back in the order it was typed** — revealed 2026-09-02 by Module 6 Point 2.3, the first point
       to read the lines. Point 2.1 writes the whole batch with one `insert()` under a single `now()`
@@ -6828,6 +6839,52 @@ Module 5 is finished.
       every module's reach. The first version of the module's ruleset said "No `SharedContracts`"
       and was wrong: deptrac reported the dependency as *uncovered* until `Precision` had a layer,
       and as a **violation** the moment it had one
+
+#### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
+
+> **Owner's rulings, 2026-09-03.** A line names a product by `catalog_item_id` **or** by
+> `product_name`, exactly one; and a name already present is the **same product**, reused rather
+> than added twice. The owner also described the screen this serves: a searchable product dropdown
+> that tells the user "this is a new product and it will be saved", fills the rest of the product in
+> automatically, and shows it in the list next time. That screen is **frontend** and Module 6 has
+> none yet — these points build the backend that makes it possible, and the dropdown itself is
+> already served by the existing `GET /catalog-items?q=`.
+
+- [x] **3.1** `CatalogProductProvisionerInterface` — Catalog publishes `D-22` as one method, and
+      `deptrac` opens exactly that one class to Module 6.
+      **The rule belongs to Catalog because the product is added to the catalog**, and Module 6 is
+      where a missing product is discovered (§7.2's line). `deptrac.modules.yaml` grants
+      `SupplierQuotations` three layers and Catalog is not among them, which is `CLAUDE.md`'s
+      "cross-module work goes through interfaces or domain events" made mechanical.
+      **A name in, an id out.** The exposing collector is a `classLike` on the one interface —
+      `Precision`'s precedent, not `AuditContract`'s directory split, which would have handed Module
+      6 the whole of Catalog's domain. That stays narrow only while the signature is primitives: a
+      `CatalogItemSummary` would drag `Domain\Listing` across with it.
+      **The create delegates to `SaveCatalogItem`** rather than writing beside it. `AUD-01` names
+      create explicitly and `D-45`'s stated mitigation for opening the catalog to every employee is
+      "every edit is written to the audit log"; a second write path would spend exactly what `D-45`
+      bought. Proven by breaking it — creating through the directory instead reddened the audit test.
+      **`lower(name) = lower(?)`, not `ILIKE`**: the caller's name is a literal, and `ILIKE` reads
+      `%` and `_` in it as wildcards, so a product called "50% glycol" would match rows it is not.
+      **Live means not soft-deleted (`DB-01`); product means §7.3's `kind`; a *deactivated* product
+      is still reused** — `is_active` is not an archive, and §10.4 (`D-37`) gives a deactivated item
+      a documented life on an open quotation, where a second row of the same name would have none.
+      ⚠️ **The narrow layer collided with Catalog's own collector, and the tool said so.** `Catalog`
+      collects `app/Modules/Catalog/.*`, so the interface sat in two layers and
+      `ProvisionCatalogProduct` depending on the interface it implements was reported as *Catalog
+      must not depend on Catalog*. `--clear-cache` did not move it. Fixed by making `Catalog` a
+      `bool` collector that excludes the published class — the same disjointness Identity, Audit,
+      Storage and Customers get for free from their `(Domain|Application)` split, expressed for a
+      one-class contract. **The boundary was then proven**: a throwaway class in Module 6 importing
+      `CatalogItemDirectoryInterface` produced a violation, and removing it returned to zero.
+      **8 tests (29 assertions). RED observed by removing the production code: 8 failed.**
+- [ ] **3.2** An index on `catalog_items` for 3.1's case-insensitive name lookup (`DB-09`), with a
+      tested `down()` (`DEV-03`). The table has none on `name` today.
+- [ ] **3.3** The boundary: a line accepts `product_name` as an alternative to `catalog_item_id`,
+      exactly one required, `exists` unchanged for an id that is sent.
+- [ ] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction
+      (`DB-11`). Closes "offer containing a product not in the catalog → product added automatically".
+- [ ] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.
 
 #### Step 2 — the write path and one read *(point list approved 2026-09-02)*
 

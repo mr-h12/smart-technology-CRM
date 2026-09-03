@@ -36,10 +36,25 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Suppliers/.*
+    # `CatalogProductProvisionerInterface` is excluded because it is collected
+    # by `CatalogContract` below, and a token in two layers is checked against
+    # both: while this directory also claimed it, `ProvisionCatalogProduct`
+    # (layer `Catalog`) depending on the interface it implements was reported as
+    # `Catalog must not depend on Catalog`. Identity, Audit, Storage and
+    # Customers never hit this because their split is disjoint by construction —
+    # `(Domain|Application)` against `(Infrastructure|Presentation)`, with no
+    # module-wide collector left over. This is the same disjointness, expressed
+    # for a one-class contract instead of half a module. Measured, not reasoned:
+    # the violation was real and `--clear-cache` did not move it.
     - name: Catalog
       collectors:
-        - type: directory
-          value: app/Modules/Catalog/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Catalog/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
     - name: SupplierQuotations
       collectors:
         - type: directory
@@ -107,6 +122,23 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Audit/(Infrastructure|Presentation)/.*
+
+    # Catalog's published surface, added 2026-09-03 with Module 6 Point 3.1 —
+    # `D-22`'s automatic product add, which Module 6 discovers and Catalog owns.
+    #
+    # **One `classLike`, not a directory.** Identity, Audit, Storage and
+    # Customers are each split as `(Domain|Application)` versus
+    # `(Infrastructure|Presentation)`, and that shape would hand every module
+    # granted this layer the whole of Catalog's domain — `SaveCatalogItem`, the
+    # drafts, the listing criteria. `Precision`'s entry in `deptrac.layers.yaml`
+    # is the better precedent and the narrower promise: exactly the interface
+    # that was published, and nothing that happens to sit beside it. It stays
+    # narrow only while the signature is primitives, which is why
+    # `CatalogProductProvisionerInterface` takes a name and returns an id.
+    - name: CatalogContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
 
     - name: StorageContract
       collectors:
@@ -329,6 +361,13 @@ parameters:
       - Framework
       - SharedContracts
       - AuditContract
+      # CatalogContract, added 2026-09-03 with Point 3.1. `D-22` adds a missing
+      # product to the catalog automatically, and §7.2's offer line is where a
+      # missing product is discovered. One interface, taking a name and
+      # returning an id — the caller arrives with Points 3.4 and 3.5, and the
+      # grant is written here with the interface so the crossing is reviewed
+      # once rather than inside a point about a Form Request.
+      - CatalogContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.
@@ -381,6 +420,12 @@ parameters:
     Catalog:
       - Framework
       - SharedContracts
+      # CatalogContract, added 2026-09-03 with Module 6 Point 3.1. The module
+      # needs its own published interface back: `CatalogProductProvisionerInterface`
+      # was collected out of the `Catalog` layer by the narrow `classLike` above,
+      # so `ProvisionCatalogProduct` — which implements it — now depends on a
+      # layer rather than on a class next door.
+      - CatalogContract
       # AuditContract, added 2026-08-31 with Point 3.2 — the module's first
       # write. `D-45` opened catalog editing to every employee and named the
       # mitigation: "every edit is written to the audit log". The same entry

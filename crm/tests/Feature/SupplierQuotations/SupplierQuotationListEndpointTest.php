@@ -290,7 +290,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
     public function test_that_the_supplier_filter_returns_that_suppliers_offers_and_nothing_else(): void
     {
         $mine = $this->created();
-        $theirs = $this->offerFor($this->otherSupplierId);
+        $theirs = $this->created(['supplier_id' => $this->otherSupplierId]);
 
         $ids = $this->ids('?filter[supplier_id]='.$this->supplierId);
 
@@ -319,7 +319,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
     public function test_that_an_offer_with_no_deal_is_listed_normally(): void
     {
         $unlinked = $this->created();
-        $linked = $this->offerFor($this->supplierId, $this->deal());
+        $linked = $this->created(['deal_id' => $this->deal()]);
 
         $ids = $this->ids('');
 
@@ -331,7 +331,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
     {
         $unlinked = $this->created();
         $dealId = $this->deal();
-        $linked = $this->offerFor($this->supplierId, $dealId);
+        $linked = $this->created(['deal_id' => $dealId]);
 
         $ids = $this->ids('?filter[deal_id]='.$dealId);
 
@@ -348,7 +348,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
     public function test_that_a_soft_deleted_offer_is_absent_from_the_list(): void
     {
         $kept = $this->created();
-        $removed = $this->offerFor($this->supplierId);
+        $removed = $this->created();
 
         DB::table('supplier_quotations')->where('id', $removed)->update(['deleted_at' => now()]);
 
@@ -454,23 +454,6 @@ final class SupplierQuotationListEndpointTest extends TestCase
         return $ids;
     }
 
-    private function offerFor(string $supplierId, ?string $dealId = null): string
-    {
-        $overrides = ['supplier_id' => $supplierId];
-
-        if ($dealId !== null) {
-            $overrides['deal_id'] = $dealId;
-        }
-
-        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201)
-            ->json('data.id');
-
-        self::assertIsString($id);
-
-        return $id;
-    }
-
     /** A customer and a deal, so `filter[deal_id]` has something real to select. */
     private function deal(): string
     {
@@ -512,9 +495,10 @@ final class SupplierQuotationListEndpointTest extends TestCase
         ], $overrides);
     }
 
-    private function created(): string
+    /** @param array<string, mixed> $overrides */
+    private function created(array $overrides = []): string
     {
-        $id = $this->postJson(self::ENDPOINT, $this->payload(), $this->bearerFor(RoleName::Manager))
+        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
             ->assertStatus(201)
             ->json('data.id');
 

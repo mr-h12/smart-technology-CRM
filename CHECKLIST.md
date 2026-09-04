@@ -563,6 +563,25 @@ would hide them behind `OD-03` indefinitely.
       recorded it instead of doing it. Owed: one trait under `tests/`, ten call sites deleted. The
       four `SQLSTATE` constants beside it duplicate the same way
 
+- [ ] **A customer+deal fixture is now copied byte-for-byte between two test files, and the
+      per-file test-helper convention is what makes it unavoidable** — revealed 2026-09-04 by
+      Module 6 Point 4.4, which needed a real deal for `filter[deal_id]` and copied
+      `EloquentSupplierQuotationDirectoryTest::deal()` into `SupplierQuotationListEndpointTest`.
+      `diff <(sed -n '/private function deal(): string/,/^    }/p' …)` between the two is **empty** —
+      identical customer name, identical `DL-YYYY-9001`, identical field set. ⚠️ **4.4's waste audit
+      called this "created by this point", and the point disagreed and recorded it here instead.**
+      The reason is the same one the `refusedWith()` row gives: there is **no shared test-helper
+      location in this repository** — `find crm/tests -name '*.php' -not -name '*Test.php'` returns
+      `TestCase.php` and one fixture migration, nothing else — and the convention is per-file
+      helpers, measured at **25** copies of `bearerFor()` and **31** of `userWith()`. Inventing the
+      first `tests/Concerns/` trait for one 20-line fixture, inside a point whose approved list is two
+      acceptance criteria, is a structural decision about 31 existing call sites that a test-only
+      point does not get to make. Owed together with the `refusedWith()` row and the four `SQLSTATE`
+      constants: **one trait, one decision, all three squashed at once.**
+      *(The audit's second finding — `offerFor()` re-implementing `created()`'s POST/assert/extract
+      body — was genuinely created by 4.4 and needed no scaffolding, so it was removed inside the
+      point: `created()` now takes the overrides and `offerFor()` is gone.)*
+
 - [ ] **Thirteen test helpers mint a "unique" code from four hex characters, and CI goes red at
       random because of it** — revealed 2026-09-02 by Module 6 Point 1.1's own CI run, which failed
       on a test the diff does not touch. `'DL-2026-'.substr(str_replace('-', '', $id), -4)` takes the

@@ -6770,8 +6770,22 @@ flagged here for review rather than assumed)*
       the boundary accepts a name, the use case resolves it through Catalog's published contract
       inside `DB-11`'s transaction, on both `POST` and `PATCH`. Proven end to end at both endpoints
       and at both use cases; `D-45`'s audit row is Catalog's, written by `SaveCatalogItem`.)*
-- [ ] Saved offer appears on the supplier page under "Linked Quotations"
-- [ ] Offer not linked to a deal → saves normally, available to any deal
+- [x] Saved offer appears on the supplier page under "Linked Quotations" *(Point 4.4, as
+      `GET /supplier-quotations?filter[supplier_id]=…` — **a filter on this module's list, not offers
+      embedded in the supplier payload**: `OpenAPI §6.2` forbids `include` returning unrestricted
+      collections, and reading Module 6's rows from inside Module 4 would be the cross-module database
+      access `CLAUDE.md` forbids. Proven **in both directions** — the filtered supplier's offer is
+      present and a second supplier's is absent — because a filter that returns everything passes any
+      test that only asserts the wanted row is there.* ⚠️ **The supplier *page* does not exist.** The
+      criterion says "appears on the supplier page"; what is closed is the API that page will call.
+      The screen is frontend and Module 6 has none, so the visual half is untestable today and is
+      named in the module's manual test list as such.)
+- [x] Offer not linked to a deal → saves normally, available to any deal *(`D-51`. The save half has
+      held since Point 2.2 — `deal_id` is nullable and no route requires it — and Point 4.4 closes the
+      second half at the list: an offer with a `null` `deal_id` is listed beside a linked one, and
+      `filter[deal_id]` selects only the linked one. "Available to any deal" is not consumed anywhere
+      yet: nothing attaches an offer to a deal after the fact, because the customer quotation that
+      would do it is Module 7.)*
 - [ ] File upload → type, size and **true MIME** validated, stored under a UUID name
 - [ ] Shared screen — not restricted by ownership
 
@@ -6958,10 +6972,26 @@ Module 5 is finished.
       class of defect 4.2 hit, found before the point closed.
       **What is *not* here:** the filters, the ordering and the full 400 matrix are 4.4; one 400 case
       is asserted here only to prove the renderer is registered at all.
-- [ ] **4.4** The two acceptance criteria closed at the endpoint: `filter[supplier_id]` returns that
+- [x] **4.4** The two acceptance criteria closed at the endpoint: `filter[supplier_id]` returns that
       supplier's offers and nothing else; an offer with no deal lists normally and `filter[deal_id]`
       works; a soft-deleted offer is absent (`DB-01`); and `per_page=101`, an unknown filter and an
       unknown sort answer **400, not 422**.
+      **8 tests, and every one of them passed on arrival** — the behaviours were built in 4.1–4.3, so
+      there was no RED to observe and the green proved nothing by itself. ⚠️ **This is the case the
+      "a verifier is not verified until it has failed" rule exists for**, and each test was instead
+      proven by breaking what it covers: ignoring `filter[supplier_id]`; ignoring `filter[deal_id]`;
+      `withTrashed()` on the list query; dropping the filter allowlist (**200** where 400 is
+      required); widening the sort allowlist (**500**, thrown by the directory's deliberately
+      unreachable `match (true)` default arm — 4.2's defensive branch, doing exactly what it was
+      written for); and keying `error.details` by field instead of returning a list. Six probes, six
+      reddened tests, and `git diff --stat` empty on every restore.
+      **`error.details` is asserted as a shape, not only as a value** (`OpenAPI §5`): a renderer that
+      returned the map form would still produce a 400 and would pass every other case in the file.
+      ⚠️ PHPStan caught the `ids()` helper returning `list` where `list<string>` was declared —
+      `array_column` loses the element type — so the helper now asserts the shape it claims. Third
+      point in a row where PHPStan found a typing defect in a **test** helper.
+      **What is not closed:** the "shared screen" criterion stays unticked. `Scope::All` is enforced
+      and tested on all four routes, but the criterion names a *screen* and there is none.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 

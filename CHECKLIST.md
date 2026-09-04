@@ -6914,6 +6914,17 @@ Module 5 is finished.
       supplier filter each reddened exactly one test.
       ⚠️ **PHPStan caught a docblock that looked fine**: `@param` written inline after prose on one
       line is not parsed, so the helper's array had no value type. Fixed before the point closed.
+      **The plans were measured, not assumed** (50k rows, a scratch table rolled back). The
+      supplier-filtered list — the "Linked Quotations" path — is a `Bitmap Heap Scan` on
+      `supplier_quotations_by_supplier` over 250 rows then a top-N heapsort: 252 buffers, 0.15 ms.
+      ⚠️ **The *unfiltered* list cannot use `supplier_quotations_by_offer_date`** and sorts the whole
+      table: `Seq Scan` over 49,500 rows plus a top-N heapsort — 417 buffers, 3.4 ms — with the index
+      present and analysed. The reason is the order itself: 1.1's index is ascending, so reading it
+      backwards yields `DESC NULLS FIRST` while the default order is `DESC NULLS LAST`, and the `id`
+      tiebreak is not in it either. **This is a stated ceiling, not a defect**: 3.4 ms sits far under
+      `PRF-01`'s 500 ms, the screen that matters is the filtered one, and the upgrade — an index on
+      `(offer_date DESC NULLS LAST, id)` — belongs to whoever measures the unfiltered list as hot,
+      not to a point that has no endpoint yet.
 - [ ] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
       controller's `index` · `SupplierQuotationPayload::many()`/`pagination()` · the collection
       envelope (`OpenAPI §4.2`), behind `permission:supplier_quotation.view` — `view`, not `create`,

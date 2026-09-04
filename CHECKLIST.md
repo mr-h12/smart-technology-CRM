@@ -6878,8 +6878,39 @@ Module 5 is finished.
       one-class contract. **The boundary was then proven**: a throwaway class in Module 6 importing
       `CatalogItemDirectoryInterface` produced a violation, and removing it returned to zero.
       **8 tests (29 assertions). RED observed by removing the production code: 8 failed.**
-- [ ] **3.2** An index on `catalog_items` for 3.1's case-insensitive name lookup (`DB-09`), with a
-      tested `down()` (`DEV-03`). The table has none on `name` today.
+- [x] **3.2** An index on `catalog_items` for 3.1's case-insensitive name lookup, with a tested
+      `down()` (`DEV-03`).
+      ⚠️ **The citation in this line was wrong and is not used.** `DB-09` names "customer · owner ·
+      deal status · dates · entity codes" and a product name is none of them — Point 1.2's migration
+      argued exactly that when it left the table unindexed. The rule that does cover it is
+      `Coding_Standards_EN.md` §7: "Add indexes for each new join, permission scope, filter, sort,
+      and **common lookup** … verify them with realistic query plans." Point 3.1 made it a common
+      lookup: `findProductIdByName()` runs once per line of every supplier-quotation save (`D-22`,
+      Points 3.4 and 3.5), inside the write transaction `PRF-01` caps at 500 ms.
+      **`CREATE INDEX catalog_items_by_lower_name ON catalog_items (lower(name), id) WHERE
+      deleted_at IS NULL`** — functional because a btree over `name` cannot answer `lower(name) = ?`,
+      and `DB::statement` because Blueprint has no functional-index API (`customers_by_owner`'s
+      precedent).
+      ⚠️ **`id` is in it because the plan said so, and the obvious index was useless.** Point 3.1
+      ends the lookup with `orderBy('id')` and takes one row, so the query is `ORDER BY id ASC LIMIT
+      1` — and `catalog_items_pkey` wins that, returning the first match in key order with no sort
+      while filtering the whole table. Measured on 50k rows **before** the migration was written:
+      `(lower(name))` alone and `(lower(name), kind)` both planned as `Index Scan using ..._pkey`,
+      15,469 rows removed by filter, 15,521 buffers, 3.6 ms — indistinguishable from having no index
+      at all. With `id` as the second column: `Index Scan using ..._by_lower_name`, 4 buffers,
+      0.012 ms. **`kind` stays out**: a two-value `Filter` on rows the name has already found, and
+      measured to change nothing.
+      **Partial on `WHERE deleted_at IS NULL`** because `SoftDeletes` puts that predicate in every
+      one of these queries (`DB-01`). **Not `CONCURRENTLY`** — a migration runs inside a transaction
+      and PostgreSQL refuses it there; the ceiling is written into the migration.
+      **2 tests (9 assertions). RED observed before the migration existed: 2 failed**, the plan test
+      naming `catalog_items_pkey`. Both verifiers then proven by breaking them: removing `id`
+      reddened the shape test, misspelling the index reddened both, and misspelling it in `down()`
+      reddened the `migrate:reset` test at that line — so `DEV-03` is exercised, not assumed.
+      **A stated ceiling:** the plan test sets `enable_seqscan = off` on a `RefreshDatabase` table of
+      a few rows, so it proves the index is *reachable* by the lookup, not that production's planner
+      picks it. The realistic-volume plan is the 50k measurement above, run by hand. Removing `id`
+      left that test green — the shape test is what holds that half.
 - [ ] **3.3** The boundary: a line accepts `product_name` as an alternative to `catalog_item_id`,
       exactly one required, `exists` unchanged for an id that is sent.
 - [ ] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction

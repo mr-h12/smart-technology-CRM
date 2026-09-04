@@ -6911,8 +6911,33 @@ Module 5 is finished.
       a few rows, so it proves the index is *reachable* by the lookup, not that production's planner
       picks it. The realistic-volume plan is the 50k measurement above, run by hand. Removing `id`
       left that test green — the shape test is what holds that half.
-- [ ] **3.3** The boundary: a line accepts `product_name` as an alternative to `catalog_item_id`,
+- [x] **3.3** The boundary: a line accepts `product_name` as an alternative to `catalog_item_id`,
       exactly one required, `exists` unchanged for an id that is sent.
+      **`required_without` on both sides, `prohibits` on the id.** One of the two is mandatory and
+      the pair is refused — an id and a name can disagree, and neither §7.2 nor `D-22` says which
+      would win, so the boundary refuses rather than choose. The `*` in both parameters resolves to
+      the line's own index because `Prohibits` and `RequiredWithout` are both in Laravel's
+      `$dependentRules`; that was read in `Validator.php`, not assumed.
+      **The name's rules are the catalog column's** (Module 4 Point 1.2): `max:255` for
+      `varchar(255)` and `regex:/\S/` for `CHECK (name IS NULL OR btrim(name) <> '')`, mirrored so a
+      constraint violation never reaches the caller as a 500. `SaveCatalogItemRequest`'s precedent.
+      **Whitespace is the framework's, and is not re-implemented.** Laravel's global `TrimStrings`
+      runs before validation and `TransformsRequest::cleanValue()` recurses into arrays, so a line's
+      `product_name` is trimmed like any other field — both read in `vendor/` this session. A second
+      trim in `prepareForValidation()` would be the duplicate the waste audit names. The reliance is
+      load-bearing for 3.4 (" Copper " and "Copper" must be one product), so it is pinned by a test
+      that reddens when the middleware is removed.
+      **`SupplierQuotationDraft::ITEM_WRITABLE` gains the name**, and the draft's filter still drops
+      everything else.
+      **6 tests. RED observed first: 5 failed** (the trim test was green before and after — it pins
+      framework behaviour this point relies on). All four verifiers then proven by breaking them:
+      dropping `prohibits`, dropping the name's `required_without`, dropping the name from
+      `ITEM_WRITABLE`, and removing `TrimStrings` from `bootstrap/app.php` each reddened exactly one.
+      ⚠️ **A name-only line 500s until Point 3.4 lands** — measured, not predicted:
+      `SQLSTATE[42703] … column "product_name" of relation "supplier_quotation_items" does not
+      exist`. The boundary now accepts a payload the write path cannot serve, because resolving the
+      name into a product is 3.4's transaction. **This branch must not merge before 3.4.** No test
+      pins that state: it is a defect to close, not behaviour to record.
 - [ ] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction
       (`DB-11`). Closes "offer containing a product not in the catalog → product added automatically".
 - [ ] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.

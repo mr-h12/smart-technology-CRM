@@ -219,6 +219,31 @@ final class EloquentSupplierQuotationDirectoryTest extends TestCase
         self::assertSame($this->actorId, $row->updated_by);
     }
 
+    /**
+     * Point 3.3. A line may name its product instead of identifying it
+     * (`D-22`), so the name is a fourth writable key — and the filter still
+     * drops everything else, which is the half `test_that_the_draft_drops_a_
+     * field_it_does_not_publish` pins for the header.
+     */
+    public function test_that_a_line_may_carry_the_product_name_it_was_given(): void
+    {
+        $draft = SupplierQuotationDraft::forCreate([
+            'supplier_id' => $this->supplierId,
+            'items' => [[
+                'product_name' => 'Copper Cable 4mm',
+                'unit_price' => '10.000000',
+                'quantity' => '2.000',
+                'category' => 'a column of another table',
+            ]],
+        ]);
+
+        self::assertSame([[
+            'product_name' => 'Copper Cable 4mm',
+            'unit_price' => '10.000000',
+            'quantity' => '2.000',
+        ]], $draft->items);
+    }
+
     // ───────────────────────────────────────────────────────────────── helpers
 
     private function directory(): SupplierQuotationDirectoryInterface

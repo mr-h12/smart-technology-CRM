@@ -21,14 +21,17 @@ use Illuminate\Validation\Rules\Exists;
  * never has to. That is the reasoning `SaveCatalogItemRequest` gives for its
  * `regex:/\S/` beside a `CHECK (btrim(name) <> '')`.
  *
- * ── An unknown product is a 422 today and an auto-add tomorrow ─────────────
+ * ── An unknown *id* is a 422; an unknown *name* is `D-22`'s auto-add ───────
  *
  * `D-22` says a product the catalog does not have is added automatically,
- * without review. That is Step 3, behind a `CatalogItemRegistrarInterface` —
- * this module may not reach into Catalog, and `exists` is a database rule
- * rather than a cross-module code path, which is why it is allowed here and a
- * repository call would not be. When Step 3 lands, this one rule is what
- * changes.
+ * without review. Point 3.3 opens the door for it: a line carries
+ * `catalog_item_id` **or** `product_name`, exactly one. An id that is sent is
+ * still checked against the table — a caller naming a row that is not there
+ * has a stale screen, not a new product — and `exists` is allowed here because
+ * it is a database rule rather than a cross-module code path; a call into
+ * Catalog's repository would not be. The *resolution* of a name into a product
+ * belongs to `CatalogProductProvisionerInterface` (Point 3.1) inside the use
+ * case's transaction, which is Points 3.4 and 3.5.
  *
  * ── `whereNull('deleted_at')` on every existence rule ──────────────────────
  *
@@ -90,7 +93,36 @@ final class SaveSupplierQuotationRequest extends FormRequest
             // §7.2's `Line items`. Optional as a whole — §7.2 requires no line
             // count — and every line complete when there is one.
             'items' => ['sometimes', 'array'],
-            'items.*.catalog_item_id' => ['required', 'uuid', $this->alive('catalog_items')],
+
+            // `D-22`, Point 3.3: a line names its product **either** by id or
+            // by name, and a caller typing an offer out of a supplier's PDF
+            // usually has only the name. `required_without` on both sides makes
+            // one of them mandatory; `prohibits` on the id refuses the pair,
+            // because an id and a name can disagree and nothing in §7.2 or
+            // `D-22` says which would win. The `*` in both parameters is
+            // replaced with the line's own index — `Prohibits` and
+            // `RequiredWithout` are both in Laravel's `$dependentRules`, which
+            // is what earns that substitution.
+            'items.*.catalog_item_id' => [
+                'required_without:items.*.product_name',
+                'prohibits:items.*.product_name',
+                'uuid',
+                $this->alive('catalog_items'),
+            ],
+
+            // The catalog column's own shape (Module 4 Point 1.2): `varchar(255)`
+            // and `CHECK (name IS NULL OR btrim(name) <> '')`, mirrored here for
+            // the reason the header of this class gives — a constraint violation
+            // reaches the caller as a 500. `regex:/\S/` is
+            // `SaveCatalogItemRequest`'s, and it is not a re-trim: `TrimStrings`
+            // has already run, so this refuses a name that was *only*
+            // whitespace rather than tidying one that had some.
+            'items.*.product_name' => [
+                'required_without:items.*.catalog_item_id',
+                'string',
+                'max:255',
+                'regex:/\S/',
+            ],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
         ];

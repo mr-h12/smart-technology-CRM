@@ -74,8 +74,17 @@ final readonly class SupplierQuotationDraft
         'notes',
     ];
 
-    /** §7.2's three facts about a line, and nothing else a caller may send. */
-    public const ITEM_WRITABLE = ['catalog_item_id', 'unit_price', 'quantity'];
+    /**
+     * §7.2's three facts about a line, and nothing else a caller may send.
+     *
+     * The product is named two ways because `D-22` gives it two: an id when the
+     * caller picked from the catalog, a name when the product is not in it yet
+     * (Point 3.3). The boundary allows exactly one of them; this list only says
+     * both are a caller's to send. Resolving the name into a product is Points
+     * 3.4 and 3.5 — until they land, `product_name` reaches the line insert,
+     * where no such column exists.
+     */
+    public const ITEM_WRITABLE = ['catalog_item_id', 'product_name', 'unit_price', 'quantity'];
 
     /**
      * @param  array<string, mixed>  $attributes  already validated at the boundary

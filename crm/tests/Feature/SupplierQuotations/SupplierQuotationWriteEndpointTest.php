@@ -33,13 +33,19 @@ use Tests\TestCase;
  * read back; a payload here that carried them would need a read path this
  * point does not own. The lines are asserted against the table instead.
  *
- * ── An unknown product is a 422 here, not a 500 and not an auto-add ────────
+ * ── An unknown *id* is a 422; a *name* is `D-22`'s auto-add (Point 3.3) ────
  *
- * `D-22` adds a missing product to the catalog automatically, and that is Step
- * 3. Until it exists the boundary refuses, because the alternative is the
- * foreign key Point 1.2 added refusing instead — and a constraint violation
- * reaches the caller as a 500. Every rule below that mirrors a database
- * constraint is there for that reason.
+ * A line names its product by `catalog_item_id` **or** `product_name`, exactly
+ * one. An id that is sent is still checked against the table — a caller naming
+ * a row that is not there has a stale screen, not a new product — because the
+ * alternative is the foreign key Point 1.2 added refusing instead, and a
+ * constraint violation reaches the caller as a 500. Every rule below that
+ * mirrors a database constraint is there for that reason.
+ *
+ * ⚠️ **A name-only line does not survive the write yet.** Resolving a name into
+ * a product is Points 3.4 and 3.5; until they land the name reaches the line
+ * insert and PostgreSQL answers `42703`. Nothing here asserts that state — it
+ * is a defect to close, not behaviour to pin.
  */
 final class SupplierQuotationWriteEndpointTest extends TestCase
 {
@@ -261,6 +267,85 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
         $this->post422([
             'items' => [['catalog_item_id' => $this->catalogItemId, 'unit_price' => '10', 'quantity' => '0']],
         ], 'items.0.quantity');
+    }
+
+    // ───────────────── `D-22`: a line names its product by id **or** by name
+
+    /**
+     * Point 3.3. §7.2's line is "Product · price · quantity", and `D-22` adds a
+     * product the catalog does not have "automatically, without review" — so a
+     * caller typing an offer out of a supplier's PDF may have a name and no id.
+     * The line takes exactly one of the two: never neither, and never both.
+     */
+    public function test_that_a_line_naming_its_product_neither_way_is_refused(): void
+    {
+        $this->postJson(
+            self::ENDPOINT,
+            $this->payload(['items' => [['unit_price' => '10', 'quantity' => '1']]]),
+            $this->bearerFor(RoleName::Manager),
+        )
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'items.0.catalog_item_id', 'code' => 'invalid'])
+            ->assertJsonFragment(['field' => 'items.0.product_name', 'code' => 'invalid']);
+    }
+
+    /**
+     * Both is not a third way of asking. The two can disagree — an id for one
+     * product and a name that is another's — and nothing in §7.2 or `D-22`
+     * says which would win, so the boundary refuses rather than choose.
+     */
+    public function test_that_a_line_naming_its_product_both_ways_is_refused(): void
+    {
+        $this->post422([
+            'items' => [[
+                'catalog_item_id' => $this->catalogItemId,
+                'product_name' => 'Copper Cable 4mm',
+                'unit_price' => '10',
+                'quantity' => '1',
+            ]],
+        ], 'items.0.catalog_item_id');
+    }
+
+    /** `catalog_items` carries `CHECK (name IS NULL OR btrim(name) <> '')` (Module 4 Point 1.2). */
+    public function test_that_a_blank_product_name_is_refused(): void
+    {
+        $this->post422([
+            'items' => [['product_name' => '   ', 'unit_price' => '10', 'quantity' => '1']],
+        ], 'items.0.product_name');
+    }
+
+    /** `varchar(255)` — the column's own length, mirrored so the database never answers. */
+    public function test_that_a_product_name_longer_than_the_column_is_refused(): void
+    {
+        $this->post422([
+            'items' => [['product_name' => str_repeat('a', 256), 'unit_price' => '10', 'quantity' => '1']],
+        ], 'items.0.product_name');
+    }
+
+    /**
+     * The whitespace half of the owner's ruling — "a name already present is
+     * the same product" (2026-09-03) — belongs to the boundary, and the
+     * boundary already has it: Laravel's global `TrimStrings` runs before
+     * validation and `TransformsRequest::cleanValue()` recurses into arrays, so
+     * a line's `product_name` is trimmed exactly like this header field. Point
+     * 3.1 normalises case only, deliberately, and re-trimming here would be the
+     * second implementation of something the framework already does.
+     *
+     * That reliance is load-bearing for Point 3.4 — " Copper Cable " and
+     * "Copper Cable" must reach `lower(name) = lower(?)` as one product — so it
+     * is pinned rather than assumed. Removing the middleware reddens this.
+     */
+    public function test_that_the_boundary_trims_what_a_caller_typed(): void
+    {
+        $notes = $this->postJson(
+            self::ENDPOINT,
+            $this->payload(['notes' => '  from the supplier PDF  ']),
+            $this->bearerFor(RoleName::Manager),
+        )
+            ->assertStatus(201)
+            ->json('data.notes');
+
+        self::assertSame('from the supplier PDF', $notes);
     }
 
     // ───────────────────────────────────────────────────────────────── helpers

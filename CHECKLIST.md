@@ -582,6 +582,16 @@ would hide them behind `OD-03` indefinitely.
       body — was genuinely created by 4.4 and needed no scaffolding, so it was removed inside the
       point: `created()` now takes the overrides and `offerFor()` is gone.)*
 
+- [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
+      revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
+      then probed it: deleting `if ($link->parent !== SupplierQuotation) return false;` reddened
+      **no test**, because a foreign parent's id is not an offer's id and `find()` already returns
+      `null`. Module 6's copy was deleted inside that point. **Module 5's is untouched** — it is
+      another module's code and a Module 6 point does not edit it on a finding made in passing.
+      Owed: delete the branch in `DealAttachmentPermission::mayView()`, or give it a test that fails
+      without it. The behavioural assertion in `DealAttachmentPermissionTest` stays either way; what
+      is in question is only whether the branch does anything
+
 - [ ] **Thirteen test helpers mint a "unique" code from four hex characters, and CI goes red at
       random because of it** — revealed 2026-09-02 by Module 6 Point 1.1's own CI run, which failed
       on a test the diff does not touch. `'DL-2026-'.substr(str_replace('-', '', $id), -4)` takes the
@@ -7011,6 +7021,71 @@ Module 5 is finished.
       point in a row where PHPStan found a typing defect in a **test** helper.
       **What is not closed:** the "shared screen" criterion stays unticked. `Scope::All` is enforced
       and tested on all four routes, but the criterion names a *screen* and there is none.
+
+#### Step 5 — §7.2's `pdf_file`, the offer's attachment *(point list approved 2026-09-04)*
+
+> **§17 · `D-71` · `D-38` · `D-40`.** §7.2 line 657 is `pdf_file | Scan or PDF of the offer`, and
+> Point 1.1's migration already recorded that this is **not a column**: `D-71` makes it the
+> `supplier_quotation_files` pivot, because a polymorphic column cannot carry a foreign key.
+>
+> **Most of §17 is already built and parent-agnostic**, measured before the list was written: the
+> pivot exists *with its parent foreign key* (added by Point 1.1 itself), `AttachmentParent::
+> SupplierQuotation` exists, and `FinfoUploadValidator` (true MIME by bytes, `D-40`'s six types, the
+> 30 MB ceiling, the integrity checks), `LocalStorageService` (UUIDv7 name, §17's path),
+> `ScanStoredFile` and `GET /files/{file}/download` are all indifferent to which parent they serve.
+> **This step adds no migration.**
+>
+> ⚠️ **Image compression is §17's own row and exists nowhere in the repository** — no contract in
+> `Storage`, no library in `composer.json`. It is **not** in the acceptance criterion's wording
+> ("type, size and true MIME validated, stored under a UUID name"), so the criterion closes without
+> it. Left on the debt register by the owner's decision rather than built here, where it would mean
+> Module 6 building shared §17 infrastructure that Module 5 owes equally.
+>
+> ⚠️ The 30 MB ceiling comes from `config/files.php`, not the database, which `CLAUDE.md`'s "limits
+> are not code constants" does not allow. The config file's own comment says it moves to Module 2's
+> settings table when that exists. **Pre-existing debt, not created here, and not fixed here.**
+
+- [x] **5.1** `SupplierQuotationAttachmentPermission` (`D-38`) and the composite that replaces the
+      single `AttachmentPermissionInterface` binding.
+      **This point took a decision Module 5 wrote down and deferred.** `DealAttachmentPermission`'s
+      docblock: "Whoever builds the second parent's permission decides then whether this class grows
+      a `match` or a composite replaces it." The `match` was refused — growing Deals' class to answer
+      for supplier quotations puts §3.6's rule and `SupplierQuotationDirectoryInterface` inside
+      Module 5, and `CLAUDE.md` forbids that crossing more firmly than it forbids a registry.
+      `ParentAwareAttachmentPermission` routes by parent; each module keeps its own answer; the map
+      lives in `AppServiceProvider`, already outside every module boundary. `PurchaseOrder` and
+      `Report` have no entry and are refused — `DenyAllAttachmentPermission`'s deny-by-default kept.
+      **Why it is load-bearing:** `GET /files/{file}/download` carries `auth` and nothing else, so
+      `mayView()` is the entire check. Before this point a supplier quotation's attachment would have
+      uploaded and stored correctly and then downloaded as a 404.
+      **No `RowScope`** (§3.6 grants one scope, `All`), and **`view`, not `upload_attachment`** — the
+      CEO holds the first and not the second, so they read an attachment they cannot add.
+      **deptrac:** `SupplierQuotations` gains `StorageContract` and `IdentityContract`, both
+      justified in the config. `IdentityContract` is the entry this module went four steps without,
+      because every earlier route was guarded by `permission:` middleware and there is no middleware
+      behind `mayView()`.
+      **RED 13 of 15.** The two that passed on arrival are the regression guards — the deal answer
+      surviving and unclaimed parents still refused — and saying so is the point of naming them.
+      ⚠️ **Four probes, and the fourth changed the code.** Dropping the map entry, the grant check and
+      the `DB-01` existence check each reddened one test. Dropping the
+      `$link->parent !== SupplierQuotation` guard reddened **nothing**: a foreign parent's id is not
+      an offer's id, so `find()` already returns `null`. A branch with no observable effect is the
+      dead code the waste audit names, and it was removed inside the point that created it — after
+      being defended in a comment written minutes earlier. **Reasoning said "guard"; the probe said
+      "dead".**
+      ⚠️ An existing Storage test caught the binding change on its own
+      (`assertInstanceOf(DealAttachmentPermission::class, …)`) and was repointed at the composite —
+      a verifier doing its job without being asked.
+- [ ] **5.2** `AttachSupplierQuotationDocument` — validate, store, then a `DB-11` transaction over
+      the `files` row, the pivot row and the audit entry, with the virus scan **outside** it. Its own
+      audit event. No `RowScope` (§3.6).
+- [ ] **5.3** `POST /api/v1/supplier-quotations/{id}/documents` behind
+      **`permission:supplier_quotation.upload_attachment`** — a third grant, independent of `view`
+      and `create`, which §3.6 gives to five roles and **not** to the CEO. Form Request, controller,
+      payload, 201, and the refusal test every new route owes.
+- [ ] **5.4** The acceptance criterion closed at the endpoint: type, size, **true MIME**, UUID name,
+      and the full journey upload ⇒ download — clean is downloadable, infected is not, not even by
+      the caller who uploaded it.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 

@@ -5,6 +5,12 @@ declare(strict_types=1);
 return [
     'not_found' => 'لم يُعثر على عرض المورّد هذا.',
 
+    // رسالة مغلَّف `OpenAPI §5` للخطأ 400. كل وحدة تحمل
+    // `errors.invalid_request` الخاص بها؛ السبب المحدَّد في `details` أدناه.
+    'errors' => [
+        'invalid_request' => 'تعذّر فهم هذا الطلب.',
+    ],
+
     // OpenAPI §6.1/§6.2 — رسالة لكل رمز تفصيلي، لأن مجموعة رموز HTTP المغلقة
     // لا تستطيع قول ما يقوله `details`.
     'list_query' => [

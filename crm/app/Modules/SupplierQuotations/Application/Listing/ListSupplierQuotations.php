@@ -6,15 +6,17 @@ namespace App\Modules\SupplierQuotations\Application\Listing;
 
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
 
 /**
- * §7.2's Supplier Quotations screen — the detail now, the list at Point 4.1.
+ * §7.2's Supplier Quotations screen — the detail (Point 2.3) and the list.
  *
  * `ListSuppliers`'s shape (Module 4), including its name: Modules 3, 4 and 5
  * each put the list and the detail on one `List…` class, and a second class
  * added later for the other half is how two modules end up disagreeing about
- * where a read lives. Point 4.1 adds `handle()` here rather than a new file.
+ * where a read lives. `handle()` lives here rather than in a new file.
  *
  * **The use case exists so that the 404 is not a controller's decision.**
  * `OpenAPI §5.1` fixes the answer for a row that is absent or out of reach, and
@@ -38,5 +40,30 @@ final readonly class ListSupplierQuotations
         }
 
         return $quotation;
+    }
+
+    /**
+     * §7.2's screen as a list — headers only, because `OpenAPI §6.2` tells a
+     * collection not to return another unrestricted collection inside itself.
+     * The lines are {@see self::one()}'s.
+     *
+     * **One delegation, and no 404.** An empty result is an empty page, not a
+     * missing resource: `page=1` of a list with no rows is a valid request and
+     * `SupplierQuotationPage::totalPages()` answers `1` for it. The `null`-to-
+     * §5.1 translation that `one()` performs has nothing to translate here.
+     *
+     * No scope argument, unlike `ListCustomers` and `ListDeals`: §3.6 is "a
+     * shared screen — not restricted by ownership", so every role that reaches
+     * this method holds `Scope::All` and a scope parameter would be the
+     * "parameter every caller passes the same value for".
+     *
+     * The criteria are parsed in Domain rather than by a Form Request, because
+     * `OpenAPI §6.1`/§6.2 require `400 invalid_request` for a bad page size or
+     * an unknown filter and a Form Request failure is a 422 — the same reading
+     * `SupplierController::index()` records.
+     */
+    public function handle(SupplierQuotationListCriteria $criteria): SupplierQuotationPage
+    {
+        return $this->quotations->list($criteria);
     }
 }

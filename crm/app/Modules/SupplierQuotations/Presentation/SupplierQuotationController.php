@@ -7,6 +7,7 @@ namespace App\Modules\SupplierQuotations\Presentation;
 use App\Modules\SupplierQuotations\Application\Listing\ListSupplierQuotations;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,28 @@ use RuntimeException;
  */
 final class SupplierQuotationController
 {
+    /**
+     * Point 4.3 — §7.2's screen as a list.
+     *
+     * The criteria are parsed in Domain, not by a Form Request: `OpenAPI §6.1`
+     * and §6.2 require `400 invalid_request` for a bad page size or an unknown
+     * filter, and a Form Request failure is a 422. `SupplierController::index()`
+     * records the same reading.
+     *
+     * Nothing is read off the authorisation decision, for this class's stated
+     * reason — §3.6 gives every reader `Scope::All`.
+     */
+    public function index(Request $request, ListSupplierQuotations $quotations): JsonResponse
+    {
+        $page = $quotations->handle(SupplierQuotationListCriteria::fromQuery($request->query()));
+
+        return ApiEnvelope::collection(
+            $request,
+            SupplierQuotationPayload::many($page),
+            SupplierQuotationPayload::pagination($page),
+        );
+    }
+
     /**
      * Point 2.3. The 404 is not decided here — `ListSupplierQuotations::one()`
      * throws `OpenAPI §5.1`'s case and the renderer shapes it, so this method

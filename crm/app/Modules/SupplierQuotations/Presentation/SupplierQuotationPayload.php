@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SupplierQuotations\Presentation;
 
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 
 /**
@@ -68,6 +69,39 @@ final class SupplierQuotationPayload
                 ],
                 $quotation->lines,
             ),
+        ];
+    }
+
+    /**
+     * The list body — `of()` per row, and deliberately **not** `detail()`.
+     *
+     * `SupplierQuotationPage` carries summaries, so the lines are not available
+     * here even if a caller wanted them; that is `OpenAPI §6.2`'s rule made
+     * structural rather than remembered.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function many(SupplierQuotationPage $page): array
+    {
+        return array_map(static fn (SupplierQuotationSummary $q): array => self::of($q), $page->items);
+    }
+
+    /**
+     * `OpenAPI §4.2`'s pagination meta — `SupplierPayload::pagination()`'s six
+     * keys, in its order, because one contract is one shape whichever module
+     * answers it.
+     *
+     * @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool}
+     */
+    public static function pagination(SupplierQuotationPage $page): array
+    {
+        return [
+            'page' => $page->page,
+            'per_page' => $page->perPage,
+            'total' => $page->total,
+            'total_pages' => $page->totalPages(),
+            'has_next_page' => $page->hasNextPage(),
+            'has_previous_page' => $page->hasPreviousPage(),
         ];
     }
 }

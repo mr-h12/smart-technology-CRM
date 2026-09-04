@@ -22,6 +22,7 @@ use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
+use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
@@ -317,6 +318,29 @@ final class ApiExceptionRenderer
             400,
             InvalidSupplierListQuery::ERROR_CODE,
             (string) __('suppliers.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
+        );
+    }
+
+    /**
+     * Module 6's list query, on the same two contract rows as the four above.
+     *
+     * A fifth method for a fifth exception, for the reason the third and fourth
+     * give: each lives in its own module's Domain, and Domain may depend on
+     * nothing. The rendered shape is identical on purpose — one envelope for
+     * one contract, whichever module produced it.
+     */
+    public static function invalidSupplierQuotationListQuery(InvalidSupplierQuotationListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidSupplierQuotationListQuery::ERROR_CODE,
+            (string) __('supplier_quotations.errors.invalid_request'),
             [[
                 'field' => $exception->parameter,
                 'code' => $exception->detailCode,

@@ -656,11 +656,19 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
     Route::post('/', [SupplierQuotationController::class, 'store'])
         ->middleware('permission:supplier_quotation.create');
 
+    // Point 4.3. §7.2's screen as a list, on the same `view` grant the detail
+    // carries — §3.6's read row is `All` for six roles and a dash for the
+    // Outdoor Supervisor. Registered before `{supplierQuotation}` so a literal
+    // path segment can never be read as an id.
+    //
+    // No `RowScope`: §3.6 is "a shared screen — not restricted by ownership".
+    Route::get('/', [SupplierQuotationController::class, 'index'])
+        ->middleware('permission:supplier_quotation.view');
+
     // Point 2.3. `view`, not `create` — §3.6's two rows are not the same set:
     // the CEO holds `view` as `All` and a dash under `create / edit`, so the
     // caller Point 2.2 refuses is served here. Registered after the collection
-    // route so `/` cannot be swallowed by `{supplierQuotation}`; the list is
-    // Point 4.1.
+    // route so `/` cannot be swallowed by `{supplierQuotation}`.
     Route::get('/{supplierQuotation}', [SupplierQuotationController::class, 'show'])
         ->middleware('permission:supplier_quotation.view');
 

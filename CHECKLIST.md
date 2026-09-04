@@ -322,7 +322,17 @@ would hide them behind `OD-03` indefinitely.
       `array_map(static fn … self::of …)` in **6**, and the controller `index()`
       `::fromQuery($request->query())` shape in **6**. Same root cause as this row — a module's
       Presentation layer cannot share code across the deptrac boundary — so this row now covers all
-      four shapes rather than the exception alone
+      four shapes rather than the exception alone.
+      **Point 5.3 adds a fifth shape and the starkest one yet.**
+      `SupplierQuotationDocumentPayload::of()` and `DealDocumentPayload::of()` differ by their
+      parameter's type name and **nothing else** — `diff` on the two method bodies returns one line —
+      and `UploadSupplierQuotationDocumentRequest` repeats `AttachDealDocumentRequest`'s two rules
+      and its `document()` accessor. Both were written rather than shared because sharing them means
+      Module 6's Presentation importing Module 5's, which deptrac refuses and `CLAUDE.md` forbids
+      ahead of it. **This is the architecture's stated price, not an oversight**, and it is recorded
+      here so the price stays visible: a shared `app/Support` home for a payload shape that four
+      modules will eventually need is a decision the owner should take deliberately, not one that
+      should arrive by accident on the day a fifth module copies it
 
 - [ ] **Four `…Page` classes carry arithmetic no test reaches** — `SupplierPage`'s own docblock
       says the arithmetic lives in the page rather than in the serialiser "because arithmetic in a
@@ -596,6 +606,14 @@ would hide them behind `OD-03` indefinitely.
       carrying `offer()`. That is a point of its own — it touches dozens of files and cannot ride
       inside a feature point — and until it is approved every new test in this module will keep
       adding to this row.
+      **Point 5.3 did exactly that, as predicted, and made it three points in a row.** Measured after
+      it: `grep -rl 'private function userWith' crm/tests | wc -l` → **33**, `bearerFor()` → **26**.
+      It also added a **sixth** copy of the minimal `%PDF-1.4` fixture — `grep -rl '%PDF-1.4'
+      crm/tests` now lists `UploadValidationTest`, `VirusScanningTest`, `FileDownloadTest`,
+      `DealDocumentUploadTest`, `AttachSupplierQuotationDocumentTest` and this point's endpoint test.
+      The offer fixture itself was **not** copied a third time: the endpoint test creates its offer
+      through `POST /supplier-quotations`, which is the module's own public surface, so only a
+      supplier row is seeded.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -7120,10 +7138,40 @@ Module 5 is finished.
       in the code under test.
       ⚠️ `UploadRejectionReason::Empty` does not exist — the case is `EmptyFile`, the value is
       `empty`. Written from the shape instead of from the file, and caught on the first run.
-- [ ] **5.3** `POST /api/v1/supplier-quotations/{id}/documents` behind
+- [x] **5.3** `POST /api/v1/supplier-quotations/{id}/documents` behind
       **`permission:supplier_quotation.upload_attachment`** — a third grant, independent of `view`
       and `create`, which §3.6 gives to five roles and **not** to the CEO. Form Request, controller,
       payload, 201, and the refusal test every new route owes.
+      **A third grant, and unlike Module 5 it did not have to be borrowed.** §3.4 seeds no "attach
+      document" row for deals, so `POST /deals/{id}/documents` carries `deal.edit` — the closest
+      documented permission. §3.6 *does* seed `upload_attachment`, so this route carries it, and the
+      CEO — `view` as `All`, no cell under `upload_attachment` — is refused where they are served by
+      Point 2.3's read. That 403 is the assertion that proves the grant is distinct rather than
+      decorative, and the probe below is what proved the assertion.
+      **No `mimes:` and no `max:` in the Form Request**, matching `AttachDealDocumentRequest` and for
+      its stated reasons: `mimes:` reads the browser-supplied extension, which is the exact signal
+      §17 says a spoofed `.pdf` controls, and `max:` would be a second ceiling beside
+      `config('files.max_size_bytes')`. One check, and it is the one that reads the bytes.
+      **No migration, no lang key, no `Storage` code, no deptrac config change** — 5.1 already
+      granted `StorageContract` and `IdentityContract`, and nothing here crosses a new boundary.
+      **15 tests. RED observed first: 15 failed.** The two 404 cases reddened on
+      `error.code`, not on the status: a route that does not exist answers 404 as well, so asserting
+      the envelope's code is what separates "not found because the offer is absent" from "not found
+      because the endpoint was never built".
+      **Four probes, all reddened, all restored and each restore verified with `diff -q`:** swapping
+      the middleware to `supplier_quotation.view` (CEO 403 + `SEC-09` withdrawal red), removing the
+      middleware entirely (three authorisation tests red), dropping the `201` (eight red), and making
+      the payload emit a `storage_path` (the leak test red — which is what proves
+      `assertJsonMissingPath` can fail at all).
+      ⚠️ **`git checkout -- routes/api.php` restored to `HEAD`, not to the pre-probe state**, and so
+      deleted this point's own uncommitted route along with the probe. Caught by grepping the file
+      afterwards rather than by trusting the command, and the route was re-applied. This is the same
+      family as 5.2's untracked-file restore failure and the same lesson: **the restore is a step to
+      verify, not a step to assume.**
+      **Deliberate simplification, ceiling stated:** no `attributes()` and no `attributes` lang
+      block. This module has none — `SaveSupplierQuotationRequest` ships 422s naming `supplier_id`
+      and `code` untranslated — so translating one field would leave the other seven. **Ceiling:**
+      the Arabic 422 for a missing file reads `document` in Latin script. Registered below.
 - [ ] **5.4** The acceptance criterion closed at the endpoint: type, size, **true MIME**, UUID name,
       and the full journey upload ⇒ download — clean is downloadable, infected is not, not even by
       the caller who uploaded it.

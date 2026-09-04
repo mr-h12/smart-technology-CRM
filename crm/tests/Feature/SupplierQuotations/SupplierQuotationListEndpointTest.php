@@ -36,11 +36,28 @@ use Tests\TestCase;
  * belong to `find()` and to Point 2.3's detail route. Asserted below, because a
  * payload that grows a nested collection later would break §6.2 silently.
  *
- * ── What this point does NOT assert ───────────────────────────────────────
+ * ── Point 4.4 closes two of §7.2's acceptance criteria here ───────────────
  *
- * The filters, the ordering, and the full `400` matrix are **Point 4.4**. One
- * `400` case appears here, and only to prove the renderer is wired at all — a
- * handler registered with no test is a handler nobody knows is registered.
+ * "Saved offer appears on the supplier page under **Linked Quotations**" is a
+ * filter on this list, not offers embedded in the supplier payload: `OpenAPI
+ * §6.2` forbids `include` returning unrestricted collections, and reading
+ * Module 6's rows from inside Module 4 would be the cross-module database
+ * access `CLAUDE.md` forbids. So the criterion is `filter[supplier_id]`, and it
+ * is closed by proving the filter returns that supplier's offers **and nothing
+ * else** — a filter that returns everything passes a test that only checks the
+ * wanted row is present.
+ *
+ * "Offer **not linked to a deal** → saves normally, available to any deal"
+ * (`D-51`) is closed by listing an offer whose `deal_id` is `null` beside one
+ * that has a deal, and by `filter[deal_id]` selecting only the latter.
+ *
+ * ── The 400s are §6's, not the validator's ────────────────────────────────
+ *
+ * `per_page` above the maximum, an undeclared filter and an undeclared sort all
+ * answer **400 `invalid_request`**, never 422. That is the whole reason the
+ * query is parsed in Domain instead of by a Form Request, and the assertions
+ * below pin the status rather than only the body — a 422 with the right message
+ * is still the wrong contract.
  */
 final class SupplierQuotationListEndpointTest extends TestCase
 {
@@ -54,6 +71,8 @@ final class SupplierQuotationListEndpointTest extends TestCase
     private array $users = [];
 
     private string $supplierId;
+
+    private string $otherSupplierId;
 
     private string $currencyId;
 
@@ -90,6 +109,18 @@ final class SupplierQuotationListEndpointTest extends TestCase
             'id' => $this->catalogItemId,
             'kind' => 'product',
             'name' => 'Split unit 1.5HP',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // The second supplier exists so that "Linked Quotations" can be shown
+        // to exclude, not merely to include. A filter that returns every row
+        // passes any test that only asserts the wanted offer is present.
+        $this->otherSupplierId = Uuid::uuid4()->toString();
+
+        DB::table('suppliers')->insert([
+            'id' => $this->otherSupplierId,
+            'name' => 'Beta Trading',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -246,6 +277,90 @@ final class SupplierQuotationListEndpointTest extends TestCase
         self::assertArrayHasKey('code', $row);
     }
 
+    // ──────────────────────────────── §7.2's criterion: "Linked Quotations"
+
+    /**
+     * The acceptance criterion, closed as a filter.
+     *
+     * Asserted in both directions on purpose: the offer of the filtered
+     * supplier is present **and** the other supplier's offer is absent. Only
+     * the second half can fail when a filter is dropped, which is exactly how
+     * a filter regression escapes.
+     */
+    public function test_that_the_supplier_filter_returns_that_suppliers_offers_and_nothing_else(): void
+    {
+        $mine = $this->created();
+        $theirs = $this->offerFor($this->otherSupplierId);
+
+        $ids = $this->ids('?filter[supplier_id]='.$this->supplierId);
+
+        self::assertContains($mine, $ids);
+        self::assertNotContains($theirs, $ids, '"Linked Quotations" must not show another supplier\'s offers.');
+        self::assertCount(1, $ids);
+    }
+
+    /** A well-formed id that belongs to no supplier is an empty page, not a 404. */
+    public function test_that_a_supplier_with_no_offers_lists_empty(): void
+    {
+        $this->created();
+
+        $this->getJson(self::ENDPOINT.'?filter[supplier_id]='.Uuid::uuid4()->toString(), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('meta.pagination.total', 0);
+    }
+
+    // ─────────────────────── §7.2's criterion: an offer with no deal (`D-51`)
+
+    /**
+     * `D-51` — the offer is standalone and "available to any deal", so a `null`
+     * `deal_id` is an ordinary row on this list rather than a hidden one.
+     */
+    public function test_that_an_offer_with_no_deal_is_listed_normally(): void
+    {
+        $unlinked = $this->created();
+        $linked = $this->offerFor($this->supplierId, $this->deal());
+
+        $ids = $this->ids('');
+
+        self::assertContains($unlinked, $ids, 'D-51: an offer with no deal is a normal offer.');
+        self::assertContains($linked, $ids);
+    }
+
+    public function test_that_the_deal_filter_narrows_to_that_deal(): void
+    {
+        $unlinked = $this->created();
+        $dealId = $this->deal();
+        $linked = $this->offerFor($this->supplierId, $dealId);
+
+        $ids = $this->ids('?filter[deal_id]='.$dealId);
+
+        self::assertSame([$linked], $ids);
+        self::assertNotContains($unlinked, $ids);
+    }
+
+    /**
+     * `DB-01` — a soft-deleted offer is gone from the list, and the count goes
+     * with it. `SoftDeletes` on the model is what does this; the total is
+     * asserted because a row hidden from `data` while still counted would give
+     * the SPA a page it cannot fill.
+     */
+    public function test_that_a_soft_deleted_offer_is_absent_from_the_list(): void
+    {
+        $kept = $this->created();
+        $removed = $this->offerFor($this->supplierId);
+
+        DB::table('supplier_quotations')->where('id', $removed)->update(['deleted_at' => now()]);
+
+        $body = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->json('data');
+
+        self::assertIsArray($body);
+        self::assertSame([$kept], array_column($body, 'id'));
+    }
+
     // ───────────────────────────────────────────────── the 400 is reachable
 
     /**
@@ -266,7 +381,120 @@ final class SupplierQuotationListEndpointTest extends TestCase
             ->assertJsonPath('error.details.0.code', 'above_maximum');
     }
 
+    /**
+     * §6.2: "Unknown filters return `400`". Refused rather than ignored — a
+     * silently dropped filter answers a different question than the one asked,
+     * and the caller cannot tell.
+     */
+    public function test_that_an_unknown_filter_is_refused_with_400_and_not_422(): void
+    {
+        $this->getJson(self::ENDPOINT.'?filter[colour]=red', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonPath('error.details.0.code', 'unknown_filter');
+    }
+
+    /** §6.2 again, for the sort allowlist — `total_price` is deliberately not sortable. */
+    public function test_that_an_unknown_sort_is_refused_with_400_and_not_422(): void
+    {
+        $this->getJson(self::ENDPOINT.'?sort=-total_price', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonPath('error.details.0.code', 'unknown_sort_field');
+    }
+
+    /**
+     * `OpenAPI §5` — `details` is a **list** of `{field, code, message}`, not a
+     * map keyed by field. Asserted as a shape because a renderer that returns
+     * the map form still produces a 400 and would pass every case above.
+     */
+    public function test_that_the_error_details_are_a_list(): void
+    {
+        $details = $this->getJson(self::ENDPOINT.'?per_page=101', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->json('error.details');
+
+        self::assertIsArray($details);
+        self::assertArrayHasKey(0, $details, 'OpenAPI §5 makes `details` a list.');
+        self::assertSame([0], array_keys($details));
+
+        $first = $details[0];
+        self::assertIsArray($first);
+        self::assertSame(['field', 'code', 'message'], array_keys($first));
+        self::assertNotSame('', $first['message'], 'The detail message comes from a lang file, not from an empty key.');
+    }
+
     // ───────────────────────────────────────────────────────────────  helpers
+
+    /**
+     * The ids on one page of the list, in the order the endpoint returned them.
+     *
+     * @return list<string>
+     */
+    private function ids(string $query): array
+    {
+        $data = $this->getJson(self::ENDPOINT.$query, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data');
+
+        self::assertIsArray($data);
+
+        // Built by hand rather than with `array_column`, which loses the
+        // element type: PHPStan level 10 will not accept `list` as
+        // `list<string>`, and asserting the shape here is what makes it true.
+        $ids = [];
+
+        foreach ($data as $row) {
+            self::assertIsArray($row);
+            self::assertIsString($row['id']);
+
+            $ids[] = $row['id'];
+        }
+
+        return $ids;
+    }
+
+    private function offerFor(string $supplierId, ?string $dealId = null): string
+    {
+        $overrides = ['supplier_id' => $supplierId];
+
+        if ($dealId !== null) {
+            $overrides['deal_id'] = $dealId;
+        }
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+
+        self::assertIsString($id);
+
+        return $id;
+    }
+
+    /** A customer and a deal, so `filter[deal_id]` has something real to select. */
+    private function deal(): string
+    {
+        $customerId = Uuid::uuid4()->toString();
+        $dealId = Uuid::uuid4()->toString();
+
+        DB::table('customers')->insert([
+            'id' => $customerId,
+            'name' => 'Nile Contracting',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('deals')->insert([
+            'id' => $dealId,
+            'code' => 'DL-'.now()->format('Y').'-9001',
+            'customer_id' => $customerId,
+            'last_activity_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $dealId;
+    }
 
     /**
      * @param  array<string, mixed>  $overrides

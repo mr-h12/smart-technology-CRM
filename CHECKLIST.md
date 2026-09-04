@@ -582,6 +582,21 @@ would hide them behind `OD-03` indefinitely.
       body — was genuinely created by 4.4 and needed no scaffolding, so it was removed inside the
       point: `created()` now takes the overrides and `offerFor()` is gone.)*
 
+      ⚠️ **It happened a second time, and that is the point of writing this line.** Module 6 Point
+      5.2's audit found `offer()` — the supplier + currency + offer fixture — **byte-identical**
+      between `AttachSupplierQuotationDocumentTest` and `SupplierQuotationAttachmentPermissionTest`,
+      *both written by this branch*, 5.2 and 5.1, in the same directory and the same namespace.
+      `diff` on the two bodies is empty. It was registered rather than removed for the same reason
+      as the `deal()` copy above, and registering it twice is the argument that the reason is
+      wearing out: **two points in a row have each created a copy that only a shared location could
+      have prevented.** The measured convention is 32 copies of `userWith()` and 9 of `deal()`,
+      so the trait is not a new idea, it is a deferred one.
+      **Concrete proposal for the owner, one decision:** one `Tests\Concerns` trait carrying
+      `userWith()`/`bearerFor()`, and one `Tests\Feature\SupplierQuotations\Concerns` trait
+      carrying `offer()`. That is a point of its own — it touches dozens of files and cannot ride
+      inside a feature point — and until it is approved every new test in this module will keep
+      adding to this row.
+
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
       then probed it: deleting `if ($link->parent !== SupplierQuotation) return false;` reddened
@@ -7076,9 +7091,35 @@ Module 5 is finished.
       ⚠️ An existing Storage test caught the binding change on its own
       (`assertInstanceOf(DealAttachmentPermission::class, …)`) and was repointed at the composite —
       a verifier doing its job without being asked.
-- [ ] **5.2** `AttachSupplierQuotationDocument` — validate, store, then a `DB-11` transaction over
+- [x] **5.2** `AttachSupplierQuotationDocument` — validate, store, then a `DB-11` transaction over
       the `files` row, the pivot row and the audit entry, with the virus scan **outside** it. Its own
       audit event. No `RowScope` (§3.6).
+      **`AttachDealDocument`'s shape with one parameter fewer**, and the missing parameter is the
+      whole difference: §3.4 gives deals five reaches so that use case takes `array $heldScopes` and
+      resolves a `DealRowScope`; §3.6 gives this resource one, `All`, so the parameter would be the
+      one every caller passes the same value for. Nothing is authorised inside the use case — that
+      is the route's middleware (5.3) on the way in and Point 5.1's `mayView()` on the way out, and
+      a second authorisation model in a use case is what `SEC-07` exists to prevent.
+      **The parent is read before the bytes are looked at:** an upload to an offer that is not there
+      is a 404, not a 422 about the file (`OpenAPI §5.1`), and validating first would run §17's work
+      for a request that was never going to be written.
+      **No migration and no new `Storage` code** — the pivot, its parent foreign key,
+      `AttachmentParent::SupplierQuotation`, `FinfoUploadValidator`, `LocalStorageService` and
+      `ScanStoredFile` were all already there and already parent-agnostic.
+      **11 tests. RED observed first: 11 failed.** Four probes, all reddened: validating before the
+      parent check, dropping the audit row, **moving the scan inside the transaction** — which rolls
+      a committed upload back on a scanner outage, the exact failure the ordering exists to prevent
+      — and dropping the parent check.
+      ⚠️ **A restore failed silently and two probes stacked.** `git checkout -- <file>` does nothing
+      for an **untracked** file, and `|| true` swallowed it. Caught by opening the file rather than
+      trusting the command; the remaining probes used a real backup copy verified with `diff -q`.
+      Recorded because the rule it broke — "never assume, open it and look" — is the one that keeps
+      being the useful one.
+      ⚠️ PHPStan caught three typing defects in the test's database reads (`->first()->prop`, casts
+      of `mixed`). **Fourth point running** where PHPStan's finding was in a test helper rather than
+      in the code under test.
+      ⚠️ `UploadRejectionReason::Empty` does not exist — the case is `EmptyFile`, the value is
+      `empty`. Written from the shape instead of from the file, and caught on the first run.
 - [ ] **5.3** `POST /api/v1/supplier-quotations/{id}/documents` behind
       **`permission:supplier_quotation.upload_attachment`** — a third grant, independent of `view`
       and `create`, which §3.6 gives to five roles and **not** to the CEO. Form Request, controller,

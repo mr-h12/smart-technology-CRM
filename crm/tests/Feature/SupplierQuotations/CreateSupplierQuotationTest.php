@@ -203,6 +203,110 @@ final class CreateSupplierQuotationTest extends TestCase
             'DB-11: the audit row survived a write that never happened.');
     }
 
+    // ──────────────────────────────── `D-22`'s automatic add (Point 3.4)
+
+    /**
+     * The build plan's criterion, closed: "an offer containing a product not in
+     * the catalog → the product is added automatically". `D-22` says without
+     * review, and §7.3 gives a product a name and a `kind` — the rest of the
+     * row is left to its defaults, which is what "without review" can honestly
+     * mean for a line that carries only a name, a price and a quantity.
+     */
+    public function test_that_a_line_naming_a_product_the_catalog_lacks_adds_it(): void
+    {
+        $summary = $this->create(['items' => [
+            ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+        ]]);
+
+        $product = DB::table('catalog_items')->where('name', 'Copper Cable 4mm')->first();
+
+        self::assertNotNull($product, 'D-22: the product was not added to the catalog.');
+        self::assertSame('product', $product->kind, '§7.3: it belongs under the Product tab.');
+
+        $line = DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->first();
+
+        self::assertNotNull($line);
+        self::assertSame($product->id, $line->catalog_item_id, 'The line was not linked to the product it named.');
+    }
+
+    /**
+     * The owner's ruling of 2026-09-03: a name already in the catalog is the
+     * **same product**, reused rather than added twice. Case is not part of the
+     * name — Point 3.1's `lower(name) = lower(?)`.
+     */
+    public function test_that_a_name_the_catalog_already_has_is_reused(): void
+    {
+        $before = DB::table('catalog_items')->count();
+
+        $summary = $this->create(['items' => [
+            ['product_name' => 'split UNIT 1.5hp', 'unit_price' => '10', 'quantity' => '1'],
+        ]]);
+
+        self::assertSame($before, DB::table('catalog_items')->count(), 'A second row was added for one product.');
+
+        $line = DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->first();
+
+        self::assertNotNull($line);
+        self::assertSame($this->catalogItemId, $line->catalog_item_id);
+    }
+
+    /**
+     * `DB-11`, and the reason the resolution happens **inside** the
+     * transaction: a product added for line one must not outlive an offer that
+     * line two destroyed. Resolving before the transaction opened would leave a
+     * catalog row behind for an offer that never existed.
+     */
+    public function test_that_a_product_added_for_a_refused_offer_is_rolled_back(): void
+    {
+        $before = DB::table('catalog_items')->count();
+
+        $threw = false;
+
+        try {
+            $this->create(['items' => [
+                ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+                ['catalog_item_id' => Uuid::uuid4()->toString(), 'unit_price' => '10', 'quantity' => '1'],
+            ]]);
+        } catch (QueryException) {
+            $threw = true;
+        }
+
+        self::assertTrue($threw, 'The database accepted a line pointing at no catalog item.');
+        self::assertSame($before, DB::table('catalog_items')->count(), 'DB-11: the added product outlived the offer.');
+        self::assertSame(
+            0,
+            DB::table('audit_log')->where('event', 'CATALOG_ITEM_CREATED')->count(),
+            'DB-11: the catalog audit row outlived the write it recorded.',
+        );
+    }
+
+    /**
+     * `AUD-02` wants the values this write actually stored. By the time the
+     * audit row is written the name has become an id, so that is what it
+     * records — a row naming a product the reader cannot resolve would answer
+     * "what was created?" with a string.
+     */
+    public function test_that_the_audit_records_the_product_the_name_resolved_to(): void
+    {
+        $summary = $this->create(['items' => [
+            ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+        ]]);
+
+        $row = DB::table('audit_log')
+            ->where('event', 'SUPPLIER_QUOTATION_CREATED')
+            ->where('entity_id', $summary->id)
+            ->first();
+
+        self::assertNotNull($row);
+
+        $product = DB::table('catalog_items')->where('name', 'Copper Cable 4mm')->value('id');
+
+        self::assertIsString($product);
+        self::assertIsString($row->new_values);
+        self::assertStringContainsString($product, $row->new_values, 'The audit did not record the resolved product.');
+        self::assertStringNotContainsString('product_name', $row->new_values, 'The audit recorded the unresolved name.');
+    }
+
     // ───────────────────────────────────────────────────────────────── helpers
 
     /** @param array<string, mixed> $overrides */

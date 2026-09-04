@@ -80,9 +80,10 @@ final readonly class SupplierQuotationDraft
      * The product is named two ways because `D-22` gives it two: an id when the
      * caller picked from the catalog, a name when the product is not in it yet
      * (Point 3.3). The boundary allows exactly one of them; this list only says
-     * both are a caller's to send. Resolving the name into a product is Points
-     * 3.4 and 3.5 — until they land, `product_name` reaches the line insert,
-     * where no such column exists.
+     * both are a caller's to send. A name is turned into an id by the use case,
+     * inside `DB-11`'s transaction, and handed back through
+     * {@see self::withItems()} — the create does that (Point 3.4), the edit
+     * from Point 3.5.
      */
     public const ITEM_WRITABLE = ['catalog_item_id', 'product_name', 'unit_price', 'quantity'];
 
@@ -120,6 +121,22 @@ final readonly class SupplierQuotationDraft
     public function isEmpty(): bool
     {
         return $this->attributes === [] && $this->items === null;
+    }
+
+    /**
+     * A copy of this draft carrying lines the use case has resolved.
+     *
+     * Point 3.4. A line may name its product instead of identifying it
+     * (`D-22`), and turning that name into an id may **write to the catalog** —
+     * so it belongs to the use case, inside the transaction `DB-11` requires,
+     * not to a data holder reaching for a collaborator of its own. This is how
+     * the answer comes back.
+     *
+     * @param  list<array<string, mixed>>  $items
+     */
+    public function withItems(array $items): self
+    {
+        return new self($this->attributes, $items);
     }
 
     /**

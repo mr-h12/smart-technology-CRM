@@ -6938,8 +6938,32 @@ Module 5 is finished.
       exist`. The boundary now accepts a payload the write path cannot serve, because resolving the
       name into a product is 3.4's transaction. **This branch must not merge before 3.4.** No test
       pins that state: it is a defect to close, not behaviour to record.
-- [ ] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction
-      (`DB-11`). Closes "offer containing a product not in the catalog → product added automatically".
+- [x] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction
+      (`DB-11`).
+      **Inside the transaction, and that is the whole design.** A product added for line one must not
+      outlive an offer that line two destroyed, which is exactly what `DB-11` is for. Catalog's own
+      writer opens a nested transaction — a savepoint in PostgreSQL, not a second commit — so the
+      outer rollback still takes it. **Proven by moving the call outside the transaction**: the
+      rollback test reddened with "DB-11: the added product outlived the offer".
+      ⚠️ **That test had been passing for the wrong reason** before this point: the write threw on
+      the missing `product_name` column before any product could be added, so all its counts were
+      zero for an unrelated reason. It only became a real check once the feature existed — recorded
+      here because the same shape ("green, but not because the thing works") is easy to inherit.
+      **The name is replaced, not kept beside the id**: `catalog_item_id` is the column, and a
+      leftover `product_name` reaches an insert with no such column. Proven by removing the `unset`:
+      two tests reddened.
+      **The audit records the resolved id.** By the time `AUD-02`'s new values are written the name
+      has become an id, and a row naming a product the reader cannot resolve answers "what was
+      created?" with a string.
+      **`SupplierQuotationDraft::withItems()`** is how the answer comes back — the draft stays a data
+      holder and the catalog write stays in the use case, where the transaction is. Point 3.5 is its
+      second caller.
+      **5 tests. RED observed first: 4 failed**, the fifth being the rollback test described above.
+      ⚠️ **The `PATCH` half is still open**: `UpdateSupplierQuotation` does not resolve its
+      replacement set until Point 3.5, so a name sent there still reaches the insert and PostgreSQL
+      answers `42703`. The module's acceptance criterion "offer containing a product not in the
+      catalog → product added automatically" is therefore **left unticked** until 3.5, even though
+      the create path closes it end to end (`POST` answers 201 and the catalog gains the product).
 - [ ] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.
 
 #### Step 2 — the write path and one read *(point list approved 2026-09-02)*

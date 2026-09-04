@@ -42,10 +42,11 @@ use Tests\TestCase;
  * constraint violation reaches the caller as a 500. Every rule below that
  * mirrors a database constraint is there for that reason.
  *
- * ⚠️ **A name-only line does not survive the write yet.** Resolving a name into
- * a product is Points 3.4 and 3.5; until they land the name reaches the line
- * insert and PostgreSQL answers `42703`. Nothing here asserts that state — it
- * is a defect to close, not behaviour to pin.
+ * Point 3.4 closed the create half: a name-only line now resolves inside the
+ * write transaction and the catalog gains the product. ⚠️ **`PATCH` is still
+ * open** — `UpdateSupplierQuotation` does not resolve its replacement set until
+ * Point 3.5, so a name sent there reaches the line insert and PostgreSQL
+ * answers `42703`. Nothing asserts that state; it is a defect to close.
  */
 final class SupplierQuotationWriteEndpointTest extends TestCase
 {
@@ -346,6 +347,30 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
             ->json('data.notes');
 
         self::assertSame('from the supplier PDF', $notes);
+    }
+
+    /**
+     * Point 3.4, end to end: the module's acceptance criterion — "an offer
+     * containing a product not in the catalog" — answered with a 201 rather
+     * than the 422 Point 2.2 had to give, and with the product in the catalog.
+     */
+    public function test_that_an_offer_may_name_a_product_the_catalog_lacks(): void
+    {
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['items' => [
+            ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+        ]]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+
+        self::assertIsString($id);
+
+        $product = DB::table('catalog_items')->where('name', 'Copper Cable 4mm')->first();
+
+        self::assertNotNull($product, 'D-22: the catalog did not gain the product the offer named.');
+        self::assertSame(
+            $product->id,
+            DB::table('supplier_quotation_items')->where('supplier_quotation_id', $id)->value('catalog_item_id'),
+        );
     }
 
     // ───────────────────────────────────────────────────────────────── helpers

@@ -39,6 +39,20 @@ use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
  * `CLAUDE.md`'s "do not introduce speculative abstractions" already refuses.
  * Whoever builds the second parent's permission decides then whether this
  * class grows a `match` or a composite replaces it.
+ *
+ * **Decided, 2026-09-04, by Module 6 Point 5.1: a composite.** This class was
+ * not grown, because a `match` here would put §3.6's rule and
+ * `SupplierQuotationDirectoryInterface` inside Module 5.
+ * `ParentAwareAttachmentPermission` now holds the binding and routes by parent;
+ * this class keeps answering for `Deal` alone.
+ *
+ * ⚠️ While taking that decision, Point 5.1 measured this class's own
+ * `$link->parent !== Deal` guard and found it inert: a foreign parent's id is
+ * not a deal's id, so `find()` returns `null` and the answer is already
+ * `false`. Module 6's mirror of it was deleted for that reason. This one is
+ * left alone — it belongs to Module 5, and a Module 6 point does not edit
+ * another module's code on a finding it made in passing. Recorded in
+ * `CHECKLIST.md` instead.
  */
 final readonly class DealAttachmentPermission implements AttachmentPermissionInterface
 {

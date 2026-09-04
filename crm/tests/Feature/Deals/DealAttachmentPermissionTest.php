@@ -107,9 +107,13 @@ final class DealAttachmentPermissionTest extends TestCase
     }
 
     /**
-     * The three parents Deals does not own — Modules 6, 10 and 13 are still
-     * `.gitkeep`, and this class must keep denying them the same way
-     * `DenyAllAttachmentPermission` did, on the class's own docblock.
+     * The three parents Deals does not own. Modules 10 and 13 are still
+     * `.gitkeep`; **Module 6 is not, since Point 5.1** — but this class must
+     * still deny `SupplierQuotation`, and now for a sharper reason than before:
+     * `ParentAwareAttachmentPermission` routes by parent, so this refusal is
+     * what stops a mis-keyed map from handing an offer's attachment to the
+     * deal rule. `SupplierQuotationAttachmentPermissionTest` asserts the
+     * mirror image.
      */
     public function test_that_it_still_refuses_every_other_parent(): void
     {

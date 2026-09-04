@@ -368,6 +368,28 @@ parameters:
       # grant is written here with the interface so the crossing is reviewed
       # once rather than inside a point about a Form Request.
       - CatalogContract
+      # StorageContract and IdentityContract, added 2026-09-04 with Point 5.1 —
+      # §7.2's `pdf_file` row, which `D-71` makes the `supplier_quotation_files`
+      # pivot rather than a column.
+      #
+      # `StorageContract` is `AttachmentPermissionInterface` and the two value
+      # objects its one method takes. This is Deals' crossing, taken on Deals'
+      # terms (Point 4.1, `deptrac.modules.yaml` above): the download route is
+      # parent-agnostic and carries `auth` alone, so `D-38` — "attachment
+      # permission = permission on the parent entity" — can only be answered by
+      # the module that owns the parent. Storage cannot answer it and says so in
+      # the interface's own docblock.
+      #
+      # `IdentityContract` is `AuthorizeAction` and `Scope`, and it is the entry
+      # this module went four steps without. Every route so far has been guarded
+      # by `permission:` middleware, which needs nothing from the module. This
+      # one is not: there is no middleware behind `mayView()`, so the module has
+      # to ask Identity what the caller holds. **Not `SEC-08` row scoping** —
+      # §3.6 grants one scope, `All`, and the class refuses a `RowScope`
+      # parameter for the reason the directory interface already gives. The
+      # question asked is only "does this actor hold `supplier_quotation.view`".
+      - StorageContract
+      - IdentityContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

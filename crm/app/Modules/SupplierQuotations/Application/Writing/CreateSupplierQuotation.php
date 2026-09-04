@@ -6,7 +6,6 @@ namespace App\Modules\SupplierQuotations\Application\Writing;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
-use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
@@ -46,9 +45,9 @@ use Illuminate\Database\ConnectionInterface;
  * ── `D-22`'s automatic add happens here, and inside the transaction ────────
  *
  * Point 3.4. A line naming a product the catalog lacks has it added
- * "automatically, without review" — through
- * {@see CatalogProductProvisionerInterface}, because this module may not reach
- * into Catalog, and **inside the transaction** for the reason `DB-11` exists:
+ * "automatically, without review" — through {@see ResolveLineProducts}, which
+ * asks Catalog through its published contract because this module may not reach
+ * into it, and **inside the transaction** for the reason `DB-11` exists:
  * a product added for line one must not outlive an offer that line two
  * destroyed. Catalog's own writer opens a nested transaction, which PostgreSQL
  * makes a savepoint rather than a second commit, so the outer rollback still
@@ -58,7 +57,7 @@ final readonly class CreateSupplierQuotation
 {
     public function __construct(
         private SupplierQuotationDirectoryInterface $quotations,
-        private CatalogProductProvisionerInterface $catalog,
+        private ResolveLineProducts $products,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
     ) {}
@@ -69,7 +68,7 @@ final readonly class CreateSupplierQuotation
         $draft = SupplierQuotationDraft::forCreate($validated);
 
         return $this->connection->transaction(function () use ($draft, $actorId): SupplierQuotationSummary {
-            $draft = $draft->withItems($this->resolved($draft->items ?? [], $actorId));
+            $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId));
 
             $quotation = $this->quotations->create($draft, $actorId);
 
@@ -87,34 +86,5 @@ final readonly class CreateSupplierQuotation
 
             return $quotation;
         });
-    }
-
-    /**
-     * Every line's product as an id, adding the ones the catalog lacks.
-     *
-     * `D-22`. The name is replaced rather than kept beside the id: the column
-     * the line is stored in is `catalog_item_id`, and a leftover `product_name`
-     * would reach an insert that has no such column. The boundary has already
-     * refused a line carrying both (Point 3.3), so a line here has one or the
-     * other.
-     *
-     * @param  list<array<string, mixed>>  $items
-     * @return list<array<string, mixed>>
-     */
-    private function resolved(array $items, string $actorId): array
-    {
-        foreach ($items as $index => $line) {
-            $name = $line['product_name'] ?? null;
-
-            if (! is_string($name)) {
-                continue;
-            }
-
-            unset($items[$index]['product_name']);
-
-            $items[$index]['catalog_item_id'] = $this->catalog->productIdFor($name, $actorId);
-        }
-
-        return $items;
     }
 }

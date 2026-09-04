@@ -418,6 +418,28 @@ final class SupplierQuotationEditEndpointTest extends TestCase
     // ───────────────────────────────────────────────────────────────── helpers
 
     /**
+     * Point 3.5, end to end: the module's acceptance criterion answered by the
+     * edit as well as the create — `PATCH` replaces the lines, and a name the
+     * catalog does not carry becomes a product rather than a `42703`.
+     */
+    public function test_that_a_replacement_line_may_name_a_product_the_catalog_lacks(): void
+    {
+        $id = $this->created();
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['items' => [
+            ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+        ]], $this->bearerFor(RoleName::Manager))->assertStatus(200);
+
+        $product = DB::table('catalog_items')->where('name', 'Copper Cable 4mm')->first();
+
+        self::assertNotNull($product, 'D-22: the catalog did not gain the product the edit named.');
+        self::assertSame($product->id, DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $id)
+            ->whereNull('deleted_at')
+            ->value('catalog_item_id'));
+    }
+
+    /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */

@@ -6747,7 +6747,10 @@ flagged here for review rather than assumed)*
 **Tables** `supplier_quotations` (**nullable** `deal_id`) · `supplier_quotation_items`
 
 **Acceptance criteria**
-- [ ] Offer containing a product not in the catalog → product added automatically
+- [x] Offer containing a product not in the catalog → product added automatically *(Points 3.1–3.5:
+      the boundary accepts a name, the use case resolves it through Catalog's published contract
+      inside `DB-11`'s transaction, on both `POST` and `PATCH`. Proven end to end at both endpoints
+      and at both use cases; `D-45`'s audit row is Catalog's, written by `SaveCatalogItem`.)*
 - [ ] Saved offer appears on the supplier page under "Linked Quotations"
 - [ ] Offer not linked to a deal → saves normally, available to any deal
 - [ ] File upload → type, size and **true MIME** validated, stored under a UUID name
@@ -6964,7 +6967,24 @@ Module 5 is finished.
       answers `42703`. The module's acceptance criterion "offer containing a product not in the
       catalog → product added automatically" is therefore **left unticked** until 3.5, even though
       the create path closes it end to end (`POST` answers 201 and the catalog gains the product).
-- [ ] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.
+- [x] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.
+      **The loop was extracted, not copied.** Point 3.4 wrote it as a private method of the create,
+      which was right while there was one caller; this point is the second, so it became
+      `ResolveLineProducts` — one class, two callers, one place where "what is a line's product"
+      is decided. A second copy would be the duplicate the waste audit names: correct in both
+      places, wrong the moment one changes.
+      **Inside the transaction, proven the same way**: moving the call out of
+      `UpdateSupplierQuotation`'s transaction reddened the rollback test with "DB-11: the added
+      product outlived the edit". As on the create, that test had been green beforehand for an
+      unrelated reason (the write threw on the missing column), so it only became a real check here.
+      **After the not-found check, and the comment says why that is thrift rather than
+      correctness** — a `PATCH` at an absent offer throws inside the transaction, so the rollback
+      would take the catalog row anyway; the order only avoids writing one for a request already on
+      its way to a 404. The first draft of that comment claimed the placement was what prevented it,
+      which was false, and it was corrected before commit.
+      **`items` stays three-valued** (owner, 2026-09-02): absent means untouched, so the resolution
+      is skipped entirely rather than run over an empty set.
+      **3 tests. RED observed first: 2 failed**, the third being the rollback test above.
 
 #### Step 2 — the write path and one read *(point list approved 2026-09-02)*
 

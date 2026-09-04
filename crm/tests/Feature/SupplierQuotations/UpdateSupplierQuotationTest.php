@@ -150,6 +150,62 @@ final class UpdateSupplierQuotationTest extends TestCase
         self::assertSame($this->editorId, $row->updated_by);
     }
 
+    // ──────────────────────────────── `D-22`'s automatic add (Point 3.5)
+
+    /**
+     * The edit half of the criterion Point 3.4 closed for the create. A
+     * replacement set is lines like any other, and `D-22` does not distinguish
+     * the verb that carried them: a product the catalog lacks is added
+     * "automatically, without review".
+     */
+    public function test_that_a_replacement_line_may_name_a_product_the_catalog_lacks(): void
+    {
+        $offer = $this->create();
+
+        $this->update($offer->id, ['items' => [
+            ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+        ]]);
+
+        $product = DB::table('catalog_items')->where('name', 'Copper Cable 4mm')->first();
+
+        self::assertInstanceOf(stdClass::class, $product, 'D-22: the product was not added to the catalog.');
+
+        self::assertSame($product->id, DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $offer->id)
+            ->whereNull('deleted_at')
+            ->value('catalog_item_id'), 'The replacement line was not linked to the product it named.');
+    }
+
+    /**
+     * `DB-11` again, and for the same reason the create has it: a product added
+     * for the first replacement line must not outlive an edit the second one
+     * destroyed. The original lines come back with it.
+     */
+    public function test_that_a_product_added_for_a_refused_edit_is_rolled_back(): void
+    {
+        $offer = $this->create();
+
+        $before = DB::table('catalog_items')->count();
+
+        $threw = false;
+
+        try {
+            $this->update($offer->id, ['items' => [
+                ['product_name' => 'Copper Cable 4mm', 'unit_price' => '10', 'quantity' => '2'],
+                ['catalog_item_id' => Uuid::uuid4()->toString(), 'unit_price' => '10', 'quantity' => '1'],
+            ]]);
+        } catch (QueryException) {
+            $threw = true;
+        }
+
+        self::assertTrue($threw, 'The database accepted a line pointing at no catalog item.');
+        self::assertSame($before, DB::table('catalog_items')->count(), 'DB-11: the added product outlived the edit.');
+        self::assertSame(1, DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $offer->id)
+            ->whereNull('deleted_at')
+            ->count(), 'DB-11: the original line was removed by an edit that failed.');
+    }
+
     // ───────────────────────────────────────────────────────────────── helpers
 
     /** @param array<string, mixed> $overrides */

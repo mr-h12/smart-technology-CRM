@@ -39,11 +39,20 @@ use Illuminate\Database\ConnectionInterface;
  * No recomputation of `total_price`: the owner ruled on 2026-09-02 that it is
  * entered, and an edit that replaced the lines would be the tempting place to
  * quietly start summing them.
+ *
+ * ── `D-22` reaches the replacement set too (Point 3.5) ─────────────────────
+ *
+ * A replacement line may name a product the catalog lacks, exactly as a created
+ * one may, and `D-22` does not distinguish the verb that carried it. The
+ * resolution runs through {@see ResolveLineProducts} — the same collaborator
+ * the create uses, extracted at this point rather than copied — and inside the
+ * transaction, so an edit that fails on a later line leaves no product behind.
  */
 final readonly class UpdateSupplierQuotation
 {
     public function __construct(
         private SupplierQuotationDirectoryInterface $quotations,
+        private ResolveLineProducts $products,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
     ) {}
@@ -65,6 +74,16 @@ final readonly class UpdateSupplierQuotation
 
             if ($before === null) {
                 throw SupplierQuotationNotFound::of($quotationId);
+            }
+
+            // `D-22`, Point 3.5. Inside the transaction, which is what keeps a
+            // product added for line one from outliving an edit line two
+            // destroyed (`DB-11`). After the not-found check only to avoid
+            // writing a catalog row for a request already on its way to a 404 —
+            // the rollback would take that row anyway, so the order is thrift,
+            // not correctness.
+            if ($draft->items !== null) {
+                $draft = $draft->withItems($this->products->resolve($draft->items, $actorId));
             }
 
             $after = $this->quotations->update($quotationId, $draft, $actorId);

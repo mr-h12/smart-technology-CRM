@@ -314,7 +314,15 @@ would hide them behind `OD-03` indefinitely.
       closing this needs either a decision to weaken Domain's empty ruleset or a different shape
       entirely — both bigger than a Customers point. **Module 6 Point 4.1 makes it the fifth
       copy** (`InvalidSupplierQuotationListQuery`), with `SupplierListCriteria`'s parser copied
-      beside it minus the three parsers this resource does not declare
+      beside it minus the three parsers this resource does not declare.
+      **Point 4.3 makes the renderer side six** — `grep -n "public static function invalid.*ListQuery"
+      crm/app/Support/Http/ApiExceptionRenderer.php` → 6 — and the audit that measured it found the
+      same forced repetition in three more places, all pre-existing and none introduced by 4.3:
+      `Payload::pagination()`'s identical six-key body in **8** payloads, `Payload::many()`'s
+      `array_map(static fn … self::of …)` in **6**, and the controller `index()`
+      `::fromQuery($request->query())` shape in **6**. Same root cause as this row — a module's
+      Presentation layer cannot share code across the deptrac boundary — so this row now covers all
+      four shapes rather than the exception alone
 
 - [ ] **Four `…Page` classes carry arithmetic no test reaches** — `SupplierPage`'s own docblock
       says the arithmetic lives in the page rather than in the serialiser "because arithmetic in a
@@ -6925,10 +6933,31 @@ Module 5 is finished.
       `PRF-01`'s 500 ms, the screen that matters is the filtered one, and the upgrade — an index on
       `(offer_date DESC NULLS LAST, id)` — belongs to whoever measures the unfiltered list as hot,
       not to a point that has no endpoint yet.
-- [ ] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
+- [x] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
       controller's `index` · `SupplierQuotationPayload::many()`/`pagination()` · the collection
       envelope (`OpenAPI §4.2`), behind `permission:supplier_quotation.view` — `view`, not `create`,
       so the CEO reads and cannot write (§3.6). Includes the refusal test every new route owes.
+      **`handle()` is one delegation and no 404**: an empty result is an empty page, not a missing
+      resource, so the `null`-to-§5.1 translation `one()` performs has nothing to translate here.
+      The route is registered **before** `{supplierQuotation}` so a literal segment can never be
+      read as an id, and it carries no `RowScope` (§3.6, "a shared screen — not restricted by
+      ownership").
+      **The point also wired a 400 that had been thrown into nothing since 4.1.**
+      `InvalidSupplierQuotationListQuery` existed with no renderer behind it; this point added
+      `ApiExceptionRenderer::invalidSupplierQuotationListQuery()`, its `bootstrap/app.php`
+      registration, and the `errors.invalid_request` envelope message **both lang files were
+      missing** — every other module already carried that key. The criteria stay parsed in Domain,
+      not in a Form Request, because `OpenAPI §6.1`/§6.2 require `400 invalid_request` where a Form
+      Request failure would be a 422.
+      **15 tests. RED observed first: 15 failed — 405, because no route existed.**
+      Three verifiers proven by breaking them: the route grant `view`→`create` reddened the CEO case
+      (403 where 200 is required); an `items` key added to `of()` reddened the §6.2 "headers, not
+      lines" case; unregistering the renderer reddened the 400 case with a **500**, which is the
+      exact failure that case exists to catch. All restored.
+      ⚠️ PHPStan caught the new test's `payload()` helper with no `@param` value type — the same
+      class of defect 4.2 hit, found before the point closed.
+      **What is *not* here:** the filters, the ordering and the full 400 matrix are 4.4; one 400 case
+      is asserted here only to prove the renderer is registered at all.
 - [ ] **4.4** The two acceptance criteria closed at the endpoint: `filter[supplier_id]` returns that
       supplier's offers and nothing else; an offer with no deal lists normally and `filter[deal_id]`
       works; a soft-deleted offer is absent (`DB-01`); and `per_page=101`, an unknown filter and an

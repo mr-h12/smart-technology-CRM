@@ -7,11 +7,14 @@ namespace App\Modules\SupplierQuotations\Infrastructure;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationLine;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Modules\SupplierQuotations\Infrastructure\Eloquent\SupplierQuotation;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -126,6 +129,75 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
      * offer; §7.2's "+ to add more" implies a user-visible order, and that gap
      * is on the debt register rather than invented here.
      */
+    /**
+     * Point 4.2. `SoftDeletes` on the model supplies `DB-01`, and §3.6 supplies
+     * the absence of a scope — every role that reads this resource reads it
+     * with `Scope::All`, "a shared screen, not restricted by ownership".
+     *
+     * The two filters and the sort allowlist were checked by
+     * `SupplierQuotationListCriteria` (Point 4.1); what is decided here is what
+     * the contract deliberately left to the query — where the nulls of a
+     * nullable sort column go, and how two rows with the same sort key are
+     * ordered.
+     */
+    public function list(SupplierQuotationListCriteria $criteria): SupplierQuotationPage
+    {
+        $query = SupplierQuotation::query();
+
+        if ($criteria->supplierId !== null) {
+            $query->where('supplier_quotations.supplier_id', $criteria->supplierId);
+        }
+
+        if ($criteria->dealId !== null) {
+            $query->where('supplier_quotations.deal_id', $criteria->dealId);
+        }
+
+        // §6.1: `total` is the whole query's, counted before the page is taken.
+        $total = $query->count();
+
+        foreach ($criteria->sorts as $sort) {
+            // Written out per case rather than concatenated: PHPStan level 10
+            // requires `orderByRaw` to receive a `literal-string`, and the
+            // allowlist is already checked in the criteria — so the default arm
+            // is unreachable and exists to fail loudly if a field is ever added
+            // to `ALLOWED_SORTS` without an ordering to go with it.
+            // `EloquentCatalogItemDirectory` makes the same argument for its
+            // `group_by`.
+            //
+            // **`nulls last` on both directions.** §7.2 marks neither date
+            // required and Point 1.1 left `offer_date` nullable, and PostgreSQL
+            // puts nulls first on a descending order — so the default order
+            // would open the supplier's page with the offers nobody dated.
+            // Ascending already behaves that way; it is written out anyway so
+            // the two directions agree on the page rather than in a manual.
+            $query->orderByRaw(match (true) {
+                $sort['field'] === 'offer_date' && $sort['descending'] => 'supplier_quotations.offer_date desc nulls last',
+                $sort['field'] === 'offer_date' => 'supplier_quotations.offer_date asc nulls last',
+                $sort['field'] === 'created_at' && $sort['descending'] => 'supplier_quotations.created_at desc',
+                $sort['field'] === 'created_at' => 'supplier_quotations.created_at asc',
+                default => throw new InvalidArgumentException(
+                    'No ordering is defined for the declared sort field `'.$sort['field'].'`.'
+                ),
+            });
+        }
+
+        // A deterministic tiebreak, for `EloquentCatalogItemDirectory`'s reason:
+        // PostgreSQL may return equal sort keys in any order, so two offers of
+        // the same date could appear on page 1 and page 2 of one listing, or on
+        // neither.
+        $query->orderBy('supplier_quotations.id');
+
+        $rows = $query->offset($criteria->offset())->limit($criteria->perPage)->get();
+
+        $items = [];
+
+        foreach ($rows as $row) {
+            $items[] = self::hydrate($row);
+        }
+
+        return new SupplierQuotationPage($items, $total, $criteria->page, $criteria->perPage);
+    }
+
     public function find(string $quotationId): ?SupplierQuotationDetail
     {
         $row = SupplierQuotation::query()->whereKey($quotationId)->first();

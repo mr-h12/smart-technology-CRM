@@ -6,6 +6,7 @@ namespace Tests\Feature\SupplierQuotations;
 
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -244,11 +245,160 @@ final class EloquentSupplierQuotationDirectoryTest extends TestCase
         ]], $draft->items);
     }
 
+    // ─────────────────────────────── the list (Point 4.2), §6's query answered
+
+    /**
+     * The build plan's "Linked Quotations": one supplier's offers, and nobody
+     * else's. §7.1 lists `linked_quotations` as an **Automatic** field of a
+     * supplier, and this filter is what makes it automatic.
+     */
+    public function test_that_the_list_returns_only_the_supplier_asked_for(): void
+    {
+        $other = $this->supplier('Beta Trading');
+
+        $mine = $this->offer();
+        $this->offer(['supplier_id' => $other]);
+
+        $page = $this->directory()->list(
+            SupplierQuotationListCriteria::fromQuery(['filter' => ['supplier_id' => $this->supplierId]]),
+        );
+
+        self::assertSame(1, $page->total);
+        self::assertSame([$mine], array_map(static fn ($item): string => $item->id, $page->items));
+    }
+
+    /**
+     * `D-51`: the offer is standalone and "available to any deal", so an offer
+     * with no deal is a normal row of this list — and a deal is a filter over
+     * it, not a parent that owns it.
+     */
+    public function test_that_offers_can_be_narrowed_to_one_deal_without_hiding_the_unlinked(): void
+    {
+        $deal = $this->deal();
+
+        $linked = $this->offer(['deal_id' => $deal]);
+        $this->offer();
+
+        $all = $this->directory()->list(SupplierQuotationListCriteria::fromQuery([]));
+        self::assertSame(2, $all->total, 'D-51: an offer with no deal is still an offer.');
+
+        $filtered = $this->directory()->list(
+            SupplierQuotationListCriteria::fromQuery(['filter' => ['deal_id' => $deal]]),
+        );
+
+        self::assertSame(1, $filtered->total);
+        self::assertSame([$linked], array_map(static fn ($item): string => $item->id, $filtered->items));
+    }
+
+    /** `DB-01`: an archived offer is gone from the screen, not from the table. */
+    public function test_that_a_soft_deleted_offer_is_not_listed(): void
+    {
+        $kept = $this->offer();
+        $removed = $this->offer();
+
+        DB::table('supplier_quotations')->where('id', $removed)->update(['deleted_at' => now()]);
+
+        $page = $this->directory()->list(SupplierQuotationListCriteria::fromQuery([]));
+
+        self::assertSame(1, $page->total);
+        self::assertSame([$kept], array_map(static fn ($item): string => $item->id, $page->items));
+    }
+
+    /**
+     * The owner's default order (2026-09-04), and the half Point 4.1 left here:
+     * `offer_date` is nullable and PostgreSQL sorts nulls **first** on a
+     * descending order, which would open the list with the offers nobody dated.
+     */
+    public function test_that_the_newest_offer_leads_and_the_undated_come_last(): void
+    {
+        $older = $this->offer(['offer_date' => '2026-01-01']);
+        $newest = $this->offer(['offer_date' => '2026-03-01']);
+        $undated = $this->offer(['offer_date' => null]);
+
+        $page = $this->directory()->list(SupplierQuotationListCriteria::fromQuery([]));
+
+        self::assertSame(
+            [$newest, $older, $undated],
+            array_map(static fn ($item): string => $item->id, $page->items),
+        );
+    }
+
+    /** §6.1: `total` is the whole query's, not the page's — the paginator cannot count otherwise. */
+    public function test_that_a_page_carries_the_total_of_the_whole_query(): void
+    {
+        $this->offer(['offer_date' => '2026-01-01']);
+        $this->offer(['offer_date' => '2026-02-01']);
+        $this->offer(['offer_date' => '2026-03-01']);
+
+        $first = $this->directory()->list(SupplierQuotationListCriteria::fromQuery(['per_page' => '2']));
+
+        self::assertSame(3, $first->total);
+        self::assertCount(2, $first->items);
+        self::assertTrue($first->hasNextPage());
+
+        $second = $this->directory()->list(
+            SupplierQuotationListCriteria::fromQuery(['per_page' => '2', 'page' => '2']),
+        );
+
+        self::assertSame(3, $second->total);
+        self::assertCount(1, $second->items);
+        self::assertFalse($second->hasNextPage());
+    }
+
     // ───────────────────────────────────────────────────────────────── helpers
 
     private function directory(): SupplierQuotationDirectoryInterface
     {
         return $this->app->make(SupplierQuotationDirectoryInterface::class);
+    }
+
+    /**
+     * The id of an offer created through the directory.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function offer(array $overrides = []): string
+    {
+        return $this->directory()->create($this->draft($overrides), $this->actorId)->id;
+    }
+
+    private function supplier(string $name): string
+    {
+        $id = Uuid::uuid4()->toString();
+
+        DB::table('suppliers')->insert([
+            'id' => $id,
+            'name' => $name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    /** A customer and a deal, because `deal_id` carries a foreign key (Point 1.1). */
+    private function deal(): string
+    {
+        $customerId = Uuid::uuid4()->toString();
+        $dealId = Uuid::uuid4()->toString();
+
+        DB::table('customers')->insert([
+            'id' => $customerId,
+            'name' => 'Nile Contracting',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('deals')->insert([
+            'id' => $dealId,
+            'code' => 'DL-'.now()->format('Y').'-9001',
+            'customer_id' => $customerId,
+            'last_activity_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $dealId;
     }
 
     /** @param array<string, mixed> $overrides */

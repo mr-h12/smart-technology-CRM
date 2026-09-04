@@ -6890,9 +6890,30 @@ Module 5 is finished.
       has no fallback argument — and the same deletion then reddened with "has no ar sentence of its
       own". Flipping `DEFAULT_SORT_DESCENDING` and removing the filter allowlist each reddened one
       case too.
-- [ ] **4.2** `SupplierQuotationDirectoryInterface::list()` and its Eloquent implementation:
-      filters, ordering (`nulls last`), `offset`/`limit`, and `total`; live rows only (`DB-01`); no
-      row scope (§3.6). Consumes the indexes Point 1.1 created.
+- [x] **4.2** `SupplierQuotationDirectoryInterface::list()` and its Eloquent implementation.
+      **What 4.1 deliberately left here got decided here.** The filters and the sort allowlist were
+      already checked by the criteria; the query owns two things the contract could not state:
+      **`nulls last` on both directions of `offer_date`** — the column is nullable (Point 1.1: §7.2
+      marks neither date required) and PostgreSQL sorts nulls **first** on a descending order, so the
+      owner's `-offer_date` default would have opened a supplier's page with the offers nobody
+      dated — and **`orderBy('id')` as a deterministic tiebreak**, on
+      `EloquentCatalogItemDirectory`'s reasoning: equal sort keys may come back in any order, so two
+      offers of one date could appear on page 1 and page 2 of the same listing, or on neither.
+      **`total` is counted before the page is taken** (`OpenAPI §6.1`), and only live rows are
+      listed — `SoftDeletes` on the model is `DB-01` here, not a `whereNull` written by hand. No
+      scope narrows it (§3.6).
+      **The list returns headers, not offers-with-lines**: a collection carrying every offer's lines
+      is the "unrestricted collection" §6.2 tells `include` not to return, and the lines are
+      `find()`'s.
+      **The `match (true)` is PHPStan's price, not a style choice** — level 10 requires
+      `orderByRaw` to take a `literal-string`, so each field/direction pair is written out and the
+      unreachable default arm exists to fail loudly if `ALLOWED_SORTS` ever grows a field with no
+      ordering behind it.
+      **5 tests. RED observed first: 5 failed.** All four claims proven by breaking them: dropping
+      `nulls last`, counting the page instead of the query, adding `withTrashed()`, and ignoring the
+      supplier filter each reddened exactly one test.
+      ⚠️ **PHPStan caught a docblock that looked fine**: `@param` written inline after prose on one
+      line is not parsed, so the helper's array had no value type. Fixed before the point closed.
 - [ ] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
       controller's `index` · `SupplierQuotationPayload::many()`/`pagination()` · the collection
       envelope (`OpenAPI §4.2`), behind `permission:supplier_quotation.view` — `view`, not `create`,

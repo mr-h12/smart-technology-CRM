@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\SupplierQuotations\Domain\Contracts;
 
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 
@@ -28,10 +30,11 @@ use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
  *
  * Point 1.3 published `create()` alone, on the rule that an interface ahead
  * of its implementation is a promise the next point must keep in a shape it
- * did not choose. `find()` arrives now with Point 2.3, which implements it.
- * (1.3's docblock said "`find()` is Point 2.2"; the owner's four-way split of
- * Step 2, approved 2026-09-02, moved the read to 2.3.) `list()` is Point 4.1
- * and is still not here. `update()` arrives with Point 2.4.
+ * did not choose. `find()` arrived with Point 2.3 and `update()` with Point
+ * 2.4. (1.3's docblock said "`find()` is Point 2.2"; the owner's four-way split
+ * of Step 2, approved 2026-09-02, moved the read to 2.3. It also said `list()`
+ * was Point 4.1; the approved Step 4 list puts the contract in 4.1 and **this**
+ * method in 4.2, which is where it is implemented.)
  */
 interface SupplierQuotationDirectoryInterface
 {
@@ -72,4 +75,15 @@ interface SupplierQuotationDirectoryInterface
      * rewrites `created_by`.
      */
     public function update(string $quotationId, SupplierQuotationDraft $draft, string $actorId): ?SupplierQuotationSummary;
+
+    /**
+     * §7.2's screen as a list — the headers only, because a list of offers each
+     * carrying its lines is the "unrestricted collection" `OpenAPI §6.2` tells
+     * `include` not to return. The lines are `find()`'s.
+     *
+     * The criteria carry `OpenAPI §6`'s whole query: which supplier ("Linked
+     * Quotations"), which deal (`D-51`), the order, and the page. Only live
+     * rows are listed (`DB-01`), and no scope narrows them (§3.6).
+     */
+    public function list(SupplierQuotationListCriteria $criteria): SupplierQuotationPage;
 }

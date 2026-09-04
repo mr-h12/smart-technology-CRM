@@ -679,4 +679,15 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
     // contract update, and §9.1 lists supplier quotations separately.
     Route::patch('/{supplierQuotation}', [SupplierQuotationController::class, 'update'])
         ->middleware('permission:supplier_quotation.create');
+
+    // Point 5.3 — §17's upload flow with `AttachmentParent::SupplierQuotation`
+    // as the parent, carrying §7.2's `pdf_file`.
+    //
+    // ⚠️ **A third grant, not `create`.** §3.6 seeds `upload_attachment`
+    // alongside `view` and `create / edit` — unlike §3.4, which seeds no such
+    // row for deals and left `POST /deals/{id}/documents` borrowing `deal.edit`.
+    // Here the row exists, so it is the one the route carries, and the CEO —
+    // `view` as `All`, no cell under `upload_attachment` — is refused.
+    Route::post('/{supplierQuotation}/documents', [SupplierQuotationController::class, 'uploadDocument'])
+        ->middleware('permission:supplier_quotation.upload_attachment');
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Presentation;
 
+use App\Modules\SupplierQuotations\Application\Documents\AttachSupplierQuotationDocument;
 use App\Modules\SupplierQuotations\Application\Listing\ListSupplierQuotations;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
@@ -89,6 +90,38 @@ final class SupplierQuotationController
                 $quotations->update($supplierQuotation, $request->validated(), self::actorId($request)),
             ),
         );
+    }
+
+    /**
+     * Point 5.3 — §7.2's `pdf_file`, "Scan or PDF of the offer".
+     *
+     * §3.6 fills a third column beside `view` and `create / edit`, so the route
+     * carries `permission:supplier_quotation.upload_attachment` and nothing
+     * else: the CEO holds `view` as `All` and no cell here, and is refused.
+     *
+     * **No scope argument**, for this class's standing reason — §3.6 grants
+     * `Scope::All` throughout, so `AttachSupplierQuotationDocument::handle()`
+     * takes four parameters where `AttachDealDocument` takes five.
+     *
+     * The 404 for an absent or soft-deleted offer and the 422 for bytes §17
+     * refuses are both thrown below this method and shaped by the renderer, so
+     * this stays the three things `CLAUDE.md` allows: validate, invoke,
+     * serialise.
+     */
+    public function uploadDocument(
+        UploadSupplierQuotationDocumentRequest $request,
+        string $supplierQuotation,
+        AttachSupplierQuotationDocument $documents,
+    ): JsonResponse {
+        $file = $request->document();
+
+        return ApiEnvelope::single($request, SupplierQuotationDocumentPayload::of($documents->handle(
+            $supplierQuotation,
+            $file->getPathname(),
+            // The name the browser sent — display-only (§17); never the path.
+            $file->getClientOriginalName(),
+            self::actorId($request),
+        )), 201);
     }
 
     /**

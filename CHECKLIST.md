@@ -312,7 +312,18 @@ would hide them behind `OD-03` indefinitely.
       depend on App\Support\Http\ApiEnvelope`; the probe was then reverted and the file confirmed
       byte-identical with `shasum -a 256 -c`. So Customers gets a third small copy in Point 3.2, and
       closing this needs either a decision to weaken Domain's empty ruleset or a different shape
-      entirely — both bigger than a Customers point
+      entirely — both bigger than a Customers point. **Module 6 Point 4.1 makes it the fifth
+      copy** (`InvalidSupplierQuotationListQuery`), with `SupplierListCriteria`'s parser copied
+      beside it minus the three parsers this resource does not declare
+
+- [ ] **Four `…Page` classes carry arithmetic no test reaches** — `SupplierPage`'s own docblock
+      says the arithmetic lives in the page rather than in the serialiser "because arithmetic in a
+      serialiser is arithmetic no unit test reaches", and then nothing reached it there either: a
+      grep for `totalPages` or `hasNextPage` across `crm/tests` returned **no file** before Module 6
+      Point 4.1. Customers, Suppliers, Catalog and Deals each hold an untested copy; their
+      `meta.pagination` is asserted only through endpoint fixtures that happen to be one page.
+      Module 6's copy has `SupplierQuotationPageTest`; the other four are one small file each and
+      belong to their own modules
 - [ ] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
       *owner decision, 2026-08-30.* §10.2 asks for a warning when similarity is *"above the
       threshold"* and `OD-08` gives the threshold no value, saying only *"Empirical — tuned after
@@ -6842,6 +6853,54 @@ Module 5 is finished.
       every module's reach. The first version of the module's ruleset said "No `SharedContracts`"
       and was wrong: deptrac reported the dependency as *uncovered* until `Precision` had a layer,
       and as a **violation** the moment it had one
+
+#### Step 4 — "Linked Quotations" and the offer list *(point list approved 2026-09-04)*
+
+> **Owner's rulings, 2026-09-04.** The default order is `-offer_date` (newest first), and the
+> declared filters are `supplier_id` and `deal_id` only. **"Linked Quotations" is served by a filter
+> on this module's own list, not by embedding offers in the supplier payload**: `OpenAPI §6.2`
+> forbids `include` from returning "unrestricted collections", and embedding would make Suppliers
+> read inside SupplierQuotations, which `CLAUDE.md` does not allow. §7.1 lists `linked_quotations`
+> as an **Automatic** field of a supplier, which a derived list satisfies.
+
+- [x] **4.1** `SupplierQuotationListCriteria` · `InvalidSupplierQuotationListQuery` ·
+      `SupplierQuotationPage` — `OpenAPI §6`'s query contract in Domain, with no endpoint yet.
+      **`page`/`per_page` (25, max 100), `sort` and `filter` allowlists, and a refusal for
+      everything else** — §6.1 "Invalid or excessive values return `400 invalid_request`" and §6.2
+      "never ignore them silently". Parsed in Domain rather than by a Form Request because a Form
+      Request failure is a 422 and the contract asks for a 400; the rendering of that 400 is 4.3.
+      **Two filters, each answering a criterion rather than a guess**: `supplier_id` is the build
+      plan's "Linked Quotations" (§7.1's `linked_quotations`, "Automatic") and `deal_id` is `D-51`'s
+      "available to any deal". No `q`, no `group_by`, no `include`, no currency or date filter —
+      §6.2 makes the allowlist the point, and nothing declares those.
+      **`total_price` is declared filterable by nothing and sortable by nothing**, on
+      `SupplierListCriteria`'s reasoning for `color_rating`: an offer carries its own currency (§7.2,
+      Point 1.1's `currency_id`) and this table has no base amount, so ordering by the number alone
+      would rank an EGP total against a USD one. An allowlist that quietly offered a meaningless
+      ordering would be worse than a 400.
+      **`-offer_date` is written into `DEFAULT_SORT` as documentation** — §6.2 requires the default
+      order to be "resource-specific and documented" and the master documentation documents none.
+      ⚠️ `offer_date` is nullable and PostgreSQL sorts nulls first on a descending order; **where the
+      nulls go is 4.2's**, the same division `EloquentCatalogItemDirectory` draws with `nulls last`.
+      **17 tests. RED observed first: 17 failed** (no class existed).
+      ⚠️ **One verifier was proven useless and rewritten before this point closed.** The refusal test
+      asserted `__($key) !== $key` per locale; deleting the Arabic sentence left it **green**, because
+      Laravel falls back to `fallback_locale` and returns the English one. Rewritten against
+      `Translator::get($key, [], $locale, false)` — the concrete class, since the contract's `get()`
+      has no fallback argument — and the same deletion then reddened with "has no ar sentence of its
+      own". Flipping `DEFAULT_SORT_DESCENDING` and removing the filter allowlist each reddened one
+      case too.
+- [ ] **4.2** `SupplierQuotationDirectoryInterface::list()` and its Eloquent implementation:
+      filters, ordering (`nulls last`), `offset`/`limit`, and `total`; live rows only (`DB-01`); no
+      row scope (§3.6). Consumes the indexes Point 1.1 created.
+- [ ] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
+      controller's `index` · `SupplierQuotationPayload::many()`/`pagination()` · the collection
+      envelope (`OpenAPI §4.2`), behind `permission:supplier_quotation.view` — `view`, not `create`,
+      so the CEO reads and cannot write (§3.6). Includes the refusal test every new route owes.
+- [ ] **4.4** The two acceptance criteria closed at the endpoint: `filter[supplier_id]` returns that
+      supplier's offers and nothing else; an offer with no deal lists normally and `filter[deal_id]`
+      works; a soft-deleted offer is absent (`DB-01`); and `per_page=101`, an unknown filter and an
+      unknown sort answer **400, not 422**.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 

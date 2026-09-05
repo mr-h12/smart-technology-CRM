@@ -379,6 +379,35 @@ services:
       start_period: 15s
     networks: [crm]
 
+  # ── Auxiliary (not in the ST-02 chain) — keeps the SPA bundle fresh ──────────
+  # The frontend is served as a built bundle from crm/public/build (D-66:
+  # production-matched, not the Vite dev server). Nothing rebuilt it on a source
+  # change, so every frontend point of Module 6 was invisible in the browser
+  # until a human ran the build by hand. This service runs the production build
+  # in watch mode, rewriting public/build whenever resources/ changes; nginx
+  # (which mounts ./crm read-only) then serves the fresh bundle.
+  #
+  # `vite build --watch` is the real production build re-triggered, NOT `vite`
+  # (the dev server), so it stays production-matched. It joins no boot chain — it
+  # depends on nothing and answers no request — but it is default-on (no profile)
+  # on purpose: a build helper you must remember to enable is the same forgotten
+  # step that caused the stale-bundle incident.
+  #
+  # CEILING: reuses the host's crm/node_modules, whose Rolldown binding is
+  # linux/arm64 (the dev machine is Apple Silicon). It will not build on an amd64
+  # host — that is the server path (P-02 / deployment-debt), out of scope here.
+  spa-build:
+    image: node:22-bookworm-slim
+    container_name: crm-spa-build
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./crm:/app
+    # Install only on a fresh clone (no node_modules); otherwise reuse the host's.
+    # `exec` makes the watcher PID 1 so `docker compose stop` signals it directly.
+    command: ["sh", "-c", "[ -d node_modules ] || npm ci; exec npx vite build --watch"]
+    networks: [crm]
+
   # ── Temporary: proves ST-03, removed once PHP-FPM lands in point 0.3/0.6 ─────
   # ST-03 requires each service to wait for its dependency, not merely to start
   # after it. `condition: service_healthy` is what enforces that; this service

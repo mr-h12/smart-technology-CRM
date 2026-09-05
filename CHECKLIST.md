@@ -771,6 +771,25 @@ would hide them behind `OD-03` indefinitely.
       argument that it is now large enough to schedule. Owed: one `FormModalShell` (or a composable
       for the error mapping plus a shared stylesheet), five call sites
 
+- [ ] **Editing `docker-compose.yml` stales the php container's single-file mount** — *revealed while
+      verifying the `spa-build` watch service, 2026-09-05.* The `php` service bind-mounts
+      `./docker-compose.yml:/opt/crm/docker-compose.yml:ro` as a **single file**, so any host edit that
+      replaces the inode — `git stash`/`checkout`, an editor's atomic save — leaves the in-container path
+      pointing at the deleted inode. `QueueConfigurationTest` then fails **every** compose-reading case
+      with `file_get_contents(...): No such file or directory`, which reads like a broken test rather than
+      a stale mount. **Workaround, not a fix:** `docker compose up -d --force-recreate php` after editing
+      the file. CI is unaffected — it checks the file out fresh. Closing it means bind-mounting the
+      directory instead of the file (or dropping the mount and reading the repo copy), a Module 0 infra
+      decision, not this point's.
+
+- [ ] **`resources/js/services/identity.ts` is imported both statically and dynamically** — *revealed by
+      the `vite build` in the `spa-build` service, 2026-09-05.* Rollup warns `INEFFECTIVE_DYNAMIC_IMPORT`:
+      `stores/auth.ts` imports it dynamically while five components (`UserDetailsDrawer`, `UserFormModal`,
+      `AccountSecurityView`, `RolesMatrixView`, `UsersView`) import it statically, so the dynamic import
+      never splits into its own chunk and the lazy-load it implies does not happen. Harmless to
+      correctness; a bundling inefficiency in Module 1 code. Closing it is a one-way choice — make it
+      consistently static, or make the five call sites lazy too — inside Identity, not Module 6.
+
 
 ---
 

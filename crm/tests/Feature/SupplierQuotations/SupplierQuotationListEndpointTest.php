@@ -180,6 +180,43 @@ final class SupplierQuotationListEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Ceo))->assertStatus(200);
     }
 
+    /**
+     * §7.2's last acceptance criterion — "**Shared screen — not restricted by
+     * ownership**" (Point 6.6), stated as the thing it actually claims.
+     *
+     * The provider above proves every reader gets a **200**. That is not this:
+     * a list narrowed to the caller's own rows would answer 200 with an empty
+     * page and pass it. What the criterion says is that an offer **entered by
+     * somebody else** is there, so the assertion is on the id.
+     *
+     * `created()` posts as the Manager, and `entered_by` is `DB-02`'s
+     * `created_by` — set from the authenticated actor, never from the body — so
+     * every other reader below is looking at a row they did not enter.
+     *
+     * **Only the collection needs this.** The detail route's half is already
+     * proved by `SupplierQuotationReadEndpointTest::
+     * test_that_every_role_section_3_6_grants_view_to_can_read()`, and for a
+     * reason that does not apply here: a `GET /{id}` for a row the caller may
+     * not see is a **404**, so its 200 cannot be an owner-scoped empty answer
+     * the way a collection's can. Point 6.6 wrote a second copy of it here
+     * before measuring that, and deleted it.
+     */
+    #[DataProvider('readers')]
+    public function test_that_a_reader_sees_an_offer_entered_by_somebody_else(RoleName $role): void
+    {
+        $id = $this->created();
+
+        $ids = $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->json('data.*.id');
+
+        self::assertIsArray($ids);
+        self::assertContains($id, $ids, sprintf(
+            'A %s could not see an offer the Manager entered, so the list is scoped by ownership.',
+            $role->label(),
+        ));
+    }
+
     /** §3.6 gives the Outdoor Supervisor a dash in every column, `view` included. */
     public function test_that_the_outdoor_supervisor_cannot_list(): void
     {

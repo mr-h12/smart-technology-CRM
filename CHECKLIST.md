@@ -7042,7 +7042,25 @@ flagged here for review rather than assumed)*
       `scan_status` and not on ownership. ⚠️ **Image compression, §17's own row, is not part of this
       criterion's wording and remains unbuilt** — on the register, by the owner's decision of
       2026-09-04.)*
-- [ ] Shared screen — not restricted by ownership
+- [x] Shared screen — not restricted by ownership *(Point 6.6. The criterion names a **screen**, so
+      it could not be closed while Module 6 was API-only; Steps 6.2–6.5 built one, and this point
+      closes it at both ends.
+      **At the collection, stated as the thing it claims.** The existing per-role provider asserted a
+      **200** — which a list narrowed to the caller's own rows would also answer, with an empty page.
+      One new data-provided case asserts the **id** instead: an offer `created()` posts **as the
+      Manager** is present in every reader's list, for all six roles §3.6 grants `view`. `entered_by`
+      is `DB-02`'s `created_by`, set from the authenticated actor and never from the body, so every
+      other reader is looking at a row they did not enter.
+      **The detail route needed nothing new**, and the point wrote a copy before measuring that:
+      `SupplierQuotationReadEndpointTest::test_that_every_role_section_3_6_grants_view_to_can_read()`
+      already carries it, because a `GET /{id}` for a row the caller may not see is a **404** — its
+      200 cannot be the empty answer a collection's can. The duplicate was deleted inside this point.
+      **At the screen**, the `view`-only CEO is asserted to still see the row after both write
+      controls are refused — refusing the writes must not empty the table.
+      **Verified by breaking it, twice** (both green on arrival, so the probes are the proof): a
+      `where('created_by', Auth::id())` on `list()` reddened **5 of 6** readers, and the same on
+      `find()` reddened **5 of 6** of the *existing* read test — the Manager passing in both,
+      correctly, the row being theirs. Restored and re-verified each time.)*
 
 ⚠️ **This module is being built out of the documented delivery order, by the owner's instruction.**
 `CLAUDE.md`'s Required Delivery Order reads `… 5 Deals → 6 Supplier Quotations`, and Module 5 still
@@ -7577,8 +7595,33 @@ Module 5 is finished.
       the tree; `createObjectURL` appears in exactly one non-spec file. `+2` PHP tests
       (2226 → 2228) is `LogicalPropertiesTest`'s per-file provider over the two new `.ts` files —
       measured at 131 → 133, not inferred.
-- [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
+- [x] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
       manual test list.
+      **The criterion was not ticked on the strength of the screen existing.** The per-role provider
+      already in `SupplierQuotationListEndpointTest` asserted a **200**, which an owner-scoped list
+      would also answer — with an empty page. Two new data-provided cases assert the **id** of an
+      offer `created()` posts **as the Manager**: present in every reader's list, and openable on the
+      detail route, for all six roles §3.6 grants `view`. On the screen, the `view`-only CEO is
+      asserted to still see the row after both write controls are refused.
+      **7 tests (6 backend + 1 screen assertion), green on arrival — so two probes are the proof.**
+      `where('created_by', Auth::id())` on `list()` reddened 5 of 6 readers, and the same on `find()`
+      reddened 5 of 6 of the **existing** read test; the Manager passed in both, correctly, the row
+      being theirs. Both restored and re-verified.
+      ⚠️ **Waste this point created and removed inside it:** a second data-provided case asserting
+      the detail route, written before checking whether the claim was already made. It was — in the
+      read endpoint's own suite, and for a reason that does not apply to a collection. Six test cases
+      deleted, and the surviving docblock now says where the other half lives instead of proving it
+      twice.
+      **The module's full manual test list is below** — 56 checks in Arabic, grouped by screen in
+      walking order, each naming the role it needs, with all five acceptance criteria named in place
+      and eight things that cannot be tested yet written out rather than skipped. It replaces the
+      pre-Step-5 list that lived only in the conversation and the API-client addendum above: there is
+      a screen now, so what needed Postman is now clicked.
+      ⚠️ **A gate of mine was run wrong, and the wrong result is worth recording.** A full
+      `php artisan test` was started in the background on `main` and then a probe mutated a source
+      file **while it ran**; the run reported `4 failed` from a tree that never existed. It was
+      re-run on the restored tree rather than explained away. A long suite and a probe must not share
+      a working directory.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 
@@ -7893,6 +7936,131 @@ Module 5 is finished.
 **ما لا يمكن اختباره اليوم، ويجب أن تراه لا أن يُخفى:** حالات RTL/LTR، والتحميل، والفراغ، والخطأ،
 ورسالة الرفض كما يقرؤها إنسان — لا شاشة تعرض أيًّا منها. اسم الحقل في رسالة الـ 422 العربية سيظهر
 `document` بحروف لاتينية (سقف معلن في النقطة 5.3). وضغط الصور (§17) غير مبنيّ أصلًا فلا سطر له هنا.
+
+---
+
+#### قائمة الاختبار اليدوي — الوحدة 6 كاملة *(النقطة 6.6، 2026-09-05)*
+
+> **هذه هي القائمة الكاملة التي تُغلق الوحدة**، وهي تُغني عن القائمتين السابقتين: الأولى نُشرت في
+> المحادثة قبل الخطوة 5، والثانية أعلاه أضافت المرفقات عبر عميل API. الآن توجد شاشة، فكل ما كان
+> يُختبَر بـ Postman يُختبَر بالنقر. تُنفَّذ من أعلى إلى أسفل بالترتيب المكتوب.
+>
+> **الأدوار المطلوبة أربعة:** *مدير* (أو أي من الخمسة: قائد فريق · مبيعات خارجية · مبيعات داخلية ·
+> مشتريات) · *الرئيس التنفيذي* (قراءة فقط) · *مشرف المبيعات الخارجية* (ممنوع تمامًا) · *المدير
+> الأعلى* (لسحب صلاحية في الفحصين 31 و32).
+>
+> ⚠️ **قبل البدء:** إن كنت متقمّصًا حسابًا آخر فأنهِ التقمّص وسجّل الدخول من جديد، وإلا فالقائمة
+> الجانبية تعرض صلاحيات الحساب القديم.
+
+**أ — القائمة الجانبية والوصول** *(معيار: شاشة مشتركة — غير مقيَّدة بالملكية)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 1 | مدير | افتح النظام وانظر القائمة الجانبية ⇒ يجب أن ترى **«عروض المورّدين»** قبل «الكتالوج» |
+| 2 | مدير | اضغط «عروض المورّدين» ⇒ ينتقل إلى `/supplier-quotations` وتظهر الشاشة |
+| 3 | الرئيس التنفيذي | افتح القائمة الجانبية ⇒ يجب أن ترى «عروض المورّدين» **أيضًا** (§3.6 يمنحه `view`، خلافًا لـ §8 — قرار المالك 2026-08-31) |
+| 4 | مشرف خارجي | افتح القائمة الجانبية ⇒ **لا يوجد** بند «عروض المورّدين» |
+| 5 | مشرف خارجي | اكتب `/supplier-quotations` في شريط العنوان مباشرة ⇒ صفحة رفض، **لا** جدول فارغ |
+
+**ب — شاشة القائمة: الحالات الأربع**
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 6 | مدير | افتح الشاشة وراقب اللحظة الأولى ⇒ تظهر **حالة تحميل** قبل الجدول |
+| 7 | مدير | على قاعدة بلا عروض ⇒ **حالة فراغ**، لا جدول فارغ ولا خطأ |
+| 8 | مدير | أوقف الخادم ثم أعد تحميل الشاشة ⇒ **حالة خطأ** ومعها زرّ إعادة محاولة يعمل بعد تشغيل الخادم |
+| 9 | مدير | اطلب من المدير الأعلى سحب `supplier_quotation.view` من دورك ثم أعد التحميل ⇒ **رسالة رفض**، لا قائمة فارغة (`SEC-09`) — ثم أعِد المنحة |
+
+**ج — شاشة القائمة: المحتوى والترتيب والترشيح**
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 10 | مدير | انظر الأعمدة ⇒ الرمز · المورّد · الإجمالي · تاريخ العرض · صالح حتى · الصفقة |
+| 11 | مدير | انظر عمود الرمز ⇒ بالصيغة `SQ-2026-0001` |
+| 12 | مدير | انظر عمود المورّد ⇒ **اسم** المورّد لا معرّفه |
+| 13 | مدير | انظر عمود الإجمالي ⇒ محاذاة إلى نهاية السطر، وبأرقام متساوية العرض، **وبنفس عدد الخانات العشرية الذي أرسله الخادم** |
+| 14 | مدير | افتح الشاشة أول مرة ⇒ الترتيب الافتراضي **تاريخ العرض تنازليًا** (الأحدث أولًا) ومعه سهم |
+| 15 | مدير | اضغط ترويسة «تاريخ العرض» ⇒ ينقلب الترتيب وينقلب السهم |
+| 16 | مدير | اختر مورّدًا من مرشِّح «المورّد» ⇒ الجدول يعرض عروض ذلك المورّد **وحدها** |
+| 17 | مدير | اكتب معرّف صفقة في «الصفقة» واضغط «تطبيق» ⇒ عروض تلك الصفقة وحدها |
+| 18 | مدير | مع مرشِّح لا يطابق شيئًا ⇒ رسالة فراغ **مختلفة**: «لا توجد عروض مطابقة» لا رسالة الفراغ العامة |
+| 19 | مدير | مع أكثر من 25 عرضًا ⇒ يعمل زرّا «السابق» و«التالي» ويتعطّل كلٌّ منهما عند طرفه |
+| 20 | مدير | **ابحث عن مربّع بحث** ⇒ **لا يوجد ولا يجب أن يوجد**؛ هذه القائمة لا تعلن بحثًا وسيردّ الخادم 400 |
+
+**د — إنشاء عرض: الترويسة** *(معيار: عرض غير مرتبط بصفقة يُحفظ عاديًا)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 21 | مدير | انظر أعلى الشاشة ⇒ زرّ **«عرض جديد»** ظاهر |
+| 22 | الرئيس التنفيذي | انظر أعلى الشاشة ⇒ **لا** زرّ «عرض جديد»، **ولا** زرّ «تعديل» في أي صفّ — **ومع ذلك الجدول يعرض كل الصفوف** *(معيار «شاشة مشتركة»)* |
+| 23 | مدير | اضغط «عرض جديد» ⇒ يفتح حوار **فارغ**، وفيه **لا يوجد حقل للرمز** (§7.2 يجعله تلقائيًا) |
+| 24 | مدير | اضغط «حفظ» دون اختيار مورّد ⇒ رسالة «المورّد مطلوب» تحت الحقل، **ولا يُرسَل أي طلب** |
+| 25 | مدير | اختر مورّدًا واترك «الصفقة» **فارغة** واحفظ ⇒ يُحفظ عاديًا ويظهر في القائمة بعمود صفقة «غير مرتبط» *(معيار `D-51`)* |
+| 26 | مدير | افتح الحوار واقرأ صفّ التحذير ⇒ يقول إن **الإجمالي وعملته لا يمكن إدخالهما بعد** *(سقف معلن، قرار المالك 2026-09-05)* |
+| 27 | مدير | اكتب في «الملاحظات» ثم اضغط «إلغاء» ⇒ تحذير «تغييرات لم تُحفظ» مع «متابعة التعديل» و«تجاهل التغييرات» |
+| 28 | مدير | كرّر الفحص 27 بمفتاح **Escape** بدل «إلغاء» ⇒ نفس التحذير، لا إغلاق صامت |
+| 29 | مدير | افتح عرضًا له إجمالي مسجَّل، غيّر الملاحظات فقط واحفظ ⇒ **الإجمالي في القائمة لم يتغيّر** *(الحوار لا يرسل الحقل أصلًا)* |
+| 30 | مدير | اضغط «تعديل» على صفّ ⇒ يفتح الحوار **ممتلئًا** بمورّد وتواريخ ذلك العرض |
+
+**هـ — بنود العرض** *(معيار: منتج غير موجود في الكتالوج يُضاف تلقائيًا — `D-22`)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 31 | مدير | افتح حوار إنشاء ⇒ قسم «بنود العرض» يقول «لا توجد بنود بعد» ومعه زرّ «إضافة بند» |
+| 32 | مدير | اضغط «تعديل» على عرض له بنود وراقب اللحظة الأولى ⇒ **«جارٍ تحميل بنود العرض…»** قبل ظهورها |
+| 33 | مدير | اضغط «إضافة بند» ⇒ يظهر صفّ فيه منتج وسعر وحدة وكمية وزرّ حذف |
+| 34 | مدير | افتح قائمة المنتج ⇒ تحتوي أصناف الكتالوج، **ولا تحتوي أي صنف مُعطَّل** *(§10.4)* |
+| 35 | مدير | اختر «اكتب الاسم بدلًا من ذلك» ⇒ يظهر مربّع «اسم المنتج»، **وتختفي إمكانية إرسال الاثنين معًا** |
+| 36 | مدير | اكتب اسم منتج **غير موجود** في الكتالوج، وسعرًا وكمية، واحفظ ⇒ يُحفظ العرض، ثم افتح شاشة الكتالوج ⇒ **المنتج صار موجودًا** *(معيار `D-22`)* |
+| 37 | مدير | كرّر الفحص 36 **بنفس الاسم حرفًا بحرف** على عرض آخر ⇒ الكتالوج **لا يزداد صفًّا**؛ أُعيد استخدام الصنف نفسه |
+| 38 | مدير | اكتب سعرًا سالبًا واحفظ ⇒ رسالة الخادم تظهر **تحت حقل السعر في ذلك البند بالذات**، لا في أعلى الحوار |
+| 39 | مدير | افتح عرضًا له بنود، احذفها كلّها واحفظ ⇒ العرض يبقى وبنوده تُمحى |
+| 40 | مدير | اقطع الشبكة، اضغط «تعديل» على عرض، ثم أعِدها واحفظ ⇒ رسالة «تعذّرت قراءة بنود العرض… ولن يمسّها هذا الحفظ»، **والبنود تبقى كما كانت بعد الحفظ** |
+
+**و — المرفق** *(معيار: رفع ملف — النوع والحجم والنوع الحقيقي، واسم UUID)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 41 | مدير | افتح حوار **إنشاء** ⇒ قسم المرفق يقول **«احفظ العرض أولًا»**، ولا يوجد حقل ملف |
+| 42 | مدير | افتح حوار **تعديل** ⇒ يوجد حقل ملف، ومعه جملة تقول إن المعروض هو مرفقات هذا الحوار فقط |
+| 43 | مدير | ارفع ملف PDF سليمًا ⇒ يظهر صفّ باسم الملف ومعه زرّ **«تنزيل»** |
+| 44 | مدير | اضغط «تنزيل» ⇒ ينزل الملف نفسه، **وباسمه العربي كاملًا إن كان اسمه عربيًا** |
+| 45 | مدير | أعِد تسمية ملف تنفيذي إلى `offer.pdf` وارفعه ⇒ **مرفوض**؛ الفحص يقرأ البايتات لا الامتداد *(§17)* |
+| 46 | مدير | ارفع ملفًا أكبر من الحدّ المضبوط ⇒ **مرفوض** برسالة حجم |
+| 47 | مدير | ارفع ملفًا بتوقيع EICAR ⇒ يظهر الصفّ بحالة **«مرفوض: الفحص وجد فيروسًا»** و**بلا زرّ تنزيل** *(`SEC-15`)* |
+| 48 | مدير | ارفع ملفًا بينما الفحص لم ينتهِ ⇒ حالة **«لم ينتهِ فحص الفيروسات»** و**بلا زرّ تنزيل** |
+| 49 | المدير الأعلى ثم مدير | اسحب `supplier_quotation.upload_attachment` من دور المدير وحده، ثم افتح حوار تعديل ⇒ **حقل الملف اختفى بينما زرّ الحفظ باقٍ** *(المنحة الثالثة، `SEC-07`)* — ثم أعِد المنحة |
+| 50 | الرئيس التنفيذي | افتح عرضًا ⇒ **لا حقل رفع** أصلًا؛ §3.6 لا يمنحه المنحة الثالثة |
+| 51 | مدير | افتح ملف التخزين على الخادم ⇒ اسم الملف **UUID**، ولا يحمل أي جزء من الاسم الأصلي، وخارج جذر الويب *(§17)* |
+
+**ز — صفحة المورّد** *(معيار: العرض المحفوظ يظهر تحت «العروض المرتبطة»)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 52 | مدير | احفظ عرضًا لمورّد ما، ثم افتح «عروض المورّدين» ورشِّح بذلك المورّد ⇒ العرض موجود، **ولا يظهر عرض مورّد آخر** *(معيار «العروض المرتبطة»، مطبَّقًا كمرشِّح)* |
+
+**ح — اللغة والاتجاه** *(كل ما سبق، مرّتين)*
+
+| # | الدور | الخطوة ⇒ المتوقَّع |
+|---|---|---|
+| 53 | مدير | بدّل اللغة إلى العربية ⇒ الشاشة والحوار **RTL**: الأعمدة تبدأ من اليمين، والإجمالي محاذًى إلى اليسار، والأسهم والأزرار منعكسة |
+| 54 | مدير | بدّل إلى الإنجليزية ⇒ **LTR** وكل ما سبق منعكس، **ولا نصّ عربيّ متبقٍّ** |
+| 55 | مدير | في كلتا اللغتين، افتح الحوار واقرأ كل تسمية ⇒ **لا نصّ إنجليزي داخل الواجهة العربية ولا العكس** |
+| 56 | مدير | في العربية، ارفع ملفًا مرفوضًا ⇒ ⚠️ **اسم الحقل سيظهر `document` بحروف لاتينية** — سقف معلن منذ النقطة 5.3، ليس عيبًا جديدًا |
+
+**ما لا يمكن اختباره اليوم، ويجب أن تراه لا أن يُخفى:**
+
+1. **الإجمالي والعملة** — لا يمكن إدخالهما ولا تصحيحهما من أي شاشة. قائمة العملات لا تنشر `id`
+   ومسارها خلف `admin.system_settings` (المدير الأعلى وحده). قرار مُعلَّق.
+2. **مرفق رُفِع في جلسة سابقة لا يظهر إطلاقًا.** لا مسار في الـ API يسرد ملفات كيان. فحوص 43–48
+   كلها تُنفَّذ **داخل الحوار نفسه دون إغلاقه**؛ إغلاقه يُخفي المرفق.
+3. **الصفقة معرّف خام مكتوب باليد** في المرشِّح وفي الحوار — لا شاشة صفقات بعد (الوحدة 5).
+4. **ترتيب البنود** لا يُحفظ؛ ترتيبها بعد الحفظ هو ترتيب الخادم لا ترتيبك.
+5. **قائمة المورّدين وقائمة الكتالوج تقفان عند 100** صنف/مورّد. الصنف بعد المئة يُكتب بالاسم
+   (ويُعاد استخدامه لا يُكرَّر)؛ المورّد بعد المئة يظهر كمعرّف.
+6. **ضغط الصور (§17)** غير مبنيّ — لا سطر له هنا.
+7. **لا قفل تفائلي:** تعديلان متزامنان على عرض واحد ⇒ الأخير يفوز بلا تحذير.
+8. **معايير الوحدة 5** (الصفقات) ليست هنا؛ الوحدة 5 يملكها مطوّر آخر ولم تكتمل.
 
 ---
 

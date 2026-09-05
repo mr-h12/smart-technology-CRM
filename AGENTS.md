@@ -10,10 +10,11 @@ This is the tool-neutral execution contract for every coding agent working on th
 
 Update this section whenever it stops being true. It must stay identical in meaning to the same section in `CLAUDE.md`.
 
-- No application code yet. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
+- **The application exists.** 13 modules under `crm/app/Modules/`, 22 migrations, and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `main` at `862c0c0`, 2026-09-02: **1981 backend tests (11958 assertions)** and **582 frontend tests (34 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
+- **Module progress**, counted from `CHECKLIST.md`'s own boxes on that commit: 0 Foundation **56 of 56 closed** · 1 Identity & Dynamic RBAC 38 closed, 2 open · 2 Settings, Managed Lists & Currencies 16/3 · 3 Customers 22/6 · 4 Catalog & Suppliers 26/1 · 5 Requests/Deals 15/5, **in progress** · 6 Supplier Quotations **not started**. Modules 7–15 are untouched.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 deferred, not cancelled (`D-66`)** — development runs on a production-matched Docker environment (Linux containers, §14.2 stack) until the on-premise server is available. `P-02` still runs before the pilot rollout, and the deployment-debt register in `CHECKLIST.md` carries everything it would have proven.
-- **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved** and still blocks Module 0.
+- **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved.** It no longer blocks a module — Module 0 closed under `D-66` — and still blocks the server, `P-02`, and every row of the deployment-debt register.
 - Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
 ## Source Precedence

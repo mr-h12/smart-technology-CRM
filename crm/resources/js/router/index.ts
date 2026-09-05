@@ -18,6 +18,7 @@ import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
+import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
@@ -127,6 +128,25 @@ export const routes: RouteRecordRaw[] = [
         name: 'suppliers',
         component: SuppliersView,
         meta: { requiresAuth: true, requiredPermission: 'catalog.view', titleKey: 'suppliers.title' },
+    },
+    {
+        // §8's *Supplier Quotations* screen — Module 6 Point 6.2.
+        // `supplier_quotation.view`, §3.6's own read row, which is also the
+        // permission the list endpoint carries: a guard naming anything else
+        // would send people to a screen whose first request 403s.
+        //
+        // ⚠️ §8 lists this screen for the Manager, Team Leader, Outdoor Sales,
+        // Indoor Sales and Procurement, and **not** for the CEO — while §3.6
+        // grants the CEO `supplier_quotation.view` as `All`. Same conflict the
+        // Suppliers and Catalog routes above hit, same answer: the owner's
+        // ruling of 2026-08-31 keys the route and the sidebar on the matrix.
+        // Recorded in `CHECKLIST.md` awaiting a `D-xx`.
+        //
+        // No scope: §3.6 is "a shared screen — not restricted by ownership".
+        path: '/supplier-quotations',
+        name: 'supplier-quotations',
+        component: SupplierQuotationsView,
+        meta: { requiresAuth: true, requiredPermission: 'supplier_quotation.view', titleKey: 'supplierQuotations.title' },
     },
     {
         // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`

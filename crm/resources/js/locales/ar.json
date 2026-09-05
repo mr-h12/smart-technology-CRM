@@ -89,7 +89,8 @@
             "managedLists": "القوائم المُدارة",
             "customers": "العملاء",
             "suppliers": "الموردون",
-            "catalog": "الكتالوج"
+            "catalog": "الكتالوج",
+            "supplierQuotations": "عروض المورّدين"
         }
     },
     "theme": {
@@ -805,6 +806,78 @@
             "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
             "keepEditing": "متابعة التعديل",
             "discard": "تجاهل التغييرات"
+        }
+    },
+    "supplierQuotations": {
+        "title": "عروض المورّدين",
+        "loading": "جارٍ تحميل عروض المورّدين…",
+        "total": "{count} عرضًا",
+        "filter": {
+            "supplier": "المورّد",
+            "supplierAll": "كل المورّدين",
+            "deal": "الصفقة",
+            "dealPlaceholder": "معرّف الصفقة",
+            "apply": "تطبيق"
+        },
+        "form": {
+            "createTitle": "عرض جديد",
+            "editTitle": "تعديل العرض",
+            "required": "(مطلوب)",
+            "supplierNone": "اختر المورّد",
+            "supplierRequired": "المورّد مطلوب.",
+            "notes": "ملاحظات",
+            "lines": "بنود العرض",
+            "linesNone": "لا توجد بنود بعد.",
+            "linesLoading": "جارٍ تحميل بنود العرض…",
+            "linesUnavailable": "تعذّرت قراءة بنود العرض، فلن تُعرض ولن يمسّها هذا الحفظ.",
+            "lineAdd": "إضافة بند",
+            "lineRemove": "حذف",
+            "lineProduct": "المنتج",
+            "lineProductByName": "اكتب الاسم بدلًا من ذلك",
+            "lineProductName": "اسم المنتج",
+            "linePrice": "سعر الوحدة",
+            "lineQuantity": "الكمية",
+            "attachments": "المرفق",
+            "attachmentsSaveFirst": "احفظ العرض أولًا، ثم يمكن إرفاق صورة أو ملف PDF به.",
+            "attachmentsCeiling": "تُعرض هنا الملفات المرفقة في هذا الحوار فقط. الملفات المرفقة سابقًا محفوظة لكن لا يمكن عرضها بعد.",
+            "attachmentChoose": "اختر صورة أو ملف PDF",
+            "attachmentUploading": "جارٍ الرفع…",
+            "attachmentDownload": "تنزيل",
+            "scanPending": "لم ينتهِ فحص الفيروسات",
+            "scanInfected": "مرفوض: الفحص وجد فيروسًا",
+            "attachmentForbidden": "لا تملك صلاحية إرفاق ملف بهذا العرض.",
+            "attachmentRejected": "لم يُقبل الملف.",
+            "attachmentUnreachable": "تعذّر الوصول إلى الخادم. لم يُرفق الملف.",
+            "totalUnavailable": "لا يمكن إدخال الإجمالي وعملته بعد: قائمة العملات التي يحتاجها هذا النموذج غير متاحة لهذا الدور. الإجمالي المسجَّل يبقى كما هو.",
+            "forbidden": "لا تملك صلاحية حفظ هذا العرض.",
+            "rejected": "لم يُقبل التغيير. راجع الحقول وحاول مرة أخرى.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يتم حفظ العرض.",
+            "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
+            "keepEditing": "متابعة التعديل",
+            "discard": "تجاهل التغييرات"
+        },
+        "column": {
+            "code": "الرمز",
+            "supplier": "المورّد",
+            "total": "الإجمالي",
+            "offerDate": "تاريخ العرض",
+            "validUntil": "صالح حتى",
+            "deal": "الصفقة"
+        },
+        "deal": {
+            "none": "غير مرتبط"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا توجد عروض مطابقة",
+                "message": "غيّر المرشِّحات أو امسحها لعرض المزيد."
+            }
+        },
+        "pagination": {
+            "label": "صفحات عروض المورّدين",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} — {total} عرضًا"
         }
     }
 }

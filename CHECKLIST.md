@@ -718,6 +718,59 @@ would hide them behind `OD-03` indefinitely.
       — it spans four modules and a random red is exactly the defect that must be reproduced
       deliberately before it is called fixed
 
+- [ ] **An offer's currency is unreachable from the SPA, and that now costs a *field* rather than a
+      column** — created 2026-09-02 by Point 1.1's `currency_id`, revealed as a display gap by
+      Point 6.2, and **measured as a write blocker by Point 6.3**. ⚠️ **Point 6.2's own entry says
+      "Registered below against Module 2's payload" and no such row existed** — `grep -n
+      "CurrencyController::payload" CHECKLIST.md` returned exactly one line, 6.2's own. That is the
+      second time this file has recorded a claim of registration with nothing behind it (see the
+      Point 8.2 note above), and this row is the correction, not a new finding.
+      **Two independent blockers, both read from the source in the session that wrote this:**
+      1. `crm/app/Modules/Admin/Presentation/CurrencyController.php` `payload()` publishes `code`,
+         `rounding_unit`, `rounding_enabled`, `is_base` — **no `id`**. `FxRateController::payload()`
+         names its currencies by code too and its own `id` is the rate's. `grep -n "currenc"
+         routes/api.php` finds exactly two currency routes, so there is no third place to ask.
+      2. `routes/api.php:288-291` puts `GET /currencies` behind `permission:admin.system_settings`,
+         which `PermissionMatrix.php:481-483` grants to the **Super Admin alone** — while
+         `supplier_quotation.create` (`:332-338`) is the Manager, Team Leader, Outdoor Sales, Indoor
+         Sales and Procurement. So even a payload carrying an `id` would 403 for every role that
+         needs it.
+      **The two columns are one pair**, not two fields: Point 1.1's
+      `CHECK ((total_price IS NULL) = (currency_id IS NULL))` and
+      `SaveSupplierQuotationRequest`'s mutual `required_with`. So the blocker costs §7.2's **total**
+      as well as its currency. Owner's ruling 2026-09-05: Point 6.3 ships the rest of the header and
+      states the ceiling in the dialog itself. Owed, and it is an owner decision before it is work:
+      publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
+      accept a currency code. Both are cross-module and neither belongs inside a Module 6 point
+
+- [ ] **Nothing in the API can be asked which files an entity has** — revealed 2026-09-05 by Module 6
+      Point 6.5, and it is not a Module 6 gap: it is the shape of §17's surface. Measured in that
+      session: `SupplierQuotationPayload::detail()` returns the nine header fields and `items`;
+      `SupplierQuotationController` publishes `uploadDocument` and no document read; and
+      `grep -c "/files" routes/api.php` is **1** — `GET /files/{file}/download`, which needs an id
+      the caller must already hold. So a file attached to an offer is **write-only from the UI's
+      point of view**: it is stored, scanned and audited, and then invisible. The same is true of
+      `POST /deals/{id}/documents` (Module 5), so Module 9's PDF snapshots and Module 11's
+      procurement documents will each hit it. Owner's ruling 2026-09-05: 6.5 ships a panel listing
+      this dialog's own uploads, saying so in the panel itself. Owed, and it is a contract change
+      (`OpenAPI §8`) before it is work: a `documents` array on the detail payload, or a
+      `GET /{id}/documents` per parent. Not startable inside a frontend point
+
+- [ ] **A fifth Vue form modal now carries the same 126-line shape** — created 2026-09-05 by Point
+      6.3's `SupplierQuotationFormModal.vue`. `grep -rln "function applyServerErrors"
+      resources/js` returns five files (`UserFormModal`, `CatalogItemFormModal`,
+      `CustomerFormModal`, `SupplierFormModal`, and the new one), and `grep -rln "modal-scrim"`
+      returns the same five — the `<style>` block is copied verbatim. `diff` of the two `<script>`
+      bodies against `SupplierFormModal` is 126 differing lines out of 501, so the majority is
+      shared: `blank()` / `values` / `opened` / `dirty`, `fieldId`, `testId`, `errorFor`,
+      `applyServerErrors`, `requestClose`, `discard`, and the unsaved-change dialog. ⚠️ **This is
+      waste the point created, and it was recorded rather than removed** on the same reasoning the
+      `refusedWith()` row above gives: extracting a shell touches four components outside Module 6
+      with no failing test behind it, which `CLAUDE.md`'s module-isolation rule and its ban on
+      opportunistic cleanup inside an unrelated point both forbid. Recording it a second time is the
+      argument that it is now large enough to schedule. Owed: one `FormModalShell` (or a composable
+      for the error mapping plus a shared stylesheet), five call sites
+
 
 ---
 
@@ -7278,6 +7331,201 @@ Module 5 is finished.
       ⚠️ **Two more fixture copies created**, and they are registered rather than removed:
       `pdfBytesWithEicarSignature()` now stands in **3** test files and `executable()` in **3**.
       Removing them needs the shared test-fixture location that is still unapproved.
+
+#### Step 6 — the frontend *(point list approved 2026-09-05)*
+
+> **Why this step exists at all.** Every module through 4 ships a screen — `customers`, `suppliers`,
+> `catalog`, `users`, `roles`, `settings`, `currencies`, `limits`, `lists` all have one under
+> `resources/js/pages`. **Module 6 was the first to ship API-only**, which is why the owner could not
+> see any of it, and why "shared screen — not restricted by ownership" is still unticked: it names a
+> screen, and an API test cannot close it.
+>
+> ⚠️ **`§13` and `Design_System_EN.md` have not been read for this screen yet.** Point 6.2 begins by
+> reading them, and if they describe a layout other than the one assumed here, **they win** and this
+> list is corrected rather than followed.
+>
+> ⚠️ **There is no deals screen** (`resources/js/pages/deals` does not exist), so 6.2's `deal_id`
+> filter has no list to draw from. A raw identifier field is the stated, ugly ceiling until Module 5
+> builds one.
+
+- [x] **6.1** `services/supplier-quotations.ts` — the typed client for the five routes, with its spec.
+      **The query shape is the server's, exactly:** `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']`
+      and `ALLOWED_SORTS` is `['offer_date', 'created_at']`, both closed, so **there is no `q`** —
+      this list declares no search and offering one would produce a runtime 400 rather than a missing
+      feature. An unset filter is omitted, never sent empty.
+      **`total_price` is `string`, not `number`.** `DB-07` forbids floating point near money and the
+      server sends `4500.000000`; parsing it would reintroduce the float `D-68` was decided to avoid.
+      Nothing in the client sums anything — the total is entered (owner, 2026-09-02).
+      **No `code` field on the draft and no delete call:** §7.2 marks the code "Automatic" and the
+      server answers a supplied one with 422, and §3.6 seeds no `delete` grant.
+      **8 tests. RED first** — the module did not exist, so the suite failed to import.
+      ⚠️ **A probe found a real hole and the point closed it.** Renaming the upload's form field from
+      `document` to `file` — which would 422 every upload *and* make `ApiExceptionRenderer`'s
+      hard-coded `'field' => 'document'` point at a control that does not exist — reddened **nothing**.
+      The assertion on the `FormData` key was missing and was added; the same probe now fails, as do
+      probes that send empty filters (2 red) and that add a `q` (2 red).
+      ⚠️ **Measured, not assumed:** the PHP suite grew by two on a frontend-only change, because
+      `LogicalPropertiesTest` data-provides over every `.vue`/`.php`/`.ts` file and the two new files
+      became two new data sets. Benign, and checked rather than shrugged at.
+      ⚠️ **`NoHardCodedTextTest` pins an explicit list of `.vue` filenames.** Point 6.2 must add its
+      component to that list, having first run the scan against it — the test's own stated terms.
+- [x] **6.2** `SupplierQuotationsView.vue` — the list, its route and its nav entry behind
+      `supplier_quotation.view`, with the two filters, the `-offer_date` default, and the loading,
+      empty and error states.
+      **The sources were read first, and they carry a conflict.** §8's *Screens by Role* lists
+      Supplier Quotations for the Manager, Team Leader, Outdoor Sales, Indoor Sales and Procurement —
+      and **not for the CEO**, while §3.6 grants the CEO `supplier_quotation.view` as `All`. This is
+      the same conflict the Suppliers and Catalog screens hit, and it takes **the same answer the
+      owner already gave on 2026-08-31**: the route and the nav item both follow the permission
+      matrix, because keying the menu on §8 would leave a screen a person may open with no way to
+      reach it. Followed as precedent rather than decided again; still **awaiting a `D-xx`**.
+      **Design System §5.2 and §6.5 shape the rest:** server-side filters and sort, server
+      pagination, right-aligned monetary values with tabular numerals, `text-end` rather than
+      `text-right` so RTL mirrors, sticky header, column priorities folding the secondary columns
+      first, and distinct loading / empty / error / **refused** states.
+      **Two filters and no search**, because `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']` and
+      this list declares none — a search box would be a control that 400s.
+      **8 tests. RED first: the import failed, then 8 failed.**
+      ⚠️ **Two stated ceilings, both measured, neither invented here.**
+      1. The supplier name comes from one `listSuppliers({ perPage: 100 })` call — `MAX_PER_PAGE` —
+         so a supplier past the hundredth shows as an identifier. The join is on this side of the
+         wire because `CLAUDE.md` forbids Module 6 reading Module 4's tables.
+      2. **The currency is not shown at all.** An offer carries `currency_id`, and
+         `CurrencyController::payload()` publishes `code`, `rounding_unit`, `rounding_enabled` and
+         `is_base` — **no `id`**, read from the source rather than assumed — so nothing in the SPA
+         can turn one into the other. A bare figure is the honest option; inventing a currency
+         beside it is not. Registered below against Module 2's payload.
+      ⚠️ **Three defects of mine, all caught by a gate rather than by eye.** `vue-tsc` rejected an
+      `AuthenticatedUser` fixture twice (`role` is an object, not a string; `is_active` and
+      `unconditional_access` are required) — the runtime tests passed with the wrong shape because
+      the component never reads those fields. And **one `data-testid` was used twice**, on the header
+      count and on a row cell, so `find()` returned the header and the money assertion read
+      "1 offers". Renamed to `supplier-quotations-count`.
+      ⚠️ **An assertion that could not fail.** `expect(wrapper.text()).not.toContain('s1')` was
+      meaningless: the page renders "Supplier Quotation**s**" followed by "**1** offers". Replaced
+      with an assertion on the named cell.
+      **Three probes, all reddened and restored:** a 403 drawn as an empty list (1 red), the total
+      rendered through `Number()` (1 red), and the nav item naming a permission its route does not —
+      which `navigation.spec.ts` catches with a generated case per item, verified by running it
+      rather than by trusting the docblock that claimed it.
+      **`NoHardCodedTextTest` passed the scan on the component first**, and only its pinned filename
+      list needed the entry — the test's own stated condition for adding one.
+- [x] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields, create and edit in one
+      dialog, wired into the list screen behind `supplier_quotation.create` (the grant the route
+      carries on **both** the POST and the PATCH), with the CEO as §3.6's documented negative case.
+      **Five fields:** `supplier_id` (required, a select over the list screen's own suppliers,
+      handed down as a prop rather than fetched a second time), `deal_id` (a raw identifier —
+      the same stated ceiling the filter carries, there being no deals screen), `offer_date`,
+      `valid_until`, `notes`. **No `code`:** §7.2 marks it Automatic and
+      `SaveSupplierQuotationRequest` answers a supplied one with `prohibited`. **No `items`:** 6.4's.
+      **7 tests. RED first: 7 failed, 8 passed** — then 15 passed.
+      ⚠️ **The total and its currency are NOT in this form, by owner's ruling of 2026-09-05.**
+      They are one pair (Point 1.1's `CHECK`, the mutual `required_with`) and `currency_id` is a
+      UUID the SPA cannot obtain **and cannot even ask for** — two blockers, both measured, both on
+      the debt register above. The dialog says so to the reader in `form.totalUnavailable` rather
+      than letting a missing total read as a zero one, and — the part that makes it safe — **an edit
+      names neither key**, so `SupplierQuotationDraft::only()`'s `array_key_exists` leaves both
+      columns exactly as they were. A `null` there would erase a total this form cannot show, and a
+      test pins the absence of both keys in the PATCH body.
+      ⚠️ **One defect of mine, caught by a gate rather than by eye.** `vue-tsc` rejected
+      `view.get(…).exists()` — `get()` throws when the element is missing and its wrapper has
+      `exists` omitted from the type, so the assertion could not fail. Replaced with an assertion on
+      the rendered sentence. `vitest` had passed it.
+      **Three probes, all reddened and restored** (restore verified with `git status`, not only
+      against the backup copies): ungating the create button so the CEO sees it (**1 red**), sending
+      `total_price: null` in the draft (**2 red** — the erasure guard and the create-body assertion),
+      and planting a hard-coded heading in the new component, which `NoHardCodedTextTest` named by
+      path (**1 red**). The third is also the test's own stated condition for pinning the filename:
+      the scan was run against the component before its name was added to the list.
+      **Waste audit:** all 13 new lang keys render (`grep -ro` per key, 1–2 hits each); `dealPlaceholder`
+      and `action.{cancel,save,saving,edit}` were reused rather than re-added; every new symbol and
+      `data-testid` has a caller. One finding — a fifth copy of the form-modal shape — registered
+      above rather than removed, because the fix touches four components outside Module 6.
+- [x] **6.4** the line editor — §7.2's `Line items` row, "Product · **price** · quantity (+ to add
+      more)", inside `SupplierQuotationFormModal.vue`.
+      **`D-22` is made structural rather than validated.** One control per line chooses a catalog
+      item **or** "type a name instead", so only the chosen key is ever sent and a line carrying
+      both — which `SaveSupplierQuotationRequest` answers with `prohibits` — cannot be built here.
+      **The picker offers active items only**, §10.4 read from the source: a deactivated product is
+      "**Hidden** from selection lists" for a new quotation while staying functional on an open one.
+      `unit_price` and `quantity` stay **strings** end to end (`DB-07`, `D-68`): `inputmode="decimal"`
+      on a text input rather than `type="number"`, which would re-format `1500.000000`.
+      **8 tests. RED first: 7 failed, 15 passed** — then 23 passed.
+      ⚠️ **The dangerous case has its own test, and its own probe.** An edit's lines come from
+      `GET /supplier-quotations/{id}`; the list summary has none, because
+      `SupplierQuotationPayload::many()` calls `of()` and only `detail()` carries `items`. `items` is
+      three-valued on a `PATCH` — absent leaves the lines alone, `[]` clears them — so a **failed**
+      detail read must not become an empty editor submitted as `[]`. `linesState` is
+      `ready`/`loading`/`unavailable`, the editor is not drawn at all in the third, and `draft()`
+      omits the key. Probe 1 removed exactly that guard and the test reddened.
+      ⚠️ **Three existing 6.3 assertions were tightened, not loosened.** Opening the dialog now makes
+      a catalog read and an edit makes a detail read, so two tests that counted *every* fetch were
+      counting the wrong thing. They now assert what they always meant: `writes()` returns the
+      methods of the non-GET calls (`[]` for a refused create, `['PATCH']` for a save) and
+      `listReads()` counts only calls ending in `/supplier-quotations`. The third now expects
+      `items: []` in a create body, which is correct — `forCreate()` folds absent and `[]` together.
+      **Three probes, all reddened and restored** (`diff -q` against a pre-probe copy, byte-identical
+      each time — `git diff` cannot verify this while the point is uncommitted): dropping the
+      `linesState` guard so `items` is always sent (**1 red**), sending both product keys on a line
+      (**2 red**), and dropping §10.4's `is_active` filter from the picker (**1 red**).
+      **Waste audit — one finding, created by this point and removed inside it.** Four
+      `data-testid`s nothing queried: `-lines-none`, `-lines-loading`, `-product-error`,
+      `-quantity-error`, plus a redundant hook on the `<fieldset>`. The fieldset's was deleted;
+      the other four are now asserted — the line-refusal test names all three `items.0.*` fields
+      instead of one, and a new test covers the editor's own empty and loading states, which the
+      Module Completion Checklist requires and which exist nowhere else. All 11 new lang keys render
+      exactly once; no `catalogLabel` equivalent existed anywhere else in the SPA (`grep -rn
+      "service_type ??"` returns one hit, this one).
+      ⚠️ **Stated ceiling:** `CatalogItemListCriteria::MAX_PER_PAGE` is 100, so an item past the
+      hundredth is absent from the picker. Typing its **name** still resolves to it rather than
+      duplicating it — `ProvisionCatalogProduct::productIdFor()` looks the name up before creating —
+      so the ceiling costs convenience, not correctness. There is no search-as-you-type here; the
+      catalog list declares a `q` and this editor does not use it.
+- [x] **6.5** the attachment — §7.2's `pdf_file` row, "Scan or PDF of the offer", as a panel in
+      `SupplierQuotationFormModal.vue`.
+      **The upload is behind §3.6's third grant**, `supplier_quotation.upload_attachment`, and
+      **not** `create`. `PermissionMatrix` gives both to the same five roles today, which is a fact
+      about the seed and not about the system: RBAC is database-backed and dynamic (`SEC-07`) and
+      §3.11's role screen can revoke one row while the other stands — which is exactly what happened
+      to a live role on 2026-08-31. The negative case is therefore a fixture holding `create`
+      **without** the third grant, not the CEO, and a probe that re-keyed the control on `create`
+      reddened it.
+      **The download is a fetch, never a link.** `GET /files/{id}/download` is Storage's one route
+      (`grep -c "/files" routes/api.php` → **1**), it authorises through the parent (`D-38`), and the
+      credential is an `Authorization` header (`D-74`) — which a browser navigation does not send, so
+      an `<a href>` to it is a 401. New: `apiDownload()` in `api.ts` and `downloadFile()` in
+      `services/files.ts`, the SPA's first file download. The bearer block was **extracted** into
+      `headersFor()` rather than copied — `grep -n 'Bearer '` finds one line.
+      **A non-clean file gets no control at all.** `DownloadFile::forActor()` refuses anything
+      `! isScannedClean()` **before** it looks at permission (`SEC-15`) and answers 404, so a button
+      on a `pending` or `infected` row could only ever fail. Both states render a word beside their
+      colour (§6.4).
+      **11 tests (8 screen + 3 transport). RED first: 7 of 8 screen tests failed, 24 passed** — then
+      31 passed; the transport suite was **green on arrival**, so its three probes are its
+      verification.
+      ⚠️ **Stated ceiling, owner's ruling of 2026-09-05: the panel lists only what was attached in
+      this dialog.** Registered below.
+      ⚠️ **Upload needs a saved offer.** The route is `/supplier-quotations/{id}/documents`, so a
+      create has no id to post to; the panel says "save the offer first" instead of drawing a control
+      that cannot work.
+      ⚠️ **One defect of mine, caught by `vue-tsc` and not by vitest** — a `vi.fn(async () => …)`
+      declares no parameters, so `mock.calls` types as `[][]` and `calls[0]?.[0]` is an error rather
+      than a value. Declaring the parameters is the fix. **And one probe that lied:** removing the
+      `finally` from `downloadFile` left `try {` with no handler — a syntax error — so the suite
+      errored and the grep printed **nothing**, which reads exactly like a pass. Re-run as a
+      well-formed leak, it reddened properly. That is trap 6 in the handoff, hit deliberately.
+      **Six probes, all reddened and restored** (`diff -q` against a pre-probe copy): the upload
+      keyed on `create` (**1 red**), a download offered for any scan status (**2 red**), the file
+      sent under the wrong field name (**2 red**), no bearer on the download (**1 red**), the object
+      URL not revoked (**1 red**), and a 404 accepted as a file (**1 red**).
+      **Waste audit — nothing found, and here is how it was asked.** Every new symbol has a caller;
+      all 11 new lang keys render exactly once (`attachmentForbidden`/`Rejected` twice, upload and
+      download); all 8 new `data-testid`s are queried by the spec; the bearer header exists once in
+      the tree; `createObjectURL` appears in exactly one non-spec file. `+2` PHP tests
+      (2226 → 2228) is `LogicalPropertiesTest`'s per-file provider over the two new `.ts` files —
+      measured at 131 → 133, not inferred.
+- [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
+      manual test list.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 

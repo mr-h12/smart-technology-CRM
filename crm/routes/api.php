@@ -23,6 +23,7 @@ use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Storage\Presentation\DownloadFileController;
+use App\Modules\SupplierQuotations\Presentation\SupplierQuotationController;
 use App\Modules\Suppliers\Presentation\SupplierController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -623,4 +624,70 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // choosing over inventing a new grant nothing in §3 asks for.
     Route::post('/{deal}/documents', [DealController::class, 'uploadDocument'])
         ->middleware('permission:deal.edit');
+});
+
+// §3.6 Supplier Quotations — Module 6 Point 2.2.
+//
+// `OpenAPI §7.1`'s conventional resource route, and §3.6's own rows:
+// `supplier_quotation.create` for the write. **No scope argument**, on the
+// catalog's precedent rather than the deals': §3.6 grants `Scope::All` to every
+// role in every column it fills — "a shared screen — not restricted by
+// ownership" — so there is no row scoping for the middleware to leave behind
+// and no owner for a create to be filed under.
+//
+// **§3.6 has two documented negative cases and neither needs inventing.** The
+// CEO holds `view` and a dash under `create / edit`; the Outdoor Supervisor
+// holds a dash in every column. Both are asserted as 403s.
+//
+// ⚠️ **No `Idempotency-Key`, and this time the omission is a gap rather than a
+// reading.** `OpenAPI §9.1` names "supplier quotations" outright among the
+// critical POSTs that require one — unlike a customer, a supplier or a catalog
+// item, each of which the earlier modules correctly found absent from that
+// list. §9.1 also requires a persisted store (actor, route, key, request hash,
+// final status and response), replay of the original response, and
+// `409 idempotency_conflict` on a reused key with a changed payload. **No such
+// infrastructure exists anywhere in this codebase**, and building it inside
+// this point would rebuild the oversized point the owner's four-way split just
+// removed. Recorded in `CHECKLIST.md` and proposed as its own point.
+//
+// **And no DELETE, at any permission.** §3.6 seeds no `delete` grant, and
+// `DB-01` forbids physically removing business data.
+Route::middleware('auth')->prefix('supplier-quotations')->group(function (): void {
+    Route::post('/', [SupplierQuotationController::class, 'store'])
+        ->middleware('permission:supplier_quotation.create');
+
+    // Point 4.3. §7.2's screen as a list, on the same `view` grant the detail
+    // carries — §3.6's read row is `All` for six roles and a dash for the
+    // Outdoor Supervisor. Registered before `{supplierQuotation}` so a literal
+    // path segment can never be read as an id.
+    //
+    // No `RowScope`: §3.6 is "a shared screen — not restricted by ownership".
+    Route::get('/', [SupplierQuotationController::class, 'index'])
+        ->middleware('permission:supplier_quotation.view');
+
+    // Point 2.3. `view`, not `create` — §3.6's two rows are not the same set:
+    // the CEO holds `view` as `All` and a dash under `create / edit`, so the
+    // caller Point 2.2 refuses is served here. Registered after the collection
+    // route so `/` cannot be swallowed by `{supplierQuotation}`.
+    Route::get('/{supplierQuotation}', [SupplierQuotationController::class, 'show'])
+        ->middleware('permission:supplier_quotation.view');
+
+    // Point 2.4. §3.6's write row is a single cell, "create / edit ✅", so the
+    // edit is the create grant — `SupplierController` reads §3.7's write cell
+    // the same way. No `If-Match`: `OpenAPI §9.2` scopes optimistic concurrency
+    // to quotations and allows adopting it elsewhere only through a documented
+    // contract update, and §9.1 lists supplier quotations separately.
+    Route::patch('/{supplierQuotation}', [SupplierQuotationController::class, 'update'])
+        ->middleware('permission:supplier_quotation.create');
+
+    // Point 5.3 — §17's upload flow with `AttachmentParent::SupplierQuotation`
+    // as the parent, carrying §7.2's `pdf_file`.
+    //
+    // ⚠️ **A third grant, not `create`.** §3.6 seeds `upload_attachment`
+    // alongside `view` and `create / edit` — unlike §3.4, which seeds no such
+    // row for deals and left `POST /deals/{id}/documents` borrowing `deal.edit`.
+    // Here the row exists, so it is the one the route carries, and the CEO —
+    // `view` as `All`, no cell under `upload_attachment` — is refused.
+    Route::post('/{supplierQuotation}/documents', [SupplierQuotationController::class, 'uploadDocument'])
+        ->middleware('permission:supplier_quotation.upload_attachment');
 });

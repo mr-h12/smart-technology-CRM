@@ -46,8 +46,6 @@ final class CustomerSchemaMigrationTest extends TestCase
 
     private const MASTER_DOCUMENTATION = '/opt/crm/docs/CRM_Documentation_EN.md';
 
-    private const MIGRATION = 'database/migrations/2026_08_29_000000_create_customers.php';
-
     private const CHECK_VIOLATION = '23514';
 
     private const FOREIGN_KEY_VIOLATION = '23503';
@@ -249,28 +247,26 @@ final class CustomerSchemaMigrationTest extends TestCase
     // ────────────────────────────────────────────────────────────── DEV-03
 
     /**
-     * `deals.customer_id` (Module 5 Point 1.1) is a real foreign key onto this
-     * table, so `customers` can no longer roll back in isolation — PostgreSQL
-     * refuses to drop a table a live constraint still references
-     * (`SQLSTATE[2BP01]`). This is `UserSchemaMigrationTest`'s situation on
-     * `users`, not a defect here: the dependent migration rolls back first,
-     * in the reverse of the order it was applied, and forward again in that
-     * same reversed order once `customers` is back.
+     * `migrate:reset`, not `migrate:rollback --path`: `--path` does not choose
+     * which migrations roll back. `Migrator::rollback()` takes the whole last
+     * batch from the repository and uses the path only to resolve each entry to
+     * a file, skipping what it cannot resolve ("Migration not found") — so under
+     * `RefreshDatabase`, where the schema is a single batch, a one-file path
+     * means "run this down() while every later table still stands", and any new
+     * child foreign key turns this red (`SQLSTATE[2BP01]`) without this down()
+     * having changed. Same shelf life, same fix, as `RbacSchemaMigrationTest`
+     * and `AuditLogMigrationTest`. `DEV-03` asks that rollback work; rolling the
+     * chain back and forward proves more of it, not less.
      */
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
-        $dealsMigration = 'database/migrations/2026_08_31_000000_create_deals.php';
-
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => $dealsMigration]));
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         self::assertFalse(Schema::hasTable('customers'), 'down() left `customers` behind (DEV-03).');
 
         self::assertSame(0, Artisan::call('migrate'));
 
         self::assertTrue(Schema::hasTable('customers'), '`customers` did not come back.');
-
-        self::assertSame(0, Artisan::call('migrate'));
         self::assertTrue(Schema::hasTable('deals'), '`deals` did not come back.');
     }
 

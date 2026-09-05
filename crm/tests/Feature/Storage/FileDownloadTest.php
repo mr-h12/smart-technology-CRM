@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Storage;
 
-use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AllowedFileType;
 use App\Modules\Storage\Domain\AttachmentLink;
 use App\Modules\Storage\Domain\AttachmentParent;
@@ -287,15 +287,21 @@ final class FileDownloadTest extends TestCase
         self::assertSame([200, 404, 200], [$allowed, $revoked, $restored]);
     }
 
-    public function test_the_default_policy_is_deals_own_implementation(): void
+    public function test_the_default_policy_routes_by_parent(): void
     {
-        // Deals Point 4.1 replaced the deny-all default with `DealAttachmentPermission`
-        // — the crossing `DenyAllAttachmentPermission`'s own docblock predicted.
-        // `DealAttachmentPermissionTest` (Deals module) covers what this class
-        // does for each of the four `AttachmentParent` cases; this test only
-        // pins which class is bound.
+        // Deals Point 4.1 replaced the deny-all default with
+        // `DealAttachmentPermission` — the crossing `DenyAllAttachmentPermission`'s
+        // own docblock predicted. **Module 6 Point 5.1 replaced that single
+        // binding with a composite**, because a second parent arrived and
+        // growing Deals' class to answer for it would have put §3.6's rule
+        // inside Module 5.
+        //
+        // Still only pinning *which* class is bound: what each module answers
+        // for its own parent is `DealAttachmentPermissionTest`'s and
+        // `SupplierQuotationAttachmentPermissionTest`'s, and neither belongs in
+        // Storage's suite.
         self::assertInstanceOf(
-            DealAttachmentPermission::class,
+            ParentAwareAttachmentPermission::class,
             $this->app->make(AttachmentPermissionInterface::class),
         );
     }

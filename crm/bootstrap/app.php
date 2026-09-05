@@ -23,7 +23,10 @@ use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
+use App\Modules\Identity\Presentation\VerifyPermissionMatrixCommand;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
+use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
 use App\Support\Http\ApiExceptionRenderer;
@@ -58,6 +61,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // business domain and sits in app/Support, which Laravel discovers just
         // as little as it discovers app/Modules.
         MeasureApiLatencyCommand::class,
+        // SEC-07's live matrix, checked against §3. A module command, so it
+        // has to be named here for the same reason the audit one does.
+        VerifyPermissionMatrixCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and
@@ -180,6 +186,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (SupplierNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::supplierNotFound($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (InvalidSupplierQuotationListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidSupplierQuotationListQuery($e, $request)
+                : null,
+        );
+
+        $exceptions->renderable(
+            fn (SupplierQuotationNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::supplierQuotationNotFound($e, $request)
                 : null,
         );
 

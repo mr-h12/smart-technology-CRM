@@ -89,7 +89,8 @@
             "managedLists": "Managed Lists",
             "customers": "Customers",
             "suppliers": "Suppliers",
-            "catalog": "Catalog"
+            "catalog": "Catalog",
+            "supplierQuotations": "Supplier Quotations"
         }
     },
     "theme": {
@@ -805,6 +806,78 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes"
+        }
+    },
+    "supplierQuotations": {
+        "title": "Supplier Quotations",
+        "loading": "Loading supplier quotations…",
+        "total": "{count} offers",
+        "filter": {
+            "supplier": "Supplier",
+            "supplierAll": "All suppliers",
+            "deal": "Deal",
+            "dealPlaceholder": "Deal identifier",
+            "apply": "Apply"
+        },
+        "form": {
+            "createTitle": "New offer",
+            "editTitle": "Edit offer",
+            "required": "(required)",
+            "supplierNone": "Choose a supplier",
+            "supplierRequired": "The supplier is required.",
+            "notes": "Notes",
+            "lines": "Line items",
+            "linesNone": "No lines yet.",
+            "linesLoading": "Loading the offer's lines…",
+            "linesUnavailable": "The offer's lines could not be read, so they are not shown and will be left unchanged by this save.",
+            "lineAdd": "Add a line",
+            "lineRemove": "Remove",
+            "lineProduct": "Product",
+            "lineProductByName": "Type a name instead",
+            "lineProductName": "Product name",
+            "linePrice": "Unit price",
+            "lineQuantity": "Quantity",
+            "attachments": "Attachment",
+            "attachmentsSaveFirst": "Save the offer first, then a scan or PDF can be attached to it.",
+            "attachmentsCeiling": "Only files attached in this dialog are listed here. Files attached earlier are stored but cannot be shown yet.",
+            "attachmentChoose": "Choose a scan or PDF",
+            "attachmentUploading": "Uploading…",
+            "attachmentDownload": "Download",
+            "scanPending": "Virus scan not finished",
+            "scanInfected": "Refused: the scan found a virus",
+            "attachmentForbidden": "You do not have permission to attach a file to this offer.",
+            "attachmentRejected": "The file was not accepted.",
+            "attachmentUnreachable": "The server could not be reached. The file was not attached.",
+            "totalUnavailable": "The total and its currency cannot be entered yet: the currency list this form needs is not available to this role. An existing total is kept unchanged.",
+            "forbidden": "You do not have permission to save this offer.",
+            "rejected": "The change was not accepted. Review the fields and try again.",
+            "unreachable": "The server could not be reached. The offer was not saved.",
+            "unsavedChanges": "This form has changes that were not saved.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes"
+        },
+        "column": {
+            "code": "Code",
+            "supplier": "Supplier",
+            "total": "Total",
+            "offerDate": "Offer date",
+            "validUntil": "Valid until",
+            "deal": "Deal"
+        },
+        "deal": {
+            "none": "Not linked"
+        },
+        "empty": {
+            "filtered": {
+                "title": "No offers match",
+                "message": "Change or clear the filters to see more offers."
+            }
+        },
+        "pagination": {
+            "label": "Supplier quotation pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} offers"
         }
     }
 }

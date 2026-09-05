@@ -282,7 +282,15 @@ would hide them behind `OD-03` indefinitely.
       `EloquentAccountDirectory`, `EloquentUserDirectory`). **Nothing is unrecorded today** — every
       one is audited a layer out — but `AUD-01`'s enforcement is weaker than it reads. It is its own
       point because widening the signal re-classifies four already-shipped Identity classes, and
-      each needs its disposition decided rather than guessed
+      each needs its disposition decided rather than guessed.
+      **Grown to eleven by Module 6 Point 2.1, and the newest one is the clearest illustration yet:**
+      `CreateSupplierQuotation` is the class that *does* the auditing — it owns the transaction and
+      records `SUPPLIER_QUOTATION_CREATED` — and the scanner cannot see it, because it calls
+      `->create(`, `->record(` and `->transaction(` and none of those is a DML verb. Its persistence
+      adapter, which records nothing, **is** seen. Measured: the test passes with the use case
+      unlisted, and listing it fails the identity assertion instead. The second signal family this
+      pass owes is therefore not only "module-aliased Eloquent model" but "owns a transaction around
+      a writer" 
 - [x] **`ApiEnvelope` now lives in a shared layer** — *closed 2026-08-29, as its own point, on the
       trigger this entry itself named: "before a third module needs one".* Module 3's customers
       endpoints were that third module. `App\Support\Http\ApiEnvelope` is now the single copy;
@@ -304,7 +312,111 @@ would hide them behind `OD-03` indefinitely.
       depend on App\Support\Http\ApiEnvelope`; the probe was then reverted and the file confirmed
       byte-identical with `shasum -a 256 -c`. So Customers gets a third small copy in Point 3.2, and
       closing this needs either a decision to weaken Domain's empty ruleset or a different shape
-      entirely — both bigger than a Customers point
+      entirely — both bigger than a Customers point. **Module 6 Point 4.1 makes it the fifth
+      copy** (`InvalidSupplierQuotationListQuery`), with `SupplierListCriteria`'s parser copied
+      beside it minus the three parsers this resource does not declare.
+      **Point 4.3 makes the renderer side six** — `grep -n "public static function invalid.*ListQuery"
+      crm/app/Support/Http/ApiExceptionRenderer.php` → 6 — and the audit that measured it found the
+      same forced repetition in three more places, all pre-existing and none introduced by 4.3:
+      `Payload::pagination()`'s identical six-key body in **8** payloads, `Payload::many()`'s
+      `array_map(static fn … self::of …)` in **6**, and the controller `index()`
+      `::fromQuery($request->query())` shape in **6**. Same root cause as this row — a module's
+      Presentation layer cannot share code across the deptrac boundary — so this row now covers all
+      four shapes rather than the exception alone.
+      **Point 5.3 adds a fifth shape and the starkest one yet.**
+      `SupplierQuotationDocumentPayload::of()` and `DealDocumentPayload::of()` differ by their
+      parameter's type name and **nothing else** — `diff` on the two method bodies returns one line —
+      and `UploadSupplierQuotationDocumentRequest` repeats `AttachDealDocumentRequest`'s two rules
+      and its `document()` accessor. Both were written rather than shared because sharing them means
+      Module 6's Presentation importing Module 5's, which deptrac refuses and `CLAUDE.md` forbids
+      ahead of it. **This is the architecture's stated price, not an oversight**, and it is recorded
+      here so the price stays visible: a shared `app/Support` home for a payload shape that four
+      modules will eventually need is a decision the owner should take deliberately, not one that
+      should arrive by accident on the day a fifth module copies it
+
+- [x] **The live permission matrix could drift from §3 with nothing to notice** — found 2026-09-05
+      by the owner, who saw the Manager holding the RBAC screen. Confirmed and measured: the live
+      grant set differed from §3 in **four grants beyond it** (`manager | admin.manage_roles.all`,
+      `manager | admin.system_settings.all`, `team_leader | customer.view.all`,
+      `team_leader | customer.edit.all`) and **one missing from it** (`manager | customer.import.all`).
+      **No code was at fault and no branch caused it.** `PermissionMatrix` grants `admin.manage_roles`
+      to the Super Admin alone and no committed version of that file has ever said otherwise;
+      `git diff origin/main...HEAD` on it is empty. The grants were made **through the application's
+      own role-administration endpoints** and `audit_log` names them exactly — `ROLE_PERMISSIONS_UPDATED`
+      on 2026-08-31 19:53:58 by `super.admin@example.test` from `172.18.0.1`, `granted:
+      ["admin.manage_roles.all", "admin.system_settings.all"]`. `SEC-07` puts the matrix in the
+      database and §3.12 rule 5 makes changing it a configuration change, so this is a **supported
+      operation**, not a defect.
+      **The real gap was that nothing could see it.** `RbacMatrixDataTest` makes the same comparison
+      and was green throughout, because `RefreshDatabase` only ever shows it a database the seeder
+      has just written — it proves the seeder agrees with the matrix and can say nothing about a
+      running system. `RolePermissionSeeder`'s docblock promises "divergence is reported by the
+      test", which is true of a clean database and of no other.
+      **Closed by `php artisan rbac:verify`** — `VerifyPermissionMatrix` (Application) over
+      `PermissionRepositoryInterface::roleIdsBySlug()` and `scopesFor()`, reporting a
+      `MatrixDivergence` of `extra`/`missing`, rendered by a thin command whose **non-zero exit is
+      the alarm** (`OBS-06`, `EnsureAuditPartitionsCommand`'s reading). **Read-only by design:**
+      repairing drift means an audited actor (`AUD-01`) and a soft delete (`DB-01`), which is
+      Module 1's role administration, not a maintenance command.
+      **Stated ceiling:** 9 roles × 57 permissions, one memoised query each — a manual command, not
+      a request path. It compares **documented** roles against **documented** permissions only: a
+      `resource.action` §3 never declared, and a role an administrator created after seeding, are
+      both legitimate under `SEC-07` and are deliberately not reported, so the command cannot cry
+      wolf on its first honest use.
+      ⚠️ **The comparison now exists twice** — in `RbacMatrixDataTest` and in the use case. Folding
+      the test onto the use case is the obvious simplification and is **not** done here: it rewrites
+      an existing test outside this point's scope. Registered below.
+      ⚠️ **A live revocation happened mid-investigation.** At 2026-09-05 07:37 `super.admin@example.test`
+      revoked six CEO grants §3 *does* declare (`quotation.view`, `quotation.view_cost_and_margin`,
+      `quotation.export_pdf`, `catalog.view`, `supplier_quotation.view`,
+      `procurement.view_negotiation_log`), which is why a second reading of the same database
+      reported seven missing rather than one. The command's first real run caught it. **The four
+      grants beyond §3 are still in place** — nothing here revoked anything.
+
+- [ ] **A role change made outside an HTTP request is recorded as a system action, not a user's** —
+      measured 2026-09-05 while revoking the four grants beyond §3. The two `ROLE_PERMISSIONS_UPDATED`
+      rows at `08:12:10` carry `user_id = NULL`.
+      ⚠️ **The first diagnosis written here was wrong and is corrected.** It said
+      `RequestAuditContext` reads `$request->user()` and that setting a user resolver failed to reach
+      it. Reading the class settles it: the gate is the **request-id attribute**, which `AddRequestId`
+      sets in HTTP and no console request has. Missing it, the class returns `AuditContext::system()`
+      and **never looks at the user at all** — so no amount of setting the guard user could have
+      changed the outcome. Console actions are recorded as system actions **by design**, and its own
+      docblock names J-15 as an existing such caller.
+      **The application is not at fault**, and the endpoint attributes correctly — the rows at
+      `2026-08-31 19:53:58` and `2026-09-05 07:37` both name `super.admin@example.test`. **The two
+      rows are not repaired:** audit records are immutable and retained permanently.
+      **The open question is therefore narrower than it first looked.** Not "why did attribution
+      fail" but "is `system` an acceptable actor for a permission change?" `AUD-01` names role changes
+      among what must always be audited, and §3.12 rule 4 exists so a real person is named. A console
+      role change satisfies the first and not the spirit of the second. Whether to give the console an
+      explicit actor option, or to refuse permission writes outside a request, is Module 1's decision
+      and is not taken here.
+
+- [x] **The live grant set was returned to §3** — 2026-09-05. The four grants beyond §3 were revoked
+      through `SyncRolePermissions`, the use case the roles screen itself calls, so the removals are
+      soft deletes (`DB-01`) with an audit event. The seven missing were restored by running
+      `RolePermissionSeeder`, **not** by another hand-written script: the seeder is idempotent by
+      construction, sets `deleted_at => null` on a grant that already exists, and only ever touches
+      what `PermissionMatrix` declares — so it could restore exactly the seven and could not re-add
+      the four. `php artisan rbac:verify` now exits `0` with "the live grant set matches §3".
+      ⚠️ **The restore writes no audit row**, because a seeder is not a user action. That is the same
+      question the row above leaves open, seen from the other side.
+
+- [ ] **The §3-versus-live comparison is written twice** — `RbacMatrixDataTest` builds it inline
+      across six `grants()` loops, and `VerifyPermissionMatrix` now builds it again as a use case.
+      Only the second can run against a real database, so the first is the one that should collapse
+      onto it. Not done inside the point that revealed it, on the standing rule that a point does not
+      widen past its approved scope.
+
+- [ ] **Four `…Page` classes carry arithmetic no test reaches** — `SupplierPage`'s own docblock
+      says the arithmetic lives in the page rather than in the serialiser "because arithmetic in a
+      serialiser is arithmetic no unit test reaches", and then nothing reached it there either: a
+      grep for `totalPages` or `hasNextPage` across `crm/tests` returned **no file** before Module 6
+      Point 4.1. Customers, Suppliers, Catalog and Deals each hold an untested copy; their
+      `meta.pagination` is asserted only through endpoint fixtures that happen to be one page.
+      Module 6's copy has `SupplierQuotationPageTest`; the other four are one small file each and
+      belong to their own modules
 - [ ] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
       *owner decision, 2026-08-30.* §10.2 asks for a warning when similarity is *"above the
       threshold"* and `OD-08` gives the threshold no value, saying only *"Empirical — tuned after
@@ -429,6 +541,235 @@ would hide them behind `OD-03` indefinitely.
       server's sentence instead. Owed: one entry in each `REQUIRED` list plus a `catalog.form.required.company`
       key in both locales. Not done in 6.4: the approved point list names the controls, not the
       validation mirror
+- [ ] **Five more schema tests still roll back with `migrate:rollback --path`, and each is one
+      foreign key from red** — revealed 2026-09-02 by Module 6 Point 1.1. `--path` does **not**
+      select which migrations roll back: `Migrator::rollback()` takes the whole last batch from the
+      repository and uses the path only to resolve each entry to a file, skipping what it cannot
+      resolve. Under `RefreshDatabase` the schema is a single batch, so a one-file path means "run
+      this `down()` while every later table still stands" — which is why four such tests went red
+      the moment `supplier_quotations` added foreign keys onto `suppliers`, `deals`, `customers` and
+      `currencies`, none of their `down()` methods having changed (`SQLSTATE[2BP01]`). Those four
+      were converted to `migrate:reset` in 1.1 because they were failing. Still on the old idiom and
+      still green only because nothing references them yet: `TrigramExtensionMigrationTest`,
+      `ImportBatchSchemaMigrationTest`, `ManagedListSchemaMigrationTest`, `DealLostReasonMigrationTest`,
+      `SettingsSchemaMigrationTest`. Owed: the same four-line swap in each. Not done in 1.1 — they are
+      green, they belong to four other modules, and converting a passing test on suspicion is a change
+      with no failure to prove it. **`CatalogItemSchemaMigrationTest` was the sixth and is no longer
+      owed**: Point 1.2 gave `catalog_items` its first child (`supplier_quotation_items`) and the test
+      went red exactly as predicted, so it was converted there — with a failure to prove it
+- [ ] **`SQ-` and `DL-` allocation is the same twenty lines in two modules** — created 2026-09-02 by
+      Module 6 Point 1.3. `EloquentSupplierQuotationDirectory::nextCode()` and
+      `EloquentDealDirectory::nextCode()` differ only in a two-letter prefix and the string in their
+      `RuntimeException`; `QT`, `PO` and `RPT-*` (§4.7) will each want a third, fourth and fifth copy.
+      **Not extracted to `App\Support`, and the reason is architectural rather than effort:**
+      `AuditEnforcementTest::test_nothing_outside_a_module_writes_to_the_database` forbids
+      `app/Http`, `app/Support` and `routes` from writing to the database at all, and a sequence
+      allocator is a write. Its scanner would miss this one — the DML is a raw SQL string passed to
+      `->selectOne(`, not a `->insert(` call — so putting it there would pass the gate on a spelling
+      technicality while breaking exactly what the gate protects. Owed: a decision on where a
+      cross-module *write* helper is allowed to live, before §4.7's third prefix needs one
+
+- [ ] **`Idempotency-Key` is required by `OpenAPI §9.1` and exists nowhere** — recorded 2026-09-02
+      by Module 6 Point 2.2, the first point to publish an endpoint that the contract actually names.
+      §9.1 lists "deals, quotations, supplier quotations, purchase orders, reports, versions"; every
+      earlier module read that list and correctly found its own resource absent, so the header's
+      absence was a *reading* each time. It is not one here, and **`POST /deals` is in the same
+      position without saying so** — Module 5's routes do not mention the header at all. Owed: the
+      persisted store §9.1 describes (actor · route · key · request hash · final status · response),
+      replay without repeating the side effect, `409 idempotency_conflict` on a reused key with a
+      changed payload, and authorisation re-checked on each replay. Proposed as Module 6 Point 2.2b;
+      **needs an owner decision on where it lives**, because a persisting middleware is a database
+      writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
+
+- [ ] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
+      it** — recorded 2026-09-02 by Module 6 Point 2.4, which read §9.2 and correctly found supplier
+      quotations *outside* it. §9.2 owes a version token on a quotation read (`"etag":
+      "quotation:uuid:7"`), `If-Match` on a quotation mutation, and `409 concurrency_conflict` with a
+      safe refresh reference and no silent merge. `DB-12` and `API-12` say the same. Nothing in the
+      codebase carries a version column, an `If-Match` reader, or that error code. **Not owed by
+      Module 6**: §9.2's closing sentence allows adopting the pattern for other resources "only
+      through a documented contract update", and the owner confirmed on 2026-09-02 that 2.4 builds
+      none. It becomes due with Module 7, and if supplier quotations are ever to have it, that needs
+      a `D-xx` first
+
+- [ ] **Five modules each carry a private `changedFrom()` that limits `AUD-02`'s old values to the
+      fields an edit touched** — the fifth was added 2026-09-02 by Module 6 Point 2.4. `SaveCustomer`,
+      `SaveSupplier`, `SaveCatalogItem`, `SaveDeal` and `UpdateSupplierQuotation` implement the same
+      four lines over five different summary types. 2.4 originally named its copy `replaced()`, which
+      made the duplication ungreppable; it was renamed to match its siblings inside that point, but
+      the duplication itself is a cross-module edit with no failing test behind it, so it is recorded
+      rather than extracted. Owed: one generic helper — the obstacle is that each takes a different
+      readonly summary class, so extraction needs either an interface or an array projection
+
+- [ ] **`catalog_items.name` carries no uniqueness, so `D-22`'s reuse is a convention the lookup
+      enforces rather than a constraint** — recorded 2026-09-03 by Module 6 Point 3.1. The owner
+      ruled that a name already present is the same product, and `findProductIdByName()` implements
+      that with `lower(name) = lower(?)` plus `orderBy('id')` for determinism. Nothing stops two live
+      products sharing a name: the column is nullable, most existing rows may have one, and a unique
+      index would refuse the rows that do not. Two consequences are accepted rather than hidden —
+      two genuinely different products that share a name become one catalog item, and a name typed
+      with different surrounding whitespace makes a second row, because 3.1 deliberately normalises
+      only case and leaves trimming to the boundary in Point 3.3. Owed: a decision on whether
+      product names are meant to be unique at all, which is a `D-xx` and not a migration
+
+- [ ] **`supplier_quotation_items` records no line order, so §7.2's "+ to add more" cannot be read
+      back in the order it was typed** — revealed 2026-09-02 by Module 6 Point 2.3, the first point
+      to read the lines. Point 2.1 writes the whole batch with one `insert()` under a single `now()`
+      and gives each row a random UUID, so `created_at` ties and `id` sorts arbitrarily; without an
+      `ORDER BY` PostgreSQL may return two calls differently. The read orders by `id` — deterministic,
+      but not the user's order — and its test asserts the lines by content rather than by position,
+      because asserting position would pass or fail on a coin toss. Owed: either a `sort_order`
+      column on the child table (a new migration, `DEV-03`'s `down()` included) or a documented
+      decision that line order is not preserved. **Not fixed in 2.3**: adding a column to satisfy a
+      read point would widen the approved point list, and §7.2 does not state the requirement
+      outright — it is implied by "+ to add more". Point 2.4 (`PATCH`) has to answer it anyway,
+      because editing lines without identity or order is a set replacement
+
+- [ ] **A test's HTTP client stays authenticated across requests, so a header-less call after an
+      authenticated one is not anonymous** — revealed 2026-09-02 by Module 6 Point 2.3, whose 401
+      test created an offer first and then got **404** (the Manager's answer for an absent row)
+      instead of 401. Measured, not inferred: with no login at all the same call is 401; after a
+      Manager request it answers as the Manager; after an Outdoor Supervisor request it answers 403.
+      A request presenting a *different* bearer token does re-resolve correctly, so assertions made
+      **with** a token are sound — the leak only affects a call that deliberately sends none.
+      `Illuminate\Auth\RequestGuard::user()` caches the resolved user and nothing in the framework
+      calls `AuthManager::forgetGuards()` between requests. **Not a production defect** — a real
+      caller gets a fresh process per request — but it is a live trap for every endpoint test in the
+      repository: any "unauthenticated is refused" case written after a login in the same method
+      passes or fails for the wrong reason. 2.3's own test now makes that assertion its only request.
+      Owed: a sweep of the existing 401 tests, and a `forgetGuards()` in the base `TestCase` so the
+      trap cannot be stepped in again
+
+- [ ] **Ten schema tests each carry their own private `refusedWith()`** — revealed 2026-09-02 by
+      Module 6 Point 1.2, which added the tenth. The helper is identical in all of them: run a write,
+      catch `QueryException`, return `errorInfo[0]`, and fail if the database accepted the row. It
+      spans six modules (`Customers`, `Suppliers`, `Catalog`, `Admin`, `Deals`, `SupplierQuotations`),
+      so extracting it is a cross-module edit with no failing test behind it — which is why 1.2
+      recorded it instead of doing it. Owed: one trait under `tests/`, ten call sites deleted. The
+      four `SQLSTATE` constants beside it duplicate the same way
+
+- [ ] **A customer+deal fixture is now copied byte-for-byte between two test files, and the
+      per-file test-helper convention is what makes it unavoidable** — revealed 2026-09-04 by
+      Module 6 Point 4.4, which needed a real deal for `filter[deal_id]` and copied
+      `EloquentSupplierQuotationDirectoryTest::deal()` into `SupplierQuotationListEndpointTest`.
+      `diff <(sed -n '/private function deal(): string/,/^    }/p' …)` between the two is **empty** —
+      identical customer name, identical `DL-YYYY-9001`, identical field set. ⚠️ **4.4's waste audit
+      called this "created by this point", and the point disagreed and recorded it here instead.**
+      The reason is the same one the `refusedWith()` row gives: there is **no shared test-helper
+      location in this repository** — `find crm/tests -name '*.php' -not -name '*Test.php'` returns
+      `TestCase.php` and one fixture migration, nothing else — and the convention is per-file
+      helpers, measured at **25** copies of `bearerFor()` and **31** of `userWith()`. Inventing the
+      first `tests/Concerns/` trait for one 20-line fixture, inside a point whose approved list is two
+      acceptance criteria, is a structural decision about 31 existing call sites that a test-only
+      point does not get to make. Owed together with the `refusedWith()` row and the four `SQLSTATE`
+      constants: **one trait, one decision, all three squashed at once.**
+      *(The audit's second finding — `offerFor()` re-implementing `created()`'s POST/assert/extract
+      body — was genuinely created by 4.4 and needed no scaffolding, so it was removed inside the
+      point: `created()` now takes the overrides and `offerFor()` is gone.)*
+
+      ⚠️ **It happened a second time, and that is the point of writing this line.** Module 6 Point
+      5.2's audit found `offer()` — the supplier + currency + offer fixture — **byte-identical**
+      between `AttachSupplierQuotationDocumentTest` and `SupplierQuotationAttachmentPermissionTest`,
+      *both written by this branch*, 5.2 and 5.1, in the same directory and the same namespace.
+      `diff` on the two bodies is empty. It was registered rather than removed for the same reason
+      as the `deal()` copy above, and registering it twice is the argument that the reason is
+      wearing out: **two points in a row have each created a copy that only a shared location could
+      have prevented.** The measured convention is 32 copies of `userWith()` and 9 of `deal()`,
+      so the trait is not a new idea, it is a deferred one.
+      **Concrete proposal for the owner, one decision:** one `Tests\Concerns` trait carrying
+      `userWith()`/`bearerFor()`, and one `Tests\Feature\SupplierQuotations\Concerns` trait
+      carrying `offer()`. That is a point of its own — it touches dozens of files and cannot ride
+      inside a feature point — and until it is approved every new test in this module will keep
+      adding to this row.
+      **Point 5.3 did exactly that, as predicted, and made it three points in a row.** Measured after
+      it: `grep -rl 'private function userWith' crm/tests | wc -l` → **33**, `bearerFor()` → **26**.
+      It also added a **sixth** copy of the minimal `%PDF-1.4` fixture — `grep -rl '%PDF-1.4'
+      crm/tests` now lists `UploadValidationTest`, `VirusScanningTest`, `FileDownloadTest`,
+      `DealDocumentUploadTest`, `AttachSupplierQuotationDocumentTest` and this point's endpoint test.
+      The offer fixture itself was **not** copied a third time: the endpoint test creates its offer
+      through `POST /supplier-quotations`, which is the module's own public surface, so only a
+      supplier row is seeded.
+
+- [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
+      revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
+      then probed it: deleting `if ($link->parent !== SupplierQuotation) return false;` reddened
+      **no test**, because a foreign parent's id is not an offer's id and `find()` already returns
+      `null`. Module 6's copy was deleted inside that point. **Module 5's is untouched** — it is
+      another module's code and a Module 6 point does not edit it on a finding made in passing.
+      Owed: delete the branch in `DealAttachmentPermission::mayView()`, or give it a test that fails
+      without it. The behavioural assertion in `DealAttachmentPermissionTest` stays either way; what
+      is in question is only whether the branch does anything
+
+- [ ] **Thirteen test helpers mint a "unique" code from four hex characters, and CI goes red at
+      random because of it** — revealed 2026-09-02 by Module 6 Point 1.1's own CI run, which failed
+      on a test the diff does not touch. `'DL-2026-'.substr(str_replace('-', '', $id), -4)` takes the
+      last 16 bits of a UUID, so a test inserting three deals draws three values out of 65,536 and
+      `deals_code_unique` eventually loses the birthday bet:
+      `SQLSTATE[23505] duplicate key value ... Key (code)=(DL-2026-b328) already exists`, in
+      `DealListEndpointTest::test_that_pagination_splits_the_result`. **Proven a flake, not a
+      regression:** re-running the identical commit `0c20822` turned the same job green. The pattern
+      is in `DealListEndpointTest`, `DealLostReasonMigrationTest`, `CustomerStatusRecomputeTest`,
+      `DealDocumentUploadTest`, `DealSchemaMigrationTest`, `DealAssignEndpointTest`,
+      `DealWriteEndpointTest`, `DealStatusEndpointTest`, `DealApprovalEndpointTest`,
+      `RecomputeStaleCustomerStatusesTest`, `FilesMigrationTest` (twice) and
+      `SupplierQuotationSchemaMigrationTest` — the last two written to the same convention rather
+      than against it, because a lone exception would have hidden the shared defect. Owed: one
+      expression, once, that cannot collide (the whole uuid, or a per-test counter). Not done in 1.1
+      — it spans four modules and a random red is exactly the defect that must be reproduced
+      deliberately before it is called fixed
+
+- [ ] **An offer's currency is unreachable from the SPA, and that now costs a *field* rather than a
+      column** — created 2026-09-02 by Point 1.1's `currency_id`, revealed as a display gap by
+      Point 6.2, and **measured as a write blocker by Point 6.3**. ⚠️ **Point 6.2's own entry says
+      "Registered below against Module 2's payload" and no such row existed** — `grep -n
+      "CurrencyController::payload" CHECKLIST.md` returned exactly one line, 6.2's own. That is the
+      second time this file has recorded a claim of registration with nothing behind it (see the
+      Point 8.2 note above), and this row is the correction, not a new finding.
+      **Two independent blockers, both read from the source in the session that wrote this:**
+      1. `crm/app/Modules/Admin/Presentation/CurrencyController.php` `payload()` publishes `code`,
+         `rounding_unit`, `rounding_enabled`, `is_base` — **no `id`**. `FxRateController::payload()`
+         names its currencies by code too and its own `id` is the rate's. `grep -n "currenc"
+         routes/api.php` finds exactly two currency routes, so there is no third place to ask.
+      2. `routes/api.php:288-291` puts `GET /currencies` behind `permission:admin.system_settings`,
+         which `PermissionMatrix.php:481-483` grants to the **Super Admin alone** — while
+         `supplier_quotation.create` (`:332-338`) is the Manager, Team Leader, Outdoor Sales, Indoor
+         Sales and Procurement. So even a payload carrying an `id` would 403 for every role that
+         needs it.
+      **The two columns are one pair**, not two fields: Point 1.1's
+      `CHECK ((total_price IS NULL) = (currency_id IS NULL))` and
+      `SaveSupplierQuotationRequest`'s mutual `required_with`. So the blocker costs §7.2's **total**
+      as well as its currency. Owner's ruling 2026-09-05: Point 6.3 ships the rest of the header and
+      states the ceiling in the dialog itself. Owed, and it is an owner decision before it is work:
+      publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
+      accept a currency code. Both are cross-module and neither belongs inside a Module 6 point
+
+- [ ] **Nothing in the API can be asked which files an entity has** — revealed 2026-09-05 by Module 6
+      Point 6.5, and it is not a Module 6 gap: it is the shape of §17's surface. Measured in that
+      session: `SupplierQuotationPayload::detail()` returns the nine header fields and `items`;
+      `SupplierQuotationController` publishes `uploadDocument` and no document read; and
+      `grep -c "/files" routes/api.php` is **1** — `GET /files/{file}/download`, which needs an id
+      the caller must already hold. So a file attached to an offer is **write-only from the UI's
+      point of view**: it is stored, scanned and audited, and then invisible. The same is true of
+      `POST /deals/{id}/documents` (Module 5), so Module 9's PDF snapshots and Module 11's
+      procurement documents will each hit it. Owner's ruling 2026-09-05: 6.5 ships a panel listing
+      this dialog's own uploads, saying so in the panel itself. Owed, and it is a contract change
+      (`OpenAPI §8`) before it is work: a `documents` array on the detail payload, or a
+      `GET /{id}/documents` per parent. Not startable inside a frontend point
+
+- [ ] **A fifth Vue form modal now carries the same 126-line shape** — created 2026-09-05 by Point
+      6.3's `SupplierQuotationFormModal.vue`. `grep -rln "function applyServerErrors"
+      resources/js` returns five files (`UserFormModal`, `CatalogItemFormModal`,
+      `CustomerFormModal`, `SupplierFormModal`, and the new one), and `grep -rln "modal-scrim"`
+      returns the same five — the `<style>` block is copied verbatim. `diff` of the two `<script>`
+      bodies against `SupplierFormModal` is 126 differing lines out of 501, so the majority is
+      shared: `blank()` / `values` / `opened` / `dirty`, `fieldId`, `testId`, `errorFor`,
+      `applyServerErrors`, `requestClose`, `discard`, and the unsaved-change dialog. ⚠️ **This is
+      waste the point created, and it was recorded rather than removed** on the same reasoning the
+      `refusedWith()` row above gives: extracting a shell touches four components outside Module 6
+      with no failing test behind it, which `CLAUDE.md`'s module-isolation rule and its ban on
+      opportunistic cleanup inside an unrelated point both forbid. Recording it a second time is the
+      argument that it is now large enough to schedule. Owed: one `FormModalShell` (or a composable
+      for the error mapping plus a shared stylesheet), five call sites
 
 
 ---
@@ -6615,11 +6956,890 @@ flagged here for review rather than assumed)*
 **Tables** `supplier_quotations` (**nullable** `deal_id`) · `supplier_quotation_items`
 
 **Acceptance criteria**
-- [ ] Offer containing a product not in the catalog → product added automatically
-- [ ] Saved offer appears on the supplier page under "Linked Quotations"
-- [ ] Offer not linked to a deal → saves normally, available to any deal
-- [ ] File upload → type, size and **true MIME** validated, stored under a UUID name
+- [x] Offer containing a product not in the catalog → product added automatically *(Points 3.1–3.5:
+      the boundary accepts a name, the use case resolves it through Catalog's published contract
+      inside `DB-11`'s transaction, on both `POST` and `PATCH`. Proven end to end at both endpoints
+      and at both use cases; `D-45`'s audit row is Catalog's, written by `SaveCatalogItem`.)*
+- [x] Saved offer appears on the supplier page under "Linked Quotations" *(Point 4.4, as
+      `GET /supplier-quotations?filter[supplier_id]=…` — **a filter on this module's list, not offers
+      embedded in the supplier payload**: `OpenAPI §6.2` forbids `include` returning unrestricted
+      collections, and reading Module 6's rows from inside Module 4 would be the cross-module database
+      access `CLAUDE.md` forbids. Proven **in both directions** — the filtered supplier's offer is
+      present and a second supplier's is absent — because a filter that returns everything passes any
+      test that only asserts the wanted row is there.* ⚠️ **The supplier *page* does not exist.** The
+      criterion says "appears on the supplier page"; what is closed is the API that page will call.
+      The screen is frontend and Module 6 has none, so the visual half is untestable today and is
+      named in the module's manual test list as such.)
+- [x] Offer not linked to a deal → saves normally, available to any deal *(`D-51`. The save half has
+      held since Point 2.2 — `deal_id` is nullable and no route requires it — and Point 4.4 closes the
+      second half at the list: an offer with a `null` `deal_id` is listed beside a linked one, and
+      `filter[deal_id]` selects only the linked one. "Available to any deal" is not consumed anywhere
+      yet: nothing attaches an offer to a deal after the fact, because the customer quotation that
+      would do it is Module 7.)*
+- [x] File upload → type, size and **true MIME** validated, stored under a UUID name *(Point 5.4,
+      closed at this module's own endpoint rather than at the validator. The rules themselves are
+      `FinfoUploadValidator`'s and `UploadValidationTest` owns their 26 cases; what 5.4 proves is
+      that `POST /supplier-quotations/{id}/documents` is **wired** to them and that the stored file
+      comes back out. An ELF header named `offer.pdf` is refused as `unsupported_type`, plain text
+      is refused, one byte over `config('files.max_size_bytes')` is refused as `too_large`, and the
+      stored basename matches a UUIDv7 regex while containing no part of the caller's filename.
+      The journey both ways: a clean upload is downloaded by the **CEO**, who §3.6 gives `view` and
+      no `upload_attachment` — the case `D-38` and Point 5.1's `mayView` exist for — while an
+      infected one is refused **to the caller who uploaded it**, because `SEC-15` gates on
+      `scan_status` and not on ownership. ⚠️ **Image compression, §17's own row, is not part of this
+      criterion's wording and remains unbuilt** — on the register, by the owner's decision of
+      2026-09-04.)*
 - [ ] Shared screen — not restricted by ownership
+
+⚠️ **This module is being built out of the documented delivery order, by the owner's instruction.**
+`CLAUDE.md`'s Required Delivery Order reads `… 5 Deals → 6 Supplier Quotations`, and Module 5 still
+has open acceptance criteria owned by a second developer. Recorded here rather than in `docs/`, and
+**awaiting a `D-xx`** — no authoritative source has been reinterpreted, and nothing below assumes
+Module 5 is finished.
+
+#### Step 1 — schema *(point order approved 2026-09-02)*
+
+- [x] **1.1** `supplier_quotations` — §7.2's fields, `DB-01`/`DB-02`'s block, `DB-09`'s indexes, and
+      closing the `supplier_quotation_files.supplier_quotation_id → supplier_quotations` debt Module 0
+      Point 5.1 left open, in the same migration that creates the parent it was waiting for.
+      **`supplier_id` is `NOT NULL` and `deal_id` is nullable** — §4.1's entity map draws exactly one
+      line into this entity, and `D-51` states the purpose of the second being optional: the offer is
+      standalone and "available to any deal", which a required link would forbid.
+      **`currency_id`, not §7.2's literal `currency`.** `currencies_code_unique_alive` is a *partial*
+      unique index — deliberately, so an archived currency does not reserve `USD` forever — and
+      PostgreSQL cannot point a foreign key at a partial unique index. `fx_rates` already made this
+      choice; this table follows it rather than inventing a second convention.
+      **`total_price` uses the `money()` macro, not `decimal()`** (`DB-07`, `D-68`): Laravel's
+      default (8,2) truncates silently. A CHECK allows both money columns or neither and refuses one
+      alone — a price with no currency cannot be converted or printed. **Whether the write path fills
+      `total_price` from a typed figure or from the sum of Point 1.2's items is Step 2's question and
+      is deliberately not decided by this column.**
+      **No `scopeIndex()`**: §3.6 grants every role `Scope::All` ("a shared screen — not restricted by
+      ownership"), so there is no scope column to index.
+      ⚠️ **Four schema tests in four other modules were rewritten in this point, which is an explicit
+      override of module isolation.** `SupplierSchemaMigrationTest`, `CurrencySchemaMigrationTest`,
+      `DealSchemaMigrationTest` and `CustomerSchemaMigrationTest` each rolled back with
+      `migrate:rollback --path=<one file>` and each went red on this point's foreign keys without its
+      own `down()` changing. The cause is not a defect in this migration: `--path` does not choose
+      which migrations roll back — `Migrator::rollback()` takes the last batch and uses the path only
+      to resolve entries to files — so under `RefreshDatabase`, where the schema is one batch, that
+      idiom runs a `down()` while every later table still stands. All four now use `migrate:reset`,
+      the fix `RbacSchemaMigrationTest` and `AuditLogMigrationTest` already chose for the same
+      failure mode. The alternative — reaching into each ancestor's test again for every future child
+      table — is the same override paid repeatedly instead of once. Six tests still on the old idiom
+      are recorded in the debt register rather than converted here.
+- [x] **1.2** `supplier_quotation_items` — §7.2's one `Line items` row ("Product · **price** ·
+      quantity") as three `NOT NULL` columns, `DB-01`/`DB-02`'s block, and an index on each of the two
+      joins. **All three are required**, which is §4.1's argument from 1.1 rather than a new one: a
+      line with no product, no price or no quantity is not the row §7.2 describes. §5.6 states the
+      price half outright — "Product or price missing at the supplier → **block save**" — and §10.4
+      lists "missing price" among the red inline validations. **`unit_price` uses `money()` and
+      `quantity` uses `quantity()`** (`DB-07`, `D-68`); `decimal()` would be (8,2) and silently
+      truncate, which the test pins by round-tripping `1234.567891`. Two CHECKs: `unit_price >= 0`
+      (zero is a price — a free accessory is a real offer; a negative one is not a discount, §5.2 puts
+      discount on the customer quotation as a percentage) and **`quantity > 0`, which goes beyond the
+      literal wording of the approved point list** — §5.1 computes `line_total = unit_price ×
+      quantity`, so a line for none of something totals nothing while still appearing on the offer.
+      **No unique key on (quotation, product)**: §7.2's "+ to add more" places no limit and a quantity
+      break is the ordinary reason to quote one product twice — a constraint no source asks for would
+      be a rule invented here. **Nothing here decides whether the parent's `total_price` is typed or
+      summed** — Step 2's open question, and a cross-row rule no CHECK can express.
+      ⚠️ **`CatalogItemSchemaMigrationTest` was converted to `migrate:reset` in this point**, a second
+      module-isolation override. It is the case the 1.1 debt entry predicted: `catalog_items` had no
+      child until this table, and the test went red (`SQLSTATE[2BP01]`) on a `down()` that did not
+      change. Converted here because it was failing, not on suspicion. Its now-unused
+      `private const MIGRATION` went with it
+- [x] **1.3** domain draft, `SupplierQuotationDirectoryInterface`, Eloquent directory, and `SQ-`
+      allocation reusing the existing `document_sequences`. The module's first code:
+      `SupplierQuotationDraft` (§7.2's fields minus `code`, which §7.2 marks "Automatic", and minus
+      `entered_by`, which is `DB-02`'s `created_by` from the authenticated actor), a one-method
+      contract, `EloquentSupplierQuotationDirectory`, and the `SupplierQuotation` model.
+      **No `RowScope` parameter anywhere**, unlike Deals and Customers: §3.6 gives every role that
+      sees this resource `Scope::All` — "a shared screen — not restricted by ownership" — so a scope
+      argument would be the parameter every caller passes the same value for.
+      **One method on the interface**, because `find()` is Point 2.2 and `list()` is Point 4.1.
+      **`SQ-YYYY-NNNN` from `document_sequences`** with the identical single-statement
+      `INSERT … ON CONFLICT … DO UPDATE … RETURNING` §4.7's `DL` uses — one round trip under one row
+      lock, so two concurrent creates serialise instead of both losing to the unique index. The
+      table keys on `(prefix, year)`, which a test pins by moving `DL` to 41 and watching `SQ` still
+      start at 1.
+      **`total_price` casts through `Precision::CAST_MONEY`** (`D-68`) — the constant's first
+      caller; it had been dead since it was written. `offer_date`/`valid_until` are deliberately
+      **not** cast: a PostgreSQL `date` arrives as the `YYYY-MM-DD` string §7.2 wants, and `DB-08` is
+      a rule about instants, not about the day a supplier priced an offer.
+      ⚠️ **Two verifiers were found not to verify, and both were rewritten before this point closed.**
+      Adding `code` to the draft's writable list left every test green (the model's `#[Fillable]`
+      drops it and the directory overwrites it afterwards), and deleting the money cast left every
+      test green (the test fed a six-decimal string straight back to itself). Now a separate test
+      asserts the draft's filter directly, and the money test sends seven decimals to get six.
+      ⚠️ **`SharedContracts` was widened by one `classLike` entry in both deptrac configs** —
+      `^App\Support\Database\Precision$`, not the namespace, so `StandardColumns` stays out of
+      every module's reach. The first version of the module's ruleset said "No `SharedContracts`"
+      and was wrong: deptrac reported the dependency as *uncovered* until `Precision` had a layer,
+      and as a **violation** the moment it had one
+
+#### Step 4 — "Linked Quotations" and the offer list *(point list approved 2026-09-04)*
+
+> **Owner's rulings, 2026-09-04.** The default order is `-offer_date` (newest first), and the
+> declared filters are `supplier_id` and `deal_id` only. **"Linked Quotations" is served by a filter
+> on this module's own list, not by embedding offers in the supplier payload**: `OpenAPI §6.2`
+> forbids `include` from returning "unrestricted collections", and embedding would make Suppliers
+> read inside SupplierQuotations, which `CLAUDE.md` does not allow. §7.1 lists `linked_quotations`
+> as an **Automatic** field of a supplier, which a derived list satisfies.
+
+- [x] **4.1** `SupplierQuotationListCriteria` · `InvalidSupplierQuotationListQuery` ·
+      `SupplierQuotationPage` — `OpenAPI §6`'s query contract in Domain, with no endpoint yet.
+      **`page`/`per_page` (25, max 100), `sort` and `filter` allowlists, and a refusal for
+      everything else** — §6.1 "Invalid or excessive values return `400 invalid_request`" and §6.2
+      "never ignore them silently". Parsed in Domain rather than by a Form Request because a Form
+      Request failure is a 422 and the contract asks for a 400; the rendering of that 400 is 4.3.
+      **Two filters, each answering a criterion rather than a guess**: `supplier_id` is the build
+      plan's "Linked Quotations" (§7.1's `linked_quotations`, "Automatic") and `deal_id` is `D-51`'s
+      "available to any deal". No `q`, no `group_by`, no `include`, no currency or date filter —
+      §6.2 makes the allowlist the point, and nothing declares those.
+      **`total_price` is declared filterable by nothing and sortable by nothing**, on
+      `SupplierListCriteria`'s reasoning for `color_rating`: an offer carries its own currency (§7.2,
+      Point 1.1's `currency_id`) and this table has no base amount, so ordering by the number alone
+      would rank an EGP total against a USD one. An allowlist that quietly offered a meaningless
+      ordering would be worse than a 400.
+      **`-offer_date` is written into `DEFAULT_SORT` as documentation** — §6.2 requires the default
+      order to be "resource-specific and documented" and the master documentation documents none.
+      ⚠️ `offer_date` is nullable and PostgreSQL sorts nulls first on a descending order; **where the
+      nulls go is 4.2's**, the same division `EloquentCatalogItemDirectory` draws with `nulls last`.
+      **17 tests. RED observed first: 17 failed** (no class existed).
+      ⚠️ **One verifier was proven useless and rewritten before this point closed.** The refusal test
+      asserted `__($key) !== $key` per locale; deleting the Arabic sentence left it **green**, because
+      Laravel falls back to `fallback_locale` and returns the English one. Rewritten against
+      `Translator::get($key, [], $locale, false)` — the concrete class, since the contract's `get()`
+      has no fallback argument — and the same deletion then reddened with "has no ar sentence of its
+      own". Flipping `DEFAULT_SORT_DESCENDING` and removing the filter allowlist each reddened one
+      case too.
+- [x] **4.2** `SupplierQuotationDirectoryInterface::list()` and its Eloquent implementation.
+      **What 4.1 deliberately left here got decided here.** The filters and the sort allowlist were
+      already checked by the criteria; the query owns two things the contract could not state:
+      **`nulls last` on both directions of `offer_date`** — the column is nullable (Point 1.1: §7.2
+      marks neither date required) and PostgreSQL sorts nulls **first** on a descending order, so the
+      owner's `-offer_date` default would have opened a supplier's page with the offers nobody
+      dated — and **`orderBy('id')` as a deterministic tiebreak**, on
+      `EloquentCatalogItemDirectory`'s reasoning: equal sort keys may come back in any order, so two
+      offers of one date could appear on page 1 and page 2 of the same listing, or on neither.
+      **`total` is counted before the page is taken** (`OpenAPI §6.1`), and only live rows are
+      listed — `SoftDeletes` on the model is `DB-01` here, not a `whereNull` written by hand. No
+      scope narrows it (§3.6).
+      **The list returns headers, not offers-with-lines**: a collection carrying every offer's lines
+      is the "unrestricted collection" §6.2 tells `include` not to return, and the lines are
+      `find()`'s.
+      **The `match (true)` is PHPStan's price, not a style choice** — level 10 requires
+      `orderByRaw` to take a `literal-string`, so each field/direction pair is written out and the
+      unreachable default arm exists to fail loudly if `ALLOWED_SORTS` ever grows a field with no
+      ordering behind it.
+      **5 tests. RED observed first: 5 failed.** All four claims proven by breaking them: dropping
+      `nulls last`, counting the page instead of the query, adding `withTrashed()`, and ignoring the
+      supplier filter each reddened exactly one test.
+      ⚠️ **PHPStan caught a docblock that looked fine**: `@param` written inline after prose on one
+      line is not parsed, so the helper's array had no value type. Fixed before the point closed.
+      **The plans were measured, not assumed** (50k rows, a scratch table rolled back). The
+      supplier-filtered list — the "Linked Quotations" path — is a `Bitmap Heap Scan` on
+      `supplier_quotations_by_supplier` over 250 rows then a top-N heapsort: 252 buffers, 0.15 ms.
+      ⚠️ **The *unfiltered* list cannot use `supplier_quotations_by_offer_date`** and sorts the whole
+      table: `Seq Scan` over 49,500 rows plus a top-N heapsort — 417 buffers, 3.4 ms — with the index
+      present and analysed. The reason is the order itself: 1.1's index is ascending, so reading it
+      backwards yields `DESC NULLS FIRST` while the default order is `DESC NULLS LAST`, and the `id`
+      tiebreak is not in it either. **This is a stated ceiling, not a defect**: 3.4 ms sits far under
+      `PRF-01`'s 500 ms, the screen that matters is the filtered one, and the upgrade — an index on
+      `(offer_date DESC NULLS LAST, id)` — belongs to whoever measures the unfiltered list as hot,
+      not to a point that has no endpoint yet.
+- [x] **4.3** `ListSupplierQuotations::handle()` · `GET /api/v1/supplier-quotations` · the
+      controller's `index` · `SupplierQuotationPayload::many()`/`pagination()` · the collection
+      envelope (`OpenAPI §4.2`), behind `permission:supplier_quotation.view` — `view`, not `create`,
+      so the CEO reads and cannot write (§3.6). Includes the refusal test every new route owes.
+      **`handle()` is one delegation and no 404**: an empty result is an empty page, not a missing
+      resource, so the `null`-to-§5.1 translation `one()` performs has nothing to translate here.
+      The route is registered **before** `{supplierQuotation}` so a literal segment can never be
+      read as an id, and it carries no `RowScope` (§3.6, "a shared screen — not restricted by
+      ownership").
+      **The point also wired a 400 that had been thrown into nothing since 4.1.**
+      `InvalidSupplierQuotationListQuery` existed with no renderer behind it; this point added
+      `ApiExceptionRenderer::invalidSupplierQuotationListQuery()`, its `bootstrap/app.php`
+      registration, and the `errors.invalid_request` envelope message **both lang files were
+      missing** — every other module already carried that key. The criteria stay parsed in Domain,
+      not in a Form Request, because `OpenAPI §6.1`/§6.2 require `400 invalid_request` where a Form
+      Request failure would be a 422.
+      **15 tests. RED observed first: 15 failed — 405, because no route existed.**
+      Three verifiers proven by breaking them: the route grant `view`→`create` reddened the CEO case
+      (403 where 200 is required); an `items` key added to `of()` reddened the §6.2 "headers, not
+      lines" case; unregistering the renderer reddened the 400 case with a **500**, which is the
+      exact failure that case exists to catch. All restored.
+      ⚠️ PHPStan caught the new test's `payload()` helper with no `@param` value type — the same
+      class of defect 4.2 hit, found before the point closed.
+      **What is *not* here:** the filters, the ordering and the full 400 matrix are 4.4; one 400 case
+      is asserted here only to prove the renderer is registered at all.
+- [x] **4.4** The two acceptance criteria closed at the endpoint: `filter[supplier_id]` returns that
+      supplier's offers and nothing else; an offer with no deal lists normally and `filter[deal_id]`
+      works; a soft-deleted offer is absent (`DB-01`); and `per_page=101`, an unknown filter and an
+      unknown sort answer **400, not 422**.
+      **8 tests, and every one of them passed on arrival** — the behaviours were built in 4.1–4.3, so
+      there was no RED to observe and the green proved nothing by itself. ⚠️ **This is the case the
+      "a verifier is not verified until it has failed" rule exists for**, and each test was instead
+      proven by breaking what it covers: ignoring `filter[supplier_id]`; ignoring `filter[deal_id]`;
+      `withTrashed()` on the list query; dropping the filter allowlist (**200** where 400 is
+      required); widening the sort allowlist (**500**, thrown by the directory's deliberately
+      unreachable `match (true)` default arm — 4.2's defensive branch, doing exactly what it was
+      written for); and keying `error.details` by field instead of returning a list. Six probes, six
+      reddened tests, and `git diff --stat` empty on every restore.
+      **`error.details` is asserted as a shape, not only as a value** (`OpenAPI §5`): a renderer that
+      returned the map form would still produce a 400 and would pass every other case in the file.
+      ⚠️ PHPStan caught the `ids()` helper returning `list` where `list<string>` was declared —
+      `array_column` loses the element type — so the helper now asserts the shape it claims. Third
+      point in a row where PHPStan found a typing defect in a **test** helper.
+      **What is not closed:** the "shared screen" criterion stays unticked. `Scope::All` is enforced
+      and tested on all four routes, but the criterion names a *screen* and there is none.
+
+#### Step 5 — §7.2's `pdf_file`, the offer's attachment *(point list approved 2026-09-04)*
+
+> **§17 · `D-71` · `D-38` · `D-40`.** §7.2 line 657 is `pdf_file | Scan or PDF of the offer`, and
+> Point 1.1's migration already recorded that this is **not a column**: `D-71` makes it the
+> `supplier_quotation_files` pivot, because a polymorphic column cannot carry a foreign key.
+>
+> **Most of §17 is already built and parent-agnostic**, measured before the list was written: the
+> pivot exists *with its parent foreign key* (added by Point 1.1 itself), `AttachmentParent::
+> SupplierQuotation` exists, and `FinfoUploadValidator` (true MIME by bytes, `D-40`'s six types, the
+> 30 MB ceiling, the integrity checks), `LocalStorageService` (UUIDv7 name, §17's path),
+> `ScanStoredFile` and `GET /files/{file}/download` are all indifferent to which parent they serve.
+> **This step adds no migration.**
+>
+> ⚠️ **Image compression is §17's own row and exists nowhere in the repository** — no contract in
+> `Storage`, no library in `composer.json`. It is **not** in the acceptance criterion's wording
+> ("type, size and true MIME validated, stored under a UUID name"), so the criterion closes without
+> it. Left on the debt register by the owner's decision rather than built here, where it would mean
+> Module 6 building shared §17 infrastructure that Module 5 owes equally.
+>
+> ⚠️ The 30 MB ceiling comes from `config/files.php`, not the database, which `CLAUDE.md`'s "limits
+> are not code constants" does not allow. The config file's own comment says it moves to Module 2's
+> settings table when that exists. **Pre-existing debt, not created here, and not fixed here.**
+
+- [x] **5.1** `SupplierQuotationAttachmentPermission` (`D-38`) and the composite that replaces the
+      single `AttachmentPermissionInterface` binding.
+      **This point took a decision Module 5 wrote down and deferred.** `DealAttachmentPermission`'s
+      docblock: "Whoever builds the second parent's permission decides then whether this class grows
+      a `match` or a composite replaces it." The `match` was refused — growing Deals' class to answer
+      for supplier quotations puts §3.6's rule and `SupplierQuotationDirectoryInterface` inside
+      Module 5, and `CLAUDE.md` forbids that crossing more firmly than it forbids a registry.
+      `ParentAwareAttachmentPermission` routes by parent; each module keeps its own answer; the map
+      lives in `AppServiceProvider`, already outside every module boundary. `PurchaseOrder` and
+      `Report` have no entry and are refused — `DenyAllAttachmentPermission`'s deny-by-default kept.
+      **Why it is load-bearing:** `GET /files/{file}/download` carries `auth` and nothing else, so
+      `mayView()` is the entire check. Before this point a supplier quotation's attachment would have
+      uploaded and stored correctly and then downloaded as a 404.
+      **No `RowScope`** (§3.6 grants one scope, `All`), and **`view`, not `upload_attachment`** — the
+      CEO holds the first and not the second, so they read an attachment they cannot add.
+      **deptrac:** `SupplierQuotations` gains `StorageContract` and `IdentityContract`, both
+      justified in the config. `IdentityContract` is the entry this module went four steps without,
+      because every earlier route was guarded by `permission:` middleware and there is no middleware
+      behind `mayView()`.
+      **RED 13 of 15.** The two that passed on arrival are the regression guards — the deal answer
+      surviving and unclaimed parents still refused — and saying so is the point of naming them.
+      ⚠️ **Four probes, and the fourth changed the code.** Dropping the map entry, the grant check and
+      the `DB-01` existence check each reddened one test. Dropping the
+      `$link->parent !== SupplierQuotation` guard reddened **nothing**: a foreign parent's id is not
+      an offer's id, so `find()` already returns `null`. A branch with no observable effect is the
+      dead code the waste audit names, and it was removed inside the point that created it — after
+      being defended in a comment written minutes earlier. **Reasoning said "guard"; the probe said
+      "dead".**
+      ⚠️ An existing Storage test caught the binding change on its own
+      (`assertInstanceOf(DealAttachmentPermission::class, …)`) and was repointed at the composite —
+      a verifier doing its job without being asked.
+- [x] **5.2** `AttachSupplierQuotationDocument` — validate, store, then a `DB-11` transaction over
+      the `files` row, the pivot row and the audit entry, with the virus scan **outside** it. Its own
+      audit event. No `RowScope` (§3.6).
+      **`AttachDealDocument`'s shape with one parameter fewer**, and the missing parameter is the
+      whole difference: §3.4 gives deals five reaches so that use case takes `array $heldScopes` and
+      resolves a `DealRowScope`; §3.6 gives this resource one, `All`, so the parameter would be the
+      one every caller passes the same value for. Nothing is authorised inside the use case — that
+      is the route's middleware (5.3) on the way in and Point 5.1's `mayView()` on the way out, and
+      a second authorisation model in a use case is what `SEC-07` exists to prevent.
+      **The parent is read before the bytes are looked at:** an upload to an offer that is not there
+      is a 404, not a 422 about the file (`OpenAPI §5.1`), and validating first would run §17's work
+      for a request that was never going to be written.
+      **No migration and no new `Storage` code** — the pivot, its parent foreign key,
+      `AttachmentParent::SupplierQuotation`, `FinfoUploadValidator`, `LocalStorageService` and
+      `ScanStoredFile` were all already there and already parent-agnostic.
+      **11 tests. RED observed first: 11 failed.** Four probes, all reddened: validating before the
+      parent check, dropping the audit row, **moving the scan inside the transaction** — which rolls
+      a committed upload back on a scanner outage, the exact failure the ordering exists to prevent
+      — and dropping the parent check.
+      ⚠️ **A restore failed silently and two probes stacked.** `git checkout -- <file>` does nothing
+      for an **untracked** file, and `|| true` swallowed it. Caught by opening the file rather than
+      trusting the command; the remaining probes used a real backup copy verified with `diff -q`.
+      Recorded because the rule it broke — "never assume, open it and look" — is the one that keeps
+      being the useful one.
+      ⚠️ PHPStan caught three typing defects in the test's database reads (`->first()->prop`, casts
+      of `mixed`). **Fourth point running** where PHPStan's finding was in a test helper rather than
+      in the code under test.
+      ⚠️ `UploadRejectionReason::Empty` does not exist — the case is `EmptyFile`, the value is
+      `empty`. Written from the shape instead of from the file, and caught on the first run.
+- [x] **5.3** `POST /api/v1/supplier-quotations/{id}/documents` behind
+      **`permission:supplier_quotation.upload_attachment`** — a third grant, independent of `view`
+      and `create`, which §3.6 gives to five roles and **not** to the CEO. Form Request, controller,
+      payload, 201, and the refusal test every new route owes.
+      **A third grant, and unlike Module 5 it did not have to be borrowed.** §3.4 seeds no "attach
+      document" row for deals, so `POST /deals/{id}/documents` carries `deal.edit` — the closest
+      documented permission. §3.6 *does* seed `upload_attachment`, so this route carries it, and the
+      CEO — `view` as `All`, no cell under `upload_attachment` — is refused where they are served by
+      Point 2.3's read. That 403 is the assertion that proves the grant is distinct rather than
+      decorative, and the probe below is what proved the assertion.
+      **No `mimes:` and no `max:` in the Form Request**, matching `AttachDealDocumentRequest` and for
+      its stated reasons: `mimes:` reads the browser-supplied extension, which is the exact signal
+      §17 says a spoofed `.pdf` controls, and `max:` would be a second ceiling beside
+      `config('files.max_size_bytes')`. One check, and it is the one that reads the bytes.
+      **No migration, no lang key, no `Storage` code, no deptrac config change** — 5.1 already
+      granted `StorageContract` and `IdentityContract`, and nothing here crosses a new boundary.
+      **15 tests. RED observed first: 15 failed.** The two 404 cases reddened on
+      `error.code`, not on the status: a route that does not exist answers 404 as well, so asserting
+      the envelope's code is what separates "not found because the offer is absent" from "not found
+      because the endpoint was never built".
+      **Four probes, all reddened, all restored and each restore verified with `diff -q`:** swapping
+      the middleware to `supplier_quotation.view` (CEO 403 + `SEC-09` withdrawal red), removing the
+      middleware entirely (three authorisation tests red), dropping the `201` (eight red), and making
+      the payload emit a `storage_path` (the leak test red — which is what proves
+      `assertJsonMissingPath` can fail at all).
+      ⚠️ **`git checkout -- routes/api.php` restored to `HEAD`, not to the pre-probe state**, and so
+      deleted this point's own uncommitted route along with the probe. Caught by grepping the file
+      afterwards rather than by trusting the command, and the route was re-applied. This is the same
+      family as 5.2's untracked-file restore failure and the same lesson: **the restore is a step to
+      verify, not a step to assume.**
+      **Deliberate simplification, ceiling stated:** no `attributes()` and no `attributes` lang
+      block. This module has none — `SaveSupplierQuotationRequest` ships 422s naming `supplier_id`
+      and `code` untranslated — so translating one field would leave the other seven. **Ceiling:**
+      the Arabic 422 for a missing file reads `document` in Latin script. Registered below.
+- [x] **5.4** The acceptance criterion closed at the endpoint: type, size, **true MIME**, UUID name,
+      and the full journey upload ⇒ download — clean is downloadable, infected is not, not even by
+      the caller who uploaded it.
+      **Seven tests, and all seven passed on arrival.** That is the honest and expected result for a
+      point that closes a criterion over code Points 5.1 and 5.2 already built, and it means the
+      tests proved nothing by going green. **The whole verification is the four probes**, each of
+      which reddened and each of whose restores was checked with `diff -q`:
+      bypassing `FinfoUploadValidator` with a hard-coded `AllowedFileType::Pdf` (the type, MIME and
+      size cases red); storing under the source filename instead of `Str::uuid7()` (the UUID case
+      red, among twelve); **gating `mayView` on `upload_attachment` instead of `view` (exactly one
+      test red — the CEO's download)**; and feeding the infected-journey case a clean PDF (exactly
+      one red). The third is the sharpest evidence in this step: it isolates Point 5.1's single most
+      load-bearing decision to a single assertion.
+      **No `app/` change at all** — `git status` on the point is one modified test file. The three
+      cross-module probes (`LocalStorageService`, and the two in this module) were reverted from
+      backups before any commit.
+      ⚠️ **Two more fixture copies created**, and they are registered rather than removed:
+      `pdfBytesWithEicarSignature()` now stands in **3** test files and `executable()` in **3**.
+      Removing them needs the shared test-fixture location that is still unapproved.
+
+#### Step 6 — the frontend *(point list approved 2026-09-05)*
+
+> **Why this step exists at all.** Every module through 4 ships a screen — `customers`, `suppliers`,
+> `catalog`, `users`, `roles`, `settings`, `currencies`, `limits`, `lists` all have one under
+> `resources/js/pages`. **Module 6 was the first to ship API-only**, which is why the owner could not
+> see any of it, and why "shared screen — not restricted by ownership" is still unticked: it names a
+> screen, and an API test cannot close it.
+>
+> ⚠️ **`§13` and `Design_System_EN.md` have not been read for this screen yet.** Point 6.2 begins by
+> reading them, and if they describe a layout other than the one assumed here, **they win** and this
+> list is corrected rather than followed.
+>
+> ⚠️ **There is no deals screen** (`resources/js/pages/deals` does not exist), so 6.2's `deal_id`
+> filter has no list to draw from. A raw identifier field is the stated, ugly ceiling until Module 5
+> builds one.
+
+- [x] **6.1** `services/supplier-quotations.ts` — the typed client for the five routes, with its spec.
+      **The query shape is the server's, exactly:** `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']`
+      and `ALLOWED_SORTS` is `['offer_date', 'created_at']`, both closed, so **there is no `q`** —
+      this list declares no search and offering one would produce a runtime 400 rather than a missing
+      feature. An unset filter is omitted, never sent empty.
+      **`total_price` is `string`, not `number`.** `DB-07` forbids floating point near money and the
+      server sends `4500.000000`; parsing it would reintroduce the float `D-68` was decided to avoid.
+      Nothing in the client sums anything — the total is entered (owner, 2026-09-02).
+      **No `code` field on the draft and no delete call:** §7.2 marks the code "Automatic" and the
+      server answers a supplied one with 422, and §3.6 seeds no `delete` grant.
+      **8 tests. RED first** — the module did not exist, so the suite failed to import.
+      ⚠️ **A probe found a real hole and the point closed it.** Renaming the upload's form field from
+      `document` to `file` — which would 422 every upload *and* make `ApiExceptionRenderer`'s
+      hard-coded `'field' => 'document'` point at a control that does not exist — reddened **nothing**.
+      The assertion on the `FormData` key was missing and was added; the same probe now fails, as do
+      probes that send empty filters (2 red) and that add a `q` (2 red).
+      ⚠️ **Measured, not assumed:** the PHP suite grew by two on a frontend-only change, because
+      `LogicalPropertiesTest` data-provides over every `.vue`/`.php`/`.ts` file and the two new files
+      became two new data sets. Benign, and checked rather than shrugged at.
+      ⚠️ **`NoHardCodedTextTest` pins an explicit list of `.vue` filenames.** Point 6.2 must add its
+      component to that list, having first run the scan against it — the test's own stated terms.
+- [x] **6.2** `SupplierQuotationsView.vue` — the list, its route and its nav entry behind
+      `supplier_quotation.view`, with the two filters, the `-offer_date` default, and the loading,
+      empty and error states.
+      **The sources were read first, and they carry a conflict.** §8's *Screens by Role* lists
+      Supplier Quotations for the Manager, Team Leader, Outdoor Sales, Indoor Sales and Procurement —
+      and **not for the CEO**, while §3.6 grants the CEO `supplier_quotation.view` as `All`. This is
+      the same conflict the Suppliers and Catalog screens hit, and it takes **the same answer the
+      owner already gave on 2026-08-31**: the route and the nav item both follow the permission
+      matrix, because keying the menu on §8 would leave a screen a person may open with no way to
+      reach it. Followed as precedent rather than decided again; still **awaiting a `D-xx`**.
+      **Design System §5.2 and §6.5 shape the rest:** server-side filters and sort, server
+      pagination, right-aligned monetary values with tabular numerals, `text-end` rather than
+      `text-right` so RTL mirrors, sticky header, column priorities folding the secondary columns
+      first, and distinct loading / empty / error / **refused** states.
+      **Two filters and no search**, because `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']` and
+      this list declares none — a search box would be a control that 400s.
+      **8 tests. RED first: the import failed, then 8 failed.**
+      ⚠️ **Two stated ceilings, both measured, neither invented here.**
+      1. The supplier name comes from one `listSuppliers({ perPage: 100 })` call — `MAX_PER_PAGE` —
+         so a supplier past the hundredth shows as an identifier. The join is on this side of the
+         wire because `CLAUDE.md` forbids Module 6 reading Module 4's tables.
+      2. **The currency is not shown at all.** An offer carries `currency_id`, and
+         `CurrencyController::payload()` publishes `code`, `rounding_unit`, `rounding_enabled` and
+         `is_base` — **no `id`**, read from the source rather than assumed — so nothing in the SPA
+         can turn one into the other. A bare figure is the honest option; inventing a currency
+         beside it is not. Registered below against Module 2's payload.
+      ⚠️ **Three defects of mine, all caught by a gate rather than by eye.** `vue-tsc` rejected an
+      `AuthenticatedUser` fixture twice (`role` is an object, not a string; `is_active` and
+      `unconditional_access` are required) — the runtime tests passed with the wrong shape because
+      the component never reads those fields. And **one `data-testid` was used twice**, on the header
+      count and on a row cell, so `find()` returned the header and the money assertion read
+      "1 offers". Renamed to `supplier-quotations-count`.
+      ⚠️ **An assertion that could not fail.** `expect(wrapper.text()).not.toContain('s1')` was
+      meaningless: the page renders "Supplier Quotation**s**" followed by "**1** offers". Replaced
+      with an assertion on the named cell.
+      **Three probes, all reddened and restored:** a 403 drawn as an empty list (1 red), the total
+      rendered through `Number()` (1 red), and the nav item naming a permission its route does not —
+      which `navigation.spec.ts` catches with a generated case per item, verified by running it
+      rather than by trusting the docblock that claimed it.
+      **`NoHardCodedTextTest` passed the scan on the component first**, and only its pinned filename
+      list needed the entry — the test's own stated condition for adding one.
+- [x] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields, create and edit in one
+      dialog, wired into the list screen behind `supplier_quotation.create` (the grant the route
+      carries on **both** the POST and the PATCH), with the CEO as §3.6's documented negative case.
+      **Five fields:** `supplier_id` (required, a select over the list screen's own suppliers,
+      handed down as a prop rather than fetched a second time), `deal_id` (a raw identifier —
+      the same stated ceiling the filter carries, there being no deals screen), `offer_date`,
+      `valid_until`, `notes`. **No `code`:** §7.2 marks it Automatic and
+      `SaveSupplierQuotationRequest` answers a supplied one with `prohibited`. **No `items`:** 6.4's.
+      **7 tests. RED first: 7 failed, 8 passed** — then 15 passed.
+      ⚠️ **The total and its currency are NOT in this form, by owner's ruling of 2026-09-05.**
+      They are one pair (Point 1.1's `CHECK`, the mutual `required_with`) and `currency_id` is a
+      UUID the SPA cannot obtain **and cannot even ask for** — two blockers, both measured, both on
+      the debt register above. The dialog says so to the reader in `form.totalUnavailable` rather
+      than letting a missing total read as a zero one, and — the part that makes it safe — **an edit
+      names neither key**, so `SupplierQuotationDraft::only()`'s `array_key_exists` leaves both
+      columns exactly as they were. A `null` there would erase a total this form cannot show, and a
+      test pins the absence of both keys in the PATCH body.
+      ⚠️ **One defect of mine, caught by a gate rather than by eye.** `vue-tsc` rejected
+      `view.get(…).exists()` — `get()` throws when the element is missing and its wrapper has
+      `exists` omitted from the type, so the assertion could not fail. Replaced with an assertion on
+      the rendered sentence. `vitest` had passed it.
+      **Three probes, all reddened and restored** (restore verified with `git status`, not only
+      against the backup copies): ungating the create button so the CEO sees it (**1 red**), sending
+      `total_price: null` in the draft (**2 red** — the erasure guard and the create-body assertion),
+      and planting a hard-coded heading in the new component, which `NoHardCodedTextTest` named by
+      path (**1 red**). The third is also the test's own stated condition for pinning the filename:
+      the scan was run against the component before its name was added to the list.
+      **Waste audit:** all 13 new lang keys render (`grep -ro` per key, 1–2 hits each); `dealPlaceholder`
+      and `action.{cancel,save,saving,edit}` were reused rather than re-added; every new symbol and
+      `data-testid` has a caller. One finding — a fifth copy of the form-modal shape — registered
+      above rather than removed, because the fix touches four components outside Module 6.
+- [x] **6.4** the line editor — §7.2's `Line items` row, "Product · **price** · quantity (+ to add
+      more)", inside `SupplierQuotationFormModal.vue`.
+      **`D-22` is made structural rather than validated.** One control per line chooses a catalog
+      item **or** "type a name instead", so only the chosen key is ever sent and a line carrying
+      both — which `SaveSupplierQuotationRequest` answers with `prohibits` — cannot be built here.
+      **The picker offers active items only**, §10.4 read from the source: a deactivated product is
+      "**Hidden** from selection lists" for a new quotation while staying functional on an open one.
+      `unit_price` and `quantity` stay **strings** end to end (`DB-07`, `D-68`): `inputmode="decimal"`
+      on a text input rather than `type="number"`, which would re-format `1500.000000`.
+      **8 tests. RED first: 7 failed, 15 passed** — then 23 passed.
+      ⚠️ **The dangerous case has its own test, and its own probe.** An edit's lines come from
+      `GET /supplier-quotations/{id}`; the list summary has none, because
+      `SupplierQuotationPayload::many()` calls `of()` and only `detail()` carries `items`. `items` is
+      three-valued on a `PATCH` — absent leaves the lines alone, `[]` clears them — so a **failed**
+      detail read must not become an empty editor submitted as `[]`. `linesState` is
+      `ready`/`loading`/`unavailable`, the editor is not drawn at all in the third, and `draft()`
+      omits the key. Probe 1 removed exactly that guard and the test reddened.
+      ⚠️ **Three existing 6.3 assertions were tightened, not loosened.** Opening the dialog now makes
+      a catalog read and an edit makes a detail read, so two tests that counted *every* fetch were
+      counting the wrong thing. They now assert what they always meant: `writes()` returns the
+      methods of the non-GET calls (`[]` for a refused create, `['PATCH']` for a save) and
+      `listReads()` counts only calls ending in `/supplier-quotations`. The third now expects
+      `items: []` in a create body, which is correct — `forCreate()` folds absent and `[]` together.
+      **Three probes, all reddened and restored** (`diff -q` against a pre-probe copy, byte-identical
+      each time — `git diff` cannot verify this while the point is uncommitted): dropping the
+      `linesState` guard so `items` is always sent (**1 red**), sending both product keys on a line
+      (**2 red**), and dropping §10.4's `is_active` filter from the picker (**1 red**).
+      **Waste audit — one finding, created by this point and removed inside it.** Four
+      `data-testid`s nothing queried: `-lines-none`, `-lines-loading`, `-product-error`,
+      `-quantity-error`, plus a redundant hook on the `<fieldset>`. The fieldset's was deleted;
+      the other four are now asserted — the line-refusal test names all three `items.0.*` fields
+      instead of one, and a new test covers the editor's own empty and loading states, which the
+      Module Completion Checklist requires and which exist nowhere else. All 11 new lang keys render
+      exactly once; no `catalogLabel` equivalent existed anywhere else in the SPA (`grep -rn
+      "service_type ??"` returns one hit, this one).
+      ⚠️ **Stated ceiling:** `CatalogItemListCriteria::MAX_PER_PAGE` is 100, so an item past the
+      hundredth is absent from the picker. Typing its **name** still resolves to it rather than
+      duplicating it — `ProvisionCatalogProduct::productIdFor()` looks the name up before creating —
+      so the ceiling costs convenience, not correctness. There is no search-as-you-type here; the
+      catalog list declares a `q` and this editor does not use it.
+- [x] **6.5** the attachment — §7.2's `pdf_file` row, "Scan or PDF of the offer", as a panel in
+      `SupplierQuotationFormModal.vue`.
+      **The upload is behind §3.6's third grant**, `supplier_quotation.upload_attachment`, and
+      **not** `create`. `PermissionMatrix` gives both to the same five roles today, which is a fact
+      about the seed and not about the system: RBAC is database-backed and dynamic (`SEC-07`) and
+      §3.11's role screen can revoke one row while the other stands — which is exactly what happened
+      to a live role on 2026-08-31. The negative case is therefore a fixture holding `create`
+      **without** the third grant, not the CEO, and a probe that re-keyed the control on `create`
+      reddened it.
+      **The download is a fetch, never a link.** `GET /files/{id}/download` is Storage's one route
+      (`grep -c "/files" routes/api.php` → **1**), it authorises through the parent (`D-38`), and the
+      credential is an `Authorization` header (`D-74`) — which a browser navigation does not send, so
+      an `<a href>` to it is a 401. New: `apiDownload()` in `api.ts` and `downloadFile()` in
+      `services/files.ts`, the SPA's first file download. The bearer block was **extracted** into
+      `headersFor()` rather than copied — `grep -n 'Bearer '` finds one line.
+      **A non-clean file gets no control at all.** `DownloadFile::forActor()` refuses anything
+      `! isScannedClean()` **before** it looks at permission (`SEC-15`) and answers 404, so a button
+      on a `pending` or `infected` row could only ever fail. Both states render a word beside their
+      colour (§6.4).
+      **11 tests (8 screen + 3 transport). RED first: 7 of 8 screen tests failed, 24 passed** — then
+      31 passed; the transport suite was **green on arrival**, so its three probes are its
+      verification.
+      ⚠️ **Stated ceiling, owner's ruling of 2026-09-05: the panel lists only what was attached in
+      this dialog.** Registered below.
+      ⚠️ **Upload needs a saved offer.** The route is `/supplier-quotations/{id}/documents`, so a
+      create has no id to post to; the panel says "save the offer first" instead of drawing a control
+      that cannot work.
+      ⚠️ **One defect of mine, caught by `vue-tsc` and not by vitest** — a `vi.fn(async () => …)`
+      declares no parameters, so `mock.calls` types as `[][]` and `calls[0]?.[0]` is an error rather
+      than a value. Declaring the parameters is the fix. **And one probe that lied:** removing the
+      `finally` from `downloadFile` left `try {` with no handler — a syntax error — so the suite
+      errored and the grep printed **nothing**, which reads exactly like a pass. Re-run as a
+      well-formed leak, it reddened properly. That is trap 6 in the handoff, hit deliberately.
+      **Six probes, all reddened and restored** (`diff -q` against a pre-probe copy): the upload
+      keyed on `create` (**1 red**), a download offered for any scan status (**2 red**), the file
+      sent under the wrong field name (**2 red**), no bearer on the download (**1 red**), the object
+      URL not revoked (**1 red**), and a 404 accepted as a file (**1 red**).
+      **Waste audit — nothing found, and here is how it was asked.** Every new symbol has a caller;
+      all 11 new lang keys render exactly once (`attachmentForbidden`/`Rejected` twice, upload and
+      download); all 8 new `data-testid`s are queried by the spec; the bearer header exists once in
+      the tree; `createObjectURL` appears in exactly one non-spec file. `+2` PHP tests
+      (2226 → 2228) is `LogicalPropertiesTest`'s per-file provider over the two new `.ts` files —
+      measured at 131 → 133, not inferred.
+- [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
+      manual test list.
+
+#### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
+
+> **Owner's rulings, 2026-09-03.** A line names a product by `catalog_item_id` **or** by
+> `product_name`, exactly one; and a name already present is the **same product**, reused rather
+> than added twice. The owner also described the screen this serves: a searchable product dropdown
+> that tells the user "this is a new product and it will be saved", fills the rest of the product in
+> automatically, and shows it in the list next time. That screen is **frontend** and Module 6 has
+> none yet — these points build the backend that makes it possible, and the dropdown itself is
+> already served by the existing `GET /catalog-items?q=`.
+
+- [x] **3.1** `CatalogProductProvisionerInterface` — Catalog publishes `D-22` as one method, and
+      `deptrac` opens exactly that one class to Module 6.
+      **The rule belongs to Catalog because the product is added to the catalog**, and Module 6 is
+      where a missing product is discovered (§7.2's line). `deptrac.modules.yaml` grants
+      `SupplierQuotations` three layers and Catalog is not among them, which is `CLAUDE.md`'s
+      "cross-module work goes through interfaces or domain events" made mechanical.
+      **A name in, an id out.** The exposing collector is a `classLike` on the one interface —
+      `Precision`'s precedent, not `AuditContract`'s directory split, which would have handed Module
+      6 the whole of Catalog's domain. That stays narrow only while the signature is primitives: a
+      `CatalogItemSummary` would drag `Domain\Listing` across with it.
+      **The create delegates to `SaveCatalogItem`** rather than writing beside it. `AUD-01` names
+      create explicitly and `D-45`'s stated mitigation for opening the catalog to every employee is
+      "every edit is written to the audit log"; a second write path would spend exactly what `D-45`
+      bought. Proven by breaking it — creating through the directory instead reddened the audit test.
+      **`lower(name) = lower(?)`, not `ILIKE`**: the caller's name is a literal, and `ILIKE` reads
+      `%` and `_` in it as wildcards, so a product called "50% glycol" would match rows it is not.
+      **Live means not soft-deleted (`DB-01`); product means §7.3's `kind`; a *deactivated* product
+      is still reused** — `is_active` is not an archive, and §10.4 (`D-37`) gives a deactivated item
+      a documented life on an open quotation, where a second row of the same name would have none.
+      ⚠️ **The narrow layer collided with Catalog's own collector, and the tool said so.** `Catalog`
+      collects `app/Modules/Catalog/.*`, so the interface sat in two layers and
+      `ProvisionCatalogProduct` depending on the interface it implements was reported as *Catalog
+      must not depend on Catalog*. `--clear-cache` did not move it. Fixed by making `Catalog` a
+      `bool` collector that excludes the published class — the same disjointness Identity, Audit,
+      Storage and Customers get for free from their `(Domain|Application)` split, expressed for a
+      one-class contract. **The boundary was then proven**: a throwaway class in Module 6 importing
+      `CatalogItemDirectoryInterface` produced a violation, and removing it returned to zero.
+      **8 tests (29 assertions). RED observed by removing the production code: 8 failed.**
+- [x] **3.2** An index on `catalog_items` for 3.1's case-insensitive name lookup, with a tested
+      `down()` (`DEV-03`).
+      ⚠️ **The citation in this line was wrong and is not used.** `DB-09` names "customer · owner ·
+      deal status · dates · entity codes" and a product name is none of them — Point 1.2's migration
+      argued exactly that when it left the table unindexed. The rule that does cover it is
+      `Coding_Standards_EN.md` §7: "Add indexes for each new join, permission scope, filter, sort,
+      and **common lookup** … verify them with realistic query plans." Point 3.1 made it a common
+      lookup: `findProductIdByName()` runs once per line of every supplier-quotation save (`D-22`,
+      Points 3.4 and 3.5), inside the write transaction `PRF-01` caps at 500 ms.
+      **`CREATE INDEX catalog_items_by_lower_name ON catalog_items (lower(name), id) WHERE
+      deleted_at IS NULL`** — functional because a btree over `name` cannot answer `lower(name) = ?`,
+      and `DB::statement` because Blueprint has no functional-index API (`customers_by_owner`'s
+      precedent).
+      ⚠️ **`id` is in it because the plan said so, and the obvious index was useless.** Point 3.1
+      ends the lookup with `orderBy('id')` and takes one row, so the query is `ORDER BY id ASC LIMIT
+      1` — and `catalog_items_pkey` wins that, returning the first match in key order with no sort
+      while filtering the whole table. Measured on 50k rows **before** the migration was written:
+      `(lower(name))` alone and `(lower(name), kind)` both planned as `Index Scan using ..._pkey`,
+      15,469 rows removed by filter, 15,521 buffers, 3.6 ms — indistinguishable from having no index
+      at all. With `id` as the second column: `Index Scan using ..._by_lower_name`, 4 buffers,
+      0.012 ms. **`kind` stays out**: a two-value `Filter` on rows the name has already found, and
+      measured to change nothing.
+      **Partial on `WHERE deleted_at IS NULL`** because `SoftDeletes` puts that predicate in every
+      one of these queries (`DB-01`). **Not `CONCURRENTLY`** — a migration runs inside a transaction
+      and PostgreSQL refuses it there; the ceiling is written into the migration.
+      **2 tests (9 assertions). RED observed before the migration existed: 2 failed**, the plan test
+      naming `catalog_items_pkey`. Both verifiers then proven by breaking them: removing `id`
+      reddened the shape test, misspelling the index reddened both, and misspelling it in `down()`
+      reddened the `migrate:reset` test at that line — so `DEV-03` is exercised, not assumed.
+      **A stated ceiling:** the plan test sets `enable_seqscan = off` on a `RefreshDatabase` table of
+      a few rows, so it proves the index is *reachable* by the lookup, not that production's planner
+      picks it. The realistic-volume plan is the 50k measurement above, run by hand. Removing `id`
+      left that test green — the shape test is what holds that half.
+- [x] **3.3** The boundary: a line accepts `product_name` as an alternative to `catalog_item_id`,
+      exactly one required, `exists` unchanged for an id that is sent.
+      **`required_without` on both sides, `prohibits` on the id.** One of the two is mandatory and
+      the pair is refused — an id and a name can disagree, and neither §7.2 nor `D-22` says which
+      would win, so the boundary refuses rather than choose. The `*` in both parameters resolves to
+      the line's own index because `Prohibits` and `RequiredWithout` are both in Laravel's
+      `$dependentRules`; that was read in `Validator.php`, not assumed.
+      **The name's rules are the catalog column's** (Module 4 Point 1.2): `max:255` for
+      `varchar(255)` and `regex:/\S/` for `CHECK (name IS NULL OR btrim(name) <> '')`, mirrored so a
+      constraint violation never reaches the caller as a 500. `SaveCatalogItemRequest`'s precedent.
+      **Whitespace is the framework's, and is not re-implemented.** Laravel's global `TrimStrings`
+      runs before validation and `TransformsRequest::cleanValue()` recurses into arrays, so a line's
+      `product_name` is trimmed like any other field — both read in `vendor/` this session. A second
+      trim in `prepareForValidation()` would be the duplicate the waste audit names. The reliance is
+      load-bearing for 3.4 (" Copper " and "Copper" must be one product), so it is pinned by a test
+      that reddens when the middleware is removed.
+      **`SupplierQuotationDraft::ITEM_WRITABLE` gains the name**, and the draft's filter still drops
+      everything else.
+      **6 tests. RED observed first: 5 failed** (the trim test was green before and after — it pins
+      framework behaviour this point relies on). All four verifiers then proven by breaking them:
+      dropping `prohibits`, dropping the name's `required_without`, dropping the name from
+      `ITEM_WRITABLE`, and removing `TrimStrings` from `bootstrap/app.php` each reddened exactly one.
+      ⚠️ **A name-only line 500s until Point 3.4 lands** — measured, not predicted:
+      `SQLSTATE[42703] … column "product_name" of relation "supplier_quotation_items" does not
+      exist`. The boundary now accepts a payload the write path cannot serve, because resolving the
+      name into a product is 3.4's transaction. **This branch must not merge before 3.4.** No test
+      pins that state: it is a defect to close, not behaviour to record.
+- [x] **3.4** `CreateSupplierQuotation` resolves each line's product inside its existing transaction
+      (`DB-11`).
+      **Inside the transaction, and that is the whole design.** A product added for line one must not
+      outlive an offer that line two destroyed, which is exactly what `DB-11` is for. Catalog's own
+      writer opens a nested transaction — a savepoint in PostgreSQL, not a second commit — so the
+      outer rollback still takes it. **Proven by moving the call outside the transaction**: the
+      rollback test reddened with "DB-11: the added product outlived the offer".
+      ⚠️ **That test had been passing for the wrong reason** before this point: the write threw on
+      the missing `product_name` column before any product could be added, so all its counts were
+      zero for an unrelated reason. It only became a real check once the feature existed — recorded
+      here because the same shape ("green, but not because the thing works") is easy to inherit.
+      **The name is replaced, not kept beside the id**: `catalog_item_id` is the column, and a
+      leftover `product_name` reaches an insert with no such column. Proven by removing the `unset`:
+      two tests reddened.
+      **The audit records the resolved id.** By the time `AUD-02`'s new values are written the name
+      has become an id, and a row naming a product the reader cannot resolve answers "what was
+      created?" with a string.
+      **`SupplierQuotationDraft::withItems()`** is how the answer comes back — the draft stays a data
+      holder and the catalog write stays in the use case, where the transaction is. Point 3.5 is its
+      second caller.
+      **5 tests. RED observed first: 4 failed**, the fifth being the rollback test described above.
+      ⚠️ **The `PATCH` half is still open**: `UpdateSupplierQuotation` does not resolve its
+      replacement set until Point 3.5, so a name sent there still reaches the insert and PostgreSQL
+      answers `42703`. The module's acceptance criterion "offer containing a product not in the
+      catalog → product added automatically" is therefore **left unticked** until 3.5, even though
+      the create path closes it end to end (`POST` answers 201 and the catalog gains the product).
+- [x] **3.5** `UpdateSupplierQuotation`'s replacement set does the same.
+      **The loop was extracted, not copied.** Point 3.4 wrote it as a private method of the create,
+      which was right while there was one caller; this point is the second, so it became
+      `ResolveLineProducts` — one class, two callers, one place where "what is a line's product"
+      is decided. A second copy would be the duplicate the waste audit names: correct in both
+      places, wrong the moment one changes.
+      **Inside the transaction, proven the same way**: moving the call out of
+      `UpdateSupplierQuotation`'s transaction reddened the rollback test with "DB-11: the added
+      product outlived the edit". As on the create, that test had been green beforehand for an
+      unrelated reason (the write threw on the missing column), so it only became a real check here.
+      **After the not-found check, and the comment says why that is thrift rather than
+      correctness** — a `PATCH` at an absent offer throws inside the transaction, so the rollback
+      would take the catalog row anyway; the order only avoids writing one for a request already on
+      its way to a 404. The first draft of that comment claimed the placement was what prevented it,
+      which was false, and it was corrected before commit.
+      **`items` stays three-valued** (owner, 2026-09-02): absent means untouched, so the resolution
+      is skipped entirely rather than run over an empty set.
+      **3 tests. RED observed first: 2 failed**, the third being the rollback test above.
+
+#### Step 2 — the write path and one read *(point list approved 2026-09-02)*
+
+> **Owner's ruling, 2026-09-02 — `total_price` is entered by the user.** §7.2 lists it as a field of
+> its own, which permits it to differ from the sum of the lines; the owner chose that reading over
+> "always computed" and over "typed with a warning". Nothing in this module computes it, and
+> `CreateSupplierQuotationTest` submits a total that contradicts its lines to keep it that way.
+> **Awaiting a `D-xx`**; `docs/` is untouched.
+>
+> The four points below replace the three the module's shape sketched. 2.1 as sketched was the
+> largest point in the module — transaction, audit, lines, Form Request, route, permission and
+> `Idempotency-Key` in one turn — which is not "the smallest unit that can be verified on its own".
+> The split puts the layers below HTTP in 2.1 and the HTTP surface in 2.2.
+
+- [x] **2.1** `CreateSupplierQuotation` — the header, its lines and `AUD-01`'s record in one
+      transaction (`DB-11`). `SupplierQuotationDraft` now carries `items` beside `attributes`: one
+      submitted payload, two tables, so `fill()` cannot be handed a key that is not a column.
+      **No scope parameter and no scope resolution**, unlike `SaveDeal`: §3.4's create row carries
+      scopes and §3.6's does not — every role that may create here holds `Scope::All` under "a shared
+      screen — not restricted by ownership", so there is no owner column to file under. The
+      permission is checked at the route (§3.12 rule 1), which is 2.2's.
+      **The lines are written with one `insert()` and no Eloquent model.** The only things this
+      module does with a line are insert a batch and (from 2.2) read them back; neither needs casts,
+      events or a soft-delete trait, and one statement beats one save per line.
+      **The rollback is the point, and it was proven by breaking it:** removing the transaction
+      reddened `test_that_a_refused_line_rolls_back_the_whole_offer` alone, and computing
+      `total_price` from the lines reddened the owner's-ruling test alone. Both restored by inverse
+      edit, `shasum` back to `7f47a342…`.
+      ⚠️ **The `AuditEnforcementTest` signal hole grew to eleven here** — see the debt register.
+- [x] **2.2** `POST /api/v1/supplier-quotations` — the route, `permission:supplier_quotation.create`,
+      `SaveSupplierQuotationRequest`, `SupplierQuotationController` and `SupplierQuotationPayload`.
+      **Every rule that mirrors a database constraint is there for one reason:** a constraint
+      violation reaches the caller as a **500**. Points 1.1 and 1.2 put four on these tables — the
+      foreign keys, `unit_price >= 0`, `quantity > 0`, and the CHECK allowing both money columns or
+      neither — and each is mirrored so the boundary answers 422 first. Proven by deletion: removing
+      the `exists` rule on `catalog_item_id` turned that test's failure into
+      *"Expected response status code [422] but received 500"*.
+      **`whereNull('deleted_at')` on every existence rule** — `DB-01` soft-deletes everything and
+      Laravel's `exists` is a raw table query that would accept an archived supplier, deal, currency
+      or product.
+      **§3.6 supplies two documented negative cases and neither had to be invented:** the CEO holds
+      `view` and a dash under `create / edit`; the Outdoor Supervisor holds a dash in every column.
+      Both are 403s, and `SEC-09` is proven separately by deleting the grant row from the database.
+      **The 201 carries the header, not the lines** — `OpenAPI §4.1` asks for a single-resource
+      envelope and says nothing about nesting children; reading them back is 2.3, and a payload
+      field with no read path behind it would be this point inventing one. The lines are asserted
+      against the table instead.
+      **`code` is `prohibited`**, on `SaveCatalogItemRequest`'s reading of `OpenAPI §6.2`: refusing
+      beats ignoring, because a caller who sends one has a wrong idea about where a code comes from.
+      **`total_price` has `min:0`, which has no citation** — it mirrors the `unit_price >= 0` CHECK
+      on a line, because §5 has no negative price anywhere. Flagged as a boundary rule with no
+      source rather than presented as one.
+      ⚠️ **No `Idempotency-Key`, and this is a real gap rather than a reading** — see the point
+      proposed below and the debt register.
+      **23 tests. RED first: 23 failed before any of it existed.**
+- [ ] **2.2b — proposed, not approved: the `Idempotency-Key` store.** `OpenAPI §9.1` names *supplier
+      quotations* outright among the critical POSTs that require the header — unlike a customer, a
+      supplier or a catalog item, each of which Modules 3 and 4 correctly found **absent** from that
+      list and said so in the route file. Module 6 is the first module that actually owes one, and
+      **Module 5 owes one too**: deals are on the same list and `routes/api.php` does not mention the
+      header on `POST /deals` at all.
+      §9.1 is not one middleware. It requires a **persisted** store — actor, route, key, request
+      hash, final status and response, for a retention period — replay of the original response
+      without repeating the side effect, and `409 idempotency_conflict` when a key is reused with a
+      changed payload, with authorisation re-checked on every replay. That is a table, a migration,
+      a middleware and its own tests, and folding it into 2.2 would have rebuilt exactly the
+      oversized point the owner's four-way split removed.
+      **It also needs an owner decision this point cannot make: where the store lives.** A middleware
+      that persists is a database writer, and
+      `AuditEnforcementTest::test_nothing_outside_a_module_writes_to_the_database` forbids `app/Http`,
+      `app/Support` and `routes` from writing at all. So the store is either its own module or a
+      named exception to that rule — and it is shared by Modules 5, 6, 7, 10 and 13
+- [x] **2.3** `GET /supplier-quotations/{id}` — `find()` on the contract, no scope (§3.6), lines
+      included. `SupplierQuotationDetail`, `SupplierQuotationLine`, `SupplierQuotationNotFound`,
+      `ListSupplierQuotations`, the directory's `find()`/`readLines()`, the controller's `show()`,
+      `SupplierQuotationPayload::detail()`, the route, the renderer arm and both lang files.
+      **The route carries `permission:supplier_quotation.view`, not `create`, and §3.6's two rows
+      are why:** the CEO holds `view` as `All` and a dash under `create / edit`, so the caller Point
+      2.2 refuses with a 403 is served with a 200 here. Proven by breaking it — swapping the
+      middleware to `create` reddened three tests and nothing else.
+      **`SupplierQuotationDetail` composes `SupplierQuotationSummary` rather than repeating its nine
+      fields.** A second header shape would be the duplicate the waste audit names — two classes that
+      must change together and eventually do not — so `detail()` delegates to `of()`.
+      **The lines are not on `SupplierQuotationSummary`**: `create()` returns that type and Point
+      2.2's 201 does not carry them (`OpenAPI §4.1`), so a field there would have no reader.
+      **`DB-01` is enforced twice, because it arrives twice.** The header is filtered by the model's
+      `SoftDeletes`; the lines are read through the connection with no model, so they carry an
+      explicit `whereNull('deleted_at')`. Each half has its own test and each test was proven by
+      breaking its own guard.
+      **The 404 says nothing about which of `OpenAPI §5.1`'s two cases applied** — an absent row and
+      an archived one answer identically, and `SupplierQuotationNotFound` records that only the first
+      is reachable under §3.6.
+      **`readLines()` refuses a non-string column rather than casting it.** PHPStan reported three
+      `Cannot cast mixed to string`; a `(string)` cast would have silenced it and turned a driver
+      returning a float into a silently rounded price, which is the one failure `DB-07` exists to
+      prevent. `nextCode()` already refuses loudly for the same reason.
+      **`SupplierQuotationLine` carries no `id`.** §7.2 names three things on a line and nothing
+      addresses a single line yet; whether `PATCH` edits lines by identity or replaces the set is
+      Point 2.4's decision, not this point's.
+      ⚠️ **Ordered by `id`, which is stability and not insertion order** — the table has no ordering
+      column at all. See the debt register.
+      ⚠️ **Two verifiers were found not to verify and both were fixed inside this point.** The 401
+      test authenticated itself before asserting 401 (see the harness debt below), and nothing read
+      the new lang file — `__()` returns the key when the file is missing, so `supplier_quotations.php`
+      could have been deleted and stayed green. The 404 test now asserts the sentence, and removing
+      the file reddens it; removing the Arabic half reddens `LocaleTest`.
+      **18 tests (140 assertions). RED first: 16 failed before any of it existed.**
+- [x] **2.4** `PATCH /supplier-quotations/{id}` — `SupplierQuotationDraft::forUpdate()`,
+      `UpdateSupplierQuotation`, the directory's `update()`/`replaceLines()`, the controller's
+      `update()`, the route, and `supplier_id` becoming `sometimes|required` on a `PATCH`.
+      **Which fields survive an edit: all seven, `supplier_id` included.** Two §7.2 rows stay out and
+      each has a source — `code` is "Automatic" (§7.2, §4.7) and stays `prohibited`, and `entered_by`
+      is `DB-02`'s author, which an edit may not rewrite. Nothing else is frozen because nothing
+      freezes it: §3.6 grants "edit" over the screen, `D-51` makes the offer standalone and reusable,
+      and `D-36` has a supplier's price changing under a customer quotation that survives by holding
+      its own snapshot. Inventing an immutability rule with no citation is what `CLAUDE.md` forbids.
+      **The permission is `supplier_quotation.create`, because §3.6's write row is one cell** —
+      "create / edit ✅" — which is how `SupplierController` already reads §3.7's write cell. The CEO
+      therefore reads an offer (2.3) and cannot edit it, and both halves are tested.
+      **`items` is three-valued on an edit:** absent leaves the lines alone (that is what `PATCH`
+      means), `[]` clears them, a list replaces the whole set. **Replaced lines are soft-deleted, not
+      removed** (`DB-01`), and `readLines()` already filters them out of the read.
+      ⚠️ **No optimistic locking, and that is a citation rather than a deferral.** `OpenAPI §9.2`
+      scopes the version-token/`If-Match`/409 pattern to *quotations* and closes with "the same
+      pattern may be adopted later for other high-contention resources **only through a documented
+      contract update**"; §9.1, three lines above, lists "deals, quotations, **supplier quotations**"
+      as separate resources, so §9's "quotation" is Module 7's. `DB-12` reads the same way. **Owner
+      confirmed 2026-09-02.** On the debt register, because Module 7 will need it built.
+      ⚠️ **A verifier was found not to verify, and the fix was a new test file.** The endpoint test
+      named `..._rolls_back_the_whole_edit` proved nothing about `DB-11`: with the transaction
+      removed, all 26 endpoint tests still passed, because Point 2.2's Form Request refuses a bad
+      line with a 422 before any write is attempted. The rollback is now proved in
+      `UpdateSupplierQuotationTest`, which calls the use case directly with a `catalog_item_id` the
+      foreign key refuses — that test reddens when the transaction is removed. The endpoint test was
+      renamed to what it actually proves.
+      ⚠️ **`AuditEnforcementTest` caught the new writer on its first full-suite run**, exactly as
+      designed, and `UpdateSupplierQuotation` is now listed AUDITED. It is the first use case in this
+      module the detector can see: it calls `->update(`, one of the scanned DML verbs, while
+      `CreateSupplierQuotation` reaches the database only through `->transaction(` and stays part of
+      the eleven-class hole.
+      **29 tests (26 endpoint + 3 use case). RED first: 26 failed before any of it existed.**
+
+#### قائمة الاختبار اليدوي — إضافات الخطوة 5 *(المرفقات، 2026-09-05)*
+
+> **هذه إضافة لا قائمة كاملة.** القائمة الأصلية للوحدة 6 نُشرت في المحادثة يوم 2026-09-05 وسبقت
+> النقطتين 5.3 و5.4، فهي لا تذكر نقطة نهاية الرفع ولا التنزيل. **الأصل ما يزال في المحادثة وحدها
+> ولم يُنقل إلى هذا الملف**، لأن نقله يعني إعادة كتابته من الذاكرة، وهو ما تمنعه قاعدة «لا تفترض —
+> افتحه وانظر». الأسطر أدناه هي ما أضافته الخطوة 5 فقط.
+>
+> ⚠️ **كلّها تُنفَّذ عبر عميل API (Postman أو ما يشبهه)، لا عبر شاشة.** الوحدة 6 بلا واجهة أمامية —
+> `grep -rn "supplier-quotations" crm/resources/js` يعيد صفرًا — وهذا هو نفسه سبب بقاء معيار
+> «شاشة مشتركة» غير مؤشَّر. مكتوبة بالعربية كما يفرض `CLAUDE.md`، رغم أن بقيّة هذا الملف بالإنجليزية.
+
+| # | الدور | الخطوة ⇒ المتوقَّع | المعيار |
+|---|---|---|---|
+| 1 | مدير | ارفع ملف PDF على عرض مورّد قائم ⇒ **201** ومعه `original_name` و`mime_type` و`size_bytes` و`scan_status: clean` | رفع الملف |
+| 2 | مدير | افحص جسم الاستجابة نفسه ⇒ **لا يوجد** `storage_path` ولا أي مسار على القرص | §17 |
+| 3 | مدير تنفيذي | جرّب الرفع على العرض نفسه ⇒ **403** — يقرأ العرض ولا يرفع عليه | §3.6 |
+| 4 | مشرف الخارجي | جرّب الرفع ⇒ **403** | §3.6 |
+| 5 | مدير | غيّر امتداد ملف تنفيذي إلى `.pdf` وارفعه ⇒ **422** ورمز `unsupported_type` | MIME حقيقي |
+| 6 | مدير | ارفع ملفًا نصّيًّا `.txt` ⇒ **422** ورمز `unsupported_type` | النوع |
+| 7 | مدير | ارفع ملفًا أكبر من الحدّ المُعَدّ (30 ميغابايت) ⇒ **422** ورمز `too_large` | الحجم |
+| 8 | مدير | أرسل الطلب بلا حقل `document` ⇒ **422** والحقل المذكور هو `document` | — |
+| 9 | مدير | ارفع على معرّف عرض غير موجود ⇒ **404**، ثم على عرض محذوف ناعمًا ⇒ **404 بالنصّ نفسه** | `DB-01` · `OpenAPI §5.1` |
+| 10 | مدير تنفيذي | نزّل المرفق الذي رفعه المدير عبر `GET /files/{id}/download` ⇒ **200** والملف مطابق بايتًا ببايت | `D-38` |
+| 11 | مشرف الخارجي | جرّب تنزيل المرفق نفسه ⇒ **404** وليس 403 | `OpenAPI §5.1` |
+| 12 | مدير | ارفع ملفًا يحمل توقيع EICAR ⇒ **201** و`scan_status: infected`، ثم جرّب تنزيله **بنفس الحساب** ⇒ **404** | `SEC-15` |
+
+**ما لا يمكن اختباره اليوم، ويجب أن تراه لا أن يُخفى:** حالات RTL/LTR، والتحميل، والفراغ، والخطأ،
+ورسالة الرفض كما يقرؤها إنسان — لا شاشة تعرض أيًّا منها. اسم الحقل في رسالة الـ 422 العربية سيظهر
+`document` بحروف لاتينية (سقف معلن في النقطة 5.3). وضغط الصور (§17) غير مبنيّ أصلًا فلا سطر له هنا.
 
 ---
 

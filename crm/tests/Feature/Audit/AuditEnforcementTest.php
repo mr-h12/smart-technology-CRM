@@ -19,6 +19,8 @@ use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
+use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -200,6 +202,44 @@ final class AuditEnforcementTest extends TestCase
             EloquentDealDirectory::class => 'AUD-01 is satisfied one layer out: SaveDeal owns the create/update '
                     .'transaction and records DEAL_CREATED and DEAL_UPDATED. This is a persistence adapter '
                     .'with no actor and no event vocabulary.',
+
+            // Module 6 Point 1.3, and seen for exactly the reason
+            // EloquentDealDirectory is: it imports `ConnectionInterface` for
+            // `document_sequences`' atomic upsert (§4.7), so `->save(` beside
+            // that import makes it a writer this scanner actually finds. Its
+            // three siblings in Customers, Suppliers and Catalog remain
+            // invisible for want of the same import — the ten-class hole the
+            // notes above describe is unchanged by this row.
+            //
+            // Not AUDITED: `CreateSupplierQuotation` (Point 2.1) owns the
+            // transaction and records SUPPLIER_QUOTATION_CREATED, which is the
+            // settled statement EloquentDealDirectory has carried since Module
+            // 5. Point 1.3's version of this note said the use case did not
+            // exist yet; it does now.
+            //
+            // ⚠️ **Point 2.1 makes the hole eleven.** That use case is a writer
+            // by every meaning of the word and this scanner does not see it: it
+            // calls `->create(`, `->record(` and `->transaction(`, none of which
+            // is a DML verb — the same spelling accident that hides
+            // `ArchiveCustomer` and `ImportCustomers`. Measured, not assumed:
+            // this test passes with it unlisted, and listing it would fail the
+            // identity assertion instead. So the *audited* half of this module
+            // is invisible here while its persistence adapter is visible, which
+            // is the hole's clearest illustration yet.
+            EloquentSupplierQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateSupplierQuotation '
+                    .'owns the create transaction and records SUPPLIER_QUOTATION_CREATED. This is a persistence '
+                    .'adapter with no actor and no event vocabulary.',
+
+            // Module 6 Point 2.4, and the first use case in this module the
+            // detector actually sees: it calls `->update(` on the directory,
+            // which is one of the DML verbs scanned for, while
+            // `CreateSupplierQuotation` reaches the database only through
+            // `->transaction(` and stays invisible. AUDITED because it records
+            // SUPPLIER_QUOTATION_UPDATED inside that transaction, with
+            // `AUD-02`'s old values read in the same transaction — asserted by
+            // `SupplierQuotationEditEndpointTest`, and by the sibling assertion
+            // in this file that a class claiming AUDITED reaches the recorder.
+            UpdateSupplierQuotation::class => self::AUDITED,
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

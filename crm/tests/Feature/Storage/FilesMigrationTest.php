@@ -249,9 +249,11 @@ final class FilesMigrationTest extends TestCase
 
     public function test_the_parent_foreign_keys_that_are_still_owed_are_recorded(): void
     {
-        // The debt, machine-readable. When Module 5 creates `deals`, this test
-        // fails until the constraint is added and the entry removed — which is
-        // the point: a comment would not.
+        // The debt, machine-readable. When the parent module creates its table,
+        // this test fails until the constraint is added and the entry removed —
+        // which is the point: a comment would not. `deals` closed the first
+        // entry (Module 5, Point 1.1); `supplier_quotations` closed the second
+        // (Module 6, Point 1.1), each in the migration that created the parent.
         $pending = [];
 
         foreach (self::PIVOTS as $table => $meta) {
@@ -261,7 +263,6 @@ final class FilesMigrationTest extends TestCase
         }
 
         self::assertSame([
-            'supplier_quotation_files.supplier_quotation_id → supplier_quotations',
             'purchase_order_files.purchase_order_id → purchase_orders',
             'report_files.report_id → reports',
         ], $pending, 'A parent table now exists; add its foreign key and drop it from this list.');
@@ -345,7 +346,39 @@ final class FilesMigrationTest extends TestCase
             return self::insertDeal();
         }
 
+        // Module 6, Point 1.1 added the parent key, so a fabricated id no
+        // longer satisfies the pivot — which is the whole reason the key was
+        // added. `purchase_order_files` and `report_files` keep the fabricated
+        // id until Modules 10 and 13 create their parents.
+        if ($table === 'supplier_quotation_files') {
+            return self::insertSupplierQuotation();
+        }
+
         return Uuid::uuid7()->toString();
+    }
+
+    private static function insertSupplierQuotation(): string
+    {
+        $supplierId = Uuid::uuid7()->toString();
+
+        DB::table('suppliers')->insert([
+            'id' => $supplierId,
+            'name' => 'Test Supplier for a File Pivot',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $quotationId = Uuid::uuid7()->toString();
+
+        DB::table('supplier_quotations')->insert([
+            'id' => $quotationId,
+            'code' => 'SQ-2026-'.substr(str_replace('-', '', $quotationId), -4),
+            'supplier_id' => $supplierId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $quotationId;
     }
 
     private static function insertDeal(): string

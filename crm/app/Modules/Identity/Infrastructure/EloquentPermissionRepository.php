@@ -69,6 +69,22 @@ final class EloquentPermissionRepository implements PermissionRepositoryInterfac
         );
     }
 
+    /** @return array<string, string> */
+    public function roleIdsBySlug(): array
+    {
+        $map = [];
+
+        // DB-01 again: an archived role holds nothing, so it must not appear
+        // here as a role whose grants could be compared.
+        foreach ($this->connection->table('roles')->whereNull('deleted_at')->get(['slug', 'id']) as $row) {
+            if (is_string($row->slug) && is_string($row->id)) {
+                $map[$row->slug] = $row->id;
+            }
+        }
+
+        return $map;
+    }
+
     /** @return list<Scope> */
     public function scopesFor(string $roleId, string $resource, string $action): array
     {

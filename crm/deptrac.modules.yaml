@@ -36,10 +36,29 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Suppliers/.*
+    # `CatalogProductProvisionerInterface` is excluded because it is collected
+    # by `CatalogContract` below, and a token in two layers is checked against
+    # both: while this directory also claimed it, `ProvisionCatalogProduct`
+    # (layer `Catalog`) depending on the interface it implements was reported as
+    # `Catalog must not depend on Catalog`. Identity, Audit, Storage and
+    # Customers never hit this because their split is disjoint by construction —
+    # `(Domain|Application)` against `(Infrastructure|Presentation)`, with no
+    # module-wide collector left over. This is the same disjointness, expressed
+    # for a one-class contract instead of half a module. Measured, not reasoned:
+    # the violation was real and `--clear-cache` did not move it.
     - name: Catalog
       collectors:
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Catalog/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+    - name: SupplierQuotations
+      collectors:
         - type: directory
-          value: app/Modules/Catalog/.*
+          value: app/Modules/SupplierQuotations/.*
     - name: Procurement
       collectors:
         - type: directory
@@ -103,6 +122,23 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Audit/(Infrastructure|Presentation)/.*
+
+    # Catalog's published surface, added 2026-09-03 with Module 6 Point 3.1 —
+    # `D-22`'s automatic product add, which Module 6 discovers and Catalog owns.
+    #
+    # **One `classLike`, not a directory.** Identity, Audit, Storage and
+    # Customers are each split as `(Domain|Application)` versus
+    # `(Infrastructure|Presentation)`, and that shape would hand every module
+    # granted this layer the whole of Catalog's domain — `SaveCatalogItem`, the
+    # drafts, the listing criteria. `Precision`'s entry in `deptrac.layers.yaml`
+    # is the better precedent and the narrower promise: exactly the interface
+    # that was published, and nothing that happens to sit beside it. It stays
+    # narrow only while the signature is primitives, which is why
+    # `CatalogProductProvisionerInterface` takes a name and returns an id.
+    - name: CatalogContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
 
     - name: StorageContract
       collectors:
@@ -170,6 +206,16 @@ parameters:
         # same entry since Point 2.1.
         - type: classLike
           value: ^App\\Support\\Search\\.*
+        # `App\Support\Database\Precision` — `D-68`'s column scales, added
+        # 2026-09-02 with Module 6 Point 1.3, the first Eloquent model to cast a
+        # money column. The class exists so that a column's scale and its cast's
+        # scale cannot drift apart, which is only possible if the model may name
+        # it. Narrow to the one class, **not** `^App\Support\Database\.*`:
+        # `StandardColumns` is migration scaffolding and a module has no
+        # business calling it, so the namespace would grant more than the
+        # dependency needs.
+        - type: classLike
+          value: ^App\\Support\\Database\\Precision$
 
     - name: Framework
       collectors:
@@ -274,6 +320,76 @@ parameters:
       - CustomersContract
       - StorageContract
     Quotations: ~
+    # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
+    # module's first code. **One entry, which is the shortest ruleset any module
+    # has been granted**, and each absence is a decision:
+    #
+    # `Framework` because an Eloquent model and a `ConnectionInterface` are
+    # framework objects by definition — the same reason every module before it
+    # took this entry.
+    #
+    # `SharedContracts` for **one class**: `App\Support\Database\Precision`,
+    # `D-68`'s column scales, which the model names so that its cast cannot
+    # drift from the column. Not for `App\Support\Http`'s envelope — there is
+    # no controller yet — and not for `D-48`'s `SearchService`, which is Step
+    # 4's concern. The layer was widened by exactly one `classLike` entry rather
+    # than by the `App\Support\Database` namespace, so `StandardColumns` — the
+    # migration scaffolding next door — stays out of every module's reach.
+    #
+    # Written twice, because the first version of this comment said "No
+    # `SharedContracts`" and was wrong: deptrac reported the dependency as
+    # *uncovered* until `Precision` was given a layer, and as a **violation**
+    # the moment it had one. The reasoning was checked by running the tool, not
+    # by arguing with it.
+    #
+    # **No `IdentityContract`**, on Suppliers' terms rather than Customers':
+    # §3.6 grants every role that sees this resource `Scope::All` — "a shared
+    # screen — not restricted by ownership" — so the module never asks Identity
+    # anything. If §3.6 ever gains a scope, this line changes and the crossing
+    # is a decision in a diff, which is what this file exists for.
+    #
+    # `AuditContract` added 2026-09-02 with Point 2.1, the module's first write
+    # that has an actor and an event to record — on exactly the terms every
+    # other module's first write was granted it: `AUD-01` names create among
+    # what must be recorded, and the recorder is an interface in `Audit\Domain`.
+    # `CreateSupplierQuotation` owns the transaction and records
+    # SUPPLIER_QUOTATION_CREATED. The *contract* half only; nothing points at
+    # `AuditDriver`, and nothing should. Point 1.3's version of this comment
+    # said the entry was not needed yet and named the point that would need it —
+    # this is that point.
+    SupplierQuotations:
+      - Framework
+      - SharedContracts
+      - AuditContract
+      # CatalogContract, added 2026-09-03 with Point 3.1. `D-22` adds a missing
+      # product to the catalog automatically, and §7.2's offer line is where a
+      # missing product is discovered. One interface, taking a name and
+      # returning an id — the caller arrives with Points 3.4 and 3.5, and the
+      # grant is written here with the interface so the crossing is reviewed
+      # once rather than inside a point about a Form Request.
+      - CatalogContract
+      # StorageContract and IdentityContract, added 2026-09-04 with Point 5.1 —
+      # §7.2's `pdf_file` row, which `D-71` makes the `supplier_quotation_files`
+      # pivot rather than a column.
+      #
+      # `StorageContract` is `AttachmentPermissionInterface` and the two value
+      # objects its one method takes. This is Deals' crossing, taken on Deals'
+      # terms (Point 4.1, `deptrac.modules.yaml` above): the download route is
+      # parent-agnostic and carries `auth` alone, so `D-38` — "attachment
+      # permission = permission on the parent entity" — can only be answered by
+      # the module that owns the parent. Storage cannot answer it and says so in
+      # the interface's own docblock.
+      #
+      # `IdentityContract` is `AuthorizeAction` and `Scope`, and it is the entry
+      # this module went four steps without. Every route so far has been guarded
+      # by `permission:` middleware, which needs nothing from the module. This
+      # one is not: there is no middleware behind `mayView()`, so the module has
+      # to ask Identity what the caller holds. **Not `SEC-08` row scoping** —
+      # §3.6 grants one scope, `All`, and the class refuses a `RowScope`
+      # parameter for the reason the directory interface already gives. The
+      # question asked is only "does this actor hold `supplier_quotation.view`".
+      - StorageContract
+      - IdentityContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.
@@ -326,6 +442,12 @@ parameters:
     Catalog:
       - Framework
       - SharedContracts
+      # CatalogContract, added 2026-09-03 with Module 6 Point 3.1. The module
+      # needs its own published interface back: `CatalogProductProvisionerInterface`
+      # was collected out of the `Catalog` layer by the narrow `classLike` above,
+      # so `ProvisionCatalogProduct` — which implements it — now depends on a
+      # layer rather than on a class next door.
+      - CatalogContract
       # AuditContract, added 2026-08-31 with Point 3.2 — the module's first
       # write. `D-45` opened catalog editing to every employee and named the
       # mitigation: "every edit is written to the audit log". The same entry

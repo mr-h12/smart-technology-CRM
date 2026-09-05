@@ -25,7 +25,9 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
+use App\Modules\Catalog\Application\Writing\ProvisionCatalogProduct;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
@@ -58,6 +60,8 @@ use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
+use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
@@ -70,6 +74,9 @@ use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
+use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
 use App\Support\Database\StandardColumns;
@@ -185,6 +192,14 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        // Module 6 Point 3.1 — `D-22`'s automatic product add, published by
+        // Catalog because the product is added to the catalog. `bind` for the
+        // reason every directory here is bound: stateless, and a singleton
+        // would outlive nothing useful. The concrete class is resolved rather
+        // than constructed by hand so `SaveCatalogItem`'s five collaborators
+        // stay its own business.
+        $this->app->bind(CatalogProductProvisionerInterface::class, ProvisionCatalogProduct::class);
+
         // Module 5 Points 2.2–2.3. `bind` for the reason
         // `CustomerDirectoryInterface` is: stateless, and a singleton would
         // outlive nothing useful. `ConnectionInterface` added with Point 2.3 —
@@ -193,6 +208,18 @@ class AppServiceProvider extends ServiceProvider
             DealDirectoryInterface::class,
             fn (): EloquentDealDirectory => new EloquentDealDirectory(
                 $this->app->make(SearchService::class),
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 6 Point 1.3. `bind` for the reason every directory above is
+        // bound rather than shared: stateless, and a singleton would outlive
+        // nothing useful. **One collaborator, not two** — `ConnectionInterface`
+        // for `document_sequences`' atomic upsert (§4.7), and no `SearchService`
+        // because nothing searches supplier quotations until Step 4.
+        $this->app->bind(
+            SupplierQuotationDirectoryInterface::class,
+            fn (): EloquentSupplierQuotationDirectory => new EloquentSupplierQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
             ),
         );
@@ -307,7 +334,24 @@ class AppServiceProvider extends ServiceProvider
         // answers for `AttachmentParent::Deal` and still denies the other three,
         // which do not exist yet — a failing download for one of those remains
         // the honest report of an unfinished feature.
-        $this->app->bind(AttachmentPermissionInterface::class, DealAttachmentPermission::class);
+        // Module 6 Point 5.1 is the second parent, and the crossing
+        // `DealAttachmentPermission`'s docblock left open: "Whoever builds the
+        // second parent's permission decides then whether this class grows a
+        // `match` or a composite replaces it." A composite, because a `match`
+        // would put §3.6's rule inside Module 5. Each module keeps its own
+        // answer; this map is the only place that has to know about both, and
+        // it is already outside every module boundary.
+        //
+        // `PurchaseOrder` and `Report` have no entry and are refused by the
+        // composite — `DenyAllAttachmentPermission`'s deny-by-default kept for
+        // the two parents whose modules are still `.gitkeep`.
+        $this->app->bind(
+            AttachmentPermissionInterface::class,
+            fn (): AttachmentPermissionInterface => new ParentAwareAttachmentPermission([
+                AttachmentParent::Deal->value => $this->app->make(DealAttachmentPermission::class),
+                AttachmentParent::SupplierQuotation->value => $this->app->make(SupplierQuotationAttachmentPermission::class),
+            ]),
+        );
 
         // SEC-15. `bind` and not `singleton` for the same reason as the
         // validator: the choice is configuration, and a cached instance would

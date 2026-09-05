@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Catalog;
 
+use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -56,8 +57,6 @@ final class CatalogItemSchemaMigrationTest extends TestCase
     use RefreshDatabase;
 
     private const MASTER_DOCUMENTATION = '/opt/crm/docs/CRM_Documentation_EN.md';
-
-    private const MIGRATION = 'database/migrations/2026_08_30_110000_create_catalog_items.php';
 
     private const CHECK_VIOLATION = '23514';
 
@@ -336,11 +335,125 @@ final class CatalogItemSchemaMigrationTest extends TestCase
         self::assertTrue((bool) $row->is_active, '§7.3 records an active product/service; a new one is active.');
     }
 
+    // ────────────── Module 6 Point 3.2 — the lookup Point 3.1 introduced
+
+    /**
+     * `Coding_Standards_EN.md` §7: "Add indexes for each new join, permission
+     * scope, filter, sort, and common lookup."
+     *
+     * Point 1.2 argued this table had no index to add — `DB-09` names
+     * "customer · owner · deal status · dates · entity codes" and
+     * `catalog_items` has none of them, so "an index for a query that does not
+     * exist yet is a guess that costs every write". Point 3.1 wrote the query:
+     * `findProductIdByName()` runs `lower(name) = lower(?)` once per line of
+     * every supplier-quotation save (`D-22`, Points 3.4 and 3.5), inside the
+     * write transaction `PRF-01` caps at 500 ms.
+     *
+     * `DB-09` is deliberately **not** cited: its list does not name a product
+     * name, and claiming it here would contradict Point 1.2's own reasoning.
+     */
+    public function test_that_the_product_name_lookup_has_an_index(): void
+    {
+        $definition = DB::scalar(
+            "select indexdef from pg_indexes where indexname = 'catalog_items_by_lower_name'",
+        );
+
+        self::assertIsString(
+            $definition,
+            '`D-22` looks a product up by name on every offer line, and the lookup has no index.',
+        );
+
+        // A plain index on `name` cannot serve `lower(name) = ?`; the index has
+        // to be built over the same expression the lookup applies.
+        self::assertStringContainsString('lower(', $definition, 'The index is not over `lower(name)`.');
+
+        // `id` is not decoration. Point 3.1 orders by it and reads one row, and
+        // a name-only index loses to `catalog_items_pkey` because walking the
+        // key in order avoids the sort — measured at 50k rows, 15,521 buffers
+        // against 4. The second column is what makes the index reachable.
+        self::assertStringContainsString('id', $definition, 'The index cannot satisfy the lookup ordering.');
+
+        // `DB-01`: the lookup reads live rows only, so dead ones do not belong
+        // in the index. The shape `customers_by_owner` already uses.
+        self::assertStringContainsString(
+            'WHERE (deleted_at IS NULL)',
+            $definition,
+            'The index is not partial — DB-01 keeps deleted rows out of this lookup.',
+        );
+    }
+
+    /**
+     * The plan, not merely the index: `Coding_Standards_EN.md` §7 asks that one
+     * be "verified with realistic query plans".
+     *
+     * The SQL comes from the query log of the real directory call rather than
+     * being retyped, so an index that stops matching the lookup — or a lookup
+     * that stops matching the index — reddens here instead of passing against a
+     * copy that only agrees with itself.
+     *
+     * `RefreshDatabase` leaves a handful of rows, where a sequential scan
+     * genuinely is the cheaper plan, so the planner is asked to cost the index
+     * path instead. That makes this a proof the index *can* serve the
+     * predicate; the realistic-volume plan is in the point's report. `SET
+     * LOCAL` dies with the test's transaction rather than leaking into the
+     * next test in this process.
+     */
+    public function test_that_the_product_name_lookup_reads_through_that_index(): void
+    {
+        $this->insert(['name' => 'Copper Cable 4mm']);
+
+        $directory = $this->app->make(CatalogItemDirectoryInterface::class);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $directory->findProductIdByName('copper cable 4mm');
+
+        $log = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        self::assertCount(1, $log, 'The lookup is a single query; this reads the first of several.');
+
+        $sql = $log[0]['query'] ?? null;
+        $bindings = $log[0]['bindings'] ?? null;
+
+        self::assertIsString($sql);
+        self::assertIsArray($bindings);
+
+        DB::statement('set local enable_seqscan = off');
+
+        // `FORMAT JSON` for one scalar instead of a row per plan line: the text
+        // form arrives as `mixed` rows PHPStan level 10 will not read a property
+        // off, and the cast that would silence it is the escape hatch Coding
+        // Standards §5 forbids.
+        $plan = DB::scalar('explain (format json) '.$sql, $bindings);
+
+        self::assertIsString($plan);
+
+        self::assertStringContainsString(
+            'catalog_items_by_lower_name',
+            $plan,
+            "The lookup cannot reach the index. Its plan was:\n".$plan,
+        );
+    }
+
     // ────────────────────────────────────────────────────────────── DEV-03
 
+    /**
+     * `migrate:reset`, not `migrate:rollback --path`: `--path` does not choose
+     * which migrations roll back. `Migrator::rollback()` takes the whole last
+     * batch from the repository and uses the path only to resolve each entry to
+     * a file, skipping what it cannot resolve ("Migration not found") — so under
+     * `RefreshDatabase`, where the schema is a single batch, a one-file path
+     * means "run this down() while every later table still stands", and any new
+     * child foreign key turns this red (`SQLSTATE[2BP01]`) without this down()
+     * having changed. Module 6 Point 1.2's `supplier_quotation_items` is that
+     * child — it is what reddened this test, and this test's subject did not
+     * change. Same shelf life, same fix, as the four converted in Point 1.1.
+     */
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
+        Artisan::call('migrate:reset', ['--force' => true]);
 
         self::assertFalse(Schema::hasTable('catalog_items'), 'down() left `catalog_items` behind (DEV-03).');
 

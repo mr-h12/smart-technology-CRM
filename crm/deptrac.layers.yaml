@@ -65,6 +65,16 @@ parameters:
         # Identity to build an error body; both now sit on the shared side.
         - type: classLike
           value: ^App\\Support\\Http\\.*
+        # `App\Support\Database\Precision` — `D-68`'s column scales, added
+        # 2026-09-02 with Module 6 Point 1.3, the first Eloquent model to cast a
+        # money column. The class exists so that a column's scale and its cast's
+        # scale cannot drift apart, which is only possible if the model may name
+        # it. Narrow to the one class, **not** `^App\Support\Database\.*`:
+        # `StandardColumns` is migration scaffolding and a module has no
+        # business calling it, so the namespace would grant more than the
+        # dependency needs.
+        - type: classLike
+          value: ^App\\Support\\Database\\Precision$
 
     - name: Framework
       collectors:

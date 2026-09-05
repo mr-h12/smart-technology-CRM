@@ -87,6 +87,19 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'catalog.view',
             },
             {
+                // §8 names this screen right after Suppliers for the Manager,
+                // Team Leader, Outdoor Sales, Indoor Sales and Procurement.
+                // Keyed on §3.6's `supplier_quotation.view` rather than on §8's
+                // list, because §8 omits the CEO while §3.6 grants them the
+                // permission — the owner's ruling of 2026-08-31, the same one
+                // the Suppliers and Catalog items already follow. `SEC-09`
+                // stands: `AppSidebar` filtering is presentation, never a check.
+                name: 'supplier-quotations',
+                labelKey: 'nav.item.supplierQuotations',
+                icon: 'M4 3h9l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V7h2.5zM6 9h8v1.5H6zm0 3h8v1.5H6zm0 3h5V16H6z',
+                permission: 'supplier_quotation.view',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

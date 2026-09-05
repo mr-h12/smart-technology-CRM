@@ -373,6 +373,21 @@ would hide them behind `OD-03` indefinitely.
       reported seven missing rather than one. The command's first real run caught it. **The four
       grants beyond §3 are still in place** — nothing here revoked anything.
 
+- [ ] **A role change made outside an HTTP request writes an unattributed audit row** — measured
+      2026-09-05 while revoking the four grants beyond §3. `RequestAuditContext` resolves the actor
+      from `$request->user()`, which a console request leaves unset; calling `auth()->setUser()` and
+      `request()->setUserResolver()` first did **not** reach it, and the two
+      `ROLE_PERMISSIONS_UPDATED` rows at `08:12:10` carry `user_id = NULL`. The event, the timestamp
+      and the old/new values are all there — only the actor is missing.
+      **The application itself is not at fault:** the same change made through the endpoint attributes
+      correctly, proven by the rows at `2026-08-31 19:53:58` and `2026-09-05 07:37`, both naming
+      `super.admin@example.test`. **The two rows are not repaired** — audit records are immutable and
+      retained permanently, and editing one to look better is the opposite of what an audit log is
+      for.
+      **What it costs:** any future console-driven role or permission change silently fails `AUD-01`'s
+      "include user". A console actor option, or a refusal to record without one, is the fix; both are
+      Module 1's, and neither is decided here.
+
 - [ ] **The §3-versus-live comparison is written twice** — `RbacMatrixDataTest` builds it inline
       across six `grants()` loops, and `VerifyPermissionMatrix` now builds it again as a use case.
       Only the second can run against a real database, so the first is the one that should collapse

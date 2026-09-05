@@ -349,6 +349,13 @@ describe('the supplier quotation form', () => {
 
         expect(refused.find('[data-testid="supplier-quotations-create"]').exists()).toBe(false);
         expect(refused.find('[data-testid="supplier-quotations-row-edit"]').exists()).toBe(false);
+
+        // §7.2's last criterion, on the screen: "**Shared screen — not
+        // restricted by ownership**". A reader who may not write still sees
+        // every row, so refusing the write controls must not empty the table.
+        // The enforcement half is `SupplierQuotationListEndpointTest`'s, where
+        // a reader is shown an offer the Manager entered.
+        expect(refused.findAll('[data-testid="supplier-quotations-row"]')).toHaveLength(1);
     });
 
     it('opens the dialog empty for a create and filled for an edit', async () => {

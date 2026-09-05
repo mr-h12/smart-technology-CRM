@@ -192,6 +192,40 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<ApiRes
 }
 
 /**
+ * A binary read — `GET /files/{id}/download`, §17's permission-checking
+ * endpoint, and the only response in this API that is not an envelope.
+ *
+ * It cannot go through `request()`, which ends in `response.json()`: a PDF
+ * parsed as JSON is a thrown `SyntaxError` where a file should be. What it does
+ * share is the part that matters — `headersFor()` supplies the same bearer,
+ * the same `Accept-Language` and `D-29`'s unauthorized handling, so the two
+ * paths cannot drift on authentication.
+ *
+ * ⚠️ **A plain `<a href>` cannot do this.** The credential is an `Authorization`
+ * header (`D-74`), which a browser navigation does not send, so a link to this
+ * path is a 401. The blob and its object URL are what turn an authenticated
+ * fetch back into a saveable file.
+ *
+ * A non-clean file answers **404**, not 403: `DownloadFile::forActor()` refuses
+ * anything `! isScannedClean()` before it looks at permission at all
+ * (`SEC-15`), and `OpenAPI` deliberately does not say which case a 404 is.
+ */
+export async function apiDownload(path: string): Promise<Blob> {
+    const token = bearerToken();
+    const response = await fetch(`/api/v1${path}`, { method: 'GET', headers: headersFor(token) });
+
+    if (!response.ok) {
+        if (response.status === 401 && token !== null) {
+            onUnauthorized();
+        }
+
+        throw await errorFrom(response, 'GET', path, response.headers.get('X-Request-Id'));
+    }
+
+    return response.blob();
+}
+
+/**
  * `OpenAPI §4.2`'s collection envelope, unwrapped once for every service.
  *
  * The pagination fallback matters: a client that computed the total from the
@@ -214,9 +248,12 @@ export function collection<T>(result: ApiResult<unknown>): { items: T[]; paginat
     };
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
-    const token = bearerToken();
-
+/**
+ * The headers every call shares, extracted when `apiDownload()` became the
+ * second caller. A second hand-written copy of the bearer line is the kind of
+ * duplicate that is correct in both places until one of them changes.
+ */
+function headersFor(token: string | null): Record<string, string> {
     const headers: Record<string, string> = {
         Accept: 'application/json',
         // OpenAPI §2: the client states its language; stable machine codes
@@ -232,6 +269,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         // server has never seen.
         headers.Authorization = `Bearer ${token}`;
     }
+
+    return headers;
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
+    const token = bearerToken();
+    const headers = headersFor(token);
 
     // FormData writes its own `Content-Type`, boundary included. Setting one
     // here would name a boundary the body does not use, and the server would

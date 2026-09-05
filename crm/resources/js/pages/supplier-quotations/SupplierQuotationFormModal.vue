@@ -56,15 +56,19 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { listCatalogItems, type CatalogItem } from '@/services/catalog';
+import { downloadFile } from '@/services/files';
 import {
+    attachSupplierQuotationDocument,
     createSupplierQuotation,
     readSupplierQuotation,
     updateSupplierQuotation,
     type SupplierQuotation,
+    type SupplierQuotationDocument,
     type SupplierQuotationDraft,
     type SupplierQuotationLineDraft,
 } from '@/services/supplier-quotations';
 import type { Supplier } from '@/services/suppliers';
+import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{
     open: boolean;
@@ -149,6 +153,40 @@ const catalogItems = ref<CatalogItem[]>([]);
 /** Keyed `"<index>.<field>"`, the way the server names it minus the `items.` prefix. */
 const lineErrors = ref<Map<string, string>>(new Map());
 
+// ── §7.2's `pdf_file` row (Point 6.5) ──────────────────────────────────────
+
+const auth = useAuth();
+
+/**
+ * §3.6's **third** grant, and not `create`.
+ *
+ * `POST /supplier-quotations/{id}/documents` carries `upload_attachment`, which
+ * `PermissionMatrix` gives to the same five roles as `create` today. That is a
+ * fact about the current seed, not about the system: RBAC is database-backed
+ * and dynamic (`SEC-07`) and §3.11's role screen can revoke one row while the
+ * other stands — which is precisely what happened to a live role on
+ * 2026-08-31. A control keyed on `create` would outlive its own permission.
+ */
+const canUpload = computed(() => auth.hasPermission('supplier_quotation.upload_attachment'));
+
+/**
+ * What was attached **in this dialog**, and nothing else.
+ *
+ * ⚠️ There is no list to load. `SupplierQuotationPayload::detail()` returns the
+ * header and `items`; the module publishes `uploadDocument` and no read; and
+ * the whole API has exactly one `/files` route, the download. So an attachment
+ * made before this dialog opened cannot be shown at all. Owner's ruling of
+ * 2026-09-05: ship it and say so, in the panel as well as on the register.
+ */
+const attachments = ref<SupplierQuotationDocument[]>([]);
+
+const uploading = ref(false);
+const downloadingId = ref<string | null>(null);
+
+/** A key when this screen has one, the server's own sentence when it sent one. */
+const attachmentErrorKey = ref<string | null>(null);
+const attachmentError = ref<string | null>(null);
+
 const isEdit = computed(() => props.editing !== null);
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
@@ -225,6 +263,13 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     serverErrors.value = {};
     lineErrors.value = new Map();
     confirmingDiscard.value = false;
+
+    // A dialog reopened on another offer must not show the first one's files.
+    attachments.value = [];
+    attachmentErrorKey.value = null;
+    attachmentError.value = null;
+    uploading.value = false;
+    downloadingId.value = null;
 
     void loadCatalog();
     void loadLines(record);
@@ -413,6 +458,70 @@ async function save(): Promise<void> {
         applyServerErrors(error);
     } finally {
         saving.value = false;
+    }
+}
+
+/**
+ * §17's upload. No client-side type or size check, deliberately:
+ * `UploadSupplierQuotationDocumentRequest` carries neither, because §17 reads
+ * the type from the **bytes** and `D-71`'s ceiling is configuration (`AP-08`).
+ * A guess here would be a second rule, one deployment away from disagreeing
+ * with the only one that reads the file.
+ *
+ * The input is cleared either way, so the same file can be retried after a
+ * refusal — a `change` event does not fire twice for an unchanged value.
+ */
+async function upload(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const record = props.editing;
+
+    if (file === undefined || record === null) {
+        return;
+    }
+
+    uploading.value = true;
+    attachmentErrorKey.value = null;
+    attachmentError.value = null;
+
+    try {
+        attachments.value.push(await attachSupplierQuotationDocument(record.id, file));
+    } catch (error) {
+        if (error instanceof ApiError) {
+            // `OpenAPI §5` — `details[]` names `document` when the file itself
+            // was refused, which is the control the person used.
+            attachmentError.value = error.messageFor('document');
+            attachmentErrorKey.value = attachmentError.value !== null
+                ? null
+                : (error.status === 403 ? 'supplierQuotations.form.attachmentForbidden' : 'supplierQuotations.form.attachmentRejected');
+        } else {
+            attachmentErrorKey.value = 'supplierQuotations.form.attachmentUnreachable';
+        }
+    } finally {
+        uploading.value = false;
+        input.value = '';
+    }
+}
+
+/**
+ * §17's download, through Storage's own route (`D-38`: the permission is the
+ * parent's). Only ever offered for a `clean` file — `DownloadFile::forActor()`
+ * refuses anything else with a 404 before it considers permission (`SEC-15`),
+ * so a control on a `pending` or `infected` row could only ever fail.
+ */
+async function download(document_: SupplierQuotationDocument): Promise<void> {
+    downloadingId.value = document_.id;
+    attachmentErrorKey.value = null;
+    attachmentError.value = null;
+
+    try {
+        await downloadFile(document_.id, document_.original_name);
+    } catch (error) {
+        attachmentErrorKey.value = error instanceof ApiError && error.status === 403
+            ? 'supplierQuotations.form.attachmentForbidden'
+            : 'supplierQuotations.form.attachmentRejected';
+    } finally {
+        downloadingId.value = null;
     }
 }
 
@@ -719,6 +828,92 @@ function discard(): void {
                 {{ t('supplierQuotations.form.totalUnavailable') }}
             </p>
 
+            <!-- §7.2's `pdf_file` row — "Scan or PDF of the offer" (Point 6.5). -->
+            <fieldset class="flex flex-col gap-2">
+                <legend class="text-card-title">{{ t('supplierQuotations.form.attachments') }}</legend>
+
+                <!-- The route is `/supplier-quotations/{id}/documents`, so there
+                     has to be an offer before there can be a file on it. -->
+                <p
+                    v-if="!isEdit"
+                    class="text-[var(--color-text-muted)]"
+                    data-testid="supplier-quotation-form-attachments-save-first"
+                >
+                    {{ t('supplierQuotations.form.attachmentsSaveFirst') }}
+                </p>
+
+                <template v-else>
+                    <p class="text-[var(--color-text-muted)]" data-testid="supplier-quotation-form-attachments-ceiling">
+                        {{ t('supplierQuotations.form.attachmentsCeiling') }}
+                    </p>
+
+                    <ul v-if="attachments.length > 0" class="flex flex-col gap-2">
+                        <li
+                            v-for="(document_, index) in attachments"
+                            :key="document_.id"
+                            class="line-row flex flex-wrap items-center gap-3 rounded-lg p-3"
+                        >
+                            <span class="flex-1" :data-testid="`supplier-quotation-attachment-${index}-name`">
+                                {{ document_.original_name }}
+                            </span>
+
+                            <!-- `SEC-15`: only a clean file is servable, so only
+                                 a clean file gets a control. -->
+                            <button
+                                v-if="document_.scan_status === 'clean'"
+                                type="button"
+                                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="downloadingId !== null"
+                                :data-testid="`supplier-quotation-attachment-${index}-download`"
+                                @click="download(document_)"
+                            >
+                                {{ t('supplierQuotations.form.attachmentDownload') }}
+                            </button>
+
+                            <span
+                                v-else-if="document_.scan_status === 'infected'"
+                                class="scan-infected rounded-lg px-2 py-1"
+                                :data-testid="`supplier-quotation-attachment-${index}-infected`"
+                            >
+                                {{ t('supplierQuotations.form.scanInfected') }}
+                            </span>
+
+                            <span
+                                v-else
+                                class="scan-pending rounded-lg px-2 py-1"
+                                :data-testid="`supplier-quotation-attachment-${index}-pending`"
+                            >
+                                {{ t('supplierQuotations.form.scanPending') }}
+                            </span>
+                        </li>
+                    </ul>
+
+                    <p
+                        v-if="attachmentErrorKey !== null || attachmentError !== null"
+                        class="form-alert rounded-lg p-3"
+                        role="alert"
+                        data-testid="supplier-quotation-form-attachment-error"
+                    >
+                        {{ attachmentError ?? t(attachmentErrorKey ?? '') }}
+                    </p>
+
+                    <!-- §3.6's third grant. Hidden here **and** enforced at the
+                         API — `SEC-09` requires the second, not instead of the
+                         first. -->
+                    <label v-if="canUpload" class="flex flex-col gap-1.5" for="supplier-quotation-form-attachment">
+                        <span>{{ uploading ? t('supplierQuotations.form.attachmentUploading') : t('supplierQuotations.form.attachmentChoose') }}</span>
+                        <input
+                            id="supplier-quotation-form-attachment"
+                            type="file"
+                            :disabled="uploading || saving"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            data-testid="supplier-quotation-form-attachment-file"
+                            @change="upload($event)"
+                        />
+                    </label>
+                </template>
+            </fieldset>
+
             <!-- §5.2's unsaved-change warning. Inside the dialog, because a
                  native `confirm()` is neither translatable nor RTL-aware. -->
             <div
@@ -807,6 +1002,19 @@ function discard(): void {
 .line-row {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
+}
+
+/* §6.4: never colour alone — each of these renders a word beside it. */
+.scan-pending {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-warning);
+    color: var(--color-text);
+}
+
+.scan-infected {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-danger);
+    color: var(--color-danger);
 }
 
 .modal-cancel {

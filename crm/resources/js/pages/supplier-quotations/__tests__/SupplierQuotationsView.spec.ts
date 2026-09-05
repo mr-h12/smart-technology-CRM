@@ -64,7 +64,15 @@ const USER: AuthenticatedUser = {
     name: 'Test Manager',
     email: 'manager@example.test',
     role: { id: 'r1', slug: 'manager', name: 'Manager' },
-    permissions: ['supplier_quotation.view.all', 'supplier_quotation.create.all'],
+    permissions: [
+        'supplier_quotation.view.all',
+        'supplier_quotation.create.all',
+        // §3.6 seeds a **third** row, and Point 6.5 is the first thing that
+        // reads it. `PermissionMatrix` grants it to the same five roles as
+        // `create` today, but RBAC is database-backed and dynamic (`SEC-07`),
+        // so the two are not interchangeable.
+        'supplier_quotation.upload_attachment.all',
+    ],
     is_active: true,
     unconditional_access: false,
 };
@@ -81,6 +89,17 @@ const CEO: AuthenticatedUser = {
     email: 'ceo@example.test',
     role: { id: 'r2', slug: 'ceo', name: 'CEO' },
     permissions: ['supplier_quotation.view.all'],
+};
+
+/**
+ * A writer whose `upload_attachment` was revoked through §3.11's role screen —
+ * which is exactly what the permission-matrix incident of 2026-08-31 showed can
+ * happen to a live role. `create` alone must not draw an upload control.
+ */
+const WRITER_WITHOUT_UPLOAD: AuthenticatedUser = {
+    ...USER,
+    id: 'u3',
+    permissions: ['supplier_quotation.view.all', 'supplier_quotation.create.all'],
 };
 
 function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
@@ -116,8 +135,28 @@ function isDetailRead(input: string, init?: RequestInit): boolean {
  * catalog call the line editor's picker needs, and the detail read an edit
  * makes for its lines.
  */
-function respond(offers: unknown = [OFFER], status = 200, detail: unknown = { ...OFFER, items: OFFER_LINES }): ReturnType<typeof vi.fn> {
+function respond(
+    offers: unknown = [OFFER],
+    status = 200,
+    detail: unknown = { ...OFFER, items: OFFER_LINES },
+    scanStatus = 'clean',
+): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string, init?: RequestInit) => {
+        if (String(input).endsWith('/download')) {
+            return new Response('%PDF-1.4', { status: 200 });
+        }
+
+        if (String(input).includes('/documents')) {
+            return json(201, envelope({
+                id: 'd1',
+                original_name: 'offer.pdf',
+                mime_type: 'application/pdf',
+                size_bytes: 8,
+                scan_status: scanStatus,
+                created_at: '2026-09-05T00:00:00+00:00',
+            }));
+        }
+
         if (String(input).includes('/suppliers')) {
             return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
         }
@@ -697,5 +736,170 @@ describe('the supplier quotation line editor', () => {
             .toBe('The quantity must be above zero.');
         // A named field means no generic banner — the sentence is already on the control.
         expect(view.find('[data-testid="supplier-quotation-form-error"]').exists()).toBe(false);
+    });
+});
+
+/**
+ * Module 6, Point 6.5 — §7.2's `pdf_file` row, "Scan or PDF of the offer".
+ *
+ * ── A third grant, and it is not `create` ──────────────────────────────────
+ *
+ * §3.6 seeds `upload_attachment` beside `view` and `create / edit`, and
+ * `POST /supplier-quotations/{id}/documents` carries it. `PermissionMatrix`
+ * grants it to the same five roles as `create` **today**, which is why the
+ * negative case below is a fixture holding `create` without it rather than the
+ * CEO: RBAC is database-backed and dynamic (`SEC-07`), the role screen can
+ * revoke one row and not the other, and a control keyed on `create` would
+ * survive that revocation.
+ *
+ * ── The download is a fetch, never a link ──────────────────────────────────
+ *
+ * `GET /files/{id}/download` authorises through the parent (`D-38`) and the
+ * credential is an `Authorization` header (`D-74`), so an `<a href>` to it is a
+ * 401. `downloadFile()` is the helper, proved in `services/files.spec.ts`.
+ *
+ * A file whose scan is not `clean` is refused by `DownloadFile::forActor()`
+ * before permission is even considered (`SEC-15`), and answered **404**. So a
+ * download control for a `pending` or an `infected` file would be a control
+ * that always fails, and there is none.
+ *
+ * ⚠️ **Stated ceiling, owner's ruling of 2026-09-05.** This panel lists what
+ * was attached **in this dialog**, and nothing else. `SupplierQuotationPayload`
+ * `::detail()` returns the header and `items`; the module publishes
+ * `uploadDocument` and no read, and `grep -c "/files" routes/api.php` is `1`.
+ * Nothing in the API can be asked which files an offer has. On the register.
+ */
+describe('the supplier quotation attachments', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    function attach(view: Awaited<ReturnType<typeof render>>, name = 'offer.pdf'): Promise<void> {
+        const input = view.get('[data-testid="supplier-quotation-form-attachment-file"]').element as HTMLInputElement;
+
+        Object.defineProperty(input, 'files', { configurable: true, value: [new File(['%PDF-1.4'], name, { type: 'application/pdf' })] });
+
+        return view.get('[data-testid="supplier-quotation-form-attachment-file"]').trigger('change');
+    }
+
+    /** The route needs an offer id, and a create has none until it is saved. */
+    it('offers no upload on a create, and says why', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-attachment-file"]').exists()).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-form-attachments-save-first"]').exists()).toBe(true);
+    });
+
+    it('posts the file to the offer’s documents route under the field name the server reads', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => String(c[0]).includes('/documents'));
+
+        expect(String(call?.[0])).toBe('/api/v1/supplier-quotations/q1/documents');
+
+        const body = (call?.[1] as RequestInit).body as FormData;
+
+        expect(body).toBeInstanceOf(FormData);
+        expect((body.get('document') as File).name).toBe('offer.pdf');
+    });
+
+    it('offers a download for a clean file, and fetches §17’s route when it is used', async () => {
+        vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:t'), revokeObjectURL: vi.fn() }));
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-attachment-0-name"]').text()).toBe('offer.pdf');
+
+        await view.get('[data-testid="supplier-quotation-attachment-0-download"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((c) => String(c[0]) === '/api/v1/files/d1/download')).toBe(true);
+    });
+
+    /** `SEC-15`: not clean is not servable, and the endpoint answers 404 — so no control is drawn. */
+    it.each([
+        ['pending', 'supplier-quotation-attachment-0-pending'],
+        ['infected', 'supplier-quotation-attachment-0-infected'],
+    ])('draws the %s state and no download control', async (status, testid) => {
+        const fetchMock = respond(undefined, 200, undefined, status);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+
+        expect(view.find(`[data-testid="${testid}"]`).exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-download"]').exists()).toBe(false);
+    });
+
+    it('draws a refusal when the upload is forbidden', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (String(input).includes('/catalog-items')) {
+                return json(200, envelope([CATALOG_ITEM], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (String(input).includes('/documents')) {
+                return json(403, { error: { code: 'forbidden', message: 'no' }, meta: { request_id: 'r1' } });
+            }
+
+            if (isDetailRead(String(input), init)) {
+                return json(200, envelope({ ...OFFER, items: OFFER_LINES }));
+            }
+
+            return json(200, envelope([OFFER], { pagination: PAGINATION }));
+        });
+
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-attachment-error"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-name"]').exists()).toBe(false);
+    });
+
+    /** §3.6's third row, revoked while `create` stands — the case a `create`-keyed control would miss. */
+    it('draws no upload control for a writer whose upload_attachment was revoked', async () => {
+        const view = await render(respond(), WRITER_WITHOUT_UPLOAD);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-attachment-file"]').exists()).toBe(false);
+    });
+
+    /** The panel is honest about what it cannot know — see the ceiling above. */
+    it('says that only this session’s attachments are listed', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-attachments-ceiling"]').exists()).toBe(true);
     });
 });

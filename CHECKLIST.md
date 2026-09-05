@@ -668,6 +668,19 @@ would hide them behind `OD-03` indefinitely.
       publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
       accept a currency code. Both are cross-module and neither belongs inside a Module 6 point
 
+- [ ] **Nothing in the API can be asked which files an entity has** — revealed 2026-09-05 by Module 6
+      Point 6.5, and it is not a Module 6 gap: it is the shape of §17's surface. Measured in that
+      session: `SupplierQuotationPayload::detail()` returns the nine header fields and `items`;
+      `SupplierQuotationController` publishes `uploadDocument` and no document read; and
+      `grep -c "/files" routes/api.php` is **1** — `GET /files/{file}/download`, which needs an id
+      the caller must already hold. So a file attached to an offer is **write-only from the UI's
+      point of view**: it is stored, scanned and audited, and then invisible. The same is true of
+      `POST /deals/{id}/documents` (Module 5), so Module 9's PDF snapshots and Module 11's
+      procurement documents will each hit it. Owner's ruling 2026-09-05: 6.5 ships a panel listing
+      this dialog's own uploads, saying so in the panel itself. Owed, and it is a contract change
+      (`OpenAPI §8`) before it is work: a `documents` array on the detail payload, or a
+      `GET /{id}/documents` per parent. Not startable inside a frontend point
+
 - [ ] **A fifth Vue form modal now carries the same 126-line shape** — created 2026-09-05 by Point
       6.3's `SupplierQuotationFormModal.vue`. `grep -rln "function applyServerErrors"
       resources/js` returns five files (`UserFormModal`, `CatalogItemFormModal`,
@@ -7393,8 +7406,49 @@ Module 5 is finished.
       duplicating it — `ProvisionCatalogProduct::productIdFor()` looks the name up before creating —
       so the ceiling costs convenience, not correctness. There is no search-as-you-type here; the
       catalog list declares a `q` and this editor does not use it.
-- [ ] **6.5** the attachment — upload behind `supplier_quotation.upload_attachment`, download behind
-      `view`, with the refused and infected states visible.
+- [x] **6.5** the attachment — §7.2's `pdf_file` row, "Scan or PDF of the offer", as a panel in
+      `SupplierQuotationFormModal.vue`.
+      **The upload is behind §3.6's third grant**, `supplier_quotation.upload_attachment`, and
+      **not** `create`. `PermissionMatrix` gives both to the same five roles today, which is a fact
+      about the seed and not about the system: RBAC is database-backed and dynamic (`SEC-07`) and
+      §3.11's role screen can revoke one row while the other stands — which is exactly what happened
+      to a live role on 2026-08-31. The negative case is therefore a fixture holding `create`
+      **without** the third grant, not the CEO, and a probe that re-keyed the control on `create`
+      reddened it.
+      **The download is a fetch, never a link.** `GET /files/{id}/download` is Storage's one route
+      (`grep -c "/files" routes/api.php` → **1**), it authorises through the parent (`D-38`), and the
+      credential is an `Authorization` header (`D-74`) — which a browser navigation does not send, so
+      an `<a href>` to it is a 401. New: `apiDownload()` in `api.ts` and `downloadFile()` in
+      `services/files.ts`, the SPA's first file download. The bearer block was **extracted** into
+      `headersFor()` rather than copied — `grep -n 'Bearer '` finds one line.
+      **A non-clean file gets no control at all.** `DownloadFile::forActor()` refuses anything
+      `! isScannedClean()` **before** it looks at permission (`SEC-15`) and answers 404, so a button
+      on a `pending` or `infected` row could only ever fail. Both states render a word beside their
+      colour (§6.4).
+      **11 tests (8 screen + 3 transport). RED first: 7 of 8 screen tests failed, 24 passed** — then
+      31 passed; the transport suite was **green on arrival**, so its three probes are its
+      verification.
+      ⚠️ **Stated ceiling, owner's ruling of 2026-09-05: the panel lists only what was attached in
+      this dialog.** Registered below.
+      ⚠️ **Upload needs a saved offer.** The route is `/supplier-quotations/{id}/documents`, so a
+      create has no id to post to; the panel says "save the offer first" instead of drawing a control
+      that cannot work.
+      ⚠️ **One defect of mine, caught by `vue-tsc` and not by vitest** — a `vi.fn(async () => …)`
+      declares no parameters, so `mock.calls` types as `[][]` and `calls[0]?.[0]` is an error rather
+      than a value. Declaring the parameters is the fix. **And one probe that lied:** removing the
+      `finally` from `downloadFile` left `try {` with no handler — a syntax error — so the suite
+      errored and the grep printed **nothing**, which reads exactly like a pass. Re-run as a
+      well-formed leak, it reddened properly. That is trap 6 in the handoff, hit deliberately.
+      **Six probes, all reddened and restored** (`diff -q` against a pre-probe copy): the upload
+      keyed on `create` (**1 red**), a download offered for any scan status (**2 red**), the file
+      sent under the wrong field name (**2 red**), no bearer on the download (**1 red**), the object
+      URL not revoked (**1 red**), and a 404 accepted as a file (**1 red**).
+      **Waste audit — nothing found, and here is how it was asked.** Every new symbol has a caller;
+      all 11 new lang keys render exactly once (`attachmentForbidden`/`Rejected` twice, upload and
+      download); all 8 new `data-testid`s are queried by the spec; the bearer header exists once in
+      the tree; `createObjectURL` appears in exactly one non-spec file. `+2` PHP tests
+      (2226 → 2228) is `LogicalPropertiesTest`'s per-file provider over the two new `.ts` files —
+      measured at 131 → 133, not inferred.
 - [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
       manual test list.
 

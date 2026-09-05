@@ -373,20 +373,35 @@ would hide them behind `OD-03` indefinitely.
       reported seven missing rather than one. The command's first real run caught it. **The four
       grants beyond §3 are still in place** — nothing here revoked anything.
 
-- [ ] **A role change made outside an HTTP request writes an unattributed audit row** — measured
-      2026-09-05 while revoking the four grants beyond §3. `RequestAuditContext` resolves the actor
-      from `$request->user()`, which a console request leaves unset; calling `auth()->setUser()` and
-      `request()->setUserResolver()` first did **not** reach it, and the two
-      `ROLE_PERMISSIONS_UPDATED` rows at `08:12:10` carry `user_id = NULL`. The event, the timestamp
-      and the old/new values are all there — only the actor is missing.
-      **The application itself is not at fault:** the same change made through the endpoint attributes
-      correctly, proven by the rows at `2026-08-31 19:53:58` and `2026-09-05 07:37`, both naming
-      `super.admin@example.test`. **The two rows are not repaired** — audit records are immutable and
-      retained permanently, and editing one to look better is the opposite of what an audit log is
-      for.
-      **What it costs:** any future console-driven role or permission change silently fails `AUD-01`'s
-      "include user". A console actor option, or a refusal to record without one, is the fix; both are
-      Module 1's, and neither is decided here.
+- [ ] **A role change made outside an HTTP request is recorded as a system action, not a user's** —
+      measured 2026-09-05 while revoking the four grants beyond §3. The two `ROLE_PERMISSIONS_UPDATED`
+      rows at `08:12:10` carry `user_id = NULL`.
+      ⚠️ **The first diagnosis written here was wrong and is corrected.** It said
+      `RequestAuditContext` reads `$request->user()` and that setting a user resolver failed to reach
+      it. Reading the class settles it: the gate is the **request-id attribute**, which `AddRequestId`
+      sets in HTTP and no console request has. Missing it, the class returns `AuditContext::system()`
+      and **never looks at the user at all** — so no amount of setting the guard user could have
+      changed the outcome. Console actions are recorded as system actions **by design**, and its own
+      docblock names J-15 as an existing such caller.
+      **The application is not at fault**, and the endpoint attributes correctly — the rows at
+      `2026-08-31 19:53:58` and `2026-09-05 07:37` both name `super.admin@example.test`. **The two
+      rows are not repaired:** audit records are immutable and retained permanently.
+      **The open question is therefore narrower than it first looked.** Not "why did attribution
+      fail" but "is `system` an acceptable actor for a permission change?" `AUD-01` names role changes
+      among what must always be audited, and §3.12 rule 4 exists so a real person is named. A console
+      role change satisfies the first and not the spirit of the second. Whether to give the console an
+      explicit actor option, or to refuse permission writes outside a request, is Module 1's decision
+      and is not taken here.
+
+- [x] **The live grant set was returned to §3** — 2026-09-05. The four grants beyond §3 were revoked
+      through `SyncRolePermissions`, the use case the roles screen itself calls, so the removals are
+      soft deletes (`DB-01`) with an audit event. The seven missing were restored by running
+      `RolePermissionSeeder`, **not** by another hand-written script: the seeder is idempotent by
+      construction, sets `deleted_at => null` on a grant that already exists, and only ever touches
+      what `PermissionMatrix` declares — so it could restore exactly the seven and could not re-add
+      the four. `php artisan rbac:verify` now exits `0` with "the live grant set matches §3".
+      ⚠️ **The restore writes no audit row**, because a seeder is not a user action. That is the same
+      question the row above leaves open, seen from the other side.
 
 - [ ] **The §3-versus-live comparison is written twice** — `RbacMatrixDataTest` builds it inline
       across six `grants()` loops, and `VerifyPermissionMatrix` now builds it again as a use case.

@@ -89,7 +89,8 @@
             "managedLists": "القوائم المُدارة",
             "customers": "العملاء",
             "suppliers": "الموردون",
-            "catalog": "الكتالوج"
+            "catalog": "الكتالوج",
+            "supplierQuotations": "عروض المورّدين"
         }
     },
     "theme": {
@@ -805,6 +806,41 @@
             "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
             "keepEditing": "متابعة التعديل",
             "discard": "تجاهل التغييرات"
+        }
+    },
+    "supplierQuotations": {
+        "title": "عروض المورّدين",
+        "loading": "جارٍ تحميل عروض المورّدين…",
+        "total": "{count} عرضًا",
+        "filter": {
+            "supplier": "المورّد",
+            "supplierAll": "كل المورّدين",
+            "deal": "الصفقة",
+            "dealPlaceholder": "معرّف الصفقة",
+            "apply": "تطبيق"
+        },
+        "column": {
+            "code": "الرمز",
+            "supplier": "المورّد",
+            "total": "الإجمالي",
+            "offerDate": "تاريخ العرض",
+            "validUntil": "صالح حتى",
+            "deal": "الصفقة"
+        },
+        "deal": {
+            "none": "غير مرتبط"
+        },
+        "empty": {
+            "filtered": {
+                "title": "لا توجد عروض مطابقة",
+                "message": "غيّر المرشِّحات أو امسحها لعرض المزيد."
+            }
+        },
+        "pagination": {
+            "label": "صفحات عروض المورّدين",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} — {total} عرضًا"
         }
     }
 }

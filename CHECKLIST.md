@@ -7241,9 +7241,47 @@ Module 5 is finished.
       became two new data sets. Benign, and checked rather than shrugged at.
       ⚠️ **`NoHardCodedTextTest` pins an explicit list of `.vue` filenames.** Point 6.2 must add its
       component to that list, having first run the scan against it — the test's own stated terms.
-- [ ] **6.2** `SupplierQuotationsView.vue` — the list, its route and its nav entry behind
+- [x] **6.2** `SupplierQuotationsView.vue` — the list, its route and its nav entry behind
       `supplier_quotation.view`, with the two filters, the `-offer_date` default, and the loading,
-      empty and error states. Begins by reading `§13` and `Design_System_EN.md`.
+      empty and error states.
+      **The sources were read first, and they carry a conflict.** §8's *Screens by Role* lists
+      Supplier Quotations for the Manager, Team Leader, Outdoor Sales, Indoor Sales and Procurement —
+      and **not for the CEO**, while §3.6 grants the CEO `supplier_quotation.view` as `All`. This is
+      the same conflict the Suppliers and Catalog screens hit, and it takes **the same answer the
+      owner already gave on 2026-08-31**: the route and the nav item both follow the permission
+      matrix, because keying the menu on §8 would leave a screen a person may open with no way to
+      reach it. Followed as precedent rather than decided again; still **awaiting a `D-xx`**.
+      **Design System §5.2 and §6.5 shape the rest:** server-side filters and sort, server
+      pagination, right-aligned monetary values with tabular numerals, `text-end` rather than
+      `text-right` so RTL mirrors, sticky header, column priorities folding the secondary columns
+      first, and distinct loading / empty / error / **refused** states.
+      **Two filters and no search**, because `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']` and
+      this list declares none — a search box would be a control that 400s.
+      **8 tests. RED first: the import failed, then 8 failed.**
+      ⚠️ **Two stated ceilings, both measured, neither invented here.**
+      1. The supplier name comes from one `listSuppliers({ perPage: 100 })` call — `MAX_PER_PAGE` —
+         so a supplier past the hundredth shows as an identifier. The join is on this side of the
+         wire because `CLAUDE.md` forbids Module 6 reading Module 4's tables.
+      2. **The currency is not shown at all.** An offer carries `currency_id`, and
+         `CurrencyController::payload()` publishes `code`, `rounding_unit`, `rounding_enabled` and
+         `is_base` — **no `id`**, read from the source rather than assumed — so nothing in the SPA
+         can turn one into the other. A bare figure is the honest option; inventing a currency
+         beside it is not. Registered below against Module 2's payload.
+      ⚠️ **Three defects of mine, all caught by a gate rather than by eye.** `vue-tsc` rejected an
+      `AuthenticatedUser` fixture twice (`role` is an object, not a string; `is_active` and
+      `unconditional_access` are required) — the runtime tests passed with the wrong shape because
+      the component never reads those fields. And **one `data-testid` was used twice**, on the header
+      count and on a row cell, so `find()` returned the header and the money assertion read
+      "1 offers". Renamed to `supplier-quotations-count`.
+      ⚠️ **An assertion that could not fail.** `expect(wrapper.text()).not.toContain('s1')` was
+      meaningless: the page renders "Supplier Quotation**s**" followed by "**1** offers". Replaced
+      with an assertion on the named cell.
+      **Three probes, all reddened and restored:** a 403 drawn as an empty list (1 red), the total
+      rendered through `Number()` (1 red), and the nav item naming a permission its route does not —
+      which `navigation.spec.ts` catches with a generated case per item, verified by running it
+      rather than by trusting the docblock that claimed it.
+      **`NoHardCodedTextTest` passed the scan on the component first**, and only its pinned filename
+      list needed the entry — the test's own stated condition for adding one.
 - [ ] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields; the total and currency as a
       pair; no `code`.
 - [ ] **6.4** the line editor — `D-22`'s "by id **or** by name, never both".

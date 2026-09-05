@@ -117,6 +117,12 @@ final class NoHardCodedTextTest extends TestCase
                 // System §6.4's "never color alone" means the chip must render
                 // a word — and the word comes from `suppliers.rating.*` in both
                 // dictionaries rather than from the template.
+                // Module 6 Point 6.2 — §8's Supplier Quotations screen. Added
+                // on the same terms as every entry here: the scan below was run
+                // against it first and passed. Its only bare strings are the
+                // sort indicators, which are `aria-hidden` glyphs, and the
+                // em dash standing in for an absent date.
+                'SupplierQuotationsView.vue',
                 'SupplierRatingChip.vue',
                 // Module 4 Point 4.1 — §8's Suppliers screen. Added on the same
                 // terms: the scan below was run against it first and passed.

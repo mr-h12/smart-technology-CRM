@@ -89,7 +89,8 @@
             "managedLists": "Managed Lists",
             "customers": "Customers",
             "suppliers": "Suppliers",
-            "catalog": "Catalog"
+            "catalog": "Catalog",
+            "supplierQuotations": "Supplier Quotations"
         }
     },
     "theme": {
@@ -805,6 +806,41 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes"
+        }
+    },
+    "supplierQuotations": {
+        "title": "Supplier Quotations",
+        "loading": "Loading supplier quotations…",
+        "total": "{count} offers",
+        "filter": {
+            "supplier": "Supplier",
+            "supplierAll": "All suppliers",
+            "deal": "Deal",
+            "dealPlaceholder": "Deal identifier",
+            "apply": "Apply"
+        },
+        "column": {
+            "code": "Code",
+            "supplier": "Supplier",
+            "total": "Total",
+            "offerDate": "Offer date",
+            "validUntil": "Valid until",
+            "deal": "Deal"
+        },
+        "deal": {
+            "none": "Not linked"
+        },
+        "empty": {
+            "filtered": {
+                "title": "No offers match",
+                "message": "Change or clear the filters to see more offers."
+            }
+        },
+        "pagination": {
+            "label": "Supplier quotation pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} offers"
         }
     }
 }

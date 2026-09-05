@@ -38,11 +38,12 @@ use Tests\TestCase;
  *
  * ── What is deliberately not tested here ──────────────────────────────────
  *
- * §17's bytes-level rules — true MIME on a spoofed extension, `D-40`'s six
- * types, the size ceiling, the UUID filename — and the upload ⇒ download
- * journey are **Point 5.4**, and `UploadValidationTest` already owns the
- * validator's own 26 cases. What is asserted here is that the route exists,
- * that it is gated by the right grant, and that its 201 says §17's fields.
+ * §17's rules themselves belong to `FinfoUploadValidator` and are owned by
+ * `UploadValidationTest`'s 26 cases. Point 5.3 asserts that the route exists
+ * and is gated by the right grant; **Point 5.4 asserts that this endpoint is
+ * actually wired to those rules and that the file it stores can be got back
+ * out** — the module's acceptance criterion, which is about this parent's
+ * journey and not about the validator's logic a second time.
  */
 final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
 {
@@ -238,6 +239,143 @@ final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
         self::assertSame(0, DB::table('supplier_quotation_files')->where('supplier_quotation_id', $id)->count());
     }
 
+    // ──────────────────────────────────── Point 5.4 — §17 at this endpoint
+
+    /**
+     * The criterion's **"true MIME"**, and the only case that can tell the
+     * difference between a validator that reads bytes and one that reads names.
+     * A real ELF header called `offer.pdf` is refused, and `D-40` never sees it
+     * as a PDF.
+     */
+    public function test_that_an_executable_wearing_a_pdf_name_is_refused(): void
+    {
+        $id = $this->created();
+
+        $response = $this->upload($id, RoleName::Manager, $this->pdfUpload(self::executable(), 'offer.pdf'));
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error.details.0.code', 'unsupported_type')
+            ->assertJsonPath('error.details.0.field', 'document');
+
+        self::assertSame(0, DB::table('supplier_quotation_files')->where('supplier_quotation_id', $id)->count());
+        self::assertSame(0, DB::table('files')->count());
+    }
+
+    /** The criterion's **"type"** — plain text is none of `D-40`'s six. */
+    public function test_that_an_unsupported_type_is_refused(): void
+    {
+        $response = $this->upload(
+            $this->created(),
+            RoleName::Manager,
+            $this->pdfUpload("just plain text, not one of D-40's six types\n", 'notes.txt'),
+        );
+
+        $response->assertStatus(422)->assertJsonPath('error.details.0.code', 'unsupported_type');
+    }
+
+    /**
+     * The criterion's **"size"**, one byte over. The ceiling is read from
+     * configuration rather than written here, so this test cannot disagree with
+     * the validator the way a hard-coded number would.
+     */
+    public function test_that_a_file_over_the_configured_ceiling_is_refused(): void
+    {
+        $ceiling = config('files.max_size_bytes');
+        self::assertIsInt($ceiling);
+
+        $response = $this->upload(
+            $this->created(),
+            RoleName::Manager,
+            $this->pdfUpload(str_repeat('a', $ceiling + 1), 'big.pdf'),
+        );
+
+        $response->assertStatus(422)->assertJsonPath('error.details.0.code', 'too_large');
+    }
+
+    /**
+     * The criterion's **"stored under a UUID name"**. §17 puts the caller's
+     * filename in the database as a label and never on disk, so the stored
+     * basename is a UUID plus the type's extension — asserted against the
+     * original name explicitly, because a path that merely *contains* a UUID
+     * would pass a laxer check while still leaking `offer.pdf`.
+     */
+    public function test_that_the_stored_file_is_named_with_a_uuid_and_not_the_callers_name(): void
+    {
+        $fileId = $this->upload($this->created(), RoleName::Manager, $this->pdfUpload(null, 'supplier offer.pdf'))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($fileId);
+
+        $stored = DB::table('files')->where('id', $fileId)->value('storage_path');
+        self::assertIsString($stored);
+
+        $basename = basename($stored);
+
+        self::assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.pdf$/',
+            $basename,
+            'the stored basename is not a UUIDv7 plus the type extension',
+        );
+        self::assertStringNotContainsString('supplier offer', $stored);
+        // §17's own layout, so the UUID is not the only thing keeping two
+        // parents' files apart.
+        self::assertStringContainsString('/supplier_quotation/', $stored);
+    }
+
+    /**
+     * The journey, and the case `D-38` exists for: the **CEO**, who §3.6 gives
+     * `view` as `All` and no `upload_attachment` at all, downloads a file they
+     * could never have uploaded. `SupplierQuotationAttachmentPermission` gates
+     * on `view` precisely so this works.
+     */
+    public function test_that_a_clean_upload_is_downloadable_by_a_reader_who_may_not_upload(): void
+    {
+        $bytes = self::pdf();
+
+        $fileId = $this->upload($this->created(), RoleName::Manager, $this->pdfUpload($bytes))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($fileId);
+
+        $download = $this->get("/api/v1/files/{$fileId}/download", $this->bearerFor(RoleName::Ceo));
+
+        $download->assertOk();
+        self::assertSame($bytes, $download->streamedContent());
+    }
+
+    /** §3.6 gives the Outdoor Supervisor no `view`, and `OpenAPI §5.1` makes the refusal a 404. */
+    public function test_that_a_caller_without_view_cannot_download(): void
+    {
+        $fileId = $this->upload($this->created(), RoleName::Manager)->assertStatus(201)->json('data.id');
+        self::assertIsString($fileId);
+
+        $this->get("/api/v1/files/{$fileId}/download", $this->bearerFor(RoleName::OutdoorSupervisor))
+            ->assertNotFound();
+    }
+
+    /**
+     * The other end of the journey. `SEC-15` gates the download on `scan_status`
+     * and not on who owns the offer, so the caller who uploaded the infected
+     * file cannot get it back either — the same actor, the same bearer token.
+     */
+    public function test_that_an_infected_upload_is_not_downloadable_even_by_its_uploader(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+
+        $response = $this->post(
+            self::ENDPOINT.'/'.$this->created().'/documents',
+            ['document' => $this->pdfUpload(self::pdfBytesWithEicarSignature())],
+            $headers,
+        );
+
+        $response->assertStatus(201)->assertJsonPath('data.scan_status', 'infected');
+
+        $fileId = $response->json('data.id');
+        self::assertIsString($fileId);
+
+        $this->get("/api/v1/files/{$fileId}/download", $headers)->assertNotFound();
+    }
+
     // ─────────────────────────────────────────────────────────────── helpers
 
     /** @return TestResponse<\Illuminate\Http\Response> */
@@ -270,6 +408,25 @@ final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
     private static function pdf(): string
     {
         return "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\nstartxref\n9\n%%EOF\n";
+    }
+
+    /**
+     * A whole PDF that also carries the EICAR test signature — `EicarSignatureScanner`'s
+     * one detectable pattern. Assembled from parts at run time and never written
+     * whole, because a source file holding that literal can trip a scanner
+     * reading this repository itself.
+     */
+    private static function pdfBytesWithEicarSignature(): string
+    {
+        $signature = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR'.'-STANDARD-ANTIVIRUS-TEST-'.'FILE!$H+H*';
+
+        return "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n".$signature."\ntrailer<</Root 1 0 R>>\n%%EOF\n";
+    }
+
+    /** A real ELF header — not one of `D-40`'s six types, whatever it is named. */
+    private static function executable(): string
+    {
+        return "\x7fELF\x02\x01\x01\x00".str_repeat("\x00", 8).str_repeat("\x00", 200);
     }
 
     private function pdfUpload(?string $contents = null, string $name = 'offer.pdf'): UploadedFile

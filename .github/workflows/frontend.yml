@@ -1,0 +1,55 @@
+# Builds the Vue 3 + TypeScript SPA the way production does, on every change to
+# the frontend, so a broken bundle can never reach main unnoticed.
+#
+# Why this exists: nothing else builds the SPA. The php-image.yml workflow builds
+# the PHP image only (it installs Node solely for Puppeteer/Browsershot, never
+# runs Vite), and the runtime tests (Vitest) transform sources directly and never
+# touch the production bundle. So two whole classes of defect were invisible until
+# a human opened the app:
+#   1. a production-bundler (Rollup/Rolldown) failure that Vitest does not exercise;
+#   2. a `vue-tsc --noEmit` type error — vue-tsc is not in any other gate and has
+#      caught defects the runtime tests could not.
+# `npm run build` is exactly `vue-tsc --noEmit && vite build`, so this one job is
+# both gates. It does NOT keep a developer's served bundle fresh — that is the
+# `vite build --watch` compose service (a separate change).
+#
+# amd64 runner: GitHub's runners are linux/amd64, so `npm ci` fetches the correct
+# Rolldown native binding for the runner (the development machine is Apple Silicon
+# and commits none of node_modules — /public/build and /node_modules are gitignored).
+
+name: Frontend build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crm/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'crm/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+
+# Supersede an in-flight run when a newer commit arrives on the same ref, so
+# rapid pushes do not queue redundant builds.
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crm/package-lock.json
+      - run: npm ci
+      - run: npm run build

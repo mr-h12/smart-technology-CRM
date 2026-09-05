@@ -643,6 +643,46 @@ would hide them behind `OD-03` indefinitely.
       — it spans four modules and a random red is exactly the defect that must be reproduced
       deliberately before it is called fixed
 
+- [ ] **An offer's currency is unreachable from the SPA, and that now costs a *field* rather than a
+      column** — created 2026-09-02 by Point 1.1's `currency_id`, revealed as a display gap by
+      Point 6.2, and **measured as a write blocker by Point 6.3**. ⚠️ **Point 6.2's own entry says
+      "Registered below against Module 2's payload" and no such row existed** — `grep -n
+      "CurrencyController::payload" CHECKLIST.md` returned exactly one line, 6.2's own. That is the
+      second time this file has recorded a claim of registration with nothing behind it (see the
+      Point 8.2 note above), and this row is the correction, not a new finding.
+      **Two independent blockers, both read from the source in the session that wrote this:**
+      1. `crm/app/Modules/Admin/Presentation/CurrencyController.php` `payload()` publishes `code`,
+         `rounding_unit`, `rounding_enabled`, `is_base` — **no `id`**. `FxRateController::payload()`
+         names its currencies by code too and its own `id` is the rate's. `grep -n "currenc"
+         routes/api.php` finds exactly two currency routes, so there is no third place to ask.
+      2. `routes/api.php:288-291` puts `GET /currencies` behind `permission:admin.system_settings`,
+         which `PermissionMatrix.php:481-483` grants to the **Super Admin alone** — while
+         `supplier_quotation.create` (`:332-338`) is the Manager, Team Leader, Outdoor Sales, Indoor
+         Sales and Procurement. So even a payload carrying an `id` would 403 for every role that
+         needs it.
+      **The two columns are one pair**, not two fields: Point 1.1's
+      `CHECK ((total_price IS NULL) = (currency_id IS NULL))` and
+      `SaveSupplierQuotationRequest`'s mutual `required_with`. So the blocker costs §7.2's **total**
+      as well as its currency. Owner's ruling 2026-09-05: Point 6.3 ships the rest of the header and
+      states the ceiling in the dialog itself. Owed, and it is an owner decision before it is work:
+      publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
+      accept a currency code. Both are cross-module and neither belongs inside a Module 6 point
+
+- [ ] **A fifth Vue form modal now carries the same 126-line shape** — created 2026-09-05 by Point
+      6.3's `SupplierQuotationFormModal.vue`. `grep -rln "function applyServerErrors"
+      resources/js` returns five files (`UserFormModal`, `CatalogItemFormModal`,
+      `CustomerFormModal`, `SupplierFormModal`, and the new one), and `grep -rln "modal-scrim"`
+      returns the same five — the `<style>` block is copied verbatim. `diff` of the two `<script>`
+      bodies against `SupplierFormModal` is 126 differing lines out of 501, so the majority is
+      shared: `blank()` / `values` / `opened` / `dirty`, `fieldId`, `testId`, `errorFor`,
+      `applyServerErrors`, `requestClose`, `discard`, and the unsaved-change dialog. ⚠️ **This is
+      waste the point created, and it was recorded rather than removed** on the same reasoning the
+      `refusedWith()` row above gives: extracting a shell touches four components outside Module 6
+      with no failing test behind it, which `CLAUDE.md`'s module-isolation rule and its ban on
+      opportunistic cleanup inside an unrelated point both forbid. Recording it a second time is the
+      argument that it is now large enough to schedule. Owed: one `FormModalShell` (or a composable
+      for the error mapping plus a shared stylesheet), five call sites
+
 
 ---
 
@@ -7282,8 +7322,37 @@ Module 5 is finished.
       rather than by trusting the docblock that claimed it.
       **`NoHardCodedTextTest` passed the scan on the component first**, and only its pinned filename
       list needed the entry — the test's own stated condition for adding one.
-- [ ] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields; the total and currency as a
-      pair; no `code`.
+- [x] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields, create and edit in one
+      dialog, wired into the list screen behind `supplier_quotation.create` (the grant the route
+      carries on **both** the POST and the PATCH), with the CEO as §3.6's documented negative case.
+      **Five fields:** `supplier_id` (required, a select over the list screen's own suppliers,
+      handed down as a prop rather than fetched a second time), `deal_id` (a raw identifier —
+      the same stated ceiling the filter carries, there being no deals screen), `offer_date`,
+      `valid_until`, `notes`. **No `code`:** §7.2 marks it Automatic and
+      `SaveSupplierQuotationRequest` answers a supplied one with `prohibited`. **No `items`:** 6.4's.
+      **7 tests. RED first: 7 failed, 8 passed** — then 15 passed.
+      ⚠️ **The total and its currency are NOT in this form, by owner's ruling of 2026-09-05.**
+      They are one pair (Point 1.1's `CHECK`, the mutual `required_with`) and `currency_id` is a
+      UUID the SPA cannot obtain **and cannot even ask for** — two blockers, both measured, both on
+      the debt register above. The dialog says so to the reader in `form.totalUnavailable` rather
+      than letting a missing total read as a zero one, and — the part that makes it safe — **an edit
+      names neither key**, so `SupplierQuotationDraft::only()`'s `array_key_exists` leaves both
+      columns exactly as they were. A `null` there would erase a total this form cannot show, and a
+      test pins the absence of both keys in the PATCH body.
+      ⚠️ **One defect of mine, caught by a gate rather than by eye.** `vue-tsc` rejected
+      `view.get(…).exists()` — `get()` throws when the element is missing and its wrapper has
+      `exists` omitted from the type, so the assertion could not fail. Replaced with an assertion on
+      the rendered sentence. `vitest` had passed it.
+      **Three probes, all reddened and restored** (restore verified with `git status`, not only
+      against the backup copies): ungating the create button so the CEO sees it (**1 red**), sending
+      `total_price: null` in the draft (**2 red** — the erasure guard and the create-body assertion),
+      and planting a hard-coded heading in the new component, which `NoHardCodedTextTest` named by
+      path (**1 red**). The third is also the test's own stated condition for pinning the filename:
+      the scan was run against the component before its name was added to the list.
+      **Waste audit:** all 13 new lang keys render (`grep -ro` per key, 1–2 hits each); `dealPlaceholder`
+      and `action.{cancel,save,saving,edit}` were reused rather than re-added; every new symbol and
+      `data-testid` has a caller. One finding — a fifth copy of the form-modal shape — registered
+      above rather than removed, because the fix touches four components outside Module 6.
 - [ ] **6.4** the line editor — `D-22`'s "by id **or** by name, never both".
 - [ ] **6.5** the attachment — upload behind `supplier_quotation.upload_attachment`, download behind
       `view`, with the refused and infected states visible.

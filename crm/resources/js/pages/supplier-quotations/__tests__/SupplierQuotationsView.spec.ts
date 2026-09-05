@@ -69,6 +69,20 @@ const USER: AuthenticatedUser = {
     unconditional_access: false,
 };
 
+/**
+ * §3.6's documented negative case: the CEO holds `supplier_quotation.view` and
+ * **not** `create`, so every write control on this screen is drawn for the
+ * Manager above and for nobody else.
+ */
+const CEO: AuthenticatedUser = {
+    ...USER,
+    id: 'u2',
+    name: 'Test CEO',
+    email: 'ceo@example.test',
+    role: { id: 'r2', slug: 'ceo', name: 'CEO' },
+    permissions: ['supplier_quotation.view.all'],
+};
+
 function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
     return { data, meta: { request_id: 'r1', ...extra } };
 }
@@ -100,8 +114,8 @@ async function signIn(profile: AuthenticatedUser, delegate: typeof globalThis.fe
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>) {
-    await signIn(USER, fetchMock as unknown as typeof globalThis.fetch);
+async function render(fetchMock: ReturnType<typeof vi.fn>, profile: AuthenticatedUser = USER) {
+    await signIn(profile, fetchMock as unknown as typeof globalThis.fetch);
     vi.stubGlobal('fetch', fetchMock);
 
     const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
@@ -197,5 +211,183 @@ describe('the supplier quotations screen', () => {
 
         expect(cell.text()).toBe('4500.000000');
         expect(cell.classes()).toContain('tabular-nums');
+    });
+});
+
+/**
+ * Module 6, Point 6.3 — §7.2's header form, create and edit in one dialog.
+ *
+ * ── The total and the currency are **not** here, and that is measured ──────
+ *
+ * §7.2 lists both, and this form carries neither. `currency_id` is a UUID the
+ * SPA cannot obtain: `CurrencyController::payload()` publishes `code`,
+ * `rounding_unit`, `rounding_enabled` and `is_base` and **no `id`**, and
+ * `GET /currencies` sits behind `admin.system_settings`, which
+ * `PermissionMatrix` grants to the Super Admin alone — so every role holding
+ * `supplier_quotation.create` is refused the lookup as well. The two columns
+ * are a pair (`SaveSupplierQuotationRequest`'s mutual `required_with`, over
+ * Point 1.1's `CHECK ((total_price IS NULL) = (currency_id IS NULL))`), so
+ * neither can be sent alone. Owner's ruling of 2026-09-05: ship the rest with
+ * the ceiling stated. The pair returns in a later point.
+ *
+ * The consequence the tests below pin: an **edit never mentions either key**,
+ * so `SupplierQuotationDraft::only()`'s `array_key_exists` leaves both columns
+ * exactly as they were rather than erasing a total the form cannot show.
+ *
+ * ── Not an authorization suite ─────────────────────────────────────────────
+ *
+ * `SupplierQuotationEndpointTest` withdraws the seeded grant and proves the
+ * refusal (§3.12 rule 1, `SEC-09`). What is proved here is what the screen
+ * *draws*: §6.2's "one primary action per context, drawn only for the
+ * permission that can complete it".
+ */
+describe('the supplier quotation form', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers New offer and row Edit to a holder of create, and to the CEO neither', async () => {
+        const permitted = await render(respond());
+
+        expect(permitted.find('[data-testid="supplier-quotations-create"]').exists()).toBe(true);
+        expect(permitted.find('[data-testid="supplier-quotations-row-edit"]').exists()).toBe(true);
+
+        const refused = await render(respond(), CEO);
+
+        expect(refused.find('[data-testid="supplier-quotations-create"]').exists()).toBe(false);
+        expect(refused.find('[data-testid="supplier-quotations-row-edit"]').exists()).toBe(false);
+    });
+
+    it('opens the dialog empty for a create and filled for an edit', async () => {
+        const view = await render(respond());
+
+        expect(view.find('[data-testid="supplier-quotation-form-modal"]').exists()).toBe(false);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLSelectElement).value).toBe('');
+
+        await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLSelectElement).value).toBe('s1');
+        expect((view.get('[data-testid="supplier-quotation-form-offer-date"]').element as HTMLInputElement).value).toBe('2026-09-01');
+    });
+
+    /** §7.2's `code` is "Automatic" and the boundary answers a supplied one with `prohibited`. */
+    it('creates with §7.2 header fields only — no code, no total, no currency', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form-offer-date"]').setValue('2026-09-04');
+        await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('From the PDF');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+
+        expect(call).toBeDefined();
+
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent).toEqual({
+            supplier_id: 's1',
+            deal_id: null,
+            offer_date: '2026-09-04',
+            valid_until: null,
+            notes: 'From the PDF',
+        });
+    });
+
+    /**
+     * The pair is absent from the body, not null in it: `array_key_exists` in
+     * `SupplierQuotationDraft::only()` is what makes an absent key mean "leave
+     * the column alone", and a `null` would erase the offer's total instead.
+     */
+    it('edits without naming the total or the currency, so neither is erased', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('Revised');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH');
+
+        expect(String(call?.[0])).toContain('/supplier-quotations/q1');
+
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(Object.keys(sent)).not.toContain('total_price');
+        expect(Object.keys(sent)).not.toContain('currency_id');
+        expect(sent.notes).toBe('Revised');
+    });
+
+    /** `OpenAPI §5` — `details[]` names the field, so the sentence lands on the control that caused it. */
+    it('shows a field refusal against the field the server named', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (init?.method === 'POST') {
+                return json(422, {
+                    error: {
+                        code: 'validation_failed',
+                        message: 'no',
+                        details: [{ field: 'supplier_id', message: 'The selected supplier is archived.' }],
+                    },
+                    meta: { request_id: 'r1' },
+                });
+            }
+
+            return json(200, envelope([OFFER], { pagination: PAGINATION }));
+        });
+
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-form-supplier-id-error"]').text())
+            .toBe('The selected supplier is archived.');
+        expect(view.find('[data-testid="supplier-quotation-form-modal"]').exists()).toBe(true);
+    });
+
+    /** A courtesy check, not the rule: the boundary requires `supplier_id` on a POST regardless (`D-67`). */
+    it('refuses a create with no supplier without asking the server', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+        const before = fetchMock.mock.calls.length;
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.length).toBe(before);
+        expect(view.get('[data-testid="supplier-quotation-form-supplier-id-error"]').text())
+            .toBe(en.supplierQuotations.form.supplierRequired);
+    });
+
+    /** §5.2, §6.5: a saved offer may not belong on the page in view, so the list is asked again. */
+    it('closes the dialog and asks the server again once an offer is saved', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+        const before = fetchMock.mock.calls.length;
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('Revised');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-modal"]').exists()).toBe(false);
+        // The PATCH, and then the list again.
+        expect(fetchMock.mock.calls.length).toBe(before + 2);
     });
 });

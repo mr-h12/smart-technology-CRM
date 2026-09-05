@@ -122,6 +122,13 @@ final class NoHardCodedTextTest extends TestCase
                 // against it first and passed. Its only bare strings are the
                 // sort indicators, which are `aria-hidden` glyphs, and the
                 // em dash standing in for an absent date.
+                // Module 6 Point 6.3 — §7.2's offer header form. Added on the
+                // same terms as every entry here: the scan below was run
+                // against it first and passed. Its only bare strings are the
+                // field names it builds an id, a `data-testid` and a lang key
+                // from; every word a reader sees comes from
+                // `supplierQuotations.*` or `action.*` in both dictionaries.
+                'SupplierQuotationFormModal.vue',
                 'SupplierQuotationsView.vue',
                 'SupplierRatingChip.vue',
                 // Module 4 Point 4.1 — §8's Suppliers screen. Added on the same

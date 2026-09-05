@@ -58,10 +58,23 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuotationFormModal.vue';
 import { listSupplierQuotations, type Pagination, type SupplierQuotation } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
+import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
+const auth = useAuth();
+
+/**
+ * §3.6's write cell is one grant, and the route carries it on both the POST and
+ * the PATCH — so one computed draws both controls. §6.2: "one primary action
+ * per context, drawn only for the permission that can complete it."
+ */
+const canWrite = computed(() => auth.hasPermission('supplier_quotation.create'));
+
+const formOpen = ref(false);
+const editing = ref<SupplierQuotation | null>(null);
 
 const offers = ref<SupplierQuotation[]>([]);
 const suppliers = ref<Supplier[]>([]);
@@ -185,6 +198,28 @@ function onDate(value: string | null): string {
     return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
 }
 
+function startCreate(): void {
+    editing.value = null;
+    formOpen.value = true;
+}
+
+function startEdit(offer: SupplierQuotation): void {
+    editing.value = offer;
+    formOpen.value = true;
+}
+
+/**
+ * The saved offer may no longer belong on the page in view — a changed
+ * `offer_date` moves it under the default sort, a changed supplier drops it out
+ * of `filter[supplier_id]` — so the list is asked again rather than patched in
+ * place (§5.2, §6.5).
+ */
+async function onSaved(): Promise<void> {
+    formOpen.value = false;
+
+    await load();
+}
+
 onMounted(async () => {
     await Promise.all([load(), loadSuppliers()]);
 });
@@ -202,6 +237,18 @@ onMounted(async () => {
             >
                 {{ t('supplierQuotations.total', { count: total }) }}
             </p>
+
+            <!-- §6.2: one primary action per context, drawn only for the
+                 permission that can complete it. -->
+            <button
+                v-if="canWrite"
+                type="button"
+                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="supplier-quotations-create"
+                @click="startCreate()"
+            >
+                {{ t('supplierQuotations.form.createTitle') }}
+            </button>
         </header>
 
         <form class="flex flex-wrap items-end gap-3" data-testid="supplier-quotations-filters" @submit.prevent="applyFilters">
@@ -286,6 +333,9 @@ onMounted(async () => {
                             <th scope="col" class="hidden p-3 text-start lg:table-cell">
                                 {{ t('supplierQuotations.column.deal') }}
                             </th>
+                            <th v-if="canWrite" scope="col" class="p-3 text-start">
+                                <span class="sr-only">{{ t('action.edit') }}</span>
+                            </th>
                         </tr>
                     </thead>
 
@@ -304,6 +354,17 @@ onMounted(async () => {
                             <td class="hidden p-3 tabular-nums md:table-cell">{{ onDate(offer.valid_until) }}</td>
                             <td class="hidden p-3 lg:table-cell">
                                 {{ offer.deal_id === null ? t('supplierQuotations.deal.none') : offer.deal_id }}
+                            </td>
+
+                            <td v-if="canWrite" class="p-3">
+                                <button
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    data-testid="supplier-quotations-row-edit"
+                                    @click="startEdit(offer)"
+                                >
+                                    {{ t('action.edit') }}
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -341,6 +402,14 @@ onMounted(async () => {
                 </button>
             </nav>
         </div>
+
+        <SupplierQuotationFormModal
+            :open="formOpen"
+            :editing="editing"
+            :suppliers="suppliers"
+            @saved="onSaved"
+            @cancel="formOpen = false"
+        />
     </section>
 </template>
 
@@ -379,5 +448,10 @@ onMounted(async () => {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 </style>

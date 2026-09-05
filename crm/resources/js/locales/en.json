@@ -819,6 +819,21 @@
             "dealPlaceholder": "Deal identifier",
             "apply": "Apply"
         },
+        "form": {
+            "createTitle": "New offer",
+            "editTitle": "Edit offer",
+            "required": "(required)",
+            "supplierNone": "Choose a supplier",
+            "supplierRequired": "The supplier is required.",
+            "notes": "Notes",
+            "totalUnavailable": "The total and its currency cannot be entered yet: the currency list this form needs is not available to this role. An existing total is kept unchanged.",
+            "forbidden": "You do not have permission to save this offer.",
+            "rejected": "The change was not accepted. Review the fields and try again.",
+            "unreachable": "The server could not be reached. The offer was not saved.",
+            "unsavedChanges": "This form has changes that were not saved.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes"
+        },
         "column": {
             "code": "Code",
             "supplier": "Supplier",

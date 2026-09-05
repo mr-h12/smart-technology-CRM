@@ -6848,7 +6848,19 @@ flagged here for review rather than assumed)*
       `filter[deal_id]` selects only the linked one. "Available to any deal" is not consumed anywhere
       yet: nothing attaches an offer to a deal after the fact, because the customer quotation that
       would do it is Module 7.)*
-- [ ] File upload → type, size and **true MIME** validated, stored under a UUID name
+- [x] File upload → type, size and **true MIME** validated, stored under a UUID name *(Point 5.4,
+      closed at this module's own endpoint rather than at the validator. The rules themselves are
+      `FinfoUploadValidator`'s and `UploadValidationTest` owns their 26 cases; what 5.4 proves is
+      that `POST /supplier-quotations/{id}/documents` is **wired** to them and that the stored file
+      comes back out. An ELF header named `offer.pdf` is refused as `unsupported_type`, plain text
+      is refused, one byte over `config('files.max_size_bytes')` is refused as `too_large`, and the
+      stored basename matches a UUIDv7 regex while containing no part of the caller's filename.
+      The journey both ways: a clean upload is downloaded by the **CEO**, who §3.6 gives `view` and
+      no `upload_attachment` — the case `D-38` and Point 5.1's `mayView` exist for — while an
+      infected one is refused **to the caller who uploaded it**, because `SEC-15` gates on
+      `scan_status` and not on ownership. ⚠️ **Image compression, §17's own row, is not part of this
+      criterion's wording and remains unbuilt** — on the register, by the owner's decision of
+      2026-09-04.)*
 - [ ] Shared screen — not restricted by ownership
 
 ⚠️ **This module is being built out of the documented delivery order, by the owner's instruction.**
@@ -7172,9 +7184,25 @@ Module 5 is finished.
       block. This module has none — `SaveSupplierQuotationRequest` ships 422s naming `supplier_id`
       and `code` untranslated — so translating one field would leave the other seven. **Ceiling:**
       the Arabic 422 for a missing file reads `document` in Latin script. Registered below.
-- [ ] **5.4** The acceptance criterion closed at the endpoint: type, size, **true MIME**, UUID name,
+- [x] **5.4** The acceptance criterion closed at the endpoint: type, size, **true MIME**, UUID name,
       and the full journey upload ⇒ download — clean is downloadable, infected is not, not even by
       the caller who uploaded it.
+      **Seven tests, and all seven passed on arrival.** That is the honest and expected result for a
+      point that closes a criterion over code Points 5.1 and 5.2 already built, and it means the
+      tests proved nothing by going green. **The whole verification is the four probes**, each of
+      which reddened and each of whose restores was checked with `diff -q`:
+      bypassing `FinfoUploadValidator` with a hard-coded `AllowedFileType::Pdf` (the type, MIME and
+      size cases red); storing under the source filename instead of `Str::uuid7()` (the UUID case
+      red, among twelve); **gating `mayView` on `upload_attachment` instead of `view` (exactly one
+      test red — the CEO's download)**; and feeding the infected-journey case a clean PDF (exactly
+      one red). The third is the sharpest evidence in this step: it isolates Point 5.1's single most
+      load-bearing decision to a single assertion.
+      **No `app/` change at all** — `git status` on the point is one modified test file. The three
+      cross-module probes (`LocalStorageService`, and the two in this module) were reverted from
+      backups before any commit.
+      ⚠️ **Two more fixture copies created**, and they are registered rather than removed:
+      `pdfBytesWithEicarSignature()` now stands in **3** test files and `executable()` in **3**.
+      Removing them needs the shared test-fixture location that is still unapproved.
 
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 

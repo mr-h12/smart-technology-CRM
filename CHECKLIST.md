@@ -7204,6 +7204,54 @@ Module 5 is finished.
       `pdfBytesWithEicarSignature()` now stands in **3** test files and `executable()` in **3**.
       Removing them needs the shared test-fixture location that is still unapproved.
 
+#### Step 6 — the frontend *(point list approved 2026-09-05)*
+
+> **Why this step exists at all.** Every module through 4 ships a screen — `customers`, `suppliers`,
+> `catalog`, `users`, `roles`, `settings`, `currencies`, `limits`, `lists` all have one under
+> `resources/js/pages`. **Module 6 was the first to ship API-only**, which is why the owner could not
+> see any of it, and why "shared screen — not restricted by ownership" is still unticked: it names a
+> screen, and an API test cannot close it.
+>
+> ⚠️ **`§13` and `Design_System_EN.md` have not been read for this screen yet.** Point 6.2 begins by
+> reading them, and if they describe a layout other than the one assumed here, **they win** and this
+> list is corrected rather than followed.
+>
+> ⚠️ **There is no deals screen** (`resources/js/pages/deals` does not exist), so 6.2's `deal_id`
+> filter has no list to draw from. A raw identifier field is the stated, ugly ceiling until Module 5
+> builds one.
+
+- [x] **6.1** `services/supplier-quotations.ts` — the typed client for the five routes, with its spec.
+      **The query shape is the server's, exactly:** `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']`
+      and `ALLOWED_SORTS` is `['offer_date', 'created_at']`, both closed, so **there is no `q`** —
+      this list declares no search and offering one would produce a runtime 400 rather than a missing
+      feature. An unset filter is omitted, never sent empty.
+      **`total_price` is `string`, not `number`.** `DB-07` forbids floating point near money and the
+      server sends `4500.000000`; parsing it would reintroduce the float `D-68` was decided to avoid.
+      Nothing in the client sums anything — the total is entered (owner, 2026-09-02).
+      **No `code` field on the draft and no delete call:** §7.2 marks the code "Automatic" and the
+      server answers a supplied one with 422, and §3.6 seeds no `delete` grant.
+      **8 tests. RED first** — the module did not exist, so the suite failed to import.
+      ⚠️ **A probe found a real hole and the point closed it.** Renaming the upload's form field from
+      `document` to `file` — which would 422 every upload *and* make `ApiExceptionRenderer`'s
+      hard-coded `'field' => 'document'` point at a control that does not exist — reddened **nothing**.
+      The assertion on the `FormData` key was missing and was added; the same probe now fails, as do
+      probes that send empty filters (2 red) and that add a `q` (2 red).
+      ⚠️ **Measured, not assumed:** the PHP suite grew by two on a frontend-only change, because
+      `LogicalPropertiesTest` data-provides over every `.vue`/`.php`/`.ts` file and the two new files
+      became two new data sets. Benign, and checked rather than shrugged at.
+      ⚠️ **`NoHardCodedTextTest` pins an explicit list of `.vue` filenames.** Point 6.2 must add its
+      component to that list, having first run the scan against it — the test's own stated terms.
+- [ ] **6.2** `SupplierQuotationsView.vue` — the list, its route and its nav entry behind
+      `supplier_quotation.view`, with the two filters, the `-offer_date` default, and the loading,
+      empty and error states. Begins by reading `§13` and `Design_System_EN.md`.
+- [ ] **6.3** `SupplierQuotationFormModal.vue` — §7.2's header fields; the total and currency as a
+      pair; no `code`.
+- [ ] **6.4** the line editor — `D-22`'s "by id **or** by name, never both".
+- [ ] **6.5** the attachment — upload behind `supplier_quotation.upload_attachment`, download behind
+      `view`, with the refused and infected states visible.
+- [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full
+      manual test list.
+
 #### Step 3 — `D-22`'s automatic product add *(point list approved 2026-09-03)*
 
 > **Owner's rulings, 2026-09-03.** A line names a product by `catalog_item_id` **or** by

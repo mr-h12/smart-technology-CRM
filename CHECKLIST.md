@@ -7353,7 +7353,46 @@ Module 5 is finished.
       and `action.{cancel,save,saving,edit}` were reused rather than re-added; every new symbol and
       `data-testid` has a caller. One finding — a fifth copy of the form-modal shape — registered
       above rather than removed, because the fix touches four components outside Module 6.
-- [ ] **6.4** the line editor — `D-22`'s "by id **or** by name, never both".
+- [x] **6.4** the line editor — §7.2's `Line items` row, "Product · **price** · quantity (+ to add
+      more)", inside `SupplierQuotationFormModal.vue`.
+      **`D-22` is made structural rather than validated.** One control per line chooses a catalog
+      item **or** "type a name instead", so only the chosen key is ever sent and a line carrying
+      both — which `SaveSupplierQuotationRequest` answers with `prohibits` — cannot be built here.
+      **The picker offers active items only**, §10.4 read from the source: a deactivated product is
+      "**Hidden** from selection lists" for a new quotation while staying functional on an open one.
+      `unit_price` and `quantity` stay **strings** end to end (`DB-07`, `D-68`): `inputmode="decimal"`
+      on a text input rather than `type="number"`, which would re-format `1500.000000`.
+      **8 tests. RED first: 7 failed, 15 passed** — then 23 passed.
+      ⚠️ **The dangerous case has its own test, and its own probe.** An edit's lines come from
+      `GET /supplier-quotations/{id}`; the list summary has none, because
+      `SupplierQuotationPayload::many()` calls `of()` and only `detail()` carries `items`. `items` is
+      three-valued on a `PATCH` — absent leaves the lines alone, `[]` clears them — so a **failed**
+      detail read must not become an empty editor submitted as `[]`. `linesState` is
+      `ready`/`loading`/`unavailable`, the editor is not drawn at all in the third, and `draft()`
+      omits the key. Probe 1 removed exactly that guard and the test reddened.
+      ⚠️ **Three existing 6.3 assertions were tightened, not loosened.** Opening the dialog now makes
+      a catalog read and an edit makes a detail read, so two tests that counted *every* fetch were
+      counting the wrong thing. They now assert what they always meant: `writes()` returns the
+      methods of the non-GET calls (`[]` for a refused create, `['PATCH']` for a save) and
+      `listReads()` counts only calls ending in `/supplier-quotations`. The third now expects
+      `items: []` in a create body, which is correct — `forCreate()` folds absent and `[]` together.
+      **Three probes, all reddened and restored** (`diff -q` against a pre-probe copy, byte-identical
+      each time — `git diff` cannot verify this while the point is uncommitted): dropping the
+      `linesState` guard so `items` is always sent (**1 red**), sending both product keys on a line
+      (**2 red**), and dropping §10.4's `is_active` filter from the picker (**1 red**).
+      **Waste audit — one finding, created by this point and removed inside it.** Four
+      `data-testid`s nothing queried: `-lines-none`, `-lines-loading`, `-product-error`,
+      `-quantity-error`, plus a redundant hook on the `<fieldset>`. The fieldset's was deleted;
+      the other four are now asserted — the line-refusal test names all three `items.0.*` fields
+      instead of one, and a new test covers the editor's own empty and loading states, which the
+      Module Completion Checklist requires and which exist nowhere else. All 11 new lang keys render
+      exactly once; no `catalogLabel` equivalent existed anywhere else in the SPA (`grep -rn
+      "service_type ??"` returns one hit, this one).
+      ⚠️ **Stated ceiling:** `CatalogItemListCriteria::MAX_PER_PAGE` is 100, so an item past the
+      hundredth is absent from the picker. Typing its **name** still resolves to it rather than
+      duplicating it — `ProvisionCatalogProduct::productIdFor()` looks the name up before creating —
+      so the ceiling costs convenience, not correctness. There is no search-as-you-type here; the
+      catalog list declares a `q` and this editor does not use it.
 - [ ] **6.5** the attachment — upload behind `supplier_quotation.upload_attachment`, download behind
       `view`, with the refused and infected states visible.
 - [ ] **6.6** tick **"shared screen — not restricted by ownership"** and publish the module's full

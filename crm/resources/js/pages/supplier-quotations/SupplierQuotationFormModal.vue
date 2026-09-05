@@ -55,11 +55,14 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { listCatalogItems, type CatalogItem } from '@/services/catalog';
 import {
     createSupplierQuotation,
+    readSupplierQuotation,
     updateSupplierQuotation,
     type SupplierQuotation,
     type SupplierQuotationDraft,
+    type SupplierQuotationLineDraft,
 } from '@/services/supplier-quotations';
 import type { Supplier } from '@/services/suppliers';
 
@@ -102,9 +105,81 @@ const confirmingDiscard = ref(false);
 const errorKeys = ref<Partial<Record<Field | '_form', string>>>({});
 const serverErrors = ref<Partial<Record<Field, string>>>({});
 
+// ── §7.2's `Line items` row (Point 6.4) ────────────────────────────────────
+
+/** The four keys a line refusal can name — `SaveSupplierQuotationRequest`'s `items.*.…`. */
+const LINE_FIELDS = ['catalog_item_id', 'product_name', 'unit_price', 'quantity'] as const;
+
+type LineField = (typeof LINE_FIELDS)[number];
+
+/**
+ * Both product keys are held, and exactly one is ever sent (`D-22`).
+ *
+ * `unit_price` and `quantity` are **strings**, kept as typed: `DB-07` forbids
+ * float anywhere near a price and the server sends `1500.000000`, so parsing
+ * one to a JavaScript number and printing it back would change the value the
+ * person is looking at.
+ */
+interface LineValues extends Record<LineField, string> {}
+
+function blankLine(): LineValues {
+    return { catalog_item_id: '', product_name: '', unit_price: '', quantity: '' };
+}
+
+const lines = ref<LineValues[]>([]);
+
+/** What the lines were opened with, for the dirty check. */
+const openedLines = ref('[]');
+
+/**
+ * Three states, because `items` is three-valued on a `PATCH`.
+ *
+ * `ready` — the set in `lines` is what the offer has, so it may be sent.
+ * `loading` — the detail read is in flight.
+ * `unavailable` — the read failed. **`items` is then omitted from the body**,
+ * because sending this empty editor would erase every line on the offer
+ * (`SupplierQuotationDraft::forUpdate()`: absent leaves them alone, `[]` clears
+ * them). The dialog says so rather than pretending the offer has no lines.
+ */
+const linesState = ref<'ready' | 'loading' | 'unavailable'>('ready');
+
+/** §10.4's selection list: active items only. Best-effort — `D-22` still lets a name be typed. */
+const catalogItems = ref<CatalogItem[]>([]);
+
+/** Keyed `"<index>.<field>"`, the way the server names it minus the `items.` prefix. */
+const lineErrors = ref<Map<string, string>>(new Map());
+
 const isEdit = computed(() => props.editing !== null);
 
-const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field]));
+const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
+    || JSON.stringify(lines.value) !== openedLines.value);
+
+/** §7.3 keeps a service's label in `service_type` and a product's in `name`; the id is the last resort. */
+function catalogLabel(item: CatalogItem): string {
+    return item.name ?? item.service_type ?? item.id;
+}
+
+function lineTestId(index: number, suffix: string): string {
+    return `supplier-quotation-line-${index}-${suffix}`;
+}
+
+function lineErrorFor(index: number, field: LineField): string | null {
+    return lineErrors.value.get(`${index}.${field}`) ?? null;
+}
+
+/** Whichever of the two product keys the server named — they are one control here. */
+function lineProductError(index: number): string | null {
+    return lineErrorFor(index, 'catalog_item_id') ?? lineErrorFor(index, 'product_name');
+}
+
+function addLine(): void {
+    lines.value.push(blankLine());
+}
+
+function removeLine(index: number): void {
+    lines.value.splice(index, 1);
+    lineErrors.value = new Map();
+}
 
 /** The id of every control, so `<label for>` and the error span agree. */
 function fieldId(field: Field): string {
@@ -148,8 +223,74 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     opened.value = { ...next };
     errorKeys.value = {};
     serverErrors.value = {};
+    lineErrors.value = new Map();
     confirmingDiscard.value = false;
+
+    void loadCatalog();
+    void loadLines(record);
 }, { immediate: true });
+
+/**
+ * §10.4's rule read from the source: a deactivated product is "**Hidden** from
+ * selection lists" for a new quotation while it stays functional on an open
+ * one. So the picker asks for the active items and nothing else.
+ *
+ * Best-effort, like the list screen's supplier call: a caller may hold
+ * `supplier_quotation.create` and be refused the catalog, and `D-22` still
+ * lets them type the product's name. An empty picker is worse than a name box;
+ * an error page over a working form is worse than both.
+ *
+ * ⚠️ Stated ceiling: `CatalogItemListCriteria::MAX_PER_PAGE` is 100, so an item
+ * past the hundredth is not in the list. Typing its **name** still resolves to
+ * it rather than duplicating it — `ProvisionCatalogProduct::productIdFor()`
+ * looks the name up before creating — so the ceiling costs convenience, not
+ * correctness.
+ */
+async function loadCatalog(): Promise<void> {
+    try {
+        catalogItems.value = (await listCatalogItems({ perPage: 100, isActive: true })).items;
+    } catch {
+        catalogItems.value = [];
+    }
+}
+
+/**
+ * An edit's lines come from `GET /supplier-quotations/{id}`: the list summary
+ * has none, because `SupplierQuotationPayload::many()` calls `of()` and only
+ * `detail()` carries `items`.
+ *
+ * A failure here is **not** "no lines" — see `linesState`.
+ */
+async function loadLines(record: SupplierQuotation | null): Promise<void> {
+    if (record === null) {
+        lines.value = [];
+        openedLines.value = JSON.stringify([]);
+        linesState.value = 'ready';
+
+        return;
+    }
+
+    lines.value = [];
+    openedLines.value = JSON.stringify([]);
+    linesState.value = 'loading';
+
+    try {
+        const detail = await readSupplierQuotation(record.id);
+
+        lines.value = detail.items.map((line) => ({
+            ...blankLine(),
+            catalog_item_id: line.catalog_item_id,
+            unit_price: line.unit_price,
+            quantity: line.quantity,
+        }));
+        openedLines.value = JSON.stringify(lines.value);
+        linesState.value = 'ready';
+    } catch {
+        lines.value = [];
+        openedLines.value = JSON.stringify([]);
+        linesState.value = 'unavailable';
+    }
+}
 
 /**
  * The one client-side rule, and it is a courtesy rather than the rule.
@@ -184,11 +325,40 @@ function applyServerErrors(error: unknown): void {
         }
     }
 
-    errorKeys.value = Object.keys(sentences).length === 0
+    // Laravel keys a nested failure `items.0.unit_price` and
+    // `ApiExceptionRenderer::validation()` passes that key through untouched,
+    // so the index in the name is the index in this editor.
+    const lineSentences = new Map<string, string>();
+
+    lines.value.forEach((_line, index) => {
+        for (const field of LINE_FIELDS) {
+            const message = error.messageFor(`items.${index}.${field}`);
+
+            if (message !== null) {
+                lineSentences.set(`${index}.${field}`, message);
+            }
+        }
+    });
+
+    lineErrors.value = lineSentences;
+
+    errorKeys.value = Object.keys(sentences).length === 0 && lineSentences.size === 0
         ? { _form: error.status === 403 ? 'supplierQuotations.form.forbidden' : 'supplierQuotations.form.rejected' }
         : {};
 
     serverErrors.value = sentences;
+}
+
+/**
+ * `D-22` made structural rather than validated: the control offers a catalog
+ * item **or** "type a name instead", so only one of the two keys can exist.
+ * `SaveSupplierQuotationRequest` answers a line carrying both with a 422, and
+ * this editor cannot build one.
+ */
+function items(): SupplierQuotationLineDraft[] {
+    return lines.value.map((line) => (line.catalog_item_id === ''
+        ? { product_name: line.product_name.trim(), unit_price: line.unit_price, quantity: line.quantity }
+        : { catalog_item_id: line.catalog_item_id, unit_price: line.unit_price, quantity: line.quantity }));
 }
 
 /**
@@ -207,13 +377,18 @@ function draft(): SupplierQuotationDraft {
     const notes = current.notes.trim();
     const deal = current.deal_id.trim();
 
-    return {
+    const header: SupplierQuotationDraft = {
         supplier_id: current.supplier_id,
         deal_id: deal === '' ? null : deal,
         offer_date: current.offer_date === '' ? null : current.offer_date,
         valid_until: current.valid_until === '' ? null : current.valid_until,
         notes: notes === '' ? null : notes,
     };
+
+    // The whole reason `linesState` exists. `items: []` from an editor that
+    // never received the offer's lines would clear them; an absent key leaves
+    // them exactly as they are.
+    return linesState.value === 'ready' ? { ...header, items: items() } : header;
 }
 
 async function save(): Promise<void> {
@@ -223,6 +398,7 @@ async function save(): Promise<void> {
 
     saving.value = true;
     serverErrors.value = {};
+    lineErrors.value = new Map();
 
     try {
         const record = props.editing;
@@ -231,6 +407,7 @@ async function save(): Promise<void> {
             : await updateSupplierQuotation(record.id, draft());
 
         opened.value = { ...values.value };
+        openedLines.value = JSON.stringify(lines.value);
         emit('saved', written);
     } catch (error) {
         applyServerErrors(error);
@@ -391,6 +568,150 @@ function discard(): void {
                 />
             </label>
 
+            <!-- §7.2's `Line items` row — "Product · **price** · quantity
+                 (+ to add more)" (Point 6.4). -->
+            <fieldset v-if="linesState === 'ready'" class="flex flex-col gap-3">
+                <legend class="text-card-title">{{ t('supplierQuotations.form.lines') }}</legend>
+
+                <p v-if="lines.length === 0" class="text-[var(--color-text-muted)]" data-testid="supplier-quotation-form-lines-none">
+                    {{ t('supplierQuotations.form.linesNone') }}
+                </p>
+
+                <div
+                    v-for="(line, index) in lines"
+                    :key="index"
+                    class="line-row flex flex-wrap items-end gap-2 rounded-lg p-3"
+                    :data-testid="`supplier-quotation-line-${index}`"
+                >
+                    <!-- `D-22` as a control rather than a rule: an item, or a
+                         name. There is no third state, so a line carrying both
+                         cannot be built here. -->
+                    <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="lineTestId(index, 'product')">
+                        <span>{{ t('supplierQuotations.form.lineProduct') }}</span>
+                        <select
+                            :id="lineTestId(index, 'product')"
+                            v-model="line.catalog_item_id"
+                            :disabled="saving"
+                            :aria-invalid="lineProductError(index) !== null"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="lineTestId(index, 'product')"
+                        >
+                            <option value="">{{ t('supplierQuotations.form.lineProductByName') }}</option>
+                            <option v-for="item in catalogItems" :key="item.id" :value="item.id">{{ catalogLabel(item) }}</option>
+                        </select>
+                    </label>
+
+                    <label
+                        v-if="line.catalog_item_id === ''"
+                        class="flex min-w-40 flex-1 flex-col gap-1.5"
+                        :for="lineTestId(index, 'product-name')"
+                    >
+                        <span>{{ t('supplierQuotations.form.lineProductName') }}</span>
+                        <input
+                            :id="lineTestId(index, 'product-name')"
+                            v-model="line.product_name"
+                            type="text"
+                            maxlength="255"
+                            autocomplete="off"
+                            :disabled="saving"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="lineTestId(index, 'product-name')"
+                        />
+                    </label>
+
+                    <!-- `inputmode` and not `type="number"`: the value is a
+                         decimal string the server sent at `D-68`'s scale, and a
+                         number input would re-format it. `DB-07`. -->
+                    <label class="flex w-32 flex-col gap-1.5" :for="lineTestId(index, 'unit-price')">
+                        <span>{{ t('supplierQuotations.form.linePrice') }}</span>
+                        <input
+                            :id="lineTestId(index, 'unit-price')"
+                            v-model="line.unit_price"
+                            type="text"
+                            inputmode="decimal"
+                            :disabled="saving"
+                            :aria-invalid="lineErrorFor(index, 'unit_price') !== null"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="lineTestId(index, 'unit-price')"
+                        />
+                    </label>
+
+                    <label class="flex w-28 flex-col gap-1.5" :for="lineTestId(index, 'quantity')">
+                        <span>{{ t('supplierQuotations.form.lineQuantity') }}</span>
+                        <input
+                            :id="lineTestId(index, 'quantity')"
+                            v-model="line.quantity"
+                            type="text"
+                            inputmode="decimal"
+                            :disabled="saving"
+                            :aria-invalid="lineErrorFor(index, 'quantity') !== null"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="lineTestId(index, 'quantity')"
+                        />
+                    </label>
+
+                    <button
+                        type="button"
+                        class="modal-cancel min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        :disabled="saving"
+                        :data-testid="lineTestId(index, 'remove')"
+                        @click="removeLine(index)"
+                    >
+                        {{ t('supplierQuotations.form.lineRemove') }}
+                    </button>
+
+                    <!-- The server's own sentences, on the controls it named.
+                         `basis-full` so a refusal never squeezes the row. -->
+                    <p
+                        v-if="lineProductError(index) !== null"
+                        class="basis-full text-[var(--color-danger)]"
+                        :data-testid="lineTestId(index, 'product-error')"
+                    >
+                        {{ lineProductError(index) }}
+                    </p>
+                    <p
+                        v-if="lineErrorFor(index, 'unit_price') !== null"
+                        class="basis-full text-[var(--color-danger)]"
+                        :data-testid="lineTestId(index, 'unit-price-error')"
+                    >
+                        {{ lineErrorFor(index, 'unit_price') }}
+                    </p>
+                    <p
+                        v-if="lineErrorFor(index, 'quantity') !== null"
+                        class="basis-full text-[var(--color-danger)]"
+                        :data-testid="lineTestId(index, 'quantity-error')"
+                    >
+                        {{ lineErrorFor(index, 'quantity') }}
+                    </p>
+                </div>
+
+                <!-- §7.2's "(+ to add more)". -->
+                <button
+                    type="button"
+                    class="modal-cancel min-h-11 self-start rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :disabled="saving"
+                    data-testid="supplier-quotation-form-add-line"
+                    @click="addLine()"
+                >
+                    {{ t('supplierQuotations.form.lineAdd') }}
+                </button>
+            </fieldset>
+
+            <p
+                v-else-if="linesState === 'loading'"
+                class="text-[var(--color-text-muted)]"
+                data-testid="supplier-quotation-form-lines-loading"
+            >
+                {{ t('supplierQuotations.form.linesLoading') }}
+            </p>
+
+            <!-- §6.4's Warning row. The lines could not be read, so the editor
+                 is not drawn at all and `items` is left out of the body — an
+                 empty editor sent as `[]` would clear them. -->
+            <p v-else class="form-warning rounded-lg p-3" role="alert" data-testid="supplier-quotation-form-lines-unavailable">
+                {{ t('supplierQuotations.form.linesUnavailable') }}
+            </p>
+
             <!-- §6.4's Warning row. §7.2 lists a total and a currency and this
                  form has neither, so it says why rather than letting the reader
                  conclude the offer has no total. See the header. -->
@@ -481,6 +802,11 @@ function discard(): void {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-warning);
     color: var(--color-text);
+}
+
+.line-row {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
 }
 
 .modal-cancel {

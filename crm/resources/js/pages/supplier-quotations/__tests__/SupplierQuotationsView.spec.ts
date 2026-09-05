@@ -87,11 +87,47 @@ function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
     return { data, meta: { request_id: 'r1', ...extra } };
 }
 
-/** Answers the offers call, and the suppliers call the name column needs. */
-function respond(offers: unknown = [OFFER], status = 200): ReturnType<typeof vi.fn> {
-    return vi.fn(async (input: string) => {
+const CATALOG_ITEM = {
+    id: 'ci1',
+    kind: 'product',
+    name: 'Cable 2.5mm',
+    product_code: 'P-1',
+    category: null,
+    unit: 'm',
+    service_type: null,
+    company: null,
+    description: null,
+    notes: null,
+    is_active: true,
+    created_at: '2026-08-01T00:00:00+00:00',
+    updated_at: '2026-08-01T00:00:00+00:00',
+};
+
+/** `SupplierQuotationPayload::detail()` — the header, plus `items`, always present. */
+const OFFER_LINES = [{ catalog_item_id: 'ci1', unit_price: '1500.000000', quantity: '3.000' }];
+
+/** A `GET /supplier-quotations/{id}`, which a `PATCH` to the same path is not. */
+function isDetailRead(input: string, init?: RequestInit): boolean {
+    return /\/supplier-quotations\/[^/?]+$/.test(input) && (init?.method ?? 'GET') === 'GET';
+}
+
+/**
+ * Answers the offers call, the suppliers call the name column needs, the
+ * catalog call the line editor's picker needs, and the detail read an edit
+ * makes for its lines.
+ */
+function respond(offers: unknown = [OFFER], status = 200, detail: unknown = { ...OFFER, items: OFFER_LINES }): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string, init?: RequestInit) => {
         if (String(input).includes('/suppliers')) {
             return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+        }
+
+        if (String(input).includes('/catalog-items')) {
+            return json(200, envelope([CATALOG_ITEM], { pagination: { ...PAGINATION, per_page: 100 } }));
+        }
+
+        if (isDetailRead(String(input), init)) {
+            return json(200, envelope(detail));
         }
 
         return json(status, status === 200 ? envelope(offers, { pagination: PAGINATION }) : { error: { code: 'forbidden' }, meta: { request_id: 'r1' } });
@@ -124,6 +160,22 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, profile: Authenticate
     await flushPromises();
 
     return wrapper;
+}
+
+/** The methods of every non-GET call, in order — what the screen actually submitted. */
+function writes(fetchMock: ReturnType<typeof vi.fn>): string[] {
+    return fetchMock.mock.calls
+        .map((call) => (call[1] as RequestInit | undefined)?.method ?? 'GET')
+        .filter((method) => method !== 'GET');
+}
+
+/** How many times the *list* was asked for — not the detail, whose path is longer. */
+function listReads(fetchMock: ReturnType<typeof vi.fn>): number {
+    return fetchMock.mock.calls.filter((call) => {
+        const url = String(call[0]).split('?')[0] ?? '';
+
+        return url.endsWith('/supplier-quotations') && ((call[1] as RequestInit | undefined)?.method ?? 'GET') === 'GET';
+    }).length;
 }
 
 function offersUrl(fetchMock: ReturnType<typeof vi.fn>): string {
@@ -299,6 +351,10 @@ describe('the supplier quotation form', () => {
             offer_date: '2026-09-04',
             valid_until: null,
             notes: 'From the PDF',
+            // Point 6.4: a create always states its line set, and `forCreate()`
+            // folds absent and `[]` together anyway. Still no `code`, no
+            // `total_price`, no `currency_id`.
+            items: [],
         });
     });
 
@@ -364,13 +420,16 @@ describe('the supplier quotation form', () => {
     it('refuses a create with no supplier without asking the server', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
-        const before = fetchMock.mock.calls.length;
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
-        expect(fetchMock.mock.calls.length).toBe(before);
+        // Counting *every* call would now count Point 6.4's catalog read, which
+        // opening the dialog legitimately makes. What this test claims is that
+        // nothing was **submitted**.
+        expect(writes(fetchMock)).toEqual([]);
         expect(view.get('[data-testid="supplier-quotation-form-supplier-id-error"]').text())
             .toBe(en.supplierQuotations.form.supplierRequired);
     });
@@ -379,15 +438,264 @@ describe('the supplier quotation form', () => {
     it('closes the dialog and asks the server again once an offer is saved', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
-        const before = fetchMock.mock.calls.length;
+        const listsBefore = listReads(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('Revised');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
         expect(view.find('[data-testid="supplier-quotation-form-modal"]').exists()).toBe(false);
-        // The PATCH, and then the list again.
-        expect(fetchMock.mock.calls.length).toBe(before + 2);
+        // Exactly one write, and the list asked again after it. Counting raw
+        // calls would now also count the detail read the edit makes for its
+        // lines, which is a different claim.
+        expect(writes(fetchMock)).toEqual(['PATCH']);
+        expect(listReads(fetchMock)).toBe(listsBefore + 1);
+    });
+});
+
+/**
+ * Module 6, Point 6.4 — §7.2's `Line items` row, "Product · **price** ·
+ * quantity (+ to add more)".
+ *
+ * ── `D-22`: by id **or** by name, and the control makes "both" impossible ──
+ *
+ * `D-22` — "New products are **added to the catalog automatically, without
+ * review**" — is why a line may name a product the catalog does not have.
+ * `SaveSupplierQuotationRequest` carries `required_without` on both sides and
+ * `prohibits` on the id, so a line sending the pair is a 422. The editor does
+ * not *validate* that rule, it makes it unreachable: one control chooses either
+ * a catalog item or "type a name instead", and only the chosen key is sent.
+ *
+ * ── The picker offers active items only (§10.4) ───────────────────────────
+ *
+ * §10.4's table: a deactivated product is "**Hidden** from selection lists" for
+ * new quotations while staying functional on open ones. So the catalog call
+ * carries `filter[is_active]=true`, and the test reads the URL.
+ *
+ * ── The dangerous case, and the reason it has its own test ────────────────
+ *
+ * An edit's lines come from `GET /supplier-quotations/{id}` — the list summary
+ * has none (`SupplierQuotationPayload::many()` calls `of()`, not `detail()`).
+ * `items` is three-valued on a `PATCH`: absent leaves the lines alone, `[]`
+ * clears them, a list replaces them. So if that read **fails**, submitting the
+ * editor's empty set would erase every line on the offer. The form omits the
+ * key entirely instead, and says why.
+ */
+describe('the supplier quotation line editor', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** §10.4: "New quotations — **Hidden** from selection lists". */
+    it('asks the catalog for active items only', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => String(c[0]).includes('/catalog-items'));
+
+        expect(String(call?.[0])).toContain('filter%5Bis_active%5D=true');
+    });
+
+    it('adds a line and sends the catalog id, never a name beside it', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        await view.get('[data-testid="supplier-quotation-line-0-product"]').setValue('ci1');
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('1500.000000');
+        await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('3');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1500.000000', quantity: '3' }]);
+    });
+
+    /** `D-22`'s other half: a product the catalog does not have is named, and the server adds it. */
+    it('sends a typed product name instead of an id, and never both', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        // "" is the "type a name instead" option, which is what reveals the box.
+        await view.get('[data-testid="supplier-quotation-line-0-product"]').setValue('');
+        await view.get('[data-testid="supplier-quotation-line-0-product-name"]').setValue('Breaker 63A');
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('90');
+        await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('12');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent.items).toEqual([{ product_name: 'Breaker 63A', unit_price: '90', quantity: '12' }]);
+    });
+
+    it('loads an offer’s existing lines on edit and sends them back', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-line-0-unit-price"]').element as HTMLInputElement).value)
+            .toBe('1500.000000');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent.items).toEqual(OFFER_LINES);
+    });
+
+    /** `[]` is the documented "clear them" case, and it is a different answer from absence. */
+    it('sends an empty list when every line is removed from an edit', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-line-0-remove"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent.items).toEqual([]);
+    });
+
+    /**
+     * The guard. A failed detail read must not become "this offer has no
+     * lines": `items` is omitted, so `SupplierQuotationDraft::forUpdate()`
+     * leaves the set alone.
+     */
+    it('omits items entirely when the offer’s lines could not be read', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (String(input).includes('/catalog-items')) {
+                return json(200, envelope([CATALOG_ITEM], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (isDetailRead(String(input), init)) {
+                return json(500, { error: { code: 'server_error', message: 'no' }, meta: { request_id: 'r1' } });
+            }
+
+            return json(200, envelope([OFFER], { pagination: PAGINATION }));
+        });
+
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-lines-unavailable"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-form-add-line"]').exists()).toBe(false);
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(Object.keys(sent)).not.toContain('items');
+    });
+
+    /**
+     * The Module Completion Checklist asks for loading and empty states, and
+     * these two only exist inside this editor: a create opens with no lines,
+     * and an edit shows the detail read in flight before its lines arrive.
+     */
+    it('draws its own empty and loading states', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-lines-none"]').exists()).toBe(true);
+
+        await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
+
+        // Deliberately **not** flushed: this is the frame between opening the
+        // dialog and the detail read resolving.
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+
+        expect(view.find('[data-testid="supplier-quotation-form-lines-loading"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-form-add-line"]').exists()).toBe(false);
+
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-lines-loading"]').exists()).toBe(false);
+    });
+
+    /** Laravel keys a nested failure `items.0.unit_price`, and `ApiExceptionRenderer::validation()` passes the key through. */
+    it('shows a line refusal against the line the server named', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (String(input).includes('/catalog-items')) {
+                return json(200, envelope([CATALOG_ITEM], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (init?.method === 'POST') {
+                return json(422, {
+                    error: {
+                        code: 'validation_failed',
+                        message: 'no',
+                        details: [
+                            { field: 'items.0.catalog_item_id', message: 'That product is archived.' },
+                            { field: 'items.0.unit_price', message: 'The price may not be negative.' },
+                            { field: 'items.0.quantity', message: 'The quantity must be above zero.' },
+                        ],
+                    },
+                    meta: { request_id: 'r1' },
+                });
+            }
+
+            return json(200, envelope([OFFER], { pagination: PAGINATION }));
+        });
+
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('-1');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-line-0-product-error"]').text())
+            .toBe('That product is archived.');
+        expect(view.get('[data-testid="supplier-quotation-line-0-unit-price-error"]').text())
+            .toBe('The price may not be negative.');
+        expect(view.get('[data-testid="supplier-quotation-line-0-quantity-error"]').text())
+            .toBe('The quantity must be above zero.');
+        // A named field means no generic banner — the sentence is already on the control.
+        expect(view.find('[data-testid="supplier-quotation-form-error"]').exists()).toBe(false);
     });
 });

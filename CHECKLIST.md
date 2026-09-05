@@ -334,6 +334,81 @@ would hide them behind `OD-03` indefinitely.
       modules will eventually need is a decision the owner should take deliberately, not one that
       should arrive by accident on the day a fifth module copies it
 
+- [x] **The live permission matrix could drift from §3 with nothing to notice** — found 2026-09-05
+      by the owner, who saw the Manager holding the RBAC screen. Confirmed and measured: the live
+      grant set differed from §3 in **four grants beyond it** (`manager | admin.manage_roles.all`,
+      `manager | admin.system_settings.all`, `team_leader | customer.view.all`,
+      `team_leader | customer.edit.all`) and **one missing from it** (`manager | customer.import.all`).
+      **No code was at fault and no branch caused it.** `PermissionMatrix` grants `admin.manage_roles`
+      to the Super Admin alone and no committed version of that file has ever said otherwise;
+      `git diff origin/main...HEAD` on it is empty. The grants were made **through the application's
+      own role-administration endpoints** and `audit_log` names them exactly — `ROLE_PERMISSIONS_UPDATED`
+      on 2026-08-31 19:53:58 by `super.admin@example.test` from `172.18.0.1`, `granted:
+      ["admin.manage_roles.all", "admin.system_settings.all"]`. `SEC-07` puts the matrix in the
+      database and §3.12 rule 5 makes changing it a configuration change, so this is a **supported
+      operation**, not a defect.
+      **The real gap was that nothing could see it.** `RbacMatrixDataTest` makes the same comparison
+      and was green throughout, because `RefreshDatabase` only ever shows it a database the seeder
+      has just written — it proves the seeder agrees with the matrix and can say nothing about a
+      running system. `RolePermissionSeeder`'s docblock promises "divergence is reported by the
+      test", which is true of a clean database and of no other.
+      **Closed by `php artisan rbac:verify`** — `VerifyPermissionMatrix` (Application) over
+      `PermissionRepositoryInterface::roleIdsBySlug()` and `scopesFor()`, reporting a
+      `MatrixDivergence` of `extra`/`missing`, rendered by a thin command whose **non-zero exit is
+      the alarm** (`OBS-06`, `EnsureAuditPartitionsCommand`'s reading). **Read-only by design:**
+      repairing drift means an audited actor (`AUD-01`) and a soft delete (`DB-01`), which is
+      Module 1's role administration, not a maintenance command.
+      **Stated ceiling:** 9 roles × 57 permissions, one memoised query each — a manual command, not
+      a request path. It compares **documented** roles against **documented** permissions only: a
+      `resource.action` §3 never declared, and a role an administrator created after seeding, are
+      both legitimate under `SEC-07` and are deliberately not reported, so the command cannot cry
+      wolf on its first honest use.
+      ⚠️ **The comparison now exists twice** — in `RbacMatrixDataTest` and in the use case. Folding
+      the test onto the use case is the obvious simplification and is **not** done here: it rewrites
+      an existing test outside this point's scope. Registered below.
+      ⚠️ **A live revocation happened mid-investigation.** At 2026-09-05 07:37 `super.admin@example.test`
+      revoked six CEO grants §3 *does* declare (`quotation.view`, `quotation.view_cost_and_margin`,
+      `quotation.export_pdf`, `catalog.view`, `supplier_quotation.view`,
+      `procurement.view_negotiation_log`), which is why a second reading of the same database
+      reported seven missing rather than one. The command's first real run caught it. **The four
+      grants beyond §3 are still in place** — nothing here revoked anything.
+
+- [ ] **A role change made outside an HTTP request is recorded as a system action, not a user's** —
+      measured 2026-09-05 while revoking the four grants beyond §3. The two `ROLE_PERMISSIONS_UPDATED`
+      rows at `08:12:10` carry `user_id = NULL`.
+      ⚠️ **The first diagnosis written here was wrong and is corrected.** It said
+      `RequestAuditContext` reads `$request->user()` and that setting a user resolver failed to reach
+      it. Reading the class settles it: the gate is the **request-id attribute**, which `AddRequestId`
+      sets in HTTP and no console request has. Missing it, the class returns `AuditContext::system()`
+      and **never looks at the user at all** — so no amount of setting the guard user could have
+      changed the outcome. Console actions are recorded as system actions **by design**, and its own
+      docblock names J-15 as an existing such caller.
+      **The application is not at fault**, and the endpoint attributes correctly — the rows at
+      `2026-08-31 19:53:58` and `2026-09-05 07:37` both name `super.admin@example.test`. **The two
+      rows are not repaired:** audit records are immutable and retained permanently.
+      **The open question is therefore narrower than it first looked.** Not "why did attribution
+      fail" but "is `system` an acceptable actor for a permission change?" `AUD-01` names role changes
+      among what must always be audited, and §3.12 rule 4 exists so a real person is named. A console
+      role change satisfies the first and not the spirit of the second. Whether to give the console an
+      explicit actor option, or to refuse permission writes outside a request, is Module 1's decision
+      and is not taken here.
+
+- [x] **The live grant set was returned to §3** — 2026-09-05. The four grants beyond §3 were revoked
+      through `SyncRolePermissions`, the use case the roles screen itself calls, so the removals are
+      soft deletes (`DB-01`) with an audit event. The seven missing were restored by running
+      `RolePermissionSeeder`, **not** by another hand-written script: the seeder is idempotent by
+      construction, sets `deleted_at => null` on a grant that already exists, and only ever touches
+      what `PermissionMatrix` declares — so it could restore exactly the seven and could not re-add
+      the four. `php artisan rbac:verify` now exits `0` with "the live grant set matches §3".
+      ⚠️ **The restore writes no audit row**, because a seeder is not a user action. That is the same
+      question the row above leaves open, seen from the other side.
+
+- [ ] **The §3-versus-live comparison is written twice** — `RbacMatrixDataTest` builds it inline
+      across six `grants()` loops, and `VerifyPermissionMatrix` now builds it again as a use case.
+      Only the second can run against a real database, so the first is the one that should collapse
+      onto it. Not done inside the point that revealed it, on the standing rule that a point does not
+      widen past its approved scope.
+
 - [ ] **Four `…Page` classes carry arithmetic no test reaches** — `SupplierPage`'s own docblock
       says the arithmetic lives in the page rather than in the serialiser "because arithmetic in a
       serialiser is arithmetic no unit test reaches", and then nothing reached it there either: a

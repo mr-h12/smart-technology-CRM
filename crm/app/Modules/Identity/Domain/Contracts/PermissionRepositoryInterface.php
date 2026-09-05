@@ -23,6 +23,19 @@ interface PermissionRepositoryInterface
     public function actorFor(string $userId): ?Actor;
 
     /**
+     * Every documented role's id, keyed by slug — the one read `rbac:verify`
+     * needs and `scopesFor()` cannot give, since that method already has an id
+     * to work from.
+     *
+     * A role the database does not carry is simply absent from the map rather
+     * than raising: a missing documented role is a seeding failure, and
+     * `RbacMatrixDataTest` already owns that question.
+     *
+     * @return array<string, string> slug => id
+     */
+    public function roleIdsBySlug(): array;
+
+    /**
      * Every scope this role holds on `resource.action`, from the grant rows.
      *
      * A list rather than one value because `Scope::includes()` is a partial

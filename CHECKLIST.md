@@ -790,6 +790,23 @@ would hide them behind `OD-03` indefinitely.
       correctness; a bundling inefficiency in Module 1 code. Closing it is a one-way choice — make it
       consistently static, or make the five call sites lazy too — inside Identity, not Module 6.
 
+- [ ] **Eleven schema tests carry a byte-identical `refusedWith()` helper** — *revealed by Module 7
+      Point 1.1, 2026-09-07.* `grep -rln "private function refusedWith" crm/tests/` returns eleven
+      files across Customers, Suppliers, Catalog, Admin, Deals, SupplierQuotations and now Quotations.
+      Each is the same six lines: run a write, catch `QueryException`, return `errorInfo[0]`. The
+      per-test `insert()` factories differ legitimately (different required columns), but the
+      exception-state reader does not. Not fixed here — it touches ten test files in six modules, and
+      widening a schema point into a cross-module test refactor is not the agent's call. Closing it is
+      one trait in `tests/`, adopted as each suite is next edited.
+
+- [ ] **`quotation_files` was never pre-created, and nothing will remind anyone** — *revealed by
+      Module 7 Point 1.1, 2026-09-07.* `2026_08_22_000000_create_files_and_attachment_pivots` created
+      four pivots against an owed list — deals, supplier quotations, purchase orders, reports — and
+      `FilesMigrationTest` fails until each parent closes its foreign key. There is no quotation row in
+      that list, so Module 9, which stores the generated PDF against the quotation (`D-71`, §17), must
+      create the pivot itself and **no existing test will notice if it forgets**. Recorded now because
+      the moment to notice it is while `quotations` is being built, not while a PDF is failing to save.
+
 
 ---
 

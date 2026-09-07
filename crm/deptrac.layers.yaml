@@ -75,6 +75,16 @@ parameters:
         # dependency needs.
         - type: classLike
           value: ^App\\Support\\Database\\Precision$
+        # `App\Support\Database\DocumentNumberAllocator` — §4.7's document
+        # number, added 2026-09-07 with Module 7 Point 1.6. `DL` (Module 5) and
+        # `SQ` (Module 6) each carried a byte-identical private `nextCode()`,
+        # and Module 7's `QT` would have been the third — so the mechanism moved
+        # to `App\Support` and the prefix stayed with the module. Named class by
+        # class on `Precision`'s terms, **not** `^App\Support\Database\.*`,
+        # which would hand every module `StandardColumns` as well. No ruleset
+        # moves: `Deals` and `SupplierQuotations` already hold `SharedContracts`.
+        - type: classLike
+          value: ^App\\Support\\Database\\DocumentNumberAllocator$
 
     - name: Framework
       collectors:

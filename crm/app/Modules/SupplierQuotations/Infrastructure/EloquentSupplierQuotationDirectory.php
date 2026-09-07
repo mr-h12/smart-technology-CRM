@@ -12,6 +12,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Modules\SupplierQuotations\Infrastructure\Eloquent\SupplierQuotation;
+use App\Support\Database\DocumentNumberAllocator;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -50,7 +51,7 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         $row = new SupplierQuotation;
         $row->fill($draft->attributes);
 
-        $row->code = $this->nextCode();
+        $row->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
         $row->created_by = $actorId;
         $row->updated_by = $actorId;
         $row->save();
@@ -228,8 +229,9 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             if (! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity)) {
                 // Unreachable while the columns stand as Point 1.2 built them:
                 // all three are `NOT NULL`, and PostgreSQL hands `uuid` and
-                // `numeric` back as strings. Refusing loudly is `nextCode()`'s
-                // choice for the same situation — a `(string)` cast here would
+                // `numeric` back as strings. Refusing loudly is
+                // `DocumentNumberAllocator`'s choice for the same situation —
+                // a `(string)` cast here would
                 // turn a driver returning a float into a silently rounded price,
                 // which is the one failure `DB-07` exists to prevent.
                 throw new RuntimeException('supplier_quotation_items returned a line that is not decimal text.');
@@ -277,50 +279,6 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         }
 
         $this->connection->table('supplier_quotation_items')->insert($rows);
-    }
-
-    /**
-     * §4.7's `SQ-YYYY-NNNN`, allocated from `document_sequences` (Module 0) —
-     * its second consumer, and deliberately the same statement `DL`'s uses.
-     *
-     * ── Why this is one statement and not a read-then-write ────────────────
-     *
-     * `SELECT last_value` followed by `UPDATE … SET last_value = ? + 1` lets
-     * two concurrent creates read the same value and both write the same next
-     * one — the duplicate `supplier_quotations_code_unique` exists to catch,
-     * except that catching it there means the second caller's request fails
-     * with a constraint violation instead of succeeding with the number it
-     * should have gotten. `INSERT … ON CONFLICT … DO UPDATE … RETURNING` is one
-     * round trip PostgreSQL executes under a single row lock, so the two
-     * callers serialise on that row instead of racing past it.
-     *
-     * The year comes from `now()` rather than from the request, and the table
-     * keys on `(prefix, year)` (Module 0) — so `DL`'s count is not this one's,
-     * and a create crossing midnight on 31 December starts a new count on
-     * 1 January rather than 2026 counting forever.
-     */
-    private function nextCode(): string
-    {
-        $year = (int) now()->format('Y');
-
-        $row = $this->connection->selectOne(
-            'insert into document_sequences (prefix, year, last_value) values (?, ?, 1) '
-            .'on conflict (prefix, year) do update '
-            .'set last_value = document_sequences.last_value + 1 '
-            .'returning last_value',
-            [self::CODE_PREFIX, $year],
-        );
-
-        $value = is_object($row) ? ($row->last_value ?? null) : null;
-
-        if (! is_int($value) && ! is_string($value)) {
-            // Unreachable in production — the statement above always returns
-            // exactly one row — and refusing loudly here is cheaper than a code
-            // silently formatted as "SQ-2026-".
-            throw new RuntimeException('document_sequences did not return a last_value for SQ.');
-        }
-
-        return sprintf('%s-%d-%04d', self::CODE_PREFIX, $year, (int) $value);
     }
 
     private static function hydrate(SupplierQuotation $row): SupplierQuotationSummary

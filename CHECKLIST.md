@@ -9066,6 +9066,58 @@ CHECKs of Point 1.2 must hold exactly at scale 6.
       test only. The document prints `8,315.9988`; the exact scale-6 value carries two more digits
       and the final total is unchanged.
 
+#### Step 3 — the write path *(point list approved 2026-09-07)*
+
+The write half of §6: row scope, the directory's two child tables, the use case that composes
+Step 2's engine, and the four `OpenAPI §7.1` routes. The engine stops at `total_before_round`
+(Step 2), so **Point 3.3's Application layer** is where `Admin\Domain\Money\RoundingRule::apply()`
+finishes §5.2 and where `AdminContract` is first added to `Quotations` in `deptrac.modules.yaml`
+— the crossing `Catalog/Application` already makes; the Domain and Infrastructure points below add
+no dependency. Three owner decisions are still open and each blocks a later point, not an earlier
+one: what "own" means for a quotation (`created_by` vs the deal's owner) and the `view cost & margin`
+permission slug both block **3.5**; where the `Idempotency-Key` store lives — `AuditEnforcementTest`
+forbids `app/Http`, `app/Support` and `routes` from writing to the database — blocks **3.7**.
+
+- [x] **3.1** `QuotationRowScope` — §3.5's `own | team | asgn | all` resolved to owner-id lists,
+      the third transcription of the shape `CustomerRowScope` and `DealRowScope` share (verified
+      byte-identical once comments are stripped). `asgn` has no backing mechanism yet, so
+      Procurement sees no quotation — fail-closed and a real functional gap, asserted by name in
+      `QuotationRowScopeTest`. *Shipped in PR #91.*
+
+- [x] **3.2** `EloquentQuotationDirectory::create()` writes Points 1.3/1.4's `quotation_items` and
+      `quotation_additional_items` — one generic `writeChildren()`, batched with no Eloquent model
+      exactly as Module 6's `writeLines()`, one `now()`, UUID ids, `DB-02`'s actor on every line.
+      `line_no` is **positional (1-based)**, the one divergence from Module 6 whose item table has
+      no such column; a user-orderable list stays on the debt register. The child rows arrive
+      through the draft's new `withLines()` — priced by Step 2, never a caller's, because §5 puts
+      all pricing in the backend. **No transaction here**; Point 3.3 owns it (`DB-11`).
+      *Verified by* three tests in `EloquentQuotationDirectoryTest`: the priced lines reach
+      `quotation_items` with their FK, actor and `line_no` 1/2; the additional items reach their
+      table; a childless quotation writes no child rows. Each broken on purpose first — dropping
+      `line_no` trips the NOT NULL, a constant `line_no` fails the order assertion, skipping one
+      write empties one table alone.
+
+- [ ] **3.3** `CreateQuotation` — one transaction (`DB-11`): compose `PricedLine` +
+      `QuotationTotals` + `RoundingRule`, capture the FX rate and the currency's rounding
+      unit/enabled at creation, derive `tax_percent` from `customers.is_tax_exempt` (`D-63`),
+      **block** on a supplier product with no recorded price (`§5.6`, `supplier_price_missing`),
+      **warn** without blocking when quantity exceeds the recorded amount, write both child tables
+      through the directory, and record `QUOTATION_CREATED`. First crossing that adds `AdminContract`
+      to `Quotations`.
+
+- [ ] **3.4** `POST /api/v1/quotations` — Form Request, `permission:quotation.create`, `201`;
+      `422 business_rule_blocked` with detail code `supplier_price_missing`;
+      `quantity_exceeds_recorded` warns, never blocks.
+
+- [ ] **3.5** `GET /api/v1/quotations/{id}` — `find()` through `QuotationRowScope`, cost/margin
+      gating, `version_token` returned as the `OpenAPI §9.2` etag. *Blocked on the two owner
+      decisions above.*
+
+- [ ] **3.6** `PATCH /api/v1/quotations/{id}` — Draft-only, `If-Match`, `409 concurrency_conflict`
+      on a stale token (`API-12`, never `412`), `version_token` advanced by the write.
+
+- [ ] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`). *Blocked on where the store lives.*
+
 ---
 
 ## Module 8 — Approvals

@@ -60,6 +60,8 @@ use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
@@ -220,6 +222,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SupplierQuotationDirectoryInterface::class,
             fn (): EloquentSupplierQuotationDirectory => new EloquentSupplierQuotationDirectory(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 7 Point 1.7. `bind` and one collaborator, for the reasons the
+        // two directories above give: stateless, so a singleton would outlive
+        // nothing useful, and `ConnectionInterface` alone because the only
+        // thing this directory needs beyond its own model is
+        // `document_sequences`' atomic upsert (§4.7, Point 1.6). No
+        // `SearchService` — nothing searches quotations until Step 5.
+        $this->app->bind(
+            QuotationDirectoryInterface::class,
+            fn (): EloquentQuotationDirectory => new EloquentQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

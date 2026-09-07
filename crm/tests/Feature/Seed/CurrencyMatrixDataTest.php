@@ -299,26 +299,36 @@ final class CurrencyMatrixDataTest extends TestCase
         $offences = [];
         $files = 0;
 
-        foreach (glob(self::moneyDirectory().'/*.php') ?: [] as $file) {
-            $files++;
-            $tokens = token_get_all((string) file_get_contents($file));
+        foreach (self::moneyDirectories() as $directory) {
+            $inDirectory = glob($directory.'/*.php') ?: [];
 
-            foreach ($tokens as $index => $token) {
-                if (! is_array($token)) {
-                    continue;
-                }
+            // Per directory, not only in total. A namespace that moved or was
+            // renamed would otherwise contribute nothing and the total from the
+            // other one would still clear the floor below.
+            self::assertNotSame([], $inDirectory,
+                "Nothing to scan in {$directory}; the path is stale.");
 
-                if ($token[0] === T_DNUMBER) {
-                    $offences[] = basename($file).':'.$token[2].' float literal '.$token[1];
-                }
+            foreach ($inDirectory as $file) {
+                $files++;
+                $tokens = token_get_all((string) file_get_contents($file));
 
-                if ($token[0] === T_DOUBLE_CAST) {
-                    $offences[] = basename($file).':'.$token[2].' float cast';
-                }
+                foreach ($tokens as $index => $token) {
+                    if (! is_array($token)) {
+                        continue;
+                    }
 
-                if ($token[0] === T_STRING && in_array(strtolower($token[1]), $forbidden, true)
-                    && self::isCall($tokens, $index)) {
-                    $offences[] = basename($file).':'.$token[2].' call to '.$token[1].'()';
+                    if ($token[0] === T_DNUMBER) {
+                        $offences[] = basename($file).':'.$token[2].' float literal '.$token[1];
+                    }
+
+                    if ($token[0] === T_DOUBLE_CAST) {
+                        $offences[] = basename($file).':'.$token[2].' float cast';
+                    }
+
+                    if ($token[0] === T_STRING && in_array(strtolower($token[1]), $forbidden, true)
+                        && self::isCall($tokens, $index)) {
+                        $offences[] = basename($file).':'.$token[2].' call to '.$token[1].'()';
+                    }
                 }
             }
         }
@@ -373,8 +383,25 @@ final class CurrencyMatrixDataTest extends TestCase
         return false;
     }
 
-    private static function moneyDirectory(): string
+    /**
+     * Every namespace where a price is computed rather than merely carried.
+     *
+     * `DB-07` is a rule about arithmetic, so the scanner has to follow the
+     * arithmetic wherever it goes. Module 7 Point 2.3 added the second entry:
+     * `Quotations\Domain\Pricing` is where §5's formulas actually run, which
+     * makes it the place a float would do the most damage. The list lives here,
+     * beside the scanner, rather than being copied into a second test — one
+     * implementation of `DB-07`, several directories.
+     *
+     * @return list<string>
+     */
+    private static function moneyDirectories(): array
     {
-        return dirname(__DIR__, 3).'/app/Modules/Admin/Domain/Money';
+        $modules = dirname(__DIR__, 3).'/app/Modules';
+
+        return [
+            $modules.'/Admin/Domain/Money',
+            $modules.'/Quotations/Domain/Pricing',
+        ];
     }
 }

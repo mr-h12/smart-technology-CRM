@@ -9053,7 +9053,7 @@ CHECKs of Point 1.2 must hold exactly at scale 6.
       `1%` → tax base **`9,900`**), a test that fails if delivery enters the base, and the empty
       quotation returning `0.000000` rather than an error.
 
-- [ ] **2.3** Tax and the net chain — `tax_amount = tax_base × tax_percent / 100`,
+- [x] **2.3** Tax and the net chain — `tax_amount = tax_base × tax_percent / 100`,
       `net_amount = subtotal + additional_total − discount_amount`,
       `total_before_round = net_amount + tax_amount`. **A null `tax_percent` yields a null
       `tax_amount`, never `'0'`** (`D-63`): `quotations_tax_amount_matches_tax_percent` refuses the

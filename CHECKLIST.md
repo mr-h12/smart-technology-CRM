@@ -807,6 +807,25 @@ would hide them behind `OD-03` indefinitely.
       create the pivot itself and **no existing test will notice if it forgets**. Recorded now because
       the moment to notice it is while `quotations` is being built, not while a PDF is failing to save.
 
+- [ ] **Six domain drafts carry the same `array_key_exists` allow-list filter** — *revealed by Module
+      7 Point 1.7, 2026-09-07.* `grep -rl "array_key_exists" crm/app/Modules | grep Draft` returns
+      `CatalogItemDraft`, `CustomerDraft`, `DealDraft`, `SupplierDraft`, `SupplierQuotationDraft` and
+      now `QuotationDraft`. Each keeps the same loop for the same documented reason — `array_key_exists`
+      and not `??`, so an explicit `null` is honoured as an erasure. Five copies pre-date this point
+      and the sixth was written knowing that, because **the obvious fix is currently forbidden**:
+      `deptrac.layers.yaml` gives `Domain` an empty ruleset — *"may depend on nothing"* — so a shared
+      helper in `App\Support` is exactly what a draft may not reach. Closing it is therefore not a
+      refactor but a layering decision (a `DomainSupport` layer, or a trait duplicated by
+      construction), and that decision is the owner's, not a point's.
+
+- [ ] **`CustomerStatusDerivation`'s docblock says Module 7 does not exist** — *revealed by Module 7
+      Point 1.7, 2026-09-07.* `crm/app/Modules/Deals/Domain/CustomerStatus/CustomerStatusDerivation.php:41`
+      reads *"needs Module 7, which does not exist yet (`app/Modules/Quotations` is …)"*. As of this
+      point the directory holds a domain layer, so the sentence is false. It is one comment in Module
+      5 and this point owns no file there; the accurate replacement also depends on what Step 3
+      actually publishes, so it is better written by the point that makes the claim true than by the
+      one that makes it false.
+
 
 ---
 

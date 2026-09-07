@@ -329,7 +329,36 @@ parameters:
       - AuditContract
       - CustomersContract
       - StorageContract
-    Quotations: ~
+    # Quotations → Framework, SharedContracts, added 2026-09-07 with Point 1.7,
+    # the module's first code. **Two entries, the shortest ruleset granted since
+    # SupplierQuotations' own Point 1.3**, and each absence is a decision:
+    #
+    # `Framework` because an Eloquent model and a `ConnectionInterface` are
+    # framework objects by definition — the same reason every module before it
+    # took this entry.
+    #
+    # `SharedContracts` for **two classes**: `App\Support\Database\Precision`,
+    # `D-68`'s column scales, which the model names so its casts cannot drift
+    # from the columns; and `App\Support\Database\DocumentNumberAllocator`,
+    # §4.7's `QT-` number, which Point 1.6 extracted precisely so this module
+    # would not copy it a third time. Not `App\Support\Http`'s envelope —
+    # there is no controller until Step 3 — and not `D-48`'s `SearchService`,
+    # which is Step 5's concern.
+    #
+    # **No `IdentityContract` yet, and that absence is temporary.** §3.5 grants
+    # `quotation.view` as `own`, `team`, `asgn` and `all`, so `SEC-08` will make
+    # every reader here ask Identity what the caller's grant reaches — unlike
+    # §3.6, where the absence is permanent. Point 1.7 publishes `create()` only
+    # and a create reads no row, so the crossing is not needed yet; Step 3's
+    # `find()` is the point that needs it, and it will be a decision in a diff.
+    #
+    # **No `AuditContract`** either: `AUD-01` records writes, and the write this
+    # point publishes has no use case in front of it yet. Step 3's
+    # `CreateQuotation` owns `DB-11`'s transaction and the audit row inside it,
+    # and that is the point that takes this entry.
+    Quotations:
+      - Framework
+      - SharedContracts
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:

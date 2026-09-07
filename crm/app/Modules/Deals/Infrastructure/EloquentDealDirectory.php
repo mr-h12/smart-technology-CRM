@@ -12,12 +12,12 @@ use App\Modules\Deals\Domain\Listing\DealPage;
 use App\Modules\Deals\Domain\Listing\DealSummary;
 use App\Modules\Deals\Domain\Writing\DealDraft;
 use App\Modules\Deals\Infrastructure\Eloquent\Deal;
+use App\Support\Database\DocumentNumberAllocator;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Builder;
-use RuntimeException;
 
 /**
  * {@see DealDirectoryInterface} over `deals` — `EloquentCustomerDirectory`'s
@@ -99,7 +99,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         $row = new Deal;
         $row->fill($draft->attributes);
 
-        $row->code = $this->nextCode();
+        $row->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
         $row->approval_status = $approvalStatus;
         $row->last_activity_at = now();
         $row->created_by = $actorId;
@@ -215,52 +215,6 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
                 ->map(static fn (mixed $id): string => (string) $id)   // @phpstan-ignore-line cast.string
                 ->all(),
         );
-    }
-
-    /**
-     * §4.7's `DL-YYYY-NNNN`, allocated from `document_sequences` (Module 0) —
-     * its first consumer.
-     *
-     * ── Why this is one statement and not a read-then-write ────────────────
-     *
-     * `SELECT last_value` followed by `UPDATE ... SET last_value = ? + 1` lets
-     * two concurrent creates read the same value and both write the same next
-     * one — exactly the duplicate `DB-04`'s `UNIQUE` on `deals.code` exists to
-     * catch, but catching it there means the second caller's request fails
-     * with a constraint violation instead of succeeding with the number it
-     * should have gotten. `INSERT … ON CONFLICT … DO UPDATE … RETURNING` is
-     * one round trip PostgreSQL executes under a single row lock, so the two
-     * callers serialise on that row instead of racing past it — the same
-     * "the database enforces it, not a job that repairs it" reasoning `D-71`
-     * already gave for the file-attachment keys.
-     *
-     * Year comes from `now()`, not from the request: §4.7's example is
-     * `DL-2026-0001` and `document_sequences` keys on `(prefix, year)`
-     * (Module 0), so a boundary crossing midnight on 31 December starts a new
-     * count on 1 January rather than the year 2026 counting forever.
-     */
-    private function nextCode(): string
-    {
-        $year = (int) now()->format('Y');
-
-        $row = $this->connection->selectOne(
-            'insert into document_sequences (prefix, year, last_value) values (?, ?, 1) '
-            .'on conflict (prefix, year) do update '
-            .'set last_value = document_sequences.last_value + 1 '
-            .'returning last_value',
-            [self::CODE_PREFIX, $year],
-        );
-
-        $value = is_object($row) ? ($row->last_value ?? null) : null;
-
-        if (! is_int($value) && ! is_string($value)) {
-            // Unreachable in production — the statement above always returns
-            // exactly one row — and refusing loudly here is cheaper than a
-            // code silently formatted as "DL-2026-".
-            throw new RuntimeException('document_sequences did not return a last_value for DL.');
-        }
-
-        return sprintf('%s-%d-%04d', self::CODE_PREFIX, $year, (int) $value);
     }
 
     /**

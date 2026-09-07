@@ -826,6 +826,18 @@ would hide them behind `OD-03` indefinitely.
       actually publishes, so it is better written by the point that makes the claim true than by the
       one that makes it false.
 
+- [ ] **`D-68`'s money scale is now stated in three places** — *created knowingly by Module 7 Point
+      2.1, 2026-09-07.* `grep -rn "SCALE = 6" crm/app` returns `Precision::MONEY_SCALE`,
+      `RoundedTotal::SCALE` and now `PricedLine::SCALE`. The third copy was unavoidable under the
+      layering the owner approved on 2026-09-07: a `Domain` class may not reach
+      `App\Support\Database\Precision` (`deptrac.layers.yaml`'s empty ruleset) and Quotations may
+      not reach `Admin\Domain\Money` without the `AdminContract` crossing that decision declined to
+      make. Each copy is pinned to `Precision` by a test, which is the drift guard `RoundedTotal`
+      already documented — so this is a stated ceiling rather than a defect. It is recorded because
+      **it grows**: every further pure-Domain money module adds a fourth. Its root cause is the one
+      the drafts' allow-list debt above already names, and one `DomainSupport` layer would close
+      both at once.
+
 
 ---
 
@@ -9022,7 +9034,7 @@ to `D-68`'s money scale by truncation — `bcadd($v, '0', 6)`, the idiom `Roundi
 path already uses — because BCMath truncates where PostgreSQL would round, and the four additive
 CHECKs of Point 1.2 must hold exactly at scale 6.
 
-- [ ] **2.1** `PricedLine` — §5.1's four formulas: `unit_cost_base = unit_cost × fx_rate_at_time`
+- [x] **2.1** `PricedLine` — §5.1's four formulas: `unit_cost_base = unit_cost × fx_rate_at_time`
       (`D-09`), the margin inheritance (`D-03`), `unit_price = unit_cost_base × (1 + margin / 100)`
       (`D-04`), `line_total`, `line_cost`. **A `null` line margin inherits the quotation's; `'0'`
       does not** — zero is a real margin, the numeric form of the `array_key_exists` distinction
@@ -9032,7 +9044,7 @@ CHECKs of Point 1.2 must hold exactly at scale 6.
       `SCALE` asserted equal to `Precision::MONEY_SCALE` — restated, not imported, exactly as
       `RoundedTotal::SCALE` is and for the same reason.
 
-- [ ] **2.2** `QuotationTotals` through the tax base — `subtotal = Σ line_total`,
+- [x] **2.2** `QuotationTotals` through the tax base — `subtotal = Σ line_total`,
       `additional_total = Σ amount`, `discount_amount` (`D-07`), and
       `tax_base = subtotal − discount_amount` (`D-64`). **Additional items are summed and then
       kept out of the tax base** (`D-62`, `OD-01`); that exclusion is the one Point 1.2's CHECK

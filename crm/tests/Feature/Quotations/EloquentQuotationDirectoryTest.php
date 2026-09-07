@@ -269,7 +269,184 @@ final class EloquentQuotationDirectoryTest extends TestCase
         self::assertIsInt($row->version_token);
     }
 
+    // ─────────────────────────────────────────────── Points 1.3 / 1.4's children
+
+    /**
+     * The lines §5.1 priced reach `quotation_items` — the directory's second
+     * write, `EloquentSupplierQuotationDirectory::writeLines()`'s precedent
+     * (Module 6 Point 2.1). Each row keeps its priced columns, is stamped with
+     * the header's id and `DB-02`'s actor, and — the column Module 6's table
+     * lacks — takes its `line_no` from where it sat in the submitted list.
+     */
+    public function test_that_the_priced_lines_reach_quotation_items(): void
+    {
+        $first = $this->seedSupplierLine();
+        $second = $this->seedSupplierLine();
+
+        $summary = $this->directory()->create(
+            $this->draft()->withLines(
+                [$this->lineRow($first, null), $this->lineRow($second, '30')],
+                [],
+            ),
+            $this->actorId,
+        );
+
+        // Both rows in one assertion, `CreateSupplierQuotationTest`'s idiom:
+        // `$rows[0]` off a Collection is `stdClass|null` at PHPStan level 10, and
+        // the whole shape also catches a line written twice or in the wrong order.
+        // It carries, in one read: §10's positional `line_no` (1-based), §4.1's
+        // one edge to the supplier line, a priced column stored as handed in,
+        // `D-03`'s null-margin-inherits vs a kept margin, and `DB-02`'s actor.
+        $rows = DB::table('quotation_items')
+            ->where('quotation_id', $summary->id)
+            ->orderBy('line_no')
+            ->get(['line_no', 'supplier_quotation_item_id', 'unit_price', 'margin_percent', 'created_by', 'updated_by'])
+            ->map(static fn (object $row): array => (array) $row)
+            ->all();
+
+        self::assertSame([
+            [
+                'line_no' => 1,
+                'supplier_quotation_item_id' => $first,
+                'unit_price' => '36000.000000',
+                'margin_percent' => null,
+                'created_by' => $this->actorId,
+                'updated_by' => $this->actorId,
+            ],
+            [
+                'line_no' => 2,
+                'supplier_quotation_item_id' => $second,
+                'unit_price' => '36000.000000',
+                'margin_percent' => '30.000',
+                'created_by' => $this->actorId,
+                'updated_by' => $this->actorId,
+            ],
+        ], $rows);
+    }
+
+    /**
+     * §5.2's additional items reach their own table (`D-62`: they never enter
+     * the tax base, which is the parent row's rule; this only stores the lines).
+     * `line_no` is positional here too.
+     */
+    public function test_that_the_additional_items_reach_their_table(): void
+    {
+        $summary = $this->directory()->create(
+            $this->draft()->withLines([], [
+                ['description' => 'Delivery', 'amount' => '1000.000000'],
+                ['description' => 'Installation', 'amount' => '500.000000'],
+            ]),
+            $this->actorId,
+        );
+
+        $rows = DB::table('quotation_additional_items')
+            ->where('quotation_id', $summary->id)
+            ->orderBy('line_no')
+            ->get(['line_no', 'description', 'amount', 'created_by'])
+            ->map(static fn (object $row): array => (array) $row)
+            ->all();
+
+        self::assertSame([
+            ['line_no' => 1, 'description' => 'Delivery', 'amount' => '1000.000000', 'created_by' => $this->actorId],
+            ['line_no' => 2, 'description' => 'Installation', 'amount' => '500.000000', 'created_by' => $this->actorId],
+        ], $rows);
+    }
+
+    /**
+     * A quotation with no children — the empty-list short-circuit. `create()`
+     * writes the header and nothing else, rather than an empty `insert()` the
+     * driver would reject.
+     */
+    public function test_that_a_childless_quotation_writes_no_child_rows(): void
+    {
+        $summary = $this->directory()->create($this->draft(), $this->actorId);
+
+        self::assertSame(0, DB::table('quotation_items')->where('quotation_id', $summary->id)->count());
+        self::assertSame(
+            0,
+            DB::table('quotation_additional_items')->where('quotation_id', $summary->id)->count(),
+        );
+    }
+
     // ────────────────────────────────────────────────────────────────── helpers
+
+    /**
+     * The supplier line a `quotation_items` row must point at:
+     * `supplier_quotation_item_id` is NOT NULL with a foreign key (Point 1.3,
+     * §5.6's "block save"), so §4.1's chain has to exist before a quotation line
+     * can name it. Returns the id of one seeded supplier line.
+     */
+    private function seedSupplierLine(): string
+    {
+        $supplierId = Uuid::uuid4()->toString();
+        $catalogItemId = Uuid::uuid4()->toString();
+        $supplierQuotationId = Uuid::uuid4()->toString();
+        $lineId = Uuid::uuid4()->toString();
+
+        DB::table('suppliers')->insert([
+            'id' => $supplierId,
+            'name' => 'Alpha Supplies',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('catalog_items')->insert([
+            'id' => $catalogItemId,
+            'kind' => 'product',
+            'name' => 'Widget',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('supplier_quotations')->insert([
+            'id' => $supplierQuotationId,
+            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
+            'supplier_id' => $supplierId,
+            // `supplier_quotations_price_needs_currency`: total_price and
+            // currency_id are both-or-neither. This chain only exists to give a
+            // line a real id to point at, so the pair is the cheapest that clears.
+            'total_price' => '1000',
+            'currency_id' => $this->currencyId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('supplier_quotation_items')->insert([
+            'id' => $lineId,
+            'supplier_quotation_id' => $supplierQuotationId,
+            'catalog_item_id' => $catalogItemId,
+            'unit_price' => '1000',
+            'quantity' => '2',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $lineId;
+    }
+
+    /**
+     * One priced `quotation_items` row as Point 3.3 will hand it in — every
+     * column of the table the directory does not fill itself. The figures only
+     * have to clear Point 1.3's bounds (quantity > 0, prices ≥ 0, rate > 0);
+     * the §5.1 arithmetic between them is Step 2's, not asserted here.
+     *
+     * @return array<string, mixed>
+     */
+    private function lineRow(string $supplierLineId, ?string $margin): array
+    {
+        return [
+            'supplier_quotation_item_id' => $supplierLineId,
+            'unit_cost' => '1000.000000',
+            'unit_cost_currency' => 'USD',
+            'unit_cost_fx_rate_at_time' => '30',
+            'unit_cost_base' => '30000.000000',
+            'margin_percent' => $margin,
+            'unit_price' => '36000.000000',
+            'quantity' => '2',
+            'line_total' => '72000.000000',
+            'line_cost' => '60000.000000',
+        ];
+    }
 
     private function directory(): EloquentQuotationDirectory
     {

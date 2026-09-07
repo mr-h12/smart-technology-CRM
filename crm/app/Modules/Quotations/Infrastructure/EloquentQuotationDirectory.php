@@ -10,6 +10,7 @@ use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Str;
 
 /**
  * {@see QuotationDirectoryInterface} over `quotations` —
@@ -57,6 +58,53 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $row->updated_by = $actorId;
         $row->save();
 
+        $this->writeChildren('quotation_items', $row->id, $draft->items, $actorId);
+        $this->writeChildren('quotation_additional_items', $row->id, $draft->additionalItems, $actorId);
+
         return new QuotationSummary(id: $row->id, code: $row->code);
+    }
+
+    /**
+     * Points 1.3 and 1.4's child tables, batched like Module 6's `writeLines()`
+     * — no Eloquent model, one `now()` for the batch, and the id, foreign key
+     * and `DB-02` actor filled here because `insert()` bypasses the model that
+     * would have filled them. One method serves both tables: they share this
+     * envelope and differ only in the columns each `$row` already carries, which
+     * the use case (Step 3) decides — this class spreads them without inspection.
+     *
+     * ── `line_no` is positional, and that is the whole of Module 6's difference ──
+     *
+     * `quotation_items` and `quotation_additional_items` both declare `line_no`
+     * NOT NULL as §10's "display order", where `supplier_quotation_items` had no
+     * such column. Nothing else records the order the lines were built in, so the
+     * order they were handed in is it — 1-based. A user-reorderable list is a
+     * later point and already on `CHECKLIST.md`'s debt register; this is the
+     * honest most the write can offer today.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function writeChildren(string $table, string $quotationId, array $rows, string $actorId): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $now = now();
+        $insert = [];
+
+        foreach ($rows as $index => $row) {
+            $insert[] = [
+                'id' => Str::uuid()->toString(),
+                'quotation_id' => $quotationId,
+                'line_no' => $index + 1,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+                ...$row,
+            ];
+        }
+
+        $this->connection->table($table)->insert($insert);
     }
 }

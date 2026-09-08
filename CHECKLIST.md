@@ -7045,6 +7045,131 @@ flagged here for review rather than assumed)*
       dispatched only by `Schedule::job()`. Module 5's own manual test list — required before Module
       6 work is allowed to start — has not been published yet; this was the last point blocking it.
 
+#### Step 5 — the deal timeline, read back *(point list approved 2026-09-08)*
+
+> **Why this step exists.** §4.4 ends with "Every status change is written to the deal timeline: old
+> status · new status · who · when", and the acceptance criterion below names the same four fields.
+> Point 1.1 deliberately did **not** build `deal_status_history`, on the reading that `audit_log`
+> already stores `event`/`entity_type`/`entity_id`/`old_values`/`new_values`/`user_id`/`created_at`
+> — §4.4's four fields verbatim — and that a second table recording the same fact is the defect
+> `DB-11` and `AUD-02` exist to prevent. That reading is kept. What it left owing is the **read**:
+> §3.4 seeds `deal.view_timeline` for all seven roles, and today the string appears nowhere in the
+> codebase but `PermissionMatrix` itself and one docblock. A seeded permission no route ever checks
+> is not a feature.
+
+- [ ] **5.1** An audit **reader**. `Modules/Audit` is write-only today — `Presentation/` is a bare
+      `.gitkeep`, and the contracts are `AuditRecorderInterface` and `AuditEntryWriterInterface`.
+      Add `AuditEntryReaderInterface` beside them and its implementation beside
+      `Infrastructure/DatabaseAuditEntries.php`, reading `entity_type` + `entity_id` ordered by
+      `created_at`. `AUD-03` blocks UPDATE, DELETE and TRUNCATE on the table — **not SELECT** — and
+      the docblock says so, rather than leaving the next reader hunting for a trap that is not there.
+      `deptrac.modules.yaml` gains the `Deals → AuditContract` grant, appended inside this
+      developer's own block.
+- [ ] **5.2** `GET /deals/{deal}/timeline`, appended to the `prefix('deals')` group,
+      `->middleware('permission:deal.view_timeline')`. **The scope is resolved from that permission
+      and not from `deal.view`** — §3.4 gives them different columns, and `ChangeDealStatus` is this
+      module's own precedent for resolving a second `DealRowScope` inside a use case. A row outside
+      the caller's reach is a **404**, per `OpenAPI §5.1`'s "does not exist **or is not visible to
+      the caller** — do not reveal which case applies". One row on the wire is `event`, `old_status`,
+      `new_status`, `actor_id`, `occurred_at`; paginated per `OpenAPI §6`, newest first.
+      `DEAL_STATUS_CHANGED` is the criterion's own row, but the read is not filtered to it: the other
+      six recorded events (`DEAL_CREATED`, `DEAL_UPDATED`, `DEAL_APPROVED`, `DEAL_REJECTED`,
+      `DEAL_REASSIGNED`, `DEAL_DOCUMENT_ATTACHED`) are the same timeline §4.4 describes.
+
+#### Step 6 — the frontend *(point list approved 2026-09-08)*
+
+> **Why this step exists.** Five of this module's acceptance criteria are unticked and every one of
+> them names something only a person at a screen can see. Module 5 shipped API-only — the second
+> module to do so — and `resources/js/pages/deals` does not exist. Module 6 reached the same wall and
+> answered it with its own Step 6; this is that step, on the same pattern and citing the same
+> sources.
+>
+> ⚠️ **Design System §5.2 assigns Deals the Kanban view, and §9 criterion 4 names "a deal Kanban
+> board" outright. This step builds a table instead**, on the reading that no open acceptance
+> criterion names a board while §5.2's own Table/List row asks for exactly the server pagination
+> `DealListCriteria` already implements. The pipeline board is **owed a point list of its own** and is
+> on the debt register below — deferred, not dropped, and **awaiting a `D-xx`**.
+>
+> ⚠️ **Three ceilings this step does not remove and must not paper over.** (1) `Team`, `Out` and
+> `Asgn` resolve to **zero rows** (`DealRowScope`, Point 2.1), so a Team Leader, Outdoor Supervisor
+> and Procurement each hold `deal.view` and see an empty list — an authenticated 200, not a refusal —
+> and "Pending Approval **for the Team Leader**" is demonstrable only as the Manager today. (2) There
+> is no `GET /deals/{id}/documents`; upload and generic download exist, a per-parent list does not,
+> which is the same ceiling Module 6 Point 6.5 recorded and accepted. (3) Flow 3's "inactive until
+> approved" has no structural backing — §4.3 has no visibility column, so a `pending` deal is an
+> ordinary row and the screen may badge it but may not claim the server hides it.
+
+- [ ] **6.1** `services/deals.ts` and its spec — the typed client for the ten routes.
+      The query surface is `DealListCriteria`'s exactly: filters `status`, `service_type`, `source`
+      and `approval_status`; sorts `code`, `created_at`, `last_activity_at`, default
+      `-last_activity_at`. **Unlike Module 6, `q` is real** — `SearchIndex::Deals` indexes `title`,
+      §4.3's one free-text field — so this list does declare a search. An unset filter is omitted and
+      never sent empty. `code`, `status`, `approval_status`, `rejection_reason` and `last_activity_at`
+      are `prohibited` server-side and must not exist on the draft type. Modelled on
+      `services/customers.ts`, which already carries the `q` + closed-filter shape.
+- [ ] **6.2** `DealsView.vue` — the list, its route behind `deal.view`, and its nav entry in
+      `nav.group.sales`. Four filters, the search, sortable headers, server pagination, and the four
+      states from `components/states/`, with a **403 drawn as a refusal and never as an empty list**
+      (`SEC-09`). The nav item's `permission` must equal the route's `meta.requiredPermission` —
+      `navigation.spec.ts` pins the two together.
+      §8 lists Requests/Deals for five roles and **omits the CEO**, while §3.4 grants the CEO
+      `view` as `All`. This is the conflict Suppliers, Catalog and Supplier Quotations each hit, and
+      it takes the owner's standing answer of 2026-08-31 — **route and nav follow the permission
+      matrix**, because keying the menu on §8 leaves a screen a person may open with no way to reach
+      it. Followed as precedent, still **awaiting a `D-xx`**.
+      ⚠️ §5.1 permits a badge on Requests, and **nothing counts anything yet**; `badge` is left unset
+      rather than inventing a counter.
+      *Closes* "Deal codes follow `DL-2026-0001`" and "two independent deals, separate statuses".
+- [ ] **6.3** `DealFormModal.vue` — create and edit in one component, on
+      `SupplierQuotationFormModal`'s shape. §4.3's caller-writable fields only: `customer_id` and
+      `owner_id` create-only (both `prohibited` on `PATCH`), `title`, `source`, `service_type`. Server
+      errors mapped field by field through `ApiError.messageFor()` — a form-level refusal is a local
+      key, a field refusal is the server's own sentence. Dirty guard with an in-dialog discard panel,
+      never a native `confirm()`, which cannot be translated or mirrored. The list refetches on save
+      rather than patching the row in place, because a changed sort key can move it.
+      ⚠️ The customer picker draws one `listCustomers({ perPage: 100 })` — `MAX_PER_PAGE`, the same
+      measured ceiling Module 6 recorded for suppliers — so a customer past the hundredth is an
+      identifier. Stated, not hidden.
+- [ ] **6.4** The approval controls — the `pending` badge (§6.4: amber, icon **and** label, never
+      colour alone) and Approve / Reject behind `deal.approve`, which §3.4 seeds for both directions
+      with no `deal.reject` row. Rejection collects its mandatory reason **in the dialog before
+      submission** (§6.6), matching `RejectDealRequest`'s `required` + `regex:/\S/`; the rejected
+      badge and the reason are drawn from `rejection_reason` for the employee. A `409
+      state_transition_invalid` — re-deciding a decided deal, or deciding one that was never
+      submitted — is surfaced inline rather than swallowed.
+      *Closes* "Employee-entered request → Pending Approval" and "Rejected request → mandatory reason
+      + badge", **both demonstrable as Manager only** while `Team` has no mechanism.
+- [ ] **6.5** The status control — §4.4's twelve statuses, with `lost` collecting its mandatory
+      reason and no other status sending one (`ChangeDealStatusRequest` makes `reason` `required` on
+      `lost` and `prohibited` everywhere else). **The SPA does not own the transition graph**: `D-67`,
+      and Design System §7.1's "the server decides authorization and allowed transition". The control
+      offers the vocabulary and renders a refused edge's 409 inline; transcribing
+      `DealStatusTransition` into TypeScript would be the SPA restating a business rule. Publishing
+      `allowed_transitions` on the payload is the better long-term answer and is on the debt register
+      as a backend point, not quietly assumed here.
+- [ ] **6.6** `DealDetailView.vue` — §5.2's Detail view on `CustomerDetailView`'s shape: summary
+      first, **timeline second** from Point 5.2's endpoint, action controls by permission only. A 404
+      is one state and says the record could not be opened, never which case applies (`OpenAPI §5.1`);
+      a 403 is a different screen about the permission itself. The timeline renders old → new status,
+      the actor and the time; **the actor is an id** until Identity publishes a name on this wire —
+      the same cross-module honesty Module 6 applied to currencies rather than inventing a join.
+      *Closes* "Status change → timeline entry with old status, new status, who, when".
+- [ ] **6.7** The documents panel and the assign control on the detail view. Upload through
+      `apiUpload` with the form field named **`document`** — `ApiExceptionRenderer` hard-codes that
+      name, and Module 6 Point 6.1 found by probe that renaming it 422s every upload while reddening
+      no test, so the `FormData` key is asserted here. Download through the existing shared
+      `services/files.ts`. Assign behind `deal.assign_owner`, whose `Team` half is unreachable and
+      said to be. `scan_status: pending` is shown as itself. The panel lists **this session's uploads
+      only**, and says so, there being no per-parent list endpoint.
+- [ ] **6.8** Close the module. Tick the five criteria with their evidence; publish the **full
+      manual test list in Arabic** — one line per check as action ⇒ result, grouped by screen in walk
+      order, naming the required role per check, covering every criterion by name, both languages and
+      directions, the empty / loading / error / refused-by-permission states, and naming explicitly
+      what cannot be tested yet and why (the three ceilings above); update the ownership table's
+      **State** column, the module now being entirely finished; and append the debt register entries —
+      the Kanban board, the documents list endpoint, `allowed_transitions`, and the still-open
+      `Team` / `Out` / `Asgn` scopes.
+
 **Acceptance criteria**
 - [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
 - [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently

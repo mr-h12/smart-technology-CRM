@@ -7480,13 +7480,49 @@ flagged here for review rather than assumed)*
       owed. The timeline is unpaginated on screen — it asks for the first page and shows it, and a
       deal with more than 25 events has more history than the page reveals. Stated rather than
       hidden; the endpoint pages correctly and a control for it is owed.
-- [ ] **6.7** The documents panel and the assign control on the detail view. Upload through
-      `apiUpload` with the form field named **`document`** — `ApiExceptionRenderer` hard-codes that
-      name, and Module 6 Point 6.1 found by probe that renaming it 422s every upload while reddening
-      no test, so the `FormData` key is asserted here. Download through the existing shared
-      `services/files.ts`. Assign behind `deal.assign_owner`, whose `Team` half is unreachable and
-      said to be. `scan_status: pending` is shown as itself. The panel lists **this session's uploads
-      only**, and says so, there being no per-parent list endpoint.
+- [x] **6.7** The documents panel and the assign control — `DealDocumentsPanel.vue`, on the detail
+      view.
+      **The form field is `document` and the test says so.** `ApiExceptionRenderer` hard-codes
+      `'field' => 'document'` when mapping the server's refusal back onto a control, so a rename 422s
+      every upload **and** points the error at a field that does not exist. Module 6 Point 6.1 found
+      that by probe with nothing asserting the key; here both `deals.spec.ts` and this panel's own
+      spec assert it.
+      ⚠️ **The panel lists this session's uploads only, and says so on the screen** — not merely in a
+      docblock. There is **no `GET /deals/{id}/documents`**: Point 4.1 built the upload, Module 0 a
+      generic `GET /files/{id}/download`, and no per-parent list endpoint exists anywhere;
+      `DealPayload` carries no documents array either. A reload empties the list while the files stay
+      perfectly safe on the server. Module 6 Point 6.5 hit the identical wall and answered it the
+      same way. **On the debt register.**
+      **`scan_status` is shown as itself.** `SEC-15` gates the download on the scan and not on
+      ownership, and a scan can be `pending` when the scanner was unavailable — so a file that is not
+      yet clean is drawn as what it is rather than as a download that silently fails, and an infected
+      one is refused **to the person who uploaded it**.
+      **The upload carries `deal.edit`, because §3.4 seeds no attach row.** Unlike §3.6, which gives
+      Supplier Quotations its own `upload_attachment` grant, §3.4 has no such cell — so the control
+      carries the closest documented permission, exactly as `AttachDealDocument`'s own docblock
+      explains choosing over inventing a grant nothing in §3 asks for.
+      **Assign is its own permission and its own section.** §3.4 gives `assign_owner` a row reaching
+      **two** roles where `edit` reaches five, so holding `edit` is not holding this — asserted with
+      an Indoor Sales profile that has `edit` and no assign section. A blank owner is refused here
+      (§3.4 has no unassign row and `AssignDealRequest` requires the field), and the server's own
+      sentence is rendered when it refuses the value.
+      ⚠️ **Half of `assign_owner`'s row is unreachable.** `Team` resolves to no rows (Point 2.1), so
+      a Team Leader holding it reaches the use case for every deal in the company and finds none of
+      them — which `routes/api.php` already records against the route itself.
+      **11 tests · 741 frontend (44 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **Three probes, all reddened and restored:** keying the assign section on `deal.edit` instead of
+      `deal.assign_owner` (1 red), drawing a pending scan as a working download (1 red), and
+      submitting a blank owner (1 red).
+      **Problems found:** none in this point; all 11 tests were green on the first run and both scans
+      passed on arrival.
+      **Waste audit:** 16 new lang keys per language, all rendered; the download goes through the
+      existing shared `services/files.ts` rather than a module-local copy — `GET /files/{id}/download`
+      is Storage-owned infrastructure, which is why Module 6 put the helper there; no new dependency.
+      **Not covered:** no documents list on load, by necessity rather than choice. The owner is set by
+      identifier, there being no user list this module may call — the same ceiling Point 6.3 recorded
+      for the create form. Nothing here shows *who* attached a file; the timeline's
+      `DEAL_DOCUMENT_ATTACHED` entry does, and it is 6.6's.
 - [ ] **6.8** Close the module. Tick the five criteria with their evidence; publish the **full
       manual test list in Arabic** — one line per check as action ⇒ result, grouped by screen in walk
       order, naming the required role per check, covering every criterion by name, both languages and

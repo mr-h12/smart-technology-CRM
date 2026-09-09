@@ -35,9 +35,9 @@
  *
  * ── What is deliberately not here ──────────────────────────────────────────
  *
- * **No documents panel and no assign control** — both are Point 6.7, and
- * building them here would be building past the approved plan. **No Kanban
- * link**: §5.2's board is deferred with a `D-xx` owed.
+ * **No Kanban link**: §5.2's board is deferred with a `D-xx` owed. The
+ * documents panel and the assign control arrived with Point 6.7 and are the
+ * one child component this page adds beyond 6.4's and 6.5's controls.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -47,6 +47,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
+import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import { listDealTimeline, readDeal, type Deal, type DealTimelineEntry } from '@/services/deals';
 import { readCustomer, type Customer } from '@/services/customers';
@@ -228,6 +229,9 @@ onMounted(async () => {
                 />
                 <DealStatusControl :deal="deal" @changed="refresh" />
             </div>
+
+            <!-- §17's upload and §3.4's assign (Point 6.7). -->
+            <DealDocumentsPanel :deal="deal" @assigned="refresh" />
 
             <!-- §5.2: related data / timeline second. -->
             <section class="flex flex-col gap-2" data-testid="deal-detail-timeline">

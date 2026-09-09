@@ -111,6 +111,7 @@ final class NoHardCodedTextTest extends TestCase
                 // an emoji is not a word and the scan reads it as none.
                 'DealApprovalControls.vue',
                 'DealDetailView.vue',
+                'DealDocumentsPanel.vue',
                 'DealFormModal.vue',
                 'DealStatusControl.vue',
                 'DealsView.vue',

@@ -19,10 +19,12 @@ use App\Modules\Admin\Infrastructure\EloquentManagedListRepository;
 use App\Modules\Admin\Infrastructure\SettingsCache;
 use App\Modules\Audit\Application\AuditRecorder;
 use App\Modules\Audit\Domain\Contracts\AuditContextResolverInterface;
+use App\Modules\Audit\Domain\Contracts\AuditEntryReaderInterface;
 use App\Modules\Audit\Domain\Contracts\AuditEntryWriterInterface;
 use App\Modules\Audit\Domain\Contracts\AuditPartitionsInterface;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
+use App\Modules\Audit\Infrastructure\DatabaseAuditEntryReader;
 use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Catalog\Application\Writing\ProvisionCatalogProduct;
@@ -123,6 +125,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             AuditEntryWriterInterface::class,
             fn (): DatabaseAuditEntries => new DatabaseAuditEntries(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 5 Point 5.1 — the read half. `AUD-03` refuses UPDATE, DELETE
+        // and TRUNCATE on this table; it has never refused a SELECT, and
+        // §3.4's `deal.view_timeline` has been seeded to seven roles with no
+        // route able to check it since Module 1.
+        $this->app->bind(
+            AuditEntryReaderInterface::class,
+            fn (): DatabaseAuditEntryReader => new DatabaseAuditEntryReader(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

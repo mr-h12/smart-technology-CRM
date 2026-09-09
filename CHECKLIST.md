@@ -7057,14 +7057,58 @@ flagged here for review rather than assumed)*
 > codebase but `PermissionMatrix` itself and one docblock. A seeded permission no route ever checks
 > is not a feature.
 
-- [ ] **5.1** An audit **reader**. `Modules/Audit` is write-only today — `Presentation/` is a bare
-      `.gitkeep`, and the contracts are `AuditRecorderInterface` and `AuditEntryWriterInterface`.
-      Add `AuditEntryReaderInterface` beside them and its implementation beside
-      `Infrastructure/DatabaseAuditEntries.php`, reading `entity_type` + `entity_id` ordered by
-      `created_at`. `AUD-03` blocks UPDATE, DELETE and TRUNCATE on the table — **not SELECT** — and
-      the docblock says so, rather than leaving the next reader hunting for a trap that is not there.
-      `deptrac.modules.yaml` gains the `Deals → AuditContract` grant, appended inside this
-      developer's own block.
+- [x] **5.1** An audit **reader**. `Modules/Audit` was write-only — `Presentation/` a bare
+      `.gitkeep`, the contracts `AuditRecorderInterface` and `AuditEntryWriterInterface`.
+      `AuditEntryReaderInterface` joins them, with `DatabaseAuditEntryReader` beside
+      `DatabaseAuditEntries` and two read models, `AuditRecord` and `AuditRecordPage`.
+      **`AUD-03` blocks `UPDATE`, `DELETE` and `TRUNCATE` — never `SELECT`**, and the interface says
+      so rather than leaving the next reader hunting for a trap that is not there. Append-only is not
+      write-only, and reading a permanent record is the reason it is permanent.
+      **A separate class from `DatabaseAuditEntries`, deliberately.** That class's docblock says
+      "insert and nothing else", and it is the sentence telling a reader why no `update` method is
+      missing by accident. Adding a `SELECT` would make it false; two classes over one table is the
+      cheaper price.
+      **`AuditRecord` is not `AuditEntry`.** The write-side object demands an `AuditContext`,
+      normalises the timestamp and refuses a float on its way to a permanent row (`DB-07`, `D-30`);
+      re-running those on a row already written is re-litigating a decision the database has already
+      recorded. **Four fields are on the row and deliberately not on the read model** —
+      `ip_address`, `user_agent`, `request_id`, `correlation_id`: forensic fields for `AUD-05`'s
+      structured log, not fields a timeline shows a salesperson, and `SEC-10`'s reason for storing
+      the impersonator does not extend to publishing an IP to whoever holds `deal.view_timeline`.
+      **No authorization here, on purpose.** The port takes an entity type and an id; `SEC-08`'s row
+      scoping belongs to the module that owns the rows, because only it knows what reaching one
+      means. Point 5.2 is where a caller who may not see the deal is refused.
+      ⚠️ **`deptrac.modules.yaml` needed nothing.** The point list said to add `Deals → AuditContract`;
+      it has been there since Point 2.3, the module's first write. Checked before editing rather than
+      after — the plan was wrong and the file was right.
+      **11 tests. RED first: the binding could not resolve, so all 10 then-existing tests failed.**
+      ⚠️ **A probe found a real hole and the point closed it.** Reversing `orderByDesc('created_at')`
+      reddened **nothing**: `id` is a UUIDv7 (`D-61`) and already time-ordered, so in a test whose
+      rows are written microseconds apart the tie-break silently carried the whole promise, and
+      "newest first" was an untested claim. An eleventh test now builds two rows whose keys
+      **disagree** — the older row given the newer id — so only `created_at` can produce the
+      documented order. The same probe now reddens 2 tests. Back-dating with an `UPDATE` was tried
+      first and is impossible by design: `AUD-03`'s trigger answered SQLSTATE `AUD03`, which is the
+      immutability rule proving itself inside a test that was not looking for it.
+      **Two more probes, both reddened and restored** (`shasum -a 256 -c` each time): dropping
+      `where('entity_type', …)` from the page query reddened the same-id-different-type case (1 red),
+      and removing the UTC normalisation reddened the four-fields case (1 red).
+      **Problems found — one real defect of mine, caught by running it.** `new DateTimeImmutable($s,
+      new DateTimeZone('UTC'))` **ignores the zone argument** when `$s` carries an offset, and
+      Postgres hands back `…+00`: the object came back named `+00:00`, the same instant wearing a
+      different name, failing every assertion on the zone. Fixed with `setTimezone` after
+      construction. One wrong expectation of mine too, in the test rather than the code — a
+      `DEAL_CREATED` row's payload is `['status' => 'lead']`, not null.
+      **Waste audit:** no new dependency; no new deptrac grant (the one named was already there);
+      `AuditRecordPage` transcribes `DealPage`'s arithmetic rather than sharing a base class, on
+      `DealPage`'s own precedent against `CustomerPage` — a shared pagination parent would be a
+      dependency between modules with no business knowing each other. `oldValue()`/`newValue()` exist
+      because three call sites would otherwise repeat the same null-and-type dance and the third
+      would do it differently.
+      **Not covered:** no route, no controller, no permission check, no row scope — all Point 5.2.
+      Nothing reads this port yet; `deal.view_timeline` is still unreachable until 5.2 lands. The
+      reader is unfiltered by event, so 5.2 decides whether a timeline shows all seven `DEAL_*`
+      events or only `DEAL_STATUS_CHANGED`.
 - [ ] **5.2** `GET /deals/{deal}/timeline`, appended to the `prefix('deals')` group,
       `->middleware('permission:deal.view_timeline')`. **The scope is resolved from that permission
       and not from `deal.view`** — §3.4 gives them different columns, and `ChangeDealStatus` is this

@@ -7292,16 +7292,51 @@ flagged here for review rather than assumed)*
       build them, so this screen is read-only today and draws no write affordance at all. No row
       links anywhere: the detail view is 6.6. Module 6's `deal_id` filter is still a raw identifier
       box; giving it a picker is not this point's job and is not yet done.
-- [ ] **6.3** `DealFormModal.vue` — create and edit in one component, on
-      `SupplierQuotationFormModal`'s shape. §4.3's caller-writable fields only: `customer_id` and
-      `owner_id` create-only (both `prohibited` on `PATCH`), `title`, `source`, `service_type`. Server
-      errors mapped field by field through `ApiError.messageFor()` — a form-level refusal is a local
-      key, a field refusal is the server's own sentence. Dirty guard with an in-dialog discard panel,
-      never a native `confirm()`, which cannot be translated or mirrored. The list refetches on save
-      rather than patching the row in place, because a changed sort key can move it.
-      ⚠️ The customer picker draws one `listCustomers({ perPage: 100 })` — `MAX_PER_PAGE`, the same
-      measured ceiling Module 6 recorded for suppliers — so a customer past the hundredth is an
-      identifier. Stated, not hidden.
+- [x] **6.3** `DealFormModal.vue` — create and edit in one component, on
+      `SupplierQuotationFormModal`'s shape, plus the two write controls it gives the list.
+      **Five fields, and every absence is the server's rule.** `code`, `status`, `approval_status`,
+      `rejection_reason` and `last_activity_at` are `prohibited` in `SaveDealRequest` — a 422, not a
+      silent drop — and are absent from `DealDraft`, so this dialog could not send one by accident.
+      **`customer_id` and `owner_id` are create-only and are not drawn at all on an edit**, rather
+      than drawn disabled: both are `prohibited` on a `PATCH`, a disabled control invites the question
+      "why", and the answer is a different screen. The customer is the one thing about a deal that
+      cannot change; the owner moves through `PATCH /deals/{id}/assign`, which §3.4 gives its own row
+      (`assign_owner`, two roles where `edit` reaches five).
+      ⚠️ **No owner picker, on Module 3's precedent.** Filling one needs a user list `deal.create`
+      does not carry, and `CustomerFormModal` recorded the same wall for `sales_owner_id` as a
+      narrowing rather than a decision. A plain identifier box, labelled as one — the same ugly,
+      stated ceiling Module 6 accepted for its `deal_id` filter.
+      **`""` means "not given", which on the wire is `null`** and never an empty string: the server's
+      vocabularies have no empty member, so an empty `source` would be a 422.
+      **Two permissions, two computeds, never one "may write".** §3.4 gives `create` and `edit`
+      different columns — the CEO holds neither, **Procurement holds `edit` and has no `create` cell
+      at all** — so a single computed would draw a control that role cannot complete. Asserted with a
+      Procurement profile.
+      **A form-level refusal is a local key; a field refusal is the server's own sentence**, already
+      localised, rendered verbatim through `ApiError.messageFor()`.
+      **The unsaved-change warning is a panel in the dialog, never `confirm()`** — that dialog is
+      neither translatable nor mirrored for RTL (§5.2, §6.1: Escape closes "without discarding
+      silently", so Cancel and Escape take one path). Dirty is measured against **what the dialog
+      opened with**, not against blank, so an edit that changes nothing closes straight away.
+      **The list refetches after a save rather than patching the row:** a write refreshes
+      `last_activity_at`, which is the default sort, so the saved row may not belong where it was.
+      **14 dialog tests + 5 new list tests · 692 frontend (40 files) · vue-tsc clean · pint 546 files
+      · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.**
+      ⚠️ **A gate caught a defect of mine that no eye would have.** The scrim was written as
+      `var(--color-scrim)` — **a token that does not exist**. `LogicalPropertiesTest`'s colour-token
+      check failed on it (`§3.2` fixes the set a component may consume), and the fix is the same
+      `color-mix(in srgb, var(--color-text) 45%, transparent)` `SupplierQuotationFormModal` already
+      uses. An invented token renders as nothing and would have shipped an invisible scrim.
+      **Three probes, all reddened and restored:** resending `customer_id` on an edit (1 red),
+      discarding unsaved changes silently (3 red — Cancel, Escape and the decline path are one rule
+      seen three times), and sending `''` instead of `null` for an unset field (1 red).
+      **`NoHardCodedTextTest`'s pinned list gained `DealFormModal.vue`**, the scan having been run
+      against it first and passed.
+      **Waste audit:** 15 new lang keys per language, all rendered; no new dependency; the dialog
+      reuses `action.cancel`, `action.save` and `action.edit` rather than adding module-local twins.
+      **Not covered:** no approve, reject, status, assign or document control — 6.4 through 6.7. The
+      dialog cannot set an owner on an existing deal, by design. Nothing here validates beyond the one
+      required-customer courtesy; `D-67` keeps every rule that matters on the server.
 - [ ] **6.4** The approval controls — the `pending` badge (§6.4: amber, icon **and** label, never
       colour alone) and Approve / Reject behind `deal.approve`, which §3.4 seeds for both directions
       with no `deal.reject` row. Rejection collects its mandatory reason **in the dialog before

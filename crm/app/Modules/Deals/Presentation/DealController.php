@@ -9,8 +9,10 @@ use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Documents\AttachDealDocument;
 use App\Modules\Deals\Application\Listing\ListDeals;
+use App\Modules\Deals\Application\Listing\ListDealTimeline;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
+use App\Modules\Deals\Domain\Listing\DealTimelineCriteria;
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Support\Http\ApiEnvelope;
@@ -47,6 +49,25 @@ final class DealController
         return ApiEnvelope::single($request, DealPayload::of(
             $deals->one($deal, self::heldScopes($request), self::actorId($request)),
         ));
+    }
+
+    public function timeline(Request $request, string $deal, ListDealTimeline $timeline): JsonResponse
+    {
+        // Parsed in Domain for the same reason `index` is: §6.1 and §6.2 want
+        // `400 invalid_request` for a bad page size or an undeclared
+        // parameter, and a Form Request failure is a 422.
+        $page = $timeline->handle(
+            $deal,
+            DealTimelineCriteria::fromQuery($request->query()),
+            self::heldScopes($request),
+            self::actorId($request),
+        );
+
+        return ApiEnvelope::collection(
+            $request,
+            DealTimelinePayload::many($page),
+            DealTimelinePayload::pagination($page),
+        );
     }
 
     public function store(SaveDealRequest $request, SaveDeal $deals): JsonResponse

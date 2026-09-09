@@ -7109,16 +7109,63 @@ flagged here for review rather than assumed)*
       Nothing reads this port yet; `deal.view_timeline` is still unreachable until 5.2 lands. The
       reader is unfiltered by event, so 5.2 decides whether a timeline shows all seven `DEAL_*`
       events or only `DEAL_STATUS_CHANGED`.
-- [ ] **5.2** `GET /deals/{deal}/timeline`, appended to the `prefix('deals')` group,
-      `->middleware('permission:deal.view_timeline')`. **The scope is resolved from that permission
-      and not from `deal.view`** — §3.4 gives them different columns, and `ChangeDealStatus` is this
-      module's own precedent for resolving a second `DealRowScope` inside a use case. A row outside
-      the caller's reach is a **404**, per `OpenAPI §5.1`'s "does not exist **or is not visible to
-      the caller** — do not reveal which case applies". One row on the wire is `event`, `old_status`,
-      `new_status`, `actor_id`, `occurred_at`; paginated per `OpenAPI §6`, newest first.
-      `DEAL_STATUS_CHANGED` is the criterion's own row, but the read is not filtered to it: the other
-      six recorded events (`DEAL_CREATED`, `DEAL_UPDATED`, `DEAL_APPROVED`, `DEAL_REJECTED`,
-      `DEAL_REASSIGNED`, `DEAL_DOCUMENT_ATTACHED`) are the same timeline §4.4 describes.
+- [x] **5.2** `GET /deals/{deal}/timeline`, appended to the `prefix('deals')` group,
+      `->middleware('permission:deal.view_timeline')` — the first route in the codebase to check that
+      permission, seeded to all seven roles since Module 1 and until now present only in
+      `PermissionMatrix` and one docblock.
+      **The scope is the one the middleware resolved for *this* route's permission**, not
+      `deal.view`'s. §3.4 gives them separate rows; they hold the same seven grants today, and a
+      matrix where they diverge finds this code already correct rather than quietly reusing the wrong
+      column. Unlike Point 2.6's `mark_delivery_complete`, no second `AuthorizeAction` lookup is
+      needed: which permission applies does not depend on the request body, so route middleware can
+      see it.
+      **The row is settled before the history is read, never after.** `ListDealTimeline` finds the
+      deal under the caller's scope first and throws `DealNotFound` — `OpenAPI §5.1`'s 404 for "does
+      not exist **or** is not visible; do not reveal which case applies" — before the audit port is
+      ever asked. Reading first and filtering after would be the same defect in a different order:
+      the `total` alone tells a caller how busy a deal they may not see has been.
+      **`DealTimelineCriteria` declares `page` and `per_page` and nothing else**, and each absence is
+      a decision. **No `sort`** — newest-first is the port's promise, and a timeline ordered oldest
+      first puts what just happened on the last page nobody opens. **No `q`** — `D-48` routes free
+      text through `SearchService` and there is no audit index, so a search box would be a control
+      with nothing behind it. **No `filter[event]`**, though six other `DEAL_*` events share the
+      table: §4.4 describes what must be *in* the timeline, not what to filter out of it, and no
+      source describes an event filter — **owed a `D-xx` before it exists**. §6.2's undeclared
+      parameter is a **400**, not a silent ignore: a caller who sent a sort and got an unsorted list
+      would believe it had been applied.
+      **`old_status`/`new_status` are lifted out of the stored payloads**, and an event that changed
+      something else — a `DEAL_UPDATED` on the title — keeps its entry with both fields null rather
+      than being hidden. A history with holes in it is not a history.
+      ⚠️ **`actor_id` and not an actor name.** The name belongs to Identity and `CLAUDE.md` forbids
+      this module reading another module's rows — Module 6 Point 6.2's answer for a currency it could
+      not resolve, taken again. On the debt register.
+      **19 tests · pint 546 files · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on
+      both configs.**
+      ⚠️ **A test of mine asserted the wrong thing and the run caught it.** The first version
+      data-provided a role that should get a 403 and named the Super Admin — who holds
+      `unconditional_access` (§3.11) and is admitted by it, answering 200. §3.4's `view timeline` row
+      fills all seven business columns, so **there is no role to refuse**. Replaced with a stronger
+      test that *withdraws* the grant: the Manager keeps `deal.view`, loses `deal.view_timeline`, and
+      the route must refuse — which a route reading the wrong column would fail, since `GET
+      /deals/{id}` still answers 200 in the same test.
+      **Three probes, all reddened and restored** (`cp` from a pre-probe copy, re-verified green):
+      pointing the route at `permission:deal.view` reddened exactly the withdraw test (1 red);
+      removing the reach check reddened the two 404 cases and the "history is not read" case (3 red);
+      ignoring undeclared parameters instead of refusing them reddened the sort, search and event
+      filter cases (3 red).
+      **Problems found:** besides the wrong test above, PHPStan level 10 rejected `int` against the
+      port's `positive-int` — annotated through `DealTimelineCriteria` rather than relaxed on the
+      interface, because the parser genuinely guarantees it (`^[1-9][0-9]*$` refuses zero and below).
+      Two pint fixes, both cosmetic.
+      **Waste audit:** one new lang key per language (`list_query.unknown_parameter`), both rendered
+      by a test; `DealTimelineCriteria` transcribes `DealListCriteria`'s bounds rather than sharing
+      them, on this module's own precedent — two resources agreeing on a page size today is not a
+      reason to make one change when the other's contract does. No new deptrac grant needed.
+      **Not covered:** no screen — Step 6 draws this. The actor is an id on the wire. No event
+      filter, and no `DEAL_*` event is excluded, so a deal with many document uploads shows them all.
+      §3.4's `Team`/`Out`/`Asgn` gaps are unchanged and now visible on this route too: a Team Leader
+      holding `view_timeline` as `Team` reaches no deal at all, which the tests assert rather than
+      work around.
 
 #### Step 6 — the frontend *(point list approved 2026-09-08)*
 

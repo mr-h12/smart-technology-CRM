@@ -925,7 +925,16 @@
         "approval": {
             "pending": "Pending approval",
             "approved": "Approved",
-            "rejected": "Rejected"
+            "rejected": "Rejected",
+            "approveAction": "Approve",
+            "rejectAction": "Reject",
+            "reasonPrompt": "Why is this request rejected?",
+            "reasonRequired": "A reason is required to reject a request.",
+            "reasonLabel": "Reason: {reason}",
+            "alreadyDecided": "This request has already been decided. Reload to see its current state.",
+            "forbidden": "You do not have permission to decide this request.",
+            "unreachable": "The server could not be reached. Nothing was decided.",
+            "rejectedByServer": "The decision was not accepted."
         },
         "serviceType": {
             "product": "Product",
@@ -949,6 +958,23 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} deals"
+        },
+        "form": {
+            "createTitle": "New deal",
+            "editTitle": "Edit deal",
+            "required": "(required)",
+            "saving": "Saving…",
+            "notGiven": "Not given",
+            "customerNone": "Choose the customer",
+            "customerRequired": "The customer is required.",
+            "ownerPlaceholder": "Owner identifier",
+            "ownerCeiling": "An identifier, not a picker — the owner is changed from the deal itself.",
+            "discardPrompt": "Discard the changes you have made?",
+            "discardKeep": "Keep editing",
+            "discardConfirm": "Discard",
+            "unreachable": "The server could not be reached. Nothing was saved.",
+            "forbidden": "You do not have permission to save this deal.",
+            "rejected": "The deal was not accepted."
         }
     }
 }

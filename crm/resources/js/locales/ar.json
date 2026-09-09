@@ -925,7 +925,16 @@
         "approval": {
             "pending": "بانتظار الاعتماد",
             "approved": "معتمَدة",
-            "rejected": "مرفوضة"
+            "rejected": "مرفوضة",
+            "approveAction": "اعتماد",
+            "rejectAction": "رفض",
+            "reasonPrompt": "ما سبب رفض هذا الطلب؟",
+            "reasonRequired": "السبب مطلوب لرفض الطلب.",
+            "reasonLabel": "السبب: {reason}",
+            "alreadyDecided": "سبق البتّ في هذا الطلب. أعِد التحميل لعرض حالته الحالية.",
+            "forbidden": "لا تملك صلاحية البتّ في هذا الطلب.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يُتَّخذ أي قرار.",
+            "rejectedByServer": "لم يُقبل القرار."
         },
         "serviceType": {
             "product": "منتج",
@@ -949,6 +958,23 @@
             "previous": "السابق",
             "next": "التالي",
             "position": "صفحة {page} من {pages} — {total} صفقة"
+        },
+        "form": {
+            "createTitle": "صفقة جديدة",
+            "editTitle": "تعديل الصفقة",
+            "required": "(مطلوب)",
+            "saving": "جارٍ الحفظ…",
+            "notGiven": "غير محدَّد",
+            "customerNone": "اختر العميل",
+            "customerRequired": "العميل مطلوب.",
+            "ownerPlaceholder": "معرّف المسؤول",
+            "ownerCeiling": "معرّف، لا قائمة اختيار — يُغيَّر المسؤول من الصفقة نفسها.",
+            "discardPrompt": "هل تريد تجاهل التعديلات التي أجريتها؟",
+            "discardKeep": "متابعة التعديل",
+            "discardConfirm": "تجاهل",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يُحفظ شيء.",
+            "forbidden": "لا تملك صلاحية حفظ هذه الصفقة.",
+            "rejected": "لم تُقبل الصفقة."
         }
     }
 }

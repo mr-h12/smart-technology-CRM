@@ -104,9 +104,24 @@ const USER: AuthenticatedUser = {
     name: 'Test Manager',
     email: 'manager@example.test',
     role: { id: 'r1', slug: 'manager', name: 'Manager' },
-    permissions: ['deal.view.all', 'customer.view.all'],
+    permissions: ['deal.view.all', 'customer.view.all', 'deal.create.all', 'deal.edit.all'],
     is_active: true,
     unconditional_access: false,
+};
+
+/**
+ * §3.4's documented split: Procurement holds `edit` as `Asgn` and has **no
+ * `create` cell at all**. `create` and `edit` are two rows with different
+ * columns, so one "may write" computed would draw a control this role cannot
+ * complete.
+ */
+const EDITOR_WITHOUT_CREATE: AuthenticatedUser = {
+    ...USER,
+    id: 'u4',
+    name: 'Test Procurement',
+    email: 'procurement@example.test',
+    role: { id: 'r4', slug: 'procurement', name: 'Procurement' },
+    permissions: ['deal.view.asgn', 'deal.edit.asgn'],
 };
 
 /**
@@ -121,6 +136,7 @@ const CEO: AuthenticatedUser = {
     name: 'Test CEO',
     email: 'ceo@example.test',
     role: { id: 'r2', slug: 'ceo', name: 'CEO' },
+    // §3.4 gives the CEO `view` as `All` and a dash under `create` and `edit`.
     permissions: ['deal.view.all'],
 };
 
@@ -247,7 +263,10 @@ describe('the deals screen', () => {
         const wrapper = await render(respond());
 
         expect(wrapper.find('[data-testid="deals-status"]').text()).toBe('Lead');
-        expect(wrapper.find('[data-testid="deals-approval"]').text()).toBe('Pending approval');
+        // `toContain` and not `toBe`: as of Point 6.4 the cell holds §6.4's
+        // badge, which carries an icon beside the word so the state is never
+        // colour alone.
+        expect(wrapper.find('[data-testid="deals-approval"]').text()).toContain('Pending approval');
     });
 
     it('draws a never-submitted deal as neither pending nor approved', async () => {
@@ -393,6 +412,63 @@ describe('the deals screen', () => {
         await flushPromises();
 
         expect(dealsUrl(fetchMock)).toContain('page=2');
+    });
+
+    // ────────────────────────────────────────────────────── the write controls
+
+    it('draws create and edit for a role §3.4 grants both to', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="deals-create"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deals-row-edit"]').exists()).toBe(true);
+    });
+
+    it('draws neither for the CEO, whom §3.4 grants view and nothing else', async () => {
+        const wrapper = await render(respond(), CEO);
+
+        // The screen is still theirs to read — the refusal is of the controls,
+        // not of the list.
+        expect(wrapper.find('[data-testid="deals-table"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deals-create"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="deals-row-edit"]').exists()).toBe(false);
+    });
+
+    it('draws edit without create for a role that holds only edit', async () => {
+        // ⚠️ The case a single "may write" computed would get wrong: §3.4 gives
+        // Procurement `edit` and no `create` cell.
+        const wrapper = await render(respond(), EDITOR_WITHOUT_CREATE);
+
+        expect(wrapper.find('[data-testid="deals-create"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="deals-row-edit"]').exists()).toBe(true);
+    });
+
+    it('asks the list again after a save rather than patching the row', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+        const before = listReads(fetchMock);
+
+        await wrapper.find('[data-testid="deals-create"]').trigger('click');
+        await flushPromises();
+        await wrapper.find('[data-testid="deal-form-customer-id"]').setValue('c1');
+        await wrapper.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        // A write refreshes `last_activity_at`, which is the default sort, so
+        // the saved row may not belong where it was.
+        expect(listReads(fetchMock)).toBe(before + 2);
+        expect(wrapper.find('[data-testid="deal-form-modal"]').exists()).toBe(false);
+    });
+
+    it('opens the dialog on the row it was asked to edit', async () => {
+        const wrapper = await render(respond());
+
+        await wrapper.find('[data-testid="deals-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="deal-form-modal"]').exists()).toBe(true);
+        expect(wrapper.text()).toContain('Edit deal');
+        // Create-only controls stay out of an edit.
+        expect(wrapper.find('[data-testid="deal-form-customer-id"]').exists()).toBe(false);
     });
 
     // ─────────────────────────────────────────────── the route and the nav item

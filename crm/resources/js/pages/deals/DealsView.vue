@@ -80,8 +80,25 @@ import {
     type Pagination,
 } from '@/services/deals';
 import { listCustomers, type Customer } from '@/services/customers';
+import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
+import DealFormModal from '@/pages/deals/DealFormModal.vue';
+import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
+const auth = useAuth();
+
+/**
+ * §3.4 gives `create` and `edit` separate rows with different columns — the
+ * CEO holds neither, Procurement holds `edit` and not `create` — so the two
+ * controls are drawn from two computeds and never from one "may write".
+ * §6.2: one primary action per context, drawn only for the permission that can
+ * complete it.
+ */
+const canCreate = computed(() => auth.hasPermission('deal.create'));
+const canEdit = computed(() => auth.hasPermission('deal.edit'));
+
+const formOpen = ref(false);
+const editing = ref<Deal | null>(null);
 
 type SortField = 'code' | 'created_at' | 'last_activity_at';
 
@@ -241,6 +258,37 @@ function onDate(value: string | null): string {
     return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
 }
 
+function startCreate(): void {
+    editing.value = null;
+    formOpen.value = true;
+}
+
+function startEdit(deal: Deal): void {
+    editing.value = deal;
+    formOpen.value = true;
+}
+
+/**
+ * The saved deal may no longer belong on the page in view — a changed title
+ * moves it under `q`, and the write refreshes `last_activity_at`, which is the
+ * default sort — so the list is asked again rather than patched in place
+ * (§5.2, §6.5).
+ */
+/**
+ * A decision changes `approval_status` and touches the row's activity, and the
+ * `filter[approval_status]` in force may no longer match it — so the list is
+ * asked again rather than patched, for the same reason a save is.
+ */
+async function onDecided(): Promise<void> {
+    await load();
+}
+
+async function onSaved(): Promise<void> {
+    formOpen.value = false;
+
+    await load();
+}
+
 onMounted(async () => {
     await Promise.all([load(), loadCustomers()]);
 });
@@ -258,6 +306,19 @@ onMounted(async () => {
             >
                 {{ t('deals.total', { count: total }) }}
             </p>
+
+            <!-- §6.2: one primary action per context, drawn only for the
+                 permission that can complete it. §3.4 gives the CEO no
+                 `create` cell at all. -->
+            <button
+                v-if="canCreate"
+                type="button"
+                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="deals-create"
+                @click="startCreate()"
+            >
+                {{ t('deals.form.createTitle') }}
+            </button>
         </header>
 
         <form class="flex flex-wrap items-end gap-3" data-testid="deals-filters" @submit.prevent="applyFilters">
@@ -393,6 +454,9 @@ onMounted(async () => {
                             <!-- §5.2's column priorities: secondary columns fold first. -->
                             <th scope="col" class="hidden p-3 text-start md:table-cell">{{ t('deals.column.serviceType') }}</th>
                             <th scope="col" class="hidden p-3 text-start lg:table-cell">{{ t('deals.column.owner') }}</th>
+                            <th v-if="canEdit" scope="col" class="p-3 text-start">
+                                <span class="sr-only">{{ t('action.edit') }}</span>
+                            </th>
                         </tr>
                     </thead>
 
@@ -403,7 +467,12 @@ onMounted(async () => {
                             <td class="p-3" data-testid="deals-customer">{{ customerName(deal.customer_id) }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
                             <td class="p-3" data-testid="deals-status">{{ statusLabel(deal.status) }}</td>
-                            <td class="p-3" data-testid="deals-approval">{{ approvalLabel(deal.approval_status) }}</td>
+                            <td class="p-3" data-testid="deals-approval">
+                                <!-- Flow 1's null draws no badge at all: never
+                                     submitted is not the same fact as waiting. -->
+                                <span v-if="deal.approval_status === null">{{ approvalLabel(null) }}</span>
+                                <DealApprovalControls v-else :deal="deal" @decided="onDecided" />
+                            </td>
                             <td class="p-3 tabular-nums">{{ onDate(deal.last_activity_at) }}</td>
                             <td class="hidden p-3 md:table-cell">
                                 {{ deal.service_type === null ? '—' : t(`deals.serviceType.${deal.service_type}`) }}
@@ -411,6 +480,17 @@ onMounted(async () => {
                             <!-- ⚠️ An identifier: Identity publishes no list this
                                  module may resolve a name against. -->
                             <td class="hidden p-3 lg:table-cell" data-testid="deals-owner">{{ deal.owner_id ?? '—' }}</td>
+
+                            <td v-if="canEdit" class="p-3">
+                                <button
+                                    type="button"
+                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    data-testid="deals-row-edit"
+                                    @click="startEdit(deal)"
+                                >
+                                    {{ t('action.edit') }}
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -447,6 +527,14 @@ onMounted(async () => {
                 </button>
             </nav>
         </div>
+
+        <DealFormModal
+            :open="formOpen"
+            :editing="editing"
+            :customers="customers"
+            @saved="onSaved"
+            @cancel="formOpen = false"
+        />
     </section>
 </template>
 
@@ -485,5 +573,10 @@ onMounted(async () => {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 </style>

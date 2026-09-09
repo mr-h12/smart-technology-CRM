@@ -100,6 +100,17 @@ final class NoHardCodedTextTest extends TestCase
                 // and approval labels are all dictionary keys built from the
                 // server's stored codes; the only bare strings in the template
                 // are those codes and an em dash for an absent value.
+                // Module 5 Point 6.3 — §4.3's create/edit dialog. Added on
+                // the same terms: the scan below was run against it first and
+                // passed. Its two vocabularies are rendered through
+                // `deals.source.*` and `deals.serviceType.*` keys, so the bare
+                // strings in the template are stored codes, never a sentence.
+                // Module 5 Point 6.4 — Flow 3's decision. Added on the same
+                // terms: the scan below was run against it first and passed.
+                // The badges carry an icon character beside a dictionary key;
+                // an emoji is not a word and the scan reads it as none.
+                'DealApprovalControls.vue',
+                'DealFormModal.vue',
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',

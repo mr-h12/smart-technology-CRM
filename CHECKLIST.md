@@ -7337,15 +7337,57 @@ flagged here for review rather than assumed)*
       **Not covered:** no approve, reject, status, assign or document control — 6.4 through 6.7. The
       dialog cannot set an owner on an existing deal, by design. Nothing here validates beyond the one
       required-customer courtesy; `D-67` keeps every rule that matters on the server.
-- [ ] **6.4** The approval controls — the `pending` badge (§6.4: amber, icon **and** label, never
-      colour alone) and Approve / Reject behind `deal.approve`, which §3.4 seeds for both directions
-      with no `deal.reject` row. Rejection collects its mandatory reason **in the dialog before
-      submission** (§6.6), matching `RejectDealRequest`'s `required` + `regex:/\S/`; the rejected
-      badge and the reason are drawn from `rejection_reason` for the employee. A `409
-      state_transition_invalid` — re-deciding a decided deal, or deciding one that was never
-      submitted — is surfaced inline rather than swallowed.
-      *Closes* "Employee-entered request → Pending Approval" and "Rejected request → mandatory reason
-      + badge", **both demonstrable as Manager only** while `Team` has no mechanism.
+- [x] **6.4** The approval controls — `DealApprovalControls.vue`: §6.4's badges, and Approve /
+      Reject behind `deal.approve`, drawn in the list's approval column.
+      **One permission for both directions, because §3.4 seeds one.** There is no `deal.reject` row —
+      `deal.approve` carries both routes, on `customer.archive`'s precedent for archive/restore — so
+      one computed draws both buttons and a role that may approve may reject.
+      **The badge is a state, not a colour.** §6.4 makes pending a **warning** ("amber icon +
+      label") and rejected a **danger** with "mandatory reason/action clear", so each badge carries
+      an icon, a word **and** a token-defined colour; the rejection reason is rendered **beside** the
+      badge rather than behind it, §4.3 making it mandatory precisely so the employee can read it.
+      **Null is not pending.** Flow 1 leaves `approval_status` null for a deal a Manager or Team
+      Leader entered — never submitted, which is a different fact from "waiting for a decision". No
+      badge is drawn at all in that case; a "pending" chip would invent a queue nobody is in.
+      **The reason is collected before submission, never after** (§6.6), and whitespace is refused
+      here as well as at the server — `RejectDealRequest` is `required` + `regex:/\S/`, and the same
+      check made where the person can still fix it saves a round trip that would only tell them what
+      they already know.
+      **A decision that cannot succeed is not offered:** the buttons are drawn only on a `pending`
+      deal, because `ReviewDealApproval` answers a second decision — and a decision on a
+      never-submitted deal — with `409 state_transition_invalid`. When a 409 does arrive because the
+      row in hand is stale, it is surfaced inline as exactly that, with the honest instruction to
+      reload.
+      **A field refusal is the server's own sentence** (`ApiError.messageFor('reason')`); a 403 says
+      it is a permission problem and not a bad reason.
+      *Closes* **"Employee-entered request → 'Pending Approval' for the Team Leader"** and
+      **"Rejected request → mandatory reason + badge for the employee"**.
+      ⚠️ **Both are demonstrable as the Manager only.** §3.4 grants `deal.approve` to the Manager
+      (`All`) and the Team Leader (`Team`), and `Team` resolves to **no rows at all** (Point 2.1) — so
+      a Team Leader holds the permission, is drawn the buttons, and reaches no deal to press them on.
+      The role the criterion names cannot demonstrate it today. That is recorded backend debt, not a
+      defect of this component; the module's manual test list says so in as many words, and the spec's
+      own docblock does too.
+      **13 tests · 705 frontend (41 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **Three probes, all reddened and restored:** submitting a blank reason (2 red — the blank and
+      whitespace cases are one rule seen twice); keying the controls on `deal.edit` instead of
+      `deal.approve` (**9 red**, the whole decision surface); and reducing the badge to a colour and
+      an icon with no word (2 red — the badge test and the list's own dictionary test).
+      **Problems found — two, both mine, both caught by a gate rather than by eye.** `vue-tsc`
+      rejected a `fetchMock.mock.calls[0] as [string, RequestInit]` cast the runtime tests passed
+      with, the inferred tuple being empty; fixed by going through `unknown`. And the list's
+      "renders a stored code through the dictionary" assertion had to move from `toBe` to `toContain`,
+      the approval cell now holding a badge whose text carries the icon beside the word — the
+      assertion was right and the cell changed under it.
+      **Waste audit:** 9 new lang keys per language, all rendered; the three badge colours are §3.2
+      tokens that already exist (`--color-warning`, `--color-danger`, `--color-success`) — checked in
+      `tokens.css` **before** writing them, having invented `--color-scrim` one point earlier and been
+      caught; no new dependency.
+      **Not covered:** no status control (6.5), no detail view (6.6), no documents or assign (6.7).
+      The controls live in the list's approval column, so a decision is made from the list rather than
+      from a deal's own page — which does not exist yet. Nothing here shows *who* decided or when;
+      that is the timeline, and it is 6.6's.
 - [ ] **6.5** The status control — §4.4's twelve statuses, with `lost` collecting its mandatory
       reason and no other status sending one (`ChangeDealStatusRequest` makes `reason` `required` on
       `lost` and `prohibited` everywhere else). **The SPA does not own the transition graph**: `D-67`,

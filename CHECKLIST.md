@@ -7190,14 +7190,49 @@ flagged here for review rather than assumed)*
 > approved" has no structural backing — §4.3 has no visibility column, so a `pending` deal is an
 > ordinary row and the screen may badge it but may not claim the server hides it.
 
-- [ ] **6.1** `services/deals.ts` and its spec — the typed client for the ten routes.
-      The query surface is `DealListCriteria`'s exactly: filters `status`, `service_type`, `source`
-      and `approval_status`; sorts `code`, `created_at`, `last_activity_at`, default
-      `-last_activity_at`. **Unlike Module 6, `q` is real** — `SearchIndex::Deals` indexes `title`,
-      §4.3's one free-text field — so this list does declare a search. An unset filter is omitted and
-      never sent empty. `code`, `status`, `approval_status`, `rejection_reason` and `last_activity_at`
-      are `prohibited` server-side and must not exist on the draft type. Modelled on
-      `services/customers.ts`, which already carries the `q` + closed-filter shape.
+- [x] **6.1** `services/deals.ts` and its spec — the typed client for the ten routes, modelled on
+      `services/customers.ts` rather than Module 6's client, because Customers is the one that already
+      carries the `q`-plus-closed-filters shape this list needs.
+      **The query surface is `DealListCriteria`'s exactly:** filters `status`, `service_type`,
+      `source`, `approval_status`; sorts `code`, `created_at`, `last_activity_at`; default
+      `-last_activity_at`, the server's own — a caller opening the list is asking "what needs
+      attention". An unset filter is **omitted**, never sent empty, and null and `''` are treated
+      alike: `filter[status]=` asks a different question and `OpenAPI §6.2` answers the unknown shape
+      with a 400.
+      **Unlike Module 6, `q` is real.** `SearchIndex::Deals` indexes `title`, §4.3's one free-text
+      field, so this list declares a search and a search box is a control with a server behind it —
+      the one place the two modules' list clients genuinely differ.
+      **The draft types encode what the server prohibits, rather than documenting it.** `code`,
+      `status`, `approval_status`, `rejection_reason` and `last_activity_at` are `prohibited`
+      (a 422, not a silent drop) and so are **absent from `DealDraft`**, not optional on it;
+      `customer_id` and `owner_id` live on a separate `DealCreateDraft` because `PATCH` prohibits
+      both — §3.4 makes `assign_owner` its own permission, and a deal's customer is the one thing
+      about it that cannot change.
+      **`changeDealStatus` omits `reason` unless the target is `lost`.** `ChangeDealStatusRequest`
+      makes it `required` there and `prohibited` everywhere else, so a null would 422 on every other
+      status: prohibited means absent, not empty.
+      **The timeline's contract is smaller and stricter**, and the client is built not to be tempted:
+      `page` and `per_page` only, never a sort, a search or an event filter, each of which
+      `DealTimelineCriteria` refuses with a 400 rather than ignoring.
+      **15 tests. RED first: the module did not exist, so the suite failed to import.**
+      ⚠️ **The `FormData` key is asserted from the start.** Module 6 Point 6.1 found by probe that
+      renaming the upload field from `document` reddened **nothing**, while 422ing every upload *and*
+      pointing `ApiExceptionRenderer`'s hard-coded `'field' => 'document'` at a control that does not
+      exist. That assertion exists here before the probe rather than after it.
+      **Three probes, all reddened and restored:** renaming the upload field `document` → `file`
+      (1 red — the assertion above), sending `reason` on every status rather than only `lost` (1 red),
+      and sending empty filters instead of omitting them (1 red).
+      **Problems found:** `vue-tsc` rejected three `page.items[0].x` reads under `noUncheckedIndexedAccess`
+      — the runtime tests passed with the unsafe shape because the fixture always has the row. Fixed
+      with `?.`, the same class of defect Module 6 Point 6.2 recorded against its own fixtures.
+      **Waste audit:** no new dependency; five exported constant lists (`DEAL_STATUSES`,
+      `DEAL_SOURCES`, `DEAL_SERVICE_TYPES`, `DEAL_APPROVAL_STATUSES`, `DEAL_SORTS`) are vocabularies
+      the next three points render as options — each transcribed from the server's own closed set, and
+      **not** a transition graph: `DealStatusTransition` stays on the server (`D-67`, Design System
+      §7.1's "the server decides … allowed transition").
+      **Not covered:** no screen, no route, no nav entry — 6.2 onward. Nothing renders these types
+      yet. The client performs no authorization and no validation beyond shape; `SEC-09` keeps both at
+      the API.
 - [ ] **6.2** `DealsView.vue` — the list, its route behind `deal.view`, and its nav entry in
       `nav.group.sales`. Four filters, the search, sortable headers, server pagination, and the four
       states from `components/states/`, with a **403 drawn as a refusal and never as an empty list**

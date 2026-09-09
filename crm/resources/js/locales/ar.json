@@ -985,6 +985,27 @@
             "unreachable": "تعذّر الوصول إلى الخادم. لم يُحفظ شيء.",
             "forbidden": "لا تملك صلاحية حفظ هذه الصفقة.",
             "rejected": "لم تُقبل الصفقة."
+        },
+        "timeline": {
+            "title": "الجدول الزمني",
+            "loading": "جارٍ تحميل الجدول الزمني…",
+            "empty": "لم يحدث شيء لهذه الصفقة بعد.",
+            "statusChange": "{from} ← {to}",
+            "statusSet": "فُتحت بحالة {to}",
+            "systemActor": "النظام",
+            "impersonated": "بالنيابة عن {user}",
+            "event": {
+                "DEAL_CREATED": "أُنشئت الصفقة",
+                "DEAL_UPDATED": "عُدِّلت الصفقة",
+                "DEAL_APPROVED": "اعتُمد الطلب",
+                "DEAL_REJECTED": "رُفض الطلب",
+                "DEAL_REASSIGNED": "تغيّر المسؤول",
+                "DEAL_DOCUMENT_ATTACHED": "أُرفق ملف",
+                "DEAL_STATUS_CHANGED": "تغيّرت الحالة"
+            }
+        },
+        "detail": {
+            "missing": "تعذّر فتح هذه الصفقة."
         }
     }
 }

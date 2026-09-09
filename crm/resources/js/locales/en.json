@@ -985,6 +985,27 @@
             "unreachable": "The server could not be reached. Nothing was saved.",
             "forbidden": "You do not have permission to save this deal.",
             "rejected": "The deal was not accepted."
+        },
+        "timeline": {
+            "title": "Timeline",
+            "loading": "Loading the timeline…",
+            "empty": "Nothing has happened to this deal yet.",
+            "statusChange": "{from} → {to}",
+            "statusSet": "Opened as {to}",
+            "systemActor": "The system",
+            "impersonated": "Acting as {user}",
+            "event": {
+                "DEAL_CREATED": "Deal created",
+                "DEAL_UPDATED": "Deal edited",
+                "DEAL_APPROVED": "Request approved",
+                "DEAL_REJECTED": "Request rejected",
+                "DEAL_REASSIGNED": "Owner changed",
+                "DEAL_DOCUMENT_ATTACHED": "Document attached",
+                "DEAL_STATUS_CHANGED": "Status changed"
+            }
+        },
+        "detail": {
+            "missing": "This deal could not be opened."
         }
     }
 }

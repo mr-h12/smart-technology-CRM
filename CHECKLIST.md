@@ -7431,13 +7431,55 @@ flagged here for review rather than assumed)*
       restraint Point 2.6 exercised on the server, and the screen does not invent a finer rule than
       the matrix seeds. Nothing here shows the history of a transition; that is the timeline, and it
       is 6.6's.
-- [ ] **6.6** `DealDetailView.vue` — §5.2's Detail view on `CustomerDetailView`'s shape: summary
-      first, **timeline second** from Point 5.2's endpoint, action controls by permission only. A 404
-      is one state and says the record could not be opened, never which case applies (`OpenAPI §5.1`);
-      a 403 is a different screen about the permission itself. The timeline renders old → new status,
-      the actor and the time; **the actor is an id** until Identity publishes a name on this wire —
-      the same cross-module honesty Module 6 applied to currencies rather than inventing a join.
-      *Closes* "Status change → timeline entry with old status, new status, who, when".
+- [x] **6.6** `DealDetailView.vue` — §5.2's Detail view on `CustomerDetailView`'s shape: "summary
+      first, related data/timeline second, action controls only by permission", plus the route
+      `/deals/:id` and the list's row link into it.
+      **A 404 is one state and stays one state.** `OpenAPI §5.1` defines it as "does not exist **or**
+      is not visible to the caller — do not reveal which case applies", which is why `DealNotFound`
+      is a single exception covering both. The screen says the deal could not be opened and stops
+      there; a page that said "you do not have access to this deal" would undo §5.1 in the one place
+      a person reads it. A **403** is a different answer and gets a different screen: it is about
+      `deal.view` and says nothing about any row. Asserted in both directions.
+      **The timeline is a second permission and gets a second, contained refusal.** §3.4 gives `view
+      timeline` its own row and Point 5.2's route carries `deal.view_timeline`, so the history is
+      loaded separately: a caller who may read the deal and not its history sees the summary with a
+      refusal **inside the timeline section**, not an error page over a deal that loaded perfectly
+      well. The route itself carries `deal.view`, so that caller still reaches the page.
+      **A history with holes in it is not a history.** An entry that changed no status —
+      `DEAL_UPDATED` on a title — keeps its place and is drawn by its event; a creation is drawn as
+      "opened as Lead" rather than as a change from nothing. §4.4 describes what must be *in* the
+      timeline, not what to filter out of it.
+      **`SEC-10`'s second identity is published.** When `impersonated_user_id` is set the entry says
+      so — a history naming only the actor would read identically whether or not the change was made
+      through somebody else's account, which is the whole reason the column exists.
+      ⚠️ **The actor is an identifier.** `DealTimelinePayload` sends `actor_id` and Identity publishes
+      no list this module may resolve a name against; `CLAUDE.md` forbids reading another module's
+      tables. Module 6 Point 6.2's answer for a currency it could not resolve, taken again. On the
+      debt register.
+      *Closes* **"Status change → timeline entry with old status, new status, who, when"** — the last
+      of the five criteria, and the one Point 1.1 deliberately left owing when it declined
+      `deal_status_history` on the grounds that `audit_log` already stored those four fields. Read
+      back through 5.1's port and 5.2's route, and now visible to a person.
+      **14 tests · 730 frontend (43 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **The row link names a route, never a path** — `{ name: 'deal-detail' }` — so a renamed route
+      fails at the router instead of silently producing a dead link, the same discipline
+      `navigation.ts` is held to.
+      **Three probes, all reddened and restored:** escalating a timeline refusal to a page error
+      (1 red), dropping the old status from a change entry (1 red — the criterion's own test), and no
+      longer telling a 404 apart from a fault (1 red).
+      **Problems found:** none in this point; the component and all 14 tests were green on the first
+      run, and both scans passed on arrival.
+      **Waste audit:** 16 new lang keys per language, all rendered — the seven `DEAL_*` event names
+      included, each of which a timeline can legitimately show; the summary fields are a list rather
+      than markup per field, so a field cannot be added to §4.3 and drawn in one place only; the
+      approval and status controls are the components 6.4 and 6.5 already built, reused rather than
+      redrawn.
+      **Not covered:** no documents panel and no assign control — both are 6.7, and building them here
+      would be building past the approved plan. No Kanban link: the board is deferred with a `D-xx`
+      owed. The timeline is unpaginated on screen — it asks for the first page and shows it, and a
+      deal with more than 25 events has more history than the page reveals. Stated rather than
+      hidden; the endpoint pages correctly and a control for it is owed.
 - [ ] **6.7** The documents panel and the assign control on the detail view. Upload through
       `apiUpload` with the form field named **`document`** — `ApiExceptionRenderer` hard-codes that
       name, and Module 6 Point 6.1 found by probe that renaming it 422s every upload while reddening

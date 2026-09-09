@@ -65,6 +65,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import { ApiError } from '@/api';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
@@ -463,8 +464,20 @@ onMounted(async () => {
 
                     <tbody>
                         <tr v-for="deal in deals" :key="deal.id" class="table-row" data-testid="deals-row">
-                            <!-- §4.7's `DL-2026-0001`, exactly as the server allocated it. -->
-                            <td class="p-3 tabular-nums" data-testid="deals-code">{{ deal.code }}</td>
+                            <!-- §4.7's `DL-2026-0001`, exactly as the server allocated it,
+                                 and the way into §5.2's Detail view (Point 6.6). A named
+                                 route and never a built path — `LogicalPropertiesTest`
+                                 fails if a nav item names a route `app.ts` does not
+                                 register, and the same discipline applies here. -->
+                            <td class="p-3 tabular-nums" data-testid="deals-code">
+                                <RouterLink
+                                    :to="{ name: 'deal-detail', params: { id: deal.id } }"
+                                    class="row-link"
+                                    data-testid="deals-row-link"
+                                >
+                                    {{ deal.code }}
+                                </RouterLink>
+                            </td>
                             <td class="p-3" data-testid="deals-customer">{{ customerName(deal.customer_id) }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
                             <td class="p-3" data-testid="deals-status">
@@ -571,6 +584,11 @@ onMounted(async () => {
 
 .sort-action {
     color: inherit;
+}
+
+.row-link {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
 .row-action {

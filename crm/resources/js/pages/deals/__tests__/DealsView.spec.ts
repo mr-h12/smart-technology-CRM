@@ -225,6 +225,17 @@ describe('the deals screen', () => {
         expect(wrapper.find('[data-testid="deals-code"]').text()).toBe('DL-2026-0001');
     });
 
+    it('makes the code the way into the deal’s own page', async () => {
+        const wrapper = await render(respond());
+
+        const link = wrapper.find('[data-testid="deals-row-link"]');
+
+        // A named route and never a built path, so a renamed route fails at
+        // the router rather than silently producing a dead link.
+        expect(link.exists()).toBe(true);
+        expect(link.attributes('href')).toBe('/deals/d1');
+    });
+
     it('draws two deals for one customer as two rows with separate statuses', async () => {
         // §4.5's criterion, at the screen: "customer with an active deal + new
         // request → two independent deals, separate statuses".

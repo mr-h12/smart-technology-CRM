@@ -18,6 +18,7 @@ import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
+import DealDetailView from '@/pages/deals/DealDetailView.vue';
 import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
@@ -166,6 +167,17 @@ export const routes: RouteRecordRaw[] = [
         path: '/deals',
         name: 'deals',
         component: DealsView,
+        meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
+    },
+    {
+        // §5.2's Detail view for one deal (Point 6.6). `deal.view` and not
+        // `deal.view_timeline`: the page is the deal, and the history is a
+        // section inside it that carries its own permission and its own
+        // refusal — §3.4 gives the two their own rows, and a caller who may
+        // read the deal and not its history must still reach the page.
+        path: '/deals/:id',
+        name: 'deal-detail',
+        component: DealDetailView,
         meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
     },
     {

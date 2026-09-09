@@ -110,6 +110,7 @@ final class NoHardCodedTextTest extends TestCase
                 // The badges carry an icon character beside a dictionary key;
                 // an emoji is not a word and the scan reads it as none.
                 'DealApprovalControls.vue',
+                'DealDetailView.vue',
                 'DealFormModal.vue',
                 'DealStatusControl.vue',
                 'DealsView.vue',

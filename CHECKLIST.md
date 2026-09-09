@@ -88,7 +88,7 @@ from fighting over the same eleven files.
 | Module | Owner | State |
 |---|---|---|
 | **4 — Catalog & Suppliers** | Yousef | in progress — Step 3, Point 3.2 next |
-| **5 — Requests / Deals** | second developer | starting |
+| **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09 |
 | **6 — Supplier Quotations** | Yousef | after Module 4 |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
@@ -7523,23 +7523,238 @@ flagged here for review rather than assumed)*
       identifier, there being no user list this module may call — the same ceiling Point 6.3 recorded
       for the create form. Nothing here shows *who* attached a file; the timeline's
       `DEAL_DOCUMENT_ATTACHED` entry does, and it is 6.6's.
-- [ ] **6.8** Close the module. Tick the five criteria with their evidence; publish the **full
-      manual test list in Arabic** — one line per check as action ⇒ result, grouped by screen in walk
-      order, naming the required role per check, covering every criterion by name, both languages and
-      directions, the empty / loading / error / refused-by-permission states, and naming explicitly
-      what cannot be tested yet and why (the three ceilings above); update the ownership table's
-      **State** column, the module now being entirely finished; and append the debt register entries —
-      the Kanban board, the documents list endpoint, `allowed_transitions`, and the still-open
-      `Team` / `Out` / `Asgn` scopes.
+- [x] **6.8** Close the module — the five criteria ticked, the Arabic manual test list published, the
+      ownership table's **State** column updated, and the debt register appended.
+      **The five criteria, each with the point that closed it and the evidence:**
+      `DL-2026-0001` (6.2 — the code column renders what the server allocated, digit for digit, the
+      SPA never building one); two independent deals per customer (6.2 — two rows for one customer,
+      `Lead` and `Negotiations` side by side, neither grouped nor merged); "Pending Approval" for the
+      Team Leader (6.4 — §6.4's amber badge with icon **and** word, and Approve/Reject behind
+      `deal.approve`); rejected request → mandatory reason + badge (6.4 — the reason collected before
+      submission and rendered beside the badge, whitespace refused as the server refuses it); and
+      status change → timeline entry with old status, new status, who, when (5.1 → 5.2 → 6.6 — the
+      read port, the route, and the screen, closing what Point 1.1 left owing when it declined
+      `deal_status_history`).
+      ⚠️ **Two of the five are demonstrable as the Manager only**, and the test list says so rather
+      than the tick implying otherwise: §3.4 grants `deal.approve` to the Manager (`All`) and the Team
+      Leader (`Team`), and `Team` resolves to no rows (Point 2.1) — so the role the criterion names
+      holds the permission, is drawn the buttons, and reaches no deal to press them on.
+      **The manual test list is above: 75 checks in Arabic**, grouped by screen in walk order, each
+      naming its required role and written as action ⇒ expected result. It covers every acceptance
+      criterion by name, both languages and both directions, the loading / empty / error /
+      refused-by-permission states on every screen, the keyboard path, and — in its own section «ي» —
+      **seven things that cannot be tested yet and why**, so a tester meeting an empty list for a
+      Team Leader knows it is recorded debt rather than an escape.
+      **The ownership table's State column is updated now and not before**, per the owner's rule of
+      2026-08-31: only when a module is entirely finished. Module 5 reads **finished**; Module 4 and
+      Module 6 are Yousef's own to mark.
+      **Debt register — seven entries, each with its reason:**
+      1. **The Kanban board.** §5.2 assigns Deals the Kanban view and §9's criterion 4 names "a deal
+         Kanban board"; no open acceptance criterion named one, so Step 6 shipped §5.2's Table/List
+         instead. Owed its own point list, **awaiting a `D-xx`**.
+      2. **`allowed_transitions` on `DealPayload`.** The status control offers §4.4's whole vocabulary
+         and lets the server refuse, because `D-67` and §7.1 keep the graph on the server. Publishing
+         the reachable set would narrow the control honestly; a backend point.
+      3. **`GET /deals/{id}/documents`.** None exists anywhere, so the documents panel lists this
+         session's uploads only and says so on screen. The identical ceiling Module 6 Point 6.5
+         recorded.
+      4. **Actor and owner names.** `DealPayload` and `DealTimelinePayload` publish identifiers;
+         Identity publishes no list this module may resolve one against, and `CLAUDE.md` forbids
+         reading another module's tables. Module 6's answer for an unresolvable currency, taken again.
+      5. **Timeline pagination on screen.** `GET /deals/{id}/timeline` pages correctly per
+         `OpenAPI §6`; the detail view asks for the first page and shows it, so a deal with more than
+         25 events has more history than the page reveals.
+      6. **`Team`, `Out` and `Asgn` still resolve to zero rows** (Point 2.1) — unchanged by this step
+         and now visible on three screens rather than only in an endpoint test.
+      7. **§4.3's "inactive until approved"** (Flow 3) has no column behind it, so a `pending` deal is
+         an ordinary row the screen badges rather than the server hides.
+      **Two things this step clears for the other developer, and does not touch itself.** Module 6
+      Point 6.2's `deal_id` filter is a raw identifier box because "there is no deals screen" — there
+      is one now, and giving that filter a picker is **Module 6's** to take. And Module 6's own
+      out-of-order warning reads "Module 5 still has open acceptance criteria owned by a second
+      developer", which is **no longer true**: all five are closed above. Both live in Yousef's block
+      of this file, and the workflow rule is that a shared file is appended to inside your own block
+      and never edited inside somebody else's — so the fact is recorded here and the edits are his to
+      make. The same applies to Module 7's identical note.
+      **Full gates at close:** 754 frontend (45 files) · vue-tsc clean · 2404 backend · pint 546 files
+      · PHPStan level 10 clean · deptrac violations 0 / uncovered 0 on both configs.
+      **Not covered:** everything in the seven debt entries above, and nothing else that this module's
+      own acceptance criteria name.
+#### قائمة الاختبار اليدوي — الوحدة 5 كاملة *(النقطة 6.8، 2026-09-09)*
+
+> **هذه هي القائمة التي تُغلق الوحدة.** لم تُنشر للوحدة 5 قائمة قبلها — النقطة 4.2 سجّلت أن نشرها
+> كان محجوزًا حتى تنتهي الوحدة، وهذه هي.
+>
+> ⚠️ **قبل البدء:** إن كنت متقمّصًا حسابًا آخر فأنهِ التقمّص وسجّل الدخول من جديد، وإلا فالقائمة
+> ستقرأ صلاحيات غير التي تظنها.
+>
+> ⚠️ **اقرأ القسم «ي» أولًا.** ثلاثة قيود في الخادم تجعل بعض الأدوار ترى صفحة فارغة بدلًا من رسالة
+> رفض، وهذا سلوك مقصود ومسجَّل — لا تُبلّغ عنه كعُطل.
+
+**أ — القائمة الجانبية والوصول** *(معيار: `deal.view` في §3.4، لا §8)*
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 1 | مدير | افتح النظام وانظر القائمة الجانبية ⇒ يجب أن ترى **«الطلبات / الصفقات»** ضمن مجموعة «المبيعات» |
+| 2 | الرئيس التنفيذي | افتح القائمة الجانبية ⇒ يجب أن ترى البند **أيضًا** (§3.4 يمنحه `view` بنطاق `All`، خلافًا لـ §8 — قرار المالك 2026-08-31) |
+| 3 | مندوب مبيعات خارجي | افتح القائمة الجانبية ⇒ يجب أن ترى البند **أيضًا** (§3.4 يمنحه `Own`، و§8 لا يذكره — القرار نفسه) |
+| 4 | المدير الأعلى (Super Admin) | افتح القائمة الجانبية ⇒ البند **موجود** (صلاحية غير مشروطة، §3.11) |
+| 5 | مدير | اضغط البند ⇒ يجب أن تفتح شاشة الصفقات على `/deals` |
+| 6 | مدير | افتح `/deals` مباشرة من شريط العنوان ⇒ تفتح الشاشة نفسها، لا صفحة «ممنوع» |
+| 7 | مدير | **اطلب من المدير الأعلى سحب `deal.view` من دورك** ثم أعد التحميل ⇒ **رسالة رفض صريحة**، لا قائمة فارغة (`SEC-09`) — ثم أعِد المنح |
+
+**ب — شاشة الصفقات: الحالات الأربع**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 8 | مدير | افتح الشاشة وراقب اللحظة الأولى ⇒ **حالة تحميل** ظاهرة قبل وصول البيانات |
+| 9 | مدير | أوقف خدمة `nginx` ثم أعد التحميل ⇒ **رسالة خطأ مع زر إعادة المحاولة**، لا صفحة فارغة — ثم أعِد التشغيل |
+| 10 | مدير | اضغط زر إعادة المحاولة بعد عودة الخدمة ⇒ تُحمَّل القائمة دون إعادة تحميل الصفحة |
+| 11 | مدير | احذف كل الصفقات من قاعدة الاختبار وأعد التحميل ⇒ **«لا توجد صفقات ظاهرة لك»** — وليس «لا توجد صفقات» |
+| 12 | قائد فريق | افتح الشاشة ⇒ **قائمة فارغة برسالة الحالة نفسها**، لا رسالة رفض (انظر «ي-1») |
+
+**ج — القائمة: المحتوى والترتيب والترشيح**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 13 | مدير | أنشئ صفقتين وانظر عمود الرمز ⇒ **`DL-2026-0001`** و**`DL-2026-0002`** بالضبط *(معيار «رموز الصفقات تتبع `DL-2026-0001`»)* |
+| 14 | مدير | أنشئ صفقتين **لنفس العميل** وغيّر حالة إحداهما ⇒ **صفّان مستقلان، لكلٍّ حالته**، واسم العميل نفسه في الصفّين *(معيار «عميل له صفقة نشطة + طلب جديد ⇒ صفقتان مستقلتان»)* |
+| 15 | مدير | انظر عمود العميل ⇒ **اسم** العميل لا معرّفه |
+| 16 | مدير | أنشئ صفقة لعميل ترتيبه بعد المئة ⇒ يظهر **المعرّف** مكان الاسم *(سقف مذكور، انظر «ي-4»)* |
+| 17 | مدير | انظر عمود المسؤول ⇒ **معرّف** لا اسم *(سقف مذكور، انظر «ي-5»)* |
+| 18 | مدير | اكتب في مربّع البحث جزءًا من عنوان طلب واضغط «تطبيق» ⇒ تُرشَّح القائمة من **الخادم**؛ افتح أدوات المطوّر وتأكد أن الطلب يحمل `q=` |
+| 19 | مدير | اختر حالة من مرشّح «الحالة» ⇒ طلب جديد يحمل `filter[status]=`، والقائمة تعود إلى **الصفحة الأولى** |
+| 20 | مدير | جرّب المرشّحات الأربعة (الحالة، الاعتماد، النوع، المصدر) ⇒ كلٌّ منها يُرسَل باسمه الخادمي، والمرشّح غير المختار **لا يُرسَل أصلًا** |
+| 21 | مدير | اضغط رأس عمود «الرمز» ⇒ `sort=-code`؛ اضغطه ثانية ⇒ `sort=code` |
+| 22 | مدير | افتح الشاشة أول مرة وانظر الطلب ⇒ الترتيب الافتراضي **`-last_activity_at`** |
+| 23 | مدير | استخدم قارئ شاشة على رأس العمود المرتَّب ⇒ يُعلن `aria-sort` بالاتجاه الصحيح |
+| 24 | مدير | أنشئ أكثر من 25 صفقة ⇒ يظهر شريط الصفحات؛ زر «السابق» **معطَّل** في الصفحة الأولى |
+| 25 | مدير | اضغط «التالي» ⇒ `page=2`، ثم غيّر مرشّحًا ⇒ **تعود إلى الصفحة الأولى** |
+
+**د — إنشاء صفقة وتعديلها**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 26 | مدير | انظر أعلى الشاشة ⇒ زر **«صفقة جديدة»** ظاهر |
+| 27 | الرئيس التنفيذي | افتح الشاشة ⇒ **لا زر إنشاء ولا زر تعديل**، والقائمة تُقرأ عاديًا (§3.4 يمنحه `view` فقط) |
+| 28 | مشتريات | افتح الشاشة ⇒ **زر تعديل موجود وزر إنشاء غير موجود** (§3.4 يمنحه `edit` ولا يمنحه `create`) |
+| 29 | مدير | اضغط «صفقة جديدة» واحفظ دون اختيار عميل ⇒ **«العميل مطلوب»** قبل أي طلب للخادم |
+| 30 | مدير | اختر عميلًا واكتب عنوانًا واحفظ ⇒ تُحفظ، ويظهر الصفّ في القائمة **بعد إعادة سؤال الخادم** |
+| 31 | مدير | افتح تعديل صفقة ⇒ **لا يظهر حقل العميل ولا حقل المسؤول** (§4.3: كلاهما ممنوع على `PATCH`) |
+| 32 | مدير | عدّل العنوان ثم اضغط «إلغاء» ⇒ **لوحة تأكيد داخل الحوار**، لا نافذة متصفّح |
+| 33 | مدير | كرّر السابق واضغط **Esc** بدل «إلغاء» ⇒ اللوحة نفسها (§6.1: الإغلاق لا يتجاهل بصمت) |
+| 34 | مدير | افتح تعديلًا ولا تغيّر شيئًا ثم «إلغاء» ⇒ **يُغلق فورًا** دون سؤال |
+| 35 | مدير | اكتب عنوانًا أطول من 255 حرفًا واحفظ ⇒ **جملة الخادم نفسها** تحت الحقل، لا رسالة عامة |
+
+**هـ — الاعتماد والرفض** *(معياران)*
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 36 | مندوب مبيعات داخلي | أنشئ طلبًا ⇒ يظهر في القائمة بشارة **«بانتظار الاعتماد»** كهرمية اللون **مع أيقونة وكلمة** *(معيار «طلب من موظف ⇒ بانتظار الاعتماد»)* |
+| 37 | مدير | افتح القائمة ⇒ الشارة نفسها، ومعها زرّا **«اعتماد»** و**«رفض»** |
+| 38 | مندوب مبيعات داخلي | افتح القائمة ⇒ **الشارة بلا أزرار** (§3.4 لا يمنحه `approve`) |
+| 39 | مدير | اضغط «رفض» ثم أرسل دون كتابة سبب ⇒ **«السبب مطلوب لرفض الطلب»** ولا طلب للخادم |
+| 40 | مدير | اكتب مسافات فقط كسبب وأرسل ⇒ **الرفض نفسه**، مطابقًا لقاعدة الخادم |
+| 41 | مدير | اكتب سببًا حقيقيًا وأرسل ⇒ تتحول الشارة إلى **«مرفوضة»** حمراء |
+| 42 | مندوب مبيعات داخلي | افتح صفقتك المرفوضة ⇒ **الشارة والسبب معًا** *(معيار «طلب مرفوض ⇒ سبب إلزامي وشارة للموظف»)* |
+| 43 | مدير | اضغط «اعتماد» على طلب معلّق ⇒ الشارة تصبح **«معتمَدة»** خضراء |
+| 44 | مدير | افتح تبويبين على الطلب نفسه واعتمده في الأول ثم ارفضه في الثاني ⇒ **«سبق البتّ في هذا الطلب»**، لا فشل صامت |
+| 45 | مدير | أنشئ صفقة **بنفسك** وانظر عمود الاعتماد ⇒ **شرطة `—`، لا شارة** (لم تُقدَّم للاعتماد أصلًا، وهي حقيقة مختلفة عن «معلّقة») |
+
+**و — تغيير الحالة**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 46 | مدير | اضغط «تغيير الحالة» ⇒ قائمة تحوي **الاثنتي عشرة حالة كلها** (§4.4)، لا مجموعة مختصرة |
+| 47 | مدير | من حالة «مبدئي» اختر «اكتمل التوريد» وأرسل ⇒ **«هذا التغيير غير مسموح به من حالة الصفقة الحالية»** — الخادم هو من يقرر (§7.1) |
+| 48 | مدير | من «مبدئي» اختر «تم التواصل» ⇒ تُحفظ وتظهر الحالة الجديدة |
+| 49 | مدير | اختر «خاسرة» ⇒ يظهر حقل السبب؛ اختر غيرها ⇒ **يختفي** |
+| 50 | مدير | اختر «خاسرة» واترك السبب فارغًا ⇒ **«السبب مطلوب عند خسارة الصفقة»** ولا طلب للخادم |
+| 51 | الرئيس التنفيذي | افتح القائمة ⇒ **لا زر لتغيير الحالة** (§3.4 لا يمنحه `change_status`) |
+
+**ز — صفحة الصفقة والجدول الزمني** *(معيار)*
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 52 | مدير | اضغط رمز صفقة في القائمة ⇒ تفتح صفحة الصفقة على `/deals/<id>` |
+| 53 | مدير | انظر أعلى الصفحة ⇒ **الملخّص أولًا** (الرمز، العنوان، العميل، المسؤول، آخر نشاط) |
+| 54 | مدير | غيّر حالة الصفقة ثم انظر أسفل الصفحة ⇒ **مدخل جديد في الجدول الزمني** يحمل **الحالة القديمة ← الجديدة، ومَن، ومتى** *(معيار «تغيير الحالة ⇒ مدخل في الجدول الزمني»)* |
+| 55 | مدير | انظر خانة «مَن» ⇒ **معرّف** لا اسم *(سقف مذكور، انظر «ي-5»)* |
+| 56 | مدير | عدّل عنوان الصفقة ثم انظر الجدول ⇒ **المدخل موجود** بوصف «عُدِّلت الصفقة»، ولم يُحذف لأنه لم يغيّر حالة |
+| 57 | مدير | افتح صفقة جديدة تمامًا ⇒ أول مدخل يقرأ **«فُتحت بحالة مبدئي»**، لا «من ← إلى» |
+| 58 | مدير | افتح `/deals/<معرّف-غير-موجود>` ⇒ **«تعذّر فتح هذه الصفقة»** — ولا تذكر الرسالة سببًا (`OpenAPI §5.1`) |
+| 59 | مندوب مبيعات داخلي | افتح `/deals/<معرّف صفقة ليست لك>` ⇒ **الرسالة نفسها بالضبط**، لا «ليس لديك صلاحية» |
+| 60 | مدير | **اطلب سحب `deal.view_timeline` من دورك فقط** ثم أعد تحميل صفحة الصفقة ⇒ **الملخّص يظهر** ورسالة رفض **داخل قسم الجدول الزمني وحده** — ثم أعِد المنح |
+| 61 | مدير | افتح صفقة لم يحدث لها شيء ⇒ **«لم يحدث شيء لهذه الصفقة بعد»** |
+
+**ح — الملفات والإسناد**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 62 | مدير | افتح صفحة صفقة ⇒ قسم «الملفات» يحمل **جملة صريحة** بأن المعروض هو ملفات هذه الصفحة فقط |
+| 63 | مدير | ارفع ملف PDF ⇒ يظهر في القائمة باسمه الأصلي |
+| 64 | مدير | **أعد تحميل الصفحة** ⇒ **القائمة تفرغ** — والملف سليم على الخادم *(قيد مذكور، انظر «ي-2»)* |
+| 65 | مدير | ارفع ملفًا واضغط «تنزيل» ⇒ يُنزَّل الملف نفسه |
+| 66 | مدير | ارفع ملفًا بينما خدمة الفحص متوقفة ⇒ **«لم ينتهِ فحص الفيروسات»** بدل زر التنزيل |
+| 67 | الرئيس التنفيذي | افتح صفحة صفقة ⇒ **لا حقل رفع** (§3.4 لا يمنحه `edit`) |
+| 68 | مدير | انظر قسم «المسؤول» ⇒ موجود؛ **مندوب مبيعات داخلي** ⇒ **غير موجود** (§3.4 يمنحه `edit` ولا يمنحه `assign_owner`) |
+| 69 | مدير | أرسل الإسناد وحقل المسؤول فارغ ⇒ **«المسؤول مطلوب»** ولا طلب للخادم |
+| 70 | مدير | أسنِد الصفقة إلى معرّف موظف صحيح ⇒ يتغيّر المسؤول، **ويظهر مدخل في الجدول الزمني** |
+
+**ط — اللغة والاتجاه**
+
+| # | الدور | الخطوة ⇒ النتيجة المتوقعة |
+|---|---|---|
+| 71 | مدير | بدّل اللغة إلى الإنجليزية ⇒ **كل** نص في الشاشات الثلاث يتبدّل، ولا يبقى نص عربي مكتوب في الشيفرة |
+| 72 | مدير | بدّل إلى العربية ⇒ الاتجاه **RTL**: الشريط الجانبي يمينًا، والأعمدة تُقرأ من اليمين |
+| 73 | مدير | في العربية، انظر أعمدة التواريخ والأرقام ⇒ **محاذاة منطقية** لا مقلوبة، والأرقام جدولية |
+| 74 | مدير | بدّل السمة (فاتح/داكن) في اللغتين ⇒ الشارات الثلاث تبقى **مقروءة**، والحالة ليست باللون وحده |
+| 75 | مدير | تنقّل بلوحة المفاتيح فقط عبر القائمة والحوار ⇒ **مسار كامل**، تركيز ظاهر، ولا فخّ تركيز خارج الحوار |
+
+**ي — ما لا يمكن اختباره بعد، ولماذا**
+
+1. **قائد الفريق والمشرف الخارجي والمشتريات يرون قائمة فارغة، لا رسالة رفض.** نطاقات `Team` و`Out`
+   و`Asgn` لا تملك آلية في الخادم (النقطة 2.1: لا كيان فريق، ولا ربط بالزيارات، ولا عمود إسناد
+   مشتريات)، فتُجيب الواجهة بـ **200 وصفحة فارغة**. ⚠️ **ولهذا فإن المعيار «طلب من موظف ⇒ بانتظار
+   الاعتماد لقائد الفريق» يمكن إثباته اليوم بحساب المدير فقط** — قائد الفريق يملك الصلاحية ويرى
+   الأزرار ولا يصل إلى صفقة يضغطها عليها. دَين مسجَّل في الخادم، لا عُطل في الشاشة.
+2. **قائمة الملفات لا تُقرأ بعد التحميل.** لا وجود لـ `GET /deals/{id}/documents` في المشروع كلّه،
+   والملفات محفوظة لكنها غير قابلة للسرد. نفس السقف الذي سجّلته الوحدة 6 في نقطتها 6.5.
+3. **«غير نشط حتى يُعتمد» في الانسياب 3 غير مبني.** §4.3 لا يحوي عمود ظهور، فالصفقة المعلّقة صفّ
+   عادي؛ الشاشة تضع شارة ولا تدّعي أن الخادم يخفيها.
+4. **أسماء العملاء تقف عند 100 عميل.** العميل بعد المئة يظهر بمعرّفه.
+5. **المسؤول ومنفّذ الإجراء يظهران كمعرّفات.** لا تنشر وحدة الهوية قائمة تسمح لهذه الوحدة بمطابقة
+   اسم بمعرّف، و`CLAUDE.md` يمنع قراءة جداول وحدة أخرى.
+6. **الجدول الزمني يعرض أول 25 مدخلًا فقط.** نقطة النهاية تُصفّح صحيحًا، لكن الشاشة لا تعرض أداة
+   تصفّح بعد.
+7. **لوحة المسار (Kanban) غير مبنية.** §5.2 و§9 يسندان للصفقات عرض لوحة؛ لم يطلبها أي معيار مفتوح،
+   وهي مؤجّلة بقائمة نقاط خاصة بها **بانتظار `D-xx`**.
 
 **Acceptance criteria**
-- [ ] Customer with an active deal + new request → **two independent deals**, separate statuses
+- [x] Customer with an active deal + new request → **two independent deals**, separate statuses
+      *(Point 6.2. Two rows for one customer, `Lead` and `Negotiations` side by side, neither grouped
+      nor merged — the server was already correct and the screen is where a person can see it.)*
 - [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
 - [x] All deals Lost → status **"Deal Not Completed"**
-- [ ] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
-- [ ] Rejected request → mandatory reason + badge for the employee
-- [ ] Status change → timeline entry with old status, new status, who, when
-- [ ] Deal codes follow `DL-2026-0001`
+- [x] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
+      *(Point 6.4. §6.4's amber badge with an icon **and** a word, and Approve/Reject behind
+      `deal.approve`. ⚠️ **Demonstrable as the Manager only**: §3.4 grants the permission to the
+      Manager (`All`) and the Team Leader (`Team`), and `Team` resolves to no rows (Point 2.1), so
+      the role this criterion names holds it and reaches no deal. ⚠️ **"inactive until approved" is
+      not built** — §4.3 has no visibility column, so a `pending` deal is an ordinary row the screen
+      badges and does not claim the server hides. Both on the debt register.)*
+- [x] Rejected request → mandatory reason + badge for the employee
+      *(Point 6.4. The reason is collected **before** submission (§6.6) and whitespace is refused as
+      `RejectDealRequest` refuses it; the badge and the reason are drawn together, §4.3 making the
+      reason mandatory precisely so the employee can read it.)*
+- [x] Status change → timeline entry with old status, new status, who, when
+      *(Points 5.1, 5.2 and 6.6 — the read port, the route and the screen. This is what Point 1.1
+      left owing when it declined `deal_status_history` on the grounds that `audit_log` already
+      stored those four fields; the reading stands and the debt is repaid rather than the table
+      being added. ⚠️ The actor is an identifier, and the screen shows the first 25 entries only.)*
+- [x] Deal codes follow `DL-2026-0001`
+      *(Point 6.2. The column renders what `DocumentNumberAllocator` allocated, digit for digit; the
+      SPA never builds a code, `SaveDealRequest` prohibiting the field outright.)*
 
 ---
 

@@ -7233,19 +7233,65 @@ flagged here for review rather than assumed)*
       **Not covered:** no screen, no route, no nav entry — 6.2 onward. Nothing renders these types
       yet. The client performs no authorization and no validation beyond shape; `SEC-09` keeps both at
       the API.
-- [ ] **6.2** `DealsView.vue` — the list, its route behind `deal.view`, and its nav entry in
-      `nav.group.sales`. Four filters, the search, sortable headers, server pagination, and the four
-      states from `components/states/`, with a **403 drawn as a refusal and never as an empty list**
-      (`SEC-09`). The nav item's `permission` must equal the route's `meta.requiredPermission` —
-      `navigation.spec.ts` pins the two together.
-      §8 lists Requests/Deals for five roles and **omits the CEO**, while §3.4 grants the CEO
-      `view` as `All`. This is the conflict Suppliers, Catalog and Supplier Quotations each hit, and
-      it takes the owner's standing answer of 2026-08-31 — **route and nav follow the permission
-      matrix**, because keying the menu on §8 leaves a screen a person may open with no way to reach
-      it. Followed as precedent, still **awaiting a `D-xx`**.
-      ⚠️ §5.1 permits a badge on Requests, and **nothing counts anything yet**; `badge` is left unset
-      rather than inventing a counter.
-      *Closes* "Deal codes follow `DL-2026-0001`" and "two independent deals, separate statuses".
+- [x] **6.2** `DealsView.vue` — the list, its route behind `deal.view`, and its nav entry in
+      `nav.group.sales`. Four filters, the search, two sortable headers, server pagination and the
+      four states from `components/states/`.
+      ⚠️ **A table, where §5.2 assigns Deals the Kanban view and §9's criterion 4 names "a deal
+      Kanban board" outright.** Deliberate and temporary: none of the five open criteria names a
+      board, while §5.2's own Table/List row asks for exactly the server pagination
+      `DealListCriteria` already implements. The board is owed its own point list, is on the debt
+      register, and is **awaiting a `D-xx`** — deferred, not dropped.
+      **Everything is asked of the server, and the spec reads the URL to prove it.** Every assertion
+      about a filter, a sort or the search reads the query string rather than the rendered rows,
+      because a client-side filter narrows the 25 rows in hand and silently claims to have narrowed
+      all of them (§5.2, §6.5).
+      **Unlike Module 6's list, the search box is real.** `SearchIndex::Deals` indexes `title`, so
+      `q` is a control with a server behind it — the one place the two modules' lists genuinely
+      differ, Module 6 having had to omit a search that would 400.
+      **The nav and route follow §3.4, not §8.** §8 lists Requests/Deals for five roles and omits the
+      **CEO** and **Outdoor Sales**, while §3.4 grants the CEO `deal.view` as `All` and Outdoor Sales
+      as `Own`. The owner's standing ruling of 2026-08-31 applies unchanged — keying the menu on §8
+      would leave a screen a person may open with no way to reach it. Followed as precedent, still
+      **awaiting a `D-xx`**. The CEO's reach is asserted at the screen.
+      ⚠️ **§5.1 permits a badge on Requests and none is drawn.** `navigation.ts` says nothing counts
+      anything yet; a counter here would be a number this application cannot produce. Asserted as
+      absent rather than left to drift.
+      ⚠️ **The empty state says "no deals are visible to you", never "there are no deals".** §3.4 is
+      scoped and `Team`, `Out` and `Asgn` resolve to zero rows (Point 2.1), so a Team Leader, an
+      Outdoor Supervisor and Procurement are each answered with an authenticated **200 and an empty
+      page** rather than a refusal. The screen cannot tell that case from an empty table, and the
+      wording is true in both. A filtered empty page says something different again.
+      ⚠️ **Two ceilings, both measured, neither invented here.** The customer names come from one
+      `listCustomers({ perPage: 100 })` — `MAX_PER_PAGE` — so a customer past the hundredth shows as
+      an identifier, the same ceiling Module 6 Point 6.2 recorded for suppliers. And **the owner is
+      not resolved at all**: Identity publishes no list this module may match an id against, so the
+      column shows the identifier. Both asserted, so neither can be quietly forgotten.
+      *Closes* **"Deal codes follow `DL-2026-0001`"** — the code column renders what the server
+      allocated, digit for digit, the SPA never building one (`SaveDealRequest` prohibits the field)
+      — and **"customer with an active deal + new request → two independent deals, separate
+      statuses"**: two rows for one customer, `Lead` and `Negotiations` side by side, neither grouped
+      nor merged.
+      **21 tests · 673 frontend (39 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **`NoHardCodedTextTest`'s pinned list gained `DealsView.vue`**, the scan having been run against
+      it first and passed — the test's own stated terms. `LogicalPropertiesTest` needed no pin: it
+      data-provides over the tree, and the component uses `text-start`/`text-end` and
+      `border-block-start` so RTL mirrors (§6.5).
+      **Three probes, all reddened and restored:** drawing a 403 as an empty list reddened the
+      refusal *and* the fault case (2 red — the two states are told apart by one line); keeping the
+      page number when a filter changes reddened the first-page case (1 red); dropping `q` from the
+      query reddened the search case (1 red).
+      **Problems found:** none in this point. The component was written after the client, and both
+      the scan and the type-check passed on the first run.
+      **Waste audit:** 47 new lang keys per language, every one rendered (the status, source,
+      service-type and approval vocabularies are each a full `DEAL_*` set the filters and the table
+      both read); no new dependency; no shared component added — the table and pager are hand-rolled
+      to the same shape as `SuppliersView` and `SupplierQuotationsView`, which is the house pattern
+      rather than an omission.
+      **Not covered:** no create, edit, approve, reject, status or assign control — 6.3 through 6.7
+      build them, so this screen is read-only today and draws no write affordance at all. No row
+      links anywhere: the detail view is 6.6. Module 6's `deal_id` filter is still a raw identifier
+      box; giving it a picker is not this point's job and is not yet done.
 - [ ] **6.3** `DealFormModal.vue` — create and edit in one component, on
       `SupplierQuotationFormModal`'s shape. §4.3's caller-writable fields only: `customer_id` and
       `owner_id` create-only (both `prohibited` on `PATCH`), `title`, `source`, `service_type`. Server

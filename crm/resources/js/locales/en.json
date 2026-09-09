@@ -90,7 +90,8 @@
             "customers": "Customers",
             "suppliers": "Suppliers",
             "catalog": "Catalog",
-            "supplierQuotations": "Supplier Quotations"
+            "supplierQuotations": "Supplier Quotations",
+            "deals": "Requests / Deals"
         }
     },
     "theme": {
@@ -878,6 +879,76 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} offers"
+        }
+    },
+    "deals": {
+        "title": "Requests / Deals",
+        "loading": "Loading deals…",
+        "total": "{count} deals",
+        "filter": {
+            "search": "Search",
+            "searchPlaceholder": "Search the request title",
+            "status": "Status",
+            "statusAll": "Any status",
+            "approval": "Approval",
+            "approvalAll": "Any approval state",
+            "serviceType": "Type",
+            "serviceTypeAll": "Any type",
+            "source": "Source",
+            "sourceAll": "Any source",
+            "apply": "Apply"
+        },
+        "column": {
+            "code": "Code",
+            "customer": "Customer",
+            "title": "Request",
+            "status": "Status",
+            "approval": "Approval",
+            "lastActivity": "Last activity",
+            "serviceType": "Type",
+            "owner": "Owner"
+        },
+        "status": {
+            "lead": "Lead",
+            "contacted": "Contacted",
+            "waiting_customer_request": "Waiting customer request",
+            "supplier_rfq": "Supplier RFQ",
+            "supplier_quotation": "Supplier quotation",
+            "quotation_sent": "Quotation sent",
+            "negotiations": "Negotiations",
+            "won": "Won",
+            "purchasing": "Purchasing",
+            "delivery": "Delivery",
+            "delivery_complete": "Delivery complete",
+            "lost": "Lost"
+        },
+        "approval": {
+            "pending": "Pending approval",
+            "approved": "Approved",
+            "rejected": "Rejected"
+        },
+        "serviceType": {
+            "product": "Product",
+            "service": "Service"
+        },
+        "source": {
+            "outlook_whatsapp": "Outlook / WhatsApp",
+            "outdoor_visit": "Outdoor visit",
+            "employee_entry": "Employee entry"
+        },
+        "empty": {
+            "title": "No deals are visible to you",
+            "message": "Either no deals have been entered, or none of them fall inside your reach.",
+            "filtered": {
+                "title": "Nothing matches this filter",
+                "message": "Change or clear the filters to see more deals."
+            }
+        },
+        "pagination": {
+            "label": "Deal pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} deals"
         }
     }
 }

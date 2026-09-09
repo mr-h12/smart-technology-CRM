@@ -94,6 +94,13 @@ final class NoHardCodedTextTest extends TestCase
                 'CustomerFormModal.vue',
                 'CustomerImportModal.vue',
                 'CustomersView.vue',
+                // Module 5 Point 6.2 — §8's Requests/Deals screen. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. Its status, source, service-type
+                // and approval labels are all dictionary keys built from the
+                // server's stored codes; the only bare strings in the template
+                // are those codes and an em dash for an absent value.
+                'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',

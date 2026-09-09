@@ -90,7 +90,8 @@
             "customers": "العملاء",
             "suppliers": "الموردون",
             "catalog": "الكتالوج",
-            "supplierQuotations": "عروض المورّدين"
+            "supplierQuotations": "عروض المورّدين",
+            "deals": "الطلبات / الصفقات"
         }
     },
     "theme": {
@@ -878,6 +879,76 @@
             "previous": "السابق",
             "next": "التالي",
             "position": "صفحة {page} من {pages} — {total} عرضًا"
+        }
+    },
+    "deals": {
+        "title": "الطلبات / الصفقات",
+        "loading": "جارٍ تحميل الصفقات…",
+        "total": "{count} صفقة",
+        "filter": {
+            "search": "بحث",
+            "searchPlaceholder": "ابحث في عنوان الطلب",
+            "status": "الحالة",
+            "statusAll": "كل الحالات",
+            "approval": "الاعتماد",
+            "approvalAll": "كل حالات الاعتماد",
+            "serviceType": "النوع",
+            "serviceTypeAll": "كل الأنواع",
+            "source": "المصدر",
+            "sourceAll": "كل المصادر",
+            "apply": "تطبيق"
+        },
+        "column": {
+            "code": "الرمز",
+            "customer": "العميل",
+            "title": "الطلب",
+            "status": "الحالة",
+            "approval": "الاعتماد",
+            "lastActivity": "آخر نشاط",
+            "serviceType": "النوع",
+            "owner": "المسؤول"
+        },
+        "status": {
+            "lead": "مبدئي",
+            "contacted": "تم التواصل",
+            "waiting_customer_request": "بانتظار طلب العميل",
+            "supplier_rfq": "طلب عرض من مورّد",
+            "supplier_quotation": "عرض المورّد",
+            "quotation_sent": "أُرسل عرض السعر",
+            "negotiations": "تفاوض",
+            "won": "ناجحة",
+            "purchasing": "شراء",
+            "delivery": "توريد",
+            "delivery_complete": "اكتمل التوريد",
+            "lost": "خاسرة"
+        },
+        "approval": {
+            "pending": "بانتظار الاعتماد",
+            "approved": "معتمَدة",
+            "rejected": "مرفوضة"
+        },
+        "serviceType": {
+            "product": "منتج",
+            "service": "خدمة"
+        },
+        "source": {
+            "outlook_whatsapp": "أوتلوك / واتساب",
+            "outdoor_visit": "زيارة ميدانية",
+            "employee_entry": "إدخال موظف"
+        },
+        "empty": {
+            "title": "لا توجد صفقات ظاهرة لك",
+            "message": "إمّا أنه لم تُدخَل أي صفقات، أو أن أيًّا منها لا يقع ضمن نطاقك.",
+            "filtered": {
+                "title": "لا شيء يطابق هذا الترشيح",
+                "message": "غيّر المرشّحات أو امسحها لعرض صفقات أكثر."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الصفقات",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} — {total} صفقة"
         }
     }
 }

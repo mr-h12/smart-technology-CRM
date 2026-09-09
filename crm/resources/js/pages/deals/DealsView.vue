@@ -82,6 +82,7 @@ import {
 import { listCustomers, type Customer } from '@/services/customers';
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
+import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
@@ -466,7 +467,10 @@ onMounted(async () => {
                             <td class="p-3 tabular-nums" data-testid="deals-code">{{ deal.code }}</td>
                             <td class="p-3" data-testid="deals-customer">{{ customerName(deal.customer_id) }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
-                            <td class="p-3" data-testid="deals-status">{{ statusLabel(deal.status) }}</td>
+                            <td class="p-3" data-testid="deals-status">
+                                {{ statusLabel(deal.status) }}
+                                <DealStatusControl :deal="deal" @changed="onDecided" />
+                            </td>
                             <td class="p-3" data-testid="deals-approval">
                                 <!-- Flow 1's null draws no badge at all: never
                                      submitted is not the same fact as waiting. -->

@@ -7388,14 +7388,49 @@ flagged here for review rather than assumed)*
       The controls live in the list's approval column, so a decision is made from the list rather than
       from a deal's own page — which does not exist yet. Nothing here shows *who* decided or when;
       that is the timeline, and it is 6.6's.
-- [ ] **6.5** The status control — §4.4's twelve statuses, with `lost` collecting its mandatory
-      reason and no other status sending one (`ChangeDealStatusRequest` makes `reason` `required` on
-      `lost` and `prohibited` everywhere else). **The SPA does not own the transition graph**: `D-67`,
-      and Design System §7.1's "the server decides authorization and allowed transition". The control
-      offers the vocabulary and renders a refused edge's 409 inline; transcribing
-      `DealStatusTransition` into TypeScript would be the SPA restating a business rule. Publishing
-      `allowed_transitions` on the payload is the better long-term answer and is on the debt register
-      as a backend point, not quietly assumed here.
+- [x] **6.5** The status control — `DealStatusControl.vue`: §4.4's twelve statuses, drawn in the
+      list's status column behind `deal.change_status`.
+      **The SPA does not own the transition graph.** `D-67`, and Design System §7.1 says it again for
+      this exact control: "The server decides authorization and allowed transition."
+      `DealStatusTransition` is built from §4.4's table and lives in `Deals\Domain`; transcribing it
+      into TypeScript would put one rule in two places, and the copy is the one that rots — §4.4
+      gains a status and the screen keeps offering the old graph. So the control offers **the
+      vocabulary**, not the reachable set, and renders the server's `409 state_transition_invalid`
+      when an edge is refused. That is a worse experience than a narrowed list and the honest one
+      available; publishing `allowed_transitions` on `DealPayload` is the better answer and is on the
+      debt register as a backend point.
+      **`delivery_complete` is offered even though a second permission gates it.** `D-14`'s
+      `mark_delivery_complete` is a genuinely different set of four roles — the Outdoor Supervisor
+      holds one and not the other — and which permission applies depends on the request body, which
+      is why `ChangeDealStatus` checks it inside the use case rather than at the route. Hiding the
+      option from a role that might hold the second grant would be the SPA guessing at an
+      authorization decision; the 403 and the 409 are drawn as the different answers they are.
+      **`lost` is the one status carrying a reason**, and the field appears only for it: §4.4's table
+      reads "Lost | Sales (mandatory reason)", and `ChangeDealStatusRequest` makes `reason` `required`
+      there and `prohibited` everywhere else. Blank and whitespace are refused here as well as at the
+      server, where the person can still fix them.
+      ⚠️ **A probe found a rule written in two places, and the point deleted one.** The component
+      first passed `needsReason ? reason : undefined`, and making that unconditional **reddened
+      nothing** — `changeDealStatus` already applies the rule, so the component's copy was
+      unprovable. Two places enforcing one rule with only one of them testable is worse than one
+      place, so the component now passes the reason unconditionally and the service owns the wire
+      shape alone. Breaking it there reddens **2** tests, one of them this component's.
+      **12 tests · 716 frontend (42 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean ·
+      deptrac violations 0 / uncovered 0 on both configs.**
+      **Two further probes, both reddened and restored:** never asking for the loss reason (4 red),
+      and narrowing the vocabulary in the component by filtering `delivery_complete` out (2 red — the
+      whole-vocabulary case and the second-permission case, which is the pair that pins §7.1).
+      **`NoHardCodedTextTest`'s pinned list gained `DealStatusControl.vue`**, the scan having been run
+      against it first and passed.
+      **Waste audit:** 10 new lang keys per language, all rendered; `DEAL_STATUSES` was already
+      exported by Point 6.1 and is reused rather than re-listed — the vocabulary exists once in the
+      SPA; no new dependency.
+      **Not covered:** no detail view (6.6), no documents or assign (6.7). The control lives in the
+      list's status cell, so a transition is made from the list rather than from a deal's own page.
+      §4.4's "Who changes it" column is not enforced beyond `change_status`'s own scopes — the same
+      restraint Point 2.6 exercised on the server, and the screen does not invent a finer rule than
+      the matrix seeds. Nothing here shows the history of a transition; that is the timeline, and it
+      is 6.6's.
 - [ ] **6.6** `DealDetailView.vue` — §5.2's Detail view on `CustomerDetailView`'s shape: summary
       first, **timeline second** from Point 5.2's endpoint, action controls by permission only. A 404
       is one state and says the record could not be opened, never which case applies (`OpenAPI §5.1`);

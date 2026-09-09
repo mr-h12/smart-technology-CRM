@@ -920,7 +920,17 @@
             "purchasing": "شراء",
             "delivery": "توريد",
             "delivery_complete": "اكتمل التوريد",
-            "lost": "خاسرة"
+            "lost": "خاسرة",
+            "changeAction": "تغيير الحالة",
+            "targetPrompt": "انقل هذه الصفقة إلى",
+            "targetNone": "اختر حالة",
+            "targetRequired": "اختر الحالة المراد الانتقال إليها.",
+            "reasonPrompt": "ما سبب خسارة هذه الصفقة؟",
+            "reasonRequired": "السبب مطلوب عند خسارة الصفقة.",
+            "notAllowed": "هذا التغيير غير مسموح به من حالة الصفقة الحالية.",
+            "forbidden": "لا تملك صلاحية إجراء هذا التغيير.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم تتغيّر الحالة.",
+            "rejectedByServer": "لم يُقبل تغيير الحالة."
         },
         "approval": {
             "pending": "بانتظار الاعتماد",

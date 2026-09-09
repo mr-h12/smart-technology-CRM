@@ -920,7 +920,17 @@
             "purchasing": "Purchasing",
             "delivery": "Delivery",
             "delivery_complete": "Delivery complete",
-            "lost": "Lost"
+            "lost": "Lost",
+            "changeAction": "Change status",
+            "targetPrompt": "Move this deal to",
+            "targetNone": "Choose a status",
+            "targetRequired": "Choose the status to move to.",
+            "reasonPrompt": "Why was this deal lost?",
+            "reasonRequired": "A reason is required when a deal is lost.",
+            "notAllowed": "That status change is not allowed from where this deal is now.",
+            "forbidden": "You do not have permission to make that status change.",
+            "unreachable": "The server could not be reached. The status is unchanged.",
+            "rejectedByServer": "The status change was not accepted."
         },
         "approval": {
             "pending": "Pending approval",

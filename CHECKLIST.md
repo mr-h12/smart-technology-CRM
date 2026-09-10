@@ -9027,51 +9027,78 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Team Leader and Manager → **same screen, same authority**
 - [ ] No automatic escalation
 
-### Point list — published for approval 2026-09-10, **not yet approved**
+### Point list — published 2026-09-10, decisions answered the same day
 
 Per `CLAUDE.md`'s *Working Rhythm — One Point at a Time* rule 3, the decomposition is published
-before the step starts and is itself reviewable. Nothing below may begin until the owner approves
-it, the three decisions below are answered, and **Module 7's Application and Presentation layers
-exist** — on `main` at `fd2592d` both are still `.gitkeep`, so no code path can put a quotation into
-Pending and this module has nothing to act on. `PATCH /:id/submit-for-approval` is **Module 7's**
-endpoint, not this one's: Module 8 starts at Pending and never creates it.
+before the step starts and is itself reviewable. It was reviewed on 2026-09-10 and the three
+decisions below were answered; **no point has begun**, and every box below the decisions is `[ ]`.
 
-⚠️ **Module 8 has no owner.** The ownership table above stops at Module 6.
+⚠️ **The module is still not startable, and approving the plan did not change that.** Module 7's
+`Application/` and `Presentation/` layers are both still `.gitkeep` on `main` at `fd2592d`, so no
+code path can put a quotation into Pending and this module has nothing to act on.
+`PATCH /:id/submit-for-approval` is **Module 7's** endpoint, not this one's: Module 8 starts at
+Pending and never creates it. Two further items below — placement and ownership — need Yousef rather
+than the owner, and Point 1.2's migration lands on Module 7's own table while that module is open.
 
-#### Three decisions before any point — none of them defaultable
+#### The three decisions — answered 2026-09-10, and each owes a `D-xx`
 
-- [ ] **D-a — `quotation.approve.team` resolves to no rows.** §3.5 grants approve as `All` to the
-      Manager and **`Team`** to the Team Leader. `team` is one of the three unbacked scopes — no team
-      entity in §4.1, no team column on `users` — and fails closed, as `CustomerRowScope` and
-      `DealRowScope` both document. So this module's own user story, *"As a Team Leader, I want to
-      review quotations"*, **does not function for the Team Leader at all** until "what defines a
-      team" is answered. Already on the debt register (*Debt the server does not gate*); Module 8 is
-      what turns it from theoretical into blocking. **The Manager's `All` works today**, so the
-      module is buildable and demonstrable **as the Manager only** — the same shape Module 5 closed
-      with, and the manual test list must say so rather than implying a Team Leader walkthrough.
-- [ ] **D-b — "days waiting" has no source field.** `git grep submitted_at` over `crm/` returns
-      nothing (measured on `main` at `fd2592d`). `sent_at` is Module 9's, for sending to the
-      customer, and `updated_at` moves on every edit, so neither records when a quotation entered
-      Pending. Needs either a new column or a derivation from the audit log, plus the SLA threshold
-      itself, which §6 puts in settings (*"Limits & SLAs: quotation approval SLA"*).
-- [ ] **D-c — is `edit-and-approve` a third endpoint?** The *Endpoints* line above names three.
-      `docs/OpenAPI_Contract_EN.md` lists only `/approve` and `/return`. §3.5 carries a **single**
-      permission row — *"approve / edit & approve"* — and §6.4 draws it as one transition into
-      Approved. The contract and the matrix both point at `/approve` carrying an optional edit
-      payload; this file points at a third route. Settling it now is cheap and settling it after the
-      route is built is not.
-- [ ] **Placement, decided before the first class is written.** There is no `Approvals` directory
-      under `crm/app/Modules/`. Approvals act only on quotations, so this either lives inside
-      `Quotations` or a new module is added to `deptrac.modules.yaml`. Point 4.1's lesson applies —
-      check layer and module placement **before** writing a class that crosses into another module's
+Answered by the owner in review of this list. **Each is recorded here for traceability only; the
+authoritative row belongs in `docs/CRM_Documentation_EN.md` §2**, and none of these has one yet.
+Writing the `D-xx` rows is the first work of this module, before Point 1.1.
+
+- [x] **D-a — the Team Leader cannot approve anything, and the module is built anyway.** §3.5 grants
+      approve as `All` to the Manager and **`Team`** to the Team Leader. `team` is one of the three
+      unbacked scopes — no team entity in §4.1, no team column on `users` — and fails closed, as
+      `CustomerRowScope` and `DealRowScope` both document. **Answer: build on the Manager's `All`,
+      which works today, and leave the Team Leader failing closed rather than inventing what a team
+      is.** The cost, stated plainly: this module's own user story is *"As a Team Leader, I want to
+      review quotations"*, and **that user cannot perform it** — the module ships demonstrable as the
+      Manager only, exactly as Module 5 closed with two of five criteria Manager-only. The manual
+      test list must name the Team Leader path as untestable and say why, not imply a walkthrough
+      that refuses. The underlying question stays on the *Debt the server does not gate* register,
+      where it now blocks a third module rather than one.
+- [x] **D-b — `submitted_at` is added to `quotations`.** `git grep submitted_at` over `crm/` returned
+      nothing on `main` at `fd2592d`; `sent_at` is Module 9's and `updated_at` moves on every edit,
+      so nothing recorded when a quotation entered Pending. **Answer: a new `submitted_at` column,**
+      set on the transition into Pending — explicit, indexable for the approvals list query, and
+      cheaper to read than reconstructing the submit event from the audit trail.
+      ⚠️ **It is a migration on `quotations`, which is Yousef's table in Module 7, and Module 7 is
+      still open.** This point cannot be written without agreeing the column and its migration
+      timestamp with him first; two developers adding columns to the same table in parallel is how
+      migration ordering breaks.
+- [x] **D-c — three endpoints, and the OpenAPI contract is amended to match.** The first reading of
+      this proposed collapsing `/edit-and-approve` into `/approve` with an optional edit payload, on
+      the strength of `docs/OpenAPI_Contract_EN.md` listing only two routes and §3.5 carrying a
+      single *"approve / edit & approve"* permission row. **That reading was wrong on precedence.**
+      `CLAUDE.md` ranks the build plan **above** the OpenAPI contract, and
+      `docs/MVP_Build_Plan_EN.md:232` names all three routes — as does this file's own *Endpoints*
+      line, which the preamble says the build plan wins over anyway. The master documentation
+      settles neither, since §6.4 draws a transition and §3.5 a permission, and neither states a
+      route. **Answer: build all three, and amend the OpenAPI contract, which is the incomplete
+      document rather than the authoritative one.** Collapsing to one route would have been an
+      override of a higher source, not a reading of it, and would have needed its own `D-xx` and
+      owner approval before being built.
+
+#### Still open — needs Yousef, not the owner
+
+- [ ] **Placement.** There is no `Approvals` directory under `crm/app/Modules/`. Approvals act only
+      on quotations, so this lives either inside `Quotations` — **Yousef's module, with two open PRs
+      in it right now (#90, #91)** — or in a new module added to `deptrac.modules.yaml`. The
+      ownership model is per-module, so putting a second developer inside `Quotations` cuts across
+      it. Decide **with him** and before the first class: Module 5's Point 4.1 learned that layer and
+      module placement is checked before writing a class that crosses into another module's
       Application layer, not after deptrac refuses it.
+- [ ] **Module 8 still has no owner.** The ownership table above stops at Module 6.
 
 #### Step 1 — the transition, server-side
 
 - [ ] **1.1** The §6.4 state machine as a guarded transition — `Pending → Approved` and
       `Pending → Draft (v2)`, refusing every other current state. Domain rule and its tests; no route.
-- [ ] **1.2** `submitted_at` (or `D-b`'s alternative) and the approval SLA read from settings.
-      **Blocked on `D-b`.**
+- [ ] **1.2** `submitted_at` on `quotations`, set on the transition into Pending, and the approval
+      SLA read from settings (§6, *"Limits & SLAs: quotation approval SLA"*). `D-b` answered.
+      ⚠️ **Agree the column and its migration timestamp with Yousef before writing this** — it is a
+      migration on Module 7's table while Module 7 is still open. If the SLA setting does not exist
+      in Module 2's key/value settings yet, this point grows a dependency the list has not costed.
 
 #### Step 2 — the three actions
 
@@ -9083,8 +9110,14 @@ endpoint, not this one's: Module 8 starts at Pending and never creates it.
       unused pipeline in Module 5 Point 4.1.
 - [ ] **2.3** `PATCH /quotations/{id}/return` — mandatory note, `Pending → Draft` as v2 through
       `parent_id`/`version`. The `rejection_reason` CHECK constraint already exists in the migration.
-- [ ] **2.4** Edit-and-approve — a tax or margin edit writing a **mandatory audit entry carrying old
-      and new values**. Shape **blocked on `D-c`**.
+- [ ] **2.4** `PATCH /quotations/{id}/edit-and-approve` — its own route per `D-c`, a tax or margin
+      edit writing a **mandatory audit entry carrying old and new values**, gated on §3.5's *edit
+      margin* and *edit tax* rows. The edit and the approval are one transaction: an approval that
+      lands without its audit row is the defect this criterion exists to prevent.
+- [ ] **2.6** Amend `docs/OpenAPI_Contract_EN.md` to list `/edit-and-approve` beside `/approve` and
+      `/return`. Per `D-c` the contract is the incomplete document, not the authority — and §7.2
+      requires every action to carry its request schema, required permission, audit event, accepted
+      current state, resulting state and idempotency requirement, so the row is not a one-line add.
 - [ ] **2.5** Optimistic locking → **409 Conflict** on a concurrent edit, through the existing
       `version_token` (`DB-12`, `API-12`, OpenAPI §9.2).
 
@@ -9112,7 +9145,8 @@ endpoint, not this one's: Module 8 starts at Pending and never creates it.
       action ⇒ result, grouped by screen in walk order, naming the required role per check, covering
       every acceptance criterion by name, both languages and directions, the empty/loading/error/
       refused-by-permission states, and **explicitly naming what cannot be tested and why** — the
-      Team Leader path above all, if `D-a` is still open.
+      Team Leader path above all, which per `D-a` refuses by design and must be written as a refusal
+      to observe rather than quietly omitted.
 
 #### What this point list does not cover
 

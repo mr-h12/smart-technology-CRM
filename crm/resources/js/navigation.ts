@@ -100,6 +100,21 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'supplier_quotation.view',
             },
             {
+                // §8's *Requests / Deals* — Module 5's screen, keyed on §3.4's
+                // `deal.view` rather than on §8's list, which omits the CEO and
+                // Outdoor Sales while §3.4 grants both. The owner's ruling of
+                // 2026-08-31 again, the same one the three items around this
+                // one follow. `SEC-09` stands: the sidebar is presentation.
+                //
+                // ⚠️ **No badge.** §5.1 permits one on Requests — and nothing
+                // counts anything yet, so a counter here would be a number this
+                // application cannot produce. Left unset rather than invented.
+                name: 'deals',
+                labelKey: 'nav.item.deals',
+                icon: 'M4 4h12v3H4zm0 4.5h12V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm3 2v1.5h6V10.5z',
+                permission: 'deal.view',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

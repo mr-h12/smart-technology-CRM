@@ -94,6 +94,32 @@ final class NoHardCodedTextTest extends TestCase
                 'CustomerFormModal.vue',
                 'CustomerImportModal.vue',
                 'CustomersView.vue',
+                // Module 5 Point 6.2 — §8's Requests/Deals screen. Added on
+                // the same terms as every entry here: the scan below was run
+                // against it first and passed. Its status, source, service-type
+                // and approval labels are all dictionary keys built from the
+                // server's stored codes; the only bare strings in the template
+                // are those codes and an em dash for an absent value.
+                // Module 5 Point 6.3 — §4.3's create/edit dialog. Added on
+                // the same terms: the scan below was run against it first and
+                // passed. Its two vocabularies are rendered through
+                // `deals.source.*` and `deals.serviceType.*` keys, so the bare
+                // strings in the template are stored codes, never a sentence.
+                // Module 5 Point 6.4 — Flow 3's decision. Added on the same
+                // terms: the scan below was run against it first and passed.
+                // The badges carry an icon character beside a dictionary key;
+                // an emoji is not a word and the scan reads it as none.
+                'DealApprovalControls.vue',
+                'DealDetailView.vue',
+                'DealDocumentsPanel.vue',
+                'DealFormModal.vue',
+                // Module 5 Point 6.8a — the one owner picker both callers use,
+                // extracted after a code review named the duplication. Added on
+                // the same terms: the scan below was run against it first and
+                // passed.
+                'DealOwnerPicker.vue',
+                'DealStatusControl.vue',
+                'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',

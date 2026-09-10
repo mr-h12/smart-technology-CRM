@@ -19,6 +19,8 @@ return [
         'unknown_filter' => 'This list does not offer that filter.',
         'not_a_code' => 'This filter value is not a valid code.',
         'not_a_string' => 'The search term must be text.',
+        // Point 5.2 — the timeline declares only `page` and `per_page`.
+        'unknown_parameter' => 'This list does not offer that parameter.',
     ],
 
     // Point 2.3 — `POST /deals` and `PATCH /deals/{id}`.

@@ -90,7 +90,8 @@
             "customers": "العملاء",
             "suppliers": "الموردون",
             "catalog": "الكتالوج",
-            "supplierQuotations": "عروض المورّدين"
+            "supplierQuotations": "عروض المورّدين",
+            "deals": "الطلبات / الصفقات"
         }
     },
     "theme": {
@@ -878,6 +879,155 @@
             "previous": "السابق",
             "next": "التالي",
             "position": "صفحة {page} من {pages} — {total} عرضًا"
+        }
+    },
+    "deals": {
+        "title": "الطلبات / الصفقات",
+        "loading": "جارٍ تحميل الصفقات…",
+        "total": "{count} صفقة",
+        "filter": {
+            "search": "بحث",
+            "searchPlaceholder": "ابحث في عنوان الطلب",
+            "status": "الحالة",
+            "statusAll": "كل الحالات",
+            "approval": "الاعتماد",
+            "approvalAll": "كل حالات الاعتماد",
+            "serviceType": "النوع",
+            "serviceTypeAll": "كل الأنواع",
+            "source": "المصدر",
+            "sourceAll": "كل المصادر",
+            "apply": "تطبيق"
+        },
+        "column": {
+            "code": "الرمز",
+            "customer": "العميل",
+            "title": "الطلب",
+            "status": "الحالة",
+            "approval": "الاعتماد",
+            "lastActivity": "آخر نشاط",
+            "serviceType": "النوع",
+            "owner": "المسؤول"
+        },
+        "status": {
+            "lead": "مبدئي",
+            "contacted": "تم التواصل",
+            "waiting_customer_request": "بانتظار طلب العميل",
+            "supplier_rfq": "طلب عرض من مورّد",
+            "supplier_quotation": "عرض المورّد",
+            "quotation_sent": "أُرسل عرض السعر",
+            "negotiations": "تفاوض",
+            "won": "ناجحة",
+            "purchasing": "شراء",
+            "delivery": "توريد",
+            "delivery_complete": "اكتمل التوريد",
+            "lost": "خاسرة",
+            "changeAction": "تغيير الحالة",
+            "targetPrompt": "انقل هذه الصفقة إلى",
+            "targetNone": "اختر حالة",
+            "targetRequired": "اختر الحالة المراد الانتقال إليها.",
+            "reasonPrompt": "ما سبب خسارة هذه الصفقة؟",
+            "reasonRequired": "السبب مطلوب عند خسارة الصفقة.",
+            "notAllowed": "هذا التغيير غير مسموح به من حالة الصفقة الحالية.",
+            "forbidden": "لا تملك صلاحية إجراء هذا التغيير.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم تتغيّر الحالة.",
+            "rejectedByServer": "لم يُقبل تغيير الحالة."
+        },
+        "approval": {
+            "pending": "بانتظار الاعتماد",
+            "approved": "معتمَدة",
+            "rejected": "مرفوضة",
+            "approveAction": "اعتماد",
+            "rejectAction": "رفض",
+            "reasonPrompt": "ما سبب رفض هذا الطلب؟",
+            "reasonRequired": "السبب مطلوب لرفض الطلب.",
+            "reasonLabel": "السبب: {reason}",
+            "alreadyDecided": "سبق البتّ في هذا الطلب. أعِد التحميل لعرض حالته الحالية.",
+            "forbidden": "لا تملك صلاحية البتّ في هذا الطلب.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يُتَّخذ أي قرار.",
+            "rejectedByServer": "لم يُقبل القرار."
+        },
+        "serviceType": {
+            "product": "منتج",
+            "service": "خدمة"
+        },
+        "source": {
+            "outlook_whatsapp": "أوتلوك / واتساب",
+            "outdoor_visit": "زيارة ميدانية",
+            "employee_entry": "إدخال موظف"
+        },
+        "empty": {
+            "title": "لا توجد صفقات ظاهرة لك",
+            "message": "إمّا أنه لم تُدخَل أي صفقات، أو أن أيًّا منها لا يقع ضمن نطاقك.",
+            "filtered": {
+                "title": "لا شيء يطابق هذا الترشيح",
+                "message": "غيّر المرشّحات أو امسحها لعرض صفقات أكثر."
+            }
+        },
+        "pagination": {
+            "label": "صفحات الصفقات",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} — {total} صفقة"
+        },
+        "form": {
+            "createTitle": "صفقة جديدة",
+            "editTitle": "تعديل الصفقة",
+            "required": "(مطلوب)",
+            "saving": "جارٍ الحفظ…",
+            "notGiven": "غير محدَّد",
+            "customerNone": "اختر العميل",
+            "customerRequired": "العميل مطلوب.",
+            "ownerPlaceholder": "معرّف المسؤول",
+            "ownerCeiling": "معرّف، لا قائمة اختيار — يُغيَّر المسؤول من الصفقة نفسها.",
+            "discardPrompt": "هل تريد تجاهل التعديلات التي أجريتها؟",
+            "discardKeep": "متابعة التعديل",
+            "discardConfirm": "تجاهل",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يُحفظ شيء.",
+            "forbidden": "لا تملك صلاحية حفظ هذه الصفقة.",
+            "rejected": "لم تُقبل الصفقة."
+        },
+        "timeline": {
+            "title": "الجدول الزمني",
+            "loading": "جارٍ تحميل الجدول الزمني…",
+            "empty": "لم يحدث شيء لهذه الصفقة بعد.",
+            "statusChange": "{from} ← {to}",
+            "statusSet": "فُتحت بحالة {to}",
+            "systemActor": "النظام",
+            "impersonated": "بالنيابة عن {user}",
+            "event": {
+                "DEAL_CREATED": "أُنشئت الصفقة",
+                "DEAL_UPDATED": "عُدِّلت الصفقة",
+                "DEAL_APPROVED": "اعتُمد الطلب",
+                "DEAL_REJECTED": "رُفض الطلب",
+                "DEAL_REASSIGNED": "تغيّر المسؤول",
+                "DEAL_DOCUMENT_ATTACHED": "أُرفق ملف",
+                "DEAL_STATUS_CHANGED": "تغيّرت الحالة"
+            }
+        },
+        "detail": {
+            "missing": "تعذّر فتح هذه الصفقة."
+        },
+        "documents": {
+            "title": "الملفات",
+            "ceiling": "تُعرض هنا الملفات المرفقة في هذه الصفحة فقط. الملفات المرفقة سابقًا محفوظة بأمان لكن لا يمكن سردها بعد.",
+            "choose": "اختر ملفًا لإرفاقه",
+            "uploading": "جارٍ الرفع…",
+            "download": "تنزيل",
+            "scanPending": "لم ينتهِ فحص الفيروسات",
+            "scanInfected": "مرفوض: الفحص وجد فيروسًا",
+            "forbidden": "لا تملك صلاحية إرفاق ملف بهذه الصفقة.",
+            "rejected": "لم يُقبل الملف.",
+            "downloadForbidden": "لا تملك صلاحية تنزيل هذا الملف.",
+            "downloadRejected": "تعذّر تنزيل الملف."
+        },
+        "assign": {
+            "title": "المسؤول",
+            "action": "إسناد",
+            "ownerRequired": "المسؤول مطلوب.",
+            "forbidden": "لا تملك صلاحية إسناد هذه الصفقة.",
+            "rejected": "لم يُقبل الإسناد.",
+            "ownerNone": "اختر الموظف",
+            "listUnavailable": "تعذّرت قراءة قائمة الموظفين، لذا يُحدَّد المسؤول بالمعرّف."
         }
     }
 }

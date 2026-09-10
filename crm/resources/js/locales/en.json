@@ -90,7 +90,8 @@
             "customers": "Customers",
             "suppliers": "Suppliers",
             "catalog": "Catalog",
-            "supplierQuotations": "Supplier Quotations"
+            "supplierQuotations": "Supplier Quotations",
+            "deals": "Requests / Deals"
         }
     },
     "theme": {
@@ -878,6 +879,155 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} offers"
+        }
+    },
+    "deals": {
+        "title": "Requests / Deals",
+        "loading": "Loading deals…",
+        "total": "{count} deals",
+        "filter": {
+            "search": "Search",
+            "searchPlaceholder": "Search the request title",
+            "status": "Status",
+            "statusAll": "Any status",
+            "approval": "Approval",
+            "approvalAll": "Any approval state",
+            "serviceType": "Type",
+            "serviceTypeAll": "Any type",
+            "source": "Source",
+            "sourceAll": "Any source",
+            "apply": "Apply"
+        },
+        "column": {
+            "code": "Code",
+            "customer": "Customer",
+            "title": "Request",
+            "status": "Status",
+            "approval": "Approval",
+            "lastActivity": "Last activity",
+            "serviceType": "Type",
+            "owner": "Owner"
+        },
+        "status": {
+            "lead": "Lead",
+            "contacted": "Contacted",
+            "waiting_customer_request": "Waiting customer request",
+            "supplier_rfq": "Supplier RFQ",
+            "supplier_quotation": "Supplier quotation",
+            "quotation_sent": "Quotation sent",
+            "negotiations": "Negotiations",
+            "won": "Won",
+            "purchasing": "Purchasing",
+            "delivery": "Delivery",
+            "delivery_complete": "Delivery complete",
+            "lost": "Lost",
+            "changeAction": "Change status",
+            "targetPrompt": "Move this deal to",
+            "targetNone": "Choose a status",
+            "targetRequired": "Choose the status to move to.",
+            "reasonPrompt": "Why was this deal lost?",
+            "reasonRequired": "A reason is required when a deal is lost.",
+            "notAllowed": "That status change is not allowed from where this deal is now.",
+            "forbidden": "You do not have permission to make that status change.",
+            "unreachable": "The server could not be reached. The status is unchanged.",
+            "rejectedByServer": "The status change was not accepted."
+        },
+        "approval": {
+            "pending": "Pending approval",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "approveAction": "Approve",
+            "rejectAction": "Reject",
+            "reasonPrompt": "Why is this request rejected?",
+            "reasonRequired": "A reason is required to reject a request.",
+            "reasonLabel": "Reason: {reason}",
+            "alreadyDecided": "This request has already been decided. Reload to see its current state.",
+            "forbidden": "You do not have permission to decide this request.",
+            "unreachable": "The server could not be reached. Nothing was decided.",
+            "rejectedByServer": "The decision was not accepted."
+        },
+        "serviceType": {
+            "product": "Product",
+            "service": "Service"
+        },
+        "source": {
+            "outlook_whatsapp": "Outlook / WhatsApp",
+            "outdoor_visit": "Outdoor visit",
+            "employee_entry": "Employee entry"
+        },
+        "empty": {
+            "title": "No deals are visible to you",
+            "message": "Either no deals have been entered, or none of them fall inside your reach.",
+            "filtered": {
+                "title": "Nothing matches this filter",
+                "message": "Change or clear the filters to see more deals."
+            }
+        },
+        "pagination": {
+            "label": "Deal pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} deals"
+        },
+        "form": {
+            "createTitle": "New deal",
+            "editTitle": "Edit deal",
+            "required": "(required)",
+            "saving": "Saving…",
+            "notGiven": "Not given",
+            "customerNone": "Choose the customer",
+            "customerRequired": "The customer is required.",
+            "ownerPlaceholder": "Owner identifier",
+            "ownerCeiling": "An identifier, not a picker — the owner is changed from the deal itself.",
+            "discardPrompt": "Discard the changes you have made?",
+            "discardKeep": "Keep editing",
+            "discardConfirm": "Discard",
+            "unreachable": "The server could not be reached. Nothing was saved.",
+            "forbidden": "You do not have permission to save this deal.",
+            "rejected": "The deal was not accepted."
+        },
+        "timeline": {
+            "title": "Timeline",
+            "loading": "Loading the timeline…",
+            "empty": "Nothing has happened to this deal yet.",
+            "statusChange": "{from} → {to}",
+            "statusSet": "Opened as {to}",
+            "systemActor": "The system",
+            "impersonated": "Acting as {user}",
+            "event": {
+                "DEAL_CREATED": "Deal created",
+                "DEAL_UPDATED": "Deal edited",
+                "DEAL_APPROVED": "Request approved",
+                "DEAL_REJECTED": "Request rejected",
+                "DEAL_REASSIGNED": "Owner changed",
+                "DEAL_DOCUMENT_ATTACHED": "Document attached",
+                "DEAL_STATUS_CHANGED": "Status changed"
+            }
+        },
+        "detail": {
+            "missing": "This deal could not be opened."
+        },
+        "documents": {
+            "title": "Documents",
+            "ceiling": "Only files attached on this page are listed. Files attached earlier are safely stored but cannot be listed yet.",
+            "choose": "Choose a file to attach",
+            "uploading": "Uploading…",
+            "download": "Download",
+            "scanPending": "The virus scan has not finished",
+            "scanInfected": "Refused: the scan found a virus",
+            "forbidden": "You do not have permission to attach a file to this deal.",
+            "rejected": "The file was not accepted.",
+            "downloadForbidden": "You do not have permission to download this file.",
+            "downloadRejected": "The file could not be downloaded."
+        },
+        "assign": {
+            "title": "Owner",
+            "action": "Assign",
+            "ownerRequired": "An owner is required.",
+            "forbidden": "You do not have permission to assign this deal.",
+            "rejected": "The assignment was not accepted.",
+            "ownerNone": "Choose the employee",
+            "listUnavailable": "The employee list could not be read, so the owner is set by identifier."
         }
     }
 }

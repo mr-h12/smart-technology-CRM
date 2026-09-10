@@ -213,6 +213,8 @@ GET    /api/v1/deals
 POST   /api/v1/deals
 GET    /api/v1/deals/{deal_id}
 PATCH  /api/v1/deals/{deal_id}
+GET    /api/v1/deals/{deal_id}/timeline
+POST   /api/v1/deals/{deal_id}/documents
 
 GET    /api/v1/quotations
 POST   /api/v1/quotations
@@ -231,6 +233,7 @@ PATCH /api/v1/customers/{customer_id}/assign
 PATCH /api/v1/customers/{customer_id}/archive
 PATCH /api/v1/customers/{customer_id}/restore
 
+PATCH /api/v1/deals/{deal_id}/assign
 PATCH /api/v1/deals/{deal_id}/approve
 PATCH /api/v1/deals/{deal_id}/reject
 PATCH /api/v1/deals/{deal_id}/status

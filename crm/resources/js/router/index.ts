@@ -18,6 +18,8 @@ import LoginView from '@/pages/auth/LoginView.vue';
 import ForbiddenView from '@/pages/ForbiddenView.vue';
 import UsersView from '@/pages/users/UsersView.vue';
 import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
+import DealDetailView from '@/pages/deals/DealDetailView.vue';
+import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
@@ -147,6 +149,36 @@ export const routes: RouteRecordRaw[] = [
         name: 'supplier-quotations',
         component: SupplierQuotationsView,
         meta: { requiresAuth: true, requiredPermission: 'supplier_quotation.view', titleKey: 'supplierQuotations.title' },
+    },
+    {
+        // §8's *Requests / Deals* screen — Module 5's own, and the module's
+        // first (Point 6.2). §8 lists it for the Manager, Team Leader, Outdoor
+        // Supervisor, Indoor Sales and Procurement, and **not** for the CEO or
+        // Outdoor Sales — while §3.4 grants the CEO `deal.view` as `All` and
+        // Outdoor Sales as `Own`. Same conflict the three routes around it hit,
+        // same answer: the owner's ruling of 2026-08-31 keys the route and the
+        // sidebar on the matrix, so no screen a person may open is unreachable.
+        // Recorded in `CHECKLIST.md` awaiting a `D-xx`.
+        //
+        // ⚠️ Unlike §3.6's shared screen, §3.4 **is** scoped — and `Team`,
+        // `Out` and `Asgn` resolve to no rows at all (Point 2.1), so three of
+        // the roles admitted here are answered with an empty page rather than a
+        // refusal. The screen says "none are visible to you" for that reason.
+        path: '/deals',
+        name: 'deals',
+        component: DealsView,
+        meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
+    },
+    {
+        // §5.2's Detail view for one deal (Point 6.6). `deal.view` and not
+        // `deal.view_timeline`: the page is the deal, and the history is a
+        // section inside it that carries its own permission and its own
+        // refusal — §3.4 gives the two their own rows, and a caller who may
+        // read the deal and not its history must still reach the page.
+        path: '/deals/:id',
+        name: 'deal-detail',
+        component: DealDetailView,
+        meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
     },
     {
         // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`

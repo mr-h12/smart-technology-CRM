@@ -583,6 +583,18 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     Route::get('/{deal}', [DealController::class, 'show'])
         ->middleware('permission:deal.view');
 
+    // §4.4's timeline, read back out of `audit_log` (Point 5.2). **Its own
+    // permission, not `deal.view`**: §3.4 gives `view timeline` its own row,
+    // and the middleware resolves the scopes for the permission the route
+    // names — so a matrix where the two columns diverge finds this route
+    // already correct rather than quietly reusing the wrong one. They hold the
+    // same seven grants today.
+    //
+    // Seeded since Module 1 and checked by nothing until now: `view_timeline`
+    // appeared in `PermissionMatrix` and one docblock, and nowhere else.
+    Route::get('/{deal}/timeline', [DealController::class, 'timeline'])
+        ->middleware('permission:deal.view_timeline');
+
     Route::post('/', [DealController::class, 'store'])
         ->middleware('permission:deal.create');
 

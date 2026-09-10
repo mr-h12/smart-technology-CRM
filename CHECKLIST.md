@@ -7519,9 +7519,7 @@ flagged here for review rather than assumed)*
       **Waste audit:** 16 new lang keys per language, all rendered; the download goes through the
       existing shared `services/files.ts` rather than a module-local copy — `GET /files/{id}/download`
       is Storage-owned infrastructure, which is why Module 6 put the helper there; no new dependency.
-      **Not covered:** no documents list on load, by necessity rather than choice. The owner is set by
-      identifier, there being no user list this module may call — the same ceiling Point 6.3 recorded
-      for the create form. Nothing here shows *who* attached a file; the timeline's
+      **Not covered:** no documents list on load, by necessity rather than choice. Nothing here shows *who* attached a file; the timeline's
       `DEAL_DOCUMENT_ATTACHED` entry does, and it is 6.6's.
 - [x] **6.8** Close the module — the five criteria ticked, the Arabic manual test list published, the
       ownership table's **State** column updated, and the debt register appended.
@@ -7729,6 +7727,49 @@ flagged here for review rather than assumed)*
    تصفّح بعد.
 7. **لوحة المسار (Kanban) غير مبنية.** §5.2 و§9 يسندان للصفقات عرض لوحة؛ لم يطلبها أي معيار مفتوح،
    وهي مؤجّلة بقائمة نقاط خاصة بها **بانتظار `D-xx`**.
+
+#### Follow-up after the owner tested it — **6.7a**, the owner picker *(2026-09-10)*
+
+- [x] **6.7a** The assign control becomes a **picker** over `GET /users`, keeping the identifier box
+      as a fallback.
+      ⚠️ **Reported by the owner, running the module for the first time:** «حقل المالك يجب أن يكون
+      بصيغة UUID سليمة — مش عارف اسند اي صفقه لموظف». The field demanded a UUID nobody knows by
+      heart, so the control was correct and unusable, which Point 6.3 and Point 6.7 had both recorded
+      as an accepted ceiling rather than a defect.
+      **The reasoning behind that ceiling was wrong, and measuring settled it.** Point 6.3 reused
+      `CustomerFormModal`'s line — "a control that 403s for the person looking at it is worse than no
+      control" — without checking whether anyone was actually in that position. `GET /users` carries
+      `admin.create_user` (§3.11: Super Admin and Manager); `deal.assign_owner` (§3.4) reaches the
+      Manager and the Team Leader. **The only role that would be refused the list is the Team
+      Leader — whose `assign_owner` is `Team`, which resolves to no rows at all (Point 2.1), so they
+      cannot reach a deal to assign in the first place.** Every role that can use this control today
+      can also list employees. Verified live: Manager `GET /users` → 200 with 7 rows (the Super Admin
+      correctly absent, §3.12); Team Leader → 403.
+      **Best-effort, on this module's own established pattern** — the same `try`/`catch` fallback
+      `DealsView` uses for customer names and `DealDetailView` for the customer: a picker when the
+      list reads, the identifier box when it does not, and the list is never requested at all without
+      `deal.assign_owner`, a call that could only be refused.
+      **4 new tests · 745 frontend (44 files) · vue-tsc clean · pint 546 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      ⚠️ **A probe found the `catch` untestable and the point fixed that rather than the probe.**
+      Replacing the fallback with a rethrow reddened **nothing**: an unhandled rejection leaves
+      `employees` empty exactly as the catch does, so asserting on the empty list proved neither.
+      "The list was refused" and "the list is empty" are different facts, so the catch now sets an
+      explicit `employeesUnavailable` flag which the screen renders as a sentence — and the same probe
+      now reddens.
+      ⚠️ **And that flag's first draft broke the control outright.** The new `<span>` was written
+      **between** the `v-if` select and the `v-else` input, which severs the chain so the `v-else`
+      never renders and the field vanished entirely. The spec caught it on the next run; the span is
+      now a sibling after the pair, with a comment saying why it cannot go back.
+      **Three existing tests needed updating, not because they were wrong but because the call order
+      changed:** the picker reads `/users` on mount, so `fetchMock.mock.calls[0]` was no longer the
+      upload or the assign. They now find a call by its path, which is what they always meant.
+      **Waste audit:** 2 new lang keys per language, both rendered; `listUsers` already existed in
+      `services/identity.ts` and is reused rather than re-declared; no new dependency.
+      **Not covered:** the picker lists the first page of employees (`per_page` default 25) and does
+      not page — a company past that many active employees needs a search, which is owed. Nothing
+      here filters by role: §4.3 calls `owner_id` the "assigned sales employee", and no source
+      restricts assignment to a role list, so inventing one would be inventing authorisation.
 
 **Acceptance criteria**
 - [x] Customer with an active deal + new request → **two independent deals**, separate statuses

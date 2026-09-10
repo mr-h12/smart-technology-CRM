@@ -1025,7 +1025,9 @@
             "action": "Assign",
             "ownerRequired": "An owner is required.",
             "forbidden": "You do not have permission to assign this deal.",
-            "rejected": "The assignment was not accepted."
+            "rejected": "The assignment was not accepted.",
+            "ownerNone": "Choose the employee",
+            "listUnavailable": "The employee list could not be read, so the owner is set by identifier."
         }
     }
 }

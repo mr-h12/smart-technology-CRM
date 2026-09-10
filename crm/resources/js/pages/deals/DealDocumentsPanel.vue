@@ -25,6 +25,24 @@
  * `pending` when the scanner was unavailable. A file that is not yet clean is
  * drawn as what it is rather than as a broken download.
  *
+ * ── The owner picker, and why it is best-effort rather than absent ─────────
+ *
+ * Point 6.3 left the owner a raw identifier box on `CustomerFormModal`'s
+ * reading that "a control that 403s for the person looking at it is worse than
+ * no control". **Measured, that reasoning does not hold here.** `GET /users`
+ * carries `admin.create_user` (§3.11: Super Admin and Manager); `assign_owner`
+ * (§3.4) reaches the Manager and the Team Leader. The only role that would be
+ * refused the list is the Team Leader — whose `assign_owner` is `Team`, which
+ * resolves to no rows at all (Point 2.1), so they cannot reach a deal to assign
+ * in the first place. Every role that can actually use this control today can
+ * also list users.
+ *
+ * So the list is fetched **best-effort**, exactly as `DealsView` fetches
+ * customer names: a picker when it loads, and the identifier box when it does
+ * not. A 403 empties the list and costs nothing, because the box behind it
+ * still works. Reported by the owner, who could not assign a deal without
+ * knowing a UUID by heart.
+ *
  * ── Assign is its own permission, and its Team half is unreachable ─────────
  *
  * §3.4 gives `assign_owner` its own row — Manager (`All`) and Team Leader
@@ -32,11 +50,12 @@
  * (Point 2.1), so half of this control's permission row is unreachable today,
  * exactly as `routes/api.php` already records against the route.
  */
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { assignDeal, attachDealDocument, type Deal, type DealDocument } from '@/services/deals';
 import { downloadFile } from '@/services/files';
+import { listUsers, type AdministeredUser } from '@/services/identity';
 import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{ deal: Deal }>();
@@ -56,6 +75,19 @@ const downloadingId = ref<string | null>(null);
 
 const assigning = ref(false);
 const ownerId = ref('');
+const employees = ref<AdministeredUser[]>([]);
+
+/**
+ * ⚠️ Set only by the catch below, and it exists because a probe found the
+ * catch untestable without it: throwing instead of falling back **also** left
+ * `employees` empty, so an assertion on the empty list passed either way. "The
+ * list was refused" and "the list is empty" are different facts, and only this
+ * flag tells them apart.
+ */
+const employeesUnavailable = ref(false);
+
+/** A picker when the list could be read; the identifier box when it could not. */
+const hasEmployeeList = computed(() => employees.value.length > 0);
 const assignErrorKey = ref<string | null>(null);
 const assignFieldError = ref<string | null>(null);
 
@@ -97,6 +129,30 @@ async function download(document: DealDocument): Promise<void> {
         downloadingId.value = null;
     }
 }
+
+/**
+ * Best-effort, and its failure is not an error: §3.11 gates the user list
+ * separately, so a caller may legitimately assign a deal and not list
+ * employees — and then the identifier box is the correct answer rather than a
+ * broken section.
+ */
+async function loadEmployees(): Promise<void> {
+    try {
+        // Only somebody who can own a deal: §10.1's deactivated employees are
+        // not candidates, and the server already hides the Super Admin.
+        employees.value = (await listUsers({ isActive: true })).items;
+        employeesUnavailable.value = false;
+    } catch {
+        employees.value = [];
+        employeesUnavailable.value = true;
+    }
+}
+
+onMounted(async () => {
+    if (canAssign.value) {
+        await loadEmployees();
+    }
+});
 
 async function submitAssign(): Promise<void> {
     assignErrorKey.value = null;
@@ -208,7 +264,26 @@ async function submitAssign(): Promise<void> {
                         {{ t('deals.column.owner') }}
                         <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
                     </span>
+                    <select
+                        v-if="hasEmployeeList"
+                        id="deal-assign-owner"
+                        v-model="ownerId"
+                        :disabled="assigning"
+                        :aria-invalid="assignFieldError !== null"
+                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        data-testid="deal-assign-owner"
+                    >
+                        <option value="">{{ t('deals.assign.ownerNone') }}</option>
+                        <option v-for="employee in employees" :key="employee.id" :value="employee.id">
+                            {{ employee.name }} — {{ employee.role.label }}
+                        </option>
+                    </select>
+
+                    <!-- ⚠️ The fallback, for a caller who may assign and may not
+                         list employees. Nothing today is in that position, and
+                         the box costs nothing if something ever is. -->
                     <input
+                        v-else
                         id="deal-assign-owner"
                         v-model="ownerId"
                         type="text"
@@ -218,6 +293,18 @@ async function submitAssign(): Promise<void> {
                         class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                         data-testid="deal-assign-owner"
                     />
+                    <!-- Outside the v-if/v-else pair above: an element between
+                         them breaks the chain and the `v-else` never renders,
+                         which is exactly what happened when this was first
+                         written and the spec caught it. -->
+                    <span
+                        v-if="employeesUnavailable"
+                        class="text-[var(--color-text-muted)]"
+                        data-testid="deal-assign-list-unavailable"
+                    >
+                        {{ t('deals.assign.listUnavailable') }}
+                    </span>
+
                     <span v-if="assignFieldError !== null" class="text-[var(--color-danger)]" data-testid="deal-assign-owner-error">
                         {{ assignFieldError }}
                     </span>

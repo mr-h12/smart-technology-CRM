@@ -56,8 +56,38 @@ const READER: AuthenticatedUser = {
     ...FULL, id: 'u3', permissions: ['deal.view.all'],
 };
 
+/** The call to a given path — never `calls[0]`, the picker reads `/users` on mount. */
+function callTo(fetchMock: ReturnType<typeof vi.fn>, path: string): [string, RequestInit] | undefined {
+    return fetchMock.mock.calls.find((c) => String(c[0]).includes(path)) as [string, RequestInit] | undefined;
+}
+
 function envelope(data: unknown): unknown {
     return { data, meta: { request_id: 'r1' } };
+}
+
+const EMPLOYEES = [
+    {
+        id: 'u-indoor', name: 'Test Indoor Sales', email: 'indoor.sales@example.test',
+        role_id: 'r5', role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
+        is_active: true, created_at: '2026-08-01T00:00:00+00:00', updated_at: '2026-08-01T00:00:00+00:00',
+    },
+];
+
+const PAGINATION = {
+    page: 1, per_page: 25, total: 1, total_pages: 1, has_next_page: false, has_previous_page: false,
+};
+
+/** Answers the employee list the picker needs, then delegates. */
+function withEmployees(delegate: (input: string) => Promise<Response>, usersStatus = 200): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        if (String(input).includes('/users')) {
+            return usersStatus === 200
+                ? json(200, { data: EMPLOYEES, meta: { request_id: 'r1', pagination: PAGINATION } })
+                : json(usersStatus, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } });
+        }
+
+        return delegate(input);
+    });
 }
 
 async function signIn(profile: AuthenticatedUser): Promise<void> {
@@ -114,7 +144,7 @@ describe('the deal documents and assign panel', () => {
         await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
         await flushPromises();
 
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        const [url, init] = callTo(fetchMock, '/documents') as [string, RequestInit];
         const form = init.body as FormData;
 
         expect(String(url)).toContain('/deals/d1/documents');
@@ -186,6 +216,60 @@ describe('the deal documents and assign panel', () => {
         expect((await render(EDITOR_ONLY)).find('[data-testid="deal-assign"]').exists()).toBe(false);
     });
 
+    it('offers a picker when the employee list can be read', async () => {
+        const fetchMock = withEmployees(async () => json(200, envelope(DEAL)));
+        const wrapper = await render(FULL, fetchMock);
+        await flushPromises();
+
+        const control = wrapper.find('[data-testid="deal-assign-owner"]');
+
+        // The owner reported the text box as unusable: it demanded a UUID
+        // nobody knows by heart. `GET /users` carries `admin.create_user`,
+        // which every role that can actually assign a deal today also holds.
+        expect(control.element.tagName).toBe('SELECT');
+        expect(control.findAll('option').map((o) => o.attributes('value'))).toContain('u-indoor');
+    });
+
+    it('falls back to the identifier box when the list is refused', async () => {
+        const fetchMock = withEmployees(async () => json(200, envelope(DEAL)), 403);
+        const wrapper = await render(FULL, fetchMock);
+        await flushPromises();
+
+        // §3.11 gates the user list separately, so a caller may legitimately
+        // assign and not list. The box behind the picker still works.
+        const control = wrapper.find('[data-testid="deal-assign-owner"]');
+
+        expect(control.element.tagName).toBe('INPUT');
+        expect(wrapper.find('[data-testid="deal-assign"]').exists()).toBe(true);
+        // ⚠️ Asserted because an empty list and a refused one are different
+        // facts that the input box alone cannot tell apart — a probe that
+        // removed the catch entirely reddened nothing without this.
+        expect(wrapper.find('[data-testid="deal-assign-list-unavailable"]').exists()).toBe(true);
+    });
+
+    it('never asks for the employee list without the assign permission', async () => {
+        const fetchMock = withEmployees(async () => json(200, envelope(DEAL)));
+        await render(EDITOR_ONLY, fetchMock);
+        await flushPromises();
+
+        // No section, so no call — a request that could only be refused.
+        expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/users'))).toHaveLength(0);
+    });
+
+    it('assigns the employee chosen from the picker', async () => {
+        const fetchMock = withEmployees(async () => json(200, envelope({ ...DEAL, owner_id: 'u-indoor' })));
+        const wrapper = await render(FULL, fetchMock);
+        await flushPromises();
+
+        await wrapper.find('[data-testid="deal-assign-owner"]').setValue('u-indoor');
+        await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        const write = fetchMock.mock.calls.find((c) => String(c[0]).includes('/assign'));
+
+        expect(JSON.parse(String((write?.[1] as RequestInit).body))).toEqual({ owner_id: 'u-indoor' });
+    });
+
     it('assigns through its own route and its own field name', async () => {
         const fetchMock = vi.fn(async () => json(200, envelope({ ...DEAL, owner_id: 'u42' })));
         const wrapper = await render(FULL, fetchMock);
@@ -194,7 +278,7 @@ describe('the deal documents and assign panel', () => {
         await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
         await flushPromises();
 
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        const [url, init] = callTo(fetchMock, '/assign') as [string, RequestInit];
 
         expect(String(url)).toContain('/deals/d1/assign');
         expect(JSON.parse(String(init.body))).toEqual({ owner_id: 'u42' });
@@ -210,7 +294,9 @@ describe('the deal documents and assign panel', () => {
         await flushPromises();
 
         // §3.4 has no unassign row and `AssignDealRequest` requires the field.
-        expect(fetchMock).not.toHaveBeenCalled();
+        // The picker's own `/users` read is not the assignment, so the
+        // assertion names the call that must not happen.
+        expect(callTo(fetchMock, '/assign')).toBeUndefined();
         expect(wrapper.find('[data-testid="deal-assign-owner-error"]').exists()).toBe(true);
     });
 

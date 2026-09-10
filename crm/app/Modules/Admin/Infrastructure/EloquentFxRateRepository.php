@@ -105,6 +105,42 @@ final readonly class EloquentFxRateRepository implements FxRateRepositoryInterfa
         return $stored;
     }
 
+    public function effectiveRate(CurrencyCode $from, CurrencyCode $to, DateTimeImmutable $at): ?ExchangeRate
+    {
+        // A currency against itself needs no row, and `fx_rates_distinct_currencies`
+        // means it could never have one — the identity is a fact, not a price.
+        if ($from === $to) {
+            return ExchangeRate::identity($from);
+        }
+
+        // Codes to ids in two `value()` reads rather than a join, for the reason
+        // the class docblock gives: a joined, aliased column is `mixed` to static
+        // analysis. An absent row means "this system does not offer that
+        // currency", which is no rate rather than an error on a read.
+        $fromId = CurrencyRow::query()->where('code', $from->value)->value('id');
+        $toId = CurrencyRow::query()->where('code', $to->value)->value('id');
+
+        if (! is_string($fromId) || ! is_string($toId)) {
+            return null;
+        }
+
+        // `fx_rates_pair_recent` (Point 1.2) is this query: the pair, newest
+        // effective_from first, capped at the moment. `SoftDeletes` drops a
+        // withdrawn rate without a `where` of its own.
+        $row = FxRateRow::query()
+            ->where('from_currency_id', $fromId)
+            ->where('to_currency_id', $toId)
+            ->where('effective_from', '<=', $at)
+            ->orderByDesc('effective_from')
+            ->first();
+
+        if (! $row instanceof FxRateRow) {
+            return null;
+        }
+
+        return ExchangeRate::of($from, $to, $row->rate);
+    }
+
     /** @return array<string, CurrencyCode> */
     private function codesById(): array
     {

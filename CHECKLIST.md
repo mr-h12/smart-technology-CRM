@@ -7771,6 +7771,43 @@ flagged here for review rather than assumed)*
       here filters by role: §4.3 calls `owner_id` the "assigned sales employee", and no source
       restricts assignment to a role list, so inventing one would be inventing authorisation.
 
+- [x] **6.7b** The **create** dialog's owner control, on the same terms — and gated on the permission
+      that actually decides it.
+      ⚠️ **Two more findings from the owner's own testing session.** First: «مبيظهرش عندو الموظفين في
+      الافتة بتاعت اسين الصفقة» — Point 6.7a replaced the identifier box on the *assign panel* and
+      left the identical box on the **create form**, so the Manager still had to type a UUID to set an
+      owner at creation. Same picker, same best-effort fallback, same `listUnavailable` sentence.
+      Second, and the more interesting one: **Indoor Sales was shown an owner field at all.**
+      **The server was already right; the screen was lying.** `SaveDeal::ownedWithinScope` refuses an
+      `Own`-scoped creator who names anyone but themselves — measured live, `permission_denied` — and
+      assigns them automatically when none is named (`owner -> 01a05389…`, `approval -> pending`). So
+      for Indoor Sales and Outdoor Sales the field could only ever hold their own id, and every other
+      value produced a 403. A control that looks like a choice and is not one is worse than no
+      control, which is the *correct* application of the line Point 6.3 misapplied one point earlier.
+      The field is therefore keyed on **`deal.assign_owner`** — §3.4's own row for choosing an owner —
+      and drawn for nobody else, rather than drawn disabled: the server is going to set the owner
+      regardless, and saying so with a dead box is noise.
+      **The list is not requested when it cannot be used:** not on an edit (`owner_id` is `prohibited`
+      on a `PATCH`) and not without the permission — a call that could only be refused.
+      **5 new tests · 750 frontend (44 files) · vue-tsc clean · pint 546 files · PHPStan level 10
+      clean · deptrac violations 0 / uncovered 0 on both configs.**
+      **Two probes, both reddened and restored:** keying the control on `deal.create` instead of
+      `deal.assign_owner` (**3 red**, including the list-refetch case), and fetching the employee list
+      regardless of edit-or-permission (2 red).
+      **The spec's harness had to be reworked, not just extended.** It stubbed a bare `fetch` and read
+      `mock.calls[0]`; the dialog now signs a profile in and reads `/users` on open, so the harness
+      signs in, answers the list separately, and finds the write call by its path. Three refusal tests
+      moved their forced 422/403/network response into the harness, because their own
+      `mockResolvedValue` was being overwritten by it — they had been passing on a mock that no longer
+      reached the code under test.
+      ⚠️ **A third finding, in the dev data rather than the code:** Indoor Sales could see **zero
+      customers** (`customer.view` is `Own`, and no seeded customer had a `sales_owner_id`), so they
+      could not create a deal at all through the UI regardless of this fix. One customer was assigned
+      to them in the dev database so the Flow 3 approval path can be walked. Not a code defect and not
+      committed — dev data only.
+      **Not covered:** the picker still shows the first 25 active employees with no search, and still
+      does not filter by role — unchanged from 6.7a and owed the same way.
+
 **Acceptance criteria**
 - [x] Customer with an active deal + new request → **two independent deals**, separate statuses
       *(Point 6.2. Two rows for one customer, `Lead` and `Negotiations` side by side, neither grouped

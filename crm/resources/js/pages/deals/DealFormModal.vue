@@ -21,14 +21,22 @@
  * drawn disabled: a disabled control invites the question "why", and the answer
  * is a different screen.
  *
- * ── No owner picker, on Module 3's precedent ───────────────────────────────
+ * ── The owner control is drawn only for somebody who may choose one ────────
  *
- * `owner_id` is writable on create, and filling a picker needs a user list that
- * `deal.create` does not carry — `CustomerFormModal` reached the same wall for
- * `sales_owner_id` and recorded it as a narrowing rather than a decision. The
- * owner is therefore set through the assign action (Point 6.7), and the field
- * here is a **plain identifier box**: the same ugly, stated ceiling Module 6
- * accepted for its `deal_id` filter, and honest about what it is.
+ * `owner_id` is writable on create — but **not by everybody**, and the first
+ * draft of this dialog drew the field for all of them. `SaveDeal::ownedWithinScope`
+ * is the authority: an `Own`-scoped creator naming anyone but themselves is
+ * refused outright (`permission_denied`), and naming nobody makes them the
+ * owner automatically. So for Indoor Sales and Outdoor Sales the control could
+ * only ever hold their own id, and typing any other produced a 403 — a field
+ * that looks like a choice and is not one. Reported by the owner.
+ *
+ * It is therefore keyed on `deal.assign_owner`, §3.4's own row for choosing an
+ * owner, and drawn as the **same picker** Point 6.7a gave the assign panel:
+ * best-effort over `GET /users`, with the identifier box behind it. A creator
+ * without that permission is shown nothing, because the server is going to
+ * make them the owner regardless and saying so with a disabled box would be
+ * noise.
  *
  * ── One client-side check, and it is a courtesy ────────────────────────────
  *
@@ -41,6 +49,8 @@ import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { createDeal, updateDeal, type Deal } from '@/services/deals';
 import { DEAL_SERVICE_TYPES, DEAL_SOURCES } from '@/services/deals';
+import { listUsers, type AdministeredUser } from '@/services/identity';
+import { useAuth } from '@/stores/auth';
 import type { Customer } from '@/services/customers';
 
 const props = defineProps<{
@@ -53,6 +63,7 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: []; cancel: [] }>();
 
 const { t } = useI18n();
+const auth = useAuth();
 
 const FIELDS = ['customer_id', 'owner_id', 'title', 'source', 'service_type'] as const;
 
@@ -78,6 +89,16 @@ const sources = DEAL_SOURCES;
 const serviceTypes = DEAL_SERVICE_TYPES;
 
 const isEdit = computed(() => props.editing !== null);
+
+/**
+ * §3.4's own row for choosing an owner. Without it the server assigns the
+ * creator to themselves, so there is nothing here to choose.
+ */
+const canChooseOwner = computed(() => auth.hasPermission('deal.assign_owner'));
+
+const employees = ref<AdministeredUser[]>([]);
+const employeesUnavailable = ref(false);
+const hasEmployeeList = computed(() => employees.value.length > 0);
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field]));
 
 function fieldId(field: Field): string {
@@ -128,9 +149,26 @@ watch(
         errorKeys.value = {};
         serverErrors.value = {};
         confirmingDiscard.value = false;
+
+        // Only when the dialog can actually offer a choice, and only on a
+        // create — `owner_id` is `prohibited` on a PATCH.
+        if (!isEdit.value && canChooseOwner.value && employees.value.length === 0) {
+            void loadEmployees();
+        }
     },
     { immediate: true },
 );
+
+/** Best-effort, exactly as Point 6.7a's panel loads it: a refusal costs nothing. */
+async function loadEmployees(): Promise<void> {
+    try {
+        employees.value = (await listUsers({ isActive: true })).items;
+        employeesUnavailable.value = false;
+    } catch {
+        employees.value = [];
+        employeesUnavailable.value = true;
+    }
+}
 
 /** "" means "not given", which on the wire is `null` and never an empty string. */
 function orNull(value: string): string | null {
@@ -281,12 +319,29 @@ function discard(): void {
                 </span>
             </label>
 
-            <!-- ⚠️ Create only, and a raw identifier: filling a picker needs a
-                 user list `deal.create` does not carry, and changing the owner
-                 afterwards is `assign_owner`'s own route. -->
-            <label v-if="!isEdit" class="flex flex-col gap-1.5" :for="fieldId('owner_id')">
+            <!-- Create only, and only for §3.4's `assign_owner`: without it the
+                 server makes the creator the owner, so there is no choice to
+                 draw. -->
+            <label v-if="!isEdit && canChooseOwner" class="flex flex-col gap-1.5" :for="fieldId('owner_id')">
                 <span>{{ t('deals.column.owner') }}</span>
+
+                <select
+                    v-if="hasEmployeeList"
+                    :id="fieldId('owner_id')"
+                    v-model="values.owner_id"
+                    :disabled="saving"
+                    :aria-invalid="errorFor('owner_id') !== null"
+                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :data-testid="testId('owner_id')"
+                >
+                    <option value="">{{ t('deals.assign.ownerNone') }}</option>
+                    <option v-for="employee in employees" :key="employee.id" :value="employee.id">
+                        {{ employee.name }} — {{ employee.role.label }}
+                    </option>
+                </select>
+
                 <input
+                    v-else
                     :id="fieldId('owner_id')"
                     v-model="values.owner_id"
                     type="text"
@@ -296,7 +351,11 @@ function discard(): void {
                     class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                     :data-testid="testId('owner_id')"
                 />
-                <span class="text-[var(--color-text-muted)]">{{ t('deals.form.ownerCeiling') }}</span>
+
+                <span v-if="employeesUnavailable" class="text-[var(--color-text-muted)]" data-testid="deal-form-owner-unavailable">
+                    {{ t('deals.assign.listUnavailable') }}
+                </span>
+
                 <span
                     v-if="errorFor('owner_id') !== null"
                     class="text-[var(--color-danger)]"

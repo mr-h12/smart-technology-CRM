@@ -9027,6 +9027,101 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Team Leader and Manager → **same screen, same authority**
 - [ ] No automatic escalation
 
+### Point list — published for approval 2026-09-10, **not yet approved**
+
+Per `CLAUDE.md`'s *Working Rhythm — One Point at a Time* rule 3, the decomposition is published
+before the step starts and is itself reviewable. Nothing below may begin until the owner approves
+it, the three decisions below are answered, and **Module 7's Application and Presentation layers
+exist** — on `main` at `fd2592d` both are still `.gitkeep`, so no code path can put a quotation into
+Pending and this module has nothing to act on. `PATCH /:id/submit-for-approval` is **Module 7's**
+endpoint, not this one's: Module 8 starts at Pending and never creates it.
+
+⚠️ **Module 8 has no owner.** The ownership table above stops at Module 6.
+
+#### Three decisions before any point — none of them defaultable
+
+- [ ] **D-a — `quotation.approve.team` resolves to no rows.** §3.5 grants approve as `All` to the
+      Manager and **`Team`** to the Team Leader. `team` is one of the three unbacked scopes — no team
+      entity in §4.1, no team column on `users` — and fails closed, as `CustomerRowScope` and
+      `DealRowScope` both document. So this module's own user story, *"As a Team Leader, I want to
+      review quotations"*, **does not function for the Team Leader at all** until "what defines a
+      team" is answered. Already on the debt register (*Debt the server does not gate*); Module 8 is
+      what turns it from theoretical into blocking. **The Manager's `All` works today**, so the
+      module is buildable and demonstrable **as the Manager only** — the same shape Module 5 closed
+      with, and the manual test list must say so rather than implying a Team Leader walkthrough.
+- [ ] **D-b — "days waiting" has no source field.** `git grep submitted_at` over `crm/` returns
+      nothing (measured on `main` at `fd2592d`). `sent_at` is Module 9's, for sending to the
+      customer, and `updated_at` moves on every edit, so neither records when a quotation entered
+      Pending. Needs either a new column or a derivation from the audit log, plus the SLA threshold
+      itself, which §6 puts in settings (*"Limits & SLAs: quotation approval SLA"*).
+- [ ] **D-c — is `edit-and-approve` a third endpoint?** The *Endpoints* line above names three.
+      `docs/OpenAPI_Contract_EN.md` lists only `/approve` and `/return`. §3.5 carries a **single**
+      permission row — *"approve / edit & approve"* — and §6.4 draws it as one transition into
+      Approved. The contract and the matrix both point at `/approve` carrying an optional edit
+      payload; this file points at a third route. Settling it now is cheap and settling it after the
+      route is built is not.
+- [ ] **Placement, decided before the first class is written.** There is no `Approvals` directory
+      under `crm/app/Modules/`. Approvals act only on quotations, so this either lives inside
+      `Quotations` or a new module is added to `deptrac.modules.yaml`. Point 4.1's lesson applies —
+      check layer and module placement **before** writing a class that crosses into another module's
+      Application layer, not after deptrac refuses it.
+
+#### Step 1 — the transition, server-side
+
+- [ ] **1.1** The §6.4 state machine as a guarded transition — `Pending → Approved` and
+      `Pending → Draft (v2)`, refusing every other current state. Domain rule and its tests; no route.
+- [ ] **1.2** `submitted_at` (or `D-b`'s alternative) and the approval SLA read from settings.
+      **Blocked on `D-b`.**
+
+#### Step 2 — the three actions
+
+- [ ] **2.1** `PATCH /quotations/{id}/approve` — `quotation.approve.*` per §3.5, audit entry,
+      `Pending → Approved`.
+- [ ] **2.2** Self-approval (§6.5, `D-50`) — `is_self_approved = true` and an audit entry typed
+      `SELF_APPROVAL` **instead of** a normal approval, not beside it. `AuditEvent::selfApproval()`
+      already exists in Module 0 with **no caller**; this is its first, the same shape as Storage's
+      unused pipeline in Module 5 Point 4.1.
+- [ ] **2.3** `PATCH /quotations/{id}/return` — mandatory note, `Pending → Draft` as v2 through
+      `parent_id`/`version`. The `rejection_reason` CHECK constraint already exists in the migration.
+- [ ] **2.4** Edit-and-approve — a tax or margin edit writing a **mandatory audit entry carrying old
+      and new values**. Shape **blocked on `D-c`**.
+- [ ] **2.5** Optimistic locking → **409 Conflict** on a concurrent edit, through the existing
+      `version_token` (`DB-12`, `API-12`, OpenAPI §9.2).
+
+#### Step 3 — the read surface
+
+- [ ] **3.1** The approvals list — pending quotations within the caller's scope, carrying
+      days-waiting. **Depends on 1.2.**
+- [ ] **3.2** Returned quotations appear under **"Incomplete"** — §8 gives the Team Leader
+      *"Quotations (including incomplete)"*.
+
+#### Step 4 — the screen
+
+- [ ] **4.1** The Approvals screen. `D-10` gives the Team Leader and Manager **the same screen and
+      the same authority**, so this is one screen, not two.
+- [ ] **4.2** The badges — yellow **"Self-approved"** (§6.5) and, past the SLA, red with the
+      days-waiting column (`D-11`, `R-07`). `Design_System_EN.md §6.4` forbids colour alone, so each
+      carries a text label.
+- [ ] **4.3** The edit-before-approve form, gated on §3.5's *edit margin* and *edit tax* rows.
+- [ ] **4.4** **No automatic escalation** (`D-11`) — a point that asserts the absence, because
+      "we did not build it" and "we decided against it" are indistinguishable in a diff.
+
+#### Step 5 — close the module
+
+- [ ] **5.1** The Arabic manual front-end test list, per `CLAUDE.md`'s rule: one line per check as
+      action ⇒ result, grouped by screen in walk order, naming the required role per check, covering
+      every acceptance criterion by name, both languages and directions, the empty/loading/error/
+      refused-by-permission states, and **explicitly naming what cannot be tested and why** — the
+      Team Leader path above all, if `D-a` is still open.
+
+#### What this point list does not cover
+
+Sending to the customer (`sent_at`) is Module 9's. Notifications on approval or return belong to
+§18, which no module in this file owns — they are not named in this module's criteria and are not
+silently added here; if §18 requires one on approval, that is a gap this list has not costed. Nothing
+above verifies that the SLA threshold is reachable in settings — that is `D-b`'s to answer, and if
+the setting does not exist yet, 1.2 grows a dependency this list has not costed.
+
 ---
 
 ## Module 9 — PDF Generation

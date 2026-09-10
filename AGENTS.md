@@ -87,6 +87,10 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - Desktop is primary for office roles. Outdoor flows are mobile-first PWA flows, online-only, preserving a local draft during a short connection drop without presenting the system as offline-capable.
 - External access uses Cloudflare Tunnel + Access for five named users (D-59); the LAN is primary for everyone else. Access gates identity but never replaces system authentication or the permission matrix. When external access is unavailable, show a specific message, never a generic failure.
 
+## UI Verification
+
+Any change to a screen, component, or stylesheet must be verified in a real browser (via the available browser automation, e.g. Claude Browser MCP) at both desktop and mobile widths, in Arabic (RTL, default locale) and English. jsdom tests alone are not sufficient evidence. Include the list of manual UI steps you performed in the change report.
+
 ## Security, Permissions, and Files
 
 - No public sign-up. Passwords require at least eight characters with letters and numbers and use Argon2 or bcrypt.
@@ -120,6 +124,18 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - PDF generation is asynchronous and stored as an immutable snapshot with retry on failure.
 - Start services in the mandated order: PostgreSQL → Redis → Meilisearch → application → workers → Nginx. Provide per-service `/health` status and daily backup/restore procedures.
 - Do not add deferred functionality to MVP: WhatsApp, Outlook, AI, Mapbox, push notifications, payment schedules, supplier POs, offline mode, or ERP modules. Keep documented future integrations behind feature flags and adapters.
+
+## Terminology
+
+- **Module N** is one of the numbered modules in `CHECKLIST.md` and the Required Delivery
+  Order (0–15).
+- **Step** and **Point** are a module's sub-units: every module is broken into steps, every step
+  into points (see Working Rhythm). "Step 2" is always a step *within* a module, never a roadmap
+  position — the documentation defines no separate "release step".
+- A **module** is the whole of its steps and points. When asked to "plan Module N", plan the
+  entire module — its full step-and-point breakdown — not just its first point.
+- When a reference is ambiguous (which module a step belongs to, or module-vs-point scope), ask
+  before planning rather than guessing silently.
 
 ## Working Rhythm — One Point at a Time
 
@@ -305,6 +321,14 @@ way a seven-part report closes a point.
   - `./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml`
   - `./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml`
 - **No direct push to `main`.** Every merge requires a review confirming that the deptrac boundaries and strict typing remain intact.
+
+## Delivery Protocol (per checklist point)
+
+1. Write failing tests first (TDD) before implementation.
+2. Run the full gate suite locally: lint, static analysis (PHPStan), unit + feature tests.
+3. Open a PR and WAIT for CI to go green on the *new* commit SHA (filter CI status by SHA, never trust the latest row).
+4. Report the actual command output as evidence — never claim 'tests pass' without pasting the result.
+5. Ask the user to merge (Claude cannot run `gh pr merge`).
 
 ## Definition of Done and Traceability
 

@@ -90,6 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | in progress — Step 3, Point 3.2 next |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | after Module 4 |
+| **8 — Approvals** | second developer | claimed 2026-09-10, **not started** — point list published, `D-a`/`D-c` answered, `D-b` reopened; blocked on `Quotations` publishing a write-side contract, which is Module 7's to write |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -9114,7 +9115,11 @@ rule directly on 2026-09-10: **work per module; do not make changes inside a mod
       `FileWriterInterface` before it could do anything. The difference is that Storage belonged to
       nobody, and `Quotations` belongs to Yousef — so this one is raised with him rather than solved
       by us. Raised on 2026-09-10, while Module 7's remaining steps are still being planned.
-- [ ] **Module 8 still has no owner.** The ownership table above stops at Module 6.
+- [x] **Ownership claimed 2026-09-10** — Module 8 is the second developer's, recorded as a row in the
+      ownership table above, which is that table's own documented mechanism: *"A module not listed
+      above is unowned, and picking it up means adding a row."* Claimed **before** the first commit
+      in the module, as the same rule requires. ⚠️ Module 7 has **no row at all** — Yousef has been
+      building it since 2026-09-07 (Point 1.1, the `quotations` table) without claiming one. Not added here on his behalf; his to write.
 
 #### Step 1 — the module, then the transition
 

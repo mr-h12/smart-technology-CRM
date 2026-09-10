@@ -88,7 +88,7 @@ from fighting over the same eleven files.
 | Module | Owner | State |
 |---|---|---|
 | **4 — Catalog & Suppliers** | Yousef | in progress — Step 3, Point 3.2 next |
-| **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09 |
+| **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | after Module 4 |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
@@ -7521,18 +7521,23 @@ flagged here for review rather than assumed)*
       is Storage-owned infrastructure, which is why Module 6 put the helper there; no new dependency.
       **Not covered:** no documents list on load, by necessity rather than choice. Nothing here shows *who* attached a file; the timeline's
       `DEAL_DOCUMENT_ATTACHED` entry does, and it is 6.6's.
-- [x] **6.8** Close the module — the five criteria ticked, the Arabic manual test list published, the
+- [x] **6.8** Close the module — the criteria resolved, the Arabic manual test list published, the
       ownership table's **State** column updated, and the debt register appended.
-      **The five criteria, each with the point that closed it and the evidence:**
+      ⚠️ **Four criteria are `[x]` and one is `[~]`.** The fifth was ticked here on 2026-09-09 and
+      **downgraded on 2026-09-10** after a `/code-review` spec pass pointed out that its text carries
+      two clauses and only one is built — see the criterion itself. The review was right, and the
+      correction belongs in this entry rather than quietly in the box.
+      **The criteria, each with the point that resolved it and the evidence:**
       `DL-2026-0001` (6.2 — the code column renders what the server allocated, digit for digit, the
       SPA never building one); two independent deals per customer (6.2 — two rows for one customer,
-      `Lead` and `Negotiations` side by side, neither grouped nor merged); "Pending Approval" for the
-      Team Leader (6.4 — §6.4's amber badge with icon **and** word, and Approve/Reject behind
-      `deal.approve`); rejected request → mandatory reason + badge (6.4 — the reason collected before
-      submission and rendered beside the badge, whitespace refused as the server refuses it); and
-      status change → timeline entry with old status, new status, who, when (5.1 → 5.2 → 6.6 — the
-      read port, the route, and the screen, closing what Point 1.1 left owing when it declined
-      `deal_status_history`).
+      `Lead` and `Negotiations` side by side, neither grouped nor merged); rejected request →
+      mandatory reason + badge (6.4 — the reason collected before submission and rendered beside the
+      badge, whitespace refused as the server refuses it); and status change → timeline entry with
+      old status, new status, who, when (5.1 → 5.2 → 6.6 — the read port, the route, and the screen,
+      closing what Point 1.1 left owing when it declined `deal_status_history`).
+      **The fifth, at `[~]`:** "Pending Approval" for the Team Leader (6.4 — §6.4's amber badge with
+      icon **and** word, and Approve/Reject behind `deal.approve`; the criterion's second clause,
+      "inactive until approved", is not built and needs a `D-xx` granting §4.3 a visibility column).
       ⚠️ **Two of the five are demonstrable as the Manager only**, and the test list says so rather
       than the tick implying otherwise: §3.4 grants `deal.approve` to the Manager (`All`) and the Team
       Leader (`Team`), and `Team` resolves to no rows (Point 2.1) — so the role the criterion names
@@ -7564,8 +7569,16 @@ flagged here for review rather than assumed)*
          25 events has more history than the page reveals.
       6. **`Team`, `Out` and `Asgn` still resolve to zero rows** (Point 2.1) — unchanged by this step
          and now visible on three screens rather than only in an endpoint test.
-      7. **§4.3's "inactive until approved"** (Flow 3) has no column behind it, so a `pending` deal is
-         an ordinary row the screen badges rather than the server hides.
+      7. **`refusalKey()` and the scoped `<style>` block repeat** across the module's controls and
+         five `.vue` files respectively. Both follow a convention four existing screens already use,
+         so the fix is a repo-wide one — a shared error-key helper and a shared form utility class —
+         and belongs to whoever changes that convention, not to this branch.
+      8. **`arabic/CHECKLIST_AR.md` is ~8,700 lines behind `CHECKLIST.md`** and has not been updated
+         since 2026-08-12. Every module since 3 is missing from it. Belongs to both developers.
+      9. **§4.3's "inactive until approved"** (Flow 3) has no column behind it, so a `pending` deal is
+         an ordinary row the screen badges rather than the server hides. ⚠️ **This is the one debt
+         entry that holds an acceptance criterion open** — it is why that criterion stands at `[~]`
+         and not `[x]`, and closing it needs a `D-xx` before a column can be added.
       **Two things this step clears for the other developer, and does not touch itself.** Module 6
       Point 6.2's `deal_id` filter is a raw identifier box because "there is no deals screen" — there
       is one now, and giving that filter a picker is **Module 6's** to take. And Module 6's own
@@ -7808,19 +7821,76 @@ flagged here for review rather than assumed)*
       **Not covered:** the picker still shows the first 25 active employees with no search, and still
       does not filter by role — unchanged from 6.7a and owed the same way.
 
+#### After the `/code-review` pass — **6.8a**, the three fixes it earned *(2026-09-10)*
+
+- [x] **6.8a** Three findings from a two-axis review of `main...HEAD`, all acted on. The review was
+      run against the whole branch, with the **Spec** axis reading Module 5's five criteria as they
+      stood at `main` and the **Standards** axis reading `CLAUDE.md`, `AGENTS.md`,
+      `Coding_Standards_EN.md`, `Design_System_EN.md` plus a Fowler smell baseline.
+      **1 — The undocumented route (Standards, hard violation).** `Coding_Standards §8`: "Keep
+      OpenAPI schemas, request validators, response serializers, and tests aligned. **A route is
+      incomplete if it is undocumented.**" `GET /deals/{id}/timeline` was added while the code cited
+      `OpenAPI §6`/`§8` as though they already governed it, and the contract's own route tables list
+      every sibling. **Verified before editing:** no generated OpenAPI document exists anywhere in the
+      repo, so `OpenAPI_Contract_EN.md` *is* the documentation, and `timeline` appeared in it zero
+      times. ⚠️ **Wider than the review said:** `/deals/{id}/assign` and `/deals/{id}/documents` were
+      **also** absent, and absent at `main` — Points 2.4 and 4.1 skipped the same step, so this
+      branch added the third omission rather than the first. All three are now in §7.1/§7.2, and in
+      `arabic/docs/OpenAPI_Contract_AR.md` in the same edit: an English document and its Arabic
+      companion differing is a defect by the documents' own definition. Verified identical afterwards.
+      **2 — The criterion that overstated itself (Spec).** "Employee-entered request → 'Pending
+      Approval' for the Team Leader, **inactive until approved**" was ticked `[x]` while its own note
+      said the second clause is not built. The disclosure was accurate and in the wrong place: a
+      reader skimming boxes never reaches it. The row is now `[~]` and names the missing clause in the
+      line itself; the ownership table, this step's own 6.8 entry, and debt entry 7 all say the same
+      thing. **The tick was the defect, not the prose** — which is the failure mode the owner's own
+      "State column goes stale" rule exists to prevent.
+      **3 — The owner picker, written twice (Standards, judgement call).** Duplicated Code, and a
+      small Shotgun Surgery: the loader, two refs, the `<select>`/`<input>` pair and the "list
+      unavailable" sentence were byte-identical in `DealFormModal` and `DealDocumentsPanel`, because
+      Point 6.7a fixed one and Point 6.7b had to fix the other. Collapsed into `DealOwnerPicker.vue`,
+      which owns the best-effort fetch and both states; each caller keeps its own `field-id`/`test-id`
+      and its own decision about **whether** to draw it — the create form only for
+      `deal.assign_owner`, the panel only inside its assign section. **The extraction pays for itself
+      in the probes:** breaking the fallback now reddens **both** callers' tests from one edit, where
+      before each copy needed its own probe.
+      **Two probes on the extracted component, both reddened and restored:** removing the fallback
+      (2 red, one per caller) and never drawing the unavailable sentence (2 red).
+      **750 frontend (44 files) · vue-tsc clean · pint 546 files · PHPStan level 10 clean · deptrac
+      violations 0 / uncovered 0 on both configs · 203 localisation/design tests.**
+      **Findings deliberately not acted on**, and why: `refusalKey()` repeating in two controls and
+      the scoped `<style>` block repeating across five files are both judgement calls the reviewer
+      itself noted follow existing repo precedent (`CustomersView`, `SuppliersView`, `CatalogView`,
+      `SupplierQuotationsView` already do the same) — changing them is a repo-wide convention change,
+      not this branch's to make, so they go on the debt register. A stray docblock above `onDecided`
+      in `DealsView` is a comment, not a defect.
+      ⚠️ **A twin this step did not repair:** `arabic/CHECKLIST_AR.md` is **427 lines against this
+      file's 9,158** and was last touched 2026-08-12, before Modules 3 through 7 existed. Neither
+      developer has mirrored a checklist entry into it in a month. Mirroring one criterion row into a
+      file ~8,700 lines behind would imply a synchronisation that does not exist, so it is recorded
+      here as **pre-existing debt for both developers** rather than half-fixed.
+
 **Acceptance criteria**
 - [x] Customer with an active deal + new request → **two independent deals**, separate statuses
       *(Point 6.2. Two rows for one customer, `Lead` and `Negotiations` side by side, neither grouped
       nor merged — the server was already correct and the screen is where a person can see it.)*
 - [x] Deal reaches Won → customer status becomes **"Customer"** automatically and permanently
 - [x] All deals Lost → status **"Deal Not Completed"**
-- [x] Employee-entered request → "Pending Approval" for the Team Leader, inactive until approved
-      *(Point 6.4. §6.4's amber badge with an icon **and** a word, and Approve/Reject behind
+- [~] Employee-entered request → "Pending Approval" for the Team Leader — **the badge and the
+      approval are built; "inactive until approved" is NOT**
+      *(Point 6.4, and deliberately **not** a `[x]`. This criterion has two clauses and only one of
+      them is met, so a tick would claim more than the code does — the clause that is missing is in
+      the row a reader scans, not only in the note beneath it. Raised by a `/code-review` spec pass
+      on 2026-09-10, which was right: the previous `[x]` overstated the work while the prose under it
+      disclosed the gap correctly, and a reader skimming boxes would never reach the prose.
+      §6.4's amber badge with an icon **and** a word, and Approve/Reject behind
       `deal.approve`. ⚠️ **Demonstrable as the Manager only**: §3.4 grants the permission to the
       Manager (`All`) and the Team Leader (`Team`), and `Team` resolves to no rows (Point 2.1), so
       the role this criterion names holds it and reaches no deal. ⚠️ **"inactive until approved" is
-      not built** — §4.3 has no visibility column, so a `pending` deal is an ordinary row the screen
-      badges and does not claim the server hides. Both on the debt register.)*
+      not built** — §4.3 has no visibility column, and inventing one would be inventing a documented
+      field, so a `pending` deal is an ordinary row the screen badges and does not claim the server
+      hides. **This is what keeps the box at `[~]` rather than `[x]`**, and closing it needs a `D-xx`
+      granting §4.3 a visibility column. Both on the debt register.)*
 - [x] Rejected request → mandatory reason + badge for the employee
       *(Point 6.4. The reason is collected **before** submission (§6.6) and whitespace is refused as
       `RejectDealRequest` refuses it; the badge and the reason are drawn together, §4.3 making the

@@ -49,8 +49,8 @@ import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { createDeal, updateDeal, type Deal } from '@/services/deals';
 import { DEAL_SERVICE_TYPES, DEAL_SOURCES } from '@/services/deals';
-import { listUsers, type AdministeredUser } from '@/services/identity';
 import { useAuth } from '@/stores/auth';
+import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import type { Customer } from '@/services/customers';
 
 const props = defineProps<{
@@ -96,9 +96,6 @@ const isEdit = computed(() => props.editing !== null);
  */
 const canChooseOwner = computed(() => auth.hasPermission('deal.assign_owner'));
 
-const employees = ref<AdministeredUser[]>([]);
-const employeesUnavailable = ref(false);
-const hasEmployeeList = computed(() => employees.value.length > 0);
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field]));
 
 function fieldId(field: Field): string {
@@ -149,26 +146,9 @@ watch(
         errorKeys.value = {};
         serverErrors.value = {};
         confirmingDiscard.value = false;
-
-        // Only when the dialog can actually offer a choice, and only on a
-        // create — `owner_id` is `prohibited` on a PATCH.
-        if (!isEdit.value && canChooseOwner.value && employees.value.length === 0) {
-            void loadEmployees();
-        }
     },
     { immediate: true },
 );
-
-/** Best-effort, exactly as Point 6.7a's panel loads it: a refusal costs nothing. */
-async function loadEmployees(): Promise<void> {
-    try {
-        employees.value = (await listUsers({ isActive: true })).items;
-        employeesUnavailable.value = false;
-    } catch {
-        employees.value = [];
-        employeesUnavailable.value = true;
-    }
-}
 
 /** "" means "not given", which on the wire is `null` and never an empty string. */
 function orNull(value: string): string | null {
@@ -325,36 +305,15 @@ function discard(): void {
             <label v-if="!isEdit && canChooseOwner" class="flex flex-col gap-1.5" :for="fieldId('owner_id')">
                 <span>{{ t('deals.column.owner') }}</span>
 
-                <select
-                    v-if="hasEmployeeList"
-                    :id="fieldId('owner_id')"
+                <!-- The picker fetches its own list, and only when it is
+                     drawn — which is only on a create, and only for
+                     `deal.assign_owner`. Both gates are above, on the label. -->
+                <DealOwnerPicker
                     v-model="values.owner_id"
                     :disabled="saving"
-                    :aria-invalid="errorFor('owner_id') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    :data-testid="testId('owner_id')"
-                >
-                    <option value="">{{ t('deals.assign.ownerNone') }}</option>
-                    <option v-for="employee in employees" :key="employee.id" :value="employee.id">
-                        {{ employee.name }} — {{ employee.role.label }}
-                    </option>
-                </select>
-
-                <input
-                    v-else
-                    :id="fieldId('owner_id')"
-                    v-model="values.owner_id"
-                    type="text"
-                    :disabled="saving"
-                    :placeholder="t('deals.form.ownerPlaceholder')"
-                    :aria-invalid="errorFor('owner_id') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    :data-testid="testId('owner_id')"
+                    :field-id="fieldId('owner_id')"
+                    :test-id="testId('owner_id')"
                 />
-
-                <span v-if="employeesUnavailable" class="text-[var(--color-text-muted)]" data-testid="deal-form-owner-unavailable">
-                    {{ t('deals.assign.listUnavailable') }}
-                </span>
 
                 <span
                     v-if="errorFor('owner_id') !== null"

@@ -254,7 +254,7 @@ describe('the deal form dialog', () => {
         expect(control.element.tagName).toBe('INPUT');
         // "Refused" and "empty" are different facts — the same hole a probe
         // found in Point 6.7a's panel.
-        expect(wrapper.find('[data-testid="deal-form-owner-unavailable"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deal-form-owner-id-unavailable"]').exists()).toBe(true);
     });
 
     it('never asks for the employee list on an edit, where owner_id is prohibited', async () => {

@@ -244,7 +244,7 @@ describe('the deal documents and assign panel', () => {
         // ⚠️ Asserted because an empty list and a refused one are different
         // facts that the input box alone cannot tell apart — a probe that
         // removed the catch entirely reddened nothing without this.
-        expect(wrapper.find('[data-testid="deal-assign-list-unavailable"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deal-assign-owner-unavailable"]').exists()).toBe(true);
     });
 
     it('never asks for the employee list without the assign permission', async () => {

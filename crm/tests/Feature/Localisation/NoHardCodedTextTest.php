@@ -113,6 +113,11 @@ final class NoHardCodedTextTest extends TestCase
                 'DealDetailView.vue',
                 'DealDocumentsPanel.vue',
                 'DealFormModal.vue',
+                // Module 5 Point 6.8a — the one owner picker both callers use,
+                // extracted after a code review named the duplication. Added on
+                // the same terms: the scan below was run against it first and
+                // passed.
+                'DealOwnerPicker.vue',
                 'DealStatusControl.vue',
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',

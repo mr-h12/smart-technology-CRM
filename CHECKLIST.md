@@ -9037,8 +9037,9 @@ decisions below were answered; **no point has begun**, and every box below the d
 `Application/` and `Presentation/` layers are both still `.gitkeep` on `main` at `fd2592d`, so no
 code path can put a quotation into Pending and this module has nothing to act on.
 `PATCH /:id/submit-for-approval` is **Module 7's** endpoint, not this one's: Module 8 starts at
-Pending and never creates it. Two further items below — placement and ownership — need Yousef rather
-than the owner, and Point 1.2's migration lands on Module 7's own table while that module is open.
+Pending and never creates it. Beyond that, *The module boundary* below records the harder
+dependency — `Quotations` publishes no write-side contract, and writing one is Yousef's work in his
+own module, not ours. **Point 1.0 and Point 1.1 are the only two points that do not wait on it.**
 
 #### The three decisions — answered 2026-09-10, and each owes a `D-xx`
 
@@ -9057,15 +9058,21 @@ Writing the `D-xx` rows is the first work of this module, before Point 1.1.
       test list must name the Team Leader path as untestable and say why, not imply a walkthrough
       that refuses. The underlying question stays on the *Debt the server does not gate* register,
       where it now blocks a third module rather than one.
-- [x] **D-b — `submitted_at` is added to `quotations`.** `git grep submitted_at` over `crm/` returned
-      nothing on `main` at `fd2592d`; `sent_at` is Module 9's and `updated_at` moves on every edit,
-      so nothing recorded when a quotation entered Pending. **Answer: a new `submitted_at` column,**
-      set on the transition into Pending — explicit, indexable for the approvals list query, and
-      cheaper to read than reconstructing the submit event from the audit trail.
-      ⚠️ **It is a migration on `quotations`, which is Yousef's table in Module 7, and Module 7 is
-      still open.** This point cannot be written without agreeing the column and its migration
-      timestamp with him first; two developers adding columns to the same table in parallel is how
-      migration ordering breaks.
+- [ ] **D-b — reopened 2026-09-10, same day it was answered.** `git grep submitted_at` over `crm/`
+      returned nothing on `main` at `fd2592d`; `sent_at` is Module 9's and `updated_at` moves on
+      every edit, so nothing records when a quotation entered Pending. The first answer was **a new
+      `submitted_at` column on `quotations`** — withdrawn, because `quotations` is Module 7's table
+      and **this module does not write to another module's tables** (see *The module boundary*
+      below). Three ways to close it, none chosen yet:
+      **(i)** Yousef adds `submitted_at` as part of Module 7 and exposes it on the published read
+      contract — cleanest for the list query, and outside our hands entirely.
+      **(ii)** Derive the timestamp from the submit event in Module 0's audit log, which lives in
+      neither developer's module and is already a published surface — no schema change, but a
+      heavier read than a column and dependent on the submit transition actually writing an audit
+      row, which is Module 7's behaviour to guarantee, not ours.
+      **(iii)** Defer the SLA criterion as recorded debt with a named reason, the way Module 5
+      deferred `J-02`'s nightly half, and ship approve/return/edit-and-approve without the red badge
+      or the days-waiting column. The acceptance criterion stays open and says why.
 - [x] **D-c — three endpoints, and the OpenAPI contract is amended to match.** The first reading of
       this proposed collapsing `/edit-and-approve` into `/approve` with an optional edit payload, on
       the strength of `docs/OpenAPI_Contract_EN.md` listing only two routes and §3.5 carrying a
@@ -9079,28 +9086,55 @@ Writing the `D-xx` rows is the first work of this module, before Point 1.1.
       override of a higher source, not a reading of it, and would have needed its own `D-xx` and
       owner approval before being built.
 
-#### Still open — needs Yousef, not the owner
+#### The module boundary — settled 2026-09-10, and it governs every point below
 
-- [ ] **Placement.** There is no `Approvals` directory under `crm/app/Modules/`. Approvals act only
-      on quotations, so this lives either inside `Quotations` — **Yousef's module, with two open PRs
-      in it right now (#90, #91)** — or in a new module added to `deptrac.modules.yaml`. The
-      ownership model is per-module, so putting a second developer inside `Quotations` cuts across
-      it. Decide **with him** and before the first class: Module 5's Point 4.1 learned that layer and
-      module placement is checked before writing a class that crosses into another module's
-      Application layer, not after deptrac refuses it.
+**Module 8 is its own module. It never writes to `quotations`.** Recorded because the obvious
+implementation is the forbidden one: this module's entire job is changing a quotation — approve sets
+`status` and `is_self_approved`, return sets `rejection_reason` and creates the v2 row through
+`parent_id`/`version`, edit-and-approve writes tax and margin — and every one of those is a write
+into Module 7's data.
+
+`CLAUDE.md` forbids it twice over: *"Modules communicate through interfaces and domain events, never
+direct cross-module database access"*, and *"A cross-module need is an interface or a domain event,
+never an edit next door."* Module 6 already works this way, resolving catalog items through
+Catalog's **published contract** rather than reaching into its tables. The owner restated the same
+rule directly on 2026-09-10: **work per module; do not make changes inside a module Yousef owns.**
+
+- [x] **Placement.** A new `Approvals` module — `crm/app/Modules/Approvals/` with its own entry in
+      `deptrac.modules.yaml` — **not** a directory inside `Quotations`. The alternative would have
+      put a second developer inside Yousef's module while he has two open PRs in it (#90, #91),
+      which cuts across the one-owner-per-module model the whole two-developer workflow rests on.
+- [ ] ⚠️ **The blocker this exposes: `Quotations` publishes no write-side contract.** It has
+      `QuotationDirectoryInterface` for reads and `QuotationDraft` for the write path Yousef is
+      building; nothing exposes *approve*, *return* or *transition* to another module. Module 8
+      cannot be built against what exists — **and the interface is Yousef's to write, inside his own
+      module.** It does not appear in Module 7's published point list.
+      This is Module 5's Point 4.1 one module over: Storage had built an entire upload pipeline with
+      a read-only `FileRepositoryInterface` and no write-side contract, so that point had to add
+      `FileWriterInterface` before it could do anything. The difference is that Storage belonged to
+      nobody, and `Quotations` belongs to Yousef — so this one is raised with him rather than solved
+      by us. Raised on 2026-09-10, while Module 7's remaining steps are still being planned.
 - [ ] **Module 8 still has no owner.** The ownership table above stops at Module 6.
 
-#### Step 1 — the transition, server-side
+#### Step 1 — the module, then the transition
 
+- [ ] **1.0** The `Approvals` module itself — `crm/app/Modules/Approvals/` with its four layers and
+      its entry in `deptrac.modules.yaml`, appended inside our own block. Nothing in it yet. This is
+      the first point because every point after it needs somewhere to land that is not Yousef's.
 - [ ] **1.1** The §6.4 state machine as a guarded transition — `Pending → Approved` and
-      `Pending → Draft (v2)`, refusing every other current state. Domain rule and its tests; no route.
-- [ ] **1.2** `submitted_at` on `quotations`, set on the transition into Pending, and the approval
-      SLA read from settings (§6, *"Limits & SLAs: quotation approval SLA"*). `D-b` answered.
-      ⚠️ **Agree the column and its migration timestamp with Yousef before writing this** — it is a
-      migration on Module 7's table while Module 7 is still open. If the SLA setting does not exist
+      `Pending → Draft (v2)`, refusing every other current state. Domain rule and its tests; no route
+      and **no persistence**: the rule decides, `Quotations` performs. Buildable against nothing but
+      §6.4, which makes it the one point that does not wait on the contract.
+- [ ] **1.2** The approval SLA read from settings (§6, *"Limits & SLAs: quotation approval SLA"*),
+      and whichever source `D-b` settles on for "waiting since". **Blocked on `D-b`, which is
+      reopened** — and under (i) it is blocked on Yousef as well. If the SLA setting does not exist
       in Module 2's key/value settings yet, this point grows a dependency the list has not costed.
 
 #### Step 2 — the three actions
+
+⚠️ **Every point in this step calls the write-side contract `Quotations` does not yet publish.**
+None of them can start until that interface exists, and it is Yousef's to write. What Module 8 owns
+here is the decision, the permission check, the audit entry and the API surface — never the write.
 
 - [ ] **2.1** `PATCH /quotations/{id}/approve` — `quotation.approve.*` per §3.5, audit entry,
       `Pending → Approved`.

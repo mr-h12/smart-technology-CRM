@@ -41,7 +41,9 @@ use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
+use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
+use App\Modules\Deals\Infrastructure\EloquentDealFacts;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
@@ -255,6 +257,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SupplierItemPricingInterface::class,
             fn (): EloquentSupplierItemPricing => new EloquentSupplierItemPricing(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 7 Point 3.4. The read a scoped `quotation.create` forces on a
+        // deal — its owner (the owner's 2026-09-11 ruling: a quotation's "own"
+        // is its deal's `owner_id`) and its customer, which the quotation's own
+        // `customer_id` must match. `bind` and `ConnectionInterface` alone, as
+        // for the supplier price above: two columns by primary key.
+        $this->app->bind(
+            DealFactsInterface::class,
+            fn (): EloquentDealFacts => new EloquentDealFacts(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

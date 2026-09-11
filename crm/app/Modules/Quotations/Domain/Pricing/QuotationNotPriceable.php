@@ -27,9 +27,11 @@ use RuntimeException;
  * the rate, not to fix a supplier price that is fine. This code is beyond §5.6's
  * literal wording and is flagged for the owner (`CHECKLIST.md`).
  *
- * The HTTP mapping to `422 business_rule_blocked` with `$reason` as the detail
- * code is `POST /quotations`' (Step 3 Point 3.4); this is the domain refusal it
- * renders.
+ * The HTTP mapping is `POST /quotations`' (Step 3 Point 3.4): `422
+ * business_rule_blocked` with `$reason` as the detail code and `$lineNo` — the
+ * request's 1-based line — as the detail's `field`, so the person is pointed at
+ * the line and not left to match a supplier item id by hand. The owner
+ * confirmed `fx_rate_missing` as a distinct code on 2026-09-11.
  */
 final class QuotationNotPriceable extends RuntimeException
 {
@@ -40,26 +42,29 @@ final class QuotationNotPriceable extends RuntimeException
     private function __construct(
         public readonly string $reason,
         public readonly string $supplierQuotationItemId,
+        public readonly int $lineNo,
         string $message,
     ) {
         parent::__construct($message);
     }
 
-    public static function priceMissing(string $supplierQuotationItemId): self
+    public static function priceMissing(string $supplierQuotationItemId, int $lineNo): self
     {
         return new self(
             self::SUPPLIER_PRICE_MISSING,
             $supplierQuotationItemId,
-            "Supplier line {$supplierQuotationItemId} has no usable price (§5.6).",
+            $lineNo,
+            "Supplier line {$supplierQuotationItemId} (line {$lineNo}) has no usable price (§5.6).",
         );
     }
 
-    public static function fxRateMissing(string $supplierQuotationItemId): self
+    public static function fxRateMissing(string $supplierQuotationItemId, int $lineNo): self
     {
         return new self(
             self::FX_RATE_MISSING,
             $supplierQuotationItemId,
-            "No exchange rate to convert supplier line {$supplierQuotationItemId} at creation (D-09).",
+            $lineNo,
+            "No exchange rate to convert supplier line {$supplierQuotationItemId} (line {$lineNo}) at creation (D-09).",
         );
     }
 }

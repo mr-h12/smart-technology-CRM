@@ -24,10 +24,21 @@ parameters:
   paths:
     - ./app/Modules
   layers:
+    # `DealFactsInterface` and its result `DealFacts` are collected out here, on
+    # `SupplierQuotations`'s bool below: they live in `DealsContract` alone so
+    # Module 7 — allowed the contract, not the module — does not trip on module
+    # membership. Added 2026-09-11 with Module 7 Point 3.4.
     - name: Deals
       collectors:
-        - type: directory
-          value: app/Modules/Deals/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Deals/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
     - name: Quotations
       collectors:
         - type: directory
@@ -169,6 +180,18 @@ parameters:
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
         - type: classLike
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+
+    # `DealsContract`, on `SupplierQuotationsContract`'s exact shape: the one
+    # interface Module 7 reads off a deal and the value object it returns.
+    # `DealFacts` is a second classLike for the same reason `SupplierItemPrice`
+    # is — the moment Module 7 reads `->ownerId` off the result, the result is
+    # a dependency. Added 2026-09-11 with Module 7 Point 3.4.
+    - name: DealsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
 
     - name: StorageContract
       collectors:
@@ -359,6 +382,10 @@ parameters:
       - AuditContract
       - CustomersContract
       - StorageContract
+      # DealsContract, added 2026-09-11 with Module 7 Point 3.4 — the module
+      # needs its own published interface back, exactly as SupplierQuotations
+      # does below: `EloquentDealFacts` implements it.
+      - DealsContract
     # Quotations → Framework, SharedContracts, added 2026-09-07 with Point 1.7,
     # the module's first code. **Two entries, the shortest ruleset granted since
     # SupplierQuotations' own Point 1.3**, and each absence is a decision:
@@ -394,6 +421,14 @@ parameters:
     # named interface, never a reach into a model. `IdentityContract` is still
     # absent and still temporary — §3.5's `find()` (Point 3.5) is the reader
     # that needs it, not this write.
+    # **`DealsContract` and `IdentityContract` added 2026-09-11 with Point 3.4**
+    # — `POST /quotations`. §3.5's `create` row is scoped (`All · Team · Own`),
+    # and a scope on a create can only constrain *which deal* is quoted: the
+    # owner ruled that a quotation's "own" is its deal's `owner_id`, so the use
+    # case reads `DealFactsInterface` (`DealsContract`) and refuses with
+    # `AuthorizationRefused` while the controller reads `PermissionDecision` off
+    # the request (`IdentityContract`). The 3.3 note above said `IdentityContract`
+    # would arrive with 3.5's `find()`; the scoped create needed it first.
     Quotations:
       - Framework
       - SharedContracts
@@ -401,6 +436,8 @@ parameters:
       - AuditContract
       - CustomersContract
       - SupplierQuotationsContract
+      - DealsContract
+      - IdentityContract
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:

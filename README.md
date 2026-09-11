@@ -123,7 +123,8 @@ owns which module, and the rules for the files both developers edit on nearly ev
 ```
 ├── CLAUDE.md              Execution guide for Claude Code   (must stay at root)
 ├── AGENTS.md              Same rules, tool-neutral          (must stay at root)
-├── CHECKLIST.md           Detailed MVP progress checklist
+├── CHECKLIST.md           MVP progress checklist — live boxes and debt registers
+├── checklist/             Frozen point history of closed modules (module-0N.md)
 ├── docs/                  The specifications — authoritative
 ├── design/                Schema and ERD, before any migration
 ├── memory/                Working notes — not a source

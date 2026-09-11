@@ -9,7 +9,7 @@ Build the CRM MVP described by the project documentation. This is an internal, o
 Update this section whenever it stops being true.
 
 - **The application exists.** 14 modules under `crm/app/Modules/`, 25 migrations, and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `main` at `d803677`, 2026-09-05: **2241 backend tests (13385 assertions)** and **634 frontend tests (37 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
-- **Module progress**, counted from `CHECKLIST.md`'s own boxes on that commit: 0 Foundation **56 of 56 closed** · 1 Identity & Dynamic RBAC 38 closed, 2 open · 2 Settings, Managed Lists & Currencies 16/3 · 3 Customers 22/6 · 4 Catalog & Suppliers 26/1 · 5 Requests/Deals 15/5, **in progress** · 6 Supplier Quotations **complete — all 6 steps and all 5 acceptance criteria closed** (31 of 32 boxes; the lone open box, proposed point `2.2b Idempotency-Key`, is not approved and lives in the debt register). Modules 7–15 are untouched.
+- **Module progress**, counted from `CHECKLIST.md`'s and `checklist/`'s own boxes on that commit: 0 Foundation **56 of 56 closed** · 1 Identity & Dynamic RBAC 38 closed, 2 open · 2 Settings, Managed Lists & Currencies 16/3 · 3 Customers 22/6 · 4 Catalog & Suppliers 26/1 · 5 Requests/Deals 15/5, **in progress** · 6 Supplier Quotations **complete — all 6 steps and all 5 acceptance criteria closed** (31 of 32 boxes; the lone open box, proposed point `2.2b Idempotency-Key`, is not approved and lives in the debt register). Modules 7–15 are untouched.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 deferred, not cancelled (`D-66`)** — development runs on a production-matched Docker environment (Linux containers, §14.2 stack) until the on-premise server is available. `P-02` still runs before the pilot rollout, and the deployment-debt register in `CHECKLIST.md` carries everything it would have proven.
 - **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved.** It no longer blocks a module — Module 0 closed under `D-66` — and still blocks the server, `P-02`, and every row of the deployment-debt register.
@@ -225,6 +225,15 @@ and the approved point list is the scope.
   named in the report. It is not fixed here — widening a point past its approved list is not the
   agent's call, and a large opportunistic cleanup buried in an unrelated point is unreviewable.
 - A deliberate simplification with a known ceiling is not waste. Say what the ceiling is.
+
+### What a point writes into `CHECKLIST.md`
+
+Tick the box and append **one line**: date, PR number, and the one fact a reader needs
+(`*(2026-09-12, #97 — 409 on stale If-Match)*`). The seven-part report lives in the PR
+description, not here. Debt-register entries are the exception and keep their full reasoning.
+When a module's last point closes, its section moves verbatim to `checklist/module-NN.md` and
+the stub form in `CHECKLIST.md` (counts, link, open boxes) replaces it — that is part of the
+manual-test-list handover, not a separate task.
 
 **"Nothing found" is a legitimate result and often the true one** for a small point. It is only
 legitimate after the four questions were asked, and the report says how they were asked.

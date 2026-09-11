@@ -257,9 +257,8 @@ final readonly class CreateQuotation
             ]);
         }
 
-        // `own`: the deal's owner must be one the caller may reach. A null
-        // owner is nobody's, so it is nobody's to quote under `own`.
-        if (! $scope->unrestricted && ($facts->ownerId === null || ! in_array($facts->ownerId, $scope->ownerIds, true))) {
+        // `own`: the deal's owner must be one the caller may reach.
+        if (! $scope->reaches($facts->ownerId)) {
             throw AuthorizationRefused::of('quotation', 'create');
         }
 

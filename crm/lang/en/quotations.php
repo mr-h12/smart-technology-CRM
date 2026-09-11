@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    // `OpenAPI §5.1` — one 404 for absent or out of reach (Point 3.5).
+    'not_found' => 'This quotation was not found.',
+
     // `422 business_rule_blocked` — §5.6's block, and its neighbour `D-09`
     // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
     // `fx_rate_missing` as a distinct code on 2026-09-11.

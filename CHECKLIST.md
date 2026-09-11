@@ -893,7 +893,7 @@ missing in the first place.
       `Current State` still differs by design, so a byte-comparison of the whole files would be the
       wrong guard. `README.md` was **not** examined and may carry its own stale claims. PR #63's
       missing row is named above but **not backfilled** — that is somebody's point, not this one's.
-- [x] **G-02** `CHECKLIST.md` cut from 9,436 to ~1,570 lines: Modules 0–6 moved verbatim to `checklist/module-0N.md`, stubs keep counts + open boxes; new *"What a point writes into `CHECKLIST.md`"* rule in **both guides** — one line per box, narrative stays in the PR. *(2026-09-12, owner's request, PR #TBD.)*
+- [x] **G-02** `CHECKLIST.md` cut from 9,436 to ~1,570 lines: Modules 0–6 moved verbatim to `checklist/module-0N.md`, stubs keep counts + open boxes; new *"What a point writes into `CHECKLIST.md`"* rule in **both guides** — one line per box, narrative stays in the PR. *(2026-09-12, owner's request, PR #98.)*
 
 
 ## Shell revisions — owner-directed

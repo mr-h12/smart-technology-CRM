@@ -12,6 +12,9 @@ use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
+use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
+use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
@@ -19,6 +22,7 @@ use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -50,6 +54,20 @@ use InvalidArgumentException;
  * requested quantity above the supplier's recorded amount **warns and does not**
  * ({@see QuotationCreated::$quantityWarnings}).
  *
+ * ── §3.5's create scope is a constraint on the deal (Point 3.4) ────────────
+ *
+ * `create` is `All · Team · Own` and a quotation has no owner column, so —
+ * on `SaveDeal`'s reading that "a scope on `create` is not a `WHERE`" — the
+ * only thing it can constrain is **which deal** is quoted. The owner ruled
+ * (2026-09-11) that a quotation's "own" is its deal's `owner_id`, not the
+ * tracking field `created_by`: an `own` caller quotes their own deals, `all`
+ * quotes anybody's, `team` permits nothing until a team entity exists (the
+ * gap {@see QuotationRowScope} records) and fails closed. The deal's owner and
+ * customer come from {@see DealFactsInterface}; the same ruling holds the
+ * request's `customer_id` to the deal's, since §6.2 carries both and a
+ * quotation addressed to somebody other than its deal's customer is a defect.
+ * Both checks run inside the transaction, before any line is priced.
+ *
  * ── `D-63`: tax is derived, not trusted ────────────────────────────────────
  *
  * A tax-exempt customer renders **no tax line at all** — `tax_percent` is forced
@@ -66,14 +84,22 @@ final readonly class CreateQuotation
         private CurrencyRepositoryInterface $currencies,
         private FxRateRepositoryInterface $fxRates,
         private CustomerTaxStatusInterface $customerTax,
+        private DealFactsInterface $deals,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
     ) {}
 
-    /** @param  array<string, mixed>  $validated  already validated at the boundary */
-    public function create(array $validated, string $actorId): QuotationCreated
+    /**
+     * @param  array<string, mixed>  $validated  already validated at the boundary
+     * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
+     */
+    public function create(array $validated, array $heldScopes, string $actorId): QuotationCreated
     {
-        return $this->connection->transaction(function () use ($validated, $actorId): QuotationCreated {
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+
+        return $this->connection->transaction(function () use ($validated, $scope, $actorId): QuotationCreated {
+            $this->guardDeal($validated, $scope);
+
             $currency = $this->quotationCurrency($validated['currency'] ?? null);
             $at = now()->toDateTimeImmutable();
             $defaultMargin = self::decimal($validated['default_margin'] ?? null, 'default_margin');
@@ -97,19 +123,19 @@ final readonly class CreateQuotation
                 // §5.6: a gone or soft-deleted line, or a price whose currency
                 // the offer never recorded, is no usable price — block.
                 if ($price === null || $price->currencyId === null) {
-                    throw QuotationNotPriceable::priceMissing($itemId);
+                    throw QuotationNotPriceable::priceMissing($itemId, $index + 1);
                 }
 
                 $supplierCurrency = $this->currencies->findById($price->currencyId);
                 if ($supplierCurrency === null) {
-                    throw QuotationNotPriceable::priceMissing($itemId);
+                    throw QuotationNotPriceable::priceMissing($itemId, $index + 1);
                 }
 
                 // `D-09`: the rate is captured at creation. No rate for the pair
                 // means the line cannot be converted, so it cannot be priced.
                 $rate = $this->fxRates->effectiveRate($supplierCurrency->code(), $currency->code(), $at);
                 if ($rate === null) {
-                    throw QuotationNotPriceable::fxRateMissing($itemId);
+                    throw QuotationNotPriceable::fxRateMissing($itemId, $index + 1);
                 }
 
                 $priced = PricedLine::from(
@@ -203,6 +229,45 @@ final readonly class CreateQuotation
 
             return new QuotationCreated($quotation, $warnings);
         });
+    }
+
+    /**
+     * §3.5's create scope, applied to the one thing a create can be scoped by.
+     *
+     * Order matters and is the fail-closed order: a scope that permits no deal
+     * refuses before the deal is even looked up (`team`, and any code the
+     * resolver does not know); an unknown deal is the request's fault
+     * (`deal_id`), not a permission; an owned deal outside the caller's reach
+     * is a refusal that names nothing about the deal (§5.1's "do not reveal
+     * which"); and only then is the addressee checked against the deal's.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function guardDeal(array $validated, QuotationRowScope $scope): void
+    {
+        if ($scope->permitsNothing()) {
+            throw AuthorizationRefused::of('quotation', 'create');
+        }
+
+        $facts = $this->deals->factsOf(self::string($validated['deal_id'] ?? null, 'deal_id'));
+
+        if ($facts === null) {
+            throw ValidationException::withMessages([
+                'deal_id' => [(string) __('quotations.validation.unknown_deal')],
+            ]);
+        }
+
+        // `own`: the deal's owner must be one the caller may reach. A null
+        // owner is nobody's, so it is nobody's to quote under `own`.
+        if (! $scope->unrestricted && ($facts->ownerId === null || ! in_array($facts->ownerId, $scope->ownerIds, true))) {
+            throw AuthorizationRefused::of('quotation', 'create');
+        }
+
+        if ($facts->customerId !== self::string($validated['customer_id'] ?? null, 'customer_id')) {
+            throw ValidationException::withMessages([
+                'customer_id' => [(string) __('quotations.validation.customer_not_the_deals')],
+            ]);
+        }
     }
 
     /**

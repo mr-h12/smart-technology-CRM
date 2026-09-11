@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\QuotationCreated;
@@ -11,6 +12,7 @@ use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -180,6 +182,114 @@ final class CreateQuotationTest extends TestCase
         self::assertSame('0.000000', $row->rounding_diff);
     }
 
+    // ──────────────────────────────────────────── §3.5 create scope · Point 3.4
+
+    /**
+     * §3.5's `create` row is scoped, and a quotation has no owner column: the
+     * owner ruled (2026-09-11) that "own" is the deal's `owner_id`. So an `own`
+     * caller may quote a deal they own …
+     */
+    public function test_that_an_own_scoped_caller_can_quote_their_own_deal(): void
+    {
+        $dealId = $this->deal($this->customerId, $this->actorId);
+        $line = $this->supplierLine('100', '1', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: ['deal_id' => $dealId],
+        ), ['own']);
+
+        self::assertSame($dealId, $this->stored($result->quotation->id)->getAttribute('deal_id'));
+    }
+
+    /** … and not one owned by somebody else — refused, and nothing written. */
+    public function test_that_an_own_scoped_caller_cannot_quote_another_owners_deal(): void
+    {
+        $otherId = User::factory()->create()->getKey();
+        self::assertIsString($otherId);
+        $dealId = $this->deal($this->customerId, $otherId);
+        $line = $this->supplierLine('100', '1', $this->egpId);
+
+        try {
+            $this->create($this->payload(
+                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+                additional: [],
+                overrides: ['deal_id' => $dealId],
+            ), ['own']);
+            self::fail('An `own` caller may not quote a deal they do not own (§3.5).');
+        } catch (AuthorizationRefused) {
+            // expected
+        }
+
+        self::assertSame(0, DB::table('quotations')->count());
+        self::assertSame(0, DB::table('quotation_items')->count());
+    }
+
+    /** An unowned deal (`owner_id` null) is nobody's — an `own` caller is refused, fail-closed. */
+    public function test_that_an_own_scoped_caller_cannot_quote_an_unowned_deal(): void
+    {
+        $this->expectException(AuthorizationRefused::class);
+
+        $this->create($this->payload(lines: [], additional: [], overrides: []), ['own']);   // setUp's deal has no owner
+    }
+
+    /**
+     * `team` resolves to nothing (no team entity — `QuotationRowScope`'s recorded
+     * gap), so a Team Leader's `Team` create permits no deal. Fail-closed, and
+     * asserted by name so the gap stays visible until a team exists.
+     */
+    public function test_that_a_team_scoped_caller_is_refused_until_teams_exist(): void
+    {
+        $this->expectException(AuthorizationRefused::class);
+
+        $this->create($this->payload(lines: [], additional: [], overrides: [
+            'deal_id' => $this->deal($this->customerId, $this->actorId),
+        ]), ['team']);
+    }
+
+    /** `all` quotes anybody's deal (Manager). */
+    public function test_that_an_all_scoped_caller_can_quote_any_deal(): void
+    {
+        $otherId = User::factory()->create()->getKey();
+        self::assertIsString($otherId);
+        $dealId = $this->deal($this->customerId, $otherId);
+
+        $result = $this->create($this->payload(lines: [], additional: [], overrides: ['deal_id' => $dealId]), ['all']);
+
+        self::assertSame($dealId, $this->stored($result->quotation->id)->getAttribute('deal_id'));
+    }
+
+    /** A `deal_id` that names no live deal is a validation failure on that field, not a 500. */
+    public function test_that_an_unknown_deal_is_refused_on_the_deal_id_field(): void
+    {
+        try {
+            $this->create($this->payload(lines: [], additional: [], overrides: ['deal_id' => Uuid::uuid4()->toString()]));
+            self::fail('An unknown deal must be refused.');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('deal_id', $e->errors());
+        }
+    }
+
+    /**
+     * §6.2 carries both `deal` and `customer`; the owner ruled (2026-09-11) that
+     * the quotation's customer must be its deal's. A mismatch is refused on
+     * `customer_id`, before anything is priced or written.
+     */
+    public function test_that_a_customer_other_than_the_deals_is_refused(): void
+    {
+        $otherCustomer = $this->customer(false);
+
+        try {
+            $this->create($this->payload(lines: [], additional: [], overrides: ['customer_id' => $otherCustomer]));
+            self::fail('A quotation addressed to somebody other than its deal\'s customer must be refused.');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('customer_id', $e->errors());
+        }
+
+        self::assertSame(0, DB::table('quotations')->count());
+    }
+
     // ────────────────────────────────────────────────────────────── §5.6 block
 
     /** A supplier line whose price is gone blocks the whole save — nothing is written. */
@@ -273,7 +383,7 @@ final class CreateQuotationTest extends TestCase
         return $id;
     }
 
-    private function deal(string $customerId): string
+    private function deal(string $customerId, ?string $ownerId = null): string
     {
         $id = Uuid::uuid4()->toString();
 
@@ -281,6 +391,7 @@ final class CreateQuotationTest extends TestCase
             'id' => $id,
             'code' => 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
             'customer_id' => $customerId,
+            'owner_id' => $ownerId,
             'last_activity_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -357,10 +468,13 @@ final class CreateQuotationTest extends TestCase
         ], $overrides);
     }
 
-    /** @param  array<string, mixed>  $validated */
-    private function create(array $validated): QuotationCreated
+    /**
+     * @param  array<string, mixed>  $validated
+     * @param  list<string>  $heldScopes  §3.2 codes; `all` by default so the pricing tests stay about pricing
+     */
+    private function create(array $validated, array $heldScopes = ['all']): QuotationCreated
     {
-        return $this->app->make(CreateQuotation::class)->create($validated, $this->actorId);
+        return $this->app->make(CreateQuotation::class)->create($validated, $heldScopes, $this->actorId);
     }
 
     private function stored(string $id): Quotation

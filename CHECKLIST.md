@@ -845,6 +845,20 @@ would hide them behind `OD-03` indefinitely.
       quotation-create **screen** (a later Module 7 frontend point) and is parked here so the ruling
       is not lost between the point that heard it and the point that draws it.
 
+- [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
+      knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
+      crm/app` → `CustomerController`, `DealController`, `QuotationController`; `actorId()` → nine.
+      Each `heldScopes()` is the same read of `PermissionDecision` off the request attribute with the
+      same "the route lost its middleware" throw. Point 3.4 copied rather than extracted because a
+      shared `app/Support/Http` helper is an edit to two other modules' controllers, outside a
+      one-route point's approved scope. The same point's waste audit (the `waste-auditor` agent)
+      also counted `userWith()`/`bearerFor()` at **35 / 28** (the Module 6 row above, up from 33 / 26),
+      a **third** byte-identical `supplierLine()` test fixture, and a second occurrence of
+      `RecordFxRateRequest`'s `DB-07` regex triple in `CreateQuotationRequest::decimal()` — two is not
+      yet a helper; the third Form Request that needs a decimal string moves it to `app/Support/Http/`.
+      Closing the controller copies is one small class there, adopted in three files — its own point,
+      or the first Presentation point that touches all three.
+
 
 ---
 
@@ -1326,6 +1340,11 @@ no dependency. Three owner decisions are still open and each blocks a later poin
 one: what "own" means for a quotation (`created_by` vs the deal's owner) and the `view cost & margin`
 permission slug both block **3.5**; where the `Idempotency-Key` store lives — `AuditEnforcementTest`
 forbids `app/Http`, `app/Support` and `routes` from writing to the database — blocks **3.7**.
+*Ruled 2026-09-11, in Point 3.4 (#97):* a quotation's **"own" is its deal's `owner_id`** (so a scoped
+`create` constrains which deal may be quoted, `team` fails closed until a team entity exists);
+**`customer_id` must be the deal's customer** (`422` on `customer_id`); and **`fx_rate_missing`** is a
+distinct `422 business_rule_blocked` detail code beside `supplier_price_missing`. 3.5 inherits the
+first and still waits on the slug; 3.7 still waits on the store.
 
 - [x] **3.1** `QuotationRowScope` — §3.5's `own | team | asgn | all` resolved to owner-id lists,
       the third transcription of the shape `CustomerRowScope` and `DealRowScope` share (verified
@@ -1348,9 +1367,7 @@ forbids `app/Http`, `app/Support` and `routes` from writing to the database — 
 
 - [x] **3.3** `CreateQuotation` — one transaction (`DB-11`): composes `PricedLine` + `QuotationTotals` + `RoundingRule`, captures the FX rate per line and the currency's rounding at creation, derives `tax_percent` from `customers.is_tax_exempt` (`D-63`), blocks on a missing price or FX rate (§5.6, `D-09`), warns on over-quantity, records `QUOTATION_CREATED`. Crossed four modules through named interfaces (`Admin`, `Audit`, `Customers`, a new `SupplierQuotationsContract`), not the one the note predicted. *(2026-09-11, #96 — built as one point by the owner's decision, not the 3.3b/3.3c split)*
 
-- [ ] **3.4** `POST /api/v1/quotations` — Form Request, `permission:quotation.create`, `201`;
-      `422 business_rule_blocked` with detail code `supplier_price_missing`;
-      `quantity_exceeds_recorded` warns, never blocks.
+- [x] **3.4** `POST /api/v1/quotations` — Form Request mirroring the tables' CHECKs and `DB-07`'s decimal-string triple, `permission:quotation.create`, `201` `{id, code}`, `422 business_rule_blocked` with `supplier_price_missing` / `fx_rate_missing` and `field = lines.N…`, `quantity_exceeds_recorded` in `meta.warnings`. The scoped create is applied to the **deal** through a new `DealFactsInterface` (`DealsContract`); `Quotations` also gained `IdentityContract` here, not in 3.5. *(2026-09-12, #97 — three owner rulings, see the Step 3 note above)*
 
 - [ ] **3.5** `GET /api/v1/quotations/{id}` — `find()` through `QuotationRowScope`, cost/margin
       gating, `version_token` returned as the `OpenAPI §9.2` etag. *Blocked on the two owner

@@ -87,9 +87,10 @@ from fighting over the same eleven files.
 
 | Module | Owner | State |
 |---|---|---|
-| **4 — Catalog & Suppliers** | Yousef | in progress — Step 3, Point 3.2 next |
+| **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
-| **6 — Supplier Quotations** | Yousef | after Module 4 |
+| **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–2 closed; Step 3: 3.1–3.2 merged, 3.3 (#96) and 3.4 (#97) open, 3.5 next. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1262,6 +1263,21 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Discount subtracted **before** tax, reducing the tax base (`D-64`)
 - [ ] Editing an FX rate never alters an existing quotation
 - [ ] Unit tests for every formula, rounding boundary, conversion, discount, tax, additional item
+
+#### Step 1 — schema and domain *(shipped 2026-09-07, PRs #83–#89; boxes added 2026-09-12)*
+
+The seven points below shipped one PR each on 2026-09-07 and left only debt-register entries here
+— no point list and no boxes — so Steps 2 and 3 cite "Point 1.1 … 1.7" by numbers this file never
+carried. Recorded retroactively in the one-line form; whether the step's point list was approved
+before the first PR is not recorded anywhere and is not claimed here.
+
+- [x] **1.1** `quotations` table — `D-63`'s nullable `tax_percent`, `D-65`'s rounding snapshot, `version`/`version_token` *(2026-09-07, #83)*
+- [x] **1.2** §5.2's money identities as six CHECKs on `quotations` (tax base, net, total-before-round, final total, rounding-off diff, tax null-pairing) *(2026-09-07, #84)*
+- [x] **1.3** `quotation_items` — `moneyWithContext('unit_cost')`, `line_no` *(2026-09-07, #85)*
+- [x] **1.4** `quotation_additional_items` — never taxed, `D-62` *(2026-09-07, #86)*
+- [x] **1.5** `customers.is_tax_exempt` for `D-63` *(2026-09-07, #87)*
+- [x] **1.6** `App\Support\Database\DocumentNumberAllocator` extracted from the Deals and Supplier Quotations directories for the `QT-` code *(2026-09-07, #88)*
+- [x] **1.7** Quotations domain layer and its Eloquent directory — `QuotationDraft`, `QuotationDirectoryInterface`, `QuotationSummary`, `EloquentQuotationDirectory` *(2026-09-07, #89)*
 
 #### Step 2 — pricing engine *(point list approved 2026-09-07)*
 

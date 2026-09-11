@@ -826,6 +826,18 @@ would hide them behind `OD-03` indefinitely.
       actually publishes, so it is better written by the point that makes the claim true than by the
       one that makes it false.
 
+- [ ] **`D-68`'s money scale is now stated in three places** — *created knowingly by Module 7 Point
+      2.1, 2026-09-07.* `grep -rn "SCALE = 6" crm/app` returns `Precision::MONEY_SCALE`,
+      `RoundedTotal::SCALE` and now `PricedLine::SCALE`. The third copy was unavoidable under the
+      layering the owner approved on 2026-09-07: a `Domain` class may not reach
+      `App\Support\Database\Precision` (`deptrac.layers.yaml`'s empty ruleset) and Quotations may
+      not reach `Admin\Domain\Money` without the `AdminContract` crossing that decision declined to
+      make. Each copy is pinned to `Precision` by a test, which is the drift guard `RoundedTotal`
+      already documented — so this is a stated ceiling rather than a defect. It is recorded because
+      **it grows**: every further pure-Domain money module adds a fourth. Its root cause is the one
+      the drafts' allow-list debt above already names, and one `DomainSupport` layer would close
+      both at once.
+
 
 ---
 
@@ -9008,6 +9020,51 @@ calculation · confirmation preview before saving · SmartTermInput
 - [ ] Discount subtracted **before** tax, reducing the tax base (`D-64`)
 - [ ] Editing an FX rate never alters an existing quotation
 - [ ] Unit tests for every formula, rounding boundary, conversion, discount, tax, additional item
+
+#### Step 2 — pricing engine *(point list approved 2026-09-07)*
+
+Pure `Quotations/Domain/Pricing/` classes: no framework, no database, and **no import outside
+their own namespace**, which `deptrac.layers.yaml`'s empty `Domain` ruleset requires. §5.2's last
+two lines are deliberately absent — `Admin\Domain\Money\RoundingRule::apply()` already *is* them
+("§5.2's last two lines, and nothing else"), and the rounding acceptance rows already pass against
+it in `tests/Feature/Seed/CurrencyMatrixDataTest.php`. Step 3's Application layer composes the
+two, which is the crossing `Catalog/Application` already makes; the engine therefore stops at
+`total_before_round` and **Step 2 changes neither deptrac configuration**. Every output is brought
+to `D-68`'s money scale by truncation — `bcadd($v, '0', 6)`, the idiom `RoundingRule`'s disabled
+path already uses — because BCMath truncates where PostgreSQL would round, and the four additive
+CHECKs of Point 1.2 must hold exactly at scale 6.
+
+- [x] **2.1** `PricedLine` — §5.1's four formulas: `unit_cost_base = unit_cost × fx_rate_at_time`
+      (`D-09`), the margin inheritance (`D-03`), `unit_price = unit_cost_base × (1 + margin / 100)`
+      (`D-04`), `line_total`, `line_cost`. **A `null` line margin inherits the quotation's; `'0'`
+      does not** — zero is a real margin, the numeric form of the `array_key_exists` distinction
+      the drafts already make. A negative margin stays legal, as Point 1.3's schema allows.
+      *Verified by* acceptance rows 1 (`1000` at `20%` → `1200.000000`), 2 (a line's `30%` beats
+      the quotation's `20%`) and 3 (conversion at the captured rate), plus a truncation row and
+      `SCALE` asserted equal to `Precision::MONEY_SCALE` — restated, not imported, exactly as
+      `RoundedTotal::SCALE` is and for the same reason.
+
+- [x] **2.2** `QuotationTotals` through the tax base — `subtotal = Σ line_total`,
+      `additional_total = Σ amount`, `discount_amount` (`D-07`), and
+      `tax_base = subtotal − discount_amount` (`D-64`). **Additional items are summed and then
+      kept out of the tax base** (`D-62`, `OD-01`); that exclusion is the one Point 1.2's CHECK
+      cannot catch, because the identity it constrains has no `additional_total` term.
+      *Verified by* acceptance row 7's first half (items `10,000` + delivery `1,000`, discount
+      `1%` → tax base **`9,900`**), a test that fails if delivery enters the base, and the empty
+      quotation returning `0.000000` rather than an error.
+
+- [x] **2.3** Tax and the net chain — `tax_amount = tax_base × tax_percent / 100`,
+      `net_amount = subtotal + additional_total − discount_amount`,
+      `total_before_round = net_amount + tax_amount`. **A null `tax_percent` yields a null
+      `tax_amount`, never `'0'`** (`D-63`): `quotations_tax_amount_matches_tax_percent` refuses the
+      mixed pair and `quotations_tax_percent_not_zero` refuses a zero percent, so an exempt
+      quotation has no tax line at all rather than a zero one. Also extends `DB-07`'s float-token
+      scanner over `Domain/Pricing` by giving it a directory list instead of one path.
+      *Verified by* acceptance rows 7 (tax **`1,386`**) and 8 (exempt), the two remaining additive
+      identities, and §5.2's worked example end to end — `7,368.42` → `total_before_round`
+      **`8,315.998812`** → `final_total` **`8,316.000000`**, composed with `RoundingRule` in the
+      test only. The document prints `8,315.9988`; the exact scale-6 value carries two more digits
+      and the final total is unchanged.
 
 ---
 

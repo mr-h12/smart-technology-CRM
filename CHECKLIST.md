@@ -838,6 +838,13 @@ would hide them behind `OD-03` indefinitely.
       the drafts' allow-list debt above already names, and one `DomainSupport` layer would close
       both at once.
 
+- [ ] **The quotation-create screen's "add a new supplier item" button is ruled, not built** — *owner's
+      ruling 2026-09-11, recorded by Module 7 Point 3.3.* A quotation line always references a
+      `supplier_quotation_item_id`; the screen carries a button atop the supplier-item list that jumps
+      to adding a new supplier item and returns. Step 3 is the API, so this belongs to the
+      quotation-create **screen** (a later Module 7 frontend point) and is parked here so the ruling
+      is not lost between the point that heard it and the point that draws it.
+
 
 ---
 
@@ -1339,13 +1346,7 @@ forbids `app/Http`, `app/Support` and `routes` from writing to the database — 
       `line_no` trips the NOT NULL, a constant `line_no` fails the order assertion, skipping one
       write empties one table alone.
 
-- [ ] **3.3** `CreateQuotation` — one transaction (`DB-11`): compose `PricedLine` +
-      `QuotationTotals` + `RoundingRule`, capture the FX rate and the currency's rounding
-      unit/enabled at creation, derive `tax_percent` from `customers.is_tax_exempt` (`D-63`),
-      **block** on a supplier product with no recorded price (`§5.6`, `supplier_price_missing`),
-      **warn** without blocking when quantity exceeds the recorded amount, write both child tables
-      through the directory, and record `QUOTATION_CREATED`. First crossing that adds `AdminContract`
-      to `Quotations`.
+- [x] **3.3** `CreateQuotation` — one transaction (`DB-11`): composes `PricedLine` + `QuotationTotals` + `RoundingRule`, captures the FX rate per line and the currency's rounding at creation, derives `tax_percent` from `customers.is_tax_exempt` (`D-63`), blocks on a missing price or FX rate (§5.6, `D-09`), warns on over-quantity, records `QUOTATION_CREATED`. Crossed four modules through named interfaces (`Admin`, `Audit`, `Customers`, a new `SupplierQuotationsContract`), not the one the note predicted. *(2026-09-11, #96 — built as one point by the owner's decision, not the 3.3b/3.3c split)*
 
 - [ ] **3.4** `POST /api/v1/quotations` — Form Request, `permission:quotation.create`, `201`;
       `422 business_rule_blocked` with detail code `supplier_price_missing`;

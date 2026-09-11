@@ -35,6 +35,18 @@ interface CurrencyRepositoryInterface
     public function find(CurrencyCode $code): ?Currency;
 
     /**
+     * One live currency by its `currencies` row id, or null.
+     *
+     * The inverse of {@see find()}, for a caller that holds the id rather than
+     * the code. Module 7 needs both directions: a customer quotation's request
+     * names its own currency by code, but each line's supplier currency arrives
+     * as the id `SupplierItemPricingInterface` returns, and `effectiveRate()`
+     * and `quotation_items.unit_cost_currency` both need it as a `CurrencyCode`.
+     * Archived rows are not offered, for {@see find()}'s reason (`D-34`).
+     */
+    public function findById(string $id): ?Currency;
+
+    /**
      * Replace one currency's rounding rule, returning the row and what it was.
      *
      * The identifier comes back because `audit_log.entity_id` is a `UUID`

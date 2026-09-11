@@ -55,10 +55,24 @@ parameters:
           must_not:
             - type: classLike
               value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+    # `SupplierItemPricingInterface` and its result `SupplierItemPrice` are
+    # collected out here, the way `Catalog` collects its provisioner out above:
+    # a class caught by both this module-wide directory and the narrow
+    # `SupplierQuotationsContract` classLikes below would sit in two layers, and
+    # Module 7 — allowed the contract but not the module — would trip on the
+    # module membership. Excluding them makes each live in the contract layer
+    # alone. Measured, not reasoned: the violation was real until this bool.
     - name: SupplierQuotations
       collectors:
-        - type: directory
-          value: app/Modules/SupplierQuotations/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/SupplierQuotations/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
     - name: Procurement
       collectors:
         - type: directory
@@ -139,6 +153,22 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+
+    # SupplierQuotations' published price read, added 2026-09-11 with Module 7
+    # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
+    # price, and `D-21` puts that price in Module 6. Narrow like
+    # `CatalogContract`, not a `(Domain|Application)` split: exactly the one
+    # interface another module needs and the value object it returns, so the
+    # directory, its drafts and its listing stay out of Module 7's reach. Two
+    # `classLike`s rather than one because the read returns an object — the
+    # interface alone would leave `SupplierItemPrice` an uncovered dependency
+    # the moment Module 7 read a field off it.
+    - name: SupplierQuotationsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
 
     - name: StorageContract
       collectors:
@@ -352,13 +382,25 @@ parameters:
     # and a create reads no row, so the crossing is not needed yet; Step 3's
     # `find()` is the point that needs it, and it will be a decision in a diff.
     #
-    # **No `AuditContract`** either: `AUD-01` records writes, and the write this
-    # point publishes has no use case in front of it yet. Step 3's
-    # `CreateQuotation` owns `DB-11`'s transaction and the audit row inside it,
-    # and that is the point that takes this entry.
+    # **`AuditContract`, `AdminContract`, `CustomersContract` and
+    # `SupplierQuotationsContract` added 2026-09-11 with Point 3.3** —
+    # `CreateQuotation`, the create §5 and §6 need. It owns `DB-11`'s transaction
+    # and records `QUOTATION_CREATED` (`AuditContract`); prices each line from
+    # Module 6's supplier price (`SupplierQuotationsContract`), converts it at
+    # the FX rate and reads the currency's rounding (`AdminContract` —
+    # `CurrencyRepositoryInterface`, `FxRateRepositoryInterface` and the money
+    # value objects); and derives the tax line from the customer's exemption
+    # (`CustomersContract`, `CustomerTaxStatusInterface`). Each crossing is a
+    # named interface, never a reach into a model. `IdentityContract` is still
+    # absent and still temporary — §3.5's `find()` (Point 3.5) is the reader
+    # that needs it, not this write.
     Quotations:
       - Framework
       - SharedContracts
+      - AdminContract
+      - AuditContract
+      - CustomersContract
+      - SupplierQuotationsContract
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:
@@ -400,6 +442,13 @@ parameters:
       - Framework
       - SharedContracts
       - AuditContract
+      # SupplierQuotationsContract, added 2026-09-11 with Module 7 Point 3.3 —
+      # the module needs its own published interface back, exactly as Catalog
+      # does above. `SupplierItemPricingInterface` and `SupplierItemPrice` were
+      # collected out of the `SupplierQuotations` layer by the narrow classLikes,
+      # so `EloquentSupplierItemPricing` — which implements the one and returns
+      # the other — now depends on a layer rather than on a class next door.
+      - SupplierQuotationsContract
       # CatalogContract, added 2026-09-03 with Point 3.1. `D-22` adds a missing
       # product to the catalog automatically, and §7.2's offer line is where a
       # missing product is discovered. One interface, taking a name and

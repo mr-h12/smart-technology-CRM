@@ -128,4 +128,24 @@ final readonly class QuotationDraft
     {
         return new self($this->attributes, $items, $additionalItems);
     }
+
+    /**
+     * A copy of this draft with the backend-owned header fields merged in.
+     *
+     * `forCreate()` keeps only what a caller may send, and §5 keeps the money
+     * out of a caller's hands entirely: `subtotal` through `rounding_diff`,
+     * `rounding_unit`/`rounding_enabled` and `currency_id` are computed by
+     * `CreateQuotation` (Step 3) from Step 2's engine, the currency the request's
+     * code names, and the FX rate captured at creation — never lifted from the
+     * request. `tax_percent` is here too because `D-63` *derives* it from the
+     * customer's exemption rather than trusting the field: the merge lets the
+     * derived value win over whatever `forCreate()` kept. Given last, so a
+     * computed key always overrides a caller's.
+     *
+     * @param  array<string, mixed>  $computed
+     */
+    public function withComputed(array $computed): self
+    {
+        return new self([...$this->attributes, ...$computed], $this->items, $this->additionalItems);
+    }
 }

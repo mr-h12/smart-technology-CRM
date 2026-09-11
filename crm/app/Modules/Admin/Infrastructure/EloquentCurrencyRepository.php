@@ -53,6 +53,13 @@ final readonly class EloquentCurrencyRepository implements CurrencyRepositoryInt
         return $row instanceof CurrencyRow ? $this->map($row) : null;
     }
 
+    public function findById(string $id): ?Currency
+    {
+        $row = CurrencyRow::query()->whereKey($id)->first();
+
+        return $row instanceof CurrencyRow ? $this->map($row) : null;
+    }
+
     public function replaceRounding(CurrencyCode $code, RoundingRule $rounding): array
     {
         $row = CurrencyRow::query()->where('code', $code->value)->firstOrFail();
@@ -82,6 +89,7 @@ final readonly class EloquentCurrencyRepository implements CurrencyRepositoryInt
             $code,
             $row->rounding_enabled ? RoundingRule::to($unit) : RoundingRule::disabled($unit),
             $row->is_base,
+            $row->id,
         );
     }
 }

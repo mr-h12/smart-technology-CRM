@@ -242,23 +242,18 @@ final class AuditEnforcementTest extends TestCase
             // in this file that a class claiming AUDITED reaches the recorder.
             UpdateSupplierQuotation::class => self::AUDITED,
 
-            // Module 7 Point 1.7, and the same shape as
-            // `EloquentSupplierQuotationDirectory` above with one honest
-            // difference: **the use case that owes the audit row does not exist
-            // yet.** Module 6's Point 1.3 note said exactly this and Point 2.1
-            // made it false; Step 3's `CreateQuotation` is the point that will
-            // do the same here, owning `DB-11`'s transaction and recording
-            // QUOTATION_CREATED alongside the two child tables.
-            //
-            // Until then a quotation can be written with no audit row. That is
-            // a real gap, it is named in this file rather than left for a
-            // reader to discover, and it is not a reason to give this class an
-            // actor it has no business holding — `AUD-01`'s recorder belongs one
-            // layer out, which is the division every directory here already
-            // draws.
-            EloquentQuotationDirectory::class => 'AUD-01 is owed one layer out: Step 3 CreateQuotation will own the '
-                    .'create transaction and record QUOTATION_CREATED. This is a persistence adapter with no actor '
-                    .'and no event vocabulary, and that use case does not exist yet.',
+            // Module 7, and the same shape as `EloquentSupplierQuotationDirectory`
+            // above. Point 1.7's note said the use case that owes the audit row
+            // did not exist yet; **Point 3.3 made that false**, the way Module 6's
+            // Point 2.1 did for its own directory. `CreateQuotation` now owns
+            // `DB-11`'s transaction and records QUOTATION_CREATED alongside the
+            // two child tables, so the gap Point 1.7 named is closed. This stays
+            // a persistence adapter with no actor and no event vocabulary,
+            // because `AUD-01`'s recorder belongs one layer out — the division
+            // every directory here draws.
+            EloquentQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateQuotation (Point 3.3) owns '
+                    .'the create transaction and records QUOTATION_CREATED. This is a persistence adapter with no '
+                    .'actor and no event vocabulary.',
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

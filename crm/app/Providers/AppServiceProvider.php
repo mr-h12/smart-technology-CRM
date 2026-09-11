@@ -33,9 +33,11 @@ use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
+use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
@@ -79,7 +81,9 @@ use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
@@ -187,6 +191,11 @@ class AppServiceProvider extends ServiceProvider
         // per-request collaborator to resolve.
         $this->app->bind(CustomerStatusWriterInterface::class, EloquentCustomerStatusWriter::class);
 
+        // Module 7 Point 3.3. `bind` for the same reason: stateless, a single
+        // column read by primary key. Module 7 reads `customers.is_tax_exempt`
+        // through this to derive a quotation's tax line (`D-63`).
+        $this->app->bind(CustomerTaxStatusInterface::class, EloquentCustomerTaxStatus::class);
+
         // Module 4 Point 2.1. `bind` for the same reasons again, and with one
         // collaborator rather than two: §3.7 gives suppliers no row scope, so
         // there is no Identity contract to ask about owners.
@@ -235,6 +244,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SupplierQuotationDirectoryInterface::class,
             fn (): EloquentSupplierQuotationDirectory => new EloquentSupplierQuotationDirectory(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 7 Point 3.3. The read §5.6 forces on customer quotations — one
+        // supplier line's price, by its id. `bind` for the reason above, and
+        // `ConnectionInterface` alone because it is a query-builder read over
+        // two tables, not a hydrated model.
+        $this->app->bind(
+            SupplierItemPricingInterface::class,
+            fn (): EloquentSupplierItemPricing => new EloquentSupplierItemPricing(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

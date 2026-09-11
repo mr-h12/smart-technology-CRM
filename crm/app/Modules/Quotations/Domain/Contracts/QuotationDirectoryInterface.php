@@ -45,9 +45,12 @@ interface QuotationDirectoryInterface
      * rather than a draft field because it is a fact about who was
      * authenticated, never about what was submitted.
      *
-     * Writes the header only. Points 1.3 and 1.4's `quotation_items` and
-     * `quotation_additional_items` are Step 3's transaction, alongside the
-     * pricing engine that produces the totals this row stores.
+     * Writes the header and, from the draft's `withLines()`, Points 1.3 and 1.4's
+     * `quotation_items` and `quotation_additional_items` (Step 3 Point 3.2). It
+     * does **not** open a transaction: `CreateQuotation` (Point 3.3) wraps this
+     * write and the `QUOTATION_CREATED` audit row in one commit (`DB-11`),
+     * alongside the pricing engine that produces the totals and line figures
+     * this stores — the same division `CreateSupplierQuotation` already draws.
      */
     public function create(QuotationDraft $draft, string $actorId): QuotationSummary;
 }

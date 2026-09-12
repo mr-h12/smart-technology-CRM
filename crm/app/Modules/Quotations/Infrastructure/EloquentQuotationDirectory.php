@@ -122,6 +122,40 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         );
     }
 
+    public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool
+    {
+        // One statement carries the compare and the bump, so two writers that
+        // both read token 3 cannot both pass: the row-level lock PostgreSQL
+        // takes for the first UPDATE makes the second re-evaluate `WHERE`
+        // against the committed token 4 and match nothing.
+        $matched = Quotation::query()
+            ->whereKey($quotationId)
+            ->where('version_token', $expectedToken)
+            ->update([
+                ...$draft->attributes,
+                'version_token' => $this->connection->raw('version_token + 1'),
+                'updated_by' => $actorId,
+            ]);
+
+        if ($matched === 0) {
+            return false;
+        }
+
+        $now = now();
+
+        foreach (['quotation_items', 'quotation_additional_items'] as $table) {
+            $this->connection->table($table)
+                ->where('quotation_id', $quotationId)
+                ->whereNull('deleted_at')
+                ->update(['deleted_at' => $now, 'updated_at' => $now, 'updated_by' => $actorId]);
+        }
+
+        $this->writeChildren('quotation_items', $quotationId, $draft->items, $actorId);
+        $this->writeChildren('quotation_additional_items', $quotationId, $draft->additionalItems, $actorId);
+
+        return true;
+    }
+
     /**
      * Point 1.3's lines in `line_no` order, read as Module 6's `readLines()`
      * reads its table: no Eloquent model for a child row, and the decimal

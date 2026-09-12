@@ -731,4 +731,6 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
         ->middleware('permission:quotation.create');
     Route::get('/{quotation}', [QuotationController::class, 'show'])
         ->middleware('permission:quotation.view');
+    Route::patch('/{quotation}', [QuotationController::class, 'update'])
+        ->middleware('permission:quotation.edit');
 });

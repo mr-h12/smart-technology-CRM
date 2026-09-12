@@ -870,6 +870,7 @@ would hide them behind `OD-03` indefinitely.
       that one interface plus one renderer; `bootstrap/app.php`'s six `render()` closures collapse with it.
       Also counted by the same audit: `supplierLine()` test fixture at **four** copies (was three) and
       `userWith()`/`bearerFor()` at **36 / 29** — the Module 6 row above continues to hold them.
+      Point 3.6 (2026-09-12) recounted: `supplierLine()` **five**, `userWith()`/`bearerFor()` **37 / 30**.
 
 
 ---
@@ -1398,8 +1399,7 @@ first and still waits on the slug; 3.7 still waits on the store.
 
 - [x] **3.5** `GET /api/v1/quotations/{id}` — `find()` unscoped in the directory, `QuotationRowScope` applied in `ShowQuotation` to the deal's `owner_id` through Point 3.4's `DealFactsInterface` (no subquery on `deals`); `404 resource_not_found` for absent-or-invisible (§5.1), `team`/`asgn` fail closed; cost fields **absent** without `quotation.view_cost_and_margin` (slug confirmed by the owner 2026-09-12); `etag: quotation:<id>:<version_token>` (§9.2). *(2026-09-12, #100 — own = deal owner via the seam, not a join)*
 
-- [ ] **3.6** `PATCH /api/v1/quotations/{id}` — Draft-only, `If-Match`, `409 concurrency_conflict`
-      on a stale token (`API-12`, never `412`), `version_token` advanced by the write.
+- [x] **3.6** `PATCH /api/v1/quotations/{id}` — full editable body re-priced by §5 through `PriceQuotation` (lifted out of `CreateQuotation`, one implementation); `If-Match` missing/malformed → `400 invalid_request`, stale → `409 concurrency_conflict` with `current_etag` (`API-12`, never 412), the `UPDATE … WHERE version_token = ?` bumps the token; non-Draft → `422 business_rule_blocked` `quotation_not_draft`; `edit_margin`/`edit_tax` asked only when the body moves them; `QUOTATION_UPDATED` with old/new. *(2026-09-12, #101 — a Draft is re-priced at the FX rate effective at the edit, stated as an assumption)*
 
 - [ ] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`). *Blocked on where the store lives.*
 

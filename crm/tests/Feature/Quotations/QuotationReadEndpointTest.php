@@ -7,6 +7,7 @@ namespace Tests\Feature\Quotations;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,8 +30,6 @@ final class QuotationReadEndpointTest extends TestCase
     private const ENDPOINT = '/api/v1/quotations';
 
     private const PASSWORD = 'Passw0rd123';
-
-    private const COST_FIELDS = ['unit_cost', 'unit_cost_currency', 'unit_cost_fx_rate_at_time', 'unit_cost_base', 'margin_percent', 'line_cost'];
 
     /** @var array<string, User> */
     private array $users = [];
@@ -207,7 +206,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->json('data.items.0');
 
         self::assertIsArray($line);
-        self::assertSame([], array_intersect(self::COST_FIELDS, array_keys($line)));
+        self::assertSame([], array_intersect(QuotationLine::COST_FIELDS, array_keys($line)));
     }
 
     // ────────────────────────────────────────────────────────────── fixtures

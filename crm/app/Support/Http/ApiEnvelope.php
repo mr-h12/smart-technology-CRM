@@ -104,9 +104,11 @@ final class ApiEnvelope
      * `OpenAPI §5` — the unified error envelope.
      *
      * `$details` carries the specific stable code §5.1 asks for, which is how a
-     * closed set of HTTP codes still says exactly what went wrong.
+     * closed set of HTTP codes still says exactly what went wrong. `current_etag`
+     * is §5.1's 409 row — "return current version metadata needed to refresh"
+     * — and appears on that entry only (Module 7 Point 3.6).
      *
-     * @param  list<array{field?: string, code: string, message: string}>  $details
+     * @param  list<array{field?: string, code: string, message: string, current_etag?: string}>  $details
      */
     public static function error(
         Request $request,

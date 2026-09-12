@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
+use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,7 @@ final class QuotationController
         ));
     }
 
-    public function store(CreateQuotationRequest $request, CreateQuotation $quotations): JsonResponse
+    public function store(SaveQuotationRequest $request, CreateQuotation $quotations): JsonResponse
     {
         $created = $quotations->create($request->validated(), self::heldScopes($request), self::actorId($request));
 
@@ -52,6 +53,35 @@ final class QuotationController
             $request,
             QuotationPayload::of($created->quotation),
             201,
+            $warnings === [] ? [] : ['warnings' => $warnings],
+        );
+    }
+
+    /**
+     * Point 3.6. `If-Match` is read here and handed down as text: whether it
+     * is present, well-formed and current is `UpdateQuotation`'s to decide,
+     * because those are `OpenAPI §5.1` rows (400 / 409), not routing. The
+     * answer is the re-read quotation with its new `etag`, shaped exactly as
+     * `show()` shapes it — including the cost gate, which is the same grant.
+     */
+    public function update(SaveQuotationRequest $request, string $quotation, UpdateQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $updated = $quotations->update(
+            $quotation,
+            $request->validated(),
+            $request->headers->get('If-Match'),
+            self::heldScopes($request),
+            $actorId,
+        );
+
+        $warnings = QuotationPayload::warnings($updated->quantityWarnings);
+
+        return ApiEnvelope::single(
+            $request,
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId)),
+            200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
     }

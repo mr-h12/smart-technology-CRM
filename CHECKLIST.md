@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4's point list not yet published. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103), 4.1 on #104. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1417,7 +1417,7 @@ creation" governing the first pricing only.
 
 - [x] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`) — the owner ruled 2026-09-12 that the store is its own module, `app/Modules/Idempotency`: one table `idempotency_keys` UNIQUE `(user_id, route, key)`, claimed by `INSERT … ON CONFLICT DO NOTHING` before the use case runs and completed with the final status and body after; the `idempotency` route middleware runs **after** `permission:` so a replay re-checks the grant (§9.1); missing header → `400 invalid_request`, changed payload or key still in flight → `409 idempotency_conflict`; a 5xx releases the key. *(2026-09-12, #102 — quotations only; the retention period §9.1 calls "defined" is undefined, see the debt register)*
 
-#### Step 4 — actions on one quotation *(point list proposed 2026-09-12, awaiting approval)*
+#### Step 4 — actions on one quotation *(point list approved 2026-09-12 with defaults Q1–Q6, #103)*
 
 What §6 asks of a single quotation between the builder (Step 3) and the list (Step 5), and what
 Modules 8, 9 and 10 will call rather than rebuild: the status graph, the two `OpenAPI §7.2`
@@ -1457,7 +1457,7 @@ owner says only "approved":**
   already makes a repeated submit a `409`. **Default: `If-Match` only on submit and delete;
   `Idempotency-Key` on `new-version`, which §9.1 names ("versions").**
 
-- [ ] **4.1** `QuotationStatusTransition` — §6.1's nine statuses and §6.4's arrows as one edge
+- [x] **4.1** `QuotationStatusTransition` — §6.1's nine statuses and §6.4's arrows as one edge
       table in `Domain/Status/`, on `DealStatusTransition`'s exact shape (`isAllowed`,
       `allowedFrom`): `draft → pending` · `pending → approved | draft` · `approved → sent` ·
       `sent → accepted | partial | counter | rejected | expired`; `accepted`, `partial`, `counter`,
@@ -1467,6 +1467,7 @@ owner says only "approved":**
       renders — one exception class per module's write refusals, no new renderer. Domain only:
       no route, no database. *Verified by* a unit test transcribing every row of the table, one
       asserting each terminal status has no edge, and one that `sent → draft` is refused.
+      *(2026-09-12, #104 — edge table + 409 factory; no route until 4.2)*
 
 - [ ] **4.2** `PATCH /api/v1/quotations/{id}/submit-for-approval` — `permission:quotation.submit_for_approval`
       (§3.5: All / Team / Own / Own) with `QuotationRowScope` applied to the deal's owner as 3.4

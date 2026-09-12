@@ -21,10 +21,11 @@
 # Measured on 2026-09-12 (run 34715458517, 13m12s): the image build was 21 s
 # from the GHA cache; the test suite was 545 s — 70 % of the run — serial on a
 # 2-vCPU runner, and it grows by 50-100 tests per point. So `build` warms the
-# cache once, and `static`, `tests` (three shards) and `verify` restore it
-# (~20 s each) and run side by side. `publish` waits for all of them. The
-# frontend gate moved to frontend.yml, which already caches npm and already ran
-# on the same changes.
+# cache once, `bundle` builds the SPA the shell tests render, and `static`,
+# `tests` (three shards) and `verify` restore the image (~20 s each) and run
+# side by side. `publish` waits for all of them. The frontend gates (vue-tsc,
+# Vitest) live in frontend.yml, which already caches npm and already ran on
+# the same changes.
 
 name: PHP image
 
@@ -128,6 +129,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ── bundle: the SPA the shell tests need ────────────────────────────────────
+  #
+  # `welcome.blade.php` loads the SPA through `@vite`, which reads
+  # public/build/manifest.json; without it the shell answers 500 and
+  # SpaShellTest, RequestIdTest and EndToEndConnectivityTest fail — found on
+  # the first sharded run (34716862438), because the old serial job had built
+  # the bundle before the tests. `vite build` only: `vue-tsc` and Vitest are
+  # frontend.yml's gates on the same push, and this bundle is an input to
+  # tests, not a check of its own. Runs beside `build`, not after it.
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: crm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crm/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spa-build
+          path: crm/public/build
+          retention-days: 1
+          if-no-files-found: error
+
   # ── static: architecture, style and types ───────────────────────────────────
   #
   # AP-02 and AP-03 are boundaries, and a boundary that lives only in a README
@@ -223,7 +255,7 @@ jobs:
   # suite on every point. Rebalance when one shard runs >30 % longer than the
   # others (`gh run view <id> --json jobs`).
   tests:
-    needs: build
+    needs: [build, bundle]
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
@@ -264,6 +296,10 @@ jobs:
         with:
           path: ~/.cache/composer
           key: composer-${{ hashFiles('crm/composer.lock') }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: spa-build
+          path: crm/public/build
 
       - name: Start PostgreSQL and Redis
         run: |
@@ -407,7 +443,7 @@ jobs:
   # faster and more certain than rebuilding.
   publish:
     if: github.event_name == 'push'
-    needs: [build, static, tests, verify]
+    needs: [build, bundle, static, tests, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

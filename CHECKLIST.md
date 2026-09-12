@@ -506,7 +506,7 @@ would hide them behind `OD-03` indefinitely.
       They were left in place rather than dropped in passing, because dropping a table is its own
       decision and Point 1.2 was given `users` and `user_sessions`. Owed: confirm neither is
       wanted, then one correcting migration that drops both
-- [ ] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
+- [x] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
       Point 8.5, by noticing that this point's own commit triggered no run. `php-image.yml` filters
       on `docker/php/**`, `crm/**` and itself. **`docker-compose.yml` is in none of them**, and yet
       `QueueConfigurationTest` parses that file to assert the worker `--queue=` flags match
@@ -514,6 +514,19 @@ would hide them behind `OD-03` indefinitely.
       can see the other. A commit that edits only compose would skip the one test that validates
       it. Owed: add `docker-compose.yml` to the `paths` filter. Not done here, because it is a
       change to CI behaviour and this point is a sign-off, not a fix
+      *(2026-09-12, CI sharding PR — `docker-compose.yml` and `.env.example` added to both `paths` filters)*
+- [ ] **`php-image.yml` test shards are balanced by hand** — created 2026-09-12 by the CI
+      sharding PR, which split the 545 s serial test step (70 % of a 13-minute run) into three
+      matrix jobs, each running its own migrate up/down/up and a fixed list of test directories.
+      Two things a reader must know. **(1) A new directory under `tests/Feature` runs in no
+      shard until it is added to the matrix** — the sharding check in the PR compared the three
+      `Tests:` lines against the local full suite, and that comparison is owed again by any
+      point that adds a directory. **(2) The split is by local wall time, which is not the
+      runner's** (74 / 66 / 57 s on 2026-09-12, after moving `Catalog` once); rebalance when one
+      shard runs more than 30 % longer than the others (`gh run view <id> --json jobs`). Paratest (`--parallel`) was not added — a new
+      dependency for a gain the shards already give; the day the shards exceed 4 minutes each is
+      the day to reconsider. Runner minutes rose: three test jobs plus four cache restores per
+      run, against one serial job before.
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb

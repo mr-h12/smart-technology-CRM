@@ -57,6 +57,7 @@ final readonly class QuotationDetail
         public ?string $parentId,
         public ?string $rejectionReason,
         public ?string $sentAt,
+        public ?string $submittedAt,
         public bool $isSelfApproved,
         public int $versionToken,
         public ?string $createdBy,

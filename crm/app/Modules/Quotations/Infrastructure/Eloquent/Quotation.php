@@ -79,6 +79,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $parent_id
  * @property string|null $rejection_reason
  * @property string|null $sent_at
+ * @property \Illuminate\Support\Carbon|null $submitted_at
  * @property bool $is_self_approved
  * @property int $version_token
  * @property string|null $created_by
@@ -135,6 +136,8 @@ class Quotation extends Model
             'total_before_round' => Precision::CAST_MONEY,
             'final_total' => Precision::CAST_MONEY,
             'rounding_diff' => Precision::CAST_MONEY,
+            // Point 4.2 gives it a writer, so it gets its cast (see `sent_at` above).
+            'submitted_at' => 'datetime',
         ];
     }
 }

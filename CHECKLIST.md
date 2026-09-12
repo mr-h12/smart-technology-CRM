@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103), 4.1 on #104. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1 merged (#104), 4.2 on #105. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -690,6 +690,11 @@ would hide them behind `OD-03` indefinitely.
       The offer fixture itself was **not** copied a third time: the endpoint test creates its offer
       through `POST /supplier-quotations`, which is the module's own public surface, so only a
       supplier row is seeded.
+      **Module 7 Point 4.2 (2026-09-12) added another copy** — `QuotationSubmitEndpointTest` carries
+      the 129-line fixture set (`currency`, `currencyId`, `customer`, `deal`, `supplierLine`,
+      `userWith`, `bearerFor`) byte-identical to `QuotationUpdateEndpointTest`'s (`diff` empty).
+      Measured after it: `userWith()` → **38** files, `bearerFor()` → **31**. Same reason, same
+      proposal; the trait is still one owner decision away.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -881,6 +886,23 @@ would hide them behind `OD-03` indefinitely.
       beside quotations, and each of their POSTs still carries a "No `Idempotency-Key`" comment in
       `routes/api.php` — the alias is one word per route now, but §9.2's "through a documented contract
       update" is the rule, and each is its owning module's point, not this one's.
+
+- [ ] **`ShowQuotation::one()` is a third copy of the quotation scope check** — *revealed by Module 7
+      Point 4.2, 2026-09-12.* 4.2's waste audit found `UpdateQuotation` and the new `SubmitQuotation`
+      sharing an 18-line preamble (scope → `If-Match` → stale token → re-read); that copy was created by
+      the point and was extracted into `QuotationWriteAccess` inside it. The audit also found the
+      **read** side — `ShowQuotation::one()` — carrying the same scope/404 decision as three separate
+      `if`s rather than the combined condition. It is pre-existing (Point 3.5) and takes no `If-Match`,
+      so `open()` does not fit it as written; owed: one `QuotationRowScope`-applying reader both
+      `ShowQuotation` and `QuotationWriteAccess` call, when Step 5's set-based owner seam
+      (`dealIdsOwnedBy()`) is built — that point touches the same lines anyway.
+
+- [ ] **`EloquentQuotationDirectory`'s register comment in `AuditEnforcementTest` names only
+      `CreateQuotation`** — *revealed by Module 7 Point 4.2, 2026-09-12.* The disposition is still
+      correct (the class's DML is audited by its callers), but the comment stopped listing the callers
+      at 3.3: `UpdateQuotation` (3.6) and `SubmitQuotation` (4.2) audit through the same rows and are not
+      named. Cosmetic; one comment edit in a test file, owed to whichever point next touches that
+      register.
 
 
 ---
@@ -1469,7 +1491,7 @@ owner says only "approved":**
       asserting each terminal status has no edge, and one that `sent → draft` is refused.
       *(2026-09-12, #104 — edge table + 409 factory; no route until 4.2)*
 
-- [ ] **4.2** `PATCH /api/v1/quotations/{id}/submit-for-approval` — `permission:quotation.submit_for_approval`
+- [x] **4.2** `PATCH /api/v1/quotations/{id}/submit-for-approval` — `permission:quotation.submit_for_approval`
       (§3.5: All / Team / Own / Own) with `QuotationRowScope` applied to the deal's owner as 3.4
       and 3.5 do; `If-Match` on 3.6's terms (`400` missing, `409 concurrency_conflict` stale);
       `draft` only through 4.1, anything else `409 state_transition_invalid`; the
@@ -1480,6 +1502,7 @@ owner says only "approved":**
       submit with the old etag → `409 concurrency_conflict`; a submit of a `pending` quotation
       with a fresh etag → `409 state_transition_invalid`; the audit row; and the verifier broken
       by removing the 4.1 check.
+      *(2026-09-12, #105 — `submitted_at` added; `QuotationEtag` + `QuotationWriteAccess` extracted from 3.6)*
 
 - [ ] **4.3** `POST /api/v1/quotations/{id}/new-version` — §6.3 / `D-08`'s "full copy": one
       transaction (`DB-11`) inserting a new `quotations` row with `parent_id = {id}`,

@@ -111,6 +111,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             parentId: $row->parent_id,
             rejectionReason: $row->rejection_reason,
             sentAt: $row->sent_at,
+            submittedAt: $row->submitted_at?->toIso8601String(),
             isSelfApproved: $row->is_self_approved,
             versionToken: $row->version_token,
             createdBy: $row->created_by,
@@ -154,6 +155,20 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_additional_items', $quotationId, $draft->additionalItems, $actorId);
 
         return true;
+    }
+
+    public function submit(string $quotationId, int $expectedToken, string $actorId): bool
+    {
+        // `update()`'s guard, without the children: a submit changes no line.
+        return Quotation::query()
+            ->whereKey($quotationId)
+            ->where('version_token', $expectedToken)
+            ->update([
+                'status' => 'pending',
+                'submitted_at' => now(),
+                'version_token' => $this->connection->raw('version_token + 1'),
+                'updated_by' => $actorId,
+            ]) === 1;
     }
 
     /**

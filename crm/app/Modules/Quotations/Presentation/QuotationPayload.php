@@ -8,6 +8,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
+use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 
 /**
  * What `/quotations` answers with — Module 7 Points 3.4 and 3.5.
@@ -75,8 +76,9 @@ final class QuotationPayload
             'parent_id' => $quotation->parentId,
             'rejection_reason' => $quotation->rejectionReason,
             'sent_at' => $quotation->sentAt,
+            'submitted_at' => $quotation->submittedAt,
             'is_self_approved' => $quotation->isSelfApproved,
-            'etag' => 'quotation:'.$quotation->id.':'.$quotation->versionToken,
+            'etag' => QuotationEtag::of($quotation),
             'items' => array_map(
                 static fn (QuotationLine $line): array => [
                     'id' => $line->id,

@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
+use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +85,20 @@ final class QuotationController
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
+    }
+
+    /**
+     * Point 4.2. No body — `OpenAPI §7.2`'s action is the verb and the path;
+     * `If-Match` is handed down as `update()` hands it. The answer is the
+     * re-read quotation, `show()`'s shape, its `status` now `pending`.
+     */
+    public function submit(Request $request, string $quotation, SubmitQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
     }
 
     /**

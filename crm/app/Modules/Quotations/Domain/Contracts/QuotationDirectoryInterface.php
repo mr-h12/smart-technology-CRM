@@ -7,6 +7,7 @@ namespace App\Modules\Quotations\Domain\Contracts;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
+use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 
 /**
  * The `quotations` table as §6's screen needs to write it —
@@ -98,4 +99,23 @@ interface QuotationDirectoryInterface
      * actor, attributes)` when they arrive, not before.
      */
     public function submit(string $quotationId, int $expectedToken, string $actorId): bool;
+
+    /**
+     * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with
+     * `parent_id = $parentId`, `version = parent.version + 1`, `status =
+     * draft`, its own `QT-` code (`create()`'s allocator), every field of the
+     * document the customer answered **verbatim** — captured `unit_cost`, FX
+     * rate and rounding included — and both child tables re-inserted in
+     * `line_no` order. The answer's own marks are not copied: `rejection_reason`,
+     * `sent_at`, `submitted_at`, `is_self_approved` start empty and
+     * `version_token` starts at 1, because the copy is a fresh draft of the
+     * same document (§6.2's Versioning and Tracking groups, not its Core /
+     * Financial / Terms). The source row is not touched.
+     *
+     * Does not open a transaction — the use case wraps the copy and its audit
+     * row in one commit (`DB-11`), as `create()` is wrapped.
+     *
+     * @throws QuotationWriteRefused `version_exists` — `quotations_version_unique_alive` (`DB-03`) refused a second copy of this parent, read from the database's own refusal rather than a read-then-write two callers would both pass
+     */
+    public function copy(string $parentId, string $actorId): QuotationSummary;
 }

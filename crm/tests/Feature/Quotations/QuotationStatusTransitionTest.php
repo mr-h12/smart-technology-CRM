@@ -79,6 +79,20 @@ final class QuotationStatusTransitionTest extends TestCase
         self::assertSame([], QuotationStatusTransition::allowedFrom($status));
     }
 
+    // ───────────────────────────────── the copy (§6.3), which is not an edge
+
+    /** The owner's Q4 ruling: `partial`, `counter`, `expired` — finished with the customer, deal continues. */
+    public function test_a_new_version_opens_from_partial_counter_and_expired_only(): void
+    {
+        foreach (['partial', 'counter', 'expired'] as $status) {
+            self::assertTrue(QuotationStatusTransition::opensNewVersionFrom($status), $status);
+        }
+
+        foreach (['draft', 'pending', 'approved', 'sent', 'accepted', 'rejected', 'returned'] as $status) {
+            self::assertFalse(QuotationStatusTransition::opensNewVersionFrom($status), $status);
+        }
+    }
+
     // ───────────────────────────────── refusals
 
     public function test_sent_cannot_go_back_to_draft(): void

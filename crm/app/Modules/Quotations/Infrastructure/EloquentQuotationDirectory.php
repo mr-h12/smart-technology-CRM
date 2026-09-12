@@ -10,10 +10,12 @@ use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
+use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -69,7 +71,8 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_items', $row->id, $draft->items, $actorId);
         $this->writeChildren('quotation_additional_items', $row->id, $draft->additionalItems, $actorId);
 
-        return new QuotationSummary(id: $row->id, code: $row->code);
+        // `version` is the column's default; `save()` does not read defaults back.
+        return new QuotationSummary(id: $row->id, code: $row->code, version: 1);
     }
 
     public function find(string $quotationId): ?QuotationDetail
@@ -169,6 +172,58 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]) === 1;
+    }
+
+    public function copy(string $parentId, string $actorId): QuotationSummary
+    {
+        $parent = Quotation::query()->whereKey($parentId)->first();
+
+        if (! $parent instanceof Quotation) {
+            // The use case read this row inside the same transaction.
+            throw new RuntimeException("Quotation {$parentId} vanished before it could be copied.");
+        }
+
+        // Eloquent's `replicate()` copies the raw attributes as loaded — the
+        // decimals as PostgreSQL returned them, never through a float — minus
+        // the key and the timestamps; the answer's own marks are listed here.
+        $copy = $parent->replicate([
+            'code', 'status', 'version', 'parent_id', 'version_token',
+            'rejection_reason', 'sent_at', 'submitted_at', 'is_self_approved',
+            'created_by', 'updated_by', 'deleted_at',
+        ]);
+        $copy->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
+        $copy->parent_id = $parentId;
+        $copy->version = $parent->version + 1;
+        $copy->status = 'draft';
+        $copy->created_by = $actorId;
+        $copy->updated_by = $actorId;
+
+        try {
+            $copy->save();
+        } catch (QueryException $refused) {
+            // 23505 is `unique_violation`; on this insert only
+            // `quotations_version_unique_alive` can raise it (the code was just
+            // allocated, the id just generated).
+            if ($refused->getCode() === '23505') {
+                throw QuotationWriteRefused::versionExists();
+            }
+
+            throw $refused;
+        }
+
+        $items = [];
+        foreach ($this->readItems($parentId) as $line) {
+            $items[] = $line->asRow();
+        }
+        $additional = [];
+        foreach ($this->readAdditionalItems($parentId) as $line) {
+            $additional[] = ['description' => $line->description, 'amount' => $line->amount];
+        }
+
+        $this->writeChildren('quotation_items', $copy->id, $items, $actorId);
+        $this->writeChildren('quotation_additional_items', $copy->id, $additional, $actorId);
+
+        return new QuotationSummary(id: $copy->id, code: $copy->code, version: $copy->version);
     }
 
     /**

@@ -37,11 +37,18 @@ final class QuotationController
     public function show(Request $request, string $quotation, ShowQuotation $quotations): JsonResponse
     {
         $actorId = self::actorId($request);
+        $detail = $quotations->one($quotation, self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail(
-            $quotations->one($quotation, self::heldScopes($request), $actorId),
-            $quotations->revealsCosts($actorId),
-        ));
+        // Point 4.5 — `D-36`'s warning rides in `meta`, absent when nothing
+        // moved, on `store()`'s convention.
+        $warnings = QuotationPayload::warnings($quotations->movedLines($detail), 'supplier_price_changed', 'unit_cost');
+
+        return ApiEnvelope::single(
+            $request,
+            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId)),
+            200,
+            $warnings === [] ? [] : ['warnings' => $warnings],
+        );
     }
 
     public function store(SaveQuotationRequest $request, CreateQuotation $quotations): JsonResponse
@@ -51,7 +58,7 @@ final class QuotationController
         // The key is absent rather than an empty list when nothing is over:
         // a client checking `meta.warnings` for truthiness and one checking for
         // the key both get the same answer (`CustomerController::saved()`).
-        $warnings = QuotationPayload::warnings($created->quantityWarnings);
+        $warnings = QuotationPayload::warnings($created->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
 
         return ApiEnvelope::single(
             $request,
@@ -80,7 +87,7 @@ final class QuotationController
             $actorId,
         );
 
-        $warnings = QuotationPayload::warnings($updated->quantityWarnings);
+        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
 
         return ApiEnvelope::single(
             $request,

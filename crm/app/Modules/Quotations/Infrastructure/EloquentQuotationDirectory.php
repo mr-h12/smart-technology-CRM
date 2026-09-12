@@ -145,14 +145,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             return false;
         }
 
-        $now = now();
-
-        foreach (['quotation_items', 'quotation_additional_items'] as $table) {
-            $this->connection->table($table)
-                ->where('quotation_id', $quotationId)
-                ->whereNull('deleted_at')
-                ->update(['deleted_at' => $now, 'updated_at' => $now, 'updated_by' => $actorId]);
-        }
+        $this->softDeleteChildren($quotationId, $actorId);
 
         $this->writeChildren('quotation_items', $quotationId, $draft->items, $actorId);
         $this->writeChildren('quotation_additional_items', $quotationId, $draft->additionalItems, $actorId);
@@ -172,6 +165,36 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]) === 1;
+    }
+
+    public function delete(string $quotationId, int $expectedToken, string $actorId): bool
+    {
+        // `submit()`'s guard; `SoftDeletes::delete()` would skip it.
+        $matched = Quotation::query()
+            ->whereKey($quotationId)
+            ->where('version_token', $expectedToken)
+            ->update(['deleted_at' => now(), 'updated_by' => $actorId]);
+
+        if ($matched === 0) {
+            return false;
+        }
+
+        $this->softDeleteChildren($quotationId, $actorId);
+
+        return true;
+    }
+
+    /** `DB-01`: both child tables marked, never removed — `update()` before replacing lines, `delete()` for good. */
+    private function softDeleteChildren(string $quotationId, string $actorId): void
+    {
+        $now = now();
+
+        foreach (['quotation_items', 'quotation_additional_items'] as $table) {
+            $this->connection->table($table)
+                ->where('quotation_id', $quotationId)
+                ->whereNull('deleted_at')
+                ->update(['deleted_at' => $now, 'updated_at' => $now, 'updated_by' => $actorId]);
+        }
     }
 
     public function copy(string $parentId, string $actorId): QuotationSummary

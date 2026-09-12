@@ -9,11 +9,13 @@ use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
+use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use RuntimeException;
 
 /**
@@ -113,6 +115,18 @@ final class QuotationController
         $copy = $versions->create($quotation, self::heldScopes($request), self::actorId($request));
 
         return ApiEnvelope::single($request, [...QuotationPayload::of($copy), 'version' => $copy->version], 201);
+    }
+
+    /**
+     * Point 4.4. `204` (the owner's Q5 ruling): nothing to serialise once the
+     * row is gone. `OpenAPI §3.3`'s request id still travels — it is the
+     * `X-Request-Id` header, which a `204` carries like any other answer.
+     */
+    public function destroy(Request $request, string $quotation, DeleteQuotation $quotations): Response
+    {
+        $quotations->delete($quotation, $request->headers->get('If-Match'), self::heldScopes($request), self::actorId($request));
+
+        return response()->noContent();
     }
 
     /**

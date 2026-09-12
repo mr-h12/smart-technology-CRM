@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1 merged (#104), 4.2 on #105. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1 (#104) and 4.2 (#105) merged, 4.3 on #106. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -695,6 +695,9 @@ would hide them behind `OD-03` indefinitely.
       `userWith`, `bearerFor`) byte-identical to `QuotationUpdateEndpointTest`'s (`diff` empty).
       Measured after it: `userWith()` → **38** files, `bearerFor()` → **31**. Same reason, same
       proposal; the trait is still one owner decision away.
+      **Point 4.3 (2026-09-12), one more:** `QuotationNewVersionEndpointTest` — `userWith()` → **39**,
+      `bearerFor()` → **32**, `supplierLine()` → **7**. Three Step 4 endpoint tests now carry the
+      same 129 lines; the fourth (4.4) will too unless the trait is approved first.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -1504,7 +1507,7 @@ owner says only "approved":**
       by removing the 4.1 check.
       *(2026-09-12, #105 — `submitted_at` added; `QuotationEtag` + `QuotationWriteAccess` extracted from 3.6)*
 
-- [ ] **4.3** `POST /api/v1/quotations/{id}/new-version` — §6.3 / `D-08`'s "full copy": one
+- [x] **4.3** `POST /api/v1/quotations/{id}/new-version` — §6.3 / `D-08`'s "full copy": one
       transaction (`DB-11`) inserting a new `quotations` row with `parent_id = {id}`,
       `version = parent.version + 1`, `status = draft`, its own `QT-` code (Q3), every header
       field, every `quotation_items` and `quotation_additional_items` row **verbatim** — captured
@@ -1519,6 +1522,7 @@ owner says only "approved":**
       version, status, etag and timestamps; a second `new-version` on the same parent →
       `409`; a `draft` parent → `409 state_transition_invalid`; the replayed `Idempotency-Key` →
       one copy.
+      *(2026-09-12, #106 — `replicate()` minus the answer's marks; `23505` → `409 version_exists`; `store()` keeps `{id, code}`)*
 
 - [ ] **4.4** `DELETE /api/v1/quotations/{id}` (Q5) — `D-46`: `permission:quotation.delete`
       with the row scope, `If-Match` required, `draft` only else `422 business_rule_blocked`

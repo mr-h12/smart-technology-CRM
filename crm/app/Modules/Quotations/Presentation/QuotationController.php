@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
+use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Support\Http\ApiEnvelope;
@@ -99,6 +100,19 @@ final class QuotationController
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
+    }
+
+    /**
+     * Point 4.3. No body; the answer is `store()`'s shape plus the copy's
+     * `version`, because the copy is a create, not an edit of `{id}` — and
+     * the number is the one thing the caller cannot know before asking.
+     * `store()`'s own answer stays `{id, code}` (3.4's contract).
+     */
+    public function newVersion(Request $request, string $quotation, CreateQuotationVersion $versions): JsonResponse
+    {
+        $copy = $versions->create($quotation, self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, [...QuotationPayload::of($copy), 'version' => $copy->version], 201);
     }
 
     /**

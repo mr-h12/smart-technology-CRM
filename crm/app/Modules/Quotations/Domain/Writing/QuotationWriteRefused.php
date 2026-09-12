@@ -18,6 +18,7 @@ use RuntimeException;
  * | `stale_version` | 409 | `concurrency_conflict` | `DB-12`, `API-12` — the stored token moved; the detail carries the current etag, §5.1's "version metadata needed to refresh" |
  * | `quotation_not_draft` | 422 | `business_rule_blocked` | §3.5 `edit` is "(Draft)"; a submitted quotation is Module 8's to edit |
  * | `invalid_transition` | 409 | `state_transition_invalid` | §5.1 "requested state change violates the documented workflow" — no arrow in `QuotationStatusTransition` from the row's status to the one asked for |
+ * | `version_exists` | 409 | `state_transition_invalid` | §6.3 / `DB-03` "one v2 per parent" — `quotations_version_unique_alive` refused a second copy; the workflow continues on the copy that exists |
  *
  * Never 412: the document names 409 for this, and `API-12` is the row a
  * client is written against.
@@ -31,6 +32,8 @@ final class QuotationWriteRefused extends RuntimeException
     public const NOT_DRAFT = 'quotation_not_draft';
 
     public const INVALID_TRANSITION = 'invalid_transition';
+
+    public const VERSION_EXISTS = 'version_exists';
 
     private function __construct(
         public readonly string $reason,
@@ -67,5 +70,10 @@ final class QuotationWriteRefused extends RuntimeException
         $refused->message .= ' ('.$from.' → '.$to.')';
 
         return $refused;
+    }
+
+    public static function versionExists(): self
+    {
+        return new self(self::VERSION_EXISTS, 409, 'state_transition_invalid', 'parent_id', null);
     }
 }

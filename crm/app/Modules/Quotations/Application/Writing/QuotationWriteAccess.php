@@ -41,6 +41,26 @@ final readonly class QuotationWriteAccess
      */
     public function open(string $quotationId, ?string $ifMatch, array $heldScopes, string $actorId): QuotationDetail
     {
+        $before = $this->reach($quotationId, $heldScopes, $actorId);
+
+        if (QuotationEtag::tokenFrom($ifMatch, $quotationId) !== $before->versionToken) {
+            throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
+        }
+
+        return $before;
+    }
+
+    /**
+     * The scope half alone, for an action that writes a **new** row rather
+     * than this one (Point 4.3's copy) and so carries no `If-Match` — §9.2's
+     * token guards the row it names, and nothing is written to the source.
+     *
+     * @param  list<string>  $heldScopes
+     *
+     * @throws QuotationNotFound
+     */
+    public function reach(string $quotationId, array $heldScopes, string $actorId): QuotationDetail
+    {
         $scope = QuotationRowScope::resolve($heldScopes, $actorId);
         $before = $this->quotations->find($quotationId);
 
@@ -48,10 +68,6 @@ final readonly class QuotationWriteAccess
             || $scope->permitsNothing()
             || (! $scope->unrestricted && ! $scope->reaches($this->deals->factsOf($before->dealId)?->ownerId))) {
             throw QuotationNotFound::of($quotationId);
-        }
-
-        if (QuotationEtag::tokenFrom($ifMatch, $quotationId) !== $before->versionToken) {
-            throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
         }
 
         return $before;

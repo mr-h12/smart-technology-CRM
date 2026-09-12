@@ -737,4 +737,8 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // submit is already a `409` by the token, and a submit is undone by a return.
     Route::patch('/{quotation}/submit-for-approval', [QuotationController::class, 'submit'])
         ->middleware('permission:quotation.submit_for_approval');
+    // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
+    // `quotation.edit`, because whoever may edit the next draft may open it.
+    Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])
+        ->middleware(['permission:quotation.edit', 'idempotency']);
 });

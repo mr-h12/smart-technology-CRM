@@ -23,5 +23,6 @@ final readonly class QuotationSummary
     public function __construct(
         public string $id,
         public string $code,
+        public int $version,
     ) {}
 }

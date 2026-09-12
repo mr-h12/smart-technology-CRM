@@ -18,6 +18,7 @@ return [
         'quotation_not_draft' => 'Only a draft quotation can be edited here.',
         // `QuotationStatusTransition` (Point 4.1) — §6.4's arrows, `OpenAPI §5.1` 409.
         'invalid_transition' => 'This quotation cannot move to that status from where it is now.',
+        'version_exists' => 'A newer version of this quotation already exists. Continue on that one.',
     ],
 
     // §5.6's warning — carried in `meta.warnings` on a successful create.

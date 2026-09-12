@@ -17,8 +17,9 @@ namespace App\Modules\Quotations\Domain\Status;
  *
  * The five customer answers are terminal — an empty edge list, not a
  * self-loop. §6.3 continues Partial and Counter through a **full copy** (`D-08`,
- * Point 4.3), so nothing moves *this* row on; `Rejected` archives (Module 10)
- * and `Expired` is the job's last word. Nothing here decides *who* may make a
+ * Point 4.3) — {@see self::opensNewVersionFrom()}, the owner's Q4 ruling, which
+ * adds `Expired` because the deal continues there too — so nothing moves *this*
+ * row on; `Rejected` archives (Module 10). Nothing here decides *who* may make a
  * transition: each action carries its own `quotation.*` permission (§3.5),
  * checked at the route as Points 4.2–4.4 do.
  */
@@ -36,6 +37,14 @@ final class QuotationStatusTransition
         'rejected' => [],
         'expired' => [],
     ];
+
+    /** §6.3's copy is not an edge: the three terminals a new version may be opened from (Q4). */
+    private const VERSIONABLE = ['partial', 'counter', 'expired'];
+
+    public static function opensNewVersionFrom(string $status): bool
+    {
+        return in_array($status, self::VERSIONABLE, true);
+    }
 
     public static function isAllowed(string $from, string $to): bool
     {

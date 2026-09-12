@@ -741,4 +741,9 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // `quotation.edit`, because whoever may edit the next draft may open it.
     Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])
         ->middleware(['permission:quotation.edit', 'idempotency']);
+    // Point 4.4 — the first business `DELETE`: `D-46` says delete, so it is
+    // not an `archive` action; recorded on #103 (Q5) as a contract addition
+    // to `OpenAPI §7.1`. `If-Match` only (Q6), as the submit.
+    Route::delete('/{quotation}', [QuotationController::class, 'destroy'])
+        ->middleware('permission:quotation.delete');
 });

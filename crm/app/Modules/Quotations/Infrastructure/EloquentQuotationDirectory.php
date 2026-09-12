@@ -15,6 +15,7 @@ use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -132,9 +133,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         // both read token 3 cannot both pass: the row-level lock PostgreSQL
         // takes for the first UPDATE makes the second re-evaluate `WHERE`
         // against the committed token 4 and match nothing.
-        $matched = Quotation::query()
-            ->whereKey($quotationId)
-            ->where('version_token', $expectedToken)
+        $matched = $this->lockedRow($quotationId, $expectedToken)
             ->update([
                 ...$draft->attributes,
                 'version_token' => $this->connection->raw('version_token + 1'),
@@ -145,14 +144,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             return false;
         }
 
-        $now = now();
-
-        foreach (['quotation_items', 'quotation_additional_items'] as $table) {
-            $this->connection->table($table)
-                ->where('quotation_id', $quotationId)
-                ->whereNull('deleted_at')
-                ->update(['deleted_at' => $now, 'updated_at' => $now, 'updated_by' => $actorId]);
-        }
+        $this->softDeleteChildren($quotationId, $actorId);
 
         $this->writeChildren('quotation_items', $quotationId, $draft->items, $actorId);
         $this->writeChildren('quotation_additional_items', $quotationId, $draft->additionalItems, $actorId);
@@ -163,15 +155,54 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
     public function submit(string $quotationId, int $expectedToken, string $actorId): bool
     {
         // `update()`'s guard, without the children: a submit changes no line.
-        return Quotation::query()
-            ->whereKey($quotationId)
-            ->where('version_token', $expectedToken)
+        return $this->lockedRow($quotationId, $expectedToken)
             ->update([
                 'status' => 'pending',
                 'submitted_at' => now(),
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]) === 1;
+    }
+
+    public function delete(string $quotationId, int $expectedToken, string $actorId): bool
+    {
+        // `update()`'s guard; `SoftDeletes::delete()` would skip it.
+        $matched = $this->lockedRow($quotationId, $expectedToken)
+            ->update(['deleted_at' => now(), 'updated_by' => $actorId]);
+
+        if ($matched === 0) {
+            return false;
+        }
+
+        $this->softDeleteChildren($quotationId, $actorId);
+
+        return true;
+    }
+
+    /**
+     * `DB-12`'s compare, as the `WHERE` of every write that bumps or ends the
+     * row: matching nothing is the stale answer.
+     *
+     * @return Builder<Quotation>
+     */
+    private function lockedRow(string $quotationId, int $expectedToken): Builder
+    {
+        return Quotation::query()
+            ->whereKey($quotationId)
+            ->where('version_token', $expectedToken);
+    }
+
+    /** `DB-01`: both child tables marked, never removed — `update()` before replacing lines, `delete()` for good. */
+    private function softDeleteChildren(string $quotationId, string $actorId): void
+    {
+        $now = now();
+
+        foreach (['quotation_items', 'quotation_additional_items'] as $table) {
+            $this->connection->table($table)
+                ->where('quotation_id', $quotationId)
+                ->whereNull('deleted_at')
+                ->update(['deleted_at' => $now, 'updated_at' => $now, 'updated_by' => $actorId]);
+        }
     }
 
     public function copy(string $parentId, string $actorId): QuotationSummary

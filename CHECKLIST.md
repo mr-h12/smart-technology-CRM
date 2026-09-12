@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1 (#104) and 4.2 (#105) merged, 4.3 on #106. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1 (#104), 4.2 (#105) and 4.3 (#106) merged, 4.4 on #107. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -698,6 +698,9 @@ would hide them behind `OD-03` indefinitely.
       **Point 4.3 (2026-09-12), one more:** `QuotationNewVersionEndpointTest` — `userWith()` → **39**,
       `bearerFor()` → **32**, `supplierLine()` → **7**. Three Step 4 endpoint tests now carry the
       same 129 lines; the fourth (4.4) will too unless the trait is approved first.
+      **Point 4.4 (2026-09-12), the fourth:** `QuotationDeleteEndpointTest` — `userWith()` → **40**,
+      `bearerFor()` → **33**, `supplierLine()` → **8**. Step 4 has no fifth endpoint test (4.5 is a
+      read-side change), so the next copy is Step 5's.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -1524,7 +1527,7 @@ owner says only "approved":**
       one copy.
       *(2026-09-12, #106 — `replicate()` minus the answer's marks; `23505` → `409 version_exists`; `store()` keeps `{id, code}`)*
 
-- [ ] **4.4** `DELETE /api/v1/quotations/{id}` (Q5) — `D-46`: `permission:quotation.delete`
+- [x] **4.4** `DELETE /api/v1/quotations/{id}` (Q5) — `D-46`: `permission:quotation.delete`
       with the row scope, `If-Match` required, `draft` only else `422 business_rule_blocked`
       `quotation_not_draft` (3.6's reason, reused — a delete outside Draft is the same rule 3.6
       enforces, not a transition); soft-deletes the row and both child tables in one transaction
@@ -1532,6 +1535,7 @@ owner says only "approved":**
       `404 resource_not_found` on 3.5's read afterwards. *Verified by* the role matrix, a
       `pending` quotation refused with the row intact, the three tables' `deleted_at` set, the
       audit row, and the read returning `404`.
+      *(2026-09-12, #107 — `204`; children soft-deleted in the same guarded transaction; `lockedRow()` now the one `version_token` guard)*
 
 - [ ] **4.5** `D-36` / §10.3's price-drift warning on the read — for a `draft` or `pending`
       quotation, `ShowQuotation` compares each line's captured `unit_cost` and currency with the

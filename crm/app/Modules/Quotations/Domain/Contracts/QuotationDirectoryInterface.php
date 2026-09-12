@@ -118,4 +118,14 @@ interface QuotationDirectoryInterface
      * @throws QuotationWriteRefused `version_exists` — `quotations_version_unique_alive` (`DB-03`) refused a second copy of this parent, read from the database's own refusal rather than a read-then-write two callers would both pass
      */
     public function copy(string $parentId, string $actorId): QuotationSummary;
+
+    /**
+     * `D-46`'s delete (Point 4.4), soft as `DB-01` requires: `deleted_at` on
+     * the row and on both child tables, nothing physically gone. Guarded in
+     * SQL the way `submit()` is — `WHERE version_token = $expectedToken` —
+     * so a quotation edited from under the caller is not deleted. `false`
+     * means the guard matched no row: stale, or already deleted. Draft-only
+     * is the use case's rule; this writes, it does not decide.
+     */
+    public function delete(string $quotationId, int $expectedToken, string $actorId): bool;
 }

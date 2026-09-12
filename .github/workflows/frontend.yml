@@ -10,7 +10,7 @@
 #   2. a `vue-tsc --noEmit` type error — vue-tsc is not in any other gate and has
 #      caught defects the runtime tests could not.
 # `npm run build` is exactly `vue-tsc --noEmit && vite build`, so this one job is
-# both gates. It does NOT keep a developer's served bundle fresh — that is the
+# both gates, and `npm run test:unit` (Vitest) runs before it. It does NOT keep a developer's served bundle fresh — that is the
 # `vite build --watch` compose service (a separate change).
 #
 # amd64 runner: GitHub's runners are linux/amd64, so `npm ci` fetches the correct
@@ -51,5 +51,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: crm/package-lock.json
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
+      # DEV-07. Point 5.1 put branching logic in the SPA for the first time —
+      # the router guards and the session store — and vue-tsc proves the types
+      # while saying nothing about behaviour. Moved here from php-image.yml on
+      # 2026-09-12: this workflow already ran on the same changes with a cached
+      # npm, so the PHP workflow was installing node_modules a second time,
+      # uncached, for 81 s.
+      - run: npm run test:unit
       - run: npm run build

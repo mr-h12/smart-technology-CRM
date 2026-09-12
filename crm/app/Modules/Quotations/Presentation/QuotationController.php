@@ -6,6 +6,7 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
@@ -13,8 +14,8 @@ use Illuminate\Http\Request;
 use RuntimeException;
 
 /**
- * `OpenAPI §7.1`'s `/quotations` — the write half, Module 7 Step 3. Thin, as
- * `CLAUDE.md` requires: validate, invoke a use case, serialise.
+ * `OpenAPI §7.1`'s `/quotations` — Module 7 Step 3. Thin, as `CLAUDE.md`
+ * requires: validate, invoke a use case, serialise.
  *
  * `heldScopes()` and `actorId()` are the third copies of `DealController`'s
  * (and `CustomerController`'s) — recorded in `CHECKLIST.md`'s debt register by
@@ -23,6 +24,21 @@ use RuntimeException;
  */
 final class QuotationController
 {
+    /**
+     * Point 3.5. The 404 and the scope are decided in `ShowQuotation`; whether
+     * the costs are in the body is a second grant the use case resolves and
+     * this method only relays — the SPA never owns a permission decision.
+     */
+    public function show(Request $request, string $quotation, ShowQuotation $quotations): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail(
+            $quotations->one($quotation, self::heldScopes($request), $actorId),
+            $quotations->revealsCosts($actorId),
+        ));
+    }
+
     public function store(CreateQuotationRequest $request, CreateQuotation $quotations): JsonResponse
     {
         $created = $quotations->create($request->validated(), self::heldScopes($request), self::actorId($request));
@@ -50,7 +66,7 @@ final class QuotationController
         $decision = $request->attributes->get(AuthorizationAttribute::NAME);
 
         if (! $decision instanceof PermissionDecision) {
-            // The route carries `permission:quotation.create`, so the attribute
+            // Every route here carries a `permission:` middleware, so the attribute
             // is always there. Reaching here means the route lost its
             // middleware — a configuration error, not an empty scope.
             throw new RuntimeException('The quotation routes require the permission middleware.');

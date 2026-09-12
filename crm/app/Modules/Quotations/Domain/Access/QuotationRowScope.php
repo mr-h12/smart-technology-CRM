@@ -133,6 +133,18 @@ final readonly class QuotationRowScope
     }
 
     /**
+     * Whether a quotation whose deal is owned by `$ownerId` is within reach —
+     * the owner ruling of 2026-09-11 that "own" is the deal's `owner_id`,
+     * asked in one place by the create (Point 3.4) and the read (Point 3.5).
+     *
+     * A null owner is nobody's, so it is nobody's under `own`.
+     */
+    public function reaches(?string $ownerId): bool
+    {
+        return $this->unrestricted || ($ownerId !== null && in_array($ownerId, $this->ownerIds, true));
+    }
+
+    /**
      * §3.2's five codes, in the document's order.
      *
      * @return list<string>

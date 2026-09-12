@@ -21,6 +21,7 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
@@ -483,6 +484,22 @@ final class ApiExceptionRenderer
      * above.
      */
     public static function dealNotFound(DealNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 404 for a quotation that is absent **or** out of reach.
+     * Identical in shape to {@see self::dealNotFound()}: §3.5's `view` row is
+     * the widest spread of scopes in the document, so both of §5.1's cases
+     * are real here.
+     */
+    public static function quotationNotFound(QuotationNotFound $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,

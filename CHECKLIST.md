@@ -860,6 +860,17 @@ would hide them behind `OD-03` indefinitely.
       Closing the controller copies is one small class there, adopted in three files — its own point,
       or the first Presentation point that touches all three.
 
+- [ ] **Six `*NotFound` renderers in `ApiExceptionRenderer` are byte-identical bodies** — *revealed by
+      Module 7 Point 3.5, 2026-09-12.* `customerNotFound`, `supplierNotFound`, `supplierQuotationNotFound`,
+      `catalogItemNotFound`, `dealNotFound` and now `quotationNotFound` each call
+      `ApiEnvelope::error($request, 404, 'resource_not_found', __($e->messageKey()))` and differ only in
+      the parameter type; four of the six docblocks already say "Identical in shape to". Point 3.5 added
+      the sixth rather than extracting, because the extraction is a `NotFound` interface in
+      `app/Support` adopted by five other modules' exceptions — outside a one-route point. The fix is
+      that one interface plus one renderer; `bootstrap/app.php`'s six `render()` closures collapse with it.
+      Also counted by the same audit: `supplierLine()` test fixture at **four** copies (was three) and
+      `userWith()`/`bearerFor()` at **36 / 29** — the Module 6 row above continues to hold them.
+
 
 ---
 
@@ -1385,9 +1396,7 @@ first and still waits on the slug; 3.7 still waits on the store.
 
 - [x] **3.4** `POST /api/v1/quotations` — Form Request mirroring the tables' CHECKs and `DB-07`'s decimal-string triple, `permission:quotation.create`, `201` `{id, code}`, `422 business_rule_blocked` with `supplier_price_missing` / `fx_rate_missing` and `field = lines.N…`, `quantity_exceeds_recorded` in `meta.warnings`. The scoped create is applied to the **deal** through a new `DealFactsInterface` (`DealsContract`); `Quotations` also gained `IdentityContract` here, not in 3.5. *(2026-09-12, #97 — three owner rulings, see the Step 3 note above)*
 
-- [ ] **3.5** `GET /api/v1/quotations/{id}` — `find()` through `QuotationRowScope`, cost/margin
-      gating, `version_token` returned as the `OpenAPI §9.2` etag. *Blocked on the two owner
-      decisions above.*
+- [x] **3.5** `GET /api/v1/quotations/{id}` — `find()` unscoped in the directory, `QuotationRowScope` applied in `ShowQuotation` to the deal's `owner_id` through Point 3.4's `DealFactsInterface` (no subquery on `deals`); `404 resource_not_found` for absent-or-invisible (§5.1), `team`/`asgn` fail closed; cost fields **absent** without `quotation.view_cost_and_margin` (slug confirmed by the owner 2026-09-12); `etag: quotation:<id>:<version_token>` (§9.2). *(2026-09-12, #100 — own = deal owner via the seam, not a join)*
 
 - [ ] **3.6** `PATCH /api/v1/quotations/{id}` — Draft-only, `If-Match`, `409 concurrency_conflict`
       on a stale token (`API-12`, never `412`), `version_token` advanced by the write.

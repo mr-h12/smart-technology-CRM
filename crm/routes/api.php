@@ -729,4 +729,6 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
 Route::middleware('auth')->prefix('quotations')->group(function (): void {
     Route::post('/', [QuotationController::class, 'store'])
         ->middleware('permission:quotation.create');
+    Route::get('/{quotation}', [QuotationController::class, 'show'])
+        ->middleware('permission:quotation.view');
 });

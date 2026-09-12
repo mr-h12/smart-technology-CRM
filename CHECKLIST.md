@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–2 closed; Step 3: 3.1–3.2 merged, 3.3 (#96) and 3.4 (#97) open, 3.5 next. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4's point list not yet published. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -872,6 +872,16 @@ would hide them behind `OD-03` indefinitely.
       `userWith()`/`bearerFor()` at **36 / 29** — the Module 6 row above continues to hold them.
       Point 3.6 (2026-09-12) recounted: `supplierLine()` **five**, `userWith()`/`bearerFor()` **37 / 30**.
 
+- [ ] **`idempotency_keys` never expires** — *created knowingly by Module 7 Point 3.7, 2026-09-12.*
+      `OpenAPI §9.1` persists a key "for the defined retention period", and no `D-xx`, `J-xx` or setting
+      defines one — `J-01`…`J-15` hold no purge. Point 3.7 keeps `created_at` and invents no constant;
+      every row stays until an owner decision names the period, and the sweep is then one scheduled job
+      on `maintenance` (`ST-05`'s idempotent-with-retry shape) plus one setting. **Owner question.** Also
+      recorded here rather than built: §9.1 names deals, supplier quotations, purchase orders and reports
+      beside quotations, and each of their POSTs still carries a "No `Idempotency-Key`" comment in
+      `routes/api.php` — the alias is one word per route now, but §9.2's "through a documented contract
+      update" is the rule, and each is its owning module's point, not this one's.
+
 
 ---
 
@@ -1373,6 +1383,10 @@ forbids `app/Http`, `app/Support` and `routes` from writing to the database — 
 **`customer_id` must be the deal's customer** (`422` on `customer_id`); and **`fx_rate_missing`** is a
 distinct `422 business_rule_blocked` detail code beside `supplier_price_missing`. 3.5 inherits the
 first and still waits on the slug; 3.7 still waits on the store.
+*Ruled 2026-09-12, in Point 3.7 (#102):* the store is a **new module, `app/Modules/Idempotency`** (not
+Audit's, whose rows never expire, and not Quotations-local, since §9.1 names five resources); and Point
+3.6's assumption stands — **a Draft is re-priced at the FX rate effective at the edit**, `D-09`'s "at
+creation" governing the first pricing only.
 
 - [x] **3.1** `QuotationRowScope` — §3.5's `own | team | asgn | all` resolved to owner-id lists,
       the third transcription of the shape `CustomerRowScope` and `DealRowScope` share (verified
@@ -1401,7 +1415,7 @@ first and still waits on the slug; 3.7 still waits on the store.
 
 - [x] **3.6** `PATCH /api/v1/quotations/{id}` — full editable body re-priced by §5 through `PriceQuotation` (lifted out of `CreateQuotation`, one implementation); `If-Match` missing/malformed → `400 invalid_request`, stale → `409 concurrency_conflict` with `current_etag` (`API-12`, never 412), the `UPDATE … WHERE version_token = ?` bumps the token; non-Draft → `422 business_rule_blocked` `quotation_not_draft`; `edit_margin`/`edit_tax` asked only when the body moves them; `QUOTATION_UPDATED` with old/new. *(2026-09-12, #101 — a Draft is re-priced at the FX rate effective at the edit, stated as an assumption)*
 
-- [ ] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`). *Blocked on where the store lives.*
+- [x] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`) — the owner ruled 2026-09-12 that the store is its own module, `app/Modules/Idempotency`: one table `idempotency_keys` UNIQUE `(user_id, route, key)`, claimed by `INSERT … ON CONFLICT DO NOTHING` before the use case runs and completed with the final status and body after; the `idempotency` route middleware runs **after** `permission:` so a replay re-checks the grant (§9.1); missing header → `400 invalid_request`, changed payload or key still in flight → `409 idempotency_conflict`; a 5xx releases the key. *(2026-09-12, #102 — quotations only; the retention period §9.1 calls "defined" is undefined, see the debt register)*
 
 ---
 

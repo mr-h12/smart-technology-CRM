@@ -377,7 +377,7 @@ final class QuotationUpdateEndpointTest extends TestCase
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             ...$this->payload(),
-        ], $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);
 

@@ -1569,6 +1569,120 @@ accepted / partial / counter / rejected and `J-01`'s expiry (Module 10); the lis
 `ShowQuotation`'s `ponytail:` note records); the builder screen and `user_term_suggestions`
 (the frontend step).
 
+#### Step 5 — the list *(point list published 2026-09-12 for approval; unapproved until the owner says so)*
+
+`GET /api/v1/quotations` — the endpoint the stub above names, §6.6's views for the Team Leader
+and Manager, and the same list for a sales employee inside §3.5's `view` scope. `OpenAPI §6`'s
+query contract in Domain first (Module 6 Step 4's shape: criteria → directory → use case →
+route), then §6.6's two groupings. Nothing here touches `resources/js`: the toggle, the split
+and "the system remembers the user's last choice" are the frontend step's, and the list answers
+whatever that screen asks with `filter[]`/`group_by`.
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved":**
+
+- **Q1 · "active quotations · history".** §6.6 splits every view in two and defines neither
+  word. **Default: `active` = `draft | pending | approved | sent`, `history` = `accepted |
+  partial | counter | rejected | expired`** — 4.1's terminal statuses are the history — served as
+  `filter[bucket]=active|history` so the screen makes two requests and the server owns the
+  definition. A quotation is in exactly one bucket.
+- **Q2 · "employee".** §6.6 filters and groups by employee; the owner ruled on 2026-09-11 that a
+  quotation's owner is its **deal's** `owner_id`, which is Deals' column. **Default: `employee` is
+  the deal's owner, read through a set-based method on `DealFactsInterface`** (Point 5.1) — not
+  `created_by`, and not a new column on `quotations`.
+- **Q3 · "amount range".** A quotation carries one currency and no base-currency total, so a
+  range over `final_total` across currencies ranks EGP against USD (Module 6 refused to sort
+  `total_price` for the same reason). **Default: `filter[amount_min]` / `filter[amount_max]`
+  apply to `final_total` and are accepted only together with `filter[currency]`; without it,
+  `400 invalid_request`.**
+- **Q4 · "period".** Nothing says which date. **Default: `filter[from]` / `filter[to]` on
+  `quotation_date`** (§6.2's Core group), inclusive, ISO dates; `created_at` is a tracking field.
+- **Q5 · `q`.** §6.6 lists no search box. **Default: no `q` on this list** — `OpenAPI §6.2` makes
+  the allowlist the point; Module 15's Meilisearch step adds it if a screen asks.
+- **Q6 · the row.** **Default: `QuotationSummary` as 3.4 answers it plus what §6.6's columns
+  need** — `status`, `customer_id`, `deal_id`, `currency_id`, `final_total`, `quotation_date`,
+  `valid_until`, `submitted_at`, `version`, `parent_id`, `created_at`, `updated_at` — and **no
+  cost, margin or supplier field** (§3.5's `view cost & margin` is the detail's business, and a
+  list that leaks it to a role without the grant is `SEC-07` broken at scale).
+- **Q7 · the customer group's label.** Customers exposes `CustomerTaxStatusInterface` to
+  this module and nothing that answers a name (checked 2026-09-12). **Default: the group's
+  `label` is the `customer_id` and the name is the frontend step's lookup through
+  `GET /api/v1/customers`** — the alternative, a `namesOf(list<string>)` on Customers' contract,
+  is one more crossing for a label, and the screen already lists customers.
+
+- [ ] **5.1** The set-based owner seam — `DealFactsInterface::dealIdsOwnedBy(string $ownerId):
+      list<string>` and `ownersOf(list<string> $dealIds): array<string, ?string>`, with the
+      Eloquent implementation in Deals. The first answers "own" for the list (`WHERE deal_id IN`)
+      and `filter[employee]`; the second answers `group_by=employee` for one page. Both read
+      `deals` through the module's own model, `DB-01` soft-deleted deals excluded, on
+      `factsOf()`'s terms. `ShowQuotation::one()` and `QuotationWriteAccess` keep `factsOf()` — a
+      single-row read has no set to ask for; the `ponytail:` note on `ShowQuotation` is retired
+      and the third scope-check copy the debt register names is **not** touched here (it is its
+      own row). *Verified by* a feature test on the Eloquent adapter: owned ids only, a soft-deleted
+      deal absent from both answers, an unknown id mapping to `null` in `ownersOf()`, and the
+      empty list answering `[]` without a query. **Ceiling, stated:** `dealIdsOwnedBy()` returns
+      an unbounded set — fine for one employee's deals, and the point to denormalise
+      `owner_id` onto `quotations` is when a Manager's `filter[employee]` on a ten-thousand-deal
+      owner is measured slow, not before.
+
+- [ ] **5.2** `QuotationListCriteria` · `InvalidQuotationListQuery` · `QuotationPage` in
+      `Domain/Listing/`, on `DealListCriteria`'s exact shape (`fromQuery()`, `offset()`,
+      `DEFAULT_PER_PAGE = 25`, `MAX_PER_PAGE = 100`). **Filters:** `status` (the nine of §6.1,
+      repeatable), `bucket` (Q1), `employee` (Q2, a user id), `customer_id`, `deal_id`,
+      `currency` (a code, as 3.4's request names it), `amount_min` / `amount_max` (Q3),
+      `from` / `to` (Q4). **Sorts:** `quotation_date`, `created_at`, `updated_at`, `code`,
+      `final_total` — the last accepted **only with `filter[currency]`**, Q3's reason. Default
+      `-updated_at`. **`group_by`:** `employee | customer` (the stub's own line), nothing else.
+      No `q` (Q5), no `include`. Everything outside these lists is
+      `InvalidQuotationListQuery` → `400 invalid_request` (`OpenAPI §6.1`, §6.2 "never ignore
+      them silently"), rendered by the row `ApiExceptionRenderer` already has for
+      `InvalidDealListQuery`. *Verified by* a unit test transcribing every allowlist, one 400 per
+      rejected shape (unknown filter, unknown sort, unknown group, `per_page=101`, `page=0`,
+      `amount_min` without `currency`, `sort=final_total` without `currency`, `from` after `to`),
+      and the default sort.
+
+- [ ] **5.3** `QuotationDirectoryInterface::list(QuotationListCriteria, QuotationRowScope):
+      QuotationPage` and its Eloquent implementation. The scope is applied **in the query**:
+      `unrestricted` adds nothing; an `ownerIds` scope becomes `WHERE deal_id IN (…)` from 5.1's
+      `dealIdsOwnedBy()` for each owner; `permitsNothing()` answers an empty page without a
+      query (the read's rule, `OpenAPI §5.1`). `filter[employee]` intersects the same way. Rows
+      are `QuotationSummary` (Q6) — `QuotationSummary` grows the fields Q6 names, `store()`'s
+      `{id, code}` answer unchanged (4.3's lesson). `total` counted after scoping, before
+      serialisation (`OpenAPI §6.1`). *Verified by* the feature test on the adapter: each filter
+      alone, two together, the bucket split (a quotation is in exactly one), the `IN` scope
+      (own sees own deals' quotations only; another owner's absent; a soft-deleted quotation
+      absent), pagination arithmetic (`total`, `total_pages`, last page), and `-updated_at` by
+      default.
+
+- [ ] **5.4** `ListQuotations::handle()` · `GET /api/v1/quotations` →
+      `permission:quotation.view` with the row scope resolved from the held scopes, as
+      `ListDeals::handle()` does. `OpenAPI §4.2`'s collection envelope with `meta.pagination`;
+      `QuotationPayload::summary()` serialises Q6's row and **nothing from
+      `QuotationLine::COST_FIELDS`** — the list never asks `revealsCosts()`, because it carries
+      nothing that needs it. *Verified by* the endpoint test on `QuotationReadEndpointTest`'s
+      fixtures (no new fixture copy — the debt row counts): 401; Manager sees every quotation;
+      Own-scoped roles see their own deals' only; Team Leader an empty page (fail-closed);
+      Procurement/CEO — §3.5's `view` cell — per the matrix; a withdrawn grant 403; every 400 of
+      5.2 reaching the wire as `invalid_request` with the offending parameter in
+      `error.details[0].field`; `per_page` default 25 and cap 100; `meta.request_id` present.
+
+- [ ] **5.5** `group_by=employee|customer` — the same page, grouped server-side (`OpenAPI §6.2`
+      "server-side grouping only"): `data` becomes `[{key, label, count, items: [...]}]` in the
+      page's sort order within each group, groups ordered by `label`; pagination still counts
+      quotations, not groups, so a page may open or close a group mid-way — **stated, not
+      hidden**: §6.6's screen groups what it shows, and a group that spans pages is the price
+      of `OpenAPI §6.1`'s bound on every list. `employee` groups by 5.1's `ownersOf()` (a deal
+      with no owner groups under `null` / "Unassigned", the label from the lang file); `customer`
+      groups by `customer_id` (Q7). *Verified by*
+      the endpoint test: two employees' quotations land in two groups with the right counts; a
+      customer group; an unassigned deal's quotation under the `null` key; `group_by=deal` →
+      400; the ungrouped shape untouched when `group_by` is absent.
+
+**What Step 5 leaves for its neighbours:** the toggle, the two-panel split and the remembered
+choice (the frontend step — `localStorage` per §6.6's "remembers", or a user setting if the owner
+wants it to follow the user across devices: **a question for that step, not this one**); `D-11`'s
+red badge and "days waiting" (Module 8's approvals screen, §6.4); `q` (Module 15); export.
+
 ---
 
 ## Module 8 — Approvals

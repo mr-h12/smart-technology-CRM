@@ -24,6 +24,7 @@ return [
     // تحذير §5.6 — يُحمل في `meta.warnings` عند إنشاء ناجح.
     'warnings' => [
         'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز ما سجّله المورّد.',
+        'supplier_price_changed' => 'تغيّر سعر المورّد — راجع التسعير.',
     ],
 
     // `422 validation_failed` تصدره حالة الاستخدام لا قاعدة تحقق.

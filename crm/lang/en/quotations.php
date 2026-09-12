@@ -24,6 +24,7 @@ return [
     // §5.6's warning — carried in `meta.warnings` on a successful create.
     'warnings' => [
         'quantity_exceeds_recorded' => 'The requested quantity exceeds what the supplier recorded.',
+        'supplier_price_changed' => 'Supplier price has changed — review pricing.',
     ],
 
     // `422 validation_failed` raised by the use case, not by a rule.

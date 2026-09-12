@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Application\Listing;
 
+use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\Quotations\Domain\Pricing\PricedLine;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 
 /**
  * `GET /quotations/{id}` — Module 7 Point 3.5. Reads one quotation inside
@@ -40,10 +44,15 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
  */
 final readonly class ShowQuotation
 {
+    /** §10.3's first row: the statuses whose captured prices are still compared with the supplier's. */
+    private const DRIFT_STATUSES = ['draft', 'pending'];
+
     public function __construct(
         private QuotationDirectoryInterface $quotations,
         private DealFactsInterface $deals,
         private AuthorizeAction $authorize,
+        private SupplierItemPricingInterface $supplierPrices,
+        private CurrencyRepositoryInterface $currencies,
     ) {}
 
     /**
@@ -82,5 +91,38 @@ final readonly class ShowQuotation
     public function revealsCosts(string $actorId): bool
     {
         return $this->authorize->decide($actorId, 'quotation', 'view_cost_and_margin')->granted;
+    }
+
+    /**
+     * `D-36` / §10.3 (Point 4.5): the lines whose supplier price moved since
+     * the quotation captured it — the same seam 3.3 prices through, read the
+     * same way (`priceFor()`, then the currency's code). The quotation keeps
+     * its price; this only says which lines to review. `sent` and beyond
+     * compare nothing: the document is a fixed snapshot. A line whose supplier
+     * price is gone (`null`) or whose currency the offer never recorded counts
+     * as moved — the captured price no longer matches anything current.
+     *
+     * @return list<int> 1-based line numbers, as `QuotationCreated::$quantityWarnings` reports them
+     */
+    public function movedLines(QuotationDetail $quotation): array
+    {
+        if (! in_array($quotation->status, self::DRIFT_STATUSES, true)) {
+            return [];
+        }
+
+        $moved = [];
+
+        foreach ($quotation->items as $line) {
+            $price = $this->supplierPrices->priceFor($line->supplierQuotationItemId);
+            $currency = $price?->currencyId === null ? null : $this->currencies->findById($price->currencyId);
+
+            if ($price === null || $currency === null
+                || $currency->code()->value !== $line->unitCostCurrency
+                || bccomp(Decimal::of($price->unitPrice, 'unit_price'), Decimal::of($line->unitCost, 'unit_cost'), PricedLine::SCALE) !== 0) {
+                $moved[] = $line->lineNo;
+            }
+        }
+
+        return $moved;
     }
 }

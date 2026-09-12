@@ -17,6 +17,7 @@ use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
+use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
@@ -254,6 +255,13 @@ final class AuditEnforcementTest extends TestCase
             EloquentQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateQuotation (Point 3.3) owns '
                     .'the create transaction and records QUOTATION_CREATED. This is a persistence adapter with no '
                     .'actor and no event vocabulary.',
+
+            // Module 7 Point 3.6, seen for `UpdateSupplierQuotation`'s reason:
+            // `->update(` beside an imported `ConnectionInterface`. AUDITED
+            // because it records QUOTATION_UPDATED inside the transaction, with
+            // `AUD-02`'s old values read in the same transaction — asserted by
+            // `QuotationUpdateEndpointTest`.
+            UpdateQuotation::class => self::AUDITED,
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

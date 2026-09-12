@@ -68,4 +68,20 @@ interface QuotationDirectoryInterface
      * to the answer, so the boundary is crossed by the interface, not the SQL.
      */
     public function find(string $quotationId): ?QuotationDetail;
+
+    /**
+     * `DB-12`'s guarded write: the header is updated **only where**
+     * `version_token = $expectedToken`, and the same statement advances the
+     * token. Returns false when no row matched — the token moved between the
+     * caller's read and this write (a concurrent edit), and the caller answers
+     * `409` (`API-12`). Nothing else distinguishes "stale" from "absent"
+     * here; the caller has already read the row inside the same transaction.
+     *
+     * Replaces both child tables from the draft's `withLines()`: the old rows
+     * are soft-deleted (`DB-01`), never removed, and the new ones written as
+     * `create()` writes them. The parent's token covers the children, which is
+     * the obligation Point 1.1's note left to this write — a child-only change
+     * still moves the token, because the caller always goes through here.
+     */
+    public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool;
 }

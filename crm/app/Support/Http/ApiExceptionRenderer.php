@@ -23,6 +23,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
+use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -507,6 +508,25 @@ final class ApiExceptionRenderer
             'resource_not_found',
             (string) __($exception->messageKey()),
         );
+    }
+
+    /**
+     * `OpenAPI §5.1`'s 400 / 409 / 422 for `PATCH /quotations/{id}` — the
+     * status and code come from the exception's own table. The 409 entry
+     * carries `current_etag`, §5.1's "current version metadata needed to
+     * refresh" and §9.2's "safe refresh reference", beside the standard
+     * `{field, code, message}` triple.
+     */
+    public static function quotationWriteRefused(QuotationWriteRefused $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('quotations.errors.'.$exception->reason);
+        $detail = ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message];
+
+        if ($exception->currentEtag !== null) {
+            $detail['current_etag'] = $exception->currentEtag;
+        }
+
+        return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [$detail]);
     }
 
     /**

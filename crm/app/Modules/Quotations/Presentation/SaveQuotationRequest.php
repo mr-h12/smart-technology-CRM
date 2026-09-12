@@ -42,7 +42,7 @@ use Illuminate\Validation\Rule;
  * triple. The regex has no sign, so a negative margin is refused here; if a
  * loss-leading quotation is ever wanted, the regex is the one place to relax.
  */
-final class CreateQuotationRequest extends FormRequest
+final class SaveQuotationRequest extends FormRequest
 {
     /** The route's `permission:quotation.create` decides; the use case scopes. */
     public function authorize(): bool
@@ -54,8 +54,12 @@ final class CreateQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'deal_id' => ['required', 'uuid'],
-            'customer_id' => ['required', 'uuid'],
+            // §6.2's "Core" group is the quotation's identity: named once, on
+            // the `POST`, and refused on a `PATCH` rather than ignored — a
+            // caller sending a different deal has a wrong idea of what an edit
+            // can do, and a 200 would confirm it (Point 3.6).
+            'deal_id' => $this->isMethod('POST') ? ['required', 'uuid'] : ['prohibited'],
+            'customer_id' => $this->isMethod('POST') ? ['required', 'uuid'] : ['prohibited'],
             'currency' => ['required', Rule::enum(CurrencyCode::class)],
             'default_margin' => self::decimal('required'),
             'discount_percent' => self::decimal('required', 'gte:0', 'lt:100'),
@@ -67,12 +71,17 @@ final class CreateQuotationRequest extends FormRequest
             'delivery_terms' => ['nullable', 'string'],
             'show_delivery_terms' => ['nullable', 'boolean'],
 
-            'lines' => ['sometimes', 'array'],
+            // An edit replaces every editable field (Point 3.6): a body that
+            // omits the lines has not said "keep them" — it has said nothing,
+            // and §5 re-prices from what was said. `present` makes the
+            // omission a 422 on a `PATCH`; on a `POST` an absent list is an
+            // empty one.
+            'lines' => $this->isMethod('POST') ? ['sometimes', 'array'] : ['present', 'array'],
             'lines.*.supplier_quotation_item_id' => ['required', 'uuid'],
             'lines.*.quantity' => self::decimal('required', 'gt:0'),
             'lines.*.margin_percent' => self::decimal('nullable'),
 
-            'additional_items' => ['sometimes', 'array'],
+            'additional_items' => $this->isMethod('POST') ? ['sometimes', 'array'] : ['present', 'array'],
             'additional_items.*.description' => ['required', 'string', 'max:255', 'regex:/\S/'],
             'additional_items.*.amount' => self::decimal('required', 'gte:0'),
 

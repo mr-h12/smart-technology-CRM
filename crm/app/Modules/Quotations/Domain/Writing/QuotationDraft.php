@@ -106,6 +106,20 @@ final readonly class QuotationDraft
     }
 
     /**
+     * Point 3.6's edit: everything `forCreate()` keeps except `deal_id` and
+     * `customer_id`, which are the quotation's identity — §6.2's "Core" group
+     * — not fields of an edit. The Form Request already prohibits both on a
+     * `PATCH`; this is the second line of the same rule, so the draft cannot
+     * carry them even if the boundary is bypassed.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    public static function forUpdate(array $validated): self
+    {
+        return self::forCreate(array_diff_key($validated, ['deal_id' => true, 'customer_id' => true]));
+    }
+
+    /**
      * A copy of this draft carrying the child rows the directory writes.
      *
      * ── The children are never a caller's, unlike Module 6's ───────────────

@@ -12,6 +12,10 @@ return [
     'errors' => [
         'supplier_price_missing' => 'This supplier line has no usable price, so the quotation cannot be saved.',
         'fx_rate_missing' => 'No exchange rate is recorded to convert this supplier line. Record the rate first.',
+        // `PATCH /quotations/{id}` — `QuotationWriteRefused` (Point 3.6).
+        'if_match_required' => 'Send the quotation\'s current etag in If-Match.',
+        'stale_version' => 'This quotation was changed by someone else. Reload it and apply your edit again.',
+        'quotation_not_draft' => 'Only a draft quotation can be edited here.',
     ],
 
     // §5.6's warning — carried in `meta.warnings` on a successful create.

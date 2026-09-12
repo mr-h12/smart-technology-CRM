@@ -26,6 +26,7 @@ use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Modules\Identity\Presentation\VerifyPermissionMatrixCommand;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
+use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -253,6 +254,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (QuotationNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::quotationNotFound($e, $request)
+                : null,
+        );
+        $exceptions->render(
+            fn (QuotationWriteRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::quotationWriteRefused($e, $request)
                 : null,
         );
 

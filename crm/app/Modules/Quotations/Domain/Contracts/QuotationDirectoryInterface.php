@@ -84,4 +84,18 @@ interface QuotationDirectoryInterface
      * still moves the token, because the caller always goes through here.
      */
     public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool;
+
+    /**
+     * §6.4's first arrow, `Draft ──submit──► Pending`, under the same guard as
+     * `update()`: `status` moves to `pending` and `submitted_at` is stamped
+     * **only where** `version_token = $expectedToken`, and the statement
+     * advances the token. False when no row matched — stale, `409`. The
+     * caller has already checked the transition against
+     * `QuotationStatusTransition`; this writes, it does not decide.
+     *
+     * ponytail: one status, one stamp. Module 8's approve and return are the
+     * second and third callers; generalise to `moveStatus(id, to, token,
+     * actor, attributes)` when they arrive, not before.
+     */
+    public function submit(string $quotationId, int $expectedToken, string $actorId): bool;
 }

@@ -44,6 +44,8 @@ use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Deals\Infrastructure\EloquentDealFacts;
+use App\Modules\Idempotency\Domain\IdempotencyStoreInterface;
+use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Authentication\PasswordChallengeIssued;
@@ -197,6 +199,11 @@ class AppServiceProvider extends ServiceProvider
         // column read by primary key. Module 7 reads `customers.is_tax_exempt`
         // through this to derive a quotation's tax line (`D-63`).
         $this->app->bind(CustomerTaxStatusInterface::class, EloquentCustomerTaxStatus::class);
+
+        // Module 7 Point 3.7. `bind` for the same reason: stateless, three
+        // statements on one table. `OpenAPI §9.1`'s store, consumed by the
+        // `idempotency` route middleware and by no module directly.
+        $this->app->bind(IdempotencyStoreInterface::class, DatabaseIdempotencyStore::class);
 
         // Module 4 Point 2.1. `bind` for the same reasons again, and with one
         // collaborator rather than two: §3.7 gives suppliers no row scope, so

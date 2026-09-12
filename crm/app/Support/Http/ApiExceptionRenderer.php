@@ -13,6 +13,7 @@ use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
+use App\Modules\Idempotency\Domain\IdempotencyRefused;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -527,6 +528,20 @@ final class ApiExceptionRenderer
         }
 
         return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [$detail]);
+    }
+
+    /**
+     * `OpenAPI §5.1`'s 400 / 409 for `Idempotency-Key` (Module 7 Point 3.7) —
+     * the status and code come from the exception's own table, on
+     * `quotationWriteRefused`'s terms, the header named as the detail's field.
+     */
+    public static function idempotencyRefused(IdempotencyRefused $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('idempotency.errors.'.$exception->reason);
+
+        return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [
+            ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message],
+        ]);
     }
 
     /**

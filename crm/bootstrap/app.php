@@ -14,6 +14,8 @@ use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
+use App\Modules\Idempotency\Domain\IdempotencyRefused;
+use App\Modules\Idempotency\Presentation\RequireIdempotencyKey;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -97,7 +99,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // alias so a protected route reads `permission:customer.view` and the
         // ability it needs is visible in routes/api.php rather than buried in a
         // controller.
-        $middleware->alias([AuthorizePermission::ALIAS => AuthorizePermission::class]);
+        // OpenAPI §9.1 — `Idempotency-Key` on a critical create, as a route
+        // alias for the same reason: the route says `idempotency` and the
+        // requirement is visible beside the permission it follows.
+        $middleware->alias([
+            AuthorizePermission::ALIAS => AuthorizePermission::class,
+            RequireIdempotencyKey::ALIAS => RequireIdempotencyKey::class,
+        ]);
 
         $middleware->redirectGuestsTo(
             fn (Request $request): ?string => $request->is('api/*') ? null : '/',
@@ -259,6 +267,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (QuotationWriteRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::quotationWriteRefused($e, $request)
+                : null,
+        );
+        $exceptions->render(
+            fn (IdempotencyRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::idempotencyRefused($e, $request)
                 : null,
         );
 

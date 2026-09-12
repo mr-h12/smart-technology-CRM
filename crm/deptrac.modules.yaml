@@ -193,6 +193,16 @@ parameters:
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
 
+    # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
+    # Point 3.7. One directory layer, **not** a Contract/Driver split: no
+    # module names it. Routes reach it by the `idempotency` alias and
+    # `bootstrap/app.php` renders its refusal, both outside `paths`. The day a
+    # module imports it, split it on Audit's terms and grant the contract half.
+    - name: Idempotency
+      collectors:
+        - type: directory
+          value: app/Modules/Idempotency/.*
+
     - name: StorageContract
       collectors:
         - type: directory
@@ -648,6 +658,10 @@ parameters:
       # The shared response envelope its own controllers used to own.
       - SharedContracts
     AuditContract:
+      - Framework
+    # Framework alone: a middleware, a query builder and a JSON response, and
+    # nothing another module owns.
+    Idempotency:
       - Framework
     AuditDriver:
       - AuditContract

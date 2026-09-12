@@ -727,8 +727,10 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
 // from writing to the database). `GET /{id}` (3.5) and `PATCH /{id}` (3.6)
 // follow in this group.
 Route::middleware('auth')->prefix('quotations')->group(function (): void {
+    // `OpenAPI §9.1` — `idempotency` runs after `permission:` so a replay is
+    // still refused when the grant has gone (Point 3.7).
     Route::post('/', [QuotationController::class, 'store'])
-        ->middleware('permission:quotation.create');
+        ->middleware(['permission:quotation.create', 'idempotency']);
     Route::get('/{quotation}', [QuotationController::class, 'show'])
         ->middleware('permission:quotation.view');
     Route::patch('/{quotation}', [QuotationController::class, 'update'])

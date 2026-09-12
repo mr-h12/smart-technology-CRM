@@ -222,7 +222,7 @@ final class QuotationReadEndpointTest extends TestCase
             'discount_percent' => '0',
             'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
-        ], $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);
 

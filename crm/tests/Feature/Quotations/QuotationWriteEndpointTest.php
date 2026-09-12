@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Idempotency\Domain\IdempotencyRefused;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -327,6 +330,119 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['customer_id' => $this->customer()], 'customer_id');
     }
 
+    // ──────────────────────────────── `OpenAPI §9.1` — Idempotency-Key (Point 3.7)
+
+    /** §9.1 requires the header on a critical create; §5.1's 400 is "invalid header". */
+    public function test_that_a_create_without_an_idempotency_key_is_refused(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+        unset($headers['Idempotency-Key']);
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonFragment(['field' => 'Idempotency-Key', 'code' => IdempotencyRefused::KEY_REQUIRED]);
+
+        self::assertSame(0, DB::table('quotations')->count());
+    }
+
+    /** §9.1: same actor + route + key + payload → the original response, and no second quotation. */
+    public function test_that_replaying_a_key_returns_the_original_response_without_a_second_quotation(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+
+        $first = $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
+        $replay = $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
+
+        self::assertSame($first->json(), $replay->json());
+        self::assertSame(1, DB::table('quotations')->count());
+        self::assertSame(1, DB::table('idempotency_keys')->count());
+    }
+
+    /** §9.1: same key, changed payload → `409 idempotency_conflict`, and the first quotation stands alone. */
+    public function test_that_reusing_a_key_with_a_different_payload_is_a_conflict(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
+        $this->postJson(self::ENDPOINT, $this->payload(['default_margin' => '25']), $headers)
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', IdempotencyRefused::CONFLICT);
+
+        self::assertSame(1, DB::table('quotations')->count());
+    }
+
+    /** §9.1: "every replay is checked against … current permission" — the grant goes, the replay goes with it. */
+    public function test_that_a_replay_is_refused_once_the_grant_is_withdrawn(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'create')->delete();
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(403);
+    }
+
+    /** §9.1 keys on the actor: two people may pick the same key and each gets their own quotation. */
+    public function test_that_another_actor_may_use_the_same_key(): void
+    {
+        $key = Uuid::uuid4()->toString();
+        $manager = ['Idempotency-Key' => $key] + $this->bearerFor(RoleName::Manager);
+        $ownerId = $this->userWith(RoleName::IndoorSales)->getKey();
+        self::assertIsString($ownerId);
+        $sales = ['Idempotency-Key' => $key] + $this->bearerFor(RoleName::IndoorSales);
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $manager)->assertStatus(201);
+        $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $this->deal($this->customerId, $ownerId)]), $sales)
+            ->assertStatus(201);
+
+        self::assertSame(2, DB::table('quotations')->count());
+    }
+
+    /** §9.1 stores a "final status"; a 5xx is not one, so the key is given back and the same retry succeeds. */
+    public function test_that_a_failed_create_releases_the_key_for_a_retry(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+
+        $this->app->bind(CreateQuotation::class, function (): never {
+            throw new RuntimeException('simulated failure inside the use case');
+        });
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(500);
+        $this->app->offsetUnset(CreateQuotation::class);
+
+        self::assertSame(0, DB::table('idempotency_keys')->count());
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
+        self::assertSame(1, DB::table('quotations')->count());
+    }
+
+    /**
+     * A key whose first request has not finished — the row is claimed and
+     * carries no response yet — is a reuse, not a replay: 409, and no second
+     * create runs beside the first.
+     */
+    public function test_that_a_key_still_in_flight_is_a_conflict(): void
+    {
+        $headers = $this->bearerFor(RoleName::Manager);
+        $userId = $this->userWith(RoleName::Manager)->getKey();
+        self::assertIsString($userId);
+
+        DB::table('idempotency_keys')->insert([
+            'id' => Uuid::uuid4()->toString(),
+            'user_id' => $userId,
+            'route' => 'POST api/v1/quotations',
+            'key' => $headers['Idempotency-Key'],
+            'request_hash' => hash('sha256', (string) json_encode($this->payload())),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson(self::ENDPOINT, $this->payload(), $headers)
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', IdempotencyRefused::CONFLICT);
+
+        self::assertSame(0, DB::table('quotations')->count());
+    }
+
     // ────────────────────────────────────────────────────────────── fixtures
 
     /**
@@ -473,6 +589,7 @@ final class QuotationWriteEndpointTest extends TestCase
 
         self::assertIsString($token);
 
-        return ['Authorization' => 'Bearer '.$token];
+        // §9.1: every create here carries a fresh key unless a test pins one.
+        return ['Authorization' => 'Bearer '.$token, 'Idempotency-Key' => Uuid::uuid4()->toString()];
     }
 }

@@ -15,6 +15,7 @@ use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
+use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
@@ -262,6 +263,12 @@ final class AuditEnforcementTest extends TestCase
             // `AUD-02`'s old values read in the same transaction — asserted by
             // `QuotationUpdateEndpointTest`.
             UpdateQuotation::class => self::AUDITED,
+
+            // Module 7 Point 3.7. Seen for `->insertOrIgnore(` / `->update(` /
+            // `->delete(` beside an imported `ConnectionInterface`.
+            DatabaseIdempotencyStore::class => 'Not a business mutation: OpenAPI §9.1\'s replay store, written by the '
+                    .'idempotency middleware around a request whose own use case records the AUD-01 event. '
+                    .'A row here is a receipt for a response, not a change to any entity §3.12 lists.',
 
             // Module 5 Point 2.4, seen for the same two signals as its
             // siblings: `->update(` beside an imported `ConnectionInterface`.

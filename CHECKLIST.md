@@ -1417,6 +1417,112 @@ creation" governing the first pricing only.
 
 - [x] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`) — the owner ruled 2026-09-12 that the store is its own module, `app/Modules/Idempotency`: one table `idempotency_keys` UNIQUE `(user_id, route, key)`, claimed by `INSERT … ON CONFLICT DO NOTHING` before the use case runs and completed with the final status and body after; the `idempotency` route middleware runs **after** `permission:` so a replay re-checks the grant (§9.1); missing header → `400 invalid_request`, changed payload or key still in flight → `409 idempotency_conflict`; a 5xx releases the key. *(2026-09-12, #102 — quotations only; the retention period §9.1 calls "defined" is undefined, see the debt register)*
 
+#### Step 4 — actions on one quotation *(point list proposed 2026-09-12, awaiting approval)*
+
+What §6 asks of a single quotation between the builder (Step 3) and the list (Step 5), and what
+Modules 8, 9 and 10 will call rather than rebuild: the status graph, the two `OpenAPI §7.2`
+actions the build plan puts under Module 7, `D-46`'s delete, and `D-36`'s price-drift warning.
+Approve, return, send and the customer's response are **not** here — the Documentation Map files
+them under Modules 8 and 10, and the delivery order holds. Nothing in this step touches
+`resources/js`; `user_term_suggestions` (SmartTermInput) is the builder screen's table and waits
+for the frontend step.
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved":**
+
+- **Q1 · the returned quotation.** §6.4 draws `return with note ──► Draft (v2)`. Read as the same
+  row going back to `draft` (the graph edge `pending → draft`, Point 4.1) with the copy being
+  Module 8's call — *or* as a new version through Point 4.3, the source leaving `pending` by some
+  edge the graph does not draw. **Default: the edge `pending → draft` exists; what Module 8 does
+  with it is Module 8's list.**
+- **Q2 · `submitted_at`.** `D-11`'s "days waiting" needs the moment a quotation entered `pending`.
+  §6.2's Tracking group does not list it; the audit row carries it, but a list screen cannot read
+  a partitioned audit table per row. **Default: add `quotations.submitted_at` in Point 4.2, set on
+  submit, cleared on the way back to `draft`.**
+- **Q3 · a new version's number.** `quotations.code` is UNIQUE (Point 1.1) and §4.7 numbers
+  documents, so a copy cannot carry its parent's `QT-` code as the schema stands. **Default: a
+  new version takes the next `QT-` number; the link is `parent_id` + `version`, as §6.3 says.**
+- **Q4 · which statuses may open a new version.** §6.3 names Partial, Counter and Returned.
+  **Default: `partial`, `counter`, `expired`** — the three where the document is finished with the
+  customer and the deal continues (`J-01` produces `expired`); `rejected` archives and the deal is
+  Lost (Module 10), `draft`/`pending` are still live, `sent`/`accepted`/`approved` are the
+  customer's to answer.
+- **Q5 · the delete route.** `D-46` and §3.5 grant "delete (Draft only)", and `OpenAPI §7.1`
+  lists no `DELETE` for any resource — customers archive through `PATCH /archive`. **Default:
+  `DELETE /api/v1/quotations/{id}` answering `204`**, recorded as a contract addition for
+  `OpenAPI §7.1` rather than an `archive` action, because the document says delete and Module 10
+  already owns "archive" for a rejected quotation.
+- **Q6 · `Idempotency-Key` on submit.** §9.1 requires it for "actions that change
+  irreversible-equivalent business state"; a submit is undone by a return, and `If-Match` (§9.2)
+  already makes a repeated submit a `409`. **Default: `If-Match` only on submit and delete;
+  `Idempotency-Key` on `new-version`, which §9.1 names ("versions").**
+
+- [ ] **4.1** `QuotationStatusTransition` — §6.1's nine statuses and §6.4's arrows as one edge
+      table in `Domain/Status/`, on `DealStatusTransition`'s exact shape (`isAllowed`,
+      `allowedFrom`): `draft → pending` · `pending → approved | draft` · `approved → sent` ·
+      `sent → accepted | partial | counter | rejected | expired`; `accepted`, `partial`, `counter`,
+      `rejected`, `expired` terminal — Partial and Counter continue through a **copy** (§6.3), not
+      an edge. `QuotationWriteRefused` gains `invalidTransition(from, to)` → `409
+      state_transition_invalid` (`OpenAPI §5.1`), the row `dealStatusTransitionRefused` already
+      renders — one exception class per module's write refusals, no new renderer. Domain only:
+      no route, no database. *Verified by* a unit test transcribing every row of the table, one
+      asserting each terminal status has no edge, and one that `sent → draft` is refused.
+
+- [ ] **4.2** `PATCH /api/v1/quotations/{id}/submit-for-approval` — `permission:quotation.submit_for_approval`
+      (§3.5: All / Team / Own / Own) with `QuotationRowScope` applied to the deal's owner as 3.4
+      and 3.5 do; `If-Match` on 3.6's terms (`400` missing, `409 concurrency_conflict` stale);
+      `draft` only through 4.1, anything else `409 state_transition_invalid`; the
+      `UPDATE … WHERE version_token = ?` moves `status`, bumps the token and (Q2) sets
+      `submitted_at`; audit `QUOTATION_SUBMITTED` with old/new status (`AUD-01`); `200` with
+      3.5's `detail()` body and the new etag. No `Idempotency-Key` (Q6). *Verified by* the
+      role matrix row by row including Team Leader fail-closed and Procurement/CEO `403`; a second
+      submit with the old etag → `409 concurrency_conflict`; a submit of a `pending` quotation
+      with a fresh etag → `409 state_transition_invalid`; the audit row; and the verifier broken
+      by removing the 4.1 check.
+
+- [ ] **4.3** `POST /api/v1/quotations/{id}/new-version` — §6.3 / `D-08`'s "full copy": one
+      transaction (`DB-11`) inserting a new `quotations` row with `parent_id = {id}`,
+      `version = parent.version + 1`, `status = draft`, its own `QT-` code (Q3), every header
+      field, every `quotation_items` and `quotation_additional_items` row **verbatim** — captured
+      `unit_cost`, FX rate and rounding included, because the copy is the document the customer
+      answered; the first `PATCH` on the copy re-prices at the edit (3.6), which is §10.3's
+      "refresh". Accepted from Q4's statuses only, else `409 state_transition_invalid`; the source
+      row is not touched. `permission:quotation.edit` with the row scope (whoever may edit the
+      next draft); `Idempotency-Key` required (§9.1 "versions"), through 3.7's alias; audit
+      `QUOTATION_VERSION_CREATED` carrying the parent id; `201 {id, code, version}`. The UNIQUE
+      `(parent_id, version)` (Point 1.1) refuses a second copy of the same parent at the
+      database. *Verified by* a copy whose `detail()` equals the parent's except id, code,
+      version, status, etag and timestamps; a second `new-version` on the same parent →
+      `409`; a `draft` parent → `409 state_transition_invalid`; the replayed `Idempotency-Key` →
+      one copy.
+
+- [ ] **4.4** `DELETE /api/v1/quotations/{id}` (Q5) — `D-46`: `permission:quotation.delete`
+      with the row scope, `If-Match` required, `draft` only else `422 business_rule_blocked`
+      `quotation_not_draft` (3.6's reason, reused — a delete outside Draft is the same rule 3.6
+      enforces, not a transition); soft-deletes the row and both child tables in one transaction
+      (`DB-01`, no `forceDelete`); audit `QUOTATION_DELETED`; `204`. A deleted quotation answers
+      `404 resource_not_found` on 3.5's read afterwards. *Verified by* the role matrix, a
+      `pending` quotation refused with the row intact, the three tables' `deleted_at` set, the
+      audit row, and the read returning `404`.
+
+- [ ] **4.5** `D-36` / §10.3's price-drift warning on the read — for a `draft` or `pending`
+      quotation, `ShowQuotation` compares each line's captured `unit_cost` and currency with the
+      supplier line's current price through the existing `SupplierItemPricingInterface` (3.3's
+      seam, no new crossing) and lists each difference in `meta.warnings` as
+      `{field: "lines.N", code: "supplier_price_changed", message}` — the same shape 3.4's
+      `quantity_exceeds_recorded` uses; `sent` and beyond compare nothing (§10.3 "completely
+      unaffected — fixed snapshot"). No "refresh prices" route: the button calls 3.6's `PATCH`,
+      which re-prices at the edit and is Draft-only as §10.3 requires. *Verified by* a line whose
+      supplier price moved after creation warning on `draft` and `pending`, the same line silent
+      on `sent`, an unmoved line silent, and the key absent when nothing moved.
+
+**What Step 4 leaves for its neighbours, named so nobody assumes it is here:** approve / edit &
+approve / return with note and `D-50`'s `SELF_APPROVAL` (Module 8); send and the PDF (Module 9);
+accepted / partial / counter / rejected and `J-01`'s expiry (Module 10); the list, its
+`group_by` and §6.6's views (Step 5, which still needs the set-based owner seam
+`ShowQuotation`'s `ponytail:` note records); the builder screen and `user_term_suggestions`
+(the frontend step).
+
 ---
 
 ## Module 8 — Approvals

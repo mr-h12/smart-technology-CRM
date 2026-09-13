@@ -1721,7 +1721,7 @@ owner says only "approved":**
       absent), pagination arithmetic (`total`, `total_pages`, last page), and `-updated_at` by
       default. *(2026-09-13, #115 — `own` = two ANDed `IN`s on `deal_id`, `filter[employee]` can only narrow; unknown currency code = empty page; `create()` now `refresh()`es)*
 
-- [ ] **5.4** `ListQuotations::handle()` · `GET /api/v1/quotations` →
+- [x] **5.4** `ListQuotations::handle()` · `GET /api/v1/quotations` →
       `permission:quotation.view` with the row scope resolved from the held scopes, as
       `ListDeals::handle()` does. `OpenAPI §4.2`'s collection envelope with `meta.pagination`;
       `QuotationPayload::summary()` serialises Q6's row and **nothing from
@@ -1731,7 +1731,7 @@ owner says only "approved":**
       Own-scoped roles see their own deals' only; Team Leader an empty page (fail-closed);
       Procurement/CEO — §3.5's `view` cell — per the matrix; a withdrawn grant 403; every 400 of
       5.2 reaching the wire as `invalid_request` with the offending parameter in
-      `error.details[0].field`; `per_page` default 25 and cap 100; `meta.request_id` present.
+      `error.details[0].field`; `per_page` default 25 and cap 100; `meta.request_id` present. *(2026-09-13, #119 — 5.2's 25 refusals reused via `DataProviderExternal`; `Payload::pagination()` now the 10th copy, the 2026-09-12 row's count of 8 is stale)*
 
 - [ ] **5.5** `group_by=employee|customer` — the same page, grouped server-side (`OpenAPI §6.2`
       "server-side grouping only"): `data` becomes `[{key, label, count, items: [...]}]` in the

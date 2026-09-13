@@ -729,6 +729,9 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // still refused when the grant has gone (Point 3.7).
     Route::post('/', [QuotationController::class, 'store'])
         ->middleware(['permission:quotation.create', 'idempotency']);
+    // Point 5.4 — the list; the row scope is resolved in `ListQuotations`.
+    Route::get('/', [QuotationController::class, 'index'])
+        ->middleware('permission:quotation.view');
     Route::get('/{quotation}', [QuotationController::class, 'show'])
         ->middleware('permission:quotation.view');
     Route::patch('/{quotation}', [QuotationController::class, 'update'])

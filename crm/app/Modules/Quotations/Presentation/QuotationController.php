@@ -6,12 +6,14 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Modules\Quotations\Application\Listing\ListQuotations;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
+use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,22 @@ use RuntimeException;
  */
 final class QuotationController
 {
+    /**
+     * Point 5.4. Parsed in Domain rather than by a Form Request: `OpenAPI §6.1`
+     * and `§6.2` want `400 invalid_request` for a bad page size or an unknown
+     * filter, and a Form Request failure is a 422 (`DealController::index()`).
+     */
+    public function index(Request $request, ListQuotations $quotations): JsonResponse
+    {
+        $page = $quotations->handle(
+            QuotationListCriteria::fromQuery($request->query()),
+            self::heldScopes($request),
+            self::actorId($request),
+        );
+
+        return ApiEnvelope::collection($request, QuotationPayload::many($page), QuotationPayload::pagination($page));
+    }
+
     /**
      * Point 3.5. The 404 and the scope are decided in `ShowQuotation`; whether
      * the costs are in the body is a second grant the use case resolves and

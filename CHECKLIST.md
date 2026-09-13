@@ -928,6 +928,16 @@ would hide them behind `OD-03` indefinitely.
       named. Cosmetic; one comment edit in a test file, owed to whichever point next touches that
       register.
 
+- [ ] **Two response shapes for `OpenAPI §6.2`'s `group_by`** — *revealed by Module 7 Point 5.5,
+      2026-09-13.* Module 4's `GET /catalog-items?group_by=` keeps `data` the flat paginated list and
+      expresses the group as ordering (`CatalogItemListCriteria`'s docblock argues a nested body
+      makes `per_page` count something the caller never asked about). Module 7's
+      `GET /quotations?group_by=` — the shape the owner approved on #110 — nests:
+      `data = [{key, label, count, items}]`, pagination still counting rows. Both are defensible
+      readings of a clause that names no shape; two of them in one API is the defect. **Owner
+      decision:** pick one and record it in `OpenAPI §6.2` (or as a `D-xx`), then bring the other
+      resource to it in a point of its own. Nothing to change until then.
+
 
 ---
 
@@ -1733,7 +1743,7 @@ owner says only "approved":**
       5.2 reaching the wire as `invalid_request` with the offending parameter in
       `error.details[0].field`; `per_page` default 25 and cap 100; `meta.request_id` present. *(2026-09-13, #119 — 5.2's 25 refusals reused via `DataProviderExternal`; `Payload::pagination()` now the 10th copy, the 2026-09-12 row's count of 8 is stale)*
 
-- [ ] **5.5** `group_by=employee|customer` — the same page, grouped server-side (`OpenAPI §6.2`
+- [x] **5.5** `group_by=employee|customer` — the same page, grouped server-side (`OpenAPI §6.2`
       "server-side grouping only"): `data` becomes `[{key, label, count, items: [...]}]` in the
       page's sort order within each group, groups ordered by `label`; pagination still counts
       quotations, not groups, so a page may open or close a group mid-way — **stated, not
@@ -1743,7 +1753,7 @@ owner says only "approved":**
       groups by `customer_id` (Q7). *Verified by*
       the endpoint test: two employees' quotations land in two groups with the right counts; a
       customer group; an unassigned deal's quotation under the `null` key; `group_by=deal` →
-      400; the ungrouped shape untouched when `group_by` is absent.
+      400; the ungrouped shape untouched when `group_by` is absent. *(2026-09-13, #120 — label = key, `null` → `quotations.groups.unassigned`; first production caller of `ownersOf()`; Catalog's flat `group_by` shape differs — debt row)*
 
 **What Step 5 leaves for its neighbours:** the toggle, the two-panel split and the remembered
 choice (the frontend step — `localStorage` per §6.6's "remembers", or a user setting if the owner

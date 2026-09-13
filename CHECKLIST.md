@@ -1641,7 +1641,7 @@ owner says only "approved":**
       `amount_min` without `currency`, `sort=final_total` without `currency`, `from` after `to`),
       and the default sort. *(2026-09-13, #114 — `q`/`include` answered `unknown_parameter`; `amount_min > amount_max` not refused, not in the list)*
 
-- [ ] **5.3** `QuotationDirectoryInterface::list(QuotationListCriteria, QuotationRowScope):
+- [x] **5.3** `QuotationDirectoryInterface::list(QuotationListCriteria, QuotationRowScope):
       QuotationPage` and its Eloquent implementation. The scope is applied **in the query**:
       `unrestricted` adds nothing; an `ownerIds` scope becomes `WHERE deal_id IN (…)` from 5.1's
       `dealIdsOwnedBy()` for each owner; `permitsNothing()` answers an empty page without a
@@ -1652,7 +1652,7 @@ owner says only "approved":**
       alone, two together, the bucket split (a quotation is in exactly one), the `IN` scope
       (own sees own deals' quotations only; another owner's absent; a soft-deleted quotation
       absent), pagination arithmetic (`total`, `total_pages`, last page), and `-updated_at` by
-      default.
+      default. *(2026-09-13, #115 — `own` = two ANDed `IN`s on `deal_id`, `filter[employee]` can only narrow; unknown currency code = empty page; `create()` now `refresh()`es)*
 
 - [ ] **5.4** `ListQuotations::handle()` · `GET /api/v1/quotations` →
       `permission:quotation.view` with the row scope resolved from the held scopes, as

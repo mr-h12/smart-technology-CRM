@@ -1569,7 +1569,7 @@ accepted / partial / counter / rejected and `J-01`'s expiry (Module 10); the lis
 `ShowQuotation`'s `ponytail:` note records); the builder screen and `user_term_suggestions`
 (the frontend step).
 
-#### Step 5 — the list *(point list published 2026-09-12 for approval; unapproved until the owner says so)*
+#### Step 5 — the list *(point list published 2026-09-12 on #110; approved by the owner the same day with defaults Q1–Q7)*
 
 `GET /api/v1/quotations` — the endpoint the stub above names, §6.6's views for the Team Leader
 and Manager, and the same list for a sales employee inside §3.5's `view` scope. `OpenAPI §6`'s
@@ -1610,7 +1610,7 @@ owner says only "approved":**
   `GET /api/v1/customers`** — the alternative, a `namesOf(list<string>)` on Customers' contract,
   is one more crossing for a label, and the screen already lists customers.
 
-- [ ] **5.1** The set-based owner seam — `DealFactsInterface::dealIdsOwnedBy(string $ownerId):
+- [x] **5.1** The set-based owner seam — `DealFactsInterface::dealIdsOwnedBy(string $ownerId):
       list<string>` and `ownersOf(list<string> $dealIds): array<string, ?string>`, with the
       Eloquent implementation in Deals. The first answers "own" for the list (`WHERE deal_id IN`)
       and `filter[employee]`; the second answers `group_by=employee` for one page. Both read
@@ -1623,7 +1623,7 @@ owner says only "approved":**
       empty list answering `[]` without a query. **Ceiling, stated:** `dealIdsOwnedBy()` returns
       an unbounded set — fine for one employee's deals, and the point to denormalise
       `owner_id` onto `quotations` is when a Manager's `filter[employee]` on a ten-thousand-deal
-      owner is measured slow, not before.
+      owner is measured slow, not before. *(2026-09-13, #113 — unknown or soft-deleted id is absent from `ownersOf()`, not `null`; `null` is an unowned deal)*
 
 - [ ] **5.2** `QuotationListCriteria` · `InvalidQuotationListQuery` · `QuotationPage` in
       `Domain/Listing/`, on `DealListCriteria`'s exact shape (`fromQuery()`, `offset()`,

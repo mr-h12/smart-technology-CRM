@@ -1843,7 +1843,7 @@ owner says only "approved":**
   nothing when it does not** — Point 3.4's `withCosts` already strips `QuotationLine::COST_FIELDS`
   for a caller without the grant; the SPA makes no permission decision of its own (`D-67`).
 
-- [ ] **6.1** The client — `services/quotations.ts`: `listQuotations(query)` building
+- [x] **6.1** The client — `services/quotations.ts`: `listQuotations(query)` building
       `page/per_page/filter[*]/sort/group_by` from Step 5's allowlist (empty filters omitted, the
       Deals rule), `readQuotation`, `createQuotation`, `updateQuotation`, `submitQuotation`,
       `createQuotationVersion`, `deleteQuotation`; TypeScript types for the 14-key summary, the
@@ -1851,7 +1851,7 @@ owner says only "approved":**
       `meta.warnings` `{field, code, message}`. `api.ts`'s `request()` gains one optional
       `headers` argument so `If-Match` (`API-12`) and `Idempotency-Key` (`OpenAPI §9.1`) can be
       sent; the detail's `etag` is read from the body, where Point 3.6 put it. *Verified by* vitest
-      on the query string per filter and on the two headers reaching `fetch`. No screen.
+      on the query string per filter and on the two headers reaching `fetch`. No screen. *(2026-09-13, #122 — first `If-Match`/`Idempotency-Key`/204 in the SPA; `Page<T>` now exported from `api.ts`, six older copies are a debt row)*
 - [ ] **6.2** The supplier line's `id` (Q4) — backend: `SupplierQuotationLine::$id`,
       `SupplierQuotationPayload::detail()` writes `items[].id`; frontend:
       `SupplierQuotationLine.id` in `services/supplier-quotations.ts`, its doc comment corrected.

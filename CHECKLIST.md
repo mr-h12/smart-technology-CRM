@@ -1760,6 +1760,158 @@ choice (the frontend step — `localStorage` per §6.6's "remembers", or a user 
 wants it to follow the user across devices: **a question for that step, not this one**); `D-11`'s
 red badge and "days waiting" (Module 8's approvals screen, §6.4); `q` (Module 15); export.
 
+#### Step 6 — the screens *(point list published 2026-09-13 for approval; nothing below is built)*
+
+Module 7's frontend: the list §6.6 describes, the quotation itself, and the builder the build plan
+names (`MVP §Module 7` "Frontend"). Everything Steps 1–5 shipped is consumed, nothing is
+recomputed — the SPA "displays backend results and may preview; it never owns a calculation, a
+permission decision, or a state transition" (`D-67`, `Coding Standards §11`). Every point that
+draws a screen is verified in Claude Browser at desktop and mobile widths, Arabic (RTL) and English,
+and the report lists the steps taken (`CLAUDE.md` "UI Verification"). House pattern is the Deals
+screens: `services/<feature>.ts` + `pages/<feature>/`, `components/states/*` for the four states,
+`useAuth().hasPermission()` for hiding what the API will refuse anyway (§3.12 "hiding a button is
+not the same as blocking an action").
+
+**What the read of the code found, so the list is honest about backend work it needs:**
+- `api.ts`'s `request()` takes no headers and returns none; the SPA has never sent `If-Match` or
+  `Idempotency-Key`, and never read `meta.warnings`. The builder needs all three (Points 3.6, 3.7,
+  3.4, 4.5).
+- `GET /supplier-quotations/{id}` returns lines **without `id`** — Module 6 Point 2.3 left it out
+  because "nothing addresses a single line yet". A quotation line is `supplier_quotation_item_id`
+  (Point 3.3), so the builder cannot pick a line the backend can price. One backend field.
+- `user_term_suggestions` has no migration, no endpoint, no OpenAPI row — only its name in the
+  build plan's table list and "SmartTermInput" in its frontend line.
+- No endpoint answers "employee name for id" to a Team Leader: `GET /api/v1/users` is behind
+  `admin.create_user`. Step 5's Q7 put the customer label on the frontend's `GET /customers`
+  lookup; the employee label has nowhere to look.
+- No preview endpoint exists. "Live calculation · confirmation preview before saving" (build plan)
+  meets `D-67`'s "never owns a calculation".
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved":**
+
+- **Q1 · "the system remembers the user's last choice" (§6.6).** **Default: `localStorage`, key
+  `crm.quotations.view`, the `theme.ts` shape (try/catch, silent when storage is unavailable),
+  remembering the toggle (`employee | customer | flat`) and nothing else.** Per-browser, not
+  per-account: no settings endpoint exists, and `Design System §3.1`'s only stated per-account
+  preference is the theme. A user setting is one endpoint plus one column if the owner wants the
+  choice to follow the user across devices — say so and Q1 becomes a backend point.
+- **Q2 · the employee group's label.** **Default: the server fills `label` for `group_by=employee`
+  with the owner's display name through a `namesOf(list<string>): array<string, string>` on the
+  Identity facts contract the Quotations module already depends on; `null` stays
+  `quotations.groups.unassigned`.** This re-rules half of Step 5's Q7 on new evidence — the
+  customer half stands (the screen lists customers anyway); the employee half cannot, because the
+  only users endpoint is an admin's. The alternative, a read-only `GET /api/v1/users` for anyone
+  with `quotation.view`, is a new route and a new `SEC-07` surface for a label.
+- **Q3 · "confirmation preview before saving".** **Default: no preview endpoint. The builder saves
+  the Draft, and the detail screen (Point 6.5) is the confirmation — the server's totals, the
+  server's warnings, edit or delete one click away.** A Draft is free: `quotation.edit` and
+  `quotation.delete (Draft only)` are the employee's own (§3.5), and `D-67` forbids the SPA the
+  calculation a client-side preview would need. A `POST /quotations/preview` that prices without
+  saving is not in `OpenAPI §7` — if the owner wants it, it is a new requirement (`CLAUDE.md`
+  "Requirements Traceability") and one backend point.
+- **Q4 · the supplier line's `id` on the wire.** **Default: expose it** — `SupplierQuotationLine`
+  gains `id`, `SupplierQuotationPayload::detail()` writes it, `services/supplier-quotations.ts`
+  reads it. Module 6's frozen `checklist/module-06.md` is not edited; Point 6.2 below records the
+  change. The alternative — a Quotations-side endpoint listing priceable lines for a deal — is a
+  second read of the same rows.
+- **Q5 · `user_term_suggestions` and SmartTermInput.** **Default: the table is filled by the
+  server, not the user — saving a quotation upserts `(user_id, field, term)` for `payment_terms`,
+  `warranty`, `delivery_terms`; one read route `GET /api/v1/user-term-suggestions?field=`
+  returns the caller's own terms, most recent first, capped at 20; the input is a native
+  `<datalist>` (the house pattern in Catalog and Settings).** `Design System §6.3` says
+  "reusable suggestions; suggestions never force a structured payment schedule" — a datalist
+  cannot force anything. The route is not in `OpenAPI §7`: a new requirement, flagged here.
+  Alternative: defer the whole thing to a debt row and ship plain textareas.
+- **Q6 · builder as a page, not a modal.** Module 6's form is a modal; the quotation builder has
+  header + up to 10 suppliers × lines + additional items + totals + terms. **Default: routes —
+  `/quotations` (list), `/quotations/new`, `/quotations/:id`, `/quotations/:id/edit`** — the
+  `DealDetailView` precedent, `Design System §4.3` "multi-column forms" at ≥ 1024px, cards under
+  640px.
+- **Q7 · cost and margin on screen.** §3.5's `view cost & margin` is granted to every role that
+  can view a quotation. **Default: the SPA shows the cost fields when the detail carries them and
+  nothing when it does not** — Point 3.4's `withCosts` already strips `QuotationLine::COST_FIELDS`
+  for a caller without the grant; the SPA makes no permission decision of its own (`D-67`).
+
+- [ ] **6.1** The client — `services/quotations.ts`: `listQuotations(query)` building
+      `page/per_page/filter[*]/sort/group_by` from Step 5's allowlist (empty filters omitted, the
+      Deals rule), `readQuotation`, `createQuotation`, `updateQuotation`, `submitQuotation`,
+      `createQuotationVersion`, `deleteQuotation`; TypeScript types for the 14-key summary, the
+      grouped `{key, label, count, items}` shape, the detail with optional cost fields, and
+      `meta.warnings` `{field, code, message}`. `api.ts`'s `request()` gains one optional
+      `headers` argument so `If-Match` (`API-12`) and `Idempotency-Key` (`OpenAPI §9.1`) can be
+      sent; the detail's `etag` is read from the body, where Point 3.6 put it. *Verified by* vitest
+      on the query string per filter and on the two headers reaching `fetch`. No screen.
+- [ ] **6.2** The supplier line's `id` (Q4) — backend: `SupplierQuotationLine::$id`,
+      `SupplierQuotationPayload::detail()` writes `items[].id`; frontend:
+      `SupplierQuotationLine.id` in `services/supplier-quotations.ts`, its doc comment corrected.
+      *Verified by* Module 6's `GET /{id}` feature test asserting the id, and the existing SQ view
+      spec still green. Recorded here because `checklist/module-06.md` is frozen.
+- [ ] **6.3** The list — route `/quotations` behind `quotation.view`, nav item on the reserved
+      `my-quotations` slot (`navigation.ts:24`, badge count is Module 8's), table on the summary's
+      columns (`code`, `version`, `status`, customer, `final_total` with its currency code,
+      `quotation_date`, `valid_until`, `updated_at`), §6.6's six filters (`status`, period =
+      `from`/`to`, `employee`, `customer_id`, `currency`, `amount_min`/`amount_max` — the amount
+      pair disabled until a currency is chosen, Step 5 Q3), sort on the five allowed fields,
+      server pagination, the four states plus `PermissionDeniedState` on 403. Customer names via
+      `listCustomers({perPage: 100})` (Deals' ceiling, id as fallback); status as text with the
+      `Design System §6.4` badge colour, never colour alone. Flat list only — the toggle is 6.4.
+      *Verified by* vitest on the query string per control and on each state; Claude Browser at
+      desktop + mobile, ar + en.
+- [ ] **6.4** §6.6's views — the toggle **by employee · by customer · flat** at the top
+      (`group_by`), the fixed **active · history** split in every mode (two requests,
+      `filter[bucket]`, Step 5 Q1), grouped rows rendered from `{key, label, count, items}` with a
+      group heading row (Catalog's `<th scope="colgroup">` precedent), and the remembered choice
+      (Q1). Pagination counts quotations, so a group may continue on the next page — the heading
+      says so. *Verified by* vitest: the stored choice restores the toggle, an unavailable
+      `localStorage` falls back to flat; Claude Browser as above.
+- [ ] **6.5** The quotation — route `/quotations/:id` on `readQuotation`: header (customer, deal,
+      status, version, dates, currency), lines with the cost columns present only when the body
+      carries them (Q7), additional items, the totals block in `Design System §7.2`'s groups
+      (subtotal · additional · discount · tax base · tax · rounding · final) with **no tax row
+      when `tax_amount` is null** (`D-63`) and a rounding row only when `rounding_enabled`
+      (`D-65`); `meta.warnings` `supplier_price_changed` as the red line warning `Design System §7.2` names
+      (`D-36`); the version chain — `parent_id` link and "new version" (`POST /new-version`,
+      `Idempotency-Key`, Draft opens in the builder); actions by status and grant: **Edit**
+      (Draft, `quotation.edit`), **Submit for approval** (Draft, `quotation.submit_for_approval`,
+      `If-Match`), **Delete** (Draft, `quotation.delete`, confirm dialog `Design System §6.6`);
+      `409` → a "changed by someone else — reload" banner, never a silent retry (`API-12`). Approve,
+      return, send, PDF are Modules 8–10 and are **not** drawn. *Verified by* vitest per action and
+      per state; Claude Browser as above.
+- [ ] **6.6** The builder, create — route `/quotations/new?deal=` (from the deal, `Design System
+      §2.1` "empty state with the permitted next action" on the deal's page is where the link
+      lives), header fields (`currency`, `default_margin`, `discount_percent`, `tax_percent`
+      nullable = exempt, dates, terms as plain textareas until 6.8), suppliers via (+) up to 10
+      (§6.1): each picks a supplier quotation (`listSupplierQuotations({dealId})`, then any) and
+      lists its lines from `readSupplierQuotation` (6.2's ids), `quantity` and an optional line
+      `margin_percent` per line; additional items (`description`, `amount`); the button atop the
+      supplier-item list that jumps to Module 6's form and returns (owner's ruling 2026-09-11,
+      debt-register row); `POST /quotations` with `Idempotency-Key = crypto.randomUUID()` minted
+      once per form open (a retry replays, a new form mints anew); `422 supplier_price_missing` at
+      the line it names (save blocked, `§5.6`), `meta.warnings` `quantity_exceeds_recorded` inline
+      red on the line without blocking (`§5.6`), `fx_rate_missing` at the form; on 201 → 6.5 as the
+      confirmation (Q3). Money stays strings, `inputmode="decimal"` (`DB-07` on the client side:
+      no `Number`). *Verified by* vitest on the payload shape, both warning paths, the blocked save,
+      the idempotency header; Claude Browser as above, including the 10-supplier cap.
+- [ ] **6.7** The builder, edit — `/quotations/:id/edit` for a Draft the caller may edit: 6.6's
+      form loaded from the detail, `PATCH` with `If-Match: <etag>` and `lines`/`additional_items`
+      always present (Point 3.6's "an edit replaces every editable field"), `409 stale_version` →
+      reload banner with the newer version's totals, `quotation_not_draft` → back to 6.5; unsaved-
+      change warning (`Design System §5.2` form/builder). *Verified by* vitest on the header, the
+      409 path and the dirty check; Claude Browser as above.
+- [ ] **6.8** SmartTermInput (Q5) — backend: migration `user_term_suggestions`
+      (`user_id`, `field`, `term`, `last_used_at`, UNIQUE on the three, `DB-01` columns,
+      `down()`), upsert inside the quotation save transaction for the three term fields,
+      `GET /api/v1/user-term-suggestions?field=payment_terms|warranty|delivery_terms` behind
+      `quotation.create`, own rows only; frontend: `<datalist>` on the three textareas of 6.6/6.7
+      fed by that route. *Verified by* a feature test (own terms only, unknown `field` → 400,
+      upsert on repeat), vitest on the datalist; Claude Browser as above.
+
+**What Step 6 leaves for its neighbours:** the approvals queue, `D-11`'s red badge and "days
+waiting", the yellow "Self-approved" badge and the `my-quotations` badge count (Module 8); the
+PDF button and preview (Module 9); send, the customer's response, Partial/Counter/Returned copies
+(Module 10); `q` (Module 15); the Arabic manual test list that closes the module (after 6.8).
+
 ---
 
 ## Module 8 — Approvals

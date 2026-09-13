@@ -7,6 +7,7 @@ namespace App\Modules\Quotations\Presentation;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
+use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 
@@ -39,6 +40,57 @@ final class QuotationPayload
         return [
             'id' => $quotation->id,
             'code' => $quotation->code,
+        ];
+    }
+
+    /**
+     * One list row (Q6) — §6.6's columns and **nothing from
+     * `QuotationLine::COST_FIELDS`** or `default_margin`: the list is read by
+     * roles without `quotation.view_cost_and_margin`, so the row cannot carry
+     * what the detail gates.
+     *
+     * @return array<string, mixed>
+     */
+    public static function summary(QuotationSummary $quotation): array
+    {
+        return [
+            'id' => $quotation->id,
+            'code' => $quotation->code,
+            'status' => $quotation->status,
+            'customer_id' => $quotation->customerId,
+            'deal_id' => $quotation->dealId,
+            'currency_id' => $quotation->currencyId,
+            'final_total' => $quotation->finalTotal,
+            'quotation_date' => $quotation->quotationDate,
+            'valid_until' => $quotation->validUntil,
+            'submitted_at' => $quotation->submittedAt,
+            'version' => $quotation->version,
+            'parent_id' => $quotation->parentId,
+            'created_at' => $quotation->createdAt->format(DATE_ATOM),
+            'updated_at' => $quotation->updatedAt->format(DATE_ATOM),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function many(QuotationPage $page): array
+    {
+        return array_map(static fn (QuotationSummary $row): array => self::summary($row), $page->items);
+    }
+
+    /**
+     * `OpenAPI §4.2`'s six — `DealPayload::pagination()`'s shape.
+     *
+     * @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool}
+     */
+    public static function pagination(QuotationPage $page): array
+    {
+        return [
+            'page' => $page->page,
+            'per_page' => $page->perPage,
+            'total' => $page->total,
+            'total_pages' => $page->totalPages(),
+            'has_next_page' => $page->hasNextPage(),
+            'has_previous_page' => $page->hasPreviousPage(),
         ];
     }
 

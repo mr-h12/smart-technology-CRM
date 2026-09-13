@@ -12,6 +12,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\DataProviderExternal;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -154,6 +155,113 @@ final class QuotationReadEndpointTest extends TestCase
         DB::table('quotations')->where('id', $id)->update(['deleted_at' => now()]);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(404);
+    }
+
+    // ───────────────────────────────────────────────── the list (Point 5.4)
+
+    public function test_that_an_unauthenticated_caller_cannot_list(): void
+    {
+        $this->getJson(self::ENDPOINT)->assertStatus(401);
+    }
+
+    /** §3.5 `view` = `All`: every quotation, an unowned deal's included, in one page. */
+    #[DataProvider('unrestricted')]
+    public function test_that_an_all_scoped_role_lists_every_quotation(RoleName $role): void
+    {
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal($this->userWith(RoleName::IndoorSales)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 2)
+            ->assertJsonPath('meta.pagination.per_page', 25)
+            ->assertJsonPath('meta.pagination.page', 1)
+            ->assertJsonCount(2, 'data');
+    }
+
+    /** `SEC-08` in the list: own deals' quotations only — another owner's and an unowned deal's absent. */
+    #[DataProvider('ownScoped')]
+    public function test_that_an_own_scoped_role_lists_only_its_own_deals_quotations(RoleName $role): void
+    {
+        $mine = $this->quotation($this->deal($this->userWith($role)->id));
+        $this->quotation($this->deal($this->userWith(RoleName::Manager)->id));
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.id', $mine);
+    }
+
+    /** `team` and `asgn` are unbacked: an empty page, not a 403 and not everything. */
+    #[DataProvider('unbacked')]
+    public function test_that_an_unbacked_scope_lists_an_empty_page(RoleName $role): void
+    {
+        $this->quotation($this->deal($this->userWith($role)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 0)
+            ->assertJsonPath('data', []);
+    }
+
+    public function test_that_a_role_without_the_grant_cannot_list(): void
+    {
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::OutdoorSupervisor))->assertStatus(403);
+    }
+
+    public function test_that_withdrawing_the_grant_refuses_the_list(): void
+    {
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'view')->delete();
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))->assertStatus(403);
+    }
+
+    /**
+     * Every refusal 5.2's contract makes reaches the wire as `OpenAPI §6.2`'s
+     * `400 invalid_request`, the offending parameter in `details[0].field`.
+     *
+     * @param  array<string, mixed>  $query
+     */
+    #[DataProviderExternal(QuotationListCriteriaTest::class, 'refusedQueries')]
+    public function test_that_a_refused_query_is_a_400_on_the_wire(array $query, string $parameter, string $detailCode): void
+    {
+        $this->getJson(self::ENDPOINT.'?'.http_build_query($query), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonPath('error.details.0.field', $parameter)
+            ->assertJsonPath('error.details.0.code', $detailCode);
+    }
+
+    /** §6.1: the cap is accepted at exactly 100; 101 is the provider's first row. */
+    public function test_that_the_page_size_cap_is_accepted_at_the_cap(): void
+    {
+        $this->getJson(self::ENDPOINT.'?per_page=100', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.per_page', 100)
+            ->assertJsonPath('meta.pagination.total_pages', 1);
+    }
+
+    /** Q6: §6.6's columns, `meta.request_id`, and nothing from the cost side — no grant asked. */
+    public function test_that_a_list_row_carries_the_columns_and_no_cost_field(): void
+    {
+        $id = $this->quotation($this->deal(null));
+
+        $response = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))->assertStatus(200);
+
+        self::assertIsString($response->json('meta.request_id'));
+        $row = $response->json('data.0');
+        self::assertIsArray($row);
+        self::assertSame(
+            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'],
+            array_keys($row),
+        );
+        self::assertSame($id, $row['id']);
+        self::assertSame('draft', $row['status']);
+        self::assertSame(1, $row['version']);
+        foreach ([...QuotationLine::COST_FIELDS, 'default_margin', 'lines'] as $absent) {
+            self::assertArrayNotHasKey($absent, $row);
+        }
     }
 
     // ────────────────────────────────────────────────────── what a 200 carries

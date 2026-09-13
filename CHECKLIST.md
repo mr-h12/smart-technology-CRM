@@ -1852,11 +1852,11 @@ owner says only "approved":**
       `headers` argument so `If-Match` (`API-12`) and `Idempotency-Key` (`OpenAPI §9.1`) can be
       sent; the detail's `etag` is read from the body, where Point 3.6 put it. *Verified by* vitest
       on the query string per filter and on the two headers reaching `fetch`. No screen. *(2026-09-13, #122 — first `If-Match`/`Idempotency-Key`/204 in the SPA; `Page<T>` now exported from `api.ts`, six older copies are a debt row)*
-- [ ] **6.2** The supplier line's `id` (Q4) — backend: `SupplierQuotationLine::$id`,
+- [x] **6.2** The supplier line's `id` (Q4) — backend: `SupplierQuotationLine::$id`,
       `SupplierQuotationPayload::detail()` writes `items[].id`; frontend:
       `SupplierQuotationLine.id` in `services/supplier-quotations.ts`, its doc comment corrected.
       *Verified by* Module 6's `GET /{id}` feature test asserting the id, and the existing SQ view
-      spec still green. Recorded here because `checklist/module-06.md` is frozen.
+      spec still green. Recorded here because `checklist/module-06.md` is frozen. *(2026-09-13, #123 — `items[].id` first key; Module 6's `PATCH` still replaces the set)*
 - [ ] **6.3** The list — route `/quotations` behind `quotation.view`, nav item on the reserved
       `my-quotations` slot (`navigation.ts:24`, badge count is Module 8's), table on the summary's
       columns (`code`, `version`, `status`, customer, `final_total` with its currency code,

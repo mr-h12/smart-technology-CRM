@@ -10,6 +10,11 @@ return [
     // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
     // `fx_rate_missing` as a distinct code on 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (Point 5.2). The envelope's
+    // Point 5.5 — `group_by=employee`'s `null` group: a deal nobody owns.
+    'groups' => [
+        'unassigned' => 'Unassigned',
+    ],
+
     // message is `errors.invalid_request`; the cause is in `details`, below.
     'list_query' => [
         'not_a_positive_integer' => 'This value must be a whole number greater than zero.',

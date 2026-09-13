@@ -264,6 +264,64 @@ final class QuotationReadEndpointTest extends TestCase
         }
     }
 
+    // ─────────────────────────────────────────────── group_by (Point 5.5)
+
+    /** `employee` groups by the deal's owner through `ownersOf()`; groups ordered by label, counts per group. */
+    public function test_that_group_by_employee_groups_the_page_by_deal_owner(): void
+    {
+        $a = $this->userWith(RoleName::IndoorSales)->id;
+        $b = $this->userWith(RoleName::OutdoorSales)->id;
+        $dealA = $this->deal($a);
+        $this->quotation($dealA);
+        $this->quotation($dealA);
+        $this->quotation($this->deal($b));
+
+        $response = $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.pagination.total', 3);
+
+        $groups = $response->json('data');
+        self::assertIsArray($groups);
+        [$first, $second] = $a < $b ? [$a, $b] : [$b, $a];
+        self::assertSame([$first, $second], array_column($groups, 'key'));
+        self::assertSame([$first, $second], array_column($groups, 'label'));
+        self::assertSame([$first === $a ? 2 : 1, $second === $a ? 2 : 1], array_column($groups, 'count'));
+        $items = $response->json('data.0.items');
+        self::assertIsArray($items);
+        self::assertCount($first === $a ? 2 : 1, $items);
+        self::assertIsArray($items[0]);
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+    }
+
+    /** A deal with no owner groups under the `null` key, labelled from the lang file. */
+    public function test_that_an_unowned_deals_quotation_groups_under_null(): void
+    {
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', null)
+            ->assertJsonPath('data.0.label', (string) __('quotations.groups.unassigned'))
+            ->assertJsonPath('data.0.count', 1);
+    }
+
+    /** Q7: the customer group's key and label are both the `customer_id`. */
+    public function test_that_group_by_customer_groups_by_customer_id(): void
+    {
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT.'?group_by=customer', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', $this->customerId)
+            ->assertJsonPath('data.0.label', $this->customerId)
+            ->assertJsonPath('data.0.count', 2)
+            ->assertJsonCount(2, 'data.0.items');
+    }
+
     // ────────────────────────────────────────────────────── what a 200 carries
 
     public function test_that_the_detail_carries_the_header_lines_and_etag(): void

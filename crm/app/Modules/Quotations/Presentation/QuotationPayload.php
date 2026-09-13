@@ -71,6 +71,32 @@ final class QuotationPayload
         ];
     }
 
+    /**
+     * `OpenAPI §6.2`'s grouped `data` — `[{key, label, count, items}]`, groups
+     * ordered by `label`. The label is the key itself (Q7: the screen resolves
+     * names through the lists it already has); the `null` group reads
+     * `quotations.groups.unassigned`.
+     *
+     * @param  list<array{key: ?string, items: non-empty-list<QuotationSummary>}>  $groups
+     * @return list<array<string, mixed>>
+     */
+    public static function groups(array $groups): array
+    {
+        $rows = [];
+        foreach ($groups as $group) {
+            $rows[] = [
+                'key' => $group['key'],
+                'label' => $group['key'] ?? (string) __('quotations.groups.unassigned'),
+                'count' => count($group['items']),
+                'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row), $group['items']),
+            ];
+        }
+
+        usort($rows, static fn (array $a, array $b): int => strcmp((string) $a['label'], (string) $b['label']));
+
+        return $rows;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function many(QuotationPage $page): array
     {

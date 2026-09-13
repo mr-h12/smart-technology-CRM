@@ -290,6 +290,8 @@ class AppServiceProvider extends ServiceProvider
             QuotationDirectoryInterface::class,
             fn (): EloquentQuotationDirectory => new EloquentQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(DealFactsInterface::class),
+                $this->app->make(CurrencyRepositoryInterface::class),
             ),
         );
 

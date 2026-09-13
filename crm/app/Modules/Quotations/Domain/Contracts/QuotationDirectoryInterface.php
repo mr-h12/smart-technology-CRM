@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Contracts;
 
+use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
+use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
+use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -128,4 +131,15 @@ interface QuotationDirectoryInterface
      * is the use case's rule; this writes, it does not decide.
      */
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool;
+
+    /**
+     * `GET /quotations` (Point 5.3) — the approved Step 5 filters and sorts,
+     * with `SEC-08`'s scope **in the query**: `own` is the deal's `owner_id`
+     * (owner ruling 2026-09-11), reached as `deal_id IN` the owner's deals
+     * through `DealFactsInterface::dealIdsOwnedBy()` — a set, not a join on
+     * another module's table. A scope that permits nothing answers an empty
+     * page before any read (`OpenAPI §5.1`). `total` is counted after scoping
+     * (`OpenAPI §6.1`). Soft-deleted quotations are absent (`DB-01`).
+     */
+    public function list(QuotationListCriteria $criteria, QuotationRowScope $scope): QuotationPage;
 }

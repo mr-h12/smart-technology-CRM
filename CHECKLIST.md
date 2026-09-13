@@ -95,7 +95,7 @@ from fighting over the same eleven files.
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
 | **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1–4.4 (#104–#107) merged, 4.5 on #108 — Step 4 closes with it. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **not started — reassigned to Yousef 2026-09-13 by owner direction.** Claimed by the second developer 2026-09-10 and never started; a point list was drafted (PR #94) and is left for the new owner to accept or discard, not merged. *Row written on the owner's instruction, not by the module's owner — the one exception to this table's own claiming rule, recorded as such.* |
-| **9 — PDF Generation** | second developer | claimed 2026-09-13, **Step 1 approved 2026-09-13** with every stated default taken; `OD-02` closed by `D-79` (PR #111) |
+| **9 — PDF Generation** | second developer | in progress — Step 1 approved 2026-09-13, Point 1.0 closed (#116); `OD-02` closed by `D-79` (#111) |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1852,7 +1852,7 @@ as the reasons two boxes will not close in this module, not as oversights.
   whoever owns that table writes them. Module 9 publishes the contract they call and writes nothing into
   `quotations` — the per-module rule, and the reason this module needs no change from Yousef.
 
-- [ ] **1.0** Create the `Pdf` module (Q1) — the four layer directories and a
+- [x] **1.0** Create the `Pdf` module (Q1) — the four layer directories and a
       `crm/deptrac.modules.yaml` entry appended inside our own block. It may depend on
       `QuotationsContract`-shaped reads and `StorageContract`, and nothing may depend on it.
       **No `Contract`/`Driver` split and no Eloquent model**, because `D-77` only forces the split
@@ -1861,6 +1861,8 @@ as the reasons two boxes will not close in this module, not as oversights.
       `AttachDealDocument` (our Point 4.1) and `AttachSupplierQuotationDocument` already do.
       *Verified by* both `deptrac` configs at `Violations 0 · Uncovered 0`, and a deliberate
       temporary `use` of an Eloquent model proving the ruleset actually refuses it.
+
+      *(2026-09-13, #116 — empty ruleset, proven by a probe deptrac refused by name.)*
 
 - [ ] **1.1** `CustomerQuotationView` in `Pdf/Domain/View/` — the model the template may see, plus
       `CustomerQuotationLine` and `CustomerAdditionalLine`. Carries `code`, dates, customer and

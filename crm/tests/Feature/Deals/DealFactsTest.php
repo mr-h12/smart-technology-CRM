@@ -64,6 +64,68 @@ final class DealFactsTest extends TestCase
         self::assertNull($this->reader()->factsOf(Uuid::uuid4()->toString()));
     }
 
+    // ── Point 5.1: the set form the list reads ──────────────────────────────
+
+    public function test_that_owned_deal_ids_are_only_that_owners_live_deals(): void
+    {
+        $ownerId = User::factory()->create()->getKey();
+        $otherId = User::factory()->create()->getKey();
+        self::assertIsString($ownerId);
+        self::assertIsString($otherId);
+        $customerId = $this->customer();
+
+        $mine = $this->deal($customerId, $ownerId);
+        $mineToo = $this->deal($customerId, $ownerId);
+        $this->deal($customerId, $otherId);
+        $this->deal($customerId, null);
+        $deleted = $this->deal($customerId, $ownerId);
+        DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
+
+        $ids = $this->reader()->dealIdsOwnedBy($ownerId);
+
+        sort($ids);
+        self::assertSame(collect([$mine, $mineToo])->sort()->values()->all(), $ids);
+    }
+
+    public function test_that_owners_of_maps_each_live_deal_to_its_owner_or_null(): void
+    {
+        $ownerId = User::factory()->create()->getKey();
+        self::assertIsString($ownerId);
+        $customerId = $this->customer();
+
+        $owned = $this->deal($customerId, $ownerId);
+        $unowned = $this->deal($customerId, null);
+
+        self::assertSame(
+            [$owned => $ownerId, $unowned => null],
+            $this->reader()->ownersOf([$owned, $unowned]),
+        );
+    }
+
+    /** A soft-deleted or unknown id names nothing: absent from the map, not `null` in it. */
+    public function test_that_owners_of_omits_soft_deleted_and_unknown_deals(): void
+    {
+        $customerId = $this->customer();
+        $live = $this->deal($customerId, null);
+        $deleted = $this->deal($customerId, null);
+        DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
+
+        $owners = $this->reader()->ownersOf([$live, $deleted, Uuid::uuid4()->toString()]);
+
+        self::assertSame([$live], array_keys($owners));
+    }
+
+    public function test_that_owners_of_an_empty_list_answers_without_a_query(): void
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        self::assertSame([], $this->reader()->ownersOf([]));
+
+        self::assertSame([], DB::getQueryLog());
+        DB::disableQueryLog();
+    }
+
     private function reader(): EloquentDealFacts
     {
         $reader = $this->app->make(DealFactsInterface::class);

@@ -28,11 +28,8 @@ use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface
  * the answer — the seam and the check `CreateQuotation::guardDeal()` already
  * uses. Two queries instead of one join is the price of not reaching into
  * another module's table, and on a single-row read it is not a price worth
- * an interface change.
- *
- * ponytail: a per-row owner lookup. Step 5's list needs the set form — a
- * `dealIdsOwnedBy()` on the seam, or the owner id denormalised onto
- * `quotations` — and that is the point to add it, not this one.
+ * an interface change. The list reads the set form, `dealIdsOwnedBy()`, on
+ * the same seam (Point 5.1); a single-row read has no set to ask for.
  *
  * ── One 404 for absent and for out of reach ────────────────────────────────
  *

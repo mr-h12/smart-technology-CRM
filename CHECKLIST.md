@@ -1843,6 +1843,25 @@ as the reasons two boxes will not close in this module, not as oversights.
       duplicate attach refused by the primary key rather than by a pre-check, and
       `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
 
+> ⚠️ **A fourth carried-forward item, found 2026-09-13 against the source document.** The owner
+> supplied the original Purchase Order #226 as the reference for how the PDF should look. Checked
+> element by element, `template.js` reproduces it faithfully — logo lockup, the blue rule pair, the
+> `Date`/`Company Name`/`TO` header table, `#5B9BD5` headers on `#DEEAF6` rows, the totals stack,
+> the General Condition block, the signature pair, the footer band, and the S.T.I.S watermark. The
+> arithmetic checks out too: the PO reads `7368.42 → +14% = 8400.00 → −1% = 8326.32`, and `D-64`'s
+> documented order gives `8316.00`, so the `10.32` that retired PO #226 as a reconciliation target
+> reproduces exactly from the source rather than being carried as an assertion.
+>
+> **What does not survive the port: the template hard-codes its percentages into its labels.** Both
+> dictionaries carry `Discount 5%` / `الخصم 5%` and `14% VAT` / `ضريبة القيمة المضافة 14%` as
+> literal strings. Correct for a prototype with fixed sample data; wrong in production, where
+> `discountPercent` and `taxPercent` are per-quotation fields already on `QuotationDetail` and the
+> tax rate is configurable — and it collides with Module 0's "no hard-coded user-facing strings"
+> rule.
+> `D-79` named three carried-forward items and did not catch this one. It is **Step 2's**, where the
+> template is ported, so it costs nothing now; left unrecorded it would have shipped a PDF
+> permanently claiming 5% and 14%.
+
 **What Step 1 does not cover, stated rather than discovered later:** no renderer, no Browsershot
 dependency, no template, no endpoint, no queue job, no frontend. Browsershot is **not** in
 `crm/composer.json` — adding it is its own point in Step 2, which is the only point in this module
@@ -1854,7 +1873,8 @@ customer-view model — are Steps 2 and 1.1 respectively, and only the third is 
 **Sketch of the remaining steps, so the module's shape is visible without committing to their
 points.** Step 2: Browsershot behind a `PdfRendererInterface`, `P-01`'s template ported to consume
 `CustomerQuotationView` only, the four faces embedded base64, live page numbers via Chrome's
-`headerTemplate`/`footerTemplate`. Step 3: `POST /api/v1/quotations/{id}/pdf` dispatching to the
+`headerTemplate`/`footerTemplate`, and **the percentages taken out of the labels** — see below.
+Step 3: `POST /api/v1/quotations/{id}/pdf` dispatching to the
 `pdf` queue (`PRF-04`, `config/queue.php:163`), the job, retry, and the `files` write. Step 4:
 `GET …/pdf` download, §3.5's two permission rows including the CEO's download-not-generate rule and
 Q2's fail-closed Procurement. Step 5: the screen, then the Arabic manual test list the module-end

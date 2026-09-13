@@ -10,6 +10,11 @@ return [
     // مفاتيحه هي `QuotationNotPriceable::$reason`؛ أكّد المالك
     // `fx_rate_missing` ككود مستقل في 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (النقطة 5.2). رسالة الغلاف هي
+    // النقطة 5.5 — مجموعة `null` في `group_by=employee`: صفقة بلا مالك.
+    'groups' => [
+        'unassigned' => 'غير مُسنَد',
+    ],
+
     // `errors.invalid_request`؛ والسبب المحدّد في `details` أدناه.
     'list_query' => [
         'not_a_positive_integer' => 'يجب أن تكون هذه القيمة رقمًا صحيحًا أكبر من صفر.',

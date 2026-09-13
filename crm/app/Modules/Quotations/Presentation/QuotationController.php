@@ -38,13 +38,16 @@ final class QuotationController
      */
     public function index(Request $request, ListQuotations $quotations): JsonResponse
     {
-        $page = $quotations->handle(
-            QuotationListCriteria::fromQuery($request->query()),
-            self::heldScopes($request),
-            self::actorId($request),
-        );
+        $criteria = QuotationListCriteria::fromQuery($request->query());
+        $page = $quotations->handle($criteria, self::heldScopes($request), self::actorId($request));
 
-        return ApiEnvelope::collection($request, QuotationPayload::many($page), QuotationPayload::pagination($page));
+        // Point 5.5 — `group_by` reshapes `data` and nothing else; the
+        // pagination still counts quotations.
+        $data = $criteria->groupBy === null
+            ? QuotationPayload::many($page)
+            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy));
+
+        return ApiEnvelope::collection($request, $data, QuotationPayload::pagination($page));
     }
 
     /**

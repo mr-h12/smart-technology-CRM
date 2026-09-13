@@ -239,6 +239,32 @@ final class SupplierQuotationReadEndpointTest extends TestCase
             ]);
     }
 
+    /**
+     * Module 7 Point 6.2. A customer quotation's line is a
+     * `supplier_quotation_item_id` (Module 7 Point 3.3), so the builder must
+     * see the id of the line it picks. Each item carries its own row's `id`,
+     * and nothing else about the row leaks with it.
+     */
+    public function test_that_each_line_carries_its_own_id(): void
+    {
+        $id = $this->created();
+
+        $items = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data.items');
+        $this->assertIsArray($items);
+
+        $stored = DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        $this->assertSame($stored, array_column($items, 'id'));
+        $this->assertIsArray($items[0]);
+        $this->assertSame(['id', 'catalog_item_id', 'unit_price', 'quantity'], array_keys($items[0]));
+    }
+
     /** Two calls agree with each other, which is what ordering by `id` buys. */
     public function test_that_the_line_order_is_stable_across_calls(): void
     {

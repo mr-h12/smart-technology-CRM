@@ -217,18 +217,19 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             ->where('supplier_quotation_id', $quotationId)
             ->whereNull('deleted_at')
             ->orderBy('id')
-            ->get(['catalog_item_id', 'unit_price', 'quantity']);
+            ->get(['id', 'catalog_item_id', 'unit_price', 'quantity']);
 
         $lines = [];
 
         foreach ($rows as $row) {
+            $lineId = $row->id;
             $catalogItemId = $row->catalog_item_id;
             $unitPrice = $row->unit_price;
             $quantity = $row->quantity;
 
-            if (! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity)) {
+            if (! is_string($lineId) || ! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity)) {
                 // Unreachable while the columns stand as Point 1.2 built them:
-                // all three are `NOT NULL`, and PostgreSQL hands `uuid` and
+                // all four are `NOT NULL`, and PostgreSQL hands `uuid` and
                 // `numeric` back as strings. Refusing loudly is
                 // `DocumentNumberAllocator`'s choice for the same situation —
                 // a `(string)` cast here would
@@ -238,6 +239,7 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             }
 
             $lines[] = new SupplierQuotationLine(
+                id: $lineId,
                 catalogItemId: $catalogItemId,
                 unitPrice: $unitPrice,
                 quantity: $quantity,

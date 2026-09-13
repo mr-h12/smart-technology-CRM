@@ -46,8 +46,9 @@ export interface SupplierQuotation {
     notes: string | null;
 }
 
-/** A line as the detail returns it. There is no line `id` on the wire, by design. */
+/** A line as the detail returns it. `id` is what a customer quotation's line points at (`supplier_quotation_item_id`, Module 7). */
 export interface SupplierQuotationLine {
+    id: string;
     catalog_item_id: string;
     unit_price: string;
     quantity: string;

@@ -13,14 +13,16 @@ namespace App\Modules\SupplierQuotations\Domain\Listing;
  * decimals and quantity at four. They arrive from PostgreSQL as decimal
  * strings and stay strings all the way out.
  *
- * `id` is deliberately absent. §7.2 names three things on a line and nothing
- * addresses a single line yet — `PATCH` is Point 2.4, and that is the point
- * that gets to decide whether it edits lines by identity or replaces the set.
- * A field with no caller is the "unused component" the waste audit names.
+ * `id` was deliberately absent until Module 7 Point 6.2: §7.2 names three
+ * things on a line and nothing addressed a single line — Module 6's `PATCH`
+ * replaces the set. Module 7's builder does address one: a customer
+ * quotation's line is a `supplier_quotation_item_id` (Module 7 Point 3.3), and
+ * the screen has to see the id of the line it picks.
  */
 final readonly class SupplierQuotationLine
 {
     public function __construct(
+        public string $id,
         public string $catalogItemId,
         public string $unitPrice,
         public string $quantity,

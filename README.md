@@ -223,7 +223,6 @@ you genuinely need to change one.
 | # | Question | Owner |
 |---|---|---|
 | OD-03 | Server specifications | Server administrator |
-| OD-02 | PDF template | Effectively answered by P-01 — confirm |
 | OD-05 | Expected daily workload | Management |
 | OD-06 | Company holiday calendar | HR |
 | — | **Is the PO's «إشعار خصم» line a sale discount or a separate credit note?** If it is a credit note it does not belong on the quotation at all. Raised by D-60, still open under D-64. | Accountant |

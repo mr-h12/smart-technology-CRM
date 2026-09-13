@@ -83,7 +83,7 @@ Always inspect the referenced decision numbers in the selected row. Additionally
 |---|---|
 | ~~OD-01~~ ✅ — additional-item taxability | **Closed: no.** Delivery and installation are outside the tax base (`D-62`). No provisional assumption remains. |
 | **OD-03** — server specifications | Blocks final infrastructure sizing and real-server setup. |
-| **OD-02** — PDF template | Required before final PDF module rendering. |
+| ~~**OD-02**~~ ✅ — PDF template | **Closed by `D-79`** (2026-09-13): the `P-01` template is the approved design. |
 | ~~OD-04~~ | Closed by D-59 — Cloudflare Tunnel + Access. |
 | **OD-05** — daily workload | Affects queue/storage sizing. |
 | **OD-06** — holiday calendar | Required for final report-deadline behavior. |

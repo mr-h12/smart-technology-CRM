@@ -6,16 +6,15 @@ namespace App\Modules\Quotations\Application\Writing;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
-use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
-use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
+use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Illuminate\Database\ConnectionInterface;
 
@@ -33,6 +32,8 @@ use Illuminate\Database\ConnectionInterface;
  *    than the stored one is `409 concurrency_conflict` (`API-12`), answered
  *    before the status so a client working from a stale copy is told to
  *    reload rather than told about a status it may not have seen change.
+ *    Steps 1–2 are {@see QuotationWriteAccess}, shared with every action on
+ *    one quotation (Point 4.2).
  * 3. **Draft only** (422): §3.5's `edit` cell reads "(Draft)"; Pending is
  *    Module 8's "edit & approve".
  * 4. **`edit margin` / `edit tax`** (403): §3.5's two checkmarks, asked only
@@ -65,13 +66,10 @@ use Illuminate\Database\ConnectionInterface;
  */
 final readonly class UpdateQuotation
 {
-    /** `OpenAPI §9.2`'s example shape, `"quotation:uuid:7"`. */
-    private const ETAG = '/^quotation:([0-9a-f-]{36}):(\d+)$/';
-
     public function __construct(
         private QuotationDirectoryInterface $quotations,
         private PriceQuotation $pricer,
-        private DealFactsInterface $deals,
+        private QuotationWriteAccess $access,
         private AuthorizeAction $authorize,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
@@ -87,22 +85,8 @@ final readonly class UpdateQuotation
      */
     public function update(string $quotationId, array $validated, ?string $ifMatch, array $heldScopes, string $actorId): QuotationUpdated
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
-
-        return $this->connection->transaction(function () use ($quotationId, $validated, $ifMatch, $scope, $actorId): QuotationUpdated {
-            $before = $this->quotations->find($quotationId);
-
-            if (! $before instanceof QuotationDetail
-                || $scope->permitsNothing()
-                || (! $scope->unrestricted && ! $scope->reaches($this->deals->factsOf($before->dealId)?->ownerId))) {
-                throw QuotationNotFound::of($quotationId);
-            }
-
-            $expectedToken = self::tokenFrom($ifMatch, $quotationId);
-
-            if ($expectedToken !== $before->versionToken) {
-                throw QuotationWriteRefused::staleVersion(self::etag($before));
-            }
+        return $this->connection->transaction(function () use ($quotationId, $validated, $ifMatch, $heldScopes, $actorId): QuotationUpdated {
+            $before = $this->access->open($quotationId, $ifMatch, $heldScopes, $actorId);
 
             if ($before->status !== 'draft') {
                 throw QuotationWriteRefused::notDraft();
@@ -116,10 +100,10 @@ final readonly class UpdateQuotation
                 ->withComputed($priced->computed)
                 ->withLines($priced->items, $priced->additionalItems);
 
-            if (! $this->quotations->update($quotationId, $draft, $expectedToken, $actorId)) {
+            if (! $this->quotations->update($quotationId, $draft, $before->versionToken, $actorId)) {
                 // Passed the check above and lost the race to another writer
                 // inside the window — the SQL guard is the one that counts.
-                throw QuotationWriteRefused::staleVersion(self::etag($before));
+                throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
             }
 
             $this->audit->record(
@@ -130,15 +114,7 @@ final readonly class UpdateQuotation
                 [...$draft->attributes, 'items' => $priced->items, 'additional_items' => $priced->additionalItems],
             );
 
-            $after = $this->quotations->find($quotationId);
-
-            if (! $after instanceof QuotationDetail) {
-                // A row that vanished between two statements of one
-                // transaction is a defect, and a silent 200 would hide it.
-                throw QuotationNotFound::of($quotationId);
-            }
-
-            return new QuotationUpdated($after, $priced->quantityWarnings);
+            return new QuotationUpdated($this->access->reread($quotationId), $priced->quantityWarnings);
         });
     }
 
@@ -170,24 +146,6 @@ final readonly class UpdateQuotation
         if ($taxMoved && ! $this->authorize->decide($actorId, 'quotation', 'edit_tax')->granted) {
             throw AuthorizationRefused::of('quotation', 'edit_tax');
         }
-    }
-
-    /**
-     * The token `If-Match` names for **this** quotation — a well-formed etag
-     * for another id is as invalid a header as no header.
-     */
-    private static function tokenFrom(?string $ifMatch, string $quotationId): int
-    {
-        if ($ifMatch === null || preg_match(self::ETAG, trim($ifMatch), $m) !== 1 || $m[1] !== $quotationId) {
-            throw QuotationWriteRefused::ifMatchRequired();
-        }
-
-        return (int) $m[2];
-    }
-
-    private static function etag(QuotationDetail $quotation): string
-    {
-        return 'quotation:'.$quotation->id.':'.$quotation->versionToken;
     }
 
     /**

@@ -209,7 +209,102 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertSame([], array_intersect(QuotationLine::COST_FIELDS, array_keys($line)));
     }
 
+    // ─────────────────────────────────────────── §10.3 price drift (Point 4.5)
+
+    /** `D-36`: the quotation keeps its captured price and warns, per line, in `meta.warnings`. */
+    public function test_that_a_moved_supplier_price_warns_on_a_draft(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->moveSupplierPrice($id, '11');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.unit_cost', '10.000000')
+            ->assertJsonCount(1, 'meta.warnings')
+            ->assertJsonPath('meta.warnings.0.field', 'lines.0.unit_cost')
+            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed')
+            ->assertJsonPath('meta.warnings.0.message', (string) __('quotations.warnings.supplier_price_changed'));
+    }
+
+    /** §10.3's first row names Draft **or Pending**. */
+    public function test_that_a_moved_supplier_price_warns_on_a_pending_quotation(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotations')->where('id', $id)->update(['status' => 'pending']);
+        $this->moveSupplierPrice($id, '11');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed');
+    }
+
+    /** §10.3: "Sent or beyond — completely unaffected, fixed snapshot": nothing is compared. */
+    public function test_that_a_sent_quotation_is_silent_about_a_moved_supplier_price(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotations')->where('id', $id)->update(['status' => 'sent']);
+        $this->moveSupplierPrice($id, '11');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonMissingPath('meta.warnings');
+    }
+
+    /** The captured currency is part of the comparison: the same number in another currency is a change. */
+    public function test_that_a_moved_supplier_currency_warns(): void
+    {
+        $this->currency('USD', '1', false, false);
+        $id = $this->quotation($this->deal(null));
+        DB::table('supplier_quotations')->where('id', $this->offerOf($id))->update(['currency_id' => $this->currencyId('USD')]);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed');
+    }
+
+    /** `D-09`: the FX rate is captured once; a moved rate is not a moved supplier price. The compare reads `unit_cost`, never `unit_cost_base`. */
+    public function test_that_a_moved_fx_rate_alone_carries_no_warning(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotation_items')->where('quotation_id', $id)->update(['unit_cost_fx_rate_at_time' => '2', 'unit_cost_base' => '20']);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonMissingPath('meta.warnings');
+    }
+
+    /** The key is absent, not an empty list, when nothing moved (`store()`'s convention). */
+    public function test_that_an_unmoved_supplier_price_carries_no_warning(): void
+    {
+        $id = $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonMissingPath('meta.warnings');
+    }
+
     // ────────────────────────────────────────────────────────────── fixtures
+
+    /** Changes the supplier's price under the quotation's only line, after the quotation captured it. */
+    private function moveSupplierPrice(string $quotationId, string $unitPrice): void
+    {
+        $lineId = DB::table('quotation_items')->where('quotation_id', $quotationId)->value('supplier_quotation_item_id');
+        self::assertIsString($lineId);
+
+        DB::table('supplier_quotation_items')->where('id', $lineId)->update(['unit_price' => $unitPrice]);
+    }
+
+    /** The `supplier_quotations` id behind the quotation's only line. */
+    private function offerOf(string $quotationId): string
+    {
+        $offerId = DB::table('quotation_items')
+            ->join('supplier_quotation_items', 'supplier_quotation_items.id', '=', 'quotation_items.supplier_quotation_item_id')
+            ->where('quotation_items.quotation_id', $quotationId)
+            ->value('supplier_quotation_items.supplier_quotation_id');
+        self::assertIsString($offerId);
+
+        return $offerId;
+    }
 
     /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus a 5 delivery item. */
     private function quotation(string $dealId): string

@@ -90,7 +90,7 @@ from fighting over the same eleven files.
 | **4 — Catalog & Suppliers** | Yousef | **finished** — 28 of 30 boxes, archived in `checklist/module-04.md` |
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
-| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4's point list not yet published. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1–4.4 (#104–#107) merged, 4.5 on #108 — Step 4 closes with it. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **not started — reassigned to Yousef 2026-09-13 by owner direction.** Claimed by the second developer 2026-09-10 and never started; a point list was drafted (PR #94) and is left for the new owner to accept or discard, not merged. *Row written on the owner's instruction, not by the module's owner — the one exception to this table's own claiming rule, recorded as such.* |
 | **9 — PDF Generation** | second developer | claimed 2026-09-13, **not started** — Step 1's point list published below and awaiting approval; `OD-02` closed by `D-79` (PR #111) |
 
@@ -508,7 +508,7 @@ would hide them behind `OD-03` indefinitely.
       They were left in place rather than dropped in passing, because dropping a table is its own
       decision and Point 1.2 was given `users` and `user_sessions`. Owed: confirm neither is
       wanted, then one correcting migration that drops both
-- [ ] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
+- [x] **`docker-compose.yml` can change without CI running** — found 2026-08-23 while closing
       Point 8.5, by noticing that this point's own commit triggered no run. `php-image.yml` filters
       on `docker/php/**`, `crm/**` and itself. **`docker-compose.yml` is in none of them**, and yet
       `QueueConfigurationTest` parses that file to assert the worker `--queue=` flags match
@@ -516,6 +516,19 @@ would hide them behind `OD-03` indefinitely.
       can see the other. A commit that edits only compose would skip the one test that validates
       it. Owed: add `docker-compose.yml` to the `paths` filter. Not done here, because it is a
       change to CI behaviour and this point is a sign-off, not a fix
+      *(2026-09-12, CI sharding PR — `docker-compose.yml` and `.env.example` added to both `paths` filters)*
+- [ ] **`php-image.yml` test shards are balanced by hand** — created 2026-09-12 by the CI
+      sharding PR, which split the 545 s serial test step (70 % of a 13-minute run) into three
+      matrix jobs, each running its own migrate up/down/up and a fixed list of test directories.
+      Two things a reader must know. **(1) A new directory under `tests/Feature` runs in no
+      shard until it is added to the matrix** — the sharding check in the PR compared the three
+      `Tests:` lines against the local full suite, and that comparison is owed again by any
+      point that adds a directory. **(2) The split is by local wall time, which is not the
+      runner's** (74 / 66 / 57 s on 2026-09-12, after moving `Catalog` once); rebalance when one
+      shard runs more than 30 % longer than the others (`gh run view <id> --json jobs`). Paratest (`--parallel`) was not added — a new
+      dependency for a gain the shards already give; the day the shards exceed 4 minutes each is
+      the day to reconsider. Runner minutes rose: three test jobs plus four cache restores per
+      run, against one serial job before.
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb
@@ -692,6 +705,17 @@ would hide them behind `OD-03` indefinitely.
       The offer fixture itself was **not** copied a third time: the endpoint test creates its offer
       through `POST /supplier-quotations`, which is the module's own public surface, so only a
       supplier row is seeded.
+      **Module 7 Point 4.2 (2026-09-12) added another copy** — `QuotationSubmitEndpointTest` carries
+      the 129-line fixture set (`currency`, `currencyId`, `customer`, `deal`, `supplierLine`,
+      `userWith`, `bearerFor`) byte-identical to `QuotationUpdateEndpointTest`'s (`diff` empty).
+      Measured after it: `userWith()` → **38** files, `bearerFor()` → **31**. Same reason, same
+      proposal; the trait is still one owner decision away.
+      **Point 4.3 (2026-09-12), one more:** `QuotationNewVersionEndpointTest` — `userWith()` → **39**,
+      `bearerFor()` → **32**, `supplierLine()` → **7**. Three Step 4 endpoint tests now carry the
+      same 129 lines; the fourth (4.4) will too unless the trait is approved first.
+      **Point 4.4 (2026-09-12), the fourth:** `QuotationDeleteEndpointTest` — `userWith()` → **40**,
+      `bearerFor()` → **33**, `supplierLine()` → **8**. Step 4 has no fifth endpoint test (4.5 is a
+      read-side change), so the next copy is Step 5's.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -883,6 +907,23 @@ would hide them behind `OD-03` indefinitely.
       beside quotations, and each of their POSTs still carries a "No `Idempotency-Key`" comment in
       `routes/api.php` — the alias is one word per route now, but §9.2's "through a documented contract
       update" is the rule, and each is its owning module's point, not this one's.
+
+- [ ] **`ShowQuotation::one()` is a third copy of the quotation scope check** — *revealed by Module 7
+      Point 4.2, 2026-09-12.* 4.2's waste audit found `UpdateQuotation` and the new `SubmitQuotation`
+      sharing an 18-line preamble (scope → `If-Match` → stale token → re-read); that copy was created by
+      the point and was extracted into `QuotationWriteAccess` inside it. The audit also found the
+      **read** side — `ShowQuotation::one()` — carrying the same scope/404 decision as three separate
+      `if`s rather than the combined condition. It is pre-existing (Point 3.5) and takes no `If-Match`,
+      so `open()` does not fit it as written; owed: one `QuotationRowScope`-applying reader both
+      `ShowQuotation` and `QuotationWriteAccess` call, when Step 5's set-based owner seam
+      (`dealIdsOwnedBy()`) is built — that point touches the same lines anyway.
+
+- [ ] **`EloquentQuotationDirectory`'s register comment in `AuditEnforcementTest` names only
+      `CreateQuotation`** — *revealed by Module 7 Point 4.2, 2026-09-12.* The disposition is still
+      correct (the class's DML is audited by its callers), but the comment stopped listing the callers
+      at 3.3: `UpdateQuotation` (3.6) and `SubmitQuotation` (4.2) audit through the same rows and are not
+      named. Cosmetic; one comment edit in a test file, owed to whichever point next touches that
+      register.
 
 
 ---
@@ -1419,6 +1460,231 @@ creation" governing the first pricing only.
 
 - [x] **3.7** `Idempotency-Key` on the POST (`OpenAPI §9.1`) — the owner ruled 2026-09-12 that the store is its own module, `app/Modules/Idempotency`: one table `idempotency_keys` UNIQUE `(user_id, route, key)`, claimed by `INSERT … ON CONFLICT DO NOTHING` before the use case runs and completed with the final status and body after; the `idempotency` route middleware runs **after** `permission:` so a replay re-checks the grant (§9.1); missing header → `400 invalid_request`, changed payload or key still in flight → `409 idempotency_conflict`; a 5xx releases the key. *(2026-09-12, #102 — quotations only; the retention period §9.1 calls "defined" is undefined, see the debt register)*
 
+#### Step 4 — actions on one quotation *(point list approved 2026-09-12 with defaults Q1–Q6, #103)*
+
+What §6 asks of a single quotation between the builder (Step 3) and the list (Step 5), and what
+Modules 8, 9 and 10 will call rather than rebuild: the status graph, the two `OpenAPI §7.2`
+actions the build plan puts under Module 7, `D-46`'s delete, and `D-36`'s price-drift warning.
+Approve, return, send and the customer's response are **not** here — the Documentation Map files
+them under Modules 8 and 10, and the delivery order holds. Nothing in this step touches
+`resources/js`; `user_term_suggestions` (SmartTermInput) is the builder screen's table and waits
+for the frontend step.
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved":**
+
+- **Q1 · the returned quotation.** §6.4 draws `return with note ──► Draft (v2)`. Read as the same
+  row going back to `draft` (the graph edge `pending → draft`, Point 4.1) with the copy being
+  Module 8's call — *or* as a new version through Point 4.3, the source leaving `pending` by some
+  edge the graph does not draw. **Default: the edge `pending → draft` exists; what Module 8 does
+  with it is Module 8's list.**
+- **Q2 · `submitted_at`.** `D-11`'s "days waiting" needs the moment a quotation entered `pending`.
+  §6.2's Tracking group does not list it; the audit row carries it, but a list screen cannot read
+  a partitioned audit table per row. **Default: add `quotations.submitted_at` in Point 4.2, set on
+  submit, cleared on the way back to `draft`.**
+- **Q3 · a new version's number.** `quotations.code` is UNIQUE (Point 1.1) and §4.7 numbers
+  documents, so a copy cannot carry its parent's `QT-` code as the schema stands. **Default: a
+  new version takes the next `QT-` number; the link is `parent_id` + `version`, as §6.3 says.**
+- **Q4 · which statuses may open a new version.** §6.3 names Partial, Counter and Returned.
+  **Default: `partial`, `counter`, `expired`** — the three where the document is finished with the
+  customer and the deal continues (`J-01` produces `expired`); `rejected` archives and the deal is
+  Lost (Module 10), `draft`/`pending` are still live, `sent`/`accepted`/`approved` are the
+  customer's to answer.
+- **Q5 · the delete route.** `D-46` and §3.5 grant "delete (Draft only)", and `OpenAPI §7.1`
+  lists no `DELETE` for any resource — customers archive through `PATCH /archive`. **Default:
+  `DELETE /api/v1/quotations/{id}` answering `204`**, recorded as a contract addition for
+  `OpenAPI §7.1` rather than an `archive` action, because the document says delete and Module 10
+  already owns "archive" for a rejected quotation.
+- **Q6 · `Idempotency-Key` on submit.** §9.1 requires it for "actions that change
+  irreversible-equivalent business state"; a submit is undone by a return, and `If-Match` (§9.2)
+  already makes a repeated submit a `409`. **Default: `If-Match` only on submit and delete;
+  `Idempotency-Key` on `new-version`, which §9.1 names ("versions").**
+
+- [x] **4.1** `QuotationStatusTransition` — §6.1's nine statuses and §6.4's arrows as one edge
+      table in `Domain/Status/`, on `DealStatusTransition`'s exact shape (`isAllowed`,
+      `allowedFrom`): `draft → pending` · `pending → approved | draft` · `approved → sent` ·
+      `sent → accepted | partial | counter | rejected | expired`; `accepted`, `partial`, `counter`,
+      `rejected`, `expired` terminal — Partial and Counter continue through a **copy** (§6.3), not
+      an edge. `QuotationWriteRefused` gains `invalidTransition(from, to)` → `409
+      state_transition_invalid` (`OpenAPI §5.1`), the row `dealStatusTransitionRefused` already
+      renders — one exception class per module's write refusals, no new renderer. Domain only:
+      no route, no database. *Verified by* a unit test transcribing every row of the table, one
+      asserting each terminal status has no edge, and one that `sent → draft` is refused.
+      *(2026-09-12, #104 — edge table + 409 factory; no route until 4.2)*
+
+- [x] **4.2** `PATCH /api/v1/quotations/{id}/submit-for-approval` — `permission:quotation.submit_for_approval`
+      (§3.5: All / Team / Own / Own) with `QuotationRowScope` applied to the deal's owner as 3.4
+      and 3.5 do; `If-Match` on 3.6's terms (`400` missing, `409 concurrency_conflict` stale);
+      `draft` only through 4.1, anything else `409 state_transition_invalid`; the
+      `UPDATE … WHERE version_token = ?` moves `status`, bumps the token and (Q2) sets
+      `submitted_at`; audit `QUOTATION_SUBMITTED` with old/new status (`AUD-01`); `200` with
+      3.5's `detail()` body and the new etag. No `Idempotency-Key` (Q6). *Verified by* the
+      role matrix row by row including Team Leader fail-closed and Procurement/CEO `403`; a second
+      submit with the old etag → `409 concurrency_conflict`; a submit of a `pending` quotation
+      with a fresh etag → `409 state_transition_invalid`; the audit row; and the verifier broken
+      by removing the 4.1 check.
+      *(2026-09-12, #105 — `submitted_at` added; `QuotationEtag` + `QuotationWriteAccess` extracted from 3.6)*
+
+- [x] **4.3** `POST /api/v1/quotations/{id}/new-version` — §6.3 / `D-08`'s "full copy": one
+      transaction (`DB-11`) inserting a new `quotations` row with `parent_id = {id}`,
+      `version = parent.version + 1`, `status = draft`, its own `QT-` code (Q3), every header
+      field, every `quotation_items` and `quotation_additional_items` row **verbatim** — captured
+      `unit_cost`, FX rate and rounding included, because the copy is the document the customer
+      answered; the first `PATCH` on the copy re-prices at the edit (3.6), which is §10.3's
+      "refresh". Accepted from Q4's statuses only, else `409 state_transition_invalid`; the source
+      row is not touched. `permission:quotation.edit` with the row scope (whoever may edit the
+      next draft); `Idempotency-Key` required (§9.1 "versions"), through 3.7's alias; audit
+      `QUOTATION_VERSION_CREATED` carrying the parent id; `201 {id, code, version}`. The UNIQUE
+      `(parent_id, version)` (Point 1.1) refuses a second copy of the same parent at the
+      database. *Verified by* a copy whose `detail()` equals the parent's except id, code,
+      version, status, etag and timestamps; a second `new-version` on the same parent →
+      `409`; a `draft` parent → `409 state_transition_invalid`; the replayed `Idempotency-Key` →
+      one copy.
+      *(2026-09-12, #106 — `replicate()` minus the answer's marks; `23505` → `409 version_exists`; `store()` keeps `{id, code}`)*
+
+- [x] **4.4** `DELETE /api/v1/quotations/{id}` (Q5) — `D-46`: `permission:quotation.delete`
+      with the row scope, `If-Match` required, `draft` only else `422 business_rule_blocked`
+      `quotation_not_draft` (3.6's reason, reused — a delete outside Draft is the same rule 3.6
+      enforces, not a transition); soft-deletes the row and both child tables in one transaction
+      (`DB-01`, no `forceDelete`); audit `QUOTATION_DELETED`; `204`. A deleted quotation answers
+      `404 resource_not_found` on 3.5's read afterwards. *Verified by* the role matrix, a
+      `pending` quotation refused with the row intact, the three tables' `deleted_at` set, the
+      audit row, and the read returning `404`.
+      *(2026-09-12, #107 — `204`; children soft-deleted in the same guarded transaction; `lockedRow()` now the one `version_token` guard)*
+
+- [x] **4.5** `D-36` / §10.3's price-drift warning on the read — for a `draft` or `pending`
+      quotation, `ShowQuotation` compares each line's captured `unit_cost` and currency with the
+      supplier line's current price through the existing `SupplierItemPricingInterface` (3.3's
+      seam, no new crossing) and lists each difference in `meta.warnings` as
+      `{field: "lines.N", code: "supplier_price_changed", message}` — the same shape 3.4's
+      `quantity_exceeds_recorded` uses; `sent` and beyond compare nothing (§10.3 "completely
+      unaffected — fixed snapshot"). No "refresh prices" route: the button calls 3.6's `PATCH`,
+      which re-prices at the edit and is Draft-only as §10.3 requires. *Verified by* a line whose
+      supplier price moved after creation warning on `draft` and `pending`, the same line silent
+      on `sent`, an unmoved line silent, and the key absent when nothing moved.
+      *(2026-09-12, #108 — `lines.N.unit_cost`; gone line or unrecorded currency counts as moved; FX rate never compared, `D-09`)*
+
+**What Step 4 leaves for its neighbours, named so nobody assumes it is here:** approve / edit &
+approve / return with note and `D-50`'s `SELF_APPROVAL` (Module 8); send and the PDF (Module 9);
+accepted / partial / counter / rejected and `J-01`'s expiry (Module 10); the list, its
+`group_by` and §6.6's views (Step 5, which still needs the set-based owner seam
+`ShowQuotation`'s `ponytail:` note records); the builder screen and `user_term_suggestions`
+(the frontend step).
+
+#### Step 5 — the list *(point list published 2026-09-12 for approval; unapproved until the owner says so)*
+
+`GET /api/v1/quotations` — the endpoint the stub above names, §6.6's views for the Team Leader
+and Manager, and the same list for a sales employee inside §3.5's `view` scope. `OpenAPI §6`'s
+query contract in Domain first (Module 6 Step 4's shape: criteria → directory → use case →
+route), then §6.6's two groupings. Nothing here touches `resources/js`: the toggle, the split
+and "the system remembers the user's last choice" are the frontend step's, and the list answers
+whatever that screen asks with `filter[]`/`group_by`.
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved":**
+
+- **Q1 · "active quotations · history".** §6.6 splits every view in two and defines neither
+  word. **Default: `active` = `draft | pending | approved | sent`, `history` = `accepted |
+  partial | counter | rejected | expired`** — 4.1's terminal statuses are the history — served as
+  `filter[bucket]=active|history` so the screen makes two requests and the server owns the
+  definition. A quotation is in exactly one bucket.
+- **Q2 · "employee".** §6.6 filters and groups by employee; the owner ruled on 2026-09-11 that a
+  quotation's owner is its **deal's** `owner_id`, which is Deals' column. **Default: `employee` is
+  the deal's owner, read through a set-based method on `DealFactsInterface`** (Point 5.1) — not
+  `created_by`, and not a new column on `quotations`.
+- **Q3 · "amount range".** A quotation carries one currency and no base-currency total, so a
+  range over `final_total` across currencies ranks EGP against USD (Module 6 refused to sort
+  `total_price` for the same reason). **Default: `filter[amount_min]` / `filter[amount_max]`
+  apply to `final_total` and are accepted only together with `filter[currency]`; without it,
+  `400 invalid_request`.**
+- **Q4 · "period".** Nothing says which date. **Default: `filter[from]` / `filter[to]` on
+  `quotation_date`** (§6.2's Core group), inclusive, ISO dates; `created_at` is a tracking field.
+- **Q5 · `q`.** §6.6 lists no search box. **Default: no `q` on this list** — `OpenAPI §6.2` makes
+  the allowlist the point; Module 15's Meilisearch step adds it if a screen asks.
+- **Q6 · the row.** **Default: `QuotationSummary` as 3.4 answers it plus what §6.6's columns
+  need** — `status`, `customer_id`, `deal_id`, `currency_id`, `final_total`, `quotation_date`,
+  `valid_until`, `submitted_at`, `version`, `parent_id`, `created_at`, `updated_at` — and **no
+  cost, margin or supplier field** (§3.5's `view cost & margin` is the detail's business, and a
+  list that leaks it to a role without the grant is `SEC-07` broken at scale).
+- **Q7 · the customer group's label.** Customers exposes `CustomerTaxStatusInterface` to
+  this module and nothing that answers a name (checked 2026-09-12). **Default: the group's
+  `label` is the `customer_id` and the name is the frontend step's lookup through
+  `GET /api/v1/customers`** — the alternative, a `namesOf(list<string>)` on Customers' contract,
+  is one more crossing for a label, and the screen already lists customers.
+
+- [ ] **5.1** The set-based owner seam — `DealFactsInterface::dealIdsOwnedBy(string $ownerId):
+      list<string>` and `ownersOf(list<string> $dealIds): array<string, ?string>`, with the
+      Eloquent implementation in Deals. The first answers "own" for the list (`WHERE deal_id IN`)
+      and `filter[employee]`; the second answers `group_by=employee` for one page. Both read
+      `deals` through the module's own model, `DB-01` soft-deleted deals excluded, on
+      `factsOf()`'s terms. `ShowQuotation::one()` and `QuotationWriteAccess` keep `factsOf()` — a
+      single-row read has no set to ask for; the `ponytail:` note on `ShowQuotation` is retired
+      and the third scope-check copy the debt register names is **not** touched here (it is its
+      own row). *Verified by* a feature test on the Eloquent adapter: owned ids only, a soft-deleted
+      deal absent from both answers, an unknown id mapping to `null` in `ownersOf()`, and the
+      empty list answering `[]` without a query. **Ceiling, stated:** `dealIdsOwnedBy()` returns
+      an unbounded set — fine for one employee's deals, and the point to denormalise
+      `owner_id` onto `quotations` is when a Manager's `filter[employee]` on a ten-thousand-deal
+      owner is measured slow, not before.
+
+- [ ] **5.2** `QuotationListCriteria` · `InvalidQuotationListQuery` · `QuotationPage` in
+      `Domain/Listing/`, on `DealListCriteria`'s exact shape (`fromQuery()`, `offset()`,
+      `DEFAULT_PER_PAGE = 25`, `MAX_PER_PAGE = 100`). **Filters:** `status` (the nine of §6.1,
+      repeatable), `bucket` (Q1), `employee` (Q2, a user id), `customer_id`, `deal_id`,
+      `currency` (a code, as 3.4's request names it), `amount_min` / `amount_max` (Q3),
+      `from` / `to` (Q4). **Sorts:** `quotation_date`, `created_at`, `updated_at`, `code`,
+      `final_total` — the last accepted **only with `filter[currency]`**, Q3's reason. Default
+      `-updated_at`. **`group_by`:** `employee | customer` (the stub's own line), nothing else.
+      No `q` (Q5), no `include`. Everything outside these lists is
+      `InvalidQuotationListQuery` → `400 invalid_request` (`OpenAPI §6.1`, §6.2 "never ignore
+      them silently"), rendered by the row `ApiExceptionRenderer` already has for
+      `InvalidDealListQuery`. *Verified by* a unit test transcribing every allowlist, one 400 per
+      rejected shape (unknown filter, unknown sort, unknown group, `per_page=101`, `page=0`,
+      `amount_min` without `currency`, `sort=final_total` without `currency`, `from` after `to`),
+      and the default sort.
+
+- [ ] **5.3** `QuotationDirectoryInterface::list(QuotationListCriteria, QuotationRowScope):
+      QuotationPage` and its Eloquent implementation. The scope is applied **in the query**:
+      `unrestricted` adds nothing; an `ownerIds` scope becomes `WHERE deal_id IN (…)` from 5.1's
+      `dealIdsOwnedBy()` for each owner; `permitsNothing()` answers an empty page without a
+      query (the read's rule, `OpenAPI §5.1`). `filter[employee]` intersects the same way. Rows
+      are `QuotationSummary` (Q6) — `QuotationSummary` grows the fields Q6 names, `store()`'s
+      `{id, code}` answer unchanged (4.3's lesson). `total` counted after scoping, before
+      serialisation (`OpenAPI §6.1`). *Verified by* the feature test on the adapter: each filter
+      alone, two together, the bucket split (a quotation is in exactly one), the `IN` scope
+      (own sees own deals' quotations only; another owner's absent; a soft-deleted quotation
+      absent), pagination arithmetic (`total`, `total_pages`, last page), and `-updated_at` by
+      default.
+
+- [ ] **5.4** `ListQuotations::handle()` · `GET /api/v1/quotations` →
+      `permission:quotation.view` with the row scope resolved from the held scopes, as
+      `ListDeals::handle()` does. `OpenAPI §4.2`'s collection envelope with `meta.pagination`;
+      `QuotationPayload::summary()` serialises Q6's row and **nothing from
+      `QuotationLine::COST_FIELDS`** — the list never asks `revealsCosts()`, because it carries
+      nothing that needs it. *Verified by* the endpoint test on `QuotationReadEndpointTest`'s
+      fixtures (no new fixture copy — the debt row counts): 401; Manager sees every quotation;
+      Own-scoped roles see their own deals' only; Team Leader an empty page (fail-closed);
+      Procurement/CEO — §3.5's `view` cell — per the matrix; a withdrawn grant 403; every 400 of
+      5.2 reaching the wire as `invalid_request` with the offending parameter in
+      `error.details[0].field`; `per_page` default 25 and cap 100; `meta.request_id` present.
+
+- [ ] **5.5** `group_by=employee|customer` — the same page, grouped server-side (`OpenAPI §6.2`
+      "server-side grouping only"): `data` becomes `[{key, label, count, items: [...]}]` in the
+      page's sort order within each group, groups ordered by `label`; pagination still counts
+      quotations, not groups, so a page may open or close a group mid-way — **stated, not
+      hidden**: §6.6's screen groups what it shows, and a group that spans pages is the price
+      of `OpenAPI §6.1`'s bound on every list. `employee` groups by 5.1's `ownersOf()` (a deal
+      with no owner groups under `null` / "Unassigned", the label from the lang file); `customer`
+      groups by `customer_id` (Q7). *Verified by*
+      the endpoint test: two employees' quotations land in two groups with the right counts; a
+      customer group; an unassigned deal's quotation under the `null` key; `group_by=deal` →
+      400; the ungrouped shape untouched when `group_by` is absent.
+
+**What Step 5 leaves for its neighbours:** the toggle, the two-panel split and the remembered
+choice (the frontend step — `localStorage` per §6.6's "remembers", or a user setting if the owner
+wants it to follow the user across devices: **a question for that step, not this one**); `D-11`'s
+red badge and "days waiting" (Module 8's approvals screen, §6.4); `q` (Module 15); export.
+
 ---
 
 ## Module 8 — Approvals
@@ -1555,14 +1821,25 @@ owner says only "approved":**
 
 - [ ] **1.3** `quotation_files` + `AttachmentParent::Quotation` — one migration creating the pivot
       on the exact shape of `deal_files` (composite primary key, `file_id` index, `file_id`
-      cascade), and the new enum case in Storage. **This creates a new table and alters none**;
-      `quotations` is not touched, which is what keeps the module inside its own boundary — the
-      same arrangement Module 6 used for its nullable `deal_id`. Unlike the four pivots Module 0
-      shipped, this one **can** carry its parent foreign key, because `quotations` exists now and
-      theirs did not; it is added with a comment saying why it is present here and absent there.
-      *Verified by* `up` and `down` both running clean, the attach path writing a row through
-      `FileWriterInterface`, a duplicate attach refused by the primary key rather than by a
-      pre-check, and `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
+      cascade). **It creates a new table and alters none**; `quotations` is not touched, which is
+      what keeps this module inside its own boundary — the arrangement Module 6 used for its
+      nullable `deal_id`. ⚠️ **Module 0 shipped four pivots and `quotation_files` is not among
+      them** — `deal_files`, `supplier_quotation_files`, `purchase_order_files`, `report_files` —
+      so the one module whose stored PDF is its headline feature is the one with nowhere to put it.
+      Recorded as a finding, not worked around. Unlike those four, this pivot **carries its parent
+      foreign key in the same migration**, because `quotations` already exists and their parents
+      did not: `deals` set that precedent and `supplier_quotations` followed it, closing *"the debt
+      Module 0 recorded"* in its own migration. Nothing is owed afterwards.
+      **Three Module 0 touchpoints, named so they are not a surprise** — `AttachmentParent` gains a
+      `Quotation` case, and `FilesMigrationTest` carries its own `PIVOTS` constant plus a
+      still-owed-foreign-keys list that must both be appended to, inside our own block, the way
+      `AuditEnforcementTest`'s register already is. Extending Module 0 is allowed and has precedent
+      — our Point 4.1 added `FileWriterInterface` — but it is a shared file and this is where it
+      will conflict if Yousef is in it the same day.
+      *Verified by* `up` and `down` both running clean, `FilesMigrationTest` passing with the owed
+      list one entry shorter, the attach path writing a row through `FileWriterInterface`, a
+      duplicate attach refused by the primary key rather than by a pre-check, and
+      `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
 
 **What Step 1 does not cover, stated rather than discovered later:** no renderer, no Browsershot
 dependency, no template, no endpoint, no queue job, no frontend. Browsershot is **not** in

@@ -721,11 +721,9 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
 // the recorded reason that `team` resolves to nothing until a team entity
 // exists — fail-closed, not granted.
 //
-// ⚠️ **No `Idempotency-Key` yet.** `OpenAPI §9.1` names quotations among the
-// critical POSTs that require one; it is Point 3.7, blocked on where the store
-// lives (`AuditEnforcementTest` forbids `app/Http`, `app/Support` and `routes`
-// from writing to the database). `GET /{id}` (3.5) and `PATCH /{id}` (3.6)
-// follow in this group.
+// `GET /{id}` (3.5), `PATCH /{id}` (3.6) and the `OpenAPI §7.2` actions
+// (Step 4) follow in this group; every one that mutates carries `If-Match`
+// (§9.2) and answers `409` on a stale token (`DB-12`).
 Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // `OpenAPI §9.1` — `idempotency` runs after `permission:` so a replay is
     // still refused when the grant has gone (Point 3.7).
@@ -735,4 +733,17 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
         ->middleware('permission:quotation.view');
     Route::patch('/{quotation}', [QuotationController::class, 'update'])
         ->middleware('permission:quotation.edit');
+    // Point 4.2 — no `Idempotency-Key` (the owner's Q6 ruling): a repeated
+    // submit is already a `409` by the token, and a submit is undone by a return.
+    Route::patch('/{quotation}/submit-for-approval', [QuotationController::class, 'submit'])
+        ->middleware('permission:quotation.submit_for_approval');
+    // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
+    // `quotation.edit`, because whoever may edit the next draft may open it.
+    Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])
+        ->middleware(['permission:quotation.edit', 'idempotency']);
+    // Point 4.4 — the first business `DELETE`: `D-46` says delete, so it is
+    // not an `archive` action; recorded on #103 (Q5) as a contract addition
+    // to `OpenAPI §7.1`. `If-Match` only (Q6), as the submit.
+    Route::delete('/{quotation}', [QuotationController::class, 'destroy'])
+        ->middleware('permission:quotation.delete');
 });

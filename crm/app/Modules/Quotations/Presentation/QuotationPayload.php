@@ -8,6 +8,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
+use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 
 /**
  * What `/quotations` answers with — Module 7 Points 3.4 and 3.5.
@@ -75,8 +76,9 @@ final class QuotationPayload
             'parent_id' => $quotation->parentId,
             'rejection_reason' => $quotation->rejectionReason,
             'sent_at' => $quotation->sentAt,
+            'submitted_at' => $quotation->submittedAt,
             'is_self_approved' => $quotation->isSelfApproved,
-            'etag' => 'quotation:'.$quotation->id.':'.$quotation->versionToken,
+            'etag' => QuotationEtag::of($quotation),
             'items' => array_map(
                 static fn (QuotationLine $line): array => [
                     'id' => $line->id,
@@ -102,15 +104,19 @@ final class QuotationPayload
     }
 
     /**
-     * @param  list<int>  $lineNumbers  1-based, as `QuotationCreated::$quantityWarnings` reports them
+     * One `meta.warnings` entry per line: 3.4's `quantity_exceeds_recorded` on
+     * `quantity`, 4.5's `supplier_price_changed` on `unit_cost`. The message
+     * is `quotations.warnings.<code>`.
+     *
+     * @param  list<int>  $lineNumbers  1-based, as `QuotationCreated::$quantityWarnings` and `ShowQuotation::movedLines()` report them
      * @return list<array{field: string, code: string, message: string}>
      */
-    public static function warnings(array $lineNumbers): array
+    public static function warnings(array $lineNumbers, string $code, string $attribute): array
     {
         return array_map(static fn (int $lineNo): array => [
-            'field' => 'lines.'.($lineNo - 1).'.quantity',
-            'code' => 'quantity_exceeds_recorded',
-            'message' => (string) __('quotations.warnings.quantity_exceeds_recorded'),
+            'field' => 'lines.'.($lineNo - 1).'.'.$attribute,
+            'code' => $code,
+            'message' => (string) __('quotations.warnings.'.$code),
         ], $lineNumbers);
     }
 }

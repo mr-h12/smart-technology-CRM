@@ -8,10 +8,14 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
+use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
+use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use RuntimeException;
 
 /**
@@ -33,11 +37,18 @@ final class QuotationController
     public function show(Request $request, string $quotation, ShowQuotation $quotations): JsonResponse
     {
         $actorId = self::actorId($request);
+        $detail = $quotations->one($quotation, self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail(
-            $quotations->one($quotation, self::heldScopes($request), $actorId),
-            $quotations->revealsCosts($actorId),
-        ));
+        // Point 4.5 — `D-36`'s warning rides in `meta`, absent when nothing
+        // moved, on `store()`'s convention.
+        $warnings = QuotationPayload::warnings($quotations->movedLines($detail), 'supplier_price_changed', 'unit_cost');
+
+        return ApiEnvelope::single(
+            $request,
+            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId)),
+            200,
+            $warnings === [] ? [] : ['warnings' => $warnings],
+        );
     }
 
     public function store(SaveQuotationRequest $request, CreateQuotation $quotations): JsonResponse
@@ -47,7 +58,7 @@ final class QuotationController
         // The key is absent rather than an empty list when nothing is over:
         // a client checking `meta.warnings` for truthiness and one checking for
         // the key both get the same answer (`CustomerController::saved()`).
-        $warnings = QuotationPayload::warnings($created->quantityWarnings);
+        $warnings = QuotationPayload::warnings($created->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
 
         return ApiEnvelope::single(
             $request,
@@ -76,7 +87,7 @@ final class QuotationController
             $actorId,
         );
 
-        $warnings = QuotationPayload::warnings($updated->quantityWarnings);
+        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
 
         return ApiEnvelope::single(
             $request,
@@ -84,6 +95,45 @@ final class QuotationController
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
+    }
+
+    /**
+     * Point 4.2. No body — `OpenAPI §7.2`'s action is the verb and the path;
+     * `If-Match` is handed down as `update()` hands it. The answer is the
+     * re-read quotation, `show()`'s shape, its `status` now `pending`.
+     */
+    public function submit(Request $request, string $quotation, SubmitQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
+    }
+
+    /**
+     * Point 4.3. No body; the answer is `store()`'s shape plus the copy's
+     * `version`, because the copy is a create, not an edit of `{id}` — and
+     * the number is the one thing the caller cannot know before asking.
+     * `store()`'s own answer stays `{id, code}` (3.4's contract).
+     */
+    public function newVersion(Request $request, string $quotation, CreateQuotationVersion $versions): JsonResponse
+    {
+        $copy = $versions->create($quotation, self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, [...QuotationPayload::of($copy), 'version' => $copy->version], 201);
+    }
+
+    /**
+     * Point 4.4. `204` (the owner's Q5 ruling): nothing to serialise once the
+     * row is gone. `OpenAPI §3.3`'s request id still travels — it is the
+     * `X-Request-Id` header, which a `204` carries like any other answer.
+     */
+    public function destroy(Request $request, string $quotation, DeleteQuotation $quotations): Response
+    {
+        $quotations->delete($quotation, $request->headers->get('If-Match'), self::heldScopes($request), self::actorId($request));
+
+        return response()->noContent();
     }
 
     /**

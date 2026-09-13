@@ -820,6 +820,16 @@ would hide them behind `OD-03` indefinitely.
       correctness; a bundling inefficiency in Module 1 code. Closing it is a one-way choice — make it
       consistently static, or make the five call sites lazy too — inside Identity, not Module 6.
 
+- [ ] **Six `Page<T>` interfaces and eight `URLSearchParams` list-query builders in
+      `resources/js/services/*.ts`** — *revealed by Module 7 Point 6.1, 2026-09-13.* `grep -rn
+      "interface Page<T>" crm/resources/js` → `suppliers`, `customers`, `identity`,
+      `supplier-quotations`, `deals`, `catalog`, and now `api.ts`, where 6.1 put the one the
+      quotations client imports because `collection()` already returns exactly that shape unnamed.
+      `grep -rn "parameters.size === 0" crm/resources/js` → 8 copies of the same omit-empty-filter
+      loop, 6.1's `queryString()` the eighth. Each copy is correct; the count is the defect. The fix
+      is mechanical — every service imports `Page` from `@/api`, and one `listQuery(pairs)` helper
+      replaces the loop — and belongs to its own point, not to a Module 7 screen.
+
 - [ ] **Eleven schema tests carry a byte-identical `refusedWith()` helper** — *revealed by Module 7
       Point 1.1, 2026-09-07.* `grep -rln "private function refusedWith" crm/tests/` returns eleven
       files across Customers, Suppliers, Catalog, Admin, Deals, SupplierQuotations and now Quotations.

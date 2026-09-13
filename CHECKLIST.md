@@ -981,9 +981,11 @@ missing in the first place.
 - [x] **G-02** `CHECKLIST.md` cut from 9,436 to ~1,570 lines: Modules 0–6 moved verbatim to `checklist/module-0N.md`, stubs keep counts + open boxes; new *"What a point writes into `CHECKLIST.md`"* rule in **both guides** — one line per box, narrative stays in the PR. *(2026-09-12, owner's request, PR #98.)*
 
 
-- [x] **G-02** An `Agent skills` section added to **both guides**, pointing at two files under
+- [x] **G-03** An `Agent skills` section added to **both guides**, pointing at two files under
       `docs/agents/` that describe how this repository actually tracks work. *(2026-09-10, owner's
-      request.)*
+      request; opened as PR #93 and numbered `G-02` before Yousef's archiving work took that number
+      on 2026-09-12 in PR #98. Renumbered on merge rather than leaving two `G-02` rows — the
+      register is only useful if an identifier names one revision.)*
       **What arrived, and why none of it survived unedited.** Three files were written 2026-09-01 by
       a skill installer and sat uncommitted in the working tree for nine days. All three described a
       repository other than this one, and each claim below is **measured, not recalled**:

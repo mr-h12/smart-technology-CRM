@@ -984,6 +984,68 @@ missing in the first place.
 - [x] **G-02** `CHECKLIST.md` cut from 9,436 to ~1,570 lines: Modules 0–6 moved verbatim to `checklist/module-0N.md`, stubs keep counts + open boxes; new *"What a point writes into `CHECKLIST.md`"* rule in **both guides** — one line per box, narrative stays in the PR. *(2026-09-12, owner's request, PR #98.)*
 
 
+- [x] **G-03** An `Agent skills` section added to **both guides**, pointing at two files under
+      `docs/agents/` that describe how this repository actually tracks work. *(2026-09-10, owner's
+      request; opened as PR #93 and numbered `G-02` before Yousef's archiving work took that number
+      on 2026-09-12 in PR #98. Renumbered on merge rather than leaving two `G-02` rows — the
+      register is only useful if an identifier names one revision.)*
+      **What arrived, and why none of it survived unedited.** Three files were written 2026-09-01 by
+      a skill installer and sat uncommitted in the working tree for nine days. All three described a
+      repository other than this one, and each claim below is **measured, not recalled**:
+      `domain.md` sent every agent to `CONTEXT.md` and `docs/adr/` before exploring — `ls CONTEXT.md`
+      → no such file, `ls docs/adr` → no such directory, and `docs/` holds the seven `*_EN.md`
+      masters; this project's decision record is `D-xx` in `docs/CRM_Documentation_EN.md` §2, so the
+      file named a **second decision-record convention beside `D-xx`**. `issue-tracker.md` opened
+      *"Issues and specs for this repo live as GitHub issues"* — `gh issue list --state all` returns
+      **nothing; this repository has never had an issue**. `triage-labels.md` called its five labels
+      *"the actual label strings used in this repo's issue tracker"* and cited `mattpocock/skills` as
+      its source — `gh label list` returns the **nine GitHub defaults**, of which exactly one
+      (`wontfix`) is among the five, and it exists only because GitHub creates it with every
+      repository. Registering any of the three as written would have pointed **both developers'**
+      agents at a tracker, a label set and a decision record that do not exist — and `domain.md`'s
+      own text says to "proceed silently" when its paths are absent, so nothing would have reported
+      the mismatch.
+      **What was done instead.** `domain.md` was dropped (retained outside the repository, not
+      destroyed). The other two were **rewritten against the repository as measured** and renamed to
+      match what they now say: `issue-tracker.md` → `work-tracker.md`, which states that
+      `CHECKLIST.md` is the tracker, sets out `Module → Step → Point`, the `[ ]`/`[~]`/`[x]` legend,
+      where each register lives, that `D-xx`/`OD-xx` live in the master documentation rather than in
+      ADRs, and the `gh pr` commands that are real here — including the base-ref check, because a PR
+      can be open, green and `MERGEABLE` while based on another feature branch, which is how five
+      PRs merged into their own stacked bases on 2026-09-01. `triage-labels.md` → `triage.md`, which
+      says plainly that **there is no label workflow**, that the four canonical triage labels do not
+      exist and must not be created or applied on a skill's say-so, and that triage here is the
+      states `CHECKLIST.md` already writes — `⏸ deferred`, `⚠️`, *owner decision* — closing on the
+      rule that an unbacked requirement fails closed and is recorded, with `CustomerRowScope` and
+      `DealRowScope` as the worked example.
+      **Checks: none of the six gates applies, established the way `G-01` established it, not
+      assumed.** `.github/workflows/php-image.yml` filters `push` and `pull_request` on
+      `docker/php/**`, `crm/**` and itself. Every path in this change — `AGENTS.md`, `CLAUDE.md`,
+      `docs/agents/**` — is outside all three, so **no CI run is triggered**; its absence is correct,
+      not a pending result. No suite reads either guide at runtime (`G-01` established this by
+      `grep`; nothing since has added such a read).
+      **The two guides' new sections are byte-identical**, extracted with `awk` and compared
+      (`b412a595`, 15 lines each) — required because `AGENTS.md` is the tool-neutral twin and a rule
+      differing between them is a defect by both files' own text. Verified **after** the rewrite and
+      the renames rather than before, and proved non-vacuous by the line count: `G-01`'s trap was a
+      range that ran past its section and reported two empty extractions as identical.
+      **Problems found: three**, all of them the installed files themselves — the ADR convention, the
+      non-existent issue tracker and the non-existent labels, each measured above. Two were fixed by
+      rewriting, one by removal. **The first version of this change committed the second and third
+      unfixed**, with the defect recorded in this row but the false files still registered; that was
+      caught by reading the two files properly instead of trusting the summary line that named only
+      `domain.md`.
+      **Waste audit.** *Dead code:* none — prose only. *Duplicate logic:* the guide section is
+      duplicated across the two files, which is the documented requirement, not waste; the real
+      duplication was `domain.md`'s parallel decision record, and it is gone. *Unused components:*
+      `docs/agents/` had no reader until this point registered it; the two files it now holds are
+      each pointed at from both guides. *Unnecessary complexity:* none added — the change is smaller
+      than what arrived, by one whole file.
+      **Not covered:** nothing in CI or the suites verifies that these two files stay true as the
+      repository moves. Both carry measured claims — "never had an issue", "nine default labels" —
+      that a single `gh issue create` would falsify silently, and the next divergence between the two
+      guides will be caught by hand or not at all. `README.md` was not examined, as in `G-01`.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

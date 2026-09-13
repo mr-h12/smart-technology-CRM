@@ -382,3 +382,19 @@ way a seven-part report closes a point.
 - Cite the relevant decision (`D-xx`), database rule (`DB-xx`), architecture/security requirement, scheduled job (`J-xx`), or MVP module acceptance criterion in implementation notes, tests, or pull-request descriptions.
 - If no authoritative source supports a proposed behavior, treat it as a new requirement and request a decision before building it.
 - `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to an Arabic counterpart once one exists.
+
+## Agent skills
+
+Two files under `docs/agents/` tell a skill how this repository actually tracks work. Both were
+written against the repository as measured, not against a skill's defaults.
+
+### Work tracker
+
+**`CHECKLIST.md` is the tracker; GitHub Issues is not** — this repo has never had an issue. The
+decision record is `D-xx` in `docs/CRM_Documentation_EN.md` §2, not `docs/adr/`, and there is no
+`CONTEXT.md`. See `docs/agents/work-tracker.md`.
+
+### Triage
+
+**There is no triage label workflow** — only GitHub's nine default labels exist, none applied. What
+an item's state means is written in `CHECKLIST.md` itself. See `docs/agents/triage.md`.

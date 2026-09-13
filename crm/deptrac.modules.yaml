@@ -100,6 +100,26 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Notifications/.*
+    # `Pdf` is Module 9, added 2026-09-13 with its Point 1.0. It is the module
+    # §14.6 describes and `D-79` approved a template for, and it is named for
+    # the capability rather than for the quotation because §11 stores a report
+    # PDF too and `D-23` wants a manual accounts export — a `QuotationPdf`
+    # layer would be wrong within two modules.
+    #
+    # The ruleset stays **empty at this point, deliberately.** This file's own
+    # header says a crossing is "added here as a named exception with a reason,
+    # so each crossing is a decision that shows up in a diff rather than a habit
+    # that accumulates", and every grant in the ruleset below names the point
+    # that needed it. Module 9 will need two — a contract-shaped read of a
+    # quotation, and `StorageContract` to write the rendered file — and each
+    # arrives with the point that uses it, not ahead of it. An empty ruleset on
+    # a declared layer is also what keeps a reach out of this module *reported*:
+    # before Storage had an entry, a module reaching into it came back as
+    # **uncovered**, and uncovered does not fail the build.
+    - name: Pdf
+      collectors:
+        - type: directory
+          value: app/Modules/Pdf/.*
     # Admin is split for the reason Audit, Storage and Identity are, approved
     # 2026-08-31 with Point 6.3 — the first crossing into it. `DB-05`'s managed
     # lists are the thing another module needs: Catalog files an item under a

@@ -40,7 +40,10 @@ does not create requirements. If a box here disagrees with the build plan, the b
 
 ### Required during the build 🟡
 
-- [ ] **OD-02** — PDF template *(before Module 9 — effectively answered by P-01, needs confirmation)*
+- [x] ~~**OD-02** — PDF template~~ — **confirmed 2026-09-13, recorded as `D-79`**: the `P-01` prototype
+      template *is* the approved design. Three items it carried forward stay open as Module 9 build
+      work, not as decisions — live page numbering, the one-page re-check on every template change,
+      and a customer-view model that structurally cannot hold supplier, cost or margin fields
 - [x] ~~**OD-04** — VPN type and concurrent capacity~~ — closed by `D-59`: Cloudflare Tunnel + Access, 5 named users
 - [ ] **OD-06** — Company holiday calendar *(before Module 13)*
 - [ ] **OD-05** — Expected daily workload *(queue and storage sizing)*

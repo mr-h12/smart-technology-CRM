@@ -423,7 +423,7 @@ That isn't failure — it's a prompt to find the **cause**: slowness? insufficie
 | User personas | Design system |
 | Design system | First screen |
 | OpenAPI contract | First endpoint |
-| PDF template (OD-02) | Module 9 |
+| ~~PDF template (OD-02)~~ — closed by D-79: the P-01 template is the approved design | — |
 | ~~VPN configuration (OD-04)~~ — closed by D-59 | — |
 | Company holiday calendar (OD-06) | Module 13 |
 

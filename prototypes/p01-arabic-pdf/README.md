@@ -71,5 +71,6 @@ changes, not the rendering.
 - This is a layout prototype. It carries no supplier names, costs, or margins,
   matching §3.12 rule 2 — the production template must be fed by a customer-view
   model that structurally cannot contain those fields.
-- OD-02 (final PDF template) is still open; this is a working baseline, not the
-  approved design.
+- OD-02 is **closed** — `D-79` (2026-09-13) approves this template as the design,
+  including both departures from PO #226 above. The three items above it are build
+  work, not open questions.

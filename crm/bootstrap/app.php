@@ -26,6 +26,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Modules\Identity\Presentation\VerifyPermissionMatrixCommand;
+use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -257,6 +258,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (QuotationNotPriceable $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::quotationNotPriceable($e, $request)
+                : null,
+        );
+        $exceptions->render(
+            fn (InvalidQuotationListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::invalidQuotationListQuery($e, $request)
                 : null,
         );
         $exceptions->render(

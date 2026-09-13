@@ -9,7 +9,28 @@ return [
     // `422 business_rule_blocked` — §5.6's block, and its neighbour `D-09`
     // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
     // `fx_rate_missing` as a distinct code on 2026-09-11.
+    // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (Point 5.2). The envelope's
+    // message is `errors.invalid_request`; the cause is in `details`, below.
+    'list_query' => [
+        'not_a_positive_integer' => 'This value must be a whole number greater than zero.',
+        'above_maximum' => 'This page size is larger than the maximum allowed.',
+        'unknown_parameter' => 'This list does not offer that parameter.',
+        'unknown_filter' => 'This list does not offer that filter.',
+        'unknown_status' => 'This is not a quotation status.',
+        'unknown_bucket' => 'The bucket must be active or history.',
+        'not_a_uuid' => 'This filter value is not an id.',
+        'not_a_code' => 'This filter value is not a currency code.',
+        'not_an_amount' => 'This amount must be a non-negative number.',
+        'currency_required' => 'Amount filters and the total sort need filter[currency].',
+        'not_a_date' => 'This date must be a calendar date written as YYYY-MM-DD.',
+        'after_to' => 'The start of the date range is after its end.',
+        'unknown_sort_field' => 'This list cannot be sorted by that field.',
+        'repeated_sort_field' => 'A field can only be used once when sorting.',
+        'unknown_group' => 'This list can only be grouped by employee or customer.',
+    ],
+
     'errors' => [
+        'invalid_request' => 'This request could not be understood.',
         'supplier_price_missing' => 'This supplier line has no usable price, so the quotation cannot be saved.',
         'fx_rate_missing' => 'No exchange rate is recorded to convert this supplier line. Record the rate first.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (Point 3.6).

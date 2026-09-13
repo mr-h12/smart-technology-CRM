@@ -92,7 +92,7 @@ from fighting over the same eleven files.
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
 | **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1–4.4 (#104–#107) merged, 4.5 on #108 — Step 4 closes with it. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **not started — reassigned to Yousef 2026-09-13 by owner direction.** Claimed by the second developer 2026-09-10 and never started; a point list was drafted (PR #94) and is left for the new owner to accept or discard, not merged. *Row written on the owner's instruction, not by the module's owner — the one exception to this table's own claiming rule, recorded as such.* |
-| **9 — PDF Generation** | second developer | claimed 2026-09-13, **not started** — Step 1's point list published below and awaiting approval; `OD-02` closed by `D-79` (PR #111) |
+| **9 — PDF Generation** | second developer | claimed 2026-09-13, **Step 1 approved 2026-09-13** with every stated default taken; `OD-02` closed by `D-79` (PR #111) |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1734,7 +1734,7 @@ permission rows, and if the owner later rules that only an Approved quotation ma
 is a status check added at the endpoint — not a re-plan of this list. Owed a `D-xx` if the owner
 disagrees with the reading.
 
-### Step 1 — the renderer's boundary *(point list published 2026-09-13, awaiting approval)*
+### Step 1 — the renderer's boundary *(point list published and **approved** 2026-09-13)*
 
 Step 1 builds the module, the model the template is allowed to see, and the place the output is
 stored. It deliberately contains **no renderer and no endpoint** — those are Steps 2 and 3 — because
@@ -1751,7 +1751,9 @@ arrangement the acceptance criterion refuses: *"a customer-view model that **str
 contain supplier, cost, or margin fields."*
 
 **Owner decisions this list needs — each names its default, and the default is what ships if the
-owner says only "approved":**
+owner says only "approved".** ✅ **Approved 2026-09-13 with "approved" alone, so every default
+below is now the decision.** `Q2` and `Q3` each leave something deliberately unbuilt — read them
+as the reasons two boxes will not close in this module, not as oversights.
 
 - **Q1 · the module's name.** Module 9 has no directory; the sixteen under `crm/app/Modules/` are
   domain nouns. §11 also stores a report PDF and `D-23` wants a manual accounts export, so a

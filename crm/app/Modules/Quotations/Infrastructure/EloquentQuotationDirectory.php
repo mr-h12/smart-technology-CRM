@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Infrastructure;
 
+use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
+use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
+use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -57,7 +63,11 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
     /** §4.7: "QT-2026-0001". */
     private const CODE_PREFIX = 'QT';
 
-    public function __construct(private ConnectionInterface $connection) {}
+    public function __construct(
+        private ConnectionInterface $connection,
+        private DealFactsInterface $deals,
+        private CurrencyRepositoryInterface $currencies,
+    ) {}
 
     public function create(QuotationDraft $draft, string $actorId): QuotationSummary
     {
@@ -72,8 +82,8 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_items', $row->id, $draft->items, $actorId);
         $this->writeChildren('quotation_additional_items', $row->id, $draft->additionalItems, $actorId);
 
-        // `version` is the column's default; `save()` does not read defaults back.
-        return new QuotationSummary(id: $row->id, code: $row->code, version: 1);
+        // `save()` does not read column defaults back (`version`, `status`).
+        return self::summary($row->refresh());
     }
 
     public function find(string $quotationId): ?QuotationDetail
@@ -179,6 +189,119 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         return true;
     }
 
+    public function list(QuotationListCriteria $criteria, QuotationRowScope $scope): QuotationPage
+    {
+        // `OpenAPI §5.1`: a reach of nothing is answered before any read.
+        if ($scope->permitsNothing()) {
+            return new QuotationPage([], 0, $criteria->page, $criteria->perPage);
+        }
+
+        $currencyId = null;
+        if ($criteria->currency !== null) {
+            $code = CurrencyCode::tryFrom($criteria->currency);
+            $currencyId = $code === null ? null : $this->currencies->find($code)?->id();
+
+            // A code no currency has matches nothing — an empty page, not a 400.
+            if ($currencyId === null) {
+                return new QuotationPage([], 0, $criteria->page, $criteria->perPage);
+            }
+        }
+
+        $query = Quotation::query();
+
+        // `SEC-08` in the query: `own` is the deal's `owner_id`, reached as a
+        // set through the seam — never a join on `deals` (module isolation).
+        if (! $scope->unrestricted) {
+            $reach = [];
+            foreach ($scope->ownerIds as $ownerId) {
+                $reach = [...$reach, ...$this->deals->dealIdsOwnedBy($ownerId)];
+            }
+            $query->whereIn('quotations.deal_id', $reach);
+        }
+
+        // Q2: `filter[employee]` intersects the same way — two `IN`s on one column.
+        if ($criteria->employeeId !== null) {
+            $query->whereIn('quotations.deal_id', $this->deals->dealIdsOwnedBy($criteria->employeeId));
+        }
+
+        if ($criteria->statuses !== []) {
+            $query->whereIn('quotations.status', $criteria->statuses);
+        }
+
+        if ($criteria->bucket !== null) {
+            $query->whereIn('quotations.status', QuotationListCriteria::BUCKETS[$criteria->bucket]);
+        }
+
+        if ($criteria->customerId !== null) {
+            $query->where('quotations.customer_id', $criteria->customerId);
+        }
+
+        if ($criteria->dealId !== null) {
+            $query->where('quotations.deal_id', $criteria->dealId);
+        }
+
+        if ($currencyId !== null) {
+            $query->where('quotations.currency_id', $currencyId);
+        }
+
+        // Q3: bounds compare as NUMERIC against the string the caller sent (`DB-07`).
+        if ($criteria->amountMin !== null) {
+            $query->where('quotations.final_total', '>=', $criteria->amountMin);
+        }
+
+        if ($criteria->amountMax !== null) {
+            $query->where('quotations.final_total', '<=', $criteria->amountMax);
+        }
+
+        // Q4: inclusive on both ends.
+        if ($criteria->from !== null) {
+            $query->where('quotations.quotation_date', '>=', $criteria->from);
+        }
+
+        if ($criteria->to !== null) {
+            $query->where('quotations.quotation_date', '<=', $criteria->to);
+        }
+
+        // `OpenAPI §6.1`: "Pagination always happens after authorization
+        // scoping" — counted from the scoped builder, not a fresh one.
+        $total = $query->count();
+
+        foreach ($criteria->sorts as $sort) {
+            $query->orderBy('quotations.'.$sort['field'], $sort['descending'] ? 'desc' : 'asc');
+        }
+
+        // A deterministic tiebreak, as `EloquentDealDirectory::list()` has.
+        $query->orderBy('quotations.id');
+
+        $items = [];
+        foreach ($query->offset($criteria->offset())->limit($criteria->perPage)->get() as $row) {
+            $items[] = self::summary($row);
+        }
+
+        return new QuotationPage($items, $total, $criteria->page, $criteria->perPage);
+    }
+
+    /** Q6's row — §6.6's columns, nothing from the cost side. */
+    private static function summary(Quotation $row): QuotationSummary
+    {
+        return new QuotationSummary(
+            id: $row->id,
+            code: $row->code,
+            version: $row->version,
+            status: $row->status,
+            customerId: $row->customer_id,
+            dealId: $row->deal_id,
+            currencyId: $row->currency_id,
+            finalTotal: $row->final_total,
+            quotationDate: $row->quotation_date,
+            validUntil: $row->valid_until,
+            submittedAt: $row->submitted_at?->toIso8601String(),
+            parentId: $row->parent_id,
+            createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),
+            updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),
+        );
+    }
+
     /**
      * `DB-12`'s compare, as the `WHERE` of every write that bumps or ends the
      * row: matching nothing is the stale answer.
@@ -254,7 +377,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_items', $copy->id, $items, $actorId);
         $this->writeChildren('quotation_additional_items', $copy->id, $additional, $actorId);
 
-        return new QuotationSummary(id: $copy->id, code: $copy->code, version: $copy->version);
+        return self::summary($copy->refresh());
     }
 
     /**

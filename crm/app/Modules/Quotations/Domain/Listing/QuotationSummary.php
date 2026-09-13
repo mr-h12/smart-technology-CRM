@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Listing;
 
+use DateTimeImmutable;
+
 /**
- * What a create hands back — `SupplierQuotationSummary`'s shape (Module 6 Point
- * 1.3), and deliberately two fields where that one carries nine.
+ * One row of `GET /quotations` — §6.6's columns (Q6, Step 5) — and what a
+ * create hands back.
  *
- * The rule is that summary's own: "a field with no reader is the unused
- * component the waste audit exists to catch". §10's header is twenty-odd
- * columns and **nothing reads them yet** — `GET /{quotation_id}` and the
- * serialiser that shapes it are Step 3. What a caller of `create()` cannot do
- * without is the row it just made and the number that was allocated for it, so
- * that is what this carries. Adding a field is additive and cheap; carrying
- * twenty that no test asserts is not.
+ * Born with two fields at Point 1.3 on the rule that "a field with no reader
+ * is the unused component the waste audit exists to catch"; Point 5.3 is the
+ * reader, so the row grows to what the list shows. **Nothing from the cost
+ * side**: no margin, no supplier, no unit cost — `QuotationLine::COST_FIELDS`
+ * is gated per caller on the detail and has no place on a list row at all.
  *
- * Both are strings, and `code` is `QT-YYYY-NNNN` (§4.7).
+ * `code` is `QT-YYYY-NNNN` (§4.7); money is the `Precision::CAST_MONEY`
+ * string (`DB-07`); dates are `Y-m-d`, instants ISO-8601 in UTC (`DB-08`).
  */
 final readonly class QuotationSummary
 {
@@ -24,5 +25,16 @@ final readonly class QuotationSummary
         public string $id,
         public string $code,
         public int $version,
+        public string $status,
+        public string $customerId,
+        public string $dealId,
+        public string $currencyId,
+        public string $finalTotal,
+        public ?string $quotationDate,
+        public ?string $validUntil,
+        public ?string $submittedAt,
+        public ?string $parentId,
+        public DateTimeImmutable $createdAt,
+        public DateTimeImmutable $updatedAt,
     ) {}
 }

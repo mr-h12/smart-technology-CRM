@@ -94,6 +94,8 @@ from fighting over the same eleven files.
 | **5 — Requests / Deals** | second developer | **finished** — Steps 1–6 closed 2026-09-09; one criterion at `[~]`, its missing clause (§4.3 visibility column) owed a `D-xx` |
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
 | **7 — Customer Quotations** | Yousef | in progress — Steps 1–3 closed (3.7 merged 2026-09-12, #102); Step 4 approved 2026-09-12 (#103); 4.1–4.4 (#104–#107) merged, 4.5 on #108 — Step 4 closes with it. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
+| **8 — Approvals** | Yousef | **not started — reassigned to Yousef 2026-09-13 by owner direction.** Claimed by the second developer 2026-09-10 and never started; a point list was drafted (PR #94) and is left for the new owner to accept or discard, not merged. *Row written on the owner's instruction, not by the module's owner — the one exception to this table's own claiming rule, recorded as such.* |
+| **9 — PDF Generation** | second developer | claimed 2026-09-13, **Step 1 approved 2026-09-13** with every stated default taken; `OD-02` closed by `D-79` (PR #111) |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1783,6 +1785,165 @@ red badge and "days waiting" (Module 8's approvals screen, §6.4); `q` (Module 1
 - [ ] Rendering consumes a customer-view model that **structurally cannot** contain supplier,
       cost, or margin fields
 - [ ] Page numbering is dynamic — item count varies per quotation
+
+### Ordering — Module 9 starts before Module 8, and that is a deliberate owner decision
+
+`CLAUDE.md` and `docs/MVP_Build_Plan_EN.md` sequence the modules `… 7 Quotations → 8 Approvals →
+9 PDF …`, and the ⚠️ above the ownership table says the 4-and-5 parallel "does not license further
+reordering." This is the second reordering, so it is recorded rather than assumed: Module 8 moved to
+Yousef on 2026-09-13 and the second developer took Module 9. **Why it holds technically:** a PDF is
+rendered from a quotation's figures, not from an approval — nothing in §14.6, §17 or the acceptance
+criteria below reads `status`, and every field the renderer needs already exists on `main` through
+Module 7's `QuotationDetail`. **What it does not license:** generation is still gated on `§3.5`'s
+permission rows, and if the owner later rules that only an Approved quotation may be rendered, that
+is a status check added at the endpoint — not a re-plan of this list. Owed a `D-xx` if the owner
+disagrees with the reading.
+
+### Step 1 — the renderer's boundary *(point list published and **approved** 2026-09-13)*
+
+Step 1 builds the module, the model the template is allowed to see, and the place the output is
+stored. It deliberately contains **no renderer and no endpoint** — those are Steps 2 and 3 — because
+the one acceptance criterion with real design content in it is the customer-view model, and getting
+that wrong is the defect §3.12 rule 2 exists to prevent.
+
+**Why this is the shape of Step 1.** `QuotationDetail` — Module 7's read model, merged and the only
+legitimate way into a quotation — carries `defaultMargin`, and each `QuotationLine` carries
+`unitCost`, `unitCostCurrency`, `unitCostFxRateAtTime`, `unitCostBase`, `marginPercent`, `lineCost`
+and `supplierQuotationItemId`. Yousef even enumerated them as `QuotationLine::COST_FIELDS`. So the
+read model that Module 9 must consume holds **every category of field the customer PDF may never
+show**. Handing it to a template and trusting the template not to print them is exactly the
+arrangement the acceptance criterion refuses: *"a customer-view model that **structurally cannot**
+contain supplier, cost, or margin fields."*
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved".** ✅ **Approved 2026-09-13 with "approved" alone, so every default
+below is now the decision.** `Q2` and `Q3` each leave something deliberately unbuilt — read them
+as the reasons two boxes will not close in this module, not as oversights.
+
+- **Q1 · the module's name.** Module 9 has no directory; the sixteen under `crm/app/Modules/` are
+  domain nouns. §11 also stores a report PDF and `D-23` wants a manual accounts export, so a
+  quotation-only name will be wrong within two modules. **Default: `Pdf`**, with `AttachmentParent`
+  naming the parent, so Reports can reuse it without a rename.
+- **Q2 · Procurement's `Asgn` on both PDF rows.** §3.5 grants Procurement `Asgn` for *generate* and
+  for *export/download*. `SEC-08` gives `asgn` no mechanism, and `CustomerRowScope` and
+  `DealRowScope` both **fail closed** on it because no column says which procurement employee a
+  deal is assigned to. **Default: fail closed — Procurement gets `403` on both, with the refusal
+  written as a named case and a test, never as a silent gap.** This is the **third** module to hit
+  the same missing field; it is owed a `D-xx`, and Module 11 (Procurement) cannot fail closed on it
+  forever.
+- **Q3 · the notification on failure.** The criterion is "automatic retry + notification to the
+  employee". `crm/app/Modules/Notifications/` is four `.gitkeep` files, and §18 belongs to no
+  module. **Default: Module 9 builds the retry and the failure record; the notification is entered
+  on the debt register naming §18.2 and this criterion, and the box stays `[~]`** — not `[x]` with
+  half a criterion, and not a private notification table invented inside `Pdf`.
+- **Q4 · what a second generation does.** §14.6 requires an "immutable snapshot", while §3.5 grants
+  *generate PDF* as a repeatable action. **Default: every generation inserts a new `files` row and a
+  new pivot row; nothing is overwritten or deleted (`DB-01`), and download serves the most recent.**
+  The snapshot is immutable; the set of snapshots grows.
+- **Q5 · `scan_status` for a file the system produced.** `files.scan_status` defaults to `pending`
+  and §17 requires true-MIME validation because uploads are hostile. A PDF this module rendered is
+  not an upload. **Default: inserted as `clean` with the reason in a comment** — the alternative
+  leaves every generated PDF sitting in the quarantine view that `files_scan_status_pending_index`
+  exists to serve.
+- **Q6 · sending to the customer stays out of this module.** §3.5 lists *send to customer* as its
+  own row, §6.4 draws `Approved ──send──► Sent`, and Module 7's Step 4 explicitly excludes send.
+  The unmerged Module 8 draft (PR #94) asserted "`sent_at` is Module 9's". **Default: it is
+  not.** Module 9 generates and stores; `status` and `sent_at` are columns on `quotations`, so
+  whoever owns that table writes them. Module 9 publishes the contract they call and writes nothing into
+  `quotations` — the per-module rule, and the reason this module needs no change from Yousef.
+
+- [ ] **1.0** Create the `Pdf` module (Q1) — the four layer directories and a
+      `crm/deptrac.modules.yaml` entry appended inside our own block. It may depend on
+      `QuotationsContract`-shaped reads and `StorageContract`, and nothing may depend on it.
+      **No `Contract`/`Driver` split and no Eloquent model**, because `D-77` only forces the split
+      on a module whose Infrastructure holds models, and this one holds none: the `files` row and
+      the pivot are written through Storage's `FileWriterInterface`, the way
+      `AttachDealDocument` (our Point 4.1) and `AttachSupplierQuotationDocument` already do.
+      *Verified by* both `deptrac` configs at `Violations 0 · Uncovered 0`, and a deliberate
+      temporary `use` of an Eloquent model proving the ruleset actually refuses it.
+
+- [ ] **1.1** `CustomerQuotationView` in `Pdf/Domain/View/` — the model the template may see, plus
+      `CustomerQuotationLine` and `CustomerAdditionalLine`. Carries `code`, dates, customer and
+      company identity, currency, per-line description / quantity / **unit price** / line total,
+      the additional items, the money chain the customer is entitled to (`subtotal`,
+      `discountAmount`, `taxBase`, `taxAmount`, `netAmount`, `finalTotal`, `roundingDiff`),
+      `paymentTerms`, `warranty`, and `deliveryTerms` **only when `showDeliveryTerms` is true** —
+      the field is absent, not blank, so `show_delivery_terms = false` cannot be defeated by a
+      template that prints an empty section. No `unitCost*`, no `marginPercent`, no `lineCost`, no
+      `supplierQuotationItemId`, no `defaultMargin`, no supplier anything. *Verified by* a test
+      that reflects over all three constructors and asserts no property name matches
+      `QuotationLine::COST_FIELDS`, `margin`, `cost` or `supplier` — so a future field added by
+      someone in a hurry fails the suite rather than the customer's inbox — and a second test
+      asserting the class is `final readonly` with no setter and no `__set`.
+
+- [ ] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
+      `CustomerQuotationView`, the only place the two vocabularies meet, reading through
+      `QuotationDirectoryInterface` and never through an Eloquent model of Yousef's. Company
+      identity (name, logo, address, phones) comes from Settings, not hard-coded — `§13` screen 4
+      and `§14.6` both require it. *Verified by* a three-supplier quotation whose
+      `QuotationDetail` holds three distinct `supplierQuotationItemId` values and three different
+      `unitCost`s, mapped, then serialised to JSON and asserted to contain **none** of those twelve
+      values anywhere in the string — the acceptance criterion "no supplier name or price anywhere
+      in the PDF" tested at the model rather than by reading a rendered page.
+
+- [ ] **1.3** `quotation_files` + `AttachmentParent::Quotation` — one migration creating the pivot
+      on the exact shape of `deal_files` (composite primary key, `file_id` index, `file_id`
+      cascade). **It creates a new table and alters none**; `quotations` is not touched, which is
+      what keeps this module inside its own boundary — the arrangement Module 6 used for its
+      nullable `deal_id`. ⚠️ **Module 0 shipped four pivots and `quotation_files` is not among
+      them** — `deal_files`, `supplier_quotation_files`, `purchase_order_files`, `report_files` —
+      so the one module whose stored PDF is its headline feature is the one with nowhere to put it.
+      Recorded as a finding, not worked around. Unlike those four, this pivot **carries its parent
+      foreign key in the same migration**, because `quotations` already exists and their parents
+      did not: `deals` set that precedent and `supplier_quotations` followed it, closing *"the debt
+      Module 0 recorded"* in its own migration. Nothing is owed afterwards.
+      **Three Module 0 touchpoints, named so they are not a surprise** — `AttachmentParent` gains a
+      `Quotation` case, and `FilesMigrationTest` carries its own `PIVOTS` constant plus a
+      still-owed-foreign-keys list that must both be appended to, inside our own block, the way
+      `AuditEnforcementTest`'s register already is. Extending Module 0 is allowed and has precedent
+      — our Point 4.1 added `FileWriterInterface` — but it is a shared file and this is where it
+      will conflict if Yousef is in it the same day.
+      *Verified by* `up` and `down` both running clean, `FilesMigrationTest` passing with the owed
+      list one entry shorter, the attach path writing a row through `FileWriterInterface`, a
+      duplicate attach refused by the primary key rather than by a pre-check, and
+      `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
+
+> ⚠️ **A fourth carried-forward item, found 2026-09-13 against the source document.** The owner
+> supplied the original Purchase Order #226 as the reference for how the PDF should look. Checked
+> element by element, `template.js` reproduces it faithfully — logo lockup, the blue rule pair, the
+> `Date`/`Company Name`/`TO` header table, `#5B9BD5` headers on `#DEEAF6` rows, the totals stack,
+> the General Condition block, the signature pair, the footer band, and the S.T.I.S watermark. The
+> arithmetic checks out too: the PO reads `7368.42 → +14% = 8400.00 → −1% = 8326.32`, and `D-64`'s
+> documented order gives `8316.00`, so the `10.32` that retired PO #226 as a reconciliation target
+> reproduces exactly from the source rather than being carried as an assertion.
+>
+> **What does not survive the port: the template hard-codes its percentages into its labels.** Both
+> dictionaries carry `Discount 5%` / `الخصم 5%` and `14% VAT` / `ضريبة القيمة المضافة 14%` as
+> literal strings. Correct for a prototype with fixed sample data; wrong in production, where
+> `discountPercent` and `taxPercent` are per-quotation fields already on `QuotationDetail` and the
+> tax rate is configurable — and it collides with Module 0's "no hard-coded user-facing strings"
+> rule.
+> `D-79` named three carried-forward items and did not catch this one. It is **Step 2's**, where the
+> template is ported, so it costs nothing now; left unrecorded it would have shipped a PDF
+> permanently claiming 5% and 14%.
+
+**What Step 1 does not cover, stated rather than discovered later:** no renderer, no Browsershot
+dependency, no template, no endpoint, no queue job, no frontend. Browsershot is **not** in
+`crm/composer.json` — adding it is its own point in Step 2, which is the only point in this module
+that may touch `composer.lock`. Arabic rendering is proven by `P-01` and approved as the template by
+`D-79`, but nothing in Step 1 renders anything, so the Arabic criterion cannot be ticked here. The
+three items `D-79` carried forward — live page numbering, the one-page re-check, and the
+customer-view model — are Steps 2 and 1.1 respectively, and only the third is closed by this step.
+
+**Sketch of the remaining steps, so the module's shape is visible without committing to their
+points.** Step 2: Browsershot behind a `PdfRendererInterface`, `P-01`'s template ported to consume
+`CustomerQuotationView` only, the four faces embedded base64, live page numbers via Chrome's
+`headerTemplate`/`footerTemplate`, and **the percentages taken out of the labels** — see below.
+Step 3: `POST /api/v1/quotations/{id}/pdf` dispatching to the
+`pdf` queue (`PRF-04`, `config/queue.php:163`), the job, retry, and the `files` write. Step 4:
+`GET …/pdf` download, §3.5's two permission rows including the CEO's download-not-generate rule and
+Q2's fail-closed Procurement. Step 5: the screen, then the Arabic manual test list the module-end
+rule requires.
 
 ---
 

@@ -77,8 +77,16 @@ final readonly class QuotationDraft
         'show_delivery_terms',
     ];
 
-    /** @param  array<string, mixed>  $attributes  already validated at the boundary */
-    private function __construct(public array $attributes) {}
+    /**
+     * @param  array<string, mixed>  $attributes  already validated at the boundary
+     * @param  list<array<string, mixed>>  $items  `quotation_items` rows, priced (see below)
+     * @param  list<array<string, mixed>>  $additionalItems  `quotation_additional_items` rows
+     */
+    private function __construct(
+        public array $attributes,
+        public array $items = [],
+        public array $additionalItems = [],
+    ) {}
 
     /** @param  array<string, mixed>  $validated */
     public static function forCreate(array $validated): self
@@ -95,5 +103,63 @@ final readonly class QuotationDraft
         }
 
         return new self($kept);
+    }
+
+    /**
+     * Point 3.6's edit: everything `forCreate()` keeps except `deal_id` and
+     * `customer_id`, which are the quotation's identity — §6.2's "Core" group
+     * — not fields of an edit. The Form Request already prohibits both on a
+     * `PATCH`; this is the second line of the same rule, so the draft cannot
+     * carry them even if the boundary is bypassed.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    public static function forUpdate(array $validated): self
+    {
+        return self::forCreate(array_diff_key($validated, ['deal_id' => true, 'customer_id' => true]));
+    }
+
+    /**
+     * A copy of this draft carrying the child rows the directory writes.
+     *
+     * ── The children are never a caller's, unlike Module 6's ───────────────
+     *
+     * `SupplierQuotationDraft` pulls its `items` straight from the validated
+     * payload, because §7.2's supplier line prices are user-entered. A customer
+     * quotation's lines are the opposite: `quotation_items` carries `unit_price`,
+     * `line_total`, `line_cost` and `unit_cost_base` — every one a §5.1 figure —
+     * and §5 is explicit that "all prices are calculated in the backend". So
+     * `forCreate()` cannot lift them from a request, and they arrive here instead
+     * — priced by Step 2's engine and, for a line that named its product, already
+     * resolved to a `supplier_quotation_item_id` — from `CreateQuotation` (Step
+     * 3), inside the transaction `DB-11` requires. This is Module 6's
+     * `withItems()` for two tables rather than one.
+     *
+     * @param  list<array<string, mixed>>  $items
+     * @param  list<array<string, mixed>>  $additionalItems
+     */
+    public function withLines(array $items, array $additionalItems): self
+    {
+        return new self($this->attributes, $items, $additionalItems);
+    }
+
+    /**
+     * A copy of this draft with the backend-owned header fields merged in.
+     *
+     * `forCreate()` keeps only what a caller may send, and §5 keeps the money
+     * out of a caller's hands entirely: `subtotal` through `rounding_diff`,
+     * `rounding_unit`/`rounding_enabled` and `currency_id` are computed by
+     * `CreateQuotation` (Step 3) from Step 2's engine, the currency the request's
+     * code names, and the FX rate captured at creation — never lifted from the
+     * request. `tax_percent` is here too because `D-63` *derives* it from the
+     * customer's exemption rather than trusting the field: the merge lets the
+     * derived value win over whatever `forCreate()` kept. Given last, so a
+     * computed key always overrides a caller's.
+     *
+     * @param  array<string, mixed>  $computed
+     */
+    public function withComputed(array $computed): self
+    {
+        return new self([...$this->attributes, ...$computed], $this->items, $this->additionalItems);
     }
 }

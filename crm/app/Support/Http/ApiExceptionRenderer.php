@@ -13,6 +13,7 @@ use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\InvalidDealListQuery;
+use App\Modules\Idempotency\Domain\IdempotencyRefused;
 use App\Modules\Identity\Domain\Administration\InvalidListQuery;
 use App\Modules\Identity\Domain\Administration\UserAdministrationRefused;
 use App\Modules\Identity\Domain\Authentication\AuthenticationRefused;
@@ -21,6 +22,9 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
+use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -492,6 +496,55 @@ final class ApiExceptionRenderer
     }
 
     /**
+     * `OpenAPI §5.1` — 404 for a quotation that is absent **or** out of reach.
+     * Identical in shape to {@see self::dealNotFound()}: §3.5's `view` row is
+     * the widest spread of scopes in the document, so both of §5.1's cases
+     * are real here.
+     */
+    public static function quotationNotFound(QuotationNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1`'s 400 / 409 / 422 for `PATCH /quotations/{id}` — the
+     * status and code come from the exception's own table. The 409 entry
+     * carries `current_etag`, §5.1's "current version metadata needed to
+     * refresh" and §9.2's "safe refresh reference", beside the standard
+     * `{field, code, message}` triple.
+     */
+    public static function quotationWriteRefused(QuotationWriteRefused $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('quotations.errors.'.$exception->reason);
+        $detail = ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message];
+
+        if ($exception->currentEtag !== null) {
+            $detail['current_etag'] = $exception->currentEtag;
+        }
+
+        return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [$detail]);
+    }
+
+    /**
+     * `OpenAPI §5.1`'s 400 / 409 for `Idempotency-Key` (Module 7 Point 3.7) —
+     * the status and code come from the exception's own table, on
+     * `quotationWriteRefused`'s terms, the header named as the detail's field.
+     */
+    public static function idempotencyRefused(IdempotencyRefused $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('idempotency.errors.'.$exception->reason);
+
+        return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [
+            ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message],
+        ]);
+    }
+
+    /**
      * `OpenAPI §5.1` — 409 `state_transition_invalid`, this codebase's first
      * use of that row: "Requested state change violates the documented
      * workflow." Flow 3 gives approval exactly one decision point, and
@@ -519,6 +572,33 @@ final class ApiExceptionRenderer
             409,
             DealStatusTransitionRefused::ERROR_CODE,
             (string) __($exception->messageKey()),
+        );
+    }
+
+    /**
+     * `OpenAPI §5.1` — 422 `business_rule_blocked`, "a documented rule blocks
+     * the action, such as missing supplier price": §5.6's block, with the
+     * exception's `$reason` as the stable detail code (`supplier_price_missing`,
+     * or `fx_rate_missing` — the owner's 2026-09-11 addition). `field` names the
+     * request's line the way the validator would (0-based), so the SPA points at
+     * the line rather than matching a supplier item id; the envelope message is
+     * the detail's, on {@see self::roleAdministration()}'s precedent — one
+     * reason, one sentence.
+     */
+    public static function quotationNotPriceable(QuotationNotPriceable $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('quotations.errors.'.$exception->reason);
+
+        return ApiEnvelope::error(
+            $request,
+            422,
+            'business_rule_blocked',
+            $message,
+            [[
+                'field' => 'lines.'.($exception->lineNo - 1).'.supplier_quotation_item_id',
+                'code' => $exception->reason,
+                'message' => $message,
+            ]],
         );
     }
 

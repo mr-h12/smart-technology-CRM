@@ -8,12 +8,12 @@ Build the CRM MVP described by the project documentation. This is an internal, o
 
 Update this section whenever it stops being true.
 
-- **The application exists.** 14 modules under `crm/app/Modules/`, 25 migrations, and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `main` at `d803677`, 2026-09-05: **2241 backend tests (13385 assertions)** and **634 frontend tests (37 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
-- **Module progress**, counted from `CHECKLIST.md`'s own boxes on that commit: 0 Foundation **56 of 56 closed** · 1 Identity & Dynamic RBAC 38 closed, 2 open · 2 Settings, Managed Lists & Currencies 16/3 · 3 Customers 22/6 · 4 Catalog & Suppliers 26/1 · 5 Requests/Deals 15/5, **in progress** · 6 Supplier Quotations **complete — all 6 steps and all 5 acceptance criteria closed** (31 of 32 boxes; the lone open box, proposed point `2.2b Idempotency-Key`, is not approved and lives in the debt register). Modules 7–15 are untouched.
+- **The application exists.** 14 modules under `crm/app/Modules/`, 30 migrations, and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `main` at `16b40c2`, 2026-09-12: **2453 backend tests (13981 assertions)** and **750 frontend tests (44 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
+- **Module progress**, counted from `CHECKLIST.md`'s and `checklist/`'s own boxes on that commit: 0 Foundation **56 of 56** · 1 Identity & Dynamic RBAC 38 of 40 · 2 Settings, Managed Lists & Currencies 16 of 21 · 3 Customers 22 of 28 · 4 Catalog & Suppliers 28 of 30 · 5 Requests/Deals **32 of 33, finished 2026-09-09** · 6 Supplier Quotations **31 of 32, complete** (the open box is the unapproved `2.2b Idempotency-Key`) · **7 Customer Quotations in progress** — Step 1 (schema and domain, seven points) and Step 2 (pricing engine) closed; Step 3 (the write path) closed 2026-09-12 — 3.3 (#96), 3.4 (#97), 3.5 (#100), 3.6 (#101) and 3.7 (#102, `Idempotency-Key`) merged; Step 4 (actions on one quotation, five points) approved 2026-09-12 with defaults Q1–Q6 (#103), 4.1 `QuotationStatusTransition` (#104), 4.2 `submit-for-approval` (#105), 4.3 `new-version` (#106) and 4.4 `DELETE` (#107) merged, 4.5 price-drift `meta.warnings` (#108) merged — **Step 4 closed 2026-09-12**; Step 5 (list, five points) published on #110, unapproved. Modules 8–15 are untouched.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 deferred, not cancelled (`D-66`)** — development runs on a production-matched Docker environment (Linux containers, §14.2 stack) until the on-premise server is available. `P-02` still runs before the pilot rollout, and the deployment-debt register in `CHECKLIST.md` carries everything it would have proven.
 - **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved.** It no longer blocks a module — Module 0 closed under `D-66` — and still blocks the server, `P-02`, and every row of the deployment-debt register.
-- Track progress in `CHECKLIST.md`; `README.md` orients new contributors. Next action: **Module 7 — Customer Quotations** (next in the documented build order, where §5's pricing rules become real); the non-code items remain open — close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
+- Track progress in `CHECKLIST.md` — it holds only the live boxes, the debt registers, and the modules still open; a closed module's full point history is frozen verbatim in `checklist/module-0N.md` (nothing is ticked there). `README.md` orients new contributors. Next action: **Module 7 Step 5's point list is on #110 awaiting approval (Q1–Q7); Point 5.1 `dealIdsOwnedBy()` / `ownersOf()` starts once it is merged**; open owner questions: the `Idempotency-Key` retention period `OpenAPI §9.1` calls "defined" and nothing defines; the non-code items remain open — close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
 ## Authoritative Sources
 
@@ -94,6 +94,10 @@ Framework choices that satisfy a documented requirement. Where a Laravel default
 - Desktop is primary for office roles. Outdoor flows must be mobile-first PWA flows, online-only, with local draft preservation during a short connection drop.
 - External access uses Cloudflare Tunnel + Access for five named users (D-59); the LAN is primary for everyone else. Access gates identity but never replaces system authentication or the permission matrix. When external access is unavailable, show a specific message, not a generic failure.
 
+## UI Verification
+
+Any change to a screen, component, or stylesheet must be verified in a real browser (Claude Browser MCP) at both desktop and mobile widths, in Arabic (RTL, default locale) and English. jsdom tests alone are not sufficient evidence. Include the list of manual UI steps you performed in the change report.
+
 ## Security and Authorization
 
 - No public sign-up. Authenticate with an 8+ character password containing letters and numbers; hash with Argon2 or bcrypt.
@@ -157,6 +161,18 @@ For every module, provide and verify:
 
 Pricing calculations are the highest testing priority. Test the full lifecycle before release: lead → supplier offer → quotation → approval → PDF → purchase order → procurement → delivery.
 
+## Terminology
+
+- **Module N** is one of the numbered modules in `CHECKLIST.md` and the Required Delivery
+  Order (0–15).
+- **Step** and **Point** are a module's sub-units: every module is broken into steps, every step
+  into points (see Working Rhythm). "Step 2" is always a step *within* a module, never a roadmap
+  position — the documentation defines no separate "release step".
+- A **module** is the whole of its steps and points. When asked to "plan Module N", plan the
+  entire module — its full step-and-point breakdown — not just its first point.
+- When a reference is ambiguous (which module a step belongs to, or module-vs-point scope), ask
+  before planning rather than guessing silently.
+
 ## Working Rhythm — One Point at a Time
 
 This governs every module and overrides any default urge to batch work.
@@ -209,6 +225,15 @@ and the approved point list is the scope.
   named in the report. It is not fixed here — widening a point past its approved list is not the
   agent's call, and a large opportunistic cleanup buried in an unrelated point is unreviewable.
 - A deliberate simplification with a known ceiling is not waste. Say what the ceiling is.
+
+### What a point writes into `CHECKLIST.md`
+
+Tick the box and append **one line**: date, PR number, and the one fact a reader needs
+(`*(2026-09-12, #97 — 409 on stale If-Match)*`). The seven-part report lives in the PR
+description, not here. Debt-register entries are the exception and keep their full reasoning.
+When a module's last point closes, its section moves verbatim to `checklist/module-NN.md` and
+the stub form in `CHECKLIST.md` (counts, link, open boxes) replaces it — that is part of the
+manual-test-list handover, not a separate task.
 
 **"Nothing found" is a legitimate result and often the true one** for a small point. It is only
 legitimate after the four questions were asked, and the report says how they were asked.
@@ -343,6 +368,14 @@ way a seven-part report closes a point.
   - `./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml`
   - `./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml`
 - **No direct push to `main`.** Every merge needs a review confirming the deptrac boundaries hold and strict typing is intact.
+
+## Delivery Protocol (per checklist point)
+
+1. Write failing tests first (TDD) before implementation.
+2. Run the full gate suite locally: lint, static analysis (PHPStan), unit + feature tests.
+3. Open a PR and WAIT for CI to go green on the *new* commit SHA (filter CI status by SHA, never trust the latest row).
+4. Report the actual command output as evidence — never claim 'tests pass' without pasting the result.
+5. Ask the user to merge (Claude cannot run `gh pr merge`).
 
 ## Requirements Traceability
 

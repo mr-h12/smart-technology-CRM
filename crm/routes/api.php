@@ -22,6 +22,7 @@ use App\Modules\Identity\Presentation\PermissionController;
 use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
+use App\Modules\Quotations\Presentation\QuotationController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use App\Modules\SupplierQuotations\Presentation\SupplierQuotationController;
 use App\Modules\Suppliers\Presentation\SupplierController;
@@ -702,4 +703,47 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
     // `view` as `All`, no cell under `upload_attachment` — is refused.
     Route::post('/{supplierQuotation}/documents', [SupplierQuotationController::class, 'uploadDocument'])
         ->middleware('permission:supplier_quotation.upload_attachment');
+});
+
+// §3.5 Customer Quotations — Module 7 Point 3.4.
+//
+// `OpenAPI §7.1`'s conventional resource route, the write first. **No scope
+// argument**, on the deals' precedent rather than the catalog's: §3.5's
+// `create` row is scoped (`All · Team · — · Own · Own · — · —`), the middleware
+// asks only whether the caller may reach the endpoint, and which *deal* a
+// scoped caller may quote is `SEC-08`, answered inside `CreateQuotation` from
+// the reach the middleware leaves behind — a quotation has no owner column, so
+// the owner ruled (2026-09-11) that "own" is the deal's `owner_id`.
+//
+// §3.5's negative cases are all asserted as 403s: the CEO (`view` only), the
+// Outdoor Supervisor (a dash in every column) and Procurement (`Asgn` on
+// `view`, nothing under `create`). The Team Leader's `Team` is a 403 too, for
+// the recorded reason that `team` resolves to nothing until a team entity
+// exists — fail-closed, not granted.
+//
+// `GET /{id}` (3.5), `PATCH /{id}` (3.6) and the `OpenAPI §7.2` actions
+// (Step 4) follow in this group; every one that mutates carries `If-Match`
+// (§9.2) and answers `409` on a stale token (`DB-12`).
+Route::middleware('auth')->prefix('quotations')->group(function (): void {
+    // `OpenAPI §9.1` — `idempotency` runs after `permission:` so a replay is
+    // still refused when the grant has gone (Point 3.7).
+    Route::post('/', [QuotationController::class, 'store'])
+        ->middleware(['permission:quotation.create', 'idempotency']);
+    Route::get('/{quotation}', [QuotationController::class, 'show'])
+        ->middleware('permission:quotation.view');
+    Route::patch('/{quotation}', [QuotationController::class, 'update'])
+        ->middleware('permission:quotation.edit');
+    // Point 4.2 — no `Idempotency-Key` (the owner's Q6 ruling): a repeated
+    // submit is already a `409` by the token, and a submit is undone by a return.
+    Route::patch('/{quotation}/submit-for-approval', [QuotationController::class, 'submit'])
+        ->middleware('permission:quotation.submit_for_approval');
+    // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
+    // `quotation.edit`, because whoever may edit the next draft may open it.
+    Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])
+        ->middleware(['permission:quotation.edit', 'idempotency']);
+    // Point 4.4 — the first business `DELETE`: `D-46` says delete, so it is
+    // not an `archive` action; recorded on #103 (Q5) as a contract addition
+    // to `OpenAPI §7.1`. `If-Match` only (Q6), as the submit.
+    Route::delete('/{quotation}', [QuotationController::class, 'destroy'])
+        ->middleware('permission:quotation.delete');
 });

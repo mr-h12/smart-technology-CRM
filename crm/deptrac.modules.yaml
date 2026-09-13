@@ -24,10 +24,21 @@ parameters:
   paths:
     - ./app/Modules
   layers:
+    # `DealFactsInterface` and its result `DealFacts` are collected out here, on
+    # `SupplierQuotations`'s bool below: they live in `DealsContract` alone so
+    # Module 7 — allowed the contract, not the module — does not trip on module
+    # membership. Added 2026-09-11 with Module 7 Point 3.4.
     - name: Deals
       collectors:
-        - type: directory
-          value: app/Modules/Deals/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Deals/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
     - name: Quotations
       collectors:
         - type: directory
@@ -55,10 +66,24 @@ parameters:
           must_not:
             - type: classLike
               value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+    # `SupplierItemPricingInterface` and its result `SupplierItemPrice` are
+    # collected out here, the way `Catalog` collects its provisioner out above:
+    # a class caught by both this module-wide directory and the narrow
+    # `SupplierQuotationsContract` classLikes below would sit in two layers, and
+    # Module 7 — allowed the contract but not the module — would trip on the
+    # module membership. Excluding them makes each live in the contract layer
+    # alone. Measured, not reasoned: the violation was real until this bool.
     - name: SupplierQuotations
       collectors:
-        - type: directory
-          value: app/Modules/SupplierQuotations/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/SupplierQuotations/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
     - name: Procurement
       collectors:
         - type: directory
@@ -139,6 +164,44 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+
+    # SupplierQuotations' published price read, added 2026-09-11 with Module 7
+    # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
+    # price, and `D-21` puts that price in Module 6. Narrow like
+    # `CatalogContract`, not a `(Domain|Application)` split: exactly the one
+    # interface another module needs and the value object it returns, so the
+    # directory, its drafts and its listing stay out of Module 7's reach. Two
+    # `classLike`s rather than one because the read returns an object — the
+    # interface alone would leave `SupplierItemPrice` an uncovered dependency
+    # the moment Module 7 read a field off it.
+    - name: SupplierQuotationsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+
+    # `DealsContract`, on `SupplierQuotationsContract`'s exact shape: the one
+    # interface Module 7 reads off a deal and the value object it returns.
+    # `DealFacts` is a second classLike for the same reason `SupplierItemPrice`
+    # is — the moment Module 7 reads `->ownerId` off the result, the result is
+    # a dependency. Added 2026-09-11 with Module 7 Point 3.4.
+    - name: DealsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+
+    # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
+    # Point 3.7. One directory layer, **not** a Contract/Driver split: no
+    # module names it. Routes reach it by the `idempotency` alias and
+    # `bootstrap/app.php` renders its refusal, both outside `paths`. The day a
+    # module imports it, split it on Audit's terms and grant the contract half.
+    - name: Idempotency
+      collectors:
+        - type: directory
+          value: app/Modules/Idempotency/.*
 
     - name: StorageContract
       collectors:
@@ -329,6 +392,10 @@ parameters:
       - AuditContract
       - CustomersContract
       - StorageContract
+      # DealsContract, added 2026-09-11 with Module 7 Point 3.4 — the module
+      # needs its own published interface back, exactly as SupplierQuotations
+      # does below: `EloquentDealFacts` implements it.
+      - DealsContract
     # Quotations → Framework, SharedContracts, added 2026-09-07 with Point 1.7,
     # the module's first code. **Two entries, the shortest ruleset granted since
     # SupplierQuotations' own Point 1.3**, and each absence is a decision:
@@ -352,13 +419,35 @@ parameters:
     # and a create reads no row, so the crossing is not needed yet; Step 3's
     # `find()` is the point that needs it, and it will be a decision in a diff.
     #
-    # **No `AuditContract`** either: `AUD-01` records writes, and the write this
-    # point publishes has no use case in front of it yet. Step 3's
-    # `CreateQuotation` owns `DB-11`'s transaction and the audit row inside it,
-    # and that is the point that takes this entry.
+    # **`AuditContract`, `AdminContract`, `CustomersContract` and
+    # `SupplierQuotationsContract` added 2026-09-11 with Point 3.3** —
+    # `CreateQuotation`, the create §5 and §6 need. It owns `DB-11`'s transaction
+    # and records `QUOTATION_CREATED` (`AuditContract`); prices each line from
+    # Module 6's supplier price (`SupplierQuotationsContract`), converts it at
+    # the FX rate and reads the currency's rounding (`AdminContract` —
+    # `CurrencyRepositoryInterface`, `FxRateRepositoryInterface` and the money
+    # value objects); and derives the tax line from the customer's exemption
+    # (`CustomersContract`, `CustomerTaxStatusInterface`). Each crossing is a
+    # named interface, never a reach into a model. `IdentityContract` is still
+    # absent and still temporary — §3.5's `find()` (Point 3.5) is the reader
+    # that needs it, not this write.
+    # **`DealsContract` and `IdentityContract` added 2026-09-11 with Point 3.4**
+    # — `POST /quotations`. §3.5's `create` row is scoped (`All · Team · Own`),
+    # and a scope on a create can only constrain *which deal* is quoted: the
+    # owner ruled that a quotation's "own" is its deal's `owner_id`, so the use
+    # case reads `DealFactsInterface` (`DealsContract`) and refuses with
+    # `AuthorizationRefused` while the controller reads `PermissionDecision` off
+    # the request (`IdentityContract`). The 3.3 note above said `IdentityContract`
+    # would arrive with 3.5's `find()`; the scoped create needed it first.
     Quotations:
       - Framework
       - SharedContracts
+      - AdminContract
+      - AuditContract
+      - CustomersContract
+      - SupplierQuotationsContract
+      - DealsContract
+      - IdentityContract
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:
@@ -400,6 +489,13 @@ parameters:
       - Framework
       - SharedContracts
       - AuditContract
+      # SupplierQuotationsContract, added 2026-09-11 with Module 7 Point 3.3 —
+      # the module needs its own published interface back, exactly as Catalog
+      # does above. `SupplierItemPricingInterface` and `SupplierItemPrice` were
+      # collected out of the `SupplierQuotations` layer by the narrow classLikes,
+      # so `EloquentSupplierItemPricing` — which implements the one and returns
+      # the other — now depends on a layer rather than on a class next door.
+      - SupplierQuotationsContract
       # CatalogContract, added 2026-09-03 with Point 3.1. `D-22` adds a missing
       # product to the catalog automatically, and §7.2's offer line is where a
       # missing product is discovered. One interface, taking a name and
@@ -562,6 +658,10 @@ parameters:
       # The shared response envelope its own controllers used to own.
       - SharedContracts
     AuditContract:
+      - Framework
+    # Framework alone: a middleware, a query builder and a JSON response, and
+    # nothing another module owns.
+    Idempotency:
       - Framework
     AuditDriver:
       - AuditContract

@@ -1625,7 +1625,7 @@ owner says only "approved":**
       `owner_id` onto `quotations` is when a Manager's `filter[employee]` on a ten-thousand-deal
       owner is measured slow, not before. *(2026-09-13, #113 — unknown or soft-deleted id is absent from `ownersOf()`, not `null`; `null` is an unowned deal)*
 
-- [ ] **5.2** `QuotationListCriteria` · `InvalidQuotationListQuery` · `QuotationPage` in
+- [x] **5.2** `QuotationListCriteria` · `InvalidQuotationListQuery` · `QuotationPage` in
       `Domain/Listing/`, on `DealListCriteria`'s exact shape (`fromQuery()`, `offset()`,
       `DEFAULT_PER_PAGE = 25`, `MAX_PER_PAGE = 100`). **Filters:** `status` (the nine of §6.1,
       repeatable), `bucket` (Q1), `employee` (Q2, a user id), `customer_id`, `deal_id`,
@@ -1639,7 +1639,7 @@ owner says only "approved":**
       `InvalidDealListQuery`. *Verified by* a unit test transcribing every allowlist, one 400 per
       rejected shape (unknown filter, unknown sort, unknown group, `per_page=101`, `page=0`,
       `amount_min` without `currency`, `sort=final_total` without `currency`, `from` after `to`),
-      and the default sort.
+      and the default sort. *(2026-09-13, #114 — `q`/`include` answered `unknown_parameter`; `amount_min > amount_max` not refused, not in the list)*
 
 - [ ] **5.3** `QuotationDirectoryInterface::list(QuotationListCriteria, QuotationRowScope):
       QuotationPage` and its Eloquent implementation. The scope is applied **in the query**:

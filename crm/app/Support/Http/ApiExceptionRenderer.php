@@ -22,6 +22,7 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -492,6 +493,22 @@ final class ApiExceptionRenderer
             404,
             'resource_not_found',
             (string) __($exception->messageKey()),
+        );
+    }
+
+    /** `OpenAPI §6.1`/`§6.2`'s 400 for `GET /quotations` (Point 5.2) — {@see self::invalidDealListQuery()}'s shape. */
+    public static function invalidQuotationListQuery(InvalidQuotationListQuery $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            400,
+            InvalidQuotationListQuery::ERROR_CODE,
+            (string) __('quotations.errors.invalid_request'),
+            [[
+                'field' => $exception->parameter,
+                'code' => $exception->detailCode,
+                'message' => (string) __($exception->messageKey()),
+            ]],
         );
     }
 

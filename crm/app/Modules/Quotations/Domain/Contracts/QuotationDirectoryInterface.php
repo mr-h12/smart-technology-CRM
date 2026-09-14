@@ -97,11 +97,19 @@ interface QuotationDirectoryInterface
      * caller has already checked the transition against
      * `QuotationStatusTransition`; this writes, it does not decide.
      *
-     * ponytail: one status, one stamp. Module 8's approve and return are the
-     * second and third callers; generalise to `moveStatus(id, to, token,
-     * actor, attributes)` when they arrive, not before.
+     * ponytail: one status, one stamp. Module 8's `approve()` is the second
+     * copy; the return (8 · 1.2) is the third and folds all three into
+     * `moveStatus(id, to, token, actor, attributes)`.
      */
     public function submit(string $quotationId, int $expectedToken, string $actorId): bool;
+
+    /**
+     * §6.4's `Pending ──approve──► Approved` under `submit()`'s guard:
+     * `status` moves to `approved` and `is_self_approved` is written as the
+     * caller decided it (§6.5, `D-50`) **only where** `version_token =
+     * $expectedToken`. False when no row matched — stale, `409`.
+     */
+    public function approve(string $quotationId, int $expectedToken, string $actorId, bool $selfApproved): bool;
 
     /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with

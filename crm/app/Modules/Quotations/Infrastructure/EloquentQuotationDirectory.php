@@ -177,6 +177,17 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             ]) === 1;
     }
 
+    public function approve(string $quotationId, int $expectedToken, string $actorId, bool $selfApproved): bool
+    {
+        return $this->lockedRow($quotationId, $expectedToken)
+            ->update([
+                'status' => 'approved',
+                'is_self_approved' => $selfApproved,
+                'version_token' => $this->connection->raw('version_token + 1'),
+                'updated_by' => $actorId,
+            ]) === 1;
+    }
+
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool
     {
         // `update()`'s guard; `SoftDeletes::delete()` would skip it.

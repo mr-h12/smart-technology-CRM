@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
+use App\Modules\Quotations\Application\Writing\ApproveQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
@@ -131,6 +132,20 @@ final class QuotationController
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
+    }
+
+    /**
+     * Module 8 Point 1.1. `submit()`'s shape: no body, `If-Match`, the
+     * re-read quotation with its `status` now `approved` and
+     * `is_self_approved` as §6.5 decided it.
+     */
+    public function approve(Request $request, string $quotation, ApproveQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId)));
     }
 
     /**

@@ -18,6 +18,8 @@ export interface QuotationSummary {
     customer_id: string;
     deal_id: string;
     currency_id: string;
+    /** The ISO code behind `currency_id` — the row names it because `GET /currencies` is an admin's (Point 6.3, owner's ruling A). */
+    currency: string;
     final_total: string;
     quotation_date: string | null;
     valid_until: string | null;
@@ -165,6 +167,22 @@ export interface QuotationListQuery {
     from?: string | null;
     to?: string | null;
 }
+
+/** `QuotationListCriteria::STATUSES` — §6.1's nine, as the server stores them. */
+export const QUOTATION_STATUSES = [
+    'draft',
+    'pending',
+    'approved',
+    'sent',
+    'accepted',
+    'partial',
+    'counter',
+    'rejected',
+    'expired',
+] as const;
+
+/** The server's own default (Step 5 Q6): the last touched first. */
+export const QUOTATION_DEFAULT_SORT = 'updated_at';
 
 function queryString(query: QuotationListQuery, groupBy?: string): string {
     const parameters = new URLSearchParams();

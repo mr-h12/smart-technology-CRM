@@ -253,11 +253,14 @@ final class QuotationReadEndpointTest extends TestCase
         $row = $response->json('data.0');
         self::assertIsArray($row);
         self::assertSame(
-            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'],
+            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'],
             array_keys($row),
         );
         self::assertSame($id, $row['id']);
         self::assertSame('draft', $row['status']);
+        // Module 7 Point 6.3 (owner's ruling A, 2026-09-13): the row names its
+        // currency — `GET /currencies` is an admin's, so the SPA cannot join.
+        self::assertSame('EGP', $row['currency']);
         self::assertSame(1, $row['version']);
         foreach ([...QuotationLine::COST_FIELDS, 'default_margin', 'lines'] as $absent) {
             self::assertArrayNotHasKey($absent, $row);
@@ -291,7 +294,7 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertIsArray($items);
         self::assertCount($first === $a ? 2 : 1, $items);
         self::assertIsArray($items[0]);
-        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
     }
 
     /** A deal with no owner groups under the `null` key, labelled from the lang file. */
@@ -333,6 +336,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.status', 'draft')
             ->assertJsonPath('data.currency_id', $this->currencyId('EGP'))
+            ->assertJsonPath('data.currency', 'EGP')
             ->assertJsonPath('data.deal_id', fn (string $dealId): bool => $dealId !== '')
             ->assertJsonPath('data.customer_id', $this->customerId)
             ->assertJsonPath('data.default_margin', '20.000')

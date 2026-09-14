@@ -91,7 +91,8 @@
             "suppliers": "الموردون",
             "catalog": "الكتالوج",
             "supplierQuotations": "عروض المورّدين",
-            "deals": "الطلبات / الصفقات"
+            "deals": "الطلبات / الصفقات",
+            "quotations": "عروض الأسعار"
         }
     },
     "theme": {
@@ -1028,6 +1029,61 @@
             "rejected": "لم يُقبل الإسناد.",
             "ownerNone": "اختر الموظف",
             "listUnavailable": "تعذّرت قراءة قائمة الموظفين، لذا يُحدَّد المسؤول بالمعرّف."
+        }
+    },
+    "quotations": {
+        "title": "عروض الأسعار",
+        "loading": "جارٍ تحميل عروض الأسعار…",
+        "total": "{count} عرض سعر",
+        "version": "نسخة {version}",
+        "filter": {
+            "status": "الحالة",
+            "statusAll": "كل الحالات",
+            "customer": "العميل",
+            "customerAll": "كل العملاء",
+            "from": "من",
+            "to": "إلى",
+            "currency": "العملة",
+            "currencyPlaceholder": "EGP",
+            "amountMin": "الإجمالي من",
+            "amountMax": "الإجمالي إلى",
+            "amountNeedsCurrency": "اختر العملة أولًا — لا يمكن مقارنة إجماليات بعملات مختلفة.",
+            "apply": "تطبيق"
+        },
+        "column": {
+            "code": "الرمز",
+            "version": "النسخة",
+            "status": "الحالة",
+            "customer": "العميل",
+            "total": "الإجمالي",
+            "quotationDate": "تاريخ العرض",
+            "validUntil": "صالح حتى",
+            "updatedAt": "آخر تحديث"
+        },
+        "status": {
+            "draft": "مسودة",
+            "pending": "بانتظار الاعتماد",
+            "approved": "معتمد",
+            "sent": "مُرسَل",
+            "accepted": "مقبول",
+            "partial": "مقبول جزئيًا",
+            "counter": "عرض مقابل",
+            "rejected": "مرفوض",
+            "expired": "منتهي"
+        },
+        "empty": {
+            "title": "لا توجد عروض أسعار ظاهرة لك",
+            "message": "إمّا أنه لم يُبنَ أي عرض سعر، أو أن أيًّا منها لا يقع ضمن نطاقك.",
+            "filtered": {
+                "title": "لا شيء يطابق هذا الترشيح",
+                "message": "غيّر المرشّحات أو امسحها لعرض عروض أسعار أكثر."
+            }
+        },
+        "pagination": {
+            "label": "صفحات عروض الأسعار",
+            "previous": "السابق",
+            "next": "التالي",
+            "position": "صفحة {page} من {pages} — {total} عرض سعر"
         }
     }
 }

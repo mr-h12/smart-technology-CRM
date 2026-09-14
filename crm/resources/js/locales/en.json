@@ -91,7 +91,8 @@
             "suppliers": "Suppliers",
             "catalog": "Catalog",
             "supplierQuotations": "Supplier Quotations",
-            "deals": "Requests / Deals"
+            "deals": "Requests / Deals",
+            "quotations": "Quotations"
         }
     },
     "theme": {
@@ -1028,6 +1029,61 @@
             "rejected": "The assignment was not accepted.",
             "ownerNone": "Choose the employee",
             "listUnavailable": "The employee list could not be read, so the owner is set by identifier."
+        }
+    },
+    "quotations": {
+        "title": "Quotations",
+        "loading": "Loading quotations…",
+        "total": "{count} quotations",
+        "version": "v{version}",
+        "filter": {
+            "status": "Status",
+            "statusAll": "Any status",
+            "customer": "Customer",
+            "customerAll": "Any customer",
+            "from": "From",
+            "to": "To",
+            "currency": "Currency",
+            "currencyPlaceholder": "EGP",
+            "amountMin": "Total from",
+            "amountMax": "Total to",
+            "amountNeedsCurrency": "Choose a currency first — totals in different currencies cannot be compared.",
+            "apply": "Apply"
+        },
+        "column": {
+            "code": "Code",
+            "version": "Version",
+            "status": "Status",
+            "customer": "Customer",
+            "total": "Total",
+            "quotationDate": "Quotation date",
+            "validUntil": "Valid until",
+            "updatedAt": "Last updated"
+        },
+        "status": {
+            "draft": "Draft",
+            "pending": "Pending approval",
+            "approved": "Approved",
+            "sent": "Sent",
+            "accepted": "Accepted",
+            "partial": "Partially accepted",
+            "counter": "Counter offer",
+            "rejected": "Rejected",
+            "expired": "Expired"
+        },
+        "empty": {
+            "title": "No quotations are visible to you",
+            "message": "Either no quotations have been built, or none of them fall inside your reach.",
+            "filtered": {
+                "title": "Nothing matches this filter",
+                "message": "Change or clear the filters to see more quotations."
+            }
+        },
+        "pagination": {
+            "label": "Quotation pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} quotations"
         }
     }
 }

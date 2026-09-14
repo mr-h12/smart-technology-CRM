@@ -21,6 +21,7 @@ import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import DealDetailView from '@/pages/deals/DealDetailView.vue';
 import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
+import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
@@ -179,6 +180,21 @@ export const routes: RouteRecordRaw[] = [
         name: 'deal-detail',
         component: DealDetailView,
         meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
+    },
+    {
+        // §8's *Quotations* screen — Module 7's list (Point 6.3), keyed on
+        // §3.5's `quotation.view`, which every role but the Outdoor Supervisor
+        // holds; §8 lists the screen for the CEO as read-only and the matrix
+        // agrees (`view` All, no write cell). The owner's ruling of 2026-08-31
+        // as on every list before it: route and sidebar follow the matrix.
+        //
+        // ⚠️ §3.5's `Team` scope resolves to no rows (Step 5's fail-closed
+        // owner scope), so a Team Leader is answered with an empty page and
+        // the screen says "none are visible to you" for that reason.
+        path: '/quotations',
+        name: 'quotations',
+        component: QuotationsView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
     },
     {
         // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`

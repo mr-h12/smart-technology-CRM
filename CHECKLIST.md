@@ -830,6 +830,25 @@ would hide them behind `OD-03` indefinitely.
       is mechanical — every service imports `Page` from `@/api`, and one `listQuery(pairs)` helper
       replaces the loop — and belongs to its own point, not to a Module 7 screen.
 
+- [ ] **Six list screens carry the same table boilerplate** — *revealed by Module 7 Point 6.3,
+      2026-09-13.* `grep -rl "function sortIndicator" crm/resources/js` → 6 (`CustomersView`,
+      `SuppliersView`, `CatalogView`, `SupplierQuotationsView`, `DealsView`, `QuotationsView`): the
+      same `load()`/`applyFilters()`/`sortBy()`/`goToPage()`/`ariaSort()`/`sortIndicator()`/`onDate()`
+      set, the same prev/next `<nav>`, the same scoped `.table-frame/.table-head/.table-row/
+      .form-field/.row-action` CSS, and — in three of them — the same best-effort name `Map` from a
+      `perPage: 100` lookup. 6.3 copied it because that is the house pattern and extracting it is
+      the first refactor, not a screen point. One `useServerList()` composable plus one
+      `ListPagination.vue` would replace the six; its own point, after Module 7's screens.
+
+- [ ] **The context bar overflows a 375px viewport by 36–46px, in both directions** — *revealed by
+      Module 7 Point 6.3's mobile check, 2026-09-13; not created by it.* On `/deals` and
+      `/quotations` alike, `document.documentElement.scrollWidth` is 411 (LTR) / 421 (RTL) against
+      a 375 client width, and the overflowing element is `AppContextBar`'s sign-out button
+      (`data-testid="sign-out"`, right edge 411). The page body scrolls sideways, which
+      `Design System §4.3`'s "< 640px" row forbids for anything but tables. The shell belongs to no
+      module (the row above on the sidebar says why); the fix is the context bar's — wrap or collapse
+      its right cluster under 640px — and is not a Module 7 screen's to make.
+
 - [ ] **Eleven schema tests carry a byte-identical `refusedWith()` helper** — *revealed by Module 7
       Point 1.1, 2026-09-07.* `grep -rln "private function refusedWith" crm/tests/` returns eleven
       files across Customers, Suppliers, Catalog, Admin, Deals, SupplierQuotations and now Quotations.
@@ -1857,7 +1876,7 @@ owner says only "approved":**
       `SupplierQuotationLine.id` in `services/supplier-quotations.ts`, its doc comment corrected.
       *Verified by* Module 6's `GET /{id}` feature test asserting the id, and the existing SQ view
       spec still green. Recorded here because `checklist/module-06.md` is frozen. *(2026-09-13, #123 — `items[].id` first key; Module 6's `PATCH` still replaces the set)*
-- [ ] **6.3** The list — route `/quotations` behind `quotation.view`, nav item on the reserved
+- [x] **6.3** The list — route `/quotations` behind `quotation.view`, nav item on the reserved
       `my-quotations` slot (`navigation.ts:24`, badge count is Module 8's), table on the summary's
       columns (`code`, `version`, `status`, customer, `final_total` with its currency code,
       `quotation_date`, `valid_until`, `updated_at`), §6.6's six filters (`status`, period =
@@ -1867,7 +1886,7 @@ owner says only "approved":**
       `listCustomers({perPage: 100})` (Deals' ceiling, id as fallback); status as text with the
       `Design System §6.4` badge colour, never colour alone. Flat list only — the toggle is 6.4.
       *Verified by* vitest on the query string per control and on each state; Claude Browser at
-      desktop + mobile, ar + en.
+      desktop + mobile, ar + en. *(2026-09-14, #124 — owner's ruling A: rows and the detail carry `currency` (ISO code) beside `currency_id`, resolved server-side; no employee filter — no name lookup exists for a non-admin, 6.4's employee groups carry the server's label instead; `badge` left unset until Module 8 counts)*
 - [ ] **6.4** §6.6's views — the toggle **by employee · by customer · flat** at the top
       (`group_by`), the fixed **active · history** split in every mode (two requests,
       `filter[bucket]`, Step 5 Q1), grouped rows rendered from `{key, label, count, items}` with a

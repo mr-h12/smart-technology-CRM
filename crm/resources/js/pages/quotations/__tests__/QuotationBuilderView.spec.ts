@@ -47,12 +47,32 @@ const SQ_DETAIL = {
 
 const CREATED = { id: 'q9', code: 'QT-2026-0009', status: 'draft', version: 1 };
 
+/** A Draft as `GET /quotations/{id}` answers it, with §3.5's cost keys (Q7). */
+const QUOTATION = {
+    id: 'q1', code: 'QT-2026-0001', status: 'draft', customer_id: 'c1', deal_id: 'd1', currency_id: 'cur-egp', currency: 'EGP',
+    final_total: '1150.000000', quotation_date: '2026-09-13', valid_until: '2026-10-13', submitted_at: null, version: 1, parent_id: null,
+    created_at: '2026-09-13T09:00:00+00:00', updated_at: '2026-09-13T09:00:00+00:00',
+    default_margin: '25.00', discount_percent: '10.00', tax_percent: '14.00', rounding_unit: '1.000000', rounding_enabled: true,
+    subtotal: '1000.000000', additional_total: '100.000000', discount_amount: '100.000000', tax_base: '900.000000', tax_amount: '126.000000',
+    net_amount: '1026.000000', total_before_round: '1126.000000', rounding_diff: '24.000000',
+    payment_terms: '50% advance', warranty: null, delivery_terms: 'Ex works', show_delivery_terms: false,
+    rejection_reason: null, sent_at: null, is_self_approved: false, etag: '"v1"',
+    items: [
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.00' },
+        { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', margin_percent: null },
+    ],
+    additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
+    created_by: 'u1', updated_by: 'u1',
+};
+
+const NEWER = { ...QUOTATION, version: 1, etag: '"v2"', final_total: '2000.000000', updated_at: '2026-09-14T10:00:00+00:00' };
+
 const USER: AuthenticatedUser = {
     id: 'u1',
     name: 'Test Sales',
     email: 'sales@example.test',
     role: { id: 'r1', slug: 'indoor_sales', name: 'Indoor Sales' },
-    permissions: ['quotation.create.own', 'quotation.view.own', 'deal.view.own', 'supplier_quotation.view.all', 'supplier_quotation.create.all', 'customer.view.all', 'catalog.view.all'],
+    permissions: ['quotation.create.own', 'quotation.edit.own', 'quotation.view.own', 'deal.view.own', 'supplier_quotation.view.all', 'supplier_quotation.create.all', 'customer.view.all', 'catalog.view.all'],
     is_active: true,
     unconditional_access: false,
 };
@@ -69,9 +89,15 @@ function respond(options: {
     dealStatus?: number;
     /** Each call to `POST /quotations`, in order; the last one repeats. */
     saves?: Response[];
+    /** Each `GET /quotations/q1`, in order; the last one repeats. */
+    quotations?: unknown[];
+    /** Each `PATCH /quotations/q1`, in order; the last one repeats. */
+    updates?: Response[];
 } = {}): ReturnType<typeof vi.fn> {
-    const { dealStatus = 200, saves = [json(201, envelope(CREATED))] } = options;
+    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))] } = options;
     let saved = 0;
+    let read = 0;
+    let updated = 0;
 
     return vi.fn(async (input: string, init?: RequestInit) => {
         const url = String(input);
@@ -81,6 +107,20 @@ function respond(options: {
             saved += 1;
 
             return response.clone();
+        }
+
+        if (init?.method === 'PATCH' && url.endsWith('/quotations/q1')) {
+            const response = updates[Math.min(updated, updates.length - 1)] as Response;
+            updated += 1;
+
+            return response.clone();
+        }
+
+        if (url.endsWith('/quotations/q1')) {
+            const quotation = quotations[Math.min(read, quotations.length - 1)];
+            read += 1;
+
+            return json(200, envelope(quotation));
         }
 
         if (url.includes('/deals/')) {
@@ -132,20 +172,24 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/n
     await router.push(path);
     await router.isReady();
 
-    const wrapper = mount(QuotationBuilderView, { global: { plugins: [i18n, router] } });
+    // Through `<RouterView>`, not mounted directly: `onBeforeRouteLeave` binds
+    // to the route record the view renders, and a direct mount has none.
+    const wrapper = mount({ components: { QuotationBuilderView }, template: '<RouterView />' }, { global: { plugins: [i18n, router] } });
 
     await flushPromises();
 
     return { wrapper, router };
 }
 
-/** The `POST /quotations` calls the screen made — body and the header that matters. */
-function saves(fetchMock: ReturnType<typeof vi.fn>): Array<{ body: unknown; idempotencyKey: string | null }> {
+/** The `POST /quotations` and `PATCH /quotations/{id}` calls the screen made — body and the two headers that matter. */
+function saves(fetchMock: ReturnType<typeof vi.fn>): Array<{ method: string; body: unknown; idempotencyKey: string | null; ifMatch: string | null }> {
     return fetchMock.mock.calls
-        .filter((call) => (call[1] as RequestInit | undefined)?.method === 'POST' && String(call[0]).endsWith('/quotations'))
+        .filter((call) => ['POST', 'PATCH'].includes(String((call[1] as RequestInit | undefined)?.method)) && /\/quotations(\/q1)?$/.test(String(call[0])))
         .map((call) => ({
+            method: String((call[1] as RequestInit).method),
             body: JSON.parse(String((call[1] as RequestInit).body)) as unknown,
             idempotencyKey: new Headers((call[1] as RequestInit).headers).get('Idempotency-Key'),
+            ifMatch: new Headers((call[1] as RequestInit).headers).get('If-Match'),
         }));
 }
 
@@ -409,5 +453,173 @@ describe('the quotation builder (create)', () => {
         const { wrapper } = await render(respond({ dealStatus: 403 }));
 
         expect(wrapper.find('[data-testid="permission-denied-state"]').exists()).toBe(true);
+    });
+});
+
+/**
+ * Point 6.7 — the same form on `/quotations/:id/edit`, loaded from the
+ * detail. `PATCH` carries `If-Match` (`API-12`) and both lists always
+ * (Point 3.6: an edit replaces every editable field); a 409 is a banner with
+ * the newer version's total and a reload, never a silent retry; a quotation
+ * that is no longer a Draft goes back to its page (`quotation_not_draft`).
+ */
+describe('the quotation builder (edit)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const EDIT = '/quotations/q1/edit';
+
+    it('loads the header, the lines and the additional items from the detail', async () => {
+        const { wrapper } = await render(respond(), EDIT);
+
+        expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
+        expect(wrapper.find(id('customer')).text()).toBe('Acme Industrial');
+        expect((wrapper.find(id('currency')).element as HTMLInputElement).value).toBe('EGP');
+        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25.00');
+        expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10.00');
+        expect((wrapper.find(id('tax_percent')).element as HTMLInputElement).value).toBe('14.00');
+        expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
+        expect((wrapper.find(id('payment_terms')).element as HTMLTextAreaElement).value).toBe('50% advance');
+        expect((wrapper.find(id('warranty')).element as HTMLTextAreaElement).value).toBe('');
+        expect((wrapper.find(id('show_delivery_terms')).element as HTMLInputElement).checked).toBe(false);
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
+        expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25.00');
+        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.000000');
+        expect((wrapper.find(id('existing-1-margin_percent')).element as HTMLInputElement).value).toBe('');
+        expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
+        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100.000000');
+    });
+
+    it('sends back to the quotation’s page when it is no longer a Draft', async () => {
+        const { router } = await render(respond({ quotations: [{ ...QUOTATION, status: 'pending' }] }), EDIT);
+
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+
+    it('sends PATCH with If-Match, every editable field, the kept lines and the new one, no deal or customer', async () => {
+        const fetchMock = respond();
+        const { wrapper, router } = await render(fetchMock, EDIT);
+
+        await wrapper.find(id('existing-0-quantity')).setValue('3');
+        await wrapper.find(id('existing-1-remove')).trigger('click');
+        await pickFirstLine(wrapper, '4');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const [save] = saves(fetchMock);
+
+        expect(save?.method).toBe('PATCH');
+        expect(save?.ifMatch).toBe('"v1"');
+        expect(save?.idempotencyKey).toBeNull();
+        expect(save?.body).toEqual({
+            currency: 'EGP',
+            default_margin: '25.00',
+            discount_percent: '10.00',
+            tax_percent: '14.00',
+            quotation_date: '2026-09-13',
+            valid_until: '2026-10-13',
+            payment_terms: '50% advance',
+            warranty: null,
+            delivery_terms: 'Ex works',
+            show_delivery_terms: false,
+            lines: [
+                { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25.00' },
+                { supplier_quotation_item_id: 'sqi1', quantity: '4' },
+            ],
+            additional_items: [{ description: 'Delivery', amount: '100.000000' }],
+        });
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+
+    it('sends both lists even when emptied — an omitted list is a 422, not "keep them" (Point 3.6)', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock, EDIT);
+
+        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await wrapper.find(id('item-0-remove')).trigger('click');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ lines: [], additional_items: [] });
+    });
+
+    it('turns a 409 into a banner with the newer version’s total and a reload, never a retry (API-12)', async () => {
+        const fetchMock = respond({
+            quotations: [QUOTATION, NEWER],
+            updates: [refusal(409, 'concurrency_conflict', [{ code: 'stale_version', message: 'stale' }])],
+        });
+        const { wrapper, router } = await render(fetchMock, EDIT);
+
+        await wrapper.find(id('existing-0-quantity')).setValue('3');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.path).toBe(EDIT);
+        expect(wrapper.find(id('conflict')).text()).toContain('2000.000000');
+        expect(saves(fetchMock)).toHaveLength(1);
+
+        await wrapper.find(id('conflict-reload')).trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find(id('conflict')).exists()).toBe(false);
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[1]?.ifMatch).toBe('"v2"');
+    });
+
+    it('goes back to the quotation’s page on quotation_not_draft', async () => {
+        const fetchMock = respond({ updates: [refusal(422, 'business_rule_blocked', [{ code: 'quotation_not_draft', message: 'not a draft' }])] });
+        const { wrapper, router } = await render(fetchMock, EDIT);
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+
+    it('keeps the saved draft on screen when the 200 carries a quantity warning, red on the existing line', async () => {
+        const fetchMock = respond({
+            updates: [json(200, envelope(QUOTATION, { warnings: [{ field: 'lines.1.quantity', code: 'quantity_exceeds_recorded', message: 'exceeds' }] }))],
+        });
+        const { wrapper, router } = await render(fetchMock, EDIT);
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.path).toBe(EDIT);
+        expect(wrapper.find(id('existing-1-warning')).text()).toContain('exceeds');
+        expect(wrapper.find(id('saved-link')).attributes('href')).toBe('/quotations/q1');
+    });
+
+    it('asks before leaving with unsaved changes, and not otherwise (Design System §5.2)', async () => {
+        // happy-dom ships no `confirm`; the stub is the whole dialog.
+        const confirm = vi.fn().mockReturnValue(false);
+        vi.stubGlobal('confirm', confirm);
+
+        const { wrapper, router } = await render(respond(), EDIT);
+
+        await router.push('/quotations/q1');
+        expect(confirm).not.toHaveBeenCalled();
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+
+        await router.push(EDIT);
+        await flushPromises();
+        await wrapper.find(id('existing-0-quantity')).setValue('3');
+        await router.push('/quotations/q1');
+
+        expect(confirm).toHaveBeenCalledTimes(1);
+        expect(router.currentRoute.value.path).toBe(EDIT);
+
+        confirm.mockReturnValue(true);
+        await router.push('/quotations/q1');
+
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 });

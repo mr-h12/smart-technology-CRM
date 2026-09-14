@@ -1171,7 +1171,14 @@
             "saving": "Saving…",
             "cancel": "Back to the deal",
             "saved": "Draft {code} is saved.",
-            "open": "Open the quotation"
+            "open": "Open the quotation",
+            "editTitle": "Edit {code}",
+            "update": "Save changes",
+            "cancelEdit": "Back to the quotation",
+            "noExisting": "No lines are left — add a supplier below or the draft saves empty.",
+            "lineNo": "Line {no}",
+            "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
+            "unsaved": "You have unsaved changes. Leave without saving?"
         }
     }
 }

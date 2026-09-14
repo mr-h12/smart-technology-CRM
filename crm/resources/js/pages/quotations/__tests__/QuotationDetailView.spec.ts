@@ -397,7 +397,7 @@ describe('the quotation detail view', () => {
         const [write] = writes(fetchMock);
         expect(write?.method).toBe('POST');
         expect(write?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
-        expect(router.currentRoute.value.path).toBe('/quotations/q2');
+        expect(router.currentRoute.value.path).toBe('/quotations/q2/edit');
     });
 
     it('explains a refused action in the server’s words', async () => {

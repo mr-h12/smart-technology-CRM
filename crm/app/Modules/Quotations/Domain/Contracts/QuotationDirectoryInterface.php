@@ -90,26 +90,19 @@ interface QuotationDirectoryInterface
     public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool;
 
     /**
-     * §6.4's first arrow, `Draft ──submit──► Pending`, under the same guard as
-     * `update()`: `status` moves to `pending` and `submitted_at` is stamped
-     * **only where** `version_token = $expectedToken`, and the statement
-     * advances the token. False when no row matched — stale, `409`. The
-     * caller has already checked the transition against
-     * `QuotationStatusTransition`; this writes, it does not decide.
+     * One of §6.4's arrows, under the same guard as `update()`: `status`
+     * moves to `$status` and `$attributes` (the arrow's own marks —
+     * `submitted_at` on a submit, `is_self_approved` on an approve,
+     * `returned_at` / `return_note` on a return) are written **only where**
+     * `version_token = $expectedToken`, and the statement advances the
+     * token. False when no row matched — stale, `409`. The caller has
+     * already checked the transition against `QuotationStatusTransition`;
+     * this writes, it does not decide. Three callers (7 · 4.2, 8 · 1.1,
+     * 8 · 1.2) folded here at the third, as the note on the first said.
      *
-     * ponytail: one status, one stamp. Module 8's `approve()` is the second
-     * copy; the return (8 · 1.2) is the third and folds all three into
-     * `moveStatus(id, to, token, actor, attributes)`.
+     * @param  array<string, mixed>  $attributes
      */
-    public function submit(string $quotationId, int $expectedToken, string $actorId): bool;
-
-    /**
-     * §6.4's `Pending ──approve──► Approved` under `submit()`'s guard:
-     * `status` moves to `approved` and `is_self_approved` is written as the
-     * caller decided it (§6.5, `D-50`) **only where** `version_token =
-     * $expectedToken`. False when no row matched — stale, `409`.
-     */
-    public function approve(string $quotationId, int $expectedToken, string $actorId, bool $selfApproved): bool;
+    public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool;
 
     /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with
@@ -133,7 +126,7 @@ interface QuotationDirectoryInterface
     /**
      * `D-46`'s delete (Point 4.4), soft as `DB-01` requires: `deleted_at` on
      * the row and on both child tables, nothing physically gone. Guarded in
-     * SQL the way `submit()` is — `WHERE version_token = $expectedToken` —
+     * SQL the way `moveStatus()` is — `WHERE version_token = $expectedToken` —
      * so a quotation edited from under the caller is not deleted. `false`
      * means the guard matched no row: stale, or already deleted. Draft-only
      * is the use case's rule; this writes, it does not decide.

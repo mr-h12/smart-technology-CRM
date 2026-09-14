@@ -1505,11 +1505,13 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       Team Leader 403 named as `D-a`. *(2026-09-15, #132 — 18 tests; the Team Leader is a **404**, not
       a 403: `team` fails closed in `QuotationRowScope` as submit/edit/read do; the `QUOTATION_APPROVED`
       / `SELF_APPROVAL` choice was mutation-tested)*
-- [ ] **1.2** `ReturnQuotation` + `PATCH /quotations/{id}/return` — `permission:quotation.return_with_note`,
+- [x] **1.2** `ReturnQuotation` + `PATCH /quotations/{id}/return` — `permission:quotation.return_with_note`,
       body `{note}` required non-blank (422 on the field), migration adding `returned_at` +
       `return_note` (Q2, `DEV-03` tested), `pending → draft`, `submitted_at` null, audit
       `QUOTATION_RETURNED` carrying the note. *Verified by* return, blank note 422, non-pending 409,
-      stale 409, 403s; migration rollback.
+      stale 409, 403s; migration rollback. *(2026-09-15, #133 — 23 tests; `submit`/`approve`/`return`
+      folded into `QuotationDirectoryInterface::moveStatus()` as the 7·4.2 note planned; `returned_at`/
+      `return_note` are on `QuotationDetail` for the audit, on the wire only at 2.1)*
 - [ ] **1.3** `PATCH /quotations/{id}/edit-and-approve` — `permission:quotation.approve`, 6.7's body
       (Q4), one transaction: `UpdateQuotation`'s path opened to `pending` for this caller only
       (re-price, `guardMarginAndTax` → `edit_margin`/`edit_tax`), then 1.1's approval;

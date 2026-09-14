@@ -744,6 +744,10 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // `Team` fails closed (`D-a`) until a team entity exists.
     Route::patch('/{quotation}/approve', [QuotationController::class, 'approve'])
         ->middleware('permission:quotation.approve');
+    // Module 8 Point 1.2 — the note is the body (`ReturnQuotationRequest`), the
+    // rest is the approve's.
+    Route::patch('/{quotation}/return', [QuotationController::class, 'return'])
+        ->middleware('permission:quotation.return_with_note');
     // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
     // `quotation.edit`, because whoever may edit the next draft may open it.
     Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])

@@ -129,6 +129,8 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             rejectionReason: $row->rejection_reason,
             sentAt: $row->sent_at,
             submittedAt: $row->submitted_at?->toIso8601String(),
+            returnedAt: $row->returned_at?->toIso8601String(),
+            returnNote: $row->return_note,
             isSelfApproved: $row->is_self_approved,
             versionToken: $row->version_token,
             createdBy: $row->created_by,
@@ -165,24 +167,13 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         return true;
     }
 
-    public function submit(string $quotationId, int $expectedToken, string $actorId): bool
+    public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool
     {
-        // `update()`'s guard, without the children: a submit changes no line.
+        // `update()`'s guard, without the children: a transition changes no line.
         return $this->lockedRow($quotationId, $expectedToken)
             ->update([
-                'status' => 'pending',
-                'submitted_at' => now(),
-                'version_token' => $this->connection->raw('version_token + 1'),
-                'updated_by' => $actorId,
-            ]) === 1;
-    }
-
-    public function approve(string $quotationId, int $expectedToken, string $actorId, bool $selfApproved): bool
-    {
-        return $this->lockedRow($quotationId, $expectedToken)
-            ->update([
-                'status' => 'approved',
-                'is_self_approved' => $selfApproved,
+                ...$attributes,
+                'status' => $status,
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]) === 1;

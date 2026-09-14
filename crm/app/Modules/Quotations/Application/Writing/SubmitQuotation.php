@@ -25,7 +25,7 @@ use Illuminate\Database\ConnectionInterface;
  * status to `pending`. The stale check comes first so a client holding an old
  * copy is told to reload, not told about a status it has not seen. The write
  * is guarded again in SQL
- * ({@see QuotationDirectoryInterface::submit()}), so two submits that both
+ * ({@see QuotationDirectoryInterface::moveStatus()}), so two submits that both
  * passed the token check cannot both commit.
  *
  * `QUOTATION_SUBMITTED` (`AUD-01`) records the pair that moved — status and
@@ -55,7 +55,7 @@ final readonly class SubmitQuotation
                 throw QuotationWriteRefused::invalidTransition($before->status, 'pending');
             }
 
-            if (! $this->quotations->submit($quotationId, $before->versionToken, $actorId)) {
+            if (! $this->quotations->moveStatus($quotationId, 'pending', $before->versionToken, $actorId, ['submitted_at' => now()])) {
                 throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
             }
 

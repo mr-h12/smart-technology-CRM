@@ -54,7 +54,7 @@ final readonly class ApproveQuotation
 
             $selfApproved = $before->createdBy === $actorId;
 
-            if (! $this->quotations->approve($quotationId, $before->versionToken, $actorId, $selfApproved)) {
+            if (! $this->quotations->moveStatus($quotationId, 'approved', $before->versionToken, $actorId, ['is_self_approved' => $selfApproved])) {
                 throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
             }
 

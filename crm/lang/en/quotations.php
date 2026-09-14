@@ -58,5 +58,6 @@ return [
     'validation' => [
         'unknown_deal' => 'This deal was not found.',
         'customer_not_the_deals' => 'The customer must be the deal\'s customer.',
+        'note_not_blank' => 'A return note cannot be only spaces.',
     ],
 ];

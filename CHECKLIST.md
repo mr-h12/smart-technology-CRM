@@ -1509,7 +1509,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       body `{note}` required non-blank (422 on the field), migration adding `returned_at` +
       `return_note` (Q2, `DEV-03` tested), `pending → draft`, `submitted_at` null, audit
       `QUOTATION_RETURNED` carrying the note. *Verified by* return, blank note 422, non-pending 409,
-      stale 409, 403s; migration rollback. *(2026-09-15, #PR — 23 tests; `submit`/`approve`/`return`
+      stale 409, 403s; migration rollback. *(2026-09-15, #133 — 23 tests; `submit`/`approve`/`return`
       folded into `QuotationDirectoryInterface::moveStatus()` as the 7·4.2 note planned; `returned_at`/
       `return_note` are on `QuotationDetail` for the audit, on the wire only at 2.1)*
 - [ ] **1.3** `PATCH /quotations/{id}/edit-and-approve` — `permission:quotation.approve`, 6.7's body

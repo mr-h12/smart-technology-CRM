@@ -1006,7 +1006,8 @@
             }
         },
         "detail": {
-            "missing": "تعذّر فتح هذه الصفقة."
+            "missing": "تعذّر فتح هذه الصفقة.",
+            "newQuotation": "عرض سعر جديد"
         },
         "documents": {
             "title": "الملفات",
@@ -1137,6 +1138,40 @@
             "additionalTotal": "البنود الإضافية",
             "rounding": "التقريب (إلى {unit})",
             "finalTotal": "الإجمالي النهائي"
+        },
+        "builder": {
+            "title": "عرض سعر جديد",
+            "loading": "جارٍ فتح المنشئ…",
+            "missing": "تعذّر فتح هذه الصفقة، فلا يمكن إنشاء عرض سعر لها.",
+            "unreachable": "تعذّر الوصول إلى الخادم. لم يُحفظ شيء.",
+            "currency": "العملة",
+            "default_margin": "هامش الربح الافتراضي %",
+            "discount_percent": "الخصم %",
+            "tax_percent": "الضريبة %",
+            "taxExempt": "فارغ = بلا ضريبة",
+            "quotation_date": "تاريخ العرض",
+            "valid_until": "صالح حتى",
+            "suppliers": "المورّدون",
+            "supplierQuotation": "عرض المورّد",
+            "addSupplier": "إضافة مورّد",
+            "removeSupplier": "إزالة",
+            "supplierCap": "يتّسع عرض السعر لعشرة مورّدين كحدّ أقصى ({max}).",
+            "noSuppliers": "لا مورّد بعد — أضف واحدًا واختر عرضه.",
+            "newSupplierQuotation": "عرض مورّد جديد",
+            "noLines": "لا بنود في عرض المورّد هذا.",
+            "recorded": "سعر المورّد {price} · الكمية المسجَّلة {quantity}",
+            "lineMargin": "هامش البند % (اختياري)",
+            "addItem": "إضافة بند",
+            "removeItem": "إزالة",
+            "payment_terms": "شروط الدفع",
+            "warranty": "الضمان",
+            "delivery_terms": "شروط التسليم",
+            "showDeliveryTerms": "إظهار شروط التسليم في ملف PDF",
+            "save": "حفظ المسوّدة",
+            "saving": "جارٍ الحفظ…",
+            "cancel": "العودة إلى الصفقة",
+            "saved": "حُفظت المسوّدة {code}.",
+            "open": "فتح عرض السعر"
         }
     }
 }

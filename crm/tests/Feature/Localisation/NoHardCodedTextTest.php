@@ -127,7 +127,7 @@ final class NoHardCodedTextTest extends TestCase
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
-                'QuotationDetailView.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. Its two closed sets are the same

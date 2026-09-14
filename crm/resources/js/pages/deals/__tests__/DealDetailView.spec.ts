@@ -255,6 +255,18 @@ describe('the deal detail view', () => {
         expect(wrapper.find('[data-testid="deal-status-start"]').exists()).toBe(true);
     });
 
+    it('links to the quotation builder for a role that may create one (Design System §2.1)', async () => {
+        const wrapper = await render(respond(), { ...USER, permissions: [...USER.permissions, 'quotation.create.own'] });
+
+        expect(wrapper.find('[data-testid="deal-detail-new-quotation"]').attributes('href')).toBe('/quotations/new?deal=d1');
+    });
+
+    it('draws no builder link without quotation.create', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="deal-detail-new-quotation"]').exists()).toBe(false);
+    });
+
     it('draws no approval control on a deal that was never submitted', async () => {
         const wrapper = await render(respond({ deal: { ...DEAL, approval_status: null } }));
 

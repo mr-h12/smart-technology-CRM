@@ -21,6 +21,7 @@ import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import DealDetailView from '@/pages/deals/DealDetailView.vue';
 import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
+import QuotationBuilderView from '@/pages/quotations/QuotationBuilderView.vue';
 import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
@@ -196,6 +197,15 @@ export const routes: RouteRecordRaw[] = [
         name: 'quotations',
         component: QuotationsView,
         meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
+    },
+    {
+        // The builder, create (Module 7, Point 6.6) — reached from the deal's
+        // page with `?deal=`, on §3.5's `quotation.create`. The server prices
+        // and refuses (`D-67`, `§5.6`); the page only draws what it answers.
+        path: '/quotations/new',
+        name: 'quotation-new',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.create', titleKey: 'quotations.builder.title' },
     },
     {
         // One quotation (Module 7, Point 6.5) — `DealDetailView`'s shape on

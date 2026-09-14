@@ -41,7 +41,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import { ApiError } from '@/api';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -51,9 +51,11 @@ import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import { listDealTimeline, readDeal, type Deal, type DealTimelineEntry } from '@/services/deals';
 import { readCustomer, type Customer } from '@/services/customers';
+import { useAuth } from '@/stores/auth';
 
 const route = useRoute();
 const { t, locale } = useI18n();
+const { hasPermission } = useAuth();
 
 const deal = ref<Deal | null>(null);
 const customer = ref<Customer | null>(null);
@@ -228,6 +230,15 @@ onMounted(async () => {
                     @decided="refresh"
                 />
                 <DealStatusControl :deal="deal" @changed="refresh" />
+                <!-- `Design System §2.1`: the permitted next action — Module 7's builder (Point 6.6). -->
+                <RouterLink
+                    v-if="hasPermission('quotation.create')"
+                    :to="{ name: 'quotation-new', query: { deal: deal.id } }"
+                    class="row-action inline-flex min-h-11 items-center rounded-lg px-3"
+                    data-testid="deal-detail-new-quotation"
+                >
+                    {{ t('deals.detail.newQuotation') }}
+                </RouterLink>
             </div>
 
             <!-- §17's upload and §3.4's assign (Point 6.7). -->
@@ -296,5 +307,11 @@ onMounted(async () => {
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
+}
+
+.row-action {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
 }
 </style>

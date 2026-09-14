@@ -1006,7 +1006,8 @@
             }
         },
         "detail": {
-            "missing": "This deal could not be opened."
+            "missing": "This deal could not be opened.",
+            "newQuotation": "New quotation"
         },
         "documents": {
             "title": "Documents",
@@ -1137,6 +1138,40 @@
             "additionalTotal": "Additional items",
             "rounding": "Rounding (to {unit})",
             "finalTotal": "Final total"
+        },
+        "builder": {
+            "title": "New quotation",
+            "loading": "Opening the builder…",
+            "missing": "This deal could not be opened, so no quotation can be built for it.",
+            "unreachable": "The server could not be reached. Nothing was saved.",
+            "currency": "Currency",
+            "default_margin": "Default margin %",
+            "discount_percent": "Discount %",
+            "tax_percent": "Tax %",
+            "taxExempt": "Empty = no tax",
+            "quotation_date": "Quotation date",
+            "valid_until": "Valid until",
+            "suppliers": "Suppliers",
+            "supplierQuotation": "Supplier quotation",
+            "addSupplier": "Add supplier",
+            "removeSupplier": "Remove",
+            "supplierCap": "A quotation takes up to {max} suppliers.",
+            "noSuppliers": "No supplier yet — add one and pick its quotation.",
+            "newSupplierQuotation": "New supplier quotation",
+            "noLines": "This supplier quotation has no lines.",
+            "recorded": "Supplier price {price} · recorded quantity {quantity}",
+            "lineMargin": "Line margin % (optional)",
+            "addItem": "Add item",
+            "removeItem": "Remove",
+            "payment_terms": "Payment terms",
+            "warranty": "Warranty",
+            "delivery_terms": "Delivery terms",
+            "showDeliveryTerms": "Show delivery terms on the PDF",
+            "save": "Save draft",
+            "saving": "Saving…",
+            "cancel": "Back to the deal",
+            "saved": "Draft {code} is saved.",
+            "open": "Open the quotation"
         }
     }
 }

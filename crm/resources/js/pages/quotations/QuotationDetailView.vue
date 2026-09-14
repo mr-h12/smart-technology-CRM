@@ -39,7 +39,7 @@
  * Approve, return, send, PDF and the customer's response are Modules 8–10.
  * The supplier behind a line is not named: the line carries
  * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
- * Edit links to `/quotations/:id/edit`, which Point 6.7 registers.
+ * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -211,8 +211,8 @@ async function newVersion(): Promise<void> {
     const current = quotation.value;
     await act(async () => {
         const copy = await createQuotationVersion(current.id, crypto.randomUUID());
-        // The copy is a Draft; its builder is Point 6.7 — until then, its page.
-        await router.push({ name: 'quotation-detail', params: { id: copy.id } });
+        // The copy is a Draft: it opens in the builder (Point 6.7).
+        await router.push({ name: 'quotation-edit', params: { id: copy.id } });
     });
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Module 7, Point 6.6 — the builder, create (`/quotations/new?deal=`).
+ * Module 7, Points 6.6 and 6.7 — the builder: create (`/quotations/new?deal=`)
+ * and edit (`/quotations/:id/edit`, a Draft the caller may edit).
  *
  * The form holds what `SaveQuotationRequest` accepts and nothing it computes:
  * no price, no total, no tax amount is shown here, because the server owns
@@ -36,12 +37,27 @@
  * `OpenAPI §9.1`: one `Idempotency-Key` per form open. A retry after a
  * failure replays the same key; a fresh form mints a fresh one.
  *
+ * ── Edit (6.7) ─────────────────────────────────────────────────────────────
+ * The form is loaded from `GET /quotations/{id}`; `PATCH` carries the
+ * detail's `etag` as `If-Match` (`API-12`) and both lists always — an edit
+ * replaces every editable field (Point 3.6). A 409 `concurrency_conflict` is
+ * a banner naming the newer version's total with a reload, never a retry; a
+ * 422 `quotation_not_draft` sends the person back to the quotation's page.
+ * Leaving with unsaved changes asks first (`Design System §5.2`).
+ *
+ * A quotation line names its `supplier_quotation_item_id` and nothing about
+ * the offer it came from (`quotation_items` has no `supplier_quotation_id`),
+ * so existing lines are edited as the flat list Point 6.5 shows — line
+ * number, cost, quantity, margin, remove — and new lines still come through a
+ * supplier block. Naming the product on an existing line is one backend field
+ * on the detail, for 6.5 and 6.7 alike; a debt row records it.
+ *
  * Stated ceilings, all Module 6's: suppliers, catalog items and supplier
  * quotations are each read as one page of 100.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -50,7 +66,14 @@ import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuot
 import { listCatalogItems, type CatalogItem } from '@/services/catalog';
 import { readCustomer, type Customer } from '@/services/customers';
 import { readDeal, type Deal } from '@/services/deals';
-import { createQuotation, type QuotationCreateDraft, type QuotationWarning } from '@/services/quotations';
+import {
+    createQuotation,
+    readQuotation,
+    updateQuotation,
+    type QuotationDetail,
+    type QuotationDraft,
+    type QuotationWarning,
+} from '@/services/quotations';
 import {
     listSupplierQuotations,
     readSupplierQuotation,
@@ -62,7 +85,7 @@ import { useAuth } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { hasPermission } = useAuth();
 
 /** §6.2's cap. */
@@ -80,7 +103,19 @@ interface Block {
     margins: string[];
 }
 
-const dealId = computed(() => String(route.query.deal ?? ''));
+/** An existing line (edit only): its supplier item, what was typed, and the cost the detail carried (Q7). */
+interface ExistingLine {
+    supplier_quotation_item_id: string;
+    line_no: number;
+    quantity: string;
+    margin: string;
+    unit_cost: string | null;
+}
+
+const editing = computed(() => route.name === 'quotation-edit');
+const quotationId = computed(() => String(route.params.id ?? ''));
+/** From `?deal=` on a create; from the detail on an edit. */
+const dealId = ref(String(route.query.deal ?? ''));
 
 const deal = ref<Deal | null>(null);
 const customer = ref<Customer | null>(null);
@@ -98,8 +133,17 @@ const header = ref<Record<HeaderField, string>>({
     quotation_date: '', valid_until: '', payment_terms: '', warranty: '', delivery_terms: '',
 });
 const showDeliveryTerms = ref(true);
+const existing = ref<ExistingLine[]>([]);
 const blocks = ref<Block[]>([]);
 const items = ref<Array<{ description: string; amount: string }>>([]);
+
+/** `OpenAPI §9.2`'s token, as the detail carried it; what the next `PATCH` sends. */
+const etag = ref('');
+const quotationCode = ref('');
+/** The newer version a 409 revealed — the banner names its total until the person reloads. */
+const conflict = ref<QuotationDetail | null>(null);
+/** What the form was opened with. The dirty check is against this, not against blank. */
+const opened = ref('');
 
 /** `OpenAPI §9.1`: minted once per form open. */
 const idempotencyKey = crypto.randomUUID();
@@ -108,8 +152,8 @@ const saving = ref(false);
 const formError = ref('');
 /** The server's sentence per request field — `discount_percent`, `lines.1.quantity`, `additional_items.0.amount`. */
 const fieldErrors = ref<Map<string, string>>(new Map());
-/** Which (block, line) each sent `lines[i]` came from, so a server index maps back to an input. */
-let sent: Array<[number, number]> = [];
+/** Which input each sent `lines[i]` came from — `existing-3` or `line-1-2` — so a server index maps back. */
+let sent: string[] = [];
 /** The 201 that carried warnings: the draft is saved, the form is closed, the link is on. */
 const saved = ref<{ id: string; code: string } | null>(null);
 const lineWarnings = ref<Map<string, string>>(new Map());
@@ -130,19 +174,24 @@ function catalogLabel(id: string): string {
     return item?.name ?? item?.service_type ?? id;
 }
 
+/** `DB-08`: a moment in the reader's locale — 6.5's helper. */
+function onMoment(value: string): string {
+    return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
+}
+
 function offerLabel(offer: SupplierQuotation): string {
     return `${offer.code} — ${supplierName(offer.supplier_id)}`;
 }
 
-/** The request's index of a block's line, or null when it was not sent. */
-function sentIndex(block: number, line: number): number | null {
-    const index = sent.findIndex(([b, l]) => b === block && l === line);
+/** The request's index of an input's line, or null when it was not sent. */
+function sentIndex(key: string): number | null {
+    const index = sent.indexOf(key);
 
     return index === -1 ? null : index;
 }
 
-function lineError(block: number, line: number): string | null {
-    const index = sentIndex(block, line);
+function lineError(key: string): string | null {
+    const index = sentIndex(key);
 
     if (index === null) {
         return null;
@@ -154,10 +203,52 @@ function lineError(block: number, line: number): string | null {
         ?? null;
 }
 
-function lineWarning(block: number, line: number): string | null {
-    const index = sentIndex(block, line);
+function lineWarning(key: string): string | null {
+    const index = sentIndex(key);
 
     return index === null ? null : (lineWarnings.value.get(String(index)) ?? null);
+}
+
+/** The form as typed — the dirty check compares this against `opened`. */
+function snapshot(): string {
+    return JSON.stringify({
+        header: header.value,
+        showDeliveryTerms: showDeliveryTerms.value,
+        existing: existing.value,
+        blocks: blocks.value.map((block) => [block.supplierQuotationId, block.quantities, block.margins]),
+        items: items.value,
+    });
+}
+
+/** Nothing to lose before the form opened (a refused load, a redirect) or after it saved. */
+const dirty = computed(() => opened.value !== '' && saved.value === null && snapshot() !== opened.value);
+
+/** Fill the form from the detail (edit): header, lines, items, and the token the next write needs. */
+function applyDetail(quotation: QuotationDetail): void {
+    header.value = {
+        currency: quotation.currency,
+        default_margin: quotation.default_margin ?? '',
+        discount_percent: quotation.discount_percent,
+        tax_percent: quotation.tax_percent ?? '',
+        quotation_date: quotation.quotation_date ?? '',
+        valid_until: quotation.valid_until ?? '',
+        payment_terms: quotation.payment_terms ?? '',
+        warranty: quotation.warranty ?? '',
+        delivery_terms: quotation.delivery_terms ?? '',
+    };
+    showDeliveryTerms.value = quotation.show_delivery_terms;
+    existing.value = quotation.items.map((line) => ({
+        supplier_quotation_item_id: line.supplier_quotation_item_id,
+        line_no: line.line_no,
+        quantity: line.quantity,
+        margin: line.margin_percent ?? '',
+        unit_cost: line.unit_cost ?? null,
+    }));
+    blocks.value = [];
+    items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: item.amount }));
+    etag.value = quotation.etag;
+    quotationCode.value = quotation.code;
+    dealId.value = quotation.deal_id;
 }
 
 function itemError(index: number): string | null {
@@ -166,10 +257,40 @@ function itemError(index: number): string | null {
         ?? null;
 }
 
+/** `OpenAPI §5.1`: a 404 says the record could not be opened and never which of the two reasons applies. */
+function refused(error: unknown): void {
+    const status = error instanceof ApiError ? error.status : 0;
+
+    missing.value = status === 404;
+    denied.value = status === 403;
+    failed.value = !missing.value && !denied.value;
+    loading.value = false;
+}
+
 async function load(): Promise<void> {
     loading.value = true;
     failed.value = false;
     denied.value = false;
+
+    if (editing.value) {
+        try {
+            const { quotation } = await readQuotation(quotationId.value);
+
+            // §3.5's `edit` is "(Draft)": anything else is read on its own page.
+            if (quotation.status !== 'draft') {
+                await router.replace({ name: 'quotation-detail', params: { id: quotation.id } });
+
+                return;
+            }
+
+            applyDetail(quotation);
+        } catch (error) {
+            refused(error);
+
+            return;
+        }
+    }
+
     missing.value = dealId.value === '';
 
     if (missing.value) {
@@ -181,14 +302,7 @@ async function load(): Promise<void> {
     try {
         deal.value = await readDeal(dealId.value);
     } catch (error) {
-        const status = error instanceof ApiError ? error.status : 0;
-
-        // `OpenAPI §5.1`: a 404 says the record could not be opened and never
-        // which of the two reasons applies.
-        missing.value = status === 404;
-        denied.value = status === 403;
-        failed.value = !missing.value && !denied.value;
-        loading.value = false;
+        refused(error);
 
         return;
     }
@@ -202,7 +316,17 @@ async function load(): Promise<void> {
         loadOffers(),
     ]);
 
+    opened.value = snapshot();
     loading.value = false;
+}
+
+/** After a 409: the newer version replaces what was typed; the token moves with it. */
+async function reload(): Promise<void> {
+    const { quotation } = await readQuotation(quotationId.value);
+
+    applyDetail(quotation);
+    conflict.value = null;
+    opened.value = snapshot();
 }
 
 /** The deal's own offers first, then any other — one list, no offer twice. */
@@ -281,11 +405,23 @@ function orNull(value: string): string | null {
     return value.trim() === '' ? null : value;
 }
 
-function draft(): QuotationCreateDraft {
-    const current = deal.value as Deal;
-    const lines: QuotationCreateDraft['lines'] = [];
+function removeExisting(index: number): void {
+    existing.value.splice(index, 1);
+}
+
+function draft(): QuotationDraft {
+    const lines: QuotationDraft['lines'] = [];
 
     sent = [];
+
+    existing.value.forEach((line, i) => {
+        lines.push({
+            supplier_quotation_item_id: line.supplier_quotation_item_id,
+            quantity: line.quantity,
+            ...(line.margin.trim() === '' ? {} : { margin_percent: line.margin }),
+        });
+        sent.push(`existing-${i}`);
+    });
 
     blocks.value.forEach((block, b) => {
         (block.detail?.items ?? []).forEach((item, l) => {
@@ -302,13 +438,11 @@ function draft(): QuotationCreateDraft {
                 quantity,
                 ...(margin.trim() === '' ? {} : { margin_percent: margin }),
             });
-            sent.push([b, l]);
+            sent.push(`line-${b}-${l}`);
         });
     });
 
     return {
-        deal_id: current.id,
-        customer_id: current.customer_id,
         currency: header.value.currency.trim().toUpperCase(),
         default_margin: header.value.default_margin,
         discount_percent: header.value.discount_percent,
@@ -373,9 +507,15 @@ async function save(): Promise<void> {
     fieldErrors.value = new Map();
 
     try {
-        const result = await createQuotation(draft(), idempotencyKey);
+        const current = deal.value;
+        const result = editing.value
+            ? await updateQuotation(quotationId.value, etag.value, draft())
+            : await createQuotation({ ...draft(), deal_id: current.id, customer_id: current.customer_id }, idempotencyKey);
+
+        etag.value = result.quotation.etag;
 
         if (result.warnings.length === 0) {
+            saved.value = { id: result.quotation.id, code: result.quotation.code };
             await router.push({ name: 'quotation-detail', params: { id: result.quotation.id } });
 
             return;
@@ -384,11 +524,30 @@ async function save(): Promise<void> {
         onWarnings(result.warnings);
         saved.value = { id: result.quotation.id, code: result.quotation.code };
     } catch (error) {
-        applyServerErrors(error);
+        if (error instanceof ApiError && error.status === 409 && error.code === 'concurrency_conflict') {
+            // `API-12`: the stored token moved. Show whose, never overwrite.
+            conflict.value = (await readQuotation(quotationId.value)).quotation;
+        } else if (error instanceof ApiError && error.is('quotation_not_draft')) {
+            await router.push({ name: 'quotation-detail', params: { id: quotationId.value } });
+        } else {
+            applyServerErrors(error);
+        }
     } finally {
         saving.value = false;
     }
 }
+
+/** `Design System §5.2`: leaving a builder with unsaved changes asks first. */
+onBeforeRouteLeave(() => !dirty.value || window.confirm(t('quotations.builder.unsaved')));
+
+function onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (dirty.value) {
+        event.preventDefault();
+    }
+}
+
+window.addEventListener('beforeunload', onBeforeUnload);
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload));
 
 function fieldId(field: string): string {
     return `quotation-builder-${field}`;
@@ -410,7 +569,7 @@ onMounted(load);
 
         <form v-else-if="deal !== null" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save">
             <header class="flex flex-wrap items-center justify-between gap-3">
-                <h1 class="text-page-title">{{ t('quotations.builder.title') }}</h1>
+                <h1 class="text-page-title">{{ editing ? t('quotations.builder.editTitle', { code: quotationCode }) : t('quotations.builder.title') }}</h1>
                 <p class="flex flex-wrap items-center gap-2">
                     <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="row-link" data-testid="quotation-builder-deal">
                         {{ deal.code }}
@@ -422,6 +581,14 @@ onMounted(load);
             <p v-if="formError !== ''" class="form-alert rounded-lg p-3" role="alert" data-testid="quotation-builder-form-error">
                 {{ formError }}
             </p>
+
+            <!-- `API-12`: the newer version's figures and a reload; nothing is merged or retried. -->
+            <div v-if="conflict !== null" class="form-alert flex flex-wrap items-center justify-between gap-3 rounded-lg p-3" role="alert" data-testid="quotation-builder-conflict">
+                <span>{{ t('quotations.builder.conflict', { total: conflict.final_total, currency: conflict.currency, at: onMoment(conflict.updated_at) }) }}</span>
+                <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-conflict-reload" @click="reload">
+                    {{ t('quotations.detail.reload') }}
+                </button>
+            </div>
 
             <!-- Q3: the draft is saved; the quotation's own page is the confirmation. -->
             <p v-if="saved !== null" class="form-saved rounded-lg p-3" role="status" data-testid="quotation-builder-saved">
@@ -487,6 +654,54 @@ onMounted(load);
                         </span>
                     </label>
                 </div>
+
+                <!-- Edit: the lines the draft already has, as 6.5 lists them — no offer is named on a line. -->
+                <section v-if="editing" class="flex flex-col gap-3">
+                    <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
+                    <p v-if="existing.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noExisting') }}</p>
+                    <div v-for="(line, i) in existing" :key="line.supplier_quotation_item_id + i" class="line-grid line-row rounded-lg p-3">
+                        <p class="flex flex-col gap-1">
+                            <span>{{ t('quotations.builder.lineNo', { no: line.line_no }) }}</span>
+                            <span v-if="line.unit_cost !== null" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`existing-${i}-cost`)">
+                                {{ t('quotations.detail.unitCost') }} {{ line.unit_cost }}
+                            </span>
+                        </p>
+                        <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-quantity`)">
+                            <span>{{ t('quotations.detail.quantity') }}</span>
+                            <input
+                                :id="fieldId(`existing-${i}-quantity`)"
+                                v-model="line.quantity"
+                                type="text"
+                                inputmode="decimal"
+                                autocomplete="off"
+                                :aria-invalid="lineError(`existing-${i}`) !== null"
+                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                :data-testid="fieldId(`existing-${i}-quantity`)"
+                            />
+                        </label>
+                        <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-margin_percent`)">
+                            <span>{{ t('quotations.builder.lineMargin') }}</span>
+                            <input
+                                :id="fieldId(`existing-${i}-margin_percent`)"
+                                v-model="line.margin"
+                                type="text"
+                                inputmode="decimal"
+                                autocomplete="off"
+                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                :data-testid="fieldId(`existing-${i}-margin_percent`)"
+                            />
+                        </label>
+                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`existing-${i}-remove`)" @click="removeExisting(i)">
+                            {{ t('quotations.builder.removeItem') }}
+                        </button>
+                        <p v-if="lineError(`existing-${i}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`existing-${i}-error`)">
+                            {{ lineError(`existing-${i}`) }}
+                        </p>
+                        <p v-else-if="lineWarning(`existing-${i}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`existing-${i}-warning`)">
+                            {{ lineWarning(`existing-${i}`) }}
+                        </p>
+                    </div>
+                </section>
 
                 <!-- Suppliers: one block per supplier quotation, up to ten (§6.2). -->
                 <section class="flex flex-col gap-3">
@@ -556,7 +771,7 @@ onMounted(load);
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        :aria-invalid="lineError(b, l) !== null"
+                                        :aria-invalid="lineError(`line-${b}-${l}`) !== null"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"
                                     />
@@ -574,11 +789,11 @@ onMounted(load);
                                     />
                                 </label>
                                 <!-- §5.6: a missing price blocks; an excess quantity is red and does not. -->
-                                <p v-if="lineError(b, l) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`line-${b}-${l}-error`)">
-                                    {{ lineError(b, l) }}
+                                <p v-if="lineError(`line-${b}-${l}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`line-${b}-${l}-error`)">
+                                    {{ lineError(`line-${b}-${l}`) }}
                                 </p>
-                                <p v-else-if="lineWarning(b, l) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`line-${b}-${l}-warning`)">
-                                    {{ lineWarning(b, l) }}
+                                <p v-else-if="lineWarning(`line-${b}-${l}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`line-${b}-${l}-warning`)">
+                                    {{ lineWarning(`line-${b}-${l}`) }}
                                 </p>
                             </div>
                         </template>
@@ -658,10 +873,13 @@ onMounted(load);
                         :disabled="saving"
                         data-testid="quotation-builder-save"
                     >
-                        {{ saving ? t('quotations.builder.saving') : t('quotations.builder.save') }}
+                        {{ saving ? t('quotations.builder.saving') : (editing ? t('quotations.builder.update') : t('quotations.builder.save')) }}
                     </button>
-                    <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="row-action inline-flex min-h-11 items-center rounded-lg px-3">
-                        {{ t('quotations.builder.cancel') }}
+                    <RouterLink
+                        :to="editing ? { name: 'quotation-detail', params: { id: quotationId } } : { name: 'deal-detail', params: { id: deal.id } }"
+                        class="row-action inline-flex min-h-11 items-center rounded-lg px-3"
+                    >
+                        {{ editing ? t('quotations.builder.cancelEdit') : t('quotations.builder.cancel') }}
                     </RouterLink>
                 </div>
             </fieldset>

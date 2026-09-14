@@ -208,6 +208,15 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiredPermission: 'quotation.create', titleKey: 'quotations.builder.title' },
     },
     {
+        // The builder, edit (Module 7, Point 6.7) — the same form on a Draft
+        // the caller may edit, on §3.5's `quotation.edit`; `PATCH` with
+        // `If-Match` (`API-12`). Before `/quotations/:id`.
+        path: '/quotations/:id/edit',
+        name: 'quotation-edit',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.edit', titleKey: 'quotations.detail.edit' },
+    },
+    {
         // One quotation (Module 7, Point 6.5) — `DealDetailView`'s shape on
         // the same `quotation.view`. What the caller may do to it is decided
         // per action by the API (`SEC-09`); the page only hides what would be

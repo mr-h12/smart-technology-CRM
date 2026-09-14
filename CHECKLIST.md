@@ -897,12 +897,23 @@ would hide them behind `OD-03` indefinitely.
       the drafts' allow-list debt above already names, and one `DomainSupport` layer would close
       both at once.
 
-- [ ] **The quotation-create screen's "add a new supplier item" button is ruled, not built** — *owner's
+- [x] **The quotation-create screen's "add a new supplier item" button is ruled, not built** — *owner's
       ruling 2026-09-11, recorded by Module 7 Point 3.3.* A quotation line always references a
       `supplier_quotation_item_id`; the screen carries a button atop the supplier-item list that jumps
       to adding a new supplier item and returns. Step 3 is the API, so this belongs to the
       quotation-create **screen** (a later Module 7 frontend point) and is parked here so the ruling
-      is not lost between the point that heard it and the point that draws it.
+      is not lost between the point that heard it and the point that draws it. *(2026-09-14, #127 —
+      Point 6.6 mounts `SupplierQuotationFormModal` in the builder; the saved offer becomes the next
+      block. Its `deal_id` is not pre-filled: the modal's props allow none.)*
+
+- [ ] **A quotation line is unnamed on the wire** — *revealed by Module 7 Point 6.7, 2026-09-14.*
+      `QuotationPayload::detail()` writes `items[].supplier_quotation_item_id`, `quantity`, prices and
+      costs, and nothing that says *what* the line is: no product name, no catalog id, no
+      `supplier_quotation_id` (`quotation_items` has no such column; the offer is reachable only
+      through the item). So 6.5 lists lines by number and 6.7 edits them by number. One field on the
+      detail — the catalog label through `SupplierItemPricingInterface`'s join, which already touches
+      `supplier_quotation_items` — names the line on both screens. Not built here: a cross-module
+      contract widening is its own point.
 
 - [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
       knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
@@ -1922,12 +1933,12 @@ owner says only "approved":**
       confirmation (Q3). Money stays strings, `inputmode="decimal"` (`DB-07` on the client side:
       no `Number`). *Verified by* vitest on the payload shape, both warning paths, the blocked save,
       the idempotency header; Claude Browser as above, including the 10-supplier cap. *(2026-09-14, #127 — `QuotationBuilderView.vue`; `customer_id` comes from `readDeal`; both `QuotationNotPriceable` codes arrive on `lines.N.supplier_quotation_item_id` — `supplier_price_missing` shown at that line, `fx_rate_missing` at the form; a 201 that carries `quantity_exceeds_recorded` keeps the form read-only with the red line and a link to the draft, because a `GET` never repeats that warning; a clean 201 goes to 6.5; Module 6's modal is mounted for "new supplier quotation" and its `saved` offer becomes the next block — its `deal_id` is not pre-filled (Module 6's prop surface, not this point's); `NoHardCodedTextTest` list; deal page link behind `quotation.create`)*
-- [ ] **6.7** The builder, edit — `/quotations/:id/edit` for a Draft the caller may edit: 6.6's
+- [x] **6.7** The builder, edit — `/quotations/:id/edit` for a Draft the caller may edit: 6.6's
       form loaded from the detail, `PATCH` with `If-Match: <etag>` and `lines`/`additional_items`
       always present (Point 3.6's "an edit replaces every editable field"), `409 stale_version` →
       reload banner with the newer version's totals, `quotation_not_draft` → back to 6.5; unsaved-
       change warning (`Design System §5.2` form/builder). *Verified by* vitest on the header, the
-      409 path and the dirty check; Claude Browser as above.
+      409 path and the dirty check; Claude Browser as above. *(2026-09-14, #PR — same `QuotationBuilderView.vue`, `editing` by route name; a line names only its `supplier_quotation_item_id`, so existing lines are edited as 6.5's flat list (line no, cost, quantity, margin, remove) and new lines come through a supplier block — naming the product on a line is one backend field for 6.5 and 6.7 alike, debt row; a non-Draft on load or `quotation_not_draft` on save goes to 6.5; the 409 banner re-reads and names the newer total, Reload replaces the form; `onBeforeRouteLeave` + `window.confirm` for the dirty check, `beforeunload` for the tab; 6.5's new version now opens the copy in the builder)*
 - [ ] **6.8** SmartTermInput (Q5) — backend: migration `user_term_suggestions`
       (`user_id`, `field`, `term`, `last_used_at`, UNIQUE on the three, `DB-01` columns,
       `down()`), upsert inside the quotation save transaction for the three term fields,

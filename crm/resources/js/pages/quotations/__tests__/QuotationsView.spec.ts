@@ -484,6 +484,12 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-group-heading"]').exists()).toBe(false);
     });
 
+    it('links each code to the quotation’s own page', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="quotations-row-link"]').attributes('href')).toBe('/quotations/q1');
+    });
+
     // ──────────────────────────────────────────────────────────── the way in
 
     it('is reachable from the sidebar on the permission the route requires', () => {

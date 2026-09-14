@@ -1451,6 +1451,114 @@ rows and `UserFactsInterface` have no `OpenAPI` row; the debt-register rows Modu
 - [ ] Team Leader and Manager → **same screen, same authority**
 - [ ] No automatic escalation
 
+### Point list — published 2026-09-15, **not yet approved**
+
+Supersedes #94 (drafted 2026-09-10 by the second developer against `fd2592d`, before Module 7
+existed). What #94 waited on is now on `main`: the write path, `QuotationStatusTransition` with the
+edges `pending → approved` and `pending → draft` (7 · 4.1), `submitted_at` (7 · 4.2, closes #94's
+`D-b`), `is_self_approved` and `rejection_reason` (7 · 1.1), `AuditEvent::selfApproval()` (Module 0,
+still uncalled), the permissions `quotation.approve` and `quotation.return_with_note` (§3.5, seeded),
+the setting `limits.quotation_approval_sla_hours` (Module 2, `SystemLimit`), the list with buckets
+(7 · 5.x) and the builder (7 · 6.6/6.7). Module 8 was reassigned to Yousef 2026-09-13, so #94's
+reason for a separate `Approvals` module and a write-side contract — two owners in one directory —
+no longer holds. Recommendation: close #94 unmerged and record it here as read.
+
+**Decisions before Point 1.1 — defaults proposed, owner to confirm:**
+
+- **Q1 · placement.** **Default: inside `crm/app/Modules/Quotations/`** — `Application/Writing/
+  ApproveQuotation`, `ReturnQuotation`, the routes in the existing `quotations` group, no new
+  deptrac module, no new interface. Approve and return are two more edges of the state machine
+  Module 7 already owns, the same shape as `SubmitQuotation`. A separate module would need a
+  `QuotationTransitionInterface` with one implementation — the waste audit's own definition of
+  unnecessary complexity. Cost: "Module 8" is a delivery unit without a directory.
+- **Q2 · what a return does.** **Default: the same row goes `pending → draft`** (4.1's edge; the
+  `quotations` migration docblock: "a return produces a Draft, so there is no Returned row"), with
+  two new nullable columns `returned_at` and `return_note` on `quotations` (new migration, `down()`),
+  `submitted_at` cleared so "days waiting" restarts on resubmit, and the note mandatory (§6.3).
+  The pending snapshot survives in the audit row's old values, not as a second row. Alternative:
+  a full copy through 4.3 — needs a terminal status for the original that §6.1's nine do not
+  contain, so it is a schema and a `D-xx`, not a default.
+- **Q3 · "own" for self-approval.** **Default: actor = `created_by`** — §6.5 says "a quotation they
+  built themselves". Alternative: the deal's `owner_id`, which 3.4 chose for the *create* scope; that
+  would flag a Manager approving a quotation a subordinate built on the Manager's own deal.
+- **Q4 · edit-and-approve's body.** **Default: `SaveQuotationRequest`'s body, exactly 6.7's
+  `PATCH`**, one transaction (re-price, update, approve), `If-Match` required. The margin/tax
+  guards are `UpdateQuotation::guardMarginAndTax` — reused, not copied — and `QUOTATION_UPDATED`'s
+  old/new pair is the acceptance criterion's "mandatory audit entry". `D-c` (build plan names three
+  routes) stands; `OpenAPI §7.2` is amended (1.4).
+- **Q5 · badge counters.** §18.1 and Design System §5.1 permit *Approvals* and *My Quotations*
+  badges; Module 7 left both to Module 8. **Default: one route `GET /api/v1/badges` returning the
+  caller's counts** (2.3) — not in `OpenAPI §7`, flagged as a new requirement. Alternative: defer
+  to a debt row and ship the screen without counters.
+- **`D-a` stands** (#94): `quotation.approve.team` resolves to no rows until a team entity exists,
+  so the Team Leader — the user story's own actor — is refused. Built and demonstrated as the
+  Manager; the manual test list names the Team Leader path as a refusal to observe.
+
+#### Step 1 — the three actions (backend)
+
+- [ ] **1.1** `ApproveQuotation` + `PATCH /quotations/{id}/approve` — `permission:quotation.approve`,
+      row scope through `QuotationWriteAccess::open` (§3.5: Manager `All`; Team Leader `Team` fails
+      closed, `D-a`), `If-Match` (`DB-12`), `pending → approved` through `QuotationStatusTransition`
+      else `409`, `is_self_approved = true` when actor = `created_by` (Q3) and then the audit row is
+      `SELF_APPROVAL` **instead of** `QUOTATION_APPROVED` (§6.5, `D-50`). *Verified by* approve,
+      self-approve (flag + event type), draft/approved refused, stale token 409, Indoor Sales 403,
+      Team Leader 403 named as `D-a`.
+- [ ] **1.2** `ReturnQuotation` + `PATCH /quotations/{id}/return` — `permission:quotation.return_with_note`,
+      body `{note}` required non-blank (422 on the field), migration adding `returned_at` +
+      `return_note` (Q2, `DEV-03` tested), `pending → draft`, `submitted_at` null, audit
+      `QUOTATION_RETURNED` carrying the note. *Verified by* return, blank note 422, non-pending 409,
+      stale 409, 403s; migration rollback.
+- [ ] **1.3** `PATCH /quotations/{id}/edit-and-approve` — `permission:quotation.approve`, 6.7's body
+      (Q4), one transaction: `UpdateQuotation`'s path opened to `pending` for this caller only
+      (re-price, `guardMarginAndTax` → `edit_margin`/`edit_tax`), then 1.1's approval;
+      `QUOTATION_UPDATED` with old/new values (acceptance row 1) followed by `QUOTATION_APPROVED` or
+      `SELF_APPROVAL`. *Verified by* a margin edit audited old→new, a tax edit likewise, no edit in
+      the body still approves, a Draft refused, stale 409, refused without `edit_margin`.
+- [ ] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval
+      actions their request schema, permission, audit event, accepted and resulting state, and
+      idempotency note (`D-c`). Docs only, no CI.
+
+#### Step 2 — the read surface
+
+- [ ] **2.1** Server-computed waiting: list rows and the detail carry `days_waiting` (from
+      `submitted_at`, null unless `pending`) and `sla_exceeded` (`limits.quotation_approval_sla_hours`
+      through `SettingReader`, `D-11`); the detail also carries `returned_at` and `return_note`.
+      The SPA never computes either. *Verified by* a pending row past the SLA (`travel()`),
+      one within it, a draft with nulls; the setting read, not a constant.
+- [ ] **2.2** `filter[bucket]=incomplete` — drafts with `returned_at` not null (§8 "Quotations
+      (including incomplete)"), row-scoped like the other buckets. *Verified by* a returned draft
+      listed, a plain draft not, `unknown_bucket` unchanged for typos.
+- [ ] **2.3** `GET /api/v1/badges` (Q5) — `{approvals, my_quotations}`: pending quotations within the
+      caller's `quotation.approve` scope; the caller's own returned drafts. `permission:` none beyond
+      `auth` (a zero is the answer for a role without the grant). *Verified by* Manager counts, Sales
+      sees `approvals: 0`, own returned draft counted once.
+
+#### Step 3 — the screen
+
+- [ ] **3.1** `/approvals` — nav item on `quotation.approve` (`navigation.ts`, badge slot
+      `approvals`); one page for Team Leader and Manager (`D-10`); pending rows with employee,
+      customer, total, `days_waiting`, a red **text-labelled** badge when `sla_exceeded` (`D-11`,
+      Design System §6.4 "never colour alone"); Approve and Return (note dialog) inline, 6.5's 409
+      banner on a stale token; refused-by-permission, empty and error states. *Verified by* vitest +
+      Claude Browser AR/EN × desktop/mobile. **This is where `D-11` "no automatic escalation" is
+      asserted: a row past the SLA is still `pending` and still here, and no scheduler entry names
+      approvals** (a test greps the `Kernel`/schedule for the word).
+- [ ] **3.2** Edit-and-approve on screen — 6.7's builder opened from `/approvals` for a `pending`
+      quotation by an approver, save calling 1.3 ("Edit & approve"); the non-Draft redirect of 6.7
+      excepts this mode. *Verified by* vitest (route, body, headers) + browser.
+- [ ] **3.3** The yellow **"Self-approved"** chip (§6.5, Design System §6.4) on 6.3's list, 6.5's
+      detail and 3.1's page; the returned draft's note on 6.5's detail and the **Incomplete** tab on
+      6.3's list (2.2); nav badges from 2.3 on *Approvals* and *My Quotations*. *Verified by* vitest
+      + browser.
+
+#### Step 4 — close the module
+
+- [ ] **4.1** Arabic manual test list, freeze to `checklist/module-08.md`, stub here, ownership row.
+
+**What this list does not cover:** notifications on approve/return (§18.2 lists no such mail);
+the Team Leader's `team` scope (`D-a`, debt register); "Self-approvals" report column and dashboard
+count (Modules 13/14); send / `sent_at` (Module 9); the Performance report; `q` (Module 15).
+
 ---
 
 ## Module 9 — PDF Generation

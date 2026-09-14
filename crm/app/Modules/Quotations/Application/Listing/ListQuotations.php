@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Application\Listing;
 
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
@@ -19,7 +20,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationSummary;
  */
 final readonly class ListQuotations
 {
-    public function __construct(private QuotationDirectoryInterface $quotations, private DealFactsInterface $deals) {}
+    public function __construct(private QuotationDirectoryInterface $quotations, private DealFactsInterface $deals, private UserFactsInterface $users) {}
 
     /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
     public function handle(QuotationListCriteria $criteria, array $heldScopes, string $actorId): QuotationPage
@@ -30,20 +31,24 @@ final readonly class ListQuotations
     /**
      * Point 5.5 — `OpenAPI §6.2` "server-side grouping only": the same page,
      * bucketed by `group_by`. `employee` is the deal's owner through
-     * `ownersOf()` (5.1) — a deal with no owner is the `null` group; `customer`
-     * is the row's own `customer_id` (Q7). Rows keep the page's order inside a
-     * group; the caller orders the groups by the label it renders.
+     * `ownersOf()` (5.1), labelled with the owner's name through `namesOf()`
+     * (Step 6 Q2 — the only users read a Team Leader holds) — a deal with no
+     * owner is the `null` group; `customer` is the row's own `customer_id`
+     * (Q7), its label the key. A label the facts do not name stays the key.
+     * Rows keep the page's order inside a group; the caller orders the groups
+     * by the label it renders.
      *
      * Pagination counts quotations, not groups (§6.1's bound on every list), so
      * a group may span two pages — stated, not hidden.
      *
-     * @return list<array{key: ?string, items: non-empty-list<QuotationSummary>}>
+     * @return list<array{key: ?string, label: ?string, items: non-empty-list<QuotationSummary>}>
      */
     public function grouped(QuotationPage $page, string $groupBy): array
     {
         $owners = $groupBy === 'employee'
             ? $this->deals->ownersOf(array_values(array_unique(array_map(static fn (QuotationSummary $row): string => $row->dealId, $page->items))))
             : [];
+        $names = $this->users->namesOf(array_values(array_unique(array_filter($owners, is_string(...)))));
 
         $groups = [];
         foreach ($page->items as $row) {
@@ -53,7 +58,8 @@ final readonly class ListQuotations
 
         $out = [];
         foreach ($groups as $key => $items) {
-            $out[] = ['key' => $key === '' ? null : (string) $key, 'items' => $items];
+            $key = $key === '' ? null : (string) $key;
+            $out[] = ['key' => $key, 'label' => $key === null ? null : ($names[$key] ?? $key), 'items' => $items];
         }
 
         return $out;

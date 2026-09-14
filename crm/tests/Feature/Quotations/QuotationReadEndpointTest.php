@@ -269,7 +269,11 @@ final class QuotationReadEndpointTest extends TestCase
 
     // ─────────────────────────────────────────────── group_by (Point 5.5)
 
-    /** `employee` groups by the deal's owner through `ownersOf()`; groups ordered by label, counts per group. */
+    /**
+     * `employee` groups by the deal's owner through `ownersOf()`; the label is
+     * the owner's name through `namesOf()` (Step 6 Q2), groups ordered by that
+     * label, counts per group.
+     */
     public function test_that_group_by_employee_groups_the_page_by_deal_owner(): void
     {
         $a = $this->userWith(RoleName::IndoorSales)->id;
@@ -286,13 +290,13 @@ final class QuotationReadEndpointTest extends TestCase
 
         $groups = $response->json('data');
         self::assertIsArray($groups);
-        [$first, $second] = $a < $b ? [$a, $b] : [$b, $a];
-        self::assertSame([$first, $second], array_column($groups, 'key'));
-        self::assertSame([$first, $second], array_column($groups, 'label'));
-        self::assertSame([$first === $a ? 2 : 1, $second === $a ? 2 : 1], array_column($groups, 'count'));
+        // "Test Indoor Sales" sorts before "Test Outdoor Sales" whatever the ids are.
+        self::assertSame([$a, $b], array_column($groups, 'key'));
+        self::assertSame(['Test Indoor Sales', 'Test Outdoor Sales'], array_column($groups, 'label'));
+        self::assertSame([2, 1], array_column($groups, 'count'));
         $items = $response->json('data.0.items');
         self::assertIsArray($items);
-        self::assertCount($first === $a ? 2 : 1, $items);
+        self::assertCount(2, $items);
         self::assertIsArray($items[0]);
         self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
     }
@@ -308,6 +312,19 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.0.key', null)
             ->assertJsonPath('data.0.label', (string) __('quotations.groups.unassigned'))
             ->assertJsonPath('data.0.count', 1);
+    }
+
+    /** The hidden Super Admin (§3.1) names nobody's group: the label falls back to the key. */
+    public function test_that_a_hidden_owners_group_carries_no_name(): void
+    {
+        $hidden = $this->userWith(RoleName::SuperAdmin)->id;
+        $this->quotation($this->deal($hidden));
+
+        $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', $hidden)
+            ->assertJsonPath('data.0.label', $hidden);
     }
 
     /** Q7: the customer group's key and label are both the `customer_id`. */

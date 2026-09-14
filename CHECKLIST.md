@@ -1907,7 +1907,7 @@ owner says only "approved":**
       `409` → a "changed by someone else — reload" banner, never a silent retry (`API-12`). Approve,
       return, send, PDF are Modules 8–10 and are **not** drawn. *Verified by* vitest per action and
       per state; Claude Browser as above. *(2026-09-14, #126 — **merged on local gates by the owner's word: GitHub Actions refused to start (billing), so no CI conclusion exists for `9650bf8`** — `QuotationDetailView.vue`; the list's code is now the link in; a 409 `concurrency_conflict` is the reload banner, any other refusal the server's `message`; new version opens the copy's page until 6.7 registers the builder; Edit links `/quotations/:id/edit` for 6.7; the supplier behind a line is not named)*
-- [ ] **6.6** The builder, create — route `/quotations/new?deal=` (from the deal, `Design System
+- [x] **6.6** The builder, create — route `/quotations/new?deal=` (from the deal, `Design System
       §2.1` "empty state with the permitted next action" on the deal's page is where the link
       lives), header fields (`currency`, `default_margin`, `discount_percent`, `tax_percent`
       nullable = exempt, dates, terms as plain textareas until 6.8), suppliers via (+) up to 10
@@ -1921,7 +1921,7 @@ owner says only "approved":**
       red on the line without blocking (`§5.6`), `fx_rate_missing` at the form; on 201 → 6.5 as the
       confirmation (Q3). Money stays strings, `inputmode="decimal"` (`DB-07` on the client side:
       no `Number`). *Verified by* vitest on the payload shape, both warning paths, the blocked save,
-      the idempotency header; Claude Browser as above, including the 10-supplier cap.
+      the idempotency header; Claude Browser as above, including the 10-supplier cap. *(2026-09-14, #PR — `QuotationBuilderView.vue`; `customer_id` comes from `readDeal`; both `QuotationNotPriceable` codes arrive on `lines.N.supplier_quotation_item_id` — `supplier_price_missing` shown at that line, `fx_rate_missing` at the form; a 201 that carries `quantity_exceeds_recorded` keeps the form read-only with the red line and a link to the draft, because a `GET` never repeats that warning; a clean 201 goes to 6.5; Module 6's modal is mounted for "new supplier quotation" and its `saved` offer becomes the next block — its `deal_id` is not pre-filled (Module 6's prop surface, not this point's); `NoHardCodedTextTest` list; deal page link behind `quotation.create`)*
 - [ ] **6.7** The builder, edit — `/quotations/:id/edit` for a Draft the caller may edit: 6.6's
       form loaded from the detail, `PATCH` with `If-Match: <etag>` and `lines`/`additional_items`
       always present (Point 3.6's "an edit replaces every editable field"), `409 stale_version` →

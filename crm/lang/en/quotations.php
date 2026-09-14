@@ -25,6 +25,7 @@ return [
         'unknown_bucket' => 'The bucket must be active or history.',
         'not_a_uuid' => 'This filter value is not an id.',
         'not_a_code' => 'This filter value is not a currency code.',
+        'unknown_field' => 'Suggestions exist for payment_terms, warranty and delivery_terms only.',
         'not_an_amount' => 'This amount must be a non-negative number.',
         'currency_required' => 'Amount filters and the total sort need filter[currency].',
         'not_a_date' => 'This date must be a calendar date written as YYYY-MM-DD.',

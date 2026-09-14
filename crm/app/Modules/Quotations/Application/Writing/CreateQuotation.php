@@ -54,6 +54,7 @@ final readonly class CreateQuotation
         private PriceQuotation $pricer,
         private DealFactsInterface $deals,
         private AuditRecorderInterface $audit,
+        private TermSuggestions $terms,
         private ConnectionInterface $connection,
     ) {}
 
@@ -79,6 +80,9 @@ final readonly class CreateQuotation
                 ->withLines($priced->items, $priced->additionalItems);
 
             $quotation = $this->quotations->create($draft, $actorId);
+
+            // Point 6.8 — the saved terms become the actor's suggestions.
+            $this->terms->remember($validated, $actorId);
 
             // No old values — absent on a create. The lines go beside the header
             // for `CreateSupplierQuotation`'s reason: "what was created?" answered

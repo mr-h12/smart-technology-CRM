@@ -93,8 +93,10 @@ function respond(options: {
     quotations?: unknown[];
     /** Each `PATCH /quotations/q1`, in order; the last one repeats. */
     updates?: Response[];
+    /** `GET /user-term-suggestions?field=` per field (Point 6.8); an unlisted field is the 500 below. */
+    suggestions?: Partial<Record<'payment_terms' | 'warranty' | 'delivery_terms', string[]>>;
 } = {}): ReturnType<typeof vi.fn> {
-    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))] } = options;
+    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {} } = options;
     let saved = 0;
     let read = 0;
     let updated = 0;
@@ -145,6 +147,12 @@ function respond(options: {
 
         if (url.includes('/supplier-quotations')) {
             return json(200, envelope(url.includes('filter%5Bdeal_id%5D=d1') ? [SQ_DEAL] : [SQ_DEAL, SQ_OTHER]));
+        }
+
+        const field = /\/user-term-suggestions\?field=(\w+)$/.exec(url)?.[1] as keyof typeof suggestions | undefined;
+
+        if (field !== undefined && suggestions[field] !== undefined) {
+            return json(200, envelope((suggestions[field] ?? []).map((term) => ({ term }))));
         }
 
         return refusal(500, 'unexpected');
@@ -463,6 +471,38 @@ describe('the quotation builder (create)', () => {
  * the newer version's total and a reload, never a silent retry; a quotation
  * that is no longer a Draft goes back to its page (`quotation_not_draft`).
  */
+describe('the quotation builder — term suggestions (Point 6.8)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers the caller’s recent terms under each field, newest first, and a click copies one in', async () => {
+        const { wrapper } = await render(respond({ suggestions: { warranty: ['Two years', 'One year'], payment_terms: ['50% advance'] } }));
+
+        expect(wrapper.findAll(id('warranty-suggestion')).map((chip) => chip.text())).toEqual(['Two years', 'One year']);
+        expect(wrapper.findAll(id('payment_terms-suggestion')).map((chip) => chip.text())).toEqual(['50% advance']);
+        expect(wrapper.find(id('delivery_terms-suggestions')).exists()).toBe(false);
+
+        await wrapper.findAll(id('warranty-suggestion'))[1]?.trigger('click');
+
+        expect((wrapper.find(id('warranty')).element as HTMLTextAreaElement).value).toBe('One year');
+    });
+
+    it('asks for the three fields on an edit too, and a refused lookup leaves the form usable', async () => {
+        const fetchMock = respond({ suggestions: { delivery_terms: ['Ex works'] } });
+        const { wrapper } = await render(fetchMock, '/quotations/q1/edit');
+
+        const asked = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/user-term-suggestions'));
+
+        expect(asked.map((url) => url.split('field=')[1])).toEqual(['payment_terms', 'warranty', 'delivery_terms']);
+        expect(wrapper.findAll(id('delivery_terms-suggestion')).map((chip) => chip.text())).toEqual(['Ex works']);
+        expect(wrapper.find(id('warranty-suggestions')).exists()).toBe(false);
+        expect(wrapper.find(id('save')).exists()).toBe(true);
+    });
+});
+
 describe('the quotation builder (edit)', () => {
     beforeEach(() => {
         vi.unstubAllGlobals();

@@ -1166,6 +1166,7 @@
             "payment_terms": "شروط الدفع",
             "warranty": "الضمان",
             "delivery_terms": "شروط التسليم",
+            "recentTerms": "شروط استُخدمت مؤخرًا",
             "showDeliveryTerms": "إظهار شروط التسليم في ملف PDF",
             "save": "حفظ المسوّدة",
             "saving": "جارٍ الحفظ…",

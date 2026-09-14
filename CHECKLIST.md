@@ -1939,13 +1939,13 @@ owner says only "approved":**
       reload banner with the newer version's totals, `quotation_not_draft` → back to 6.5; unsaved-
       change warning (`Design System §5.2` form/builder). *Verified by* vitest on the header, the
       409 path and the dirty check; Claude Browser as above. *(2026-09-14, #128 — same `QuotationBuilderView.vue`, `editing` by route name; a line names only its `supplier_quotation_item_id`, so existing lines are edited as 6.5's flat list (line no, cost, quantity, margin, remove) and new lines come through a supplier block — naming the product on a line is one backend field for 6.5 and 6.7 alike, debt row; a non-Draft on load or `quotation_not_draft` on save goes to 6.5; the 409 banner re-reads and names the newer total, Reload replaces the form; `onBeforeRouteLeave` + `window.confirm` for the dirty check, `beforeunload` for the tab; 6.5's new version now opens the copy in the builder)*
-- [ ] **6.8** SmartTermInput (Q5) — backend: migration `user_term_suggestions`
+- [x] **6.8** SmartTermInput (Q5) — backend: migration `user_term_suggestions`
       (`user_id`, `field`, `term`, `last_used_at`, UNIQUE on the three, `DB-01` columns,
       `down()`), upsert inside the quotation save transaction for the three term fields,
       `GET /api/v1/user-term-suggestions?field=payment_terms|warranty|delivery_terms` behind
       `quotation.create`, own rows only; frontend: `<datalist>` on the three textareas of 6.6/6.7
       fed by that route. *Verified by* a feature test (own terms only, unknown `field` → 400,
-      upsert on repeat), vitest on the datalist; Claude Browser as above.
+      upsert on repeat), vitest on the datalist; Claude Browser as above. *(2026-09-14, #129 — `<datalist>` cannot attach to a `<textarea>` (HTML `list` is an `<input>` attribute), so the owner ruled **chips**: the caller's recent terms as buttons under each textarea, a click copies one in; `TermSuggestions` upserts inside both save transactions and reads own rows only, `term` capped at 500 chars (longer is skipped, never a failed save), the read answers `OpenAPI §4.2`'s paginated envelope as one page of 20; unknown `field` is the list's `400 invalid_request`; registered in `AuditEnforcementTest::WRITERS` as a non-business write)*
 
 **What Step 6 leaves for its neighbours:** the approvals queue, `D-11`'s red badge and "days
 waiting", the yellow "Self-approved" badge and the `my-quotations` badge count (Module 8); the

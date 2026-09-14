@@ -243,6 +243,13 @@ export async function listQuotationGroups(groupBy: string, query: QuotationListQ
     return { groups: items, pagination };
 }
 
+export type TermField = 'payment_terms' | 'warranty' | 'delivery_terms';
+
+/** Point 6.8 — the caller's own recent terms for one field, newest first, at most twenty. */
+export async function listTermSuggestions(field: TermField): Promise<string[]> {
+    return collection<{ term: string }>(await apiGet(`/user-term-suggestions?field=${field}`)).items.map((row) => row.term);
+}
+
 export async function readQuotation(id: string): Promise<QuotationRead> {
     return read(await apiGet<QuotationDetail>(`/quotations/${id}`));
 }

@@ -1496,13 +1496,15 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
 
 #### Step 1 — the three actions (backend)
 
-- [ ] **1.1** `ApproveQuotation` + `PATCH /quotations/{id}/approve` — `permission:quotation.approve`,
+- [x] **1.1** `ApproveQuotation` + `PATCH /quotations/{id}/approve` — `permission:quotation.approve`,
       row scope through `QuotationWriteAccess::open` (§3.5: Manager `All`; Team Leader `Team` fails
       closed, `D-a`), `If-Match` (`DB-12`), `pending → approved` through `QuotationStatusTransition`
       else `409`, `is_self_approved = true` when actor = `created_by` (Q3) and then the audit row is
       `SELF_APPROVAL` **instead of** `QUOTATION_APPROVED` (§6.5, `D-50`). *Verified by* approve,
       self-approve (flag + event type), draft/approved refused, stale token 409, Indoor Sales 403,
-      Team Leader 403 named as `D-a`.
+      Team Leader 403 named as `D-a`. *(2026-09-15, #132 — 18 tests; the Team Leader is a **404**, not
+      a 403: `team` fails closed in `QuotationRowScope` as submit/edit/read do; the `QUOTATION_APPROVED`
+      / `SELF_APPROVAL` choice was mutation-tested)*
 - [ ] **1.2** `ReturnQuotation` + `PATCH /quotations/{id}/return` — `permission:quotation.return_with_note`,
       body `{note}` required non-blank (422 on the field), migration adding `returned_at` +
       `return_note` (Q2, `DEV-03` tested), `pending → draft`, `submitted_at` null, audit

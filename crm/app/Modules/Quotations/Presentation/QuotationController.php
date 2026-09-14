@@ -12,6 +12,7 @@ use App\Modules\Quotations\Application\Writing\ApproveQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\ReturnQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
@@ -146,6 +147,20 @@ final class QuotationController
         $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId)));
+    }
+
+    /**
+     * Module 8 Point 1.2. `approve()`'s shape with one body field, the
+     * mandatory note; the answer is the re-read quotation, its `status` now
+     * `draft` again.
+     */
+    public function return(ReturnQuotationRequest $request, string $quotation, ReturnQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $returned = $quotations->return($quotation, $request->note(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId)));
     }
 
     /**

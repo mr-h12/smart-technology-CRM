@@ -115,6 +115,20 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'deal.view',
             },
             {
+                // §8's *Quotations* — Module 7's list (Point 6.3), keyed on
+                // §3.5's `quotation.view` for the same reason as the item above.
+                //
+                // ⚠️ **No badge yet.** §5.1 names *My Quotations* as one of
+                // the four items that may carry one — `BadgeableItem` holds
+                // the slot — and nothing counts anything until Module 8, so
+                // the field stays unset, as Deals' does, rather than naming a
+                // number this application cannot produce.
+                name: 'quotations',
+                labelKey: 'nav.item.quotations',
+                icon: 'M5 2h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm6 1.5V6h2.5zM6 8.5h8V10H6zm0 3h8V13H6zm0 3h4.5V16H6z',
+                permission: 'quotation.view',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

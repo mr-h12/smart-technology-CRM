@@ -35,6 +35,7 @@ final readonly class QuotationDetail
         public ?string $validUntil,
         public string $status,
         public string $currencyId,
+        public string $currency,
         public string $defaultMargin,
         public string $discountPercent,
         public ?string $taxPercent,

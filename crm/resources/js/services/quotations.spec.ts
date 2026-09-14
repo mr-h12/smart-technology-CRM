@@ -38,6 +38,7 @@ const SUMMARY = {
     customer_id: '0192f000-0000-7000-8000-000000000101',
     deal_id: '0192f000-0000-7000-8000-000000000501',
     currency_id: '0192f000-0000-7000-8000-000000000001',
+    currency: 'EGP',
     final_total: '1235.00',
     quotation_date: '2026-09-13',
     valid_until: null,

@@ -83,7 +83,9 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_additional_items', $row->id, $draft->additionalItems, $actorId);
 
         // `save()` does not read column defaults back (`version`, `status`).
-        return self::summary($row->refresh());
+        $row->refresh();
+
+        return $this->summary($row, $this->currencyCode($row->currency_id));
     }
 
     public function find(string $quotationId): ?QuotationDetail
@@ -103,6 +105,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             validUntil: $row->valid_until,
             status: $row->status,
             currencyId: $row->currency_id,
+            currency: $this->currencyCode($row->currency_id),
             defaultMargin: $row->default_margin,
             discountPercent: $row->discount_percent,
             taxPercent: $row->tax_percent,
@@ -273,16 +276,24 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         // A deterministic tiebreak, as `EloquentDealDirectory::list()` has.
         $query->orderBy('quotations.id');
 
+        // One code lookup per currency on the page, not per row.
+        $rows = $query->offset($criteria->offset())->limit($criteria->perPage)->get();
+        /** @var array<string, string> $codes */
+        $codes = [];
+        foreach ($rows as $row) {
+            $codes[$row->currency_id] ??= $this->currencyCode($row->currency_id);
+        }
+
         $items = [];
-        foreach ($query->offset($criteria->offset())->limit($criteria->perPage)->get() as $row) {
-            $items[] = self::summary($row);
+        foreach ($rows as $row) {
+            $items[] = $this->summary($row, $codes[$row->currency_id]);
         }
 
         return new QuotationPage($items, $total, $criteria->page, $criteria->perPage);
     }
 
     /** Q6's row — §6.6's columns, nothing from the cost side. */
-    private static function summary(Quotation $row): QuotationSummary
+    private function summary(Quotation $row, string $currency): QuotationSummary
     {
         return new QuotationSummary(
             id: $row->id,
@@ -292,6 +303,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             customerId: $row->customer_id,
             dealId: $row->deal_id,
             currencyId: $row->currency_id,
+            currency: $currency,
             finalTotal: $row->final_total,
             quotationDate: $row->quotation_date,
             validUntil: $row->valid_until,
@@ -300,6 +312,24 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),
             updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),
         );
+    }
+
+    /**
+     * Module 7 Point 6.3 (owner's ruling A, 2026-09-13): the row names its
+     * currency, because `GET /currencies` is `admin.system_settings`' and the
+     * SPA has nothing to join `currency_id` against. `quotations.currency_id`
+     * is a foreign key, so a missing currency is unreachable; refusing loudly
+     * rather than answering the id as a code is `DB-07`'s habit.
+     */
+    private function currencyCode(string $currencyId): string
+    {
+        $currency = $this->currencies->findById($currencyId);
+
+        if ($currency === null) {
+            throw new RuntimeException("quotations.currency_id {$currencyId} names no currency.");
+        }
+
+        return $currency->code()->value;
     }
 
     /**
@@ -377,7 +407,9 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $this->writeChildren('quotation_items', $copy->id, $items, $actorId);
         $this->writeChildren('quotation_additional_items', $copy->id, $additional, $actorId);
 
-        return self::summary($copy->refresh());
+        $copy->refresh();
+
+        return $this->summary($copy, $this->currencyCode($copy->currency_id));
     }
 
     /**

@@ -29,6 +29,8 @@ final readonly class QuotationSummary
         public string $customerId,
         public string $dealId,
         public string $currencyId,
+        /** The ISO code behind `$currencyId` — the SPA cannot join it (Module 7 Point 6.3, owner's ruling A). */
+        public string $currency,
         public string $finalTotal,
         public ?string $quotationDate,
         public ?string $validUntil,

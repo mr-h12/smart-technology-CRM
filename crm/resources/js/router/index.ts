@@ -21,6 +21,7 @@ import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import DealDetailView from '@/pages/deals/DealDetailView.vue';
 import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
+import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
@@ -194,6 +195,16 @@ export const routes: RouteRecordRaw[] = [
         path: '/quotations',
         name: 'quotations',
         component: QuotationsView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
+    },
+    {
+        // One quotation (Module 7, Point 6.5) — `DealDetailView`'s shape on
+        // the same `quotation.view`. What the caller may do to it is decided
+        // per action by the API (`SEC-09`); the page only hides what would be
+        // refused.
+        path: '/quotations/:id',
+        name: 'quotation-detail',
+        component: QuotationDetailView,
         meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
     },
     {

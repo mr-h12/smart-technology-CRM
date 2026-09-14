@@ -61,6 +61,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import { ApiError, type Pagination } from '@/api';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
@@ -530,9 +531,17 @@ onMounted(async () => {
                         </tr>
 
                         <tr v-for="quotation in group.items" :key="quotation.id" class="table-row" data-testid="quotations-row">
-                            <!-- §4.7's `QT-2026-0001`, exactly as allocated. The way into the
-                                 quotation's own page is Point 6.5; until then the code is text. -->
-                            <td class="whitespace-nowrap p-3 tabular-nums" data-testid="quotations-code">{{ quotation.code }}</td>
+                            <!-- §4.7's `QT-2026-0001`, exactly as allocated — the way into the
+                                 quotation's own page (Point 6.5). -->
+                            <td class="whitespace-nowrap p-3 tabular-nums" data-testid="quotations-code">
+                                <RouterLink
+                                    :to="{ name: 'quotation-detail', params: { id: quotation.id } }"
+                                    class="row-link"
+                                    data-testid="quotations-row-link"
+                                >
+                                    {{ quotation.code }}
+                                </RouterLink>
+                            </td>
                             <td class="p-3 tabular-nums" data-testid="quotations-version">
                                 {{ t('quotations.version', { version: quotation.version }) }}
                             </td>
@@ -642,6 +651,11 @@ onMounted(async () => {
     background-color: var(--color-surface-muted);
     border-width: 2px;
     font-weight: 600;
+}
+
+.row-link {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
 .row-action {

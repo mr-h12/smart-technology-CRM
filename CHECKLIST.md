@@ -1894,7 +1894,7 @@ owner says only "approved":**
       (Q1). Pagination counts quotations, so a group may continue on the next page — the heading
       says so. *Verified by* vitest: the stored choice restores the toggle, an unavailable
       `localStorage` falls back to flat; Claude Browser as above. *(2026-09-14, #125 — Q2's employee label is the server's: `UserFactsInterface::namesOf()` under `Identity/Domain/Contracts`, `EloquentUserFacts` withholds the hidden Super Admin so its group shows the key; the customer group is named on the screen from the same `listCustomers` lookup; one refusal for both buckets, one 403 being one permission)*
-- [ ] **6.5** The quotation — route `/quotations/:id` on `readQuotation`: header (customer, deal,
+- [x] **6.5** The quotation — route `/quotations/:id` on `readQuotation`: header (customer, deal,
       status, version, dates, currency), lines with the cost columns present only when the body
       carries them (Q7), additional items, the totals block in `Design System §7.2`'s groups
       (subtotal · additional · discount · tax base · tax · rounding · final) with **no tax row
@@ -1906,7 +1906,7 @@ owner says only "approved":**
       `If-Match`), **Delete** (Draft, `quotation.delete`, confirm dialog `Design System §6.6`);
       `409` → a "changed by someone else — reload" banner, never a silent retry (`API-12`). Approve,
       return, send, PDF are Modules 8–10 and are **not** drawn. *Verified by* vitest per action and
-      per state; Claude Browser as above.
+      per state; Claude Browser as above. *(2026-09-14, #126 — **merged on local gates by the owner's word: GitHub Actions refused to start (billing), so no CI conclusion exists for `9650bf8`** — `QuotationDetailView.vue`; the list's code is now the link in; a 409 `concurrency_conflict` is the reload banner, any other refusal the server's `message`; new version opens the copy's page until 6.7 registers the builder; Edit links `/quotations/:id/edit` for 6.7; the supplier behind a line is not named)*
 - [ ] **6.6** The builder, create — route `/quotations/new?deal=` (from the deal, `Design System
       §2.1` "empty state with the permitted next action" on the deal's page is where the link
       lives), header fields (`currency`, `default_margin`, `discount_percent`, `tax_percent`

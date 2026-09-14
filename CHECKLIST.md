@@ -1906,7 +1906,7 @@ owner says only "approved":**
       `If-Match`), **Delete** (Draft, `quotation.delete`, confirm dialog `Design System §6.6`);
       `409` → a "changed by someone else — reload" banner, never a silent retry (`API-12`). Approve,
       return, send, PDF are Modules 8–10 and are **not** drawn. *Verified by* vitest per action and
-      per state; Claude Browser as above. *(2026-09-14, #PR — `QuotationDetailView.vue`; the list's code is now the link in; a 409 `concurrency_conflict` is the reload banner, any other refusal the server's `message`; new version opens the copy's page until 6.7 registers the builder; Edit links `/quotations/:id/edit` for 6.7; the supplier behind a line is not named)*
+      per state; Claude Browser as above. *(2026-09-14, #126 — `QuotationDetailView.vue`; the list's code is now the link in; a 409 `concurrency_conflict` is the reload banner, any other refusal the server's `message`; new version opens the copy's page until 6.7 registers the builder; Edit links `/quotations/:id/edit` for 6.7; the supplier behind a line is not named)*
 - [ ] **6.6** The builder, create — route `/quotations/new?deal=` (from the deal, `Design System
       §2.1` "empty state with the permitted next action" on the deal's page is where the link
       lives), header fields (`currency`, `default_margin`, `discount_percent`, `tax_percent`

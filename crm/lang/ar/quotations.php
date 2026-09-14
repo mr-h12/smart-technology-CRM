@@ -25,6 +25,7 @@ return [
         'unknown_bucket' => 'يجب أن تكون المجموعة active أو history.',
         'not_a_uuid' => 'قيمة هذا المرشّح ليست معرّفًا.',
         'not_a_code' => 'قيمة هذا المرشّح ليست رمز عملة.',
+        'unknown_field' => 'الاقتراحات متاحة لحقول payment_terms وwarranty وdelivery_terms فقط.',
         'not_an_amount' => 'يجب أن يكون هذا المبلغ رقمًا غير سالب.',
         'currency_required' => 'مرشّحات المبلغ وترتيب الإجمالي تحتاج إلى filter[currency].',
         'not_a_date' => 'يجب أن يكون هذا التاريخ تاريخًا صالحًا بصيغة YYYY-MM-DD.',

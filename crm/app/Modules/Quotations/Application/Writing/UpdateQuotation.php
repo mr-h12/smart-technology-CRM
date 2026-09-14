@@ -72,6 +72,7 @@ final readonly class UpdateQuotation
         private QuotationWriteAccess $access,
         private AuthorizeAction $authorize,
         private AuditRecorderInterface $audit,
+        private TermSuggestions $terms,
         private ConnectionInterface $connection,
     ) {}
 
@@ -105,6 +106,9 @@ final readonly class UpdateQuotation
                 // inside the window — the SQL guard is the one that counts.
                 throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
             }
+
+            // Point 6.8 — the saved terms become the actor's suggestions.
+            $this->terms->remember($validated, $actorId);
 
             $this->audit->record(
                 AuditEvent::of('QUOTATION_UPDATED'),

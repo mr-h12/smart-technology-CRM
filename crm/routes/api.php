@@ -750,3 +750,10 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     Route::delete('/{quotation}', [QuotationController::class, 'destroy'])
         ->middleware('permission:quotation.delete');
 });
+
+// Module 7 Point 6.8 — SmartTermInput's read (Step 6 Q5). Behind
+// `quotation.create` because the builder is the only reader; the rows are the
+// caller's own, so the scope on the grant does not narrow anything further.
+// Not in `OpenAPI §7`: flagged on the point list as a new requirement.
+Route::middleware(['auth', 'permission:quotation.create'])
+    ->get('user-term-suggestions', [QuotationController::class, 'termSuggestions']);

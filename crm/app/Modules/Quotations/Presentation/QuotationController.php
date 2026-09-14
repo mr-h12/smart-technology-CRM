@@ -12,6 +12,7 @@ use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
+use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
@@ -155,6 +156,26 @@ final class QuotationController
         $quotations->delete($quotation, $request->headers->get('If-Match'), self::heldScopes($request), self::actorId($request));
 
         return response()->noContent();
+    }
+
+    /**
+     * Point 6.8 — `GET /user-term-suggestions?field=`: the caller's own terms
+     * for one of the three term fields (Step 6 Q5). `OpenAPI §4.2` allows no
+     * unpaginated collection, so the cap is written as what it is: the first
+     * and only page of twenty.
+     */
+    public function termSuggestions(Request $request, TermSuggestions $suggestions): JsonResponse
+    {
+        $data = $suggestions->forField($request->query('field'), self::actorId($request));
+
+        return ApiEnvelope::collection($request, $data, [
+            'page' => 1,
+            'per_page' => TermSuggestions::LIMIT,
+            'total' => count($data),
+            'total_pages' => 1,
+            'has_next_page' => false,
+            'has_previous_page' => false,
+        ]);
     }
 
     /**

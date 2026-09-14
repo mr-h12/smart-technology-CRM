@@ -68,11 +68,13 @@ import { readCustomer, type Customer } from '@/services/customers';
 import { readDeal, type Deal } from '@/services/deals';
 import {
     createQuotation,
+    listTermSuggestions,
     readQuotation,
     updateQuotation,
     type QuotationDetail,
     type QuotationDraft,
     type QuotationWarning,
+    type TermField,
 } from '@/services/quotations';
 import {
     listSupplierQuotations,
@@ -133,6 +135,9 @@ const header = ref<Record<HeaderField, string>>({
     quotation_date: '', valid_until: '', payment_terms: '', warranty: '', delivery_terms: '',
 });
 const showDeliveryTerms = ref(true);
+/** Point 6.8 — the caller's own recent terms, one list per field; a chip copies one into the textarea. */
+const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
+const suggestions = ref<Record<TermField, string[]>>({ payment_terms: [], warranty: [], delivery_terms: [] });
 const existing = ref<ExistingLine[]>([]);
 const blocks = ref<Block[]>([]);
 const items = ref<Array<{ description: string; amount: string }>>([]);
@@ -314,6 +319,7 @@ async function load(): Promise<void> {
         listSuppliers({ perPage: 100 }).then((page) => { suppliers.value = page.items; }, () => {}),
         listCatalogItems({ perPage: 100, isActive: true }).then((page) => { catalog.value = page.items; }, () => {}),
         loadOffers(),
+        ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
     ]);
 
     opened.value = snapshot();
@@ -845,9 +851,10 @@ onMounted(load);
                     </div>
                 </section>
 
-                <!-- Terms: plain textareas until 6.8's SmartTermInput. -->
+                <!-- Terms (6.8, SmartTermInput): a textarea, and under it the caller's
+                     recent terms as chips — a suggestion, never a structure (Design System §6.3). -->
                 <div class="detail-grid rounded-xl p-4">
-                    <label v-for="field in (['payment_terms', 'warranty', 'delivery_terms'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
+                    <label v-for="field in TERM_FIELDS" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
                         <span>{{ t(`quotations.builder.${field}`) }}</span>
                         <textarea
                             :id="fieldId(field)"
@@ -858,6 +865,17 @@ onMounted(load);
                         ></textarea>
                         <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
+                        </span>
+                        <span v-if="suggestions[field].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId(`${field}-suggestions`)">
+                            <span class="sr-only">{{ t('quotations.builder.recentTerms') }}</span>
+                            <button
+                                v-for="term in suggestions[field]"
+                                :key="term"
+                                type="button"
+                                class="row-action min-h-11 rounded-full px-3 text-sm"
+                                :data-testid="fieldId(`${field}-suggestion`)"
+                                @click="header[field] = term"
+                            >{{ term }}</button>
                         </span>
                     </label>
                     <label class="flex items-center gap-2 self-end" :for="fieldId('show_delivery_terms')">

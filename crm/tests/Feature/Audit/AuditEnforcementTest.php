@@ -19,6 +19,7 @@ use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
@@ -270,6 +271,13 @@ final class AuditEnforcementTest extends TestCase
             // QUOTATION_DELETED inside the transaction — asserted by
             // `QuotationDeleteEndpointTest`.
             DeleteQuotation::class => self::AUDITED,
+
+            // Module 7 Point 6.8. Seen for `->upsert(` beside an imported
+            // `ConnectionInterface`.
+            TermSuggestions::class => 'Not a business mutation: SmartTermInput\'s memory of the terms a person typed, '
+                    .'written inside `CreateQuotation`/`UpdateQuotation`\'s transaction, whose own QUOTATION_CREATED / '
+                    .'QUOTATION_UPDATED rows carry the same three terms as new values. A suggestion is a convenience '
+                    .'derived from an audited write, not an entity §3.12 lists.',
 
             // Module 7 Point 3.7. Seen for `->insertOrIgnore(` / `->update(` /
             // `->delete(` beside an imported `ConnectionInterface`.

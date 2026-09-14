@@ -1166,6 +1166,7 @@
             "payment_terms": "Payment terms",
             "warranty": "Warranty",
             "delivery_terms": "Delivery terms",
+            "recentTerms": "Recent terms",
             "showDeliveryTerms": "Show delivery terms on the PDF",
             "save": "Save draft",
             "saving": "Saving…",

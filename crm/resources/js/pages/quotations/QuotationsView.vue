@@ -1,7 +1,24 @@
 <script setup lang="ts">
 /**
- * §8's *Quotations* screen, flat — `Design System §5.2`'s Table/List
- * (Module 7, Point 6.3). §6.6's toggle and split are Point 6.4.
+ * §8's *Quotations* screen — `Design System §5.2`'s Table/List (Module 7,
+ * Point 6.3), with §6.6's views and split (Point 6.4).
+ *
+ * ── §6.6's three views and its fixed split ─────────────────────────────────
+ *
+ * *By employee · by customer · flat* is one toggle and one parameter:
+ * `group_by`, which the server answers with `{key, label, count, items}` per
+ * group (Point 5.5, `OpenAPI §6.2` "server-side grouping only"). The employee
+ * label is the owner's name resolved on the server (Step 6 Q2), because no
+ * users endpoint answers a Team Leader; the customer label is the id, named
+ * here from the same list the filter uses (Step 5 Q7). Pagination counts
+ * quotations, not groups, so a group may continue on the next page — the
+ * screen says so under a grouped table rather than pretending otherwise.
+ *
+ * *Active · history* is `filter[bucket]` (Step 5 Q1): two panels, two calls,
+ * each with its own page, sharing every other control. The choice of view is
+ * remembered per browser under `crm.quotations.view` (Step 6 Q1 — the
+ * `theme.ts` shape: a storage that throws is a storage that remembers
+ * nothing, and an unknown value is the flat default).
  *
  * ── Everything is asked of the server, and the tests read the URL ──────────
  *
@@ -53,8 +70,9 @@ import { listCustomers, type Customer } from '@/services/customers';
 import {
     QUOTATION_DEFAULT_SORT,
     QUOTATION_STATUSES,
+    listQuotationGroups,
     listQuotations,
-    type QuotationSummary,
+    type QuotationGroup,
 } from '@/services/quotations';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 
@@ -62,15 +80,44 @@ const { t, locale } = useI18n();
 
 type SortField = 'code' | 'quotation_date' | 'updated_at' | 'final_total';
 
-const quotations = ref<QuotationSummary[]>([]);
+const VIEWS = ['employee', 'customer', 'flat'] as const;
+type View = (typeof VIEWS)[number];
+const VIEW_STORAGE_KEY = 'crm.quotations.view';
+
+function storedView(): View {
+    try {
+        const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+
+        return VIEWS.find((view) => view === stored) ?? 'flat';
+    } catch {
+        return 'flat';
+    }
+}
+
+const BUCKETS = ['active', 'history'] as const;
+type Bucket = (typeof BUCKETS)[number];
+
+/** One panel's answer. The flat view is one nameless group, so one row template serves both. */
+interface Panel {
+    groups: QuotationGroup[];
+    pagination: Pagination | null;
+    page: number;
+    loading: boolean;
+    failed: boolean;
+    denied: boolean;
+}
+
+function emptyPanel(): Panel {
+    return { groups: [], pagination: null, page: 1, loading: true, failed: false, denied: false };
+}
+
+const view = ref<View>(storedView());
+const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel(), history: emptyPanel() });
 const customers = ref<Customer[]>([]);
-const pagination = ref<Pagination | null>(null);
 
-const loading = ref(true);
-const failed = ref(false);
-const denied = ref(false);
-
-const page = ref(1);
+const loading = computed(() => BUCKETS.some((bucket) => panels.value[bucket].loading));
+const denied = computed(() => BUCKETS.some((bucket) => panels.value[bucket].denied));
+const failed = computed(() => BUCKETS.some((bucket) => panels.value[bucket].failed));
 const statusFilter = ref('');
 const customerFilter = ref('');
 const fromFilter = ref('');
@@ -85,7 +132,10 @@ const sortDescending = ref(true);
 
 const statuses = QUOTATION_STATUSES;
 
-const total = computed(() => pagination.value?.total ?? 0);
+/** Both buckets' `meta.pagination.total`, never the rows in hand. */
+const total = computed(() => BUCKETS.reduce((sum, bucket) => sum + (panels.value[bucket].pagination?.total ?? 0), 0));
+/** Eight columns, so a group heading spans the row. */
+const columnCount = 8;
 /** `CurrencyCode` is upper-case ISO; the box accepts what a person types. */
 const currencyCode = computed(() => currencyFilter.value.trim().toUpperCase());
 const hasCurrency = computed(() => /^[A-Z]{3}$/.test(currencyCode.value));
@@ -114,14 +164,16 @@ function customerName(id: string): string {
     return customerNames.value.get(id) ?? id;
 }
 
-async function load(): Promise<void> {
-    loading.value = true;
-    failed.value = false;
-    denied.value = false;
+async function loadBucket(bucket: Bucket): Promise<void> {
+    const panel = panels.value[bucket];
+    panel.loading = true;
+    panel.failed = false;
+    panel.denied = false;
 
     try {
-        const result = await listQuotations({
-            page: page.value,
+        const query = {
+            page: panel.page,
+            bucket,
             sort: sortParameter.value,
             status: statusFilter.value === '' ? null : statusFilter.value,
             customerId: customerFilter.value === '' ? null : customerFilter.value,
@@ -131,19 +183,52 @@ async function load(): Promise<void> {
             // Step 5 Q3: the pair travels only with its currency.
             amountMin: hasCurrency.value && amountMinFilter.value !== '' ? amountMinFilter.value : null,
             amountMax: hasCurrency.value && amountMaxFilter.value !== '' ? amountMaxFilter.value : null,
-        });
+        };
 
-        quotations.value = result.items;
-        pagination.value = result.pagination;
+        if (view.value === 'flat') {
+            const result = await listQuotations(query);
+            panel.groups = result.items.length === 0 ? [] : [{ key: null, label: '', count: result.items.length, items: result.items }];
+            panel.pagination = result.pagination;
+        } else {
+            const result = await listQuotationGroups(view.value, query);
+            panel.groups = result.groups;
+            panel.pagination = result.pagination;
+        }
     } catch (error) {
         // A 403 and a 500 are different answers and get different screens
         // (`SEC-09`): a refusal drawn as an empty list would read as "there
         // are no quotations", which is a lie.
-        denied.value = error instanceof ApiError && error.status === 403;
-        failed.value = !denied.value;
+        panel.denied = error instanceof ApiError && error.status === 403;
+        panel.failed = !panel.denied;
     } finally {
-        loading.value = false;
+        panel.loading = false;
     }
+}
+
+/** Both buckets, from their first page: the question changed. */
+async function load(): Promise<void> {
+    for (const bucket of BUCKETS) {
+        panels.value[bucket].page = 1;
+    }
+
+    await Promise.all(BUCKETS.map(loadBucket));
+}
+
+async function chooseView(next: View): Promise<void> {
+    view.value = next;
+
+    try {
+        window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+        // A preference that cannot be written is still applied for this visit.
+    }
+
+    await load();
+}
+
+/** The customer group's label is its id (Step 5 Q7); the employee's is the server's name. */
+function groupLabel(group: QuotationGroup): string {
+    return view.value === 'customer' && group.key !== null ? customerName(group.key) : group.label;
 }
 
 /**
@@ -161,8 +246,6 @@ async function loadCustomers(): Promise<void> {
 
 /** Any change to the question invalidates the page number. */
 async function applyFilters(): Promise<void> {
-    page.value = 1;
-
     // A total sort without a currency is the 400 Step 5 Q3 describes; fall
     // back to the default rather than ask a question the server refuses.
     if (sortField.value === 'final_total' && !hasCurrency.value) {
@@ -181,13 +264,12 @@ async function sortBy(field: SortField): Promise<void> {
         sortDescending.value = true;
     }
 
-    page.value = 1;
     await load();
 }
 
-async function goToPage(target: number): Promise<void> {
-    page.value = target;
-    await load();
+async function goToPage(bucket: Bucket, target: number): Promise<void> {
+    panels.value[bucket].page = target;
+    await loadBucket(bucket);
 }
 
 function ariaSort(field: SortField): 'ascending' | 'descending' | 'none' {
@@ -338,16 +420,43 @@ onMounted(async () => {
             </p>
         </form>
 
-        <LoadingState v-if="loading" label-key="quotations.loading" />
-        <PermissionDeniedState v-else-if="denied" />
-        <ErrorState v-else-if="failed" @retry="load" />
-        <EmptyState
-            v-else-if="quotations.length === 0"
-            :title-key="filtering ? 'quotations.empty.filtered.title' : 'quotations.empty.title'"
-            :message-key="filtering ? 'quotations.empty.filtered.message' : 'quotations.empty.message'"
-        />
+        <!-- §6.6's toggle. Three buttons and `aria-pressed`, not a select: the
+             current view is read at a glance, and the choice is one click. -->
+        <div class="flex flex-wrap gap-2" role="group" :aria-label="t('quotations.view.label')" data-testid="quotations-view">
+            <button
+                v-for="option in VIEWS"
+                :key="option"
+                type="button"
+                class="view-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                :aria-pressed="view === option"
+                :data-testid="`quotations-view-${option}`"
+                @click="chooseView(option)"
+            >
+                {{ t(`quotations.view.${option}`) }}
+            </button>
+        </div>
 
-        <div v-else class="flex flex-col gap-3">
+        <!-- One refusal, not two: the permission is the same for both buckets. -->
+        <PermissionDeniedState v-if="denied" />
+
+        <section
+            v-for="bucket in BUCKETS"
+            v-else
+            :key="bucket"
+            class="flex flex-col gap-3"
+            :data-testid="`quotations-bucket-${bucket}`"
+        >
+            <h2 class="text-section-title">{{ t(`quotations.bucket.${bucket}`) }}</h2>
+
+            <LoadingState v-if="panels[bucket].loading" label-key="quotations.loading" />
+            <ErrorState v-else-if="panels[bucket].failed" @retry="loadBucket(bucket)" />
+            <EmptyState
+                v-else-if="panels[bucket].groups.length === 0"
+                :title-key="filtering ? 'quotations.empty.filtered.title' : 'quotations.empty.title'"
+                :message-key="filtering ? 'quotations.empty.filtered.message' : 'quotations.empty.message'"
+            />
+
+            <div v-else class="flex flex-col gap-3">
             <div class="table-frame overflow-x-auto rounded-xl">
                 <table class="w-full text-table" data-testid="quotations-table">
                     <thead class="sticky top-0">
@@ -411,7 +520,16 @@ onMounted(async () => {
                     </thead>
 
                     <tbody>
-                        <tr v-for="quotation in quotations" :key="quotation.id" class="table-row" data-testid="quotations-row">
+                        <template v-for="group in panels[bucket].groups" :key="group.key ?? ''">
+                        <!-- §6.6's grouping, on Catalog's precedent: `colgroup`
+                             scope, because the heading labels the rows beneath it. -->
+                        <tr v-if="view !== 'flat'" class="group-row">
+                            <th :colspan="columnCount" scope="colgroup" class="p-3 text-start font-medium" data-testid="quotations-group-heading">
+                                {{ groupLabel(group) }} ({{ group.count }})
+                            </th>
+                        </tr>
+
+                        <tr v-for="quotation in group.items" :key="quotation.id" class="table-row" data-testid="quotations-row">
                             <!-- §4.7's `QT-2026-0001`, exactly as allocated. The way into the
                                  quotation's own page is Point 6.5; until then the code is text. -->
                             <td class="whitespace-nowrap p-3 tabular-nums" data-testid="quotations-code">{{ quotation.code }}</td>
@@ -431,12 +549,20 @@ onMounted(async () => {
                             <td class="hidden p-3 tabular-nums lg:table-cell">{{ onDate(quotation.valid_until) }}</td>
                             <td class="hidden p-3 tabular-nums lg:table-cell">{{ onDate(quotation.updated_at) }}</td>
                         </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
 
+            <p
+                v-if="view !== 'flat' && (panels[bucket].pagination?.total_pages ?? 1) > 1"
+                class="text-[var(--color-text-muted)]"
+            >
+                {{ t('quotations.groups.continues') }}
+            </p>
+
             <nav
-                v-if="pagination"
+                v-if="panels[bucket].pagination"
                 class="flex items-center justify-between gap-3"
                 :aria-label="t('quotations.pagination.label')"
                 data-testid="quotations-pagination"
@@ -444,28 +570,29 @@ onMounted(async () => {
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!pagination.has_previous_page || loading"
+                    :disabled="!panels[bucket].pagination?.has_previous_page || panels[bucket].loading"
                     data-testid="quotations-previous"
-                    @click="goToPage(pagination.page - 1)"
+                    @click="goToPage(bucket, panels[bucket].page - 1)"
                 >
                     {{ t('quotations.pagination.previous') }}
                 </button>
 
                 <p class="tabular-nums text-[var(--color-text-muted)]">
-                    {{ t('quotations.pagination.position', { page: pagination.page, pages: pagination.total_pages, total: pagination.total }) }}
+                    {{ t('quotations.pagination.position', { page: panels[bucket].pagination?.page, pages: panels[bucket].pagination?.total_pages, total: panels[bucket].pagination?.total }) }}
                 </p>
 
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!pagination.has_next_page || loading"
+                    :disabled="!panels[bucket].pagination?.has_next_page || panels[bucket].loading"
                     data-testid="quotations-next"
-                    @click="goToPage(pagination.page + 1)"
+                    @click="goToPage(bucket, panels[bucket].page + 1)"
                 >
                     {{ t('quotations.pagination.next') }}
                 </button>
             </nav>
-        </div>
+            </div>
+        </section>
     </section>
 </template>
 
@@ -498,6 +625,23 @@ onMounted(async () => {
 
 .sort-action {
     color: inherit;
+}
+
+.group-row {
+    background-color: var(--color-surface-muted);
+}
+
+.view-action {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+
+/* Pressed = the current view, told by more than colour: the border thickens too. */
+.view-action[aria-pressed='true'] {
+    background-color: var(--color-surface-muted);
+    border-width: 2px;
+    font-weight: 600;
 }
 
 .row-action {

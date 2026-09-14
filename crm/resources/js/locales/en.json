@@ -1084,6 +1084,19 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages} — {total} quotations"
+        },
+        "view": {
+            "label": "View",
+            "employee": "By employee",
+            "customer": "By customer",
+            "flat": "Flat"
+        },
+        "bucket": {
+            "active": "Active",
+            "history": "History"
+        },
+        "groups": {
+            "continues": "A group may continue on the next page — pages count quotations, not groups."
         }
     }
 }

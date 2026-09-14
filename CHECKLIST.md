@@ -1789,7 +1789,7 @@ choice (the frontend step — `localStorage` per §6.6's "remembers", or a user 
 wants it to follow the user across devices: **a question for that step, not this one**); `D-11`'s
 red badge and "days waiting" (Module 8's approvals screen, §6.4); `q` (Module 15); export.
 
-#### Step 6 — the screens *(point list published 2026-09-13 for approval; nothing below is built)*
+#### Step 6 — the screens *(point list approved 2026-09-13 on #121 with defaults Q1–Q7)*
 
 Module 7's frontend: the list §6.6 describes, the quotation itself, and the builder the build plan
 names (`MVP §Module 7` "Frontend"). Everything Steps 1–5 shipped is consumed, nothing is
@@ -1887,13 +1887,13 @@ owner says only "approved":**
       `Design System §6.4` badge colour, never colour alone. Flat list only — the toggle is 6.4.
       *Verified by* vitest on the query string per control and on each state; Claude Browser at
       desktop + mobile, ar + en. *(2026-09-14, #124 — owner's ruling A: rows and the detail carry `currency` (ISO code) beside `currency_id`, resolved server-side; no employee filter — no name lookup exists for a non-admin, 6.4's employee groups carry the server's label instead; `badge` left unset until Module 8 counts)*
-- [ ] **6.4** §6.6's views — the toggle **by employee · by customer · flat** at the top
+- [x] **6.4** §6.6's views — the toggle **by employee · by customer · flat** at the top
       (`group_by`), the fixed **active · history** split in every mode (two requests,
       `filter[bucket]`, Step 5 Q1), grouped rows rendered from `{key, label, count, items}` with a
       group heading row (Catalog's `<th scope="colgroup">` precedent), and the remembered choice
       (Q1). Pagination counts quotations, so a group may continue on the next page — the heading
       says so. *Verified by* vitest: the stored choice restores the toggle, an unavailable
-      `localStorage` falls back to flat; Claude Browser as above.
+      `localStorage` falls back to flat; Claude Browser as above. *(2026-09-14, #PR — Q2's employee label is the server's: `UserFactsInterface::namesOf()` under `Identity/Domain/Contracts`, `EloquentUserFacts` withholds the hidden Super Admin so its group shows the key; the customer group is named on the screen from the same `listCustomers` lookup; one refusal for both buckets, one 403 being one permission)*
 - [ ] **6.5** The quotation — route `/quotations/:id` on `readQuotation`: header (customer, deal,
       status, version, dates, currency), lines with the cost columns present only when the body
       carries them (Q7), additional items, the totals block in `Design System §7.2`'s groups

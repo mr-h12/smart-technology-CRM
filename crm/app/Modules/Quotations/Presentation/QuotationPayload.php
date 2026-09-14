@@ -74,11 +74,12 @@ final class QuotationPayload
 
     /**
      * `OpenAPI §6.2`'s grouped `data` — `[{key, label, count, items}]`, groups
-     * ordered by `label`. The label is the key itself (Q7: the screen resolves
-     * names through the lists it already has); the `null` group reads
+     * ordered by `label`. The label is what `ListQuotations::grouped()` named
+     * the group — an employee's name (Step 6 Q2), a customer's id (Q7: the
+     * screen lists customers anyway); the `null` group reads
      * `quotations.groups.unassigned`.
      *
-     * @param  list<array{key: ?string, items: non-empty-list<QuotationSummary>}>  $groups
+     * @param  list<array{key: ?string, label: ?string, items: non-empty-list<QuotationSummary>}>  $groups
      * @return list<array<string, mixed>>
      */
     public static function groups(array $groups): array
@@ -87,7 +88,7 @@ final class QuotationPayload
         foreach ($groups as $group) {
             $rows[] = [
                 'key' => $group['key'],
-                'label' => $group['key'] ?? (string) __('quotations.groups.unassigned'),
+                'label' => $group['label'] ?? (string) __('quotations.groups.unassigned'),
                 'count' => count($group['items']),
                 'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row), $group['items']),
             ];

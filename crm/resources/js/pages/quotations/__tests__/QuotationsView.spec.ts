@@ -9,7 +9,9 @@ import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
- * Module 7, Point 6.3 — §6.6's list, flat. The toggle and the split are 6.4.
+ * Module 7, Point 6.3 — §6.6's list; Point 6.4 — its views and its split.
+ * The stub answers both buckets with the same rows, so a count reads double
+ * and a first `find()` lands in the *active* panel.
  *
  * Every control changes a parameter and asks the server again (`Design System
  * §5.2` "server-side filters/sort", `§6.5` "Every list is server-paginated"),
@@ -154,8 +156,8 @@ describe('the quotations screen', () => {
         expect(url).toContain('sort=-updated_at');
         expect(url).not.toContain('group_by');
         expect(wrapper.find('[data-testid="quotations-table"]').exists()).toBe(true);
-        // The count is the server's `meta.pagination.total`, never the rows in hand.
-        expect(wrapper.find('[data-testid="quotations-count"]').text()).toBe('1 quotations');
+        // The count is the server's `meta.pagination.total` — both buckets', never the rows in hand.
+        expect(wrapper.find('[data-testid="quotations-count"]').text()).toBe('2 quotations');
     });
 
     it('shows the code, the version and the total paired with its currency', async () => {
@@ -199,6 +201,7 @@ describe('the quotations screen', () => {
         );
 
         const tones = wrapper
+            .find('[data-testid="quotations-bucket-active"]')
             .findAll('[data-testid="quotation-status"]')
             .map((chip) => chip.classes().find((name) => name.startsWith('status-chip--')));
 
@@ -323,7 +326,8 @@ describe('the quotations screen', () => {
         await wrapper.find('[data-testid="quotations-filter-status"]').setValue('sent');
         await flushPromises();
 
-        expect(listReads(fetchMock)).toBe(before + 1);
+        // One read per bucket: both are asked again.
+        expect(listReads(fetchMock)).toBe(before + 2);
     });
 
     it('returns to the first page whenever the question changes', async () => {
@@ -387,6 +391,97 @@ describe('the quotations screen', () => {
         await flushPromises();
 
         expect(listUrl(fetchMock)).toContain('page=2');
+    });
+
+    // ─────────────────────────────────────────── §6.6's views (Point 6.4)
+
+    /** One call per bucket, whatever the view (Step 5 Q1: `filter[bucket]` is the fixed split). */
+    function bucketUrls(fetchMock: ReturnType<typeof vi.fn>): string[] {
+        return fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/quotations'));
+    }
+
+    it('asks for the active and the history bucket separately, each with its own pages', async () => {
+        const fetchMock = respond([QUOTATION], 200, { ...PAGINATION, total: 60, total_pages: 3, has_next_page: true });
+        const wrapper = await render(fetchMock);
+
+        const urls = bucketUrls(fetchMock);
+        expect(urls.some((url) => url.includes('filter%5Bbucket%5D=active'))).toBe(true);
+        expect(urls.some((url) => url.includes('filter%5Bbucket%5D=history'))).toBe(true);
+        expect(wrapper.find('[data-testid="quotations-bucket-active"]').text()).toContain('Active');
+        expect(wrapper.find('[data-testid="quotations-bucket-history"]').text()).toContain('History');
+
+        await wrapper.find('[data-testid="quotations-bucket-history"] [data-testid="quotations-next"]').trigger('click');
+        await flushPromises();
+
+        const last = listUrl(fetchMock);
+        expect(last).toContain('filter%5Bbucket%5D=history');
+        expect(last).toContain('page=2');
+        // The other bucket was not asked again: its page is its own.
+        expect(bucketUrls(fetchMock).filter((url) => url.includes('page=2'))).toHaveLength(1);
+    });
+
+    it('starts flat, and a view button asks the server to group and remembers the choice', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+
+        expect(wrapper.find('[data-testid="quotations-view-flat"]').attributes('aria-pressed')).toBe('true');
+
+        await wrapper.find('[data-testid="quotations-view-employee"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="quotations-view-employee"]').attributes('aria-pressed')).toBe('true');
+        expect(wrapper.find('[data-testid="quotations-view-flat"]').attributes('aria-pressed')).toBe('false');
+        expect(listUrl(fetchMock)).toContain('group_by=employee');
+        // Step 6 Q1: per browser, the `theme.ts` shape.
+        expect(window.localStorage.getItem('crm.quotations.view')).toBe('employee');
+    });
+
+    it('restores the remembered view on arrival', async () => {
+        window.localStorage.setItem('crm.quotations.view', 'customer');
+        const fetchMock = respond([{ key: 'c1', label: 'c1', count: 1, items: [QUOTATION] }]);
+        const wrapper = await render(fetchMock);
+
+        expect(wrapper.find('[data-testid="quotations-view-customer"]').attributes('aria-pressed')).toBe('true');
+        expect(listUrl(fetchMock)).toContain('group_by=customer');
+    });
+
+    it('falls back to flat when the remembered value is unknown or storage is unavailable', async () => {
+        window.localStorage.setItem('crm.quotations.view', 'sideways');
+        const unknown = await render(respond());
+        expect(unknown.find('[data-testid="quotations-view-flat"]').attributes('aria-pressed')).toBe('true');
+
+        const getItem = vi.spyOn(window.localStorage, 'getItem').mockImplementation(() => {
+            throw new Error('SecurityError');
+        });
+        const fetchMock = respond();
+        const unavailable = await render(fetchMock);
+        getItem.mockRestore();
+
+        expect(unavailable.find('[data-testid="quotations-view-flat"]').attributes('aria-pressed')).toBe('true');
+        expect(listUrl(fetchMock)).not.toContain('group_by');
+    });
+
+    it('draws each group under a heading that names it and counts it, and says a group may continue', async () => {
+        window.localStorage.setItem('crm.quotations.view', 'employee');
+        const groups = [
+            { key: 'u2', label: 'Sara Sales', count: 2, items: [QUOTATION, { ...QUOTATION, id: 'q2', code: 'QT-2026-0002' }] },
+            { key: null, label: 'Unassigned', count: 1, items: [{ ...QUOTATION, id: 'q3', code: 'QT-2026-0003' }] },
+        ];
+        const wrapper = await render(respond(groups, 200, { ...PAGINATION, total: 30, total_pages: 2, has_next_page: true }));
+
+        const active = wrapper.find('[data-testid="quotations-bucket-active"]');
+        const headings = active.findAll('[data-testid="quotations-group-heading"]');
+        expect(headings.map((heading) => heading.text())).toEqual(['Sara Sales (2)', 'Unassigned (1)']);
+        expect(headings[0]?.element.getAttribute('scope')).toBe('colgroup');
+        expect(active.findAll('[data-testid="quotations-row"]')).toHaveLength(3);
+        // Pagination counts quotations, not groups (Point 5.5) — said, not hidden.
+        expect(active.text()).toContain('A group may continue on the next page');
+    });
+
+    it('draws no group heading in the flat view', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="quotations-group-heading"]').exists()).toBe(false);
     });
 
     // ──────────────────────────────────────────────────────────── the way in

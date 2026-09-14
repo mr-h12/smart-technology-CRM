@@ -56,6 +56,7 @@ use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
 use App\Modules\Identity\Domain\Contracts\RoleDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
 use App\Modules\Identity\Infrastructure\CachePasswordChallengeStore;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -65,6 +66,7 @@ use App\Modules\Identity\Infrastructure\EloquentProfileReader;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
 use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
+use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
@@ -276,6 +278,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             DealFactsInterface::class,
             fn (): EloquentDealFacts => new EloquentDealFacts(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 7 Point 6.4 (Step 6 Q2). The name behind a deal owner's id for
+        // `group_by=employee`'s label — `bind` and `ConnectionInterface` alone,
+        // as for the deal facts above: two columns by primary key.
+        $this->app->bind(
+            UserFactsInterface::class,
+            fn (): EloquentUserFacts => new EloquentUserFacts(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

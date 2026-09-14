@@ -1893,7 +1893,7 @@ owner says only "approved":**
       group heading row (Catalog's `<th scope="colgroup">` precedent), and the remembered choice
       (Q1). Pagination counts quotations, so a group may continue on the next page — the heading
       says so. *Verified by* vitest: the stored choice restores the toggle, an unavailable
-      `localStorage` falls back to flat; Claude Browser as above. *(2026-09-14, #PR — Q2's employee label is the server's: `UserFactsInterface::namesOf()` under `Identity/Domain/Contracts`, `EloquentUserFacts` withholds the hidden Super Admin so its group shows the key; the customer group is named on the screen from the same `listCustomers` lookup; one refusal for both buckets, one 403 being one permission)*
+      `localStorage` falls back to flat; Claude Browser as above. *(2026-09-14, #125 — Q2's employee label is the server's: `UserFactsInterface::namesOf()` under `Identity/Domain/Contracts`, `EloquentUserFacts` withholds the hidden Super Admin so its group shows the key; the customer group is named on the screen from the same `listCustomers` lookup; one refusal for both buckets, one 403 being one permission)*
 - [ ] **6.5** The quotation — route `/quotations/:id` on `readQuotation`: header (customer, deal,
       status, version, dates, currency), lines with the cost columns present only when the body
       carries them (Q7), additional items, the totals block in `Design System §7.2`'s groups

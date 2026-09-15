@@ -977,6 +977,14 @@ would hide them behind `OD-03` indefinitely.
       readings of a clause that names no shape; two of them in one API is the defect. **Owner
       decision:** pick one and record it in `OpenAPI §6.2` (or as a `D-xx`), then bring the other
       resource to it in a point of its own. Nothing to change until then.
+- [ ] **The quotation feature-test fixture block exists in 12 files** — *revealed by Module 8 Point 2.3,
+      2026-09-15.* `currency` / `customer` / `deal` / `supplierLine` / `userWith` / `bearerFor` (and
+      Module 8's `pending()`) are copied verbatim into every endpoint test under
+      `tests/Feature/Quotations` — `grep -l "private function supplierLine"` counts 12, Point 2.3's
+      `QuotationBadgesEndpointTest` being the latest. Each point copied rather than extracted because a
+      shared trait is a change to eleven files nobody was reviewing. **Fix, one point of its own:** a
+      `tests/Feature/Quotations/Support/QuotationFixtures` trait, then delete the copies; no behaviour
+      changes, so the suite count is the proof.
 
 
 ---
@@ -1542,10 +1550,15 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       `status = draft AND returned_at IS NOT NULL` as a sibling of the `whereIn` branch; `BUCKETS`
       stays Q1's two status lists; one test method in the existing directory list test; the
       Incomplete tab is 3.3's)*
-- [ ] **2.3** `GET /api/v1/badges` (Q5) — `{approvals, my_quotations}`: pending quotations within the
+- [x] **2.3** `GET /api/v1/badges` (Q5) — `{approvals, my_quotations}`: pending quotations within the
       caller's `quotation.approve` scope; the caller's own returned drafts. `permission:` none beyond
       `auth` (a zero is the answer for a role without the grant). *Verified by* Manager counts, Sales
-      sees `approvals: 0`, own returned draft counted once.
+      sees `approvals: 0`, own returned draft counted once. *(2026-09-15, #138 — `BadgeCounts` =
+      two `list()->total` reads over the caller's reach: `approvals` = `pending` within
+      `AuthorizeAction::decide('quotation','approve')` (a denied decision has no scopes, so `0` without a
+      branch), `my_quotations` = 2.2's `incomplete` within `own` (= deal owner, the 2026-09-11 ruling — not
+      `created_by`; the two coincide for every seller today); Team Leader `0` under `D-a`; the 12th copy of
+      the test fixture block — debt row below)*
 
 #### Step 3 — the screen
 

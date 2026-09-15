@@ -830,7 +830,7 @@ would hide them behind `OD-03` indefinitely.
       is mechanical — every service imports `Page` from `@/api`, and one `listQuery(pairs)` helper
       replaces the loop — and belongs to its own point, not to a Module 7 screen.
 
-- [ ] **Six list screens carry the same table boilerplate** — *revealed by Module 7 Point 6.3,
+- [ ] **Six list screens carry the same table boilerplate** (seven since 8·3.1's `ApprovalsView`) — *revealed by Module 7 Point 6.3,
       2026-09-13.* `grep -rl "function sortIndicator" crm/resources/js` → 6 (`CustomersView`,
       `SuppliersView`, `CatalogView`, `SupplierQuotationsView`, `DealsView`, `QuotationsView`): the
       same `load()`/`applyFilters()`/`sortBy()`/`goToPage()`/`ariaSort()`/`sortIndicator()`/`onDate()`
@@ -985,6 +985,19 @@ would hide them behind `OD-03` indefinitely.
       shared trait is a change to eleven files nobody was reviewing. **Fix, one point of its own:** a
       `tests/Feature/Quotations/Support/QuotationFixtures` trait, then delete the copies; no behaviour
       changes, so the suite count is the proof.
+- [ ] **The "read the detail's etag → write → 409 is the reload banner" flow exists three times** —
+      *revealed by Module 8 Point 3.1, 2026-09-15.* `grep -rn "error.code === 'concurrency_conflict'"
+      crm/resources/js` → `QuotationDetailView.vue`, `QuotationBuilderView.vue`, `ApprovalsView.vue`,
+      each with its own `act()`/`busy`/`conflict`/`actionError` trio. 3.1 copied 6.5's because the
+      first two were already copies and the extraction is a refactor, not a screen point. **Fix, one
+      point:** a `useEtagWrite()` composable returning `{busy, conflict, error, act}`; the three pages
+      shrink by the same twenty lines. Belongs with the `useServerList()` row above.
+- [ ] **`RequestIdTest` "a rejected correlation id never appears" is a hex-collision flake** —
+      *revealed by Module 8 Point 3.1's CI run 34993785991, 2026-09-15.* Data set `'a trailing newline'`
+      is `"abc\n"`, the needle becomes `abc`, and the response's server-generated `request_id` was
+      `…f55abc282a0b` — a UUID contains the needle about once in 4 000 runs. The test is Module 0's
+      (`c5deb0d`), untouched here; re-run passed. **Fix, one line:** a needle no hex string can contain
+      (`"xyz\n"`), keeping the `D`-modifier case the comment explains.
 
 
 ---
@@ -1562,14 +1575,20 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
 
 #### Step 3 — the screen
 
-- [ ] **3.1** `/approvals` — nav item on `quotation.approve` (`navigation.ts`, badge slot
+- [x] **3.1** `/approvals` — nav item on `quotation.approve` (`navigation.ts`, badge slot
       `approvals`); one page for Team Leader and Manager (`D-10`); pending rows with employee,
       customer, total, `days_waiting`, a red **text-labelled** badge when `sla_exceeded` (`D-11`,
       Design System §6.4 "never colour alone"); Approve and Return (note dialog) inline, 6.5's 409
       banner on a stale token; refused-by-permission, empty and error states. *Verified by* vitest +
       Claude Browser AR/EN × desktop/mobile. **This is where `D-11` "no automatic escalation" is
       asserted: a row past the SLA is still `pending` and still here, and no scheduler entry names
-      approvals** (a test greps the `Kernel`/schedule for the word).
+      approvals** (a test greps the `Kernel`/schedule for the word). *(2026-09-15, #139 —
+      `ApprovalsView` on `group_by=employee` + `filter[status]=pending`, so "employee" costs no new
+      wire field; a list row has no etag, so Approve/Return read the detail first and act on its token;
+      customer names via one `readCustomer` per distinct id (6.3's 100-row lookup missed row 234);
+      `NoApprovalEscalationTest` reads `Schedule::events()` and failed on a planted entry; browser
+      AR/EN × desktop/mobile — the 375px clip is the shell's known context-bar overflow, same on
+      `/quotations`; the 409 banner is vitest-proven only, a real race cannot be staged by hand)*
 - [ ] **3.2** Edit-and-approve on screen — 6.7's builder opened from `/approvals` for a `pending`
       quotation by an approver, save calling 1.3 ("Edit & approve"); the non-Draft redirect of 6.7
       excepts this mode. *Verified by* vitest (route, body, headers) + browser.

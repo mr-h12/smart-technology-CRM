@@ -70,6 +70,9 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                // Module 8 Point 3.1 — §8's Approvals screen; every label is
+                // an `approvals.*` or reused `quotations.detail.*` key.
+                'ApprovalsView.vue',
                 // Module 4 Point 4.4 — §7.3's catalog add/edit form. Added on
                 // the same terms: the scan below was run against it first and
                 // passed. Its labels are looked up by the *field name* —

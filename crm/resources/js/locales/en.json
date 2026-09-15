@@ -92,7 +92,8 @@
             "catalog": "Catalog",
             "supplierQuotations": "Supplier Quotations",
             "deals": "Requests / Deals",
-            "quotations": "Quotations"
+            "quotations": "Quotations",
+            "approvals": "Approvals"
         }
     },
     "theme": {
@@ -1181,5 +1182,26 @@
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
             "unsaved": "You have unsaved changes. Leave without saving?"
         }
+    },
+    "approvals": {
+        "title": "Approvals",
+        "loading": "Loading pending quotations…",
+        "empty": {
+            "title": "Nothing to approve",
+            "message": "No quotation is waiting for your approval."
+        },
+        "column": {
+            "code": "Code",
+            "customer": "Customer",
+            "total": "Total",
+            "daysWaiting": "Days waiting",
+            "actions": "Actions"
+        },
+        "slaExceeded": "SLA exceeded",
+        "approve": "Approve",
+        "return": "Return",
+        "returnNote": "Note to the seller (required)",
+        "returnSend": "Return with note",
+        "returnCancel": "Cancel"
     }
 }

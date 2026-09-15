@@ -23,6 +23,7 @@ import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
 import QuotationBuilderView from '@/pages/quotations/QuotationBuilderView.vue';
 import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
+import ApprovalsView from '@/pages/approvals/ApprovalsView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
@@ -197,6 +198,15 @@ export const routes: RouteRecordRaw[] = [
         name: 'quotations',
         component: QuotationsView,
         meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
+    },
+    {
+        // §8's *Approvals* (Module 8, Point 3.1) — the pending quotations the
+        // caller may approve, on §3.5's `quotation.approve`. The Team Leader's
+        // `Team` reaches no rows (`D-a`), so the page is empty for them.
+        path: '/approvals',
+        name: 'approvals',
+        component: ApprovalsView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.approve', titleKey: 'approvals.title' },
     },
     {
         // The builder, create (Module 7, Point 6.6) — reached from the deal's

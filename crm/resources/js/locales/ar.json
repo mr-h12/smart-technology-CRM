@@ -1095,6 +1095,7 @@
         },
         "bucket": {
             "active": "النشطة",
+            "incomplete": "غير مكتملة",
             "history": "السجل"
         },
         "groups": {
@@ -1109,6 +1110,7 @@
             "sentAt": "تاريخ الإرسال للعميل",
             "parent": "النسخة السابقة",
             "rejectionReason": "سبب الرفض",
+            "returnNote": "ملاحظة الإرجاع",
             "paymentTerms": "شروط الدفع",
             "warranty": "الضمان",
             "deliveryTerms": "شروط التسليم",

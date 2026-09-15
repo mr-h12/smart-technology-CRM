@@ -35,6 +35,8 @@ final readonly class QuotationSummary
         public ?string $quotationDate,
         public ?string $validUntil,
         public ?string $submittedAt,
+        /** §6.5 / `D-50`: the yellow badge on the list needs no detail read (Module 8 · 3.3). */
+        public bool $isSelfApproved,
         public ?string $parentId,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,

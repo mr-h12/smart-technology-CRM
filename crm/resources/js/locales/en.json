@@ -1095,6 +1095,7 @@
         },
         "bucket": {
             "active": "Active",
+            "incomplete": "Incomplete",
             "history": "History"
         },
         "groups": {
@@ -1109,6 +1110,7 @@
             "sentAt": "Sent",
             "parent": "Previous version",
             "rejectionReason": "Rejection reason",
+            "returnNote": "Return note",
             "paymentTerms": "Payment terms",
             "warranty": "Warranty",
             "deliveryTerms": "Delivery terms",

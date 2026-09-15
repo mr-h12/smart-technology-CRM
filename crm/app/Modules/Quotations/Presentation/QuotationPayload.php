@@ -68,6 +68,7 @@ final class QuotationPayload
             'submitted_at' => $quotation->submittedAt,
             // Module 8 Point 2.1 — `D-11`'s column and badge, server-computed.
             ...$waiting->of($quotation->status, $quotation->submittedAt),
+            'is_self_approved' => $quotation->isSelfApproved,
             'version' => $quotation->version,
             'parent_id' => $quotation->parentId,
             'created_at' => $quotation->createdAt->format(DATE_ATOM),

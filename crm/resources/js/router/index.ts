@@ -227,6 +227,15 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiredPermission: 'quotation.edit', titleKey: 'quotations.detail.edit' },
     },
     {
+        // The same builder on a Pending quotation, opened from `/approvals`
+        // (Module 8, Point 3.2): save is 1.3's `PATCH …/edit-and-approve`,
+        // so the route carries the approver's `quotation.approve`, not `edit`.
+        path: '/quotations/:id/edit-and-approve',
+        name: 'quotation-edit-and-approve',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.approve', titleKey: 'quotations.builder.editAndApprove' },
+    },
+    {
         // One quotation (Module 7, Point 6.5) — `DealDetailView`'s shape on
         // the same `quotation.view`. What the caller may do to it is decided
         // per action by the API (`SEC-09`); the page only hides what would be

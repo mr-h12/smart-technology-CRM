@@ -233,6 +233,9 @@ onMounted(load);
                                 </td>
                                 <td class="whitespace-nowrap p-3">
                                     <span class="flex gap-2">
+                                        <RouterLink :to="{ name: 'quotation-edit-and-approve', params: { id: row.id } }" class="row-action inline-flex min-h-11 items-center rounded-lg px-3" data-testid="approvals-edit">
+                                            {{ t('approvals.edit') }}
+                                        </RouterLink>
                                         <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:opacity-60" :disabled="busy" data-testid="approvals-approve" @click="approve(row)">
                                             {{ t('approvals.approve') }}
                                         </button>

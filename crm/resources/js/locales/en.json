@@ -1176,6 +1176,7 @@
             "open": "Open the quotation",
             "editTitle": "Edit {code}",
             "update": "Save changes",
+            "editAndApprove": "Edit & approve",
             "cancelEdit": "Back to the quotation",
             "noExisting": "No lines are left — add a supplier below or the draft saves empty.",
             "lineNo": "Line {no}",
@@ -1198,6 +1199,7 @@
             "actions": "Actions"
         },
         "slaExceeded": "SLA exceeded",
+        "edit": "Edit & approve",
         "approve": "Approve",
         "return": "Return",
         "returnNote": "Note to the seller (required)",

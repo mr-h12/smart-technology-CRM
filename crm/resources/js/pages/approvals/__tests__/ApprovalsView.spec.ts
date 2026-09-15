@@ -156,6 +156,14 @@ describe('the approvals screen', () => {
         expect(calls(fetchMock, 'GET', '/quotations?')).toHaveLength(2);
     });
 
+    it('links each row to the builder\'s edit-and-approve route (Module 8 · 3.2)', async () => {
+        const wrapper = await render(server());
+
+        const link = wrapper.find('[data-testid="approvals-edit"]');
+        expect(link.text()).toBe('Edit & approve');
+        expect(link.attributes('href')).toBe('/quotations/q1/edit-and-approve');
+    });
+
     it('returns with a note in the body, and refuses a blank note without asking the server', async () => {
         const fetchMock = server();
         const wrapper = await render(fetchMock);

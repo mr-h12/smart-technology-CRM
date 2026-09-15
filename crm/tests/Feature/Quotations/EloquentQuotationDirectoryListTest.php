@@ -119,6 +119,18 @@ final class EloquentQuotationDirectoryListTest extends TestCase
         self::assertSame($this->named(['q3']), $this->idsOf($this->list([], ['own'], $this->ids['B'])));
     }
 
+    /** Module 8 · 2.2 (§8 "Incomplete"): a returned draft, still a draft to Q1, within the caller's rows. */
+    public function test_that_the_incomplete_bucket_is_the_returned_drafts_within_scope(): void
+    {
+        DB::table('quotations')->where('id', $this->ids['q1'])->update(['returned_at' => now()]);
+        $this->ids['q4'] = $this->quotation('QT-2026-0004', 'dB', 'C2', 'EGP', 'draft', '400', '2026-09-21', '2026-09-21 08:00:00');
+
+        self::assertSame($this->named(['q1']), $this->idsOf($this->list(['filter' => ['bucket' => 'incomplete']], ['all'], $this->ids['A'])));
+        self::assertSame($this->named(['q1']), $this->idsOf($this->list(['filter' => ['bucket' => 'incomplete']], ['own'], $this->ids['A'])));
+        self::assertSame([], $this->idsOf($this->list(['filter' => ['bucket' => 'incomplete']], ['own'], $this->ids['B'])));
+        self::assertContains($this->ids['q1'], $this->idsOf($this->list(['filter' => ['bucket' => 'active']], ['all'], $this->ids['A'])));
+    }
+
     public function test_that_a_soft_deleted_quotation_is_absent(): void
     {
         DB::table('quotations')->where('id', $this->ids['q2'])->update(['deleted_at' => now()]);

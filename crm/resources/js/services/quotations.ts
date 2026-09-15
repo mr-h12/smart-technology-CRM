@@ -24,6 +24,9 @@ export interface QuotationSummary {
     quotation_date: string | null;
     valid_until: string | null;
     submitted_at: string | null;
+    /** Module 8 · 2.1, server-computed (`D-11`): null unless `pending`; `sla_exceeded` is also null while the SLA limit is unset. */
+    days_waiting: number | null;
+    sla_exceeded: boolean | null;
     version: number;
     parent_id: string | null;
     created_at: string;
@@ -267,6 +270,16 @@ export async function updateQuotation(id: string, etag: string, draft: Quotation
 /** Draft → Pending (Point 4.2). No body; the transition is the server's. */
 export async function submitQuotation(id: string, etag: string): Promise<QuotationDetail> {
     return (await apiPatch<QuotationDetail>(`/quotations/${id}/submit-for-approval`, undefined, { 'If-Match': etag })).data;
+}
+
+/** Pending → Approved (Module 8 · 1.1). The detail's etag; a stale one is `409 concurrency_conflict`. */
+export async function approveQuotation(id: string, etag: string): Promise<QuotationDetail> {
+    return (await apiPatch<QuotationDetail>(`/quotations/${id}/approve`, undefined, { 'If-Match': etag })).data;
+}
+
+/** Pending → Draft on the same row with a mandatory note (Module 8 · 1.2). */
+export async function returnQuotation(id: string, etag: string, note: string): Promise<QuotationDetail> {
+    return (await apiPatch<QuotationDetail>(`/quotations/${id}/return`, { note }, { 'If-Match': etag })).data;
 }
 
 /** `D-08`'s full copy as a new Draft (Point 4.3). Answers the copy's `id`, `code` and `version` — read it for the rest. */

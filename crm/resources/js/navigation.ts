@@ -129,6 +129,17 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'quotation.view',
             },
             {
+                // §8's *Approvals* — Module 8's page (Point 3.1), one screen
+                // for the Team Leader and the Manager (`D-10`), keyed on
+                // §3.5's `quotation.approve`. The `approvals` badge slot is
+                // declared here; the count behind it is drawn in Point 3.3.
+                name: 'approvals',
+                labelKey: 'nav.item.approvals',
+                icon: 'M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1.2 10.9 5-5-1.1-1.1-3.9 3.9-1.6-1.6-1.1 1.1z',
+                permission: 'quotation.approve',
+                badge: 'approvals',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

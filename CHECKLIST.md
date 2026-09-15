@@ -1536,9 +1536,12 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       `ApprovalWaiting` in Application, threaded through `QuotationPayload`; calendar days, floored;
       `sla_exceeded` is **null** while the limit is unseeded — the reader's "do not guess" contract, an
       assumption for the owner; no SPA change until Step 3 reads the fields)*
-- [ ] **2.2** `filter[bucket]=incomplete` — drafts with `returned_at` not null (§8 "Quotations
+- [x] **2.2** `filter[bucket]=incomplete` — drafts with `returned_at` not null (§8 "Quotations
       (including incomplete)"), row-scoped like the other buckets. *Verified by* a returned draft
-      listed, a plain draft not, `unknown_bucket` unchanged for typos.
+      listed, a plain draft not, `unknown_bucket` unchanged for typos. *(2026-09-15, #137 —
+      `status = draft AND returned_at IS NOT NULL` as a sibling of the `whereIn` branch; `BUCKETS`
+      stays Q1's two status lists; one test method in the existing directory list test; the
+      Incomplete tab is 3.3's)*
 - [ ] **2.3** `GET /api/v1/badges` (Q5) — `{approvals, my_quotations}`: pending quotations within the
       caller's `quotation.approve` scope; the caller's own returned drafts. `permission:` none beyond
       `auth` (a zero is the answer for a role without the grant). *Verified by* Manager counts, Sales

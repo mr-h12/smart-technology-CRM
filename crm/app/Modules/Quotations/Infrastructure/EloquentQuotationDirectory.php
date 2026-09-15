@@ -233,7 +233,9 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             $query->whereIn('quotations.status', $criteria->statuses);
         }
 
-        if ($criteria->bucket !== null) {
+        if ($criteria->bucket === QuotationListCriteria::INCOMPLETE_BUCKET) {
+            $query->where('quotations.status', 'draft')->whereNotNull('quotations.returned_at');
+        } elseif ($criteria->bucket !== null) {
             $query->whereIn('quotations.status', QuotationListCriteria::BUCKETS[$criteria->bucket]);
         }
 

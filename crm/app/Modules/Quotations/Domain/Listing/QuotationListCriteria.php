@@ -10,7 +10,8 @@ namespace App\Modules\Quotations\Domain\Listing;
  * What this resource declares is the Step 5 list the owner approved on
  * 2026-09-12 (Q1–Q5), on `DealListCriteria`'s shape:
  *
- * - `filter[status]` — §6.1's nine, repeatable; `filter[bucket]` — Q1's two
+ * - `filter[status]` — §6.1's nine, repeatable; `filter[bucket]` — Q1's two, plus
+ *   `incomplete` (§8: a returned draft, Module 8 · 2.2)
  *   halves of the same nine (`active` = what is still moving, `history` = the
  *   five terminals). `filter[employee]` is the deal's `owner_id` (Q2), read
  *   through `DealFactsInterface::dealIdsOwnedBy()` in 5.3, so it is a user id
@@ -42,6 +43,9 @@ final readonly class QuotationListCriteria
         'active' => ['draft', 'pending', 'approved', 'sent'],
         'history' => ['accepted', 'partial', 'counter', 'rejected', 'expired'],
     ];
+
+    /** §8 "Incomplete": `draft` with `returned_at` set — a predicate, not a status list. */
+    public const INCOMPLETE_BUCKET = 'incomplete';
 
     public const ALLOWED_PARAMETERS = ['page', 'per_page', 'filter', 'sort', 'group_by'];
 
@@ -113,7 +117,7 @@ final readonly class QuotationListCriteria
             page: $page,
             perPage: $perPage,
             statuses: self::statuses($f['status'] ?? null),
-            bucket: self::oneOf($f['bucket'] ?? null, 'filter[bucket]', array_keys(self::BUCKETS), 'unknown_bucket'),
+            bucket: self::oneOf($f['bucket'] ?? null, 'filter[bucket]', [...array_keys(self::BUCKETS), self::INCOMPLETE_BUCKET], 'unknown_bucket'),
             employeeId: self::id($f['employee'] ?? null, 'filter[employee]'),
             customerId: self::id($f['customer_id'] ?? null, 'filter[customer_id]'),
             dealId: self::id($f['deal_id'] ?? null, 'filter[deal_id]'),

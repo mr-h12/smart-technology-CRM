@@ -54,6 +54,7 @@ const QUOTATION = {
     show_delivery_terms: true,
     rejection_reason: null,
     sent_at: null,
+    return_note: null,
     is_self_approved: false,
     etag: '"v1"',
     items: [
@@ -266,7 +267,18 @@ describe('the quotation detail view', () => {
         );
 
         expect(wrapper.find('[data-testid="quotation-detail-parent"]').attributes('href')).toBe('/quotations/q0');
-        expect(wrapper.find('[data-testid="quotation-detail-self-approved"]').text()).toContain('Self-approved');
+        expect(wrapper.find('[data-testid="quotation-self-approved"]').text()).toContain('Self-approved');
+    });
+
+    it('shows the return note on a returned draft, and nothing otherwise (Module 8 · 3.3)', async () => {
+        const returned = { ...QUOTATION, status: 'draft', return_note: 'السعر مرتفع، راجع الهامش' };
+        const { wrapper } = await render(respond({ quotation: returned }));
+
+        expect(wrapper.find('[data-testid="quotation-detail-return_note"]').text()).toBe('السعر مرتفع، راجع الهامش');
+
+        const { wrapper: plain } = await render(respond());
+
+        expect(plain.find('[data-testid="quotation-detail-return_note"]').exists()).toBe(false);
     });
 
     it('shows the rejection reason when there is one', async () => {

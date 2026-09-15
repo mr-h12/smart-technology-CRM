@@ -253,7 +253,7 @@ final class QuotationReadEndpointTest extends TestCase
         $row = $response->json('data.0');
         self::assertIsArray($row);
         self::assertSame(
-            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'version', 'parent_id', 'created_at', 'updated_at'],
+            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'],
             array_keys($row),
         );
         self::assertSame($id, $row['id']);
@@ -298,7 +298,7 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertIsArray($items);
         self::assertCount(2, $items);
         self::assertIsArray($items[0]);
-        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
     }
 
     /** A deal with no owner groups under the `null` key, labelled from the lang file. */
@@ -411,6 +411,18 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('meta.warnings.0.field', 'lines.0.unit_cost')
             ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed')
             ->assertJsonPath('meta.warnings.0.message', (string) __('quotations.warnings.supplier_price_changed'));
+    }
+
+    /** §6.5 / `D-50`: the yellow badge on the list (Module 8 · 3.3) reads a row field, not the detail. */
+    public function test_that_a_list_row_says_whether_it_was_self_approved(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotations')->where('id', $id)->update(['status' => 'approved', 'is_self_approved' => true]);
+
+        $this->getJson(self::ENDPOINT.'?filter[bucket]=active', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.id', $id)
+            ->assertJsonPath('data.0.is_self_approved', true);
     }
 
     /** §10.3's first row names Draft **or Pending**. */

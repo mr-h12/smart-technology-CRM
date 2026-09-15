@@ -312,6 +312,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             quotationDate: $row->quotation_date,
             validUntil: $row->valid_until,
             submittedAt: $row->submitted_at?->toIso8601String(),
+            isSelfApproved: $row->is_self_approved,
             parentId: $row->parent_id,
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),
             updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),

@@ -76,6 +76,7 @@ import {
     type QuotationGroup,
 } from '@/services/quotations';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 
 const { t, locale } = useI18n();
 
@@ -95,7 +96,8 @@ function storedView(): View {
     }
 }
 
-const BUCKETS = ['active', 'history'] as const;
+/** Step 5 Q1's two, plus Module 8 · 2.2's returned drafts between them (§8 "including incomplete"). */
+const BUCKETS = ['active', 'incomplete', 'history'] as const;
 type Bucket = (typeof BUCKETS)[number];
 
 /** One panel's answer. The flat view is one nameless group, so one row template serves both. */
@@ -113,7 +115,7 @@ function emptyPanel(): Panel {
 }
 
 const view = ref<View>(storedView());
-const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel(), history: emptyPanel() });
+const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel(), incomplete: emptyPanel(), history: emptyPanel() });
 const customers = ref<Customer[]>([]);
 
 const loading = computed(() => BUCKETS.some((bucket) => panels.value[bucket].loading));
@@ -134,7 +136,8 @@ const sortDescending = ref(true);
 const statuses = QUOTATION_STATUSES;
 
 /** Both buckets' `meta.pagination.total`, never the rows in hand. */
-const total = computed(() => BUCKETS.reduce((sum, bucket) => sum + (panels.value[bucket].pagination?.total ?? 0), 0));
+// A returned draft is an active row too, so `incomplete` is not added to the count.
+const total = computed(() => (['active', 'history'] as const).reduce((sum, bucket) => sum + (panels.value[bucket].pagination?.total ?? 0), 0));
 /** Eight columns, so a group heading spans the row. */
 const columnCount = 8;
 /** `CurrencyCode` is upper-case ISO; the box accepts what a person types. */
@@ -546,7 +549,10 @@ onMounted(async () => {
                                 {{ t('quotations.version', { version: quotation.version }) }}
                             </td>
                             <td class="p-3">
-                                <QuotationStatusChip :status="quotation.status" />
+                                <span class="flex flex-wrap items-center gap-1.5">
+                                    <QuotationStatusChip :status="quotation.status" />
+                                    <SelfApprovedBadge v-if="quotation.is_self_approved" />
+                                </span>
                             </td>
                             <td class="p-3" data-testid="quotations-customer">{{ customerName(quotation.customer_id) }}</td>
                             <!-- `Design System §6.3`: amount and currency visibly paired. The figure

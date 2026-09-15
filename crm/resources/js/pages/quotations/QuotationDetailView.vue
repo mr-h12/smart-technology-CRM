@@ -49,6 +49,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 import { readCustomer, type Customer } from '@/services/customers';
 import {
     createQuotationVersion,
@@ -238,14 +239,7 @@ onMounted(refresh);
                         {{ t('quotations.version', { version: quotation.version }) }}
                     </span>
                     <QuotationStatusChip :status="quotation.status" />
-                    <!-- §6.5 / `D-50`: the yellow badge, wherever the quotation is seen. -->
-                    <span
-                        v-if="quotation.is_self_approved"
-                        class="self-badge rounded-full px-2 py-1"
-                        data-testid="quotation-detail-self-approved"
-                    >
-                        {{ t('quotations.detail.selfApproved') }}
-                    </span>
+                    <SelfApprovedBadge v-if="quotation.is_self_approved" />
                 </p>
             </header>
 
@@ -330,6 +324,11 @@ onMounted(refresh);
                             {{ t('quotations.version', { version: quotation.version - 1 }) }}
                         </RouterLink>
                     </dd>
+                </div>
+                <!-- Module 8 · 1.2's note: the seller reads why the draft came back. -->
+                <div v-if="quotation.return_note !== null" class="flex flex-col gap-1">
+                    <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.returnNote') }}</dt>
+                    <dd data-testid="quotation-detail-return_note">{{ quotation.return_note }}</dd>
                 </div>
                 <div v-if="quotation.rejection_reason !== null" class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.rejectionReason') }}</dt>
@@ -537,11 +536,6 @@ onMounted(refresh);
 }
 
 /* §6.5's yellow badge — `Design System §6.4`'s Warning tone, the word beside it. */
-.self-badge {
-    background-color: color-mix(in srgb, var(--color-warning) 14%, transparent);
-    color: var(--color-warning);
-}
-
 /* `Design System §6.4`: red icon + label; the words carry the meaning, the colour only underlines it. */
 .warning-line {
     background-color: var(--color-surface-muted);

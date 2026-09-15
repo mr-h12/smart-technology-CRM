@@ -45,6 +45,7 @@ const QUOTATION = {
     quotation_date: '2026-09-13',
     valid_until: null,
     submitted_at: null,
+    is_self_approved: false,
     version: 1,
     parent_id: null,
     created_at: '2026-09-13T09:00:00+00:00',
@@ -158,6 +159,18 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-table"]').exists()).toBe(true);
         // The count is the server's `meta.pagination.total` — both buckets', never the rows in hand.
         expect(wrapper.find('[data-testid="quotations-count"]').text()).toBe('2 quotations');
+    });
+
+    it('marks a self-approved row with the yellow badge, in words (§6.5, Module 8 · 3.3)', async () => {
+        const wrapper = await render(respond([{ ...QUOTATION, status: 'approved', is_self_approved: true }]));
+
+        expect(wrapper.find('[data-testid="quotations-row"] [data-testid="quotation-self-approved"]').text()).toBe('Self-approved');
+    });
+
+    it('draws no self-approval badge on an ordinary row', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="quotation-self-approved"]').exists()).toBe(false);
     });
 
     it('shows the code, the version and the total paired with its currency', async () => {
@@ -326,8 +339,8 @@ describe('the quotations screen', () => {
         await wrapper.find('[data-testid="quotations-filter-status"]').setValue('sent');
         await flushPromises();
 
-        // One read per bucket: both are asked again.
-        expect(listReads(fetchMock)).toBe(before + 2);
+        // One read per bucket: all three are asked again.
+        expect(listReads(fetchMock)).toBe(before + 3);
     });
 
     it('returns to the first page whenever the question changes', async () => {
@@ -409,6 +422,15 @@ describe('the quotations screen', () => {
         expect(urls.some((url) => url.includes('filter%5Bbucket%5D=history'))).toBe(true);
         expect(wrapper.find('[data-testid="quotations-bucket-active"]').text()).toContain('Active');
         expect(wrapper.find('[data-testid="quotations-bucket-history"]').text()).toContain('History');
+
+        // Module 8 · 3.3: §8's "Quotations (including incomplete)" — 2.2's bucket,
+        // between the two, and not in the count (a returned draft is an active row too).
+        expect(urls.some((url) => url.includes('filter%5Bbucket%5D=incomplete'))).toBe(true);
+        expect(wrapper.findAll('[data-testid^="quotations-bucket-"]').map((panel) => panel.attributes('data-testid'))).toEqual([
+            'quotations-bucket-active', 'quotations-bucket-incomplete', 'quotations-bucket-history',
+        ]);
+        expect(wrapper.find('[data-testid="quotations-bucket-incomplete"]').text()).toContain('Incomplete');
+        expect(wrapper.find('[data-testid="quotations-count"]').text()).toBe('120 quotations');
 
         await wrapper.find('[data-testid="quotations-bucket-history"] [data-testid="quotations-next"]').trigger('click');
         await flushPromises();
@@ -497,7 +519,7 @@ describe('the quotations screen', () => {
 
         expect(item).toBeDefined();
         expect(item?.permission).toBe('quotation.view');
-        // §5.1 permits a badge on My Quotations; nothing counts anything until Module 8.
-        expect(item?.badge).toBeUndefined();
+        // §5.1's *My Quotations* counter — `GET /badges` (Module 8 · 2.3), drawn since 3.3.
+        expect(item?.badge).toBe('my_quotations');
     });
 });

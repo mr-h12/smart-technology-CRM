@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
+import { createMemoryHistory, createRouter } from 'vue-router';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import AppSidebar from '@/components/AppSidebar.vue';
@@ -22,12 +23,17 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
  * "button" and nothing else.
  */
 
+/** A one-route memory router: the sidebar reads `route.fullPath` for its counters (3.3), nothing more. */
+function memoryRouter() {
+    return createRouter({ history: createMemoryHistory(), routes: [{ path: '/:any(.*)*', component: { template: '<div />' } }] });
+}
+
 function mountSidebar(collapsed: boolean) {
     return mount(AppSidebar, {
         props: { open: true, collapsed },
         global: {
-            plugins: [createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { ar, en } })],
-            // The links are not what is under test, and a real router would
+            plugins: [createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { ar, en } }), memoryRouter()],
+            // The links are not what is under test, and the app's router would
             // drag the whole route table in to render three list items.
             stubs: { RouterLink: { template: '<a><slot /></a>' } },
         },
@@ -37,6 +43,8 @@ function mountSidebar(collapsed: boolean) {
 describe('AppSidebar collapse control', () => {
     beforeEach(() => {
         window.localStorage.clear();
+        // The counters' read (3.3) is not under test here; answer it with nothing.
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('{"data":{}}', { status: 200, headers: { 'Content-Type': 'application/json' } })));
     });
 
     it.each([true, false])('shows no visible label when collapsed is %s', (collapsed) => {
@@ -179,5 +187,81 @@ describe('AppSidebar — §8 draws the menu from the role’s grants', () => {
 
         expect(items).toContain(ar.nav.item.customers);
         expect(items).not.toContain(ar.nav.item.roles);
+    });
+});
+
+/**
+ * Module 8 · 3.3 — Design System §5.1's two MVP counters this application
+ * can produce: *Approvals* and *My Quotations*, from 2.3's `GET /badges`.
+ * A zero draws nothing (a counter, not a status); the numbers are re-read on
+ * every route change, so acting on `/approvals` and leaving it moves the count.
+ */
+describe('AppSidebar — the counters', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+        vi.restoreAllMocks();
+    });
+
+    const MANAGER: AuthenticatedUser = {
+        id: '01a0-u',
+        name: 'Test',
+        email: 'manager@example.test',
+        is_active: true,
+        role: { id: '01a0-r', slug: 'manager', name: 'Manager' },
+        permissions: ['quotation.view.all', 'quotation.approve.all'],
+        unconditional_access: false,
+    };
+
+    function server(badges: unknown): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string) => {
+            const body = /\/auth\/login$/.test(String(input))
+                ? { data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: MANAGER } }
+                : { data: badges, meta: { request_id: 'r1' } };
+
+            return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        });
+    }
+
+    async function mountWithRouter(fetchMock: ReturnType<typeof vi.fn>) {
+        vi.stubGlobal('fetch', fetchMock);
+        await useAuth().login(MANAGER.email, 'Passw0rd123');
+
+        const router = memoryRouter();
+        await router.push('/');
+        await router.isReady();
+
+        const wrapper = mount(AppSidebar, {
+            props: { open: true, collapsed: false },
+            global: {
+                plugins: [createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { ar, en } }), router],
+                stubs: { RouterLink: { template: '<a><slot /></a>' } },
+            },
+        });
+        await flushPromises();
+
+        return { wrapper, router };
+    }
+
+    it('draws the two counts from GET /badges, and nothing for a zero', async () => {
+        const fetchMock = server({ approvals: 3, my_quotations: 0 });
+        const { wrapper } = await mountWithRouter(fetchMock);
+
+        expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/api/v1/badges'))).toBe(true);
+        expect(wrapper.find('[data-testid="nav-badge-approvals"]').text()).toBe('3');
+        expect(wrapper.find('[data-testid="nav-badge-quotations"]').exists()).toBe(false);
+    });
+
+    it('re-reads the counts when the route changes', async () => {
+        const fetchMock = server({ approvals: 0, my_quotations: 2 });
+        const { wrapper, router } = await mountWithRouter(fetchMock);
+
+        expect(wrapper.find('[data-testid="nav-badge-quotations"]').text()).toBe('2');
+        const before = fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/api/v1/badges')).length;
+
+        await router.push('/quotations');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/api/v1/badges')).length).toBe(before + 1);
     });
 });

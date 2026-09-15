@@ -27,6 +27,8 @@ export interface QuotationSummary {
     /** Module 8 · 2.1, server-computed (`D-11`): null unless `pending`; `sla_exceeded` is also null while the SLA limit is unset. */
     days_waiting: number | null;
     sla_exceeded: boolean | null;
+    /** §6.5 / `D-50`'s flag, on every row since Module 8 · 3.3. */
+    is_self_approved: boolean;
     version: number;
     parent_id: string | null;
     created_at: string;
@@ -90,7 +92,8 @@ export interface QuotationDetail extends QuotationSummary {
     show_delivery_terms: boolean;
     rejection_reason: string | null;
     sent_at: string | null;
-    is_self_approved: boolean;
+    /** Module 8 · 1.2's note, set by a return and cleared by the next submit; `returned_at` is on the wire too but nothing reads it yet. */
+    return_note: string | null;
     /** `OpenAPI §9.2`'s version token — what the next mutation sends as `If-Match`. */
     etag: string;
     items: QuotationLine[];

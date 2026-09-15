@@ -1528,11 +1528,14 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
 
 #### Step 2 — the read surface
 
-- [ ] **2.1** Server-computed waiting: list rows and the detail carry `days_waiting` (from
+- [x] **2.1** Server-computed waiting: list rows and the detail carry `days_waiting` (from
       `submitted_at`, null unless `pending`) and `sla_exceeded` (`limits.quotation_approval_sla_hours`
       through `SettingReader`, `D-11`); the detail also carries `returned_at` and `return_note`.
       The SPA never computes either. *Verified by* a pending row past the SLA (`travel()`),
-      one within it, a draft with nulls; the setting read, not a constant.
+      one within it, a draft with nulls; the setting read, not a constant. *(2026-09-15, #136 — 7 tests;
+      `ApprovalWaiting` in Application, threaded through `QuotationPayload`; calendar days, floored;
+      `sla_exceeded` is **null** while the limit is unseeded — the reader's "do not guess" contract, an
+      assumption for the owner; no SPA change until Step 3 reads the fields)*
 - [ ] **2.2** `filter[bucket]=incomplete` — drafts with `returned_at` not null (§8 "Quotations
       (including incomplete)"), row-scoped like the other buckets. *Verified by* a returned draft
       listed, a plain draft not, `unknown_bucket` unchanged for typos.

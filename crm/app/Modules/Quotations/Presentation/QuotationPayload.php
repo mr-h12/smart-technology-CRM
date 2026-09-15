@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Presentation;
 
+use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
@@ -51,7 +52,7 @@ final class QuotationPayload
      *
      * @return array<string, mixed>
      */
-    public static function summary(QuotationSummary $quotation): array
+    public static function summary(QuotationSummary $quotation, ApprovalWaiting $waiting): array
     {
         return [
             'id' => $quotation->id,
@@ -65,6 +66,8 @@ final class QuotationPayload
             'quotation_date' => $quotation->quotationDate,
             'valid_until' => $quotation->validUntil,
             'submitted_at' => $quotation->submittedAt,
+            // Module 8 Point 2.1 — `D-11`'s column and badge, server-computed.
+            ...$waiting->of($quotation->status, $quotation->submittedAt),
             'version' => $quotation->version,
             'parent_id' => $quotation->parentId,
             'created_at' => $quotation->createdAt->format(DATE_ATOM),
@@ -82,7 +85,7 @@ final class QuotationPayload
      * @param  list<array{key: ?string, label: ?string, items: non-empty-list<QuotationSummary>}>  $groups
      * @return list<array<string, mixed>>
      */
-    public static function groups(array $groups): array
+    public static function groups(array $groups, ApprovalWaiting $waiting): array
     {
         $rows = [];
         foreach ($groups as $group) {
@@ -90,7 +93,7 @@ final class QuotationPayload
                 'key' => $group['key'],
                 'label' => $group['label'] ?? (string) __('quotations.groups.unassigned'),
                 'count' => count($group['items']),
-                'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row), $group['items']),
+                'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting), $group['items']),
             ];
         }
 
@@ -100,9 +103,9 @@ final class QuotationPayload
     }
 
     /** @return list<array<string, mixed>> */
-    public static function many(QuotationPage $page): array
+    public static function many(QuotationPage $page, ApprovalWaiting $waiting): array
     {
-        return array_map(static fn (QuotationSummary $row): array => self::summary($row), $page->items);
+        return array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting), $page->items);
     }
 
     /**
@@ -123,7 +126,7 @@ final class QuotationPayload
     }
 
     /** @return array<string, mixed> */
-    public static function detail(QuotationDetail $quotation, bool $withCosts): array
+    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting): array
     {
         return [
             'id' => $quotation->id,
@@ -158,6 +161,10 @@ final class QuotationPayload
             'rejection_reason' => $quotation->rejectionReason,
             'sent_at' => $quotation->sentAt,
             'submitted_at' => $quotation->submittedAt,
+            ...$waiting->of($quotation->status, $quotation->submittedAt),
+            // Module 8 Point 1.2's marks, on the wire since 2.1.
+            'returned_at' => $quotation->returnedAt,
+            'return_note' => $quotation->returnNote,
             'is_self_approved' => $quotation->isSelfApproved,
             'etag' => QuotationEtag::of($quotation),
             'items' => array_map(

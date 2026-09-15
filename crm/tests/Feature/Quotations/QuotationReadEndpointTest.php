@@ -253,7 +253,7 @@ final class QuotationReadEndpointTest extends TestCase
         $row = $response->json('data.0');
         self::assertIsArray($row);
         self::assertSame(
-            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'],
+            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'version', 'parent_id', 'created_at', 'updated_at'],
             array_keys($row),
         );
         self::assertSame($id, $row['id']);
@@ -298,7 +298,7 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertIsArray($items);
         self::assertCount(2, $items);
         self::assertIsArray($items[0]);
-        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
     }
 
     /** A deal with no owner groups under the `null` key, labelled from the lang file. */

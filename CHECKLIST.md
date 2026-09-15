@@ -1591,7 +1591,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       `/quotations`; the 409 banner is vitest-proven only, a real race cannot be staged by hand)*
 - [x] **3.2** Edit-and-approve on screen — 6.7's builder opened from `/approvals` for a `pending`
       quotation by an approver, save calling 1.3 ("Edit & approve"); the non-Draft redirect of 6.7
-      excepts this mode. *Verified by* vitest (route, body, headers) + browser. *(2026-09-15, #PR —
+      excepts this mode. *Verified by* vitest (route, body, headers) + browser. *(2026-09-15, #140 —
       a third route name on the same `QuotationBuilderView`, `quotation.approve`; `approving` picks the
       redirect's accepted status (`pending`) and the save's endpoint; browser AR/EN desktop: margin 23→30
       audited `QUOTATION_UPDATED` then `SELF_APPROVAL`; mobile is rendering-only — the pane could not

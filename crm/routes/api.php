@@ -748,6 +748,10 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // rest is the approve's.
     Route::patch('/{quotation}/return', [QuotationController::class, 'return'])
         ->middleware('permission:quotation.return_with_note');
+    // Module 8 Point 1.3 — §3.5 "approve / edit & approve" is one row, so the
+    // grant is `quotation.approve`; `edit_margin` / `edit_tax` are asked inside.
+    Route::patch('/{quotation}/edit-and-approve', [QuotationController::class, 'editAndApprove'])
+        ->middleware('permission:quotation.approve');
     // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
     // `quotation.edit`, because whoever may edit the next draft may open it.
     Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])

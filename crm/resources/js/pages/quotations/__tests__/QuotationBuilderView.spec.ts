@@ -65,6 +65,16 @@ const QUOTATION = {
     created_by: 'u1', updated_by: 'u1',
 };
 
+const APPROVER: AuthenticatedUser = {
+    id: 'u7',
+    name: 'Test Manager',
+    email: 'manager@example.test',
+    role: { id: 'r7', slug: 'manager', name: 'Manager' },
+    permissions: ['quotation.approve.all', 'quotation.view.all', 'quotation.edit.all', 'deal.view.all', 'supplier_quotation.view.all', 'customer.view.all', 'catalog.view.all'],
+    is_active: true,
+    unconditional_access: false,
+};
+
 const NEWER = { ...QUOTATION, version: 1, etag: '"v2"', final_total: '2000.000000', updated_at: '2026-09-14T10:00:00+00:00' };
 
 const USER: AuthenticatedUser = {
@@ -91,7 +101,7 @@ function respond(options: {
     saves?: Response[];
     /** Each `GET /quotations/q1`, in order; the last one repeats. */
     quotations?: unknown[];
-    /** Each `PATCH /quotations/q1`, in order; the last one repeats. */
+    /** Each `PATCH /quotations/q1` and `PATCH /quotations/q1/edit-and-approve`, in order; the last one repeats. */
     updates?: Response[];
     /** `GET /user-term-suggestions?field=` per field (Point 6.8); an unlisted field is the 500 below. */
     suggestions?: Partial<Record<'payment_terms' | 'warranty' | 'delivery_terms', string[]>>;
@@ -111,7 +121,7 @@ function respond(options: {
             return response.clone();
         }
 
-        if (init?.method === 'PATCH' && url.endsWith('/quotations/q1')) {
+        if (init?.method === 'PATCH' && /\/quotations\/q1(\/edit-and-approve)?$/.test(url)) {
             const response = updates[Math.min(updated, updates.length - 1)] as Response;
             updated += 1;
 
@@ -170,8 +180,8 @@ async function signIn(profile: AuthenticatedUser, delegate: typeof globalThis.fe
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/new?deal=d1', locale: 'en' | 'ar' = 'en') {
-    await signIn(USER, fetchMock as unknown as typeof globalThis.fetch);
+async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/new?deal=d1', locale: 'en' | 'ar' = 'en', user = USER) {
+    await signIn(user, fetchMock as unknown as typeof globalThis.fetch);
     vi.stubGlobal('fetch', fetchMock);
 
     const i18n = createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } });
@@ -189,12 +199,13 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/n
     return { wrapper, router };
 }
 
-/** The `POST /quotations` and `PATCH /quotations/{id}` calls the screen made — body and the two headers that matter. */
-function saves(fetchMock: ReturnType<typeof vi.fn>): Array<{ method: string; body: unknown; idempotencyKey: string | null; ifMatch: string | null }> {
+/** The `POST /quotations`, `PATCH /quotations/{id}` and `PATCH …/edit-and-approve` calls the screen made — path, body and the two headers that matter. */
+function saves(fetchMock: ReturnType<typeof vi.fn>): Array<{ method: string; path: string; body: unknown; idempotencyKey: string | null; ifMatch: string | null }> {
     return fetchMock.mock.calls
-        .filter((call) => ['POST', 'PATCH'].includes(String((call[1] as RequestInit | undefined)?.method)) && /\/quotations(\/q1)?$/.test(String(call[0])))
+        .filter((call) => ['POST', 'PATCH'].includes(String((call[1] as RequestInit | undefined)?.method)) && /\/quotations(\/q1(\/edit-and-approve)?)?$/.test(String(call[0])))
         .map((call) => ({
             method: String((call[1] as RequestInit).method),
+            path: String(call[0]).replace(/^.*\/api\/v1/, ''),
             body: JSON.parse(String((call[1] as RequestInit).body)) as unknown,
             idempotencyKey: new Headers((call[1] as RequestInit).headers).get('Idempotency-Key'),
             ifMatch: new Headers((call[1] as RequestInit).headers).get('If-Match'),
@@ -660,6 +671,58 @@ describe('the quotation builder (edit)', () => {
         confirm.mockReturnValue(true);
         await router.push('/quotations/q1');
 
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+});
+
+/**
+ * Module 8, Point 3.2 — the same builder, opened from `/approvals` on a
+ * `pending` quotation by an approver. Save is 1.3's
+ * `PATCH /quotations/{id}/edit-and-approve` — 6.7's body and `If-Match`,
+ * re-priced, audited and approved in one transaction on the server (§6.4);
+ * the page only changes where it sends.
+ */
+describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const APPROVE = '/quotations/q1/edit-and-approve';
+    const PENDING = { ...QUOTATION, status: 'pending' };
+
+    it('keeps a pending quotation on the form instead of sending it back to its page', async () => {
+        const { wrapper, router } = await render(respond({ quotations: [PENDING] }), APPROVE, 'en', APPROVER);
+
+        expect(router.currentRoute.value.path).toBe(APPROVE);
+        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25.00');
+        expect(wrapper.find(id('save')).text()).toBe('Edit & approve');
+    });
+
+    it('still sends a quotation that is not pending back to its page', async () => {
+        const { router } = await render(respond({ quotations: [{ ...QUOTATION, status: 'approved' }] }), APPROVE, 'en', APPROVER);
+
+        expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+
+    it('saves to /edit-and-approve with If-Match and 6.7\'s body, then lands on the quotation\'s page', async () => {
+        const fetchMock = respond({ quotations: [PENDING], updates: [json(200, envelope({ ...PENDING, status: 'approved' }))] });
+        const { wrapper, router } = await render(fetchMock, APPROVE, 'en', APPROVER);
+
+        await wrapper.find(id('default_margin')).setValue('30');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const [save] = saves(fetchMock);
+
+        expect(saves(fetchMock)).toHaveLength(1);
+        expect(save?.method).toBe('PATCH');
+        expect(save?.path).toBe('/quotations/q1/edit-and-approve');
+        expect(save?.ifMatch).toBe('"v1"');
+        expect(save?.idempotencyKey).toBeNull();
+        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.000', margin_percent: '25.00' }, { supplier_quotation_item_id: 'sqi2', quantity: '1.000' }], additional_items: [{ description: 'Delivery', amount: '100.000000' }] });
+        expect(save?.body).not.toHaveProperty('deal_id');
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 });

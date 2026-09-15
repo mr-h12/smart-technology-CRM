@@ -68,6 +68,7 @@ import { readCustomer, type Customer } from '@/services/customers';
 import { readDeal, type Deal } from '@/services/deals';
 import {
     createQuotation,
+    editAndApproveQuotation,
     listTermSuggestions,
     readQuotation,
     updateQuotation,
@@ -114,7 +115,9 @@ interface ExistingLine {
     unit_cost: string | null;
 }
 
-const editing = computed(() => route.name === 'quotation-edit');
+/** Module 8 · 3.2: the approver's route — the same form, saved through 1.3. */
+const approving = computed(() => route.name === 'quotation-edit-and-approve');
+const editing = computed(() => route.name === 'quotation-edit' || approving.value);
 const quotationId = computed(() => String(route.params.id ?? ''));
 /** From `?deal=` on a create; from the detail on an edit. */
 const dealId = ref(String(route.query.deal ?? ''));
@@ -281,8 +284,9 @@ async function load(): Promise<void> {
         try {
             const { quotation } = await readQuotation(quotationId.value);
 
-            // §3.5's `edit` is "(Draft)": anything else is read on its own page.
-            if (quotation.status !== 'draft') {
+            // §3.5's `edit` is "(Draft)", and edit-and-approve is 1.3's `pending`
+            // edge: anything else is read on its own page.
+            if (quotation.status !== (approving.value ? 'pending' : 'draft')) {
                 await router.replace({ name: 'quotation-detail', params: { id: quotation.id } });
 
                 return;
@@ -514,9 +518,11 @@ async function save(): Promise<void> {
 
     try {
         const current = deal.value;
-        const result = editing.value
-            ? await updateQuotation(quotationId.value, etag.value, draft())
-            : await createQuotation({ ...draft(), deal_id: current.id, customer_id: current.customer_id }, idempotencyKey);
+        const result = approving.value
+            ? await editAndApproveQuotation(quotationId.value, etag.value, draft())
+            : editing.value
+                ? await updateQuotation(quotationId.value, etag.value, draft())
+                : await createQuotation({ ...draft(), deal_id: current.id, customer_id: current.customer_id }, idempotencyKey);
 
         etag.value = result.quotation.etag;
 
@@ -891,7 +897,7 @@ onMounted(load);
                         :disabled="saving"
                         data-testid="quotation-builder-save"
                     >
-                        {{ saving ? t('quotations.builder.saving') : (editing ? t('quotations.builder.update') : t('quotations.builder.save')) }}
+                        {{ saving ? t('quotations.builder.saving') : t(approving ? 'quotations.builder.editAndApprove' : editing ? 'quotations.builder.update' : 'quotations.builder.save') }}
                     </button>
                     <RouterLink
                         :to="editing ? { name: 'quotation-detail', params: { id: quotationId } } : { name: 'deal-detail', params: { id: deal.id } }"

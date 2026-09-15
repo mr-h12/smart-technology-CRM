@@ -1472,7 +1472,7 @@ rows and `UserFactsInterface` have no `OpenAPI` row; the debt-register rows Modu
 - [ ] Team Leader and Manager → **same screen, same authority**
 - [ ] No automatic escalation
 
-### Point list — published 2026-09-15, **not yet approved**
+### Point list — published 2026-09-15, approved by merging #131
 
 Supersedes #94 (drafted 2026-09-10 by the second developer against `fd2592d`, before Module 7
 existed). What #94 waited on is now on `main`: the write path, `QuotationStatusTransition` with the
@@ -1589,9 +1589,13 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       `NoApprovalEscalationTest` reads `Schedule::events()` and failed on a planted entry; browser
       AR/EN × desktop/mobile — the 375px clip is the shell's known context-bar overflow, same on
       `/quotations`; the 409 banner is vitest-proven only, a real race cannot be staged by hand)*
-- [ ] **3.2** Edit-and-approve on screen — 6.7's builder opened from `/approvals` for a `pending`
+- [x] **3.2** Edit-and-approve on screen — 6.7's builder opened from `/approvals` for a `pending`
       quotation by an approver, save calling 1.3 ("Edit & approve"); the non-Draft redirect of 6.7
-      excepts this mode. *Verified by* vitest (route, body, headers) + browser.
+      excepts this mode. *Verified by* vitest (route, body, headers) + browser. *(2026-09-15, #PR —
+      a third route name on the same `QuotationBuilderView`, `quotation.approve`; `approving` picks the
+      redirect's accepted status (`pending`) and the save's endpoint; browser AR/EN desktop: margin 23→30
+      audited `QUOTATION_UPDATED` then `SELF_APPROVAL`; mobile is rendering-only — the pane could not
+      dispatch a tap under emulation)*
 - [ ] **3.3** The yellow **"Self-approved"** chip (§6.5, Design System §6.4) on 6.3's list, 6.5's
       detail and 3.1's page; the returned draft's note on 6.5's detail and the **Incomplete** tab on
       6.3's list (2.2); nav badges from 2.3 on *Approvals* and *My Quotations*. *Verified by* vitest

@@ -267,6 +267,11 @@ export async function updateQuotation(id: string, etag: string, draft: Quotation
     return read(await apiPatch<QuotationDetail>(`/quotations/${id}`, draft, { 'If-Match': etag }));
 }
 
+/** 6.7's body on a `pending` quotation, re-priced and approved in one transaction (Module 8 · 1.3). */
+export async function editAndApproveQuotation(id: string, etag: string, draft: QuotationDraft): Promise<QuotationRead> {
+    return read(await apiPatch<QuotationDetail>(`/quotations/${id}/edit-and-approve`, draft, { 'If-Match': etag }));
+}
+
 /** Draft → Pending (Point 4.2). No body; the transition is the server's. */
 export async function submitQuotation(id: string, etag: string): Promise<QuotationDetail> {
     return (await apiPatch<QuotationDetail>(`/quotations/${id}/submit-for-approval`, undefined, { 'If-Match': etag })).data;

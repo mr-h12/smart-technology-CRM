@@ -34,8 +34,10 @@ use Illuminate\Database\ConnectionInterface;
  *    reload rather than told about a status it may not have seen change.
  *    Steps 1–2 are {@see QuotationWriteAccess}, shared with every action on
  *    one quotation (Point 4.2).
- * 3. **Draft only** (422): §3.5's `edit` cell reads "(Draft)"; Pending is
- *    Module 8's "edit & approve".
+ * 3. **Draft only** (422): §3.5's `edit` cell reads "(Draft)". Module 8's
+ *    "edit & approve" ({@see EditAndApproveQuotation}) is the one caller that
+ *    opens this path to `pending` — by naming it in `$editable`, having
+ *    already checked §6.4's arrow — and nothing else does.
  * 4. **`edit margin` / `edit tax`** (403): §3.5's two checkmarks, asked only
  *    when the body actually moves the margin or the tax — re-saving a draft
  *    is not an edit of its margin. A line margin counts as a margin.
@@ -78,18 +80,19 @@ final readonly class UpdateQuotation
 
     /**
      * @param  array<string, mixed>  $validated  `SaveQuotationRequest::validated()`
-     * @param  list<string>  $heldScopes  §3.2 codes on `quotation.edit`
+     * @param  list<string>  $heldScopes  §3.2 codes on `quotation.edit` — or on `quotation.approve` when `$editable` is `pending`
+     * @param  'draft'|'pending'  $editable  the one status this edit may touch
      *
      * @throws QuotationNotFound
      * @throws QuotationWriteRefused
      * @throws AuthorizationRefused
      */
-    public function update(string $quotationId, array $validated, ?string $ifMatch, array $heldScopes, string $actorId): QuotationUpdated
+    public function update(string $quotationId, array $validated, ?string $ifMatch, array $heldScopes, string $actorId, string $editable = 'draft'): QuotationUpdated
     {
-        return $this->connection->transaction(function () use ($quotationId, $validated, $ifMatch, $heldScopes, $actorId): QuotationUpdated {
+        return $this->connection->transaction(function () use ($quotationId, $validated, $ifMatch, $heldScopes, $actorId, $editable): QuotationUpdated {
             $before = $this->access->open($quotationId, $ifMatch, $heldScopes, $actorId);
 
-            if ($before->status !== 'draft') {
+            if ($before->status !== $editable) {
                 throw QuotationWriteRefused::notDraft();
             }
 

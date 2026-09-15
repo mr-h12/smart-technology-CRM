@@ -12,6 +12,7 @@ use App\Modules\Quotations\Application\Writing\ApproveQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\ReturnQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
@@ -147,6 +148,26 @@ final class QuotationController
         $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId)));
+    }
+
+    /**
+     * Module 8 Point 1.3. `update()`'s body and answer (warnings included),
+     * `approve()`'s route permission; the re-read quotation is `approved`.
+     */
+    public function editAndApprove(SaveQuotationRequest $request, string $quotation, EditAndApproveQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $updated = $quotations->approve($quotation, $request->validated(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
+
+        return ApiEnvelope::single(
+            $request,
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId)),
+            200,
+            $warnings === [] ? [] : ['warnings' => $warnings],
+        );
     }
 
     /**

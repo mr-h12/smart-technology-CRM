@@ -19,6 +19,7 @@ use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
@@ -265,6 +266,13 @@ final class AuditEnforcementTest extends TestCase
             // `AUD-02`'s old values read in the same transaction — asserted by
             // `QuotationUpdateEndpointTest`.
             UpdateQuotation::class => self::AUDITED,
+
+            // Module 8 Point 1.3, seen for `->update(` (the call into
+            // `UpdateQuotation`) beside an imported `ConnectionInterface`.
+            EditAndApproveQuotation::class => 'Writes nothing itself and never touches the recorder: it composes '
+                    .'`UpdateQuotation` and `ApproveQuotation` in one transaction, and those two record '
+                    .'QUOTATION_UPDATED then QUOTATION_APPROVED / SELF_APPROVAL — asserted end to end by '
+                    .'`QuotationEditAndApproveEndpointTest`.',
 
             // Module 7 Point 4.4, seen for `->delete(` beside an imported
             // `ConnectionInterface`. AUDITED because it records

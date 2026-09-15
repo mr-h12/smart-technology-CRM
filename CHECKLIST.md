@@ -1512,12 +1512,15 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       stale 409, 403s; migration rollback. *(2026-09-15, #133 — 23 tests; `submit`/`approve`/`return`
       folded into `QuotationDirectoryInterface::moveStatus()` as the 7·4.2 note planned; `returned_at`/
       `return_note` are on `QuotationDetail` for the audit, on the wire only at 2.1)*
-- [ ] **1.3** `PATCH /quotations/{id}/edit-and-approve` — `permission:quotation.approve`, 6.7's body
+- [x] **1.3** `PATCH /quotations/{id}/edit-and-approve` — `permission:quotation.approve`, 6.7's body
       (Q4), one transaction: `UpdateQuotation`'s path opened to `pending` for this caller only
       (re-price, `guardMarginAndTax` → `edit_margin`/`edit_tax`), then 1.1's approval;
       `QUOTATION_UPDATED` with old/new values (acceptance row 1) followed by `QUOTATION_APPROVED` or
       `SELF_APPROVAL`. *Verified by* a margin edit audited old→new, a tax edit likewise, no edit in
-      the body still approves, a Draft refused, stale 409, refused without `edit_margin`.
+      the body still approves, a Draft refused, stale 409, refused without `edit_margin`. *(2026-09-15,
+      #PR — 18 tests; `EditAndApproveQuotation` composes `UpdateQuotation` (opened to `pending` by a
+      new `$editable` argument) and `ApproveQuotation` in one transaction; a Draft is 1.1's 409, not
+      3.6's 422)*
 - [ ] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval
       actions their request schema, permission, audit event, accepted and resulting state, and
       idempotency note (`D-c`). Docs only, no CI.

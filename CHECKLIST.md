@@ -1521,9 +1521,10 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       #134 — 18 tests; `EditAndApproveQuotation` composes `UpdateQuotation` (opened to `pending` by a
       new `$editable` argument) and `ApproveQuotation` in one transaction; a Draft is 1.1's 409, not
       3.6's 422)*
-- [ ] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval
+- [x] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval
       actions their request schema, permission, audit event, accepted and resulting state, and
-      idempotency note (`D-c`). Docs only, no CI.
+      idempotency note (`D-c`). Docs only, no CI. *(2026-09-15, #135 — one table under §7.2, each cell
+      grep-checked against the routes, events and edge table; no `Idempotency-Key`, as 7·4.2's Q6)*
 
 #### Step 2 — the read surface
 

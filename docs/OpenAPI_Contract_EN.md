@@ -241,12 +241,23 @@ PATCH /api/v1/deals/{deal_id}/status
 PATCH /api/v1/quotations/{quotation_id}/submit-for-approval
 PATCH /api/v1/quotations/{quotation_id}/approve
 PATCH /api/v1/quotations/{quotation_id}/return
+PATCH /api/v1/quotations/{quotation_id}/edit-and-approve
 POST  /api/v1/quotations/{quotation_id}/new-version
 ```
 
 - Every action has an explicit request schema, required permission, audit event, accepted current state, resulting state, and idempotency requirement in the generated OpenAPI document.
 - Never use generic endpoints such as `/update-status`, `/action`, or `/bulk` without a resource and documented domain meaning.
 - Use `POST` to create a new version or a non-idempotent subresource; use `PATCH` for an authorized state/action mutation of an existing resource.
+
+**Quotation approval actions** (Module 8; `MVP_Build_Plan` §Module 8 names the three routes — the `edit-and-approve` line above is the contract catching up with the plan, recorded 2026-09-15):
+
+| Action | Request body | Permission (§3.5) | Audit event | Accepted state → result |
+|---|---|---|---|---|
+| `approve` | none | `quotation.approve` | `QUOTATION_APPROVED`, or `SELF_APPROVAL` **instead** when the approver is the quotation's `created_by` (§6.5, `D-50`; the row is flagged `is_self_approved`) | `pending` → `approved` |
+| `return` | `{ "note": string }` — required, non-blank (`422 validation_failed` on `note`) | `quotation.return_with_note` | `QUOTATION_RETURNED`, carrying the note | `pending` → `draft` on the **same row**: `returned_at` and `return_note` set, `submitted_at` cleared |
+| `edit-and-approve` | the full editable body of `PATCH /quotations/{quotation_id}` | `quotation.approve`; `quotation.edit_margin` / `quotation.edit_tax` when the body moves the margin or the tax | `QUOTATION_UPDATED` (old → new), then `QUOTATION_APPROVED` or `SELF_APPROVAL`, in one transaction | `pending` → `approved` (re-priced) |
+
+All three carry `If-Match` (§9.2) and answer `409 concurrency_conflict` on a stale token and `409 state_transition_invalid` from any other state. None takes an `Idempotency-Key`: they are `PATCH` mutations whose replay is already refused by the token, the reading §9.1's "actions that change irreversible-equivalent business state" was given for `submit-for-approval` (Module 7, Point 4.2) and is kept here for consistency.
 
 ### 7.3 Bulk operations
 

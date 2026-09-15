@@ -1599,7 +1599,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
 - [x] **3.3** The yellow **"Self-approved"** chip (§6.5, Design System §6.4) on 6.3's list, 6.5's
       detail and 3.1's page; the returned draft's note on 6.5's detail and the **Incomplete** tab on
       6.3's list (2.2); nav badges from 2.3 on *Approvals* and *My Quotations*. *Verified by* vitest
-      + browser. *(2026-09-16, #PR — `is_self_approved` added to the list row (the summary had none);
+      + browser. *(2026-09-16, #141 — `is_self_approved` added to the list row (the summary had none);
       `SelfApprovedBadge.vue` replaces 6.5's inline span and serves list + detail; **not on 3.1's page**:
       its rows are `pending` and the flag is set at approval, so the chip could never render there;
       `incomplete` is a third panel between Active and History, outside the "N quotations" count;

@@ -992,6 +992,12 @@ would hide them behind `OD-03` indefinitely.
       first two were already copies and the extraction is a refactor, not a screen point. **Fix, one
       point:** a `useEtagWrite()` composable returning `{busy, conflict, error, act}`; the three pages
       shrink by the same twenty lines. Belongs with the `useServerList()` row above.
+- [ ] **`RequestIdTest` "a rejected correlation id never appears" is a hex-collision flake** —
+      *revealed by Module 8 Point 3.1's CI run 34993785991, 2026-09-15.* Data set `'a trailing newline'`
+      is `"abc\n"`, the needle becomes `abc`, and the response's server-generated `request_id` was
+      `…f55abc282a0b` — a UUID contains the needle about once in 4 000 runs. The test is Module 0's
+      (`c5deb0d`), untouched here; re-run passed. **Fix, one line:** a needle no hex string can contain
+      (`"xyz\n"`), keeping the `D`-modifier case the comment explains.
 
 
 ---

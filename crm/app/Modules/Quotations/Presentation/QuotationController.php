@@ -6,6 +6,7 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\ApproveQuotation;
@@ -35,6 +36,9 @@ use RuntimeException;
  */
 final class QuotationController
 {
+    /** Module 8 Point 2.1 — every answer that carries a status carries `D-11`'s waiting fields. */
+    public function __construct(private readonly ApprovalWaiting $waiting) {}
+
     /**
      * Point 5.4. Parsed in Domain rather than by a Form Request: `OpenAPI §6.1`
      * and `§6.2` want `400 invalid_request` for a bad page size or an unknown
@@ -48,8 +52,8 @@ final class QuotationController
         // Point 5.5 — `group_by` reshapes `data` and nothing else; the
         // pagination still counts quotations.
         $data = $criteria->groupBy === null
-            ? QuotationPayload::many($page)
-            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy));
+            ? QuotationPayload::many($page, $this->waiting)
+            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy), $this->waiting);
 
         return ApiEnvelope::collection($request, $data, QuotationPayload::pagination($page));
     }
@@ -70,7 +74,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId)),
+            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId), $this->waiting),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -116,7 +120,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId)),
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -133,7 +137,7 @@ final class QuotationController
 
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
+        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting));
     }
 
     /**
@@ -147,7 +151,7 @@ final class QuotationController
 
         $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId)));
+        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId), $this->waiting));
     }
 
     /**
@@ -164,7 +168,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId)),
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -181,7 +185,7 @@ final class QuotationController
 
         $returned = $quotations->return($quotation, $request->note(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId)));
+        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId), $this->waiting));
     }
 
     /**

@@ -1518,7 +1518,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       `QUOTATION_UPDATED` with old/new values (acceptance row 1) followed by `QUOTATION_APPROVED` or
       `SELF_APPROVAL`. *Verified by* a margin edit audited old→new, a tax edit likewise, no edit in
       the body still approves, a Draft refused, stale 409, refused without `edit_margin`. *(2026-09-15,
-      #PR — 18 tests; `EditAndApproveQuotation` composes `UpdateQuotation` (opened to `pending` by a
+      #134 — 18 tests; `EditAndApproveQuotation` composes `UpdateQuotation` (opened to `pending` by a
       new `$editable` argument) and `ApproveQuotation` in one transaction; a Draft is 1.1's 409, not
       3.6's 422)*
 - [ ] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval

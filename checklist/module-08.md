@@ -152,7 +152,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
 
 #### Step 4 — close the module
 
-- [x] **4.1** Arabic manual test list, freeze to `checklist/module-08.md`, stub here, ownership row. *(2026-09-16, #PR — 17 of 17; the six criteria ticked with the point that proves each; the Team Leader path is the one honest gap, `D-a`)*
+- [x] **4.1** Arabic manual test list, freeze to `checklist/module-08.md`, stub here, ownership row. *(2026-09-16, #142 — 17 of 17; the six criteria ticked with the point that proves each; the Team Leader path is the one honest gap, `D-a`)*
 
 **What this list does not cover:** notifications on approve/return (§18.2 lists no such mail);
 the Team Leader's `team` scope (`D-a`, debt register); "Self-approvals" report column and dashboard

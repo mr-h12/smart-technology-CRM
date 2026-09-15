@@ -7,6 +7,7 @@ namespace App\Modules\Quotations\Presentation;
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
+use App\Modules\Quotations\Application\Listing\BadgeCounts;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\ApproveQuotation;
@@ -231,6 +232,16 @@ final class QuotationController
             'has_next_page' => false,
             'has_previous_page' => false,
         ]);
+    }
+
+    /**
+     * Module 8 Point 2.3 — `GET /badges` (Q5): the caller's two sidebar
+     * counters. `auth` only, so `heldScopes()` is not asked here; the use case
+     * decides the `approve` reach itself and answers `0` where there is none.
+     */
+    public function badges(Request $request, BadgeCounts $badges): JsonResponse
+    {
+        return ApiEnvelope::single($request, $badges->for(self::actorId($request)));
     }
 
     /**

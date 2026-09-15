@@ -769,3 +769,9 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
 // Not in `OpenAPI §7`: flagged on the point list as a new requirement.
 Route::middleware(['auth', 'permission:quotation.create'])
     ->get('user-term-suggestions', [QuotationController::class, 'termSuggestions']);
+
+// Module 8 Point 2.3 — §18.1's *Approvals* and *My Quotations* counters (Q5).
+// `auth` only, no `permission:`: a sidebar is drawn for every role, and a role
+// without `quotation.approve` is answered `approvals: 0`, not `403`. Not in
+// `OpenAPI §7`: flagged on the point list (#131) as a new requirement.
+Route::middleware('auth')->get('badges', [QuotationController::class, 'badges']);

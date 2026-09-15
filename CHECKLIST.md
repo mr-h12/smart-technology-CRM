@@ -1523,7 +1523,7 @@ no longer holds. Recommendation: close #94 unmerged and record it here as read.
       3.6's 422)*
 - [x] **1.4** `docs/OpenAPI_Contract_EN.md` §7.2: add `/edit-and-approve`; give the three approval
       actions their request schema, permission, audit event, accepted and resulting state, and
-      idempotency note (`D-c`). Docs only, no CI. *(2026-09-15, #PR — one table under §7.2, each cell
+      idempotency note (`D-c`). Docs only, no CI. *(2026-09-15, #135 — one table under §7.2, each cell
       grep-checked against the routes, events and edge table; no `Idempotency-Key`, as 7·4.2's Q6)*
 
 #### Step 2 — the read surface

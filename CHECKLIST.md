@@ -772,7 +772,7 @@ would hide them behind `OD-03` indefinitely.
       states the ceiling in the dialog itself. Owed, and it is an owner decision before it is work:
       publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
       accept a currency code. Both are cross-module and neither belongs inside a Module 6 point.
-      *(2026-09-16, #PRNUM — closed by fix-pass item F-01: `currency.view` for §3.6's roles + `id`
+      *(2026-09-16, #145 — closed by fix-pass item F-01: `currency.view` for §3.6's roles + `id`
       on the payload, D-80 proposed; the dialog now carries the pair)*
 
 - [ ] **Nothing in the API can be asked which files an entity has** — revealed 2026-09-05 by Module 6
@@ -1136,7 +1136,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       proposed) on `GET /currencies` alone, `id` in `CurrencyController::payload()`, and the pair
       of inputs in `SupplierQuotationFormModal.vue`. **After merging, run once:**
       `php artisan db:seed --class=RolePermissionSeeder` — the grant is configuration, not a
-      migration, and nothing on deploy runs the seeder. *(2026-09-16, #PRNUM — closes the Module 6
+      migration, and nothing on deploy runs the seeder. *(2026-09-16, #145 — closes the Module 6
       debt row above)*
 
 ## Shell revisions — owner-directed

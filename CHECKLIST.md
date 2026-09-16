@@ -1160,6 +1160,39 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       `:placeholder="item.quantity"` — the server's decimal string verbatim (`DB-07`), faint until the
       staff member types, gone while they do. The muted «سعر المورّد … الكمية المسجَّلة» line, its key
       and its testid are unchanged; §5.6's warning after the save is unchanged. *(2026-09-16, #149)*
+- [ ] **F-05** A supplier line's recorded quantity is a balance the accepted quotation draws down
+      (Module 6 ← 7 ← 10). Owner's ruling 2026-09-16 on Q0–Q7, recorded as `D-81` (proposed).
+      Nothing in `docs/` supported it before D-81: §7.2 names `quantity`, §5.6 warns on it, no
+      line consumed it. Split into points because it crosses three modules; each is its own
+      `fix/…` branch, one per turn, seven-part report, owner's merge.
+
+      ### F-05 point list — published 2026-09-16, approved by merging #150
+
+      - [x] **1.1** `D-81` in §2 (proposed) + this list; `D-80` flipped to *approved by merging
+            #145* with the same edit, as the handoff asked. Docs only — no CI runs on `docs/` or
+            `CHECKLIST.md`. *(2026-09-16, #150)*
+      - [ ] **1.2** Migration: `supplier_quotation_items.consumed_quantity NUMERIC(14,4) NOT NULL
+            DEFAULT 0` (`D-68`), `down()` drops it; `SupplierItemPrice` gains `consumedQuantity`
+            and `availableQuantity`; `GET /supplier-quotations/{id}` publishes `consumed_quantity`
+            and `available_quantity` per line. RED: migration up/down test + payload test.
+            `permission-matrix-auditor` (new fields on an existing route).
+      - [ ] **1.3** `SupplierItemQuantityInterface::consume(itemId, quantity, idempotencyKey)` in
+            `SupplierQuotations/Domain/Contracts`, implemented in `Infrastructure` as one atomic
+            `UPDATE … SET consumed_quantity = consumed_quantity + ?` guarded by an idempotency
+            record. RED: two parallel calls with one key consume once; two keys consume twice.
+            No caller yet — the caller is Module 10's `accepted` transition (D-81); say so in the
+            interface's docblock so the waste audit reads it as deferred, not dead.
+      - [ ] **1.4** `PriceQuotation`'s §5.6 warning compares the requested quantity against
+            **available**, not recorded. RED: a line whose quantity is ≤ recorded and > available
+            warns. `pricing-invariant-reviewer`.
+      - [ ] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
+            line inside its transaction and carries old/new `consumed_quantity` in its audit entry.
+            Listed here so the dependency is visible; built as a Module 10 point, not an F-05 one.
+      - [ ] **1.6** Screens: the builder's quantity placeholder (F-04) and the muted line show
+            available; the supplier-quotation detail shows recorded · consumed · available. AR/EN ×
+            desktop/375 px via `rtl-ui-verifier`. RED: vitest on both views.
+      - [ ] **1.7** Manual test list for F-05 in Arabic, one line per check, roles named, including
+            what 1.5 leaves untestable until Module 10.
 
 ## Shell revisions — owner-directed
 

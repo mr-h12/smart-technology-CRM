@@ -37,7 +37,7 @@ return [
 
     'errors' => [
         'invalid_request' => 'This request could not be understood.',
-        'supplier_price_missing' => 'This supplier line has no usable price, so the quotation cannot be saved.',
+        'supplier_price_missing' => 'This supplier line has no usable price — the line is gone, or its supplier quotation has no currency — so the quotation cannot be saved.',
         'fx_rate_missing' => 'No exchange rate is recorded to convert this supplier line. Record the rate first.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (Point 3.6).
         'if_match_required' => 'Send the quotation\'s current etag in If-Match.',

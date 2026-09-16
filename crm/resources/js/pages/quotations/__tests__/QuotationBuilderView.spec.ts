@@ -423,7 +423,7 @@ describe('the quotation builder (create)', () => {
     it('blocks the save at the line whose supplier price is missing (§5.6)', async () => {
         const fetchMock = respond({
             saves: [refusal(422, 'business_rule_blocked', [
-                { field: 'lines.1.supplier_quotation_item_id', code: 'supplier_price_missing', message: 'This supplier line has no usable price, so the quotation cannot be saved.' },
+                { field: 'lines.1.supplier_quotation_item_id', code: 'supplier_price_missing', message: 'This supplier line has no usable price — the line is gone, or its supplier quotation has no currency — so the quotation cannot be saved.' },
             ])],
         });
         const { wrapper, router } = await render(fetchMock);

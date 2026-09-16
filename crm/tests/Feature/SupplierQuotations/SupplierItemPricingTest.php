@@ -51,6 +51,23 @@ final class SupplierItemPricingTest extends TestCase
         self::assertSame($this->currencyId, $price->currencyId);
         // `quantity` is NUMERIC(_,4) — read back at its own scale, not money's.
         self::assertSame('7.0000', $price->recordedQuantity);
+        // D-81: nothing consumed yet, so the whole offer is available.
+        self::assertSame('0.0000', $price->consumedQuantity);
+        self::assertSame('7.0000', $price->availableQuantity);
+    }
+
+    /** `D-81`: available = quantity − consumed_quantity, computed where NUMERIC is exact. */
+    public function test_that_a_partly_consumed_line_reports_what_is_left(): void
+    {
+        $line = $this->supplierLine('100', '7', $this->currencyId);
+        DB::table('supplier_quotation_items')->where('id', $line)->update(['consumed_quantity' => '2.5']);
+
+        $price = $this->reader()->priceFor($line);
+
+        self::assertNotNull($price);
+        self::assertSame('7.0000', $price->recordedQuantity);
+        self::assertSame('2.5000', $price->consumedQuantity);
+        self::assertSame('4.5000', $price->availableQuantity);
     }
 
     public function test_that_an_absent_line_has_no_price(): void

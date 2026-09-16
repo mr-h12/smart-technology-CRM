@@ -26,5 +26,9 @@ final readonly class SupplierQuotationLine
         public string $catalogItemId,
         public string $unitPrice,
         public string $quantity,
+        /** `D-81`: drawn by accepted customer quotations; `quantity` itself never moves. */
+        public string $consumedQuantity,
+        /** `D-81`: `quantity − consumed_quantity`, PostgreSQL's exact NUMERIC result. */
+        public string $availableQuantity,
     ) {}
 }

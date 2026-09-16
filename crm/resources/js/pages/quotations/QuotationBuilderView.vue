@@ -59,6 +59,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
+import { listCurrencies, type Currency } from '@/services/admin';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -126,6 +127,9 @@ const deal = ref<Deal | null>(null);
 const customer = ref<Customer | null>(null);
 const suppliers = ref<Supplier[]>([]);
 const catalog = ref<CatalogItem[]>([]);
+
+/** D-80's list; empty when it could not be read, and the code is typed instead. */
+const currencies = ref<Currency[]>([]);
 const offers = ref<SupplierQuotation[]>([]);
 
 const loading = ref(true);
@@ -327,6 +331,9 @@ async function load(): Promise<void> {
     await Promise.all([
         readCustomer(deal.value.customer_id).then((found) => { customer.value = found; }, () => {}),
         listSuppliers({ perPage: 100 }).then((page) => { suppliers.value = page.items; }, () => {}),
+        // D-80: the builder's roles hold `currency.view`. Refused or failed,
+        // the list stays empty and the code is typed, as before F-02.
+        listCurrencies().then((list) => { currencies.value = list; }, () => {}),
         listCatalogItems({ perPage: 100, isActive: true }).then((page) => { catalog.value = page.items; }, () => {}),
         loadOffers(),
         ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
@@ -625,7 +632,22 @@ onMounted(load);
                 <div class="detail-grid rounded-xl p-4">
                     <label class="flex flex-col gap-1.5" :for="fieldId('currency')">
                         <span>{{ t('quotations.builder.currency') }} *</span>
+                        <!-- The value is the ISO code either way: `QuotationDraft.currency`
+                             takes a code, and the edit hydrates one. -->
+                        <select
+                            v-if="currencies.length > 0"
+                            :id="fieldId('currency')"
+                            v-model="header.currency"
+                            required
+                            :aria-invalid="fieldErrors.has('currency')"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="fieldId('currency')"
+                        >
+                            <option value="">{{ t('quotations.builder.currencyNone') }}</option>
+                            <option v-for="currency in currencies" :key="currency.code" :value="currency.code">{{ currency.code }}</option>
+                        </select>
                         <input
+                            v-else
                             :id="fieldId('currency')"
                             v-model="header.currency"
                             type="text"

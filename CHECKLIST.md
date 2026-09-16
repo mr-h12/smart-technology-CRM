@@ -1138,6 +1138,12 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       `php artisan db:seed --class=RolePermissionSeeder` — the grant is configuration, not a
       migration, and nothing on deploy runs the seeder. *(2026-09-16, #145 — closes the Module 6
       debt row above)*
+- [x] **F-02** The quotation builder's currency is typed as a three-letter code (Module 7). Since
+      D-80 every `quotation.create` role holds `currency.view`, so the builder reads
+      `GET /currencies` best-effort in `load()` and draws a `<select>` of codes; when the list
+      cannot be read the typed input stays, unchanged, so a refused lookup leaves a working form
+      rather than an empty select that can only produce a 422. Same testid either way. The
+      quotations **filter** still types its code — not asked for. *(2026-09-16, #PRNUM)*
 
 ## Shell revisions — owner-directed
 

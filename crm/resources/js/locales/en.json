@@ -1186,7 +1186,8 @@
             "noExisting": "No lines are left — add a supplier below or the draft saves empty.",
             "lineNo": "Line {no}",
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
-            "unsaved": "You have unsaved changes. Leave without saving?"
+            "unsaved": "You have unsaved changes. Leave without saving?",
+            "currencyNone": "Choose a currency"
         }
     },
     "approvals": {

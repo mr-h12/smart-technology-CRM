@@ -105,8 +105,10 @@ function respond(options: {
     updates?: Response[];
     /** `GET /user-term-suggestions?field=` per field (Point 6.8); an unlisted field is the 500 below. */
     suggestions?: Partial<Record<'payment_terms' | 'warranty' | 'delivery_terms', string[]>>;
+    /** `GET /currencies` (D-80); anything but 200 is the refusal the fallback input answers. */
+    currenciesStatus?: number;
 } = {}): ReturnType<typeof vi.fn> {
-    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {} } = options;
+    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {}, currenciesStatus = 200 } = options;
     let saved = 0;
     let read = 0;
     let updated = 0;
@@ -141,6 +143,15 @@ function respond(options: {
 
         if (url.includes('/customers/')) {
             return json(200, envelope(CUSTOMER));
+        }
+
+        if (url.includes('/currencies')) {
+            return currenciesStatus === 200
+                ? json(200, envelope({ currencies: [
+                    { id: 'cur-egp', code: 'EGP', rounding_unit: '1', rounding_enabled: true, is_base: true },
+                    { id: 'cur-usd', code: 'USD', rounding_unit: '0.01', rounding_enabled: false, is_base: false },
+                ] }))
+                : refusal(currenciesStatus, 'forbidden');
         }
 
         if (url.includes('/suppliers')) {
@@ -749,5 +760,54 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.000', margin_percent: '25.00' }, { supplier_quotation_item_id: 'sqi2', quantity: '1.000' }], additional_items: [{ description: 'Delivery', amount: '100.000000' }] });
         expect(save?.body).not.toHaveProperty('deal_id');
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
+    });
+});
+
+/**
+ * F-02 (2026-09-16): since D-80 the builder's roles may read `GET /currencies`,
+ * so the currency is chosen from the list rather than typed — and typed again,
+ * unchanged, when the list cannot be loaded, because a refused lookup leaves a
+ * working form, not an empty select that can only produce a 422.
+ */
+describe('the builder\'s currency control', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers the currencies the server lists, by code, and sends the code', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock);
+
+        const control = wrapper.find(id('currency'));
+
+        expect(control.element.tagName).toBe('SELECT');
+        expect(control.findAll('option').map((option) => option.text())).toEqual([en.quotations.builder.currencyNone, 'EGP', 'USD']);
+
+        await control.setValue('USD');
+        await wrapper.find(id('default_margin')).setValue('25');
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ currency: 'USD' });
+    });
+
+    it('falls back to the typed code when the list cannot be loaded', async () => {
+        const fetchMock = respond({ currenciesStatus: 403 });
+        const { wrapper } = await render(fetchMock);
+
+        const control = wrapper.find(id('currency'));
+
+        expect(control.element.tagName).toBe('INPUT');
+
+        await control.setValue('egp');
+        await wrapper.find(id('default_margin')).setValue('25');
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ currency: 'EGP' });
     });
 });

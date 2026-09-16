@@ -1154,7 +1154,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       out with `If-Match: ""` → `400 if_match_required` (seen in the browser, hidden by a fixture
       that had invented an etag). The SPA now reads the draft once for its token and the create's
       type tells the truth. Edit-and-approve keeps the freeze: the quotation is `approved`.
-      Candidate, not done: an `etag` on the 201 itself. *(2026-09-16, #PRNUM)*
+      Candidate, not done: an `etag` on the 201 itself. *(2026-09-16, #147)*
 
 ## Shell revisions — owner-directed
 

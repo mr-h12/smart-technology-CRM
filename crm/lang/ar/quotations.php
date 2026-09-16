@@ -37,7 +37,7 @@ return [
 
     'errors' => [
         'invalid_request' => 'تعذّر فهم هذا الطلب.',
-        'supplier_price_missing' => 'لا يوجد سعر صالح لبند المورّد هذا، لذا لا يمكن حفظ عرض السعر.',
+        'supplier_price_missing' => 'لا يوجد سعر قابل للاستخدام لبند المورّد هذا — البند محذوف، أو عرض المورّد بلا عملة — لذا لا يمكن حفظ عرض السعر.',
         'fx_rate_missing' => 'لا يوجد سعر صرف مسجَّل لتحويل بند المورّد هذا. سجِّل سعر الصرف أولًا.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (النقطة 3.6).
         'if_match_required' => 'أرسل الـ etag الحالي لعرض السعر في If-Match.',

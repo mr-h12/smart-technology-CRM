@@ -294,6 +294,8 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('line-0-0-label')).text()).toBe('Pump 5HP');
         expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('1000.000000');
         expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('5.000');
+        // F-04: the recorded quantity is also the box's placeholder, the server's string untouched (DB-07).
+        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('5.000');
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
     });
 

@@ -1155,6 +1155,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       that had invented an etag). The SPA now reads the draft once for its token and the create's
       type tells the truth. Edit-and-approve keeps the freeze: the quotation is `approved`.
       Candidate, not done: an `etag` on the 201 itself. *(2026-09-16, #147)*
+- [x] **F-04** The supplier-recorded maximum of a builder line lived only in the muted text under the
+      product name; the owner wanted it inside the quantity box as a hint (Module 7). One attribute:
+      `:placeholder="item.quantity"` — the server's decimal string verbatim (`DB-07`), faint until the
+      staff member types, gone while they do. The muted «سعر المورّد … الكمية المسجَّلة» line, its key
+      and its testid are unchanged; §5.6's warning after the save is unchanged. *(2026-09-16, #149)*
 
 ## Shell revisions — owner-directed
 

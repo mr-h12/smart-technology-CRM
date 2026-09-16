@@ -1175,7 +1175,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             DEFAULT 0` (`D-68`), `down()` drops it; `SupplierItemPrice` gains `consumedQuantity`
             and `availableQuantity`; `GET /supplier-quotations/{id}` publishes `consumed_quantity`
             and `available_quantity` per line. RED: migration up/down test + payload test.
-            `permission-matrix-auditor` (new fields on an existing route). *(2026-09-16, #PR —
+            `permission-matrix-auditor` (new fields on an existing route). *(2026-09-16, #151 —
             available is `quantity - consumed_quantity` in SQL, never stored; OpenAPI has no
             per-field rows to extend, §8.1 governs)*
       - [ ] **1.3** `SupplierItemQuantityInterface::consume(itemId, quantity, idempotencyKey)` in

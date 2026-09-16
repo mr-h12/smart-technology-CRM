@@ -371,3 +371,70 @@ decision record is `D-xx` in `docs/CRM_Documentation_EN.md` §2, not `docs/adr/`
 
 **There is no triage label workflow** — only GitHub's nine default labels exist, none applied. What
 an item's state means is written in `CHECKLIST.md` itself. See `docs/agents/triage.md`.
+
+## Automatic agents, MCP servers, and working-style skills
+
+These fire without being asked. Naming them here is what authorizes the agent to dispatch them on
+its own; before this section existed, each one had to be requested in every session.
+
+### Subagents — dispatched by the agent at these moments
+
+| Agent | When | Where its output goes |
+|---|---|---|
+| `rtl-ui-verifier` | before any point report whose diff touches `crm/resources/js/**` or `crm/resources/css/**` | the report's UI Verification row — its numbered manual steps, pasted |
+| `waste-auditor` | before writing every point report | the report's Waste audit row |
+| `permission-matrix-auditor` | before any PR that adds or changes a route, a scoped query, an export, or a permission check | the PR description |
+| `pricing-invariant-reviewer` | before any PR touching price, cost, margin, discount, tax, FX, rounding, or a quotation calculation | the PR description |
+
+Independent agents run in parallel. Each one's findings are relayed with its evidence; "passed"
+without the evidence is the 0.6 failure again. A UI point reported without `rtl-ui-verifier` is
+incomplete.
+
+### MCP servers — the faster path, declared in `.mcp.json`
+
+- **`context7`** answers any current-API question about Laravel 13, Vite 8, Vitest 4, Vue 3.5,
+  vue-i18n 11, or Browsershot. A version or signature is never answered from memory
+  (§ "Never assume"); this project already outran training data once.
+- **`crm-postgres`** (read-only, the Docker dev database) shows what the database actually holds:
+  seeded permissions per role, currency rows, quotation versions and etags, audit entries. Prefer
+  it over `docker compose exec … psql`. It cannot write; a write goes through artisan and is said
+  so. Its command sources `./.env` at launch, so no credential lives in `.mcp.json`.
+
+Both are project-scoped and need a one-time approval when `claude` first starts in this directory.
+
+### Skills — the rituals, invoked by the owner
+
+| Skill | When |
+|---|---|
+| `/session-start` | first thing in every session |
+| `/next-point <module> <point>` | to open every point — the only way a point branch is created |
+| `/point-gates` | before reporting any point complete and before any merge |
+| `/manual-test-list <module>` | when a module's last point closes, before the next module's first point |
+| `/session-end` | last thing in every session |
+
+### Working-style skills — kept active the whole session
+
+- **`ponytail`** at level `full`, every coding turn: the ladder before any code (exists at all? →
+  already in this codebase? → stdlib → native platform → installed dependency → one line → minimum
+  code). Shortest working diff; delete over add; a deliberate ceiling is marked with a `ponytail:`
+  comment.
+- **`superpowers`**: `brainstorming` after `/next-point` and before the failing test;
+  `test-driven-development` for every point — the test is shown RED before the implementation
+  exists; `systematic-debugging` the moment a test, gate, or CI run fails — no fix before the root
+  cause is named; `verification-before-completion` before every point report and before asking
+  for a merge.
+- **`karpathy-guidelines`** whenever code is written, reviewed, or refactored: surgical changes,
+  every assumption surfaced before it is acted on, the verifiable success criterion stated before
+  the edit.
+
+Drift is admitted in one line and the skill re-entered: a helper written before searching for one,
+a fix attempted before diagnosis, a turn without the ladder.
+
+### Precedence — the skills never override the project
+
+This guide and the authoritative sources win over every skill. Concretely: ponytail's "one
+runnable check" does not replace the mandatory tests for money, authorization, concurrency, state
+transitions, versioning, and multi-table writes; ponytail's "ship the lazy version and question it"
+does not replace stopping for approval after every point; brainstorming is bounded by the approved
+point list, not an invitation to redesign. When a skill's default conflicts with a documented rule,
+the rule is followed and the conflict is named.

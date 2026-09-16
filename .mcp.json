@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@4.1.1"]
+    },
+    "crm-postgres": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "set -a; . ./.env; set +a; exec npx -y @modelcontextprotocol/server-postgres@0.6.2 \"postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/$POSTGRES_DB\""
+      ]
+    }
+  }
+}

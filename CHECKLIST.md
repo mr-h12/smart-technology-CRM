@@ -1143,7 +1143,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       `GET /currencies` best-effort in `load()` and draws a `<select>` of codes; when the list
       cannot be read the typed input stays, unchanged, so a refused lookup leaves a working form
       rather than an empty select that can only produce a 422. Same testid either way. The
-      quotations **filter** still types its code — not asked for. *(2026-09-16, #PRNUM)*
+      quotations **filter** still types its code — not asked for. *(2026-09-16, #146)*
 
 ## Shell revisions — owner-directed
 

@@ -1144,6 +1144,17 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       cannot be read the typed input stays, unchanged, so a refused lookup leaves a working form
       rather than an empty select that can only produce a 422. Same testid either way. The
       quotations **filter** still types its code — not asked for. *(2026-09-16, #146)*
+- [x] **F-03** After «الكمية المطلوبة تتجاوز ما سجّله المورّد» the builder could not be edited until
+      the page was left and reopened (Module 7). Not a crash: Q3 froze the form after a save that
+      carried `quantity_exceeds_recorded` — the draft **was** saved. §5.6 / Design System §7.2 say
+      "warn without blocking", and the owner's ruling applies that to the form after the save too.
+      Now the form stays editable and the next save is a `PATCH` on the draft just created.
+      **Found on the way:** `POST /quotations` answers `QuotationPayload::of()` — `{id, code}`, no
+      `etag` — while the SPA typed it as a detail, so the first `PATCH` after a warned create went
+      out with `If-Match: ""` → `400 if_match_required` (seen in the browser, hidden by a fixture
+      that had invented an etag). The SPA now reads the draft once for its token and the create's
+      type tells the truth. Edit-and-approve keeps the freeze: the quotation is `approved`.
+      Candidate, not done: an `etag` on the 201 itself. *(2026-09-16, #147)*
 
 ## Shell revisions — owner-directed
 

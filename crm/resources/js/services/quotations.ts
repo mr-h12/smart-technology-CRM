@@ -115,6 +115,12 @@ export interface QuotationRead {
     warnings: QuotationWarning[];
 }
 
+/** `POST /quotations` answers `QuotationPayload::of()` — the id and the code, no detail and **no etag** (F-03). */
+export interface QuotationCreated {
+    quotation: { id: string; code: string };
+    warnings: QuotationWarning[];
+}
+
 export interface QuotationLineDraft {
     supplier_quotation_item_id: string;
     quantity: string;
@@ -231,7 +237,7 @@ function queryString(query: QuotationListQuery, groupBy?: string): string {
     return parameters.size === 0 ? '' : `?${parameters.toString()}`;
 }
 
-function read(result: ApiResult<QuotationDetail>): QuotationRead {
+function read<T>(result: ApiResult<T>): { quotation: T; warnings: QuotationWarning[] } {
     return {
         quotation: result.data,
         warnings: Array.isArray(result.meta.warnings) ? (result.meta.warnings as QuotationWarning[]) : [],
@@ -261,8 +267,8 @@ export async function readQuotation(id: string): Promise<QuotationRead> {
 }
 
 /** `idempotencyKey` is minted by the screen once per attempt (`crypto.randomUUID()`); a retry with the same key replays the first answer. */
-export async function createQuotation(draft: QuotationCreateDraft, idempotencyKey: string): Promise<QuotationRead> {
-    return read(await apiPost<QuotationDetail>('/quotations', draft, { 'Idempotency-Key': idempotencyKey }));
+export async function createQuotation(draft: QuotationCreateDraft, idempotencyKey: string): Promise<QuotationCreated> {
+    return read(await apiPost<QuotationCreated['quotation']>('/quotations', draft, { 'Idempotency-Key': idempotencyKey }));
 }
 
 /** Draft only. `etag` is the detail's; a stale one is `409 stale_version`. */

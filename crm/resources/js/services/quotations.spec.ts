@@ -215,7 +215,7 @@ describe('the quotation API catalogue', () => {
 
     it('creates with the Idempotency-Key the caller minted and returns the quantity warnings', async () => {
         fetchMock.mockResolvedValue(
-            json(201, envelope(DETAIL, { warnings: [{ field: 'lines.1.quantity', code: 'quantity_exceeds_recorded', message: 'over' }] })),
+            json(201, envelope({ id: 'q1', code: 'QT-2026-0001' }, { warnings: [{ field: 'lines.1.quantity', code: 'quantity_exceeds_recorded', message: 'over' }] })),
         );
 
         const created = await createQuotation(DRAFT, 'key-1');

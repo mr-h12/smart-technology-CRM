@@ -1166,11 +1166,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       line consumed it. Split into points because it crosses three modules; each is its own
       `fix/…` branch, one per turn, seven-part report, owner's merge.
 
-      ### F-05 point list — published 2026-09-16, approved by merging #PR
+      ### F-05 point list — published 2026-09-16, approved by merging #150
 
-      - [ ] **1.1** `D-81` in §2 (proposed) + this list; `D-80` flipped to *approved by merging
+      - [x] **1.1** `D-81` in §2 (proposed) + this list; `D-80` flipped to *approved by merging
             #145* with the same edit, as the handoff asked. Docs only — no CI runs on `docs/` or
-            `CHECKLIST.md`. *(2026-09-16, #PR)*
+            `CHECKLIST.md`. *(2026-09-16, #150)*
       - [ ] **1.2** Migration: `supplier_quotation_items.consumed_quantity NUMERIC(14,4) NOT NULL
             DEFAULT 0` (`D-68`), `down()` drops it; `SupplierItemPrice` gains `consumedQuantity`
             and `availableQuantity`; `GET /supplier-quotations/{id}` publishes `consumed_quantity`

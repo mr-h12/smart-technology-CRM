@@ -1171,11 +1171,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.1** `D-81` in §2 (proposed) + this list; `D-80` flipped to *approved by merging
             #145* with the same edit, as the handoff asked. Docs only — no CI runs on `docs/` or
             `CHECKLIST.md`. *(2026-09-16, #150)*
-      - [ ] **1.2** Migration: `supplier_quotation_items.consumed_quantity NUMERIC(14,4) NOT NULL
+      - [x] **1.2** Migration: `supplier_quotation_items.consumed_quantity NUMERIC(14,4) NOT NULL
             DEFAULT 0` (`D-68`), `down()` drops it; `SupplierItemPrice` gains `consumedQuantity`
             and `availableQuantity`; `GET /supplier-quotations/{id}` publishes `consumed_quantity`
             and `available_quantity` per line. RED: migration up/down test + payload test.
-            `permission-matrix-auditor` (new fields on an existing route).
+            `permission-matrix-auditor` (new fields on an existing route). *(2026-09-16, #151 —
+            available is `quantity - consumed_quantity` in SQL, never stored; OpenAPI has no
+            per-field rows to extend, §8.1 governs)*
       - [ ] **1.3** `SupplierItemQuantityInterface::consume(itemId, quantity, idempotencyKey)` in
             `SupplierQuotations/Domain/Contracts`, implemented in `Infrastructure` as one atomic
             `UPDATE … SET consumed_quantity = consumed_quantity + ?` guarded by an idempotency

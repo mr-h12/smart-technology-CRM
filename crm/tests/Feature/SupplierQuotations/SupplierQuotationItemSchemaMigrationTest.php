@@ -134,6 +134,51 @@ final class SupplierQuotationItemSchemaMigrationTest extends TestCase
         self::assertSame([], $floats, '`supplier_quotation_items` has a float column — DB-07 forbids it.');
     }
 
+    // ─────────────────────────────────────────────── D-81's consumed balance
+
+    /**
+     * `D-81`: `quantity` stays the supplier's offer; what the accepted customer
+     * quotation drew from it lives beside it, at `D-68`'s quantity scale, never
+     * null, starting at nothing.
+     */
+    public function test_that_consumed_quantity_is_numeric_14_4_not_null_defaulting_to_zero(): void
+    {
+        /** @var object{data_type: string, numeric_precision: int, numeric_scale: int, is_nullable: string, column_default: string}|null $column */
+        $column = DB::selectOne(
+            'select data_type, numeric_precision, numeric_scale, is_nullable, column_default '
+            .'from information_schema.columns where table_name = ? and column_name = ?',
+            ['supplier_quotation_items', 'consumed_quantity'],
+        );
+
+        self::assertNotNull($column, '`consumed_quantity` is not a column (D-81).');
+        self::assertSame('numeric', $column->data_type);
+        self::assertSame(14, $column->numeric_precision, 'D-68: quantities are NUMERIC(14,4).');
+        self::assertSame(4, $column->numeric_scale, 'D-68: quantities are NUMERIC(14,4).');
+        self::assertSame('NO', $column->is_nullable, 'D-81: a balance is never null.');
+        // PostgreSQL's catalogue spells a numeric default `'0'::numeric`; that a
+        // line inserted without the column reads back `0.0000` is proved by
+        // `SupplierItemPricingTest`, which inserts none.
+        self::assertSame("'0'::numeric", $column->column_default, 'D-81: no backfill — existing rows start at 0.');
+    }
+
+    /**
+     * `DEV-03` for the one migration this column has. `--path` with one file
+     * is exactly the case `test_that_the_migration_rolls_back_and_forward`'s
+     * docblock warns about for a *table* — the batch's other entries resolve
+     * to nothing and are skipped, so only this `down()` runs while every
+     * later table stands — and for a column drop that is the wanted shape.
+     */
+    public function test_that_the_consumed_quantity_migration_rolls_back_and_forward(): void
+    {
+        $path = 'database/migrations/2026_09_16_000100_add_consumed_quantity_to_supplier_quotation_items.php';
+
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => $path, '--force' => true]));
+        self::assertFalse(Schema::hasColumn('supplier_quotation_items', 'consumed_quantity'), 'down() left the column (DEV-03).');
+
+        self::assertSame(0, Artisan::call('migrate', ['--path' => $path, '--force' => true]));
+        self::assertTrue(Schema::hasColumn('supplier_quotation_items', 'consumed_quantity'), 'up() did not bring it back.');
+    }
+
     // ──────────────────────────────────────────────── §7.2's three line facts
 
     public function test_that_every_fact_section_7_2_puts_on_a_line_has_a_column(): void

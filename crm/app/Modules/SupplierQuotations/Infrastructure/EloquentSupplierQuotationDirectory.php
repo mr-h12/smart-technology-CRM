@@ -217,7 +217,9 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             ->where('supplier_quotation_id', $quotationId)
             ->whereNull('deleted_at')
             ->orderBy('id')
-            ->get(['id', 'catalog_item_id', 'unit_price', 'quantity']);
+            // `D-81`: available is subtracted here, where NUMERIC is exact.
+            ->selectRaw('id, catalog_item_id, unit_price, quantity, consumed_quantity, quantity - consumed_quantity as available_quantity')
+            ->get();
 
         $lines = [];
 
@@ -226,8 +228,10 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             $catalogItemId = $row->catalog_item_id;
             $unitPrice = $row->unit_price;
             $quantity = $row->quantity;
+            $consumed = $row->consumed_quantity;
+            $available = $row->available_quantity;
 
-            if (! is_string($lineId) || ! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity)) {
+            if (! is_string($lineId) || ! is_string($catalogItemId) || ! is_string($unitPrice) || ! is_string($quantity) || ! is_string($consumed) || ! is_string($available)) {
                 // Unreachable while the columns stand as Point 1.2 built them:
                 // all four are `NOT NULL`, and PostgreSQL hands `uuid` and
                 // `numeric` back as strings. Refusing loudly is
@@ -243,6 +247,8 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
                 catalogItemId: $catalogItemId,
                 unitPrice: $unitPrice,
                 quantity: $quantity,
+                consumedQuantity: $consumed,
+                availableQuantity: $available,
             );
         }
 

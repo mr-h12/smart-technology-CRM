@@ -224,6 +224,12 @@ final class SupplierQuotationReadEndpointTest extends TestCase
     {
         $id = $this->created();
 
+        // D-81: the balance beside the offer — consumed as Module 10 will write
+        // it, available as `quantity − consumed_quantity`, both strings at scale 4.
+        DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $id)->where('quantity', '3.0000')
+            ->update(['consumed_quantity' => '1.0000']);
+
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
             ->assertJsonCount(2, 'data.items')
@@ -231,11 +237,15 @@ final class SupplierQuotationReadEndpointTest extends TestCase
                 'catalog_item_id' => $this->catalogItemId,
                 'unit_price' => '1500.000000',
                 'quantity' => '3.0000',
+                'consumed_quantity' => '1.0000',
+                'available_quantity' => '2.0000',
             ])
             ->assertJsonFragment([
                 'catalog_item_id' => $this->catalogItemId,
                 'unit_price' => '250.500000',
                 'quantity' => '1.0000',
+                'consumed_quantity' => '0.0000',
+                'available_quantity' => '1.0000',
             ]);
     }
 
@@ -262,7 +272,8 @@ final class SupplierQuotationReadEndpointTest extends TestCase
 
         $this->assertSame($stored, array_column($items, 'id'));
         $this->assertIsArray($items[0]);
-        $this->assertSame(['id', 'catalog_item_id', 'unit_price', 'quantity'], array_keys($items[0]));
+        // D-81 (F-05 · 1.2) added the balance pair beside the offer's `quantity`.
+        $this->assertSame(['id', 'catalog_item_id', 'unit_price', 'quantity', 'consumed_quantity', 'available_quantity'], array_keys($items[0]));
     }
 
     /** Two calls agree with each other, which is what ordering by `id` buys. */

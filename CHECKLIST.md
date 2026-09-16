@@ -748,7 +748,7 @@ would hide them behind `OD-03` indefinitely.
       — it spans four modules and a random red is exactly the defect that must be reproduced
       deliberately before it is called fixed
 
-- [ ] **An offer's currency is unreachable from the SPA, and that now costs a *field* rather than a
+- [x] **An offer's currency is unreachable from the SPA, and that now costs a *field* rather than a
       column** — created 2026-09-02 by Point 1.1's `currency_id`, revealed as a display gap by
       Point 6.2, and **measured as a write blocker by Point 6.3**. ⚠️ **Point 6.2's own entry says
       "Registered below against Module 2's payload" and no such row existed** — `grep -n
@@ -771,7 +771,9 @@ would hide them behind `OD-03` indefinitely.
       as well as its currency. Owner's ruling 2026-09-05: Point 6.3 ships the rest of the header and
       states the ceiling in the dialog itself. Owed, and it is an owner decision before it is work:
       publish an `id` and a currency-read route the operational roles hold, **or** let Module 6
-      accept a currency code. Both are cross-module and neither belongs inside a Module 6 point
+      accept a currency code. Both are cross-module and neither belongs inside a Module 6 point.
+      *(2026-09-16, #145 — closed by fix-pass item F-01: `currency.view` for §3.6's roles + `id`
+      on the payload, D-80 proposed; the dialog now carries the pair)*
 
 - [ ] **Nothing in the API can be asked which files an entity has** — revealed 2026-09-05 by Module 6
       Point 6.5, and it is not a Module 6 gap: it is the shape of §17's surface. Measured in that
@@ -1118,6 +1120,24 @@ missing in the first place.
       repository moves. Both carry measured claims — "never had an issue", "nine default labels" —
       that a single `gh issue create` would falsify silently, and the next divergence between the two
       guides will be caught by hand or not at all. `README.md` was not examined, as in `G-01`.
+
+## Fix pass — owner-directed, 2026-09-16
+
+Problems the owner found in closed modules, after Module 8 closed. Each is its own `fix/…` branch
+off `main`: a failing test first, the smallest fix, the six gates, the browser when a screen changed,
+a seven-part report, and the owner's merge. One per turn; the list is the owner's, not the agent's.
+
+- [x] **F-01** A supplier offer's currency is unreachable from the SPA (Module 6 ← Module 2). The
+      owner's two screenshots were one chain: the offer dialog said the currency list was «غير متاحة
+      لهذا الدور», so `SQ-2026-0004` carried three priced lines and no currency, and the quotation
+      builder refused the line with `supplier_price_missing` — Module 7's block was correct
+      (§5.6); the dead end was Module 6's. Owner's ruling: a currency-read route the operational
+      roles hold + `id` on the payload, not a code in Module 6. Done as `currency.view` (D-80,
+      proposed) on `GET /currencies` alone, `id` in `CurrencyController::payload()`, and the pair
+      of inputs in `SupplierQuotationFormModal.vue`. **After merging, run once:**
+      `php artisan db:seed --class=RolePermissionSeeder` — the grant is configuration, not a
+      migration, and nothing on deploy runs the seeder. *(2026-09-16, #145 — closes the Module 6
+      debt row above)*
 
 ## Shell revisions — owner-directed
 

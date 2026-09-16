@@ -851,13 +851,16 @@
             "attachmentForbidden": "You do not have permission to attach a file to this offer.",
             "attachmentRejected": "The file was not accepted.",
             "attachmentUnreachable": "The server could not be reached. The file was not attached.",
-            "totalUnavailable": "The total and its currency cannot be entered yet: the currency list this form needs is not available to this role. An existing total is kept unchanged.",
+            "totalUnavailable": "The currency list could not be loaded, so the total cannot be given a currency right now. The offer can still be saved without a total; try again later.",
             "forbidden": "You do not have permission to save this offer.",
             "rejected": "The change was not accepted. Review the fields and try again.",
             "unreachable": "The server could not be reached. The offer was not saved.",
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
-            "discard": "Discard changes"
+            "discard": "Discard changes",
+            "totalPrice": "Total",
+            "currency": "Currency",
+            "currencyNone": "Choose a currency"
         },
         "column": {
             "code": "Code",

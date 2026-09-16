@@ -12,36 +12,26 @@
  * about, and `SupplierQuotationsView` decides whether this dialog opens at all.
  * The CEO is the documented negative case: §3.6 grants them `view` and no more.
  *
- * ── Three of §7.2's rows are absent, each measured ─────────────────────────
+ * ── One of §7.2's rows is absent, measured ─────────────────────────────────
  *
- * | row | why it is not here |
- * |---|---|
- * | `code` | §7.2 marks it "Automatic" and `SaveSupplierQuotationRequest` answers a supplied one with `prohibited`. A control for it could only build a request that cannot succeed. |
- * | `total_price` + `currency_id` | **Unreachable from the SPA.** See below. |
- * | `Line items` | Point 6.4's, not this point's. |
+ * `code`: §7.2 marks it "Automatic" and `SaveSupplierQuotationRequest` answers
+ * a supplied one with `prohibited`. A control for it could only build a
+ * request that cannot succeed. (`Line items` are Point 6.4's, below.)
  *
- * ── The total and the currency: a stated ceiling, not an oversight ─────────
+ * ── The total and the currency: one pair, and the server holds the rule ────
  *
- * They are one pair, not two fields: Point 1.1 put
- * `CHECK ((total_price IS NULL) = (currency_id IS NULL))` on the table and
- * `SaveSupplierQuotationRequest` mirrors it with `required_with` in both
- * directions, so neither may be sent without the other. And `currency_id` is a
- * UUID **nothing in this SPA can obtain**: `CurrencyController::payload()`
- * publishes `code`, `rounding_unit`, `rounding_enabled` and `is_base` and no
- * `id`, `FxRateController` names its currencies by code too, and
- * `GET /currencies` sits behind `admin.system_settings`, which
- * `PermissionMatrix` grants to the Super Admin **alone** — so every role that
- * may create an offer is refused the lookup as well.
+ * Point 1.1 put `CHECK ((total_price IS NULL) = (currency_id IS NULL))` on the
+ * table and `SaveSupplierQuotationRequest` mirrors it with `required_with` in
+ * both directions. This form does not re-state that rule: a half-filled pair
+ * is the server's 422, landing on the field it names. `currency_id` is a uuid,
+ * offered as a closed `<select>` from `GET /currencies` — readable since D-80
+ * by `currency.view`, the §3.6 create/edit set, and carrying each row's `id`.
+ * The list is best-effort like the catalog: if it cannot be loaded the form
+ * says so where the select is and the rest still works.
  *
- * Owner's ruling of 2026-09-05: ship the rest of §7.2's header and say so. The
- * dialog says it to the reader too, because a form that silently drops the
- * offer's total teaches the wrong thing about where the total went. Registered
- * in `CHECKLIST.md`; the pair returns once Module 2's payload can answer.
- *
- * The consequence for an **edit** is the reason it is safe:
- * `SupplierQuotationDraft::only()` keeps a key by `array_key_exists`, so a body
- * that never mentions the two columns leaves them exactly as they were. Sending
- * `null` would erase a total this form cannot show, and this form sends neither.
+ * Both keys are **always in the body** (`""` → `null`), so blanking them on an
+ * edit clears the offer's total on purpose, and an untouched edit re-sends the
+ * pair it was opened with.
  *
  * ── A form-level refusal is a key; a field refusal is the server's sentence ─
  *
@@ -55,6 +45,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { listCurrencies, type Currency } from '@/services/admin';
 import { listCatalogItems, type CatalogItem } from '@/services/catalog';
 import { downloadFile } from '@/services/files';
 import {
@@ -87,7 +78,7 @@ const emit = defineEmits<{ saved: [SupplierQuotation]; cancel: [] }>();
 const { t } = useI18n();
 
 /** The fields a server refusal can name, which are the inputs this form has. */
-const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes'] as const;
+const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'total_price', 'currency_id'] as const;
 
 type Field = (typeof FIELDS)[number];
 
@@ -95,7 +86,7 @@ type Values = Record<Field, string>;
 
 /** "" is "not given" for every one of them; `draft()` turns that into `null`. */
 function blank(): Values {
-    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '' };
+    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '', total_price: '', currency_id: '' };
 }
 
 const values = ref<Values>(blank());
@@ -149,6 +140,11 @@ const linesState = ref<'ready' | 'loading' | 'unavailable'>('ready');
 
 /** §10.4's selection list: active items only. Best-effort — `D-22` still lets a name be typed. */
 const catalogItems = ref<CatalogItem[]>([]);
+
+const currencies = ref<Currency[]>([]);
+
+/** Said where the select is, rather than an empty list pretending to be a choice. */
+const currenciesFailed = ref(false);
 
 /** Keyed `"<index>.<field>"`, the way the server names it minus the `items.` prefix. */
 const lineErrors = ref<Map<string, string>>(new Map());
@@ -255,6 +251,9 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
         next.offer_date = record.offer_date ?? '';
         next.valid_until = record.valid_until ?? '';
         next.notes = record.notes ?? '';
+        // Strings as sent (`4500.000000`), never parsed: DB-07.
+        next.total_price = record.total_price ?? '';
+        next.currency_id = record.currency_id ?? '';
     }
 
     values.value = { ...next };
@@ -272,6 +271,7 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     downloadingId.value = null;
 
     void loadCatalog();
+    void loadCurrencies();
     void loadLines(record);
 }, { immediate: true });
 
@@ -296,6 +296,17 @@ async function loadCatalog(): Promise<void> {
         catalogItems.value = (await listCatalogItems({ perPage: 100, isActive: true })).items;
     } catch {
         catalogItems.value = [];
+    }
+}
+
+/** Best-effort like the catalog, but a failure is said: a uuid cannot be typed instead. */
+async function loadCurrencies(): Promise<void> {
+    try {
+        currencies.value = await listCurrencies();
+        currenciesFailed.value = false;
+    } catch {
+        currencies.value = [];
+        currenciesFailed.value = true;
     }
 }
 
@@ -414,13 +425,13 @@ function items(): SupplierQuotationLineDraft[] {
  * `SaveSupplierQuotationRequest` would answer it with a 422 anyway.
  * `supplier_id` is the exception: it is required, so it is always a string.
  *
- * `total_price` and `currency_id` are **absent keys**, never `null` ones — see
- * the header. On a `PATCH` that is what leaves the offer's total alone.
+ * `total_price` and `currency_id` are always named — see the header.
  */
 function draft(): SupplierQuotationDraft {
     const current = values.value;
     const notes = current.notes.trim();
     const deal = current.deal_id.trim();
+    const total = current.total_price.trim();
 
     const header: SupplierQuotationDraft = {
         supplier_id: current.supplier_id,
@@ -428,6 +439,8 @@ function draft(): SupplierQuotationDraft {
         offer_date: current.offer_date === '' ? null : current.offer_date,
         valid_until: current.valid_until === '' ? null : current.valid_until,
         notes: notes === '' ? null : notes,
+        total_price: total === '' ? null : total,
+        currency_id: current.currency_id === '' ? null : current.currency_id,
     };
 
     // The whole reason `linesState` exists. `items: []` from an editor that
@@ -625,6 +638,66 @@ function discard(): void {
                 </span>
             </label>
 
+            <!-- §7.2's total and currency — one pair; the server says when one
+                 is missing (`required_with`). `inputmode`, not `type="number"`:
+                 the value is a decimal string at `D-68`'s scale (`DB-07`). -->
+            <div class="flex flex-wrap gap-3">
+                <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId('total_price')">
+                    <span>{{ t('supplierQuotations.form.totalPrice') }}</span>
+                    <input
+                        :id="fieldId('total_price')"
+                        v-model="values.total_price"
+                        type="text"
+                        inputmode="decimal"
+                        autocomplete="off"
+                        :disabled="saving"
+                        :aria-invalid="errorFor('total_price') !== null"
+                        class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        :data-testid="testId('total_price')"
+                    />
+                    <span
+                        v-if="errorFor('total_price') !== null"
+                        class="text-[var(--color-danger)]"
+                        data-testid="supplier-quotation-form-total-price-error"
+                    >
+                        {{ errorFor('total_price') }}
+                    </span>
+                </label>
+
+                <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId('currency_id')">
+                    <span>{{ t('supplierQuotations.form.currency') }}</span>
+                    <select
+                        :id="fieldId('currency_id')"
+                        v-model="values.currency_id"
+                        :disabled="saving"
+                        :aria-invalid="errorFor('currency_id') !== null"
+                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        :data-testid="testId('currency_id')"
+                    >
+                        <option value="">{{ t('supplierQuotations.form.currencyNone') }}</option>
+                        <option v-for="currency in currencies" :key="currency.id" :value="currency.id">{{ currency.code }}</option>
+                    </select>
+                    <span
+                        v-if="errorFor('currency_id') !== null"
+                        class="text-[var(--color-danger)]"
+                        data-testid="supplier-quotation-form-currency-id-error"
+                    >
+                        {{ errorFor('currency_id') }}
+                    </span>
+                </label>
+            </div>
+
+            <!-- §6.4's Warning row: the currency list could not be loaded, so
+                 the select above is empty and the reader is told why. -->
+            <p
+                v-if="currenciesFailed"
+                class="form-warning rounded-lg p-3"
+                role="alert"
+                data-testid="supplier-quotation-form-total-unavailable"
+            >
+                {{ t('supplierQuotations.form.totalUnavailable') }}
+            </p>
+
             <label class="flex flex-col gap-1.5" :for="fieldId('offer_date')">
                 <span>{{ t('supplierQuotations.column.offerDate') }}</span>
                 <input
@@ -819,13 +892,6 @@ function discard(): void {
                  empty editor sent as `[]` would clear them. -->
             <p v-else class="form-warning rounded-lg p-3" role="alert" data-testid="supplier-quotation-form-lines-unavailable">
                 {{ t('supplierQuotations.form.linesUnavailable') }}
-            </p>
-
-            <!-- §6.4's Warning row. §7.2 lists a total and a currency and this
-                 form has neither, so it says why rather than letting the reader
-                 conclude the offer has no total. See the header. -->
-            <p class="form-warning rounded-lg p-3" data-testid="supplier-quotation-form-total-unavailable">
-                {{ t('supplierQuotations.form.totalUnavailable') }}
             </p>
 
             <!-- §7.2's `pdf_file` row — "Scan or PDF of the offer" (Point 6.5). -->

@@ -283,13 +283,15 @@ Route::middleware(['auth', 'permission:admin.system_settings'])->group(function 
 });
 
 // §13 screen 5's rounding half — §5.3 files it under "System Settings →
-// Currencies", so it carries `admin.system_settings` and not `admin.fx_rates`.
-// The Manager holds the second and not the first; the rates themselves are
-// Point 3.3, and they are the row the Manager may touch.
-Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
-    Route::get('/currencies', [CurrencyController::class, 'index']);
-    Route::patch('/currencies/{code}', [CurrencyController::class, 'update']);
-});
+// Currencies", so the PATCH carries `admin.system_settings` and not
+// `admin.fx_rates`. The Manager holds the second and not the first; the rates
+// themselves are Point 3.3, and they are the row the Manager may touch.
+// The read is D-80's `currency.view`: a supplier offer's `currency_id` is a
+// uuid, so whoever may write an offer (§3.6) must be able to look it up.
+Route::middleware(['auth', 'permission:currency.view'])
+    ->get('/currencies', [CurrencyController::class, 'index']);
+Route::middleware(['auth', 'permission:admin.system_settings'])
+    ->patch('/currencies/{code}', [CurrencyController::class, 'update']);
 
 // §13 screen 5's other half — "manual rate per currency · rate history",
 // behind §3.11's **FX rates** row.

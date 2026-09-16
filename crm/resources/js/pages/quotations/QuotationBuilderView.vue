@@ -153,8 +153,14 @@ const conflict = ref<QuotationDetail | null>(null);
 /** What the form was opened with. The dirty check is against this, not against blank. */
 const opened = ref('');
 
-/** `OpenAPI §9.1`: minted once per form open. */
-const idempotencyKey = crypto.randomUUID();
+/**
+ * `OpenAPI §9.1`: one key per command. A network failure or a 5xx keeps it — the
+ * server released it and a resend is the same command. A 4xx is the key's
+ * final answer on the server, so the next save is a new command with a new key;
+ * reusing it with a corrected body is `409 idempotency_conflict` for the life
+ * of the page (seen 2026-09-15: one 422 on `currency`, then eight 409s).
+ */
+let idempotencyKey = crypto.randomUUID();
 
 const saving = ref(false);
 const formError = ref('');
@@ -536,6 +542,10 @@ async function save(): Promise<void> {
         onWarnings(result.warnings);
         saved.value = { id: result.quotation.id, code: result.quotation.code };
     } catch (error) {
+        if (error instanceof ApiError && error.status < 500) {
+            idempotencyKey = crypto.randomUUID();
+        }
+
         if (error instanceof ApiError && error.status === 409 && error.code === 'concurrency_conflict') {
             // `API-12`: the stored token moved. Show whose, never overwrite.
             conflict.value = (await readQuotation(quotationId.value)).quotation;

@@ -393,6 +393,31 @@ describe('the quotation builder (create)', () => {
         expect(router.currentRoute.value.path).toBe('/quotations/q9');
     });
 
+    /**
+     * The server keeps every 4xx as the key's final answer (§9.1, "final
+     * status"), so a corrected form is a new command: same key + new body would
+     * be `409 idempotency_conflict` for as long as the page lives. Observed
+     * 2026-09-15 on DL-2026-0003: a 422 on `currency`, then eight 409s.
+     */
+    it('mints a new Idempotency-Key after a 4xx answer, so the corrected form is not a 409', async () => {
+        const fetchMock = respond({ saves: [refusal(422, 'validation_failed', [{ field: 'currency', code: 'required', message: 'required' }]), json(201, envelope(CREATED))] });
+        const { wrapper, router } = await render(fetchMock);
+
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        await fillHeader(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const sent = saves(fetchMock);
+
+        expect(sent).toHaveLength(2);
+        expect(sent[1]?.idempotencyKey).not.toBe(sent[0]?.idempotencyKey);
+        expect(router.currentRoute.value.path).toBe('/quotations/q9');
+    });
+
     // ──────────────────────────────────────────────────────────── refusals
 
     it('blocks the save at the line whose supplier price is missing (§5.6)', async () => {

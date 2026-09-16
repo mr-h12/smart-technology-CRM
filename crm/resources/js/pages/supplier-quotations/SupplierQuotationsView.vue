@@ -44,12 +44,10 @@
  * ⚠️ **Two stated ceilings, neither invented here.**
  * 1. That call takes the first 100 suppliers (`SupplierListCriteria::MAX_PER_PAGE`).
  *    A supplier past the hundredth shows as their identifier rather than a name.
- * 2. **The currency is not shown at all.** An offer carries `currency_id`, and
- *    `CurrencyController::payload()` publishes `code`, `rounding_unit`,
- *    `rounding_enabled` and `is_base` — **no `id`** — so nothing in the SPA can
- *    turn one into the other. Showing a bare figure is the honest option;
- *    inventing a currency beside it would not be. Registered as debt against
- *    Module 2's payload.
+ * 2. **The currency is not shown in the list.** The dialog can read it since
+ *    D-80 (`GET /currencies` carries `id`, readable by `currency.view`); the
+ *    column is a later item if the owner wants it — a bare figure here is
+ *    still honest, a wrong currency beside it would not be.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

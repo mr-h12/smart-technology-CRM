@@ -64,6 +64,8 @@ final class CurrencyController
     private static function payload(Currency $currency): array
     {
         return [
+            // D-80: the uuid a supplier offer's `currency_id` has to name.
+            'id' => $currency->id(),
             'code' => $currency->code()->value,
 
             // A string, never a float: DB-07, and the reason §5.3's 0.01 has to

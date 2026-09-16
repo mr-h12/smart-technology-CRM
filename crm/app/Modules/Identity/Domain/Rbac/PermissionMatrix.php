@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Domain\Rbac;
 
 /**
- * §3.3–§3.11's permission matrix: 9 sections, 57 rows, 8 roles, 5 scopes.
+ * §3.3–§3.11's permission matrix: 9 sections, 57 rows + D-80's `currency.view`, 8 roles, 5 scopes.
  *
  * `§3.12` rule 5 puts this in the database, where changing it is configuration
  * rather than a deployment. That does not remove the need for a starting
@@ -497,6 +497,19 @@ final class PermissionMatrix
             ], '§3.11'),
             new Permission('admin', 'database_ops', [
                 Role::SuperAdmin->value => Grant::scoped(Scope::All),
+            ], '§3.11'),
+
+            // D-80: the one row §3.11 does not draw. A supplier offer's
+            // `currency_id` is a uuid, so §3.6's create/edit set must be able
+            // to read the list; the rounding PATCH stays `admin.system_settings`.
+            // Written as explicit scopes like the rest of §3.11, and last, so
+            // `viewPermissionFor('§3.11')` still answers `admin.view_audit_log`.
+            new Permission('currency', 'view', [
+                Role::Manager->value => Grant::scoped(Scope::All),
+                Role::TeamLeader->value => Grant::scoped(Scope::All),
+                Role::OutdoorSales->value => Grant::scoped(Scope::All),
+                Role::IndoorSales->value => Grant::scoped(Scope::All),
+                Role::Procurement->value => Grant::scoped(Scope::All),
             ], '§3.11'),
         ];
     }

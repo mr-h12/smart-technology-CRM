@@ -832,6 +832,7 @@ onMounted(load);
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
+                                        :placeholder="item.quantity"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"

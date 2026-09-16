@@ -28,10 +28,14 @@
  *
  * `quantity_exceeds_recorded` rides the **201**: the draft exists. `§5.6`
  * wants it red on the line and `Design System §7.2` says "without blocking",
- * so on a 201 that carries warnings the form stays, read-only, with the red
- * line and a link to the saved draft; a clean 201 goes straight to it. A
+ * so on a 201 that carries warnings the form stays, with the red line and a
+ * link to the saved draft — and **stays editable** (F-03, owner 2026-09-16:
+ * the earlier read-only freeze was itself a block). The next save is a
+ * `PATCH` on the draft just created, with its token; a second `POST` under
+ * the same key would be a 409. A clean 201 goes straight to the detail. A
  * `GET` never repeats this warning (Point 4.5 reads `supplier_price_changed`
- * only), so navigating away would lose it.
+ * only), so navigating away would lose it. Edit-and-approve keeps the freeze:
+ * the quotation is `approved` and nothing on it may change any more.
  *
  * ── Idempotency ────────────────────────────────────────────────────────────
  * `OpenAPI §9.1`: one `Idempotency-Key` per form open. A retry after a
@@ -75,6 +79,7 @@ import {
     updateQuotation,
     type QuotationDetail,
     type QuotationDraft,
+    type QuotationRead,
     type QuotationWarning,
     type TermField,
 } from '@/services/quotations';
@@ -172,8 +177,12 @@ const formError = ref('');
 const fieldErrors = ref<Map<string, string>>(new Map());
 /** Which input each sent `lines[i]` came from — `existing-3` or `line-1-2` — so a server index maps back. */
 let sent: string[] = [];
-/** The 201 that carried warnings: the draft is saved, the form is closed, the link is on. */
+/** The save that carried warnings: the draft is saved, the link is on, the form stays (F-03). */
 const saved = ref<{ id: string; code: string } | null>(null);
+/** A create that answered with warnings: from here on the form saves by `PATCH` on this id. */
+const createdId = ref<string | null>(null);
+/** After a warned save nothing may change on an approved quotation; a draft goes on being edited. */
+const frozen = computed(() => saved.value !== null && approving.value);
 const lineWarnings = ref<Map<string, string>>(new Map());
 
 const offerFormOpen = ref(false);
@@ -238,8 +247,8 @@ function snapshot(): string {
     });
 }
 
-/** Nothing to lose before the form opened (a refused load, a redirect) or after it saved. */
-const dirty = computed(() => opened.value !== '' && saved.value === null && snapshot() !== opened.value);
+/** Nothing to lose before the form opened (a refused load, a redirect) or since it last saved. */
+const dirty = computed(() => opened.value !== '' && snapshot() !== opened.value);
 
 /** Fill the form from the detail (edit): header, lines, items, and the token the next write needs. */
 function applyDetail(quotation: QuotationDetail): void {
@@ -533,21 +542,29 @@ async function save(): Promise<void> {
         const current = deal.value;
         const result = approving.value
             ? await editAndApproveQuotation(quotationId.value, etag.value, draft())
-            : editing.value
-                ? await updateQuotation(quotationId.value, etag.value, draft())
+            : editing.value || createdId.value !== null
+                ? await updateQuotation(createdId.value ?? quotationId.value, etag.value, draft())
                 : await createQuotation({ ...draft(), deal_id: current.id, customer_id: current.customer_id }, idempotencyKey);
 
-        etag.value = result.quotation.etag;
+        saved.value = { id: result.quotation.id, code: result.quotation.code };
+        opened.value = snapshot();
 
         if (result.warnings.length === 0) {
-            saved.value = { id: result.quotation.id, code: result.quotation.code };
             await router.push({ name: 'quotation-detail', params: { id: result.quotation.id } });
 
             return;
         }
 
         onWarnings(result.warnings);
-        saved.value = { id: result.quotation.id, code: result.quotation.code };
+
+        if (editing.value) {
+            etag.value = (result as QuotationRead).quotation.etag;
+        } else {
+            // A 201 carries no etag (`QuotationPayload::of()`); the next save is
+            // a PATCH on the draft, so its token is read once, here.
+            createdId.value = result.quotation.id;
+            etag.value = (await readQuotation(result.quotation.id)).quotation.etag;
+        }
     } catch (error) {
         if (error instanceof ApiError && error.status < 500) {
             idempotencyKey = crypto.randomUUID();
@@ -627,7 +644,7 @@ onMounted(load);
                 </RouterLink>
             </p>
 
-            <fieldset class="contents" :disabled="saving || saved !== null">
+            <fieldset class="contents" :disabled="saving || frozen">
                 <!-- `Design System §7.2`: margin, discount and tax in their own group; §4.3 grid. -->
                 <div class="detail-grid rounded-xl p-4">
                     <label class="flex flex-col gap-1.5" :for="fieldId('currency')">
@@ -922,7 +939,7 @@ onMounted(load);
                     </label>
                 </div>
 
-                <div v-if="saved === null" class="flex flex-wrap gap-2">
+                <div v-if="!frozen" class="flex flex-wrap gap-2">
                     <button
                         type="submit"
                         class="save-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"

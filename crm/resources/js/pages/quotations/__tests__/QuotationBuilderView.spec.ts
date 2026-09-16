@@ -45,7 +45,8 @@ const SQ_DETAIL = {
     ],
 };
 
-const CREATED = { id: 'q9', code: 'QT-2026-0009', status: 'draft', version: 1 };
+/** What `POST /quotations` really answers — `QuotationPayload::of()`: no etag, no detail (F-03 found the SPA assuming one). */
+const CREATED = { id: 'q9', code: 'QT-2026-0009' };
 
 /** A Draft as `GET /quotations/{id}` answers it, with §3.5's cost keys (Q7). */
 const QUOTATION = {
@@ -123,7 +124,7 @@ function respond(options: {
             return response.clone();
         }
 
-        if (init?.method === 'PATCH' && /\/quotations\/q1(\/edit-and-approve)?$/.test(url)) {
+        if (init?.method === 'PATCH' && /\/quotations\/(q1|q9)(\/edit-and-approve)?$/.test(url)) {
             const response = updates[Math.min(updated, updates.length - 1)] as Response;
             updated += 1;
 
@@ -135,6 +136,10 @@ function respond(options: {
             read += 1;
 
             return json(200, envelope(quotation));
+        }
+
+        if (url.endsWith('/quotations/q9')) {
+            return json(200, envelope({ ...QUOTATION, ...CREATED, etag: '"q9-v1"' }));
         }
 
         if (url.includes('/deals/')) {
@@ -213,7 +218,7 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/n
 /** The `POST /quotations`, `PATCH /quotations/{id}` and `PATCH …/edit-and-approve` calls the screen made — path, body and the two headers that matter. */
 function saves(fetchMock: ReturnType<typeof vi.fn>): Array<{ method: string; path: string; body: unknown; idempotencyKey: string | null; ifMatch: string | null }> {
     return fetchMock.mock.calls
-        .filter((call) => ['POST', 'PATCH'].includes(String((call[1] as RequestInit | undefined)?.method)) && /\/quotations(\/q1(\/edit-and-approve)?)?$/.test(String(call[0])))
+        .filter((call) => ['POST', 'PATCH'].includes(String((call[1] as RequestInit | undefined)?.method)) && /\/quotations(\/(q1|q9)(\/edit-and-approve)?)?$/.test(String(call[0])))
         .map((call) => ({
             method: String((call[1] as RequestInit).method),
             path: String(call[0]).replace(/^.*\/api\/v1/, ''),
@@ -482,11 +487,17 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('discount_percent-error')).text()).toBe('The discount must be below 100.');
     });
 
-    it('keeps the saved draft on screen with the quantity warning red on its line, and a link on (§5.6, Q3)', async () => {
+    /**
+     * F-03 (owner, 2026-09-16): the warning must not freeze the form. The draft
+     * exists, so the form stays **editable** and the next save is a `PATCH` on
+     * it with its token — a second `POST` under the same key would be a 409.
+     */
+    it('keeps the saved draft on screen with the quantity warning red on its line, editable, and saves again as a PATCH (§5.6)', async () => {
         const fetchMock = respond({
             saves: [json(201, envelope(CREATED, {
                 warnings: [{ field: 'lines.0.quantity', code: 'quantity_exceeds_recorded', message: 'The requested quantity exceeds what the supplier recorded.' }],
             }))],
+            updates: [json(200, envelope({ ...QUOTATION, ...CREATED, etag: '"q9-v2"' }))],
         });
         const { wrapper, router } = await render(fetchMock);
 
@@ -499,7 +510,21 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('line-0-0-warning')).text()).toContain('exceeds');
         expect(wrapper.find(id('saved')).text()).toContain('QT-2026-0009');
         expect(wrapper.find(id('saved-link')).attributes('href')).toBe('/quotations/q9');
-        expect(wrapper.find(id('save')).exists()).toBe(false);
+        expect(wrapper.find(id('save')).exists()).toBe(true);
+        expect((wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).disabled).toBe(false);
+        // The 201 carries no etag; the token is the draft's own, read once after the warned create.
+        expect(fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/quotations/q9') && ((call[1] as RequestInit | undefined)?.method ?? 'GET') === 'GET')).toHaveLength(1);
+
+        await wrapper.find(id('line-0-0-quantity')).setValue('2');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const calls = saves(fetchMock);
+
+        expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual(['POST /quotations', 'PATCH /quotations/q9']);
+        expect(calls[1]?.ifMatch).toBe('"q9-v1"');
+        expect(calls[1]?.body).toMatchObject({ lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2' }] });
+        expect(router.currentRoute.value.path).toBe('/quotations/q9');
     });
 
     // ──────────────────────────────────────────────────────────── permission
@@ -683,6 +708,14 @@ describe('the quotation builder (edit)', () => {
         expect(router.currentRoute.value.path).toBe(EDIT);
         expect(wrapper.find(id('existing-1-warning')).text()).toContain('exceeds');
         expect(wrapper.find(id('saved-link')).attributes('href')).toBe('/quotations/q1');
+        // F-03: still editable; a second save is a second PATCH.
+        expect(wrapper.find(id('save')).exists()).toBe(true);
+
+        await wrapper.find(id('existing-1-quantity')).setValue('1');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock).map((call) => call.method)).toEqual(['PATCH', 'PATCH']);
     });
 
     it('asks before leaving with unsaved changes, and not otherwise (Design System §5.2)', async () => {

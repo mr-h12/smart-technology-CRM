@@ -51,7 +51,11 @@ export interface SupplierQuotationLine {
     id: string;
     catalog_item_id: string;
     unit_price: string;
+    /** The supplier's original offer — never edited by consumption (D-81). */
     quantity: string;
+    /** D-81: what accepted quotations drew down, and what is left (`quantity − consumed_quantity`, computed server-side). */
+    consumed_quantity: string;
+    available_quantity: string;
 }
 
 /** The detail adds the lines the summary omits. */

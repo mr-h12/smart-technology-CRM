@@ -127,6 +127,9 @@ const CATALOG_ITEM = {
 /** `SupplierQuotationPayload::detail()` — the header, plus `items`, always present. */
 const OFFER_LINES = [{ catalog_item_id: 'ci1', unit_price: '1500.000000', quantity: '3.000' }];
 
+/** The same lines as the detail publishes them — with F-05's balance (D-81), which the editor never sends back. */
+const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, consumed_quantity: '1.0000', available_quantity: '2.0000' }));
+
 /** A `GET /supplier-quotations/{id}`, which a `PATCH` to the same path is not. */
 function isDetailRead(input: string, init?: RequestInit): boolean {
     return /\/supplier-quotations\/[^/?]+$/.test(input) && (init?.method ?? 'GET') === 'GET';
@@ -140,7 +143,7 @@ function isDetailRead(input: string, init?: RequestInit): boolean {
 function respond(
     offers: unknown = [OFFER],
     status = 200,
-    detail: unknown = { ...OFFER, items: OFFER_LINES },
+    detail: unknown = { ...OFFER, items: OFFER_DETAIL_LINES },
     scanStatus = 'clean',
     currenciesStatus = 200,
 ): ReturnType<typeof vi.fn> {
@@ -464,7 +467,7 @@ describe('the supplier quotation form', () => {
 
     /** The list not loading is said where the select is, and the rest of the form still works. */
     it('says so when the currency list cannot be loaded, instead of a silent empty select', async () => {
-        const view = await render(respond([OFFER], 200, { ...OFFER, items: OFFER_LINES }, 'clean', 403));
+        const view = await render(respond([OFFER], 200, { ...OFFER, items: OFFER_DETAIL_LINES }, 'clean', 403));
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
@@ -663,6 +666,26 @@ describe('the supplier quotation line editor', () => {
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
         expect(sent.items).toEqual(OFFER_LINES);
+    });
+
+    /** F-05 (D-81): the roles that may open an offer see all three figures; a new offer has none. */
+    it('shows recorded, consumed and available per line when editing an offer, and nothing on a new one', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        const balance = view.get('[data-testid="supplier-quotation-line-0-balance"]').text();
+        expect(balance).toContain('3.000');
+        expect(balance).toContain('1.0000');
+        expect(balance).toContain('2.0000');
+
+        await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        expect(view.find('[data-testid="supplier-quotation-line-0-quantity"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-line-0-balance"]').exists()).toBe(false);
     });
 
     /** `[]` is the documented "clear them" case, and it is a different answer from absence. */

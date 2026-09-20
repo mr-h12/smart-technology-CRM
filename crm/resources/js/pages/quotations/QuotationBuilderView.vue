@@ -819,9 +819,10 @@ onMounted(load);
                             <div v-for="(item, l) in block.detail.items" :key="item.id" class="line-grid rounded-lg p-3" :data-testid="fieldId(`line-${b}-${l}`)">
                                 <p class="flex flex-col gap-1">
                                     <span :data-testid="fieldId(`line-${b}-${l}-label`)">{{ catalogLabel(item.catalog_item_id) }}</span>
-                                    <!-- The supplier's own figures — internal cost, never a customer price (§7.2). -->
+                                    <!-- The supplier's own figures — internal cost, never a customer price (§7.2).
+                                         The quantity is what is left of the offer, not what it recorded (D-81). -->
                                     <span class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`line-${b}-${l}-recorded`)">
-                                        {{ t('quotations.builder.recorded', { price: item.unit_price, quantity: item.quantity }) }}
+                                        {{ t('quotations.builder.recorded', { price: item.unit_price, quantity: item.available_quantity }) }}
                                     </span>
                                 </p>
                                 <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-quantity`)">
@@ -832,7 +833,7 @@ onMounted(load);
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        :placeholder="item.quantity"
+                                        :placeholder="item.available_quantity"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"

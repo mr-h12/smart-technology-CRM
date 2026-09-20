@@ -59,6 +59,7 @@ import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue
 import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuotationFormModal.vue';
 import { listSupplierQuotations, type Pagination, type SupplierQuotation } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
+import { displayDecimals } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
@@ -342,10 +343,11 @@ onMounted(async () => {
                             <td class="p-3 tabular-nums">{{ offer.code }}</td>
                             <td class="p-3" data-testid="supplier-quotations-supplier">{{ supplierName(offer.supplier_id) }}</td>
 
-                            <!-- The string the server sent, digit for digit: `DB-07`
-                                 forbids the float a number conversion would create. -->
+                            <!-- The string the server sent, cut after the third decimal (`D-82`) —
+                                 a string operation: `DB-07` forbids the float a number
+                                 conversion would create. The input keeps every digit. -->
                             <td class="p-3 text-end tabular-nums" data-testid="supplier-quotations-total">
-                                {{ offer.total_price ?? '—' }}
+                                {{ displayDecimals(offer.total_price) ?? '—' }}
                             </td>
 
                             <td class="p-3 tabular-nums">{{ onDate(offer.offer_date) }}</td>

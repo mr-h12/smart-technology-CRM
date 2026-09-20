@@ -307,12 +307,12 @@ describe('the supplier quotations screen', () => {
     });
 
     /** §6.5: monetary values right-aligned with tabular numerals. */
-    it('renders the total as the server sent it, digit for digit', async () => {
+    it('renders the total cut after the third decimal (D-82), never parsed', async () => {
         const wrapper = await render(respond());
 
         const cell = wrapper.find('[data-testid="supplier-quotations-total"]');
 
-        expect(cell.text()).toBe('4500.000000');
+        expect(cell.text()).toBe('4500.000');
         expect(cell.classes()).toContain('tabular-nums');
     });
 });
@@ -676,9 +676,11 @@ describe('the supplier quotation line editor', () => {
         await flushPromises();
 
         const balance = view.get('[data-testid="supplier-quotation-line-0-balance"]').text();
+        // D-82: the three figures are cut after the third decimal; the input above keeps '3.000' digit for digit.
         expect(balance).toContain('3.000');
-        expect(balance).toContain('1.0000');
-        expect(balance).toContain('2.0000');
+        expect(balance).toContain('1.000');
+        expect(balance).toContain('2.000');
+        expect(balance).not.toContain('1.0000');
 
         await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');

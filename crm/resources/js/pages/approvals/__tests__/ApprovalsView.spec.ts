@@ -126,7 +126,7 @@ describe('the approvals screen', () => {
         expect(wrapper.find('[data-testid="approvals-group-heading"]').text()).toBe('Sara Sales');
         expect(wrapper.find('[data-testid="approvals-code"]').text()).toBe('QT-2026-0001');
         expect(wrapper.find('[data-testid="approvals-customer"]').text()).toBe('Acme Industrial');
-        expect(wrapper.find('[data-testid="approvals-total"]').text()).toBe('1235.000000 EGP');
+        expect(wrapper.find('[data-testid="approvals-total"]').text()).toBe('1235.000 EGP');
         expect(wrapper.find('[data-testid="approvals-days-waiting"]').text()).toBe('3');
     });
 

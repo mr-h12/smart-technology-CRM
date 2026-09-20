@@ -76,6 +76,7 @@ import {
     type QuotationGroup,
 } from '@/services/quotations';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import { displayDecimals } from '@/domain/displayDecimals';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 
 const { t, locale } = useI18n();
@@ -558,7 +559,7 @@ onMounted(async () => {
                             <!-- `Design System §6.3`: amount and currency visibly paired. The figure
                                  is the server's string — `DB-07` has no client-side exception. -->
                             <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="quotations-total">
-                                {{ quotation.final_total }} {{ quotation.currency }}
+                                {{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}
                             </td>
                             <td class="hidden p-3 tabular-nums md:table-cell">{{ onDate(quotation.quotation_date) }}</td>
                             <td class="hidden p-3 tabular-nums lg:table-cell">{{ onDate(quotation.valid_until) }}</td>

@@ -181,7 +181,7 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-version"]').text()).toBe('v1');
         // `Design System §6.3`: "Keep amount and currency visibly paired". The
         // figure is the server's string, digit for digit — never a `Number`.
-        expect(wrapper.find('[data-testid="quotations-total"]').text()).toBe('1235.000000 EGP');
+        expect(wrapper.find('[data-testid="quotations-total"]').text()).toBe('1235.000 EGP');
     });
 
     it('resolves the customer to a name, and falls back to the identifier', async () => {

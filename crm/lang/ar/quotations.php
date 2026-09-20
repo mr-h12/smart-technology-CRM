@@ -50,7 +50,7 @@ return [
 
     // تحذير §5.6 — يُحمل في `meta.warnings` عند إنشاء ناجح.
     'warnings' => [
-        'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز ما سجّله المورّد.',
+        'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز المتاح من عرض المورّد.',
         'supplier_price_changed' => 'تغيّر سعر المورّد — راجع التسعير.',
     ],
 

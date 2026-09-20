@@ -50,7 +50,7 @@ return [
 
     // §5.6's warning — carried in `meta.warnings` on a successful create.
     'warnings' => [
-        'quantity_exceeds_recorded' => 'The requested quantity exceeds what the supplier recorded.',
+        'quantity_exceeds_recorded' => 'The requested quantity exceeds what is left of the supplier\'s offer.',
         'supplier_price_changed' => 'Supplier price has changed — review pricing.',
     ],
 

@@ -1203,9 +1203,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [ ] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
             line inside its transaction and carries old/new `consumed_quantity` in its audit entry.
             Listed here so the dependency is visible; built as a Module 10 point, not an F-05 one.
-      - [ ] **1.6** Screens: the builder's quantity placeholder (F-04) and the muted line show
+      - [x] **1.6** Screens: the builder's quantity placeholder (F-04) and the muted line show
             available; the supplier-quotation detail shows recorded · consumed · available. AR/EN ×
-            desktop/375 px via `rtl-ui-verifier`. RED: vitest on both views.
+            desktop/375 px via `rtl-ui-verifier`. RED: vitest on both views. *(2026-09-21, #155 —
+            the builder's muted line shows price · available (owner's choice, two figures); there
+            is no read-only offer detail, so recorded · consumed · available sits under each loaded
+            line of the edit modal, never on a new line; `SupplierQuotationLine` gained the two keys
+            #151 published; 860 vitest)*
       - [ ] **1.7** Manual test list for F-05 in Arabic, one line per check, roles named, including
             what 1.5 leaves untestable until Module 10.
 

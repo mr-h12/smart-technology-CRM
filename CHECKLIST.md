@@ -1284,6 +1284,37 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - **رمز التحذير على السلك** `quantity_exceeds_recorded` يقول «المسجَّل» وجملته تقول «المتاح» — سقف معلن في
         1.4 (`OpenAPI §5.1`)؛ ليس عيبًا تراه الشاشة.
 
+- [ ] **F-06** Numbers are displayed at three decimal places (Modules 2 ← 6 ← 7 ← 8). Owner's ruling
+      2026-09-21, recorded as `D-82` (proposed): storage stays `D-68`; the SPA shows money and
+      quantities cut — truncated, not rounded — to three places, percentages and FX rates as stored;
+      inputs send exactly what was typed; the customer PDF is Module 9's own decision (nothing exists
+      yet to decide about — `app/Modules/Pdf` is empty on `main`, #118's DTOs carry plain strings).
+      Nothing in `docs/` said what a person sees before D-82: Design System §6.3 says "format only
+      for display" and every screen printed the stored string. Each point is its own `fix/…` branch,
+      one per turn, seven-part report, owner's merge.
+
+      ### F-06 point list — published 2026-09-21
+
+      - [x] **1.1** `D-82` in §2 (proposed) + this list. Docs only — no CI runs on `docs/` or
+            `CHECKLIST.md`. *(2026-09-21, #157 — the D-82 row pasted by the owner under a one-time
+            authorization after the docs guard hook and the app's permission layer both refused the
+            agent's write; `.claude/settings.json` untouched)*
+      - [ ] **1.2** One formatter in `crm/resources/js` (search first: only `Ping.vue:87`'s latency
+            `Intl.NumberFormat` exists, and it is not one — the `ar` locale would emit Arabic-Indic
+            digits, §5 forbids), a string cut after the third decimal, never `Number()`. Applied to
+            every displayed money and quantity figure — the Explore inventory of 2026-09-21: money
+            17 sites (`QuotationDetailView` 11, `QuotationsView` 1, `ApprovalsView` 1,
+            `QuotationBuilderView` 3, `SupplierQuotationsView` 1), quantity 6 (`QuotationDetailView`,
+            the builder's muted line and placeholder, the offer editor's recorded · consumed ·
+            available triple). Percent (4) and FX (1) sites and every `v-model` input untouched.
+            RED first: `1000.000000` displays as `1000.000`; the two tests that assert the raw
+            six-decimal string today (`QuotationBuilderView.spec.ts` ~295, `SupplierQuotationsView`'s
+            "digit for digit") flip to the cut form on purpose. `rtl-ui-verifier` on the changed
+            screens, `waste-auditor`; no pricing or permission agent (display only, no route).
+      - [ ] **1.3** Manual test list for F-06 in Arabic — one check per changed screen, the input
+            digit-for-digit vs the display cut at three, AR/EN × desktop/375 px; and what the PDF's
+            places are not (Module 9's).
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

@@ -356,6 +356,8 @@ Pricing is the highest test priority. Before release, test the full lifecycle: l
 
 Reference the relevant `D-xx`, `DB-xx`, architecture/security requirement, `J-xx`, or MVP acceptance criterion in implementation notes, tests, or pull-request descriptions. If no authoritative source supports the intended behavior, request a decision before building it.
 
+`CLAUDE.md` is the Claude Code twin of this guide; a project rule that differs between them is a defect. The same applies to the Arabic counterparts under `arabic/` (`arabic/CLAUDE_AR.md`, `arabic/AGENTS_AR.md`): a rule change here is reflected there in the same edit, not deferred to a later translation pass.
+
 ## Agent skills
 
 Two files under `docs/agents/` tell a skill how this repository actually tracks work. Both were

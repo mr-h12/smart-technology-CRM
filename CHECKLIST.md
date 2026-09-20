@@ -1210,8 +1210,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             is no read-only offer detail, so recorded · consumed · available sits under each loaded
             line of the edit modal, never on a new line; `SupplierQuotationLine` gained the two keys
             #151 published; 860 vitest)*
-      - [ ] **1.7** Manual test list for F-05 in Arabic, one line per check, roles named, including
-            what 1.5 leaves untestable until Module 10.
+      - [x] **1.7** Manual test list for F-05 in Arabic, one line per check, roles named, including
+            what 1.5 leaves untestable until Module 10. *(2026-09-21, #156 — 29 checks below, dev
+            figures 66 / 30 / 36 read from the database; 1.5's trigger, audit entry and no-restore
+            rule named as untestable; F-05 closes here, and stays in this file — a fix-pass item,
+            not a module)*
 
       #### قائمة الاختبار اليدوي — F-05 *(النقطة 1.7، 2026-09-21)*
 

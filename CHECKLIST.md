@@ -1003,6 +1003,14 @@ would hide them behind `OD-03` indefinitely.
 
 
 ---
+- [ ] **`SupplierItemPrice::$consumedQuantity` is written and never read** — *revealed by F-05
+      Point 1.4's waste audit, 2026-09-20.* Point 1.2 added `consumedQuantity` and `availableQuantity`
+      to Module 6's pricing contract as its approved line said; Module 7 reads only `availableQuantity`
+      (`PriceQuotation.php`, the §5.6 comparison), and the supplier-quotation view reads the three
+      numbers through `SupplierQuotationLine`, not this DTO. 1.4 removed `recordedQuantity` for the same
+      reason because 1.4 itself orphaned it; `consumedQuantity` was orphaned at birth, so it is
+      registered rather than swept. Remove it in whichever F-05 point next touches the contract, unless
+      Module 10's caller turns out to read it.
 
 ## Agent guide revisions — owner-directed
 
@@ -1187,9 +1195,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             #152 — guard table `supplier_quotation_item_consumptions`, `ON CONFLICT DO NOTHING
             RETURNING`; returns the new balance via `UPDATE … RETURNING`; Module 10's gate is
             §3.5 "record customer response")*
-      - [ ] **1.4** `PriceQuotation`'s §5.6 warning compares the requested quantity against
+      - [x] **1.4** `PriceQuotation`'s §5.6 warning compares the requested quantity against
             **available**, not recorded. RED: a line whose quantity is ≤ recorded and > available
-            warns. `pricing-invariant-reviewer`.
+            warns. `pricing-invariant-reviewer`. *(2026-09-20, #PR — one operand; the warning's
+            sentence reworded ar/en, its wire code `quantity_exceeds_recorded` kept (OpenAPI §5.1);
+            `SupplierItemPrice::$recordedQuantity` removed, it had no reader left)*
       - [ ] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
             line inside its transaction and carries old/new `consumed_quantity` in its audit entry.
             Listed here so the dependency is visible; built as a Module 10 point, not an F-05 one.

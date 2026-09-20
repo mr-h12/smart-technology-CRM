@@ -33,14 +33,14 @@ final readonly class SupplierItemPrice
      *
      * @param  string  $unitPrice  the supplier's `unit_price`, in the currency `$currencyId` names
      * @param  string|null  $currencyId  the parent offer's currency, or null when it recorded none
-     * @param  string  $recordedQuantity  what the supplier quoted — the offer, never edited (§7.2)
-     * @param  string  $consumedQuantity  what accepted customer quotations drew from it (`D-81`)
-     * @param  string  $availableQuantity  `recorded − consumed`, PostgreSQL's exact NUMERIC result (`D-81`; §5.6's warning compares to this)
+     * @param  string  $consumedQuantity  what accepted customer quotations drew from the offer (`D-81`)
+     * @param  string  $availableQuantity  `quantity − consumed`, PostgreSQL's exact NUMERIC result (`D-81`; §5.6's warning compares to this).
+     *                                     The recorded offer itself is not carried: since F-05 · 1.4 nothing prices against it — the
+     *                                     supplier-quotation view reads it through `SupplierQuotationLine`, not this contract.
      */
     public function __construct(
         public string $unitPrice,
         public ?string $currencyId,
-        public string $recordedQuantity,
         public string $consumedQuantity,
         public string $availableQuantity,
     ) {}

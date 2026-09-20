@@ -39,8 +39,8 @@ use InvalidArgumentException;
  * ── §5.6's two outcomes ────────────────────────────────────────────────────
  *
  * A price missing at the supplier **blocks** ({@see QuotationNotPriceable}); a
- * requested quantity above the supplier's recorded amount **warns and does not**
- * ({@see PricedQuotation::$quantityWarnings}).
+ * requested quantity above what the offer has left — its available balance,
+ * `D-81` — **warns and does not** ({@see PricedQuotation::$quantityWarnings}).
  *
  * ── `D-63`: tax is derived, not trusted ────────────────────────────────────
  *
@@ -112,8 +112,11 @@ final readonly class PriceQuotation
             );
             $pricedLines[] = $priced;
 
-            // §5.6: requested above the recorded amount → warn, never block.
-            if (bccomp($quantity, Decimal::of($price->recordedQuantity, 'recorded_quantity'), PricedLine::SCALE) > 0) {
+            // §5.6: requested above what the offer has left → warn, never
+            // block. `D-81` (F-05 · 1.4): the ceiling is the available balance
+            // (`quantity − consumed_quantity`, computed by Module 6), not the
+            // recorded offer.
+            if (bccomp($quantity, Decimal::of($price->availableQuantity, 'available_quantity'), PricedLine::SCALE) > 0) {
                 $warnings[] = $index + 1;
             }
 

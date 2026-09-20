@@ -1295,8 +1295,10 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       ### F-06 point list — published 2026-09-21
 
-      - [ ] **1.1** `D-82` in §2 (proposed) + this list. Docs only — no CI runs on `docs/` or
-            `CHECKLIST.md`.
+      - [x] **1.1** `D-82` in §2 (proposed) + this list. Docs only — no CI runs on `docs/` or
+            `CHECKLIST.md`. *(2026-09-21, #157 — the D-82 row pasted by the owner under a one-time
+            authorization after the docs guard hook and the app's permission layer both refused the
+            agent's write; `.claude/settings.json` untouched)*
       - [ ] **1.2** One formatter in `crm/resources/js` (search first: only `Ping.vue:87`'s latency
             `Intl.NumberFormat` exists, and it is not one — the `ar` locale would emit Arabic-Indic
             digits, §5 forbids), a string cut after the third decimal, never `Number()`. Applied to

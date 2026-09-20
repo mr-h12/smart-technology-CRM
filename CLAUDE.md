@@ -381,7 +381,7 @@ way a seven-part report closes a point.
 
 - Cite the relevant decision (`D-xx`), database rule (`DB-xx`), architecture/security requirement, scheduled job (`J-xx`), or MVP module acceptance criterion in implementation notes, tests, or pull-request descriptions.
 - If no authoritative source supports a proposed behavior, treat it as a new requirement and request a decision before building it.
-- `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to an Arabic counterpart once one exists.
+- `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to the Arabic counterparts under `arabic/` (`arabic/CLAUDE_AR.md`, `arabic/AGENTS_AR.md`): a rule change here is reflected there in the same edit, not deferred to a later translation pass.
 
 ## Agent skills
 

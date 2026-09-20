@@ -115,7 +115,14 @@ type LineField = (typeof LINE_FIELDS)[number];
  * one to a JavaScript number and printing it back would change the value the
  * person is looking at.
  */
-interface LineValues extends Record<LineField, string> {}
+interface LineValues extends Record<LineField, string> {
+    /**
+     * D-81, read-only: the offer as the server holds it and what is left of
+     * it. Only a loaded line has one — a new line has consumed nothing — and
+     * `items()` never sends it back.
+     */
+    balance?: { recorded: string; consumed: string; available: string };
+}
 
 function blankLine(): LineValues {
     return { catalog_item_id: '', product_name: '', unit_price: '', quantity: '' };
@@ -338,6 +345,7 @@ async function loadLines(record: SupplierQuotation | null): Promise<void> {
             catalog_item_id: line.catalog_item_id,
             unit_price: line.unit_price,
             quantity: line.quantity,
+            balance: { recorded: line.quantity, consumed: line.consumed_quantity, available: line.available_quantity },
         }));
         openedLines.value = JSON.stringify(lines.value);
         linesState.value = 'ready';
@@ -864,6 +872,14 @@ function discard(): void {
                         :data-testid="lineTestId(index, 'quantity-error')"
                     >
                         {{ lineErrorFor(index, 'quantity') }}
+                    </p>
+                    <!-- D-81: the balance the accepted quotations left, beside the offer that is edited above. -->
+                    <p
+                        v-if="line.balance !== undefined"
+                        class="basis-full text-[var(--color-text-muted)] tabular-nums"
+                        :data-testid="lineTestId(index, 'balance')"
+                    >
+                        {{ t('supplierQuotations.form.lineBalance', line.balance) }}
                     </p>
                 </div>
 

@@ -40,8 +40,9 @@ const SQ_OTHER = { id: 'sq2', code: 'SQ-2026-0002', supplier_id: 's2', deal_id: 
 const SQ_DETAIL = {
     ...SQ_DEAL,
     items: [
-        { id: 'sqi1', catalog_item_id: 'ci1', unit_price: '1000.000000', quantity: '5.000' },
-        { id: 'sqi2', catalog_item_id: 'ci2', unit_price: '250.000000', quantity: '1.000' },
+        // F-05 (D-81): the payload carries the balance beside the offer; 2 of 5 already consumed.
+        { id: 'sqi1', catalog_item_id: 'ci1', unit_price: '1000.000000', quantity: '5.000', consumed_quantity: '2.000', available_quantity: '3.000' },
+        { id: 'sqi2', catalog_item_id: 'ci2', unit_price: '250.000000', quantity: '1.000', consumed_quantity: '0.0000', available_quantity: '1.000' },
     ],
 };
 
@@ -284,7 +285,7 @@ describe('the quotation builder (create)', () => {
 
     // ──────────────────────────────────────────────────────────── suppliers
 
-    it('lists a picked supplier quotation’s lines with the catalog name, the recorded price and quantity', async () => {
+    it('lists a picked supplier quotation’s lines with the catalog name, the supplier price and the available quantity', async () => {
         const { wrapper } = await render(respond());
 
         await wrapper.find(id('add-supplier')).trigger('click');
@@ -293,9 +294,11 @@ describe('the quotation builder (create)', () => {
 
         expect(wrapper.find(id('line-0-0-label')).text()).toBe('Pump 5HP');
         expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('1000.000000');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('5.000');
-        // F-04: the recorded quantity is also the box's placeholder, the server's string untouched (DB-07).
-        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('5.000');
+        // F-05 (D-81): the figure beside the price is what is left of the offer, not what it recorded.
+        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('3.000');
+        expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('5.000');
+        // F-04 + F-05: the placeholder is the available balance, the server's string untouched (DB-07).
+        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('3.000');
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
     });
 

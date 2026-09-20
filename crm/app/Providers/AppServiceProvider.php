@@ -88,8 +88,10 @@ use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemQuantityInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemQuantity;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
@@ -266,6 +268,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             SupplierItemPricingInterface::class,
             fn (): EloquentSupplierItemPricing => new EloquentSupplierItemPricing(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // F-05 · 1.3 (`D-81`). The write Module 10's `accepted` transition will
+        // make — one supplier line's balance, by its id. Same shape as the read
+        // above, for the same reason.
+        $this->app->bind(
+            SupplierItemQuantityInterface::class,
+            fn (): EloquentSupplierItemQuantity => new EloquentSupplierItemQuantity(
                 $this->app->make(ConnectionInterface::class),
             ),
         );

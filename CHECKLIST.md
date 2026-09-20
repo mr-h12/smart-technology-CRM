@@ -1178,12 +1178,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `permission-matrix-auditor` (new fields on an existing route). *(2026-09-16, #151 —
             available is `quantity - consumed_quantity` in SQL, never stored; OpenAPI has no
             per-field rows to extend, §8.1 governs)*
-      - [ ] **1.3** `SupplierItemQuantityInterface::consume(itemId, quantity, idempotencyKey)` in
+      - [x] **1.3** `SupplierItemQuantityInterface::consume(itemId, quantity, idempotencyKey)` in
             `SupplierQuotations/Domain/Contracts`, implemented in `Infrastructure` as one atomic
             `UPDATE … SET consumed_quantity = consumed_quantity + ?` guarded by an idempotency
             record. RED: two parallel calls with one key consume once; two keys consume twice.
             No caller yet — the caller is Module 10's `accepted` transition (D-81); say so in the
-            interface's docblock so the waste audit reads it as deferred, not dead.
+            interface's docblock so the waste audit reads it as deferred, not dead. *(2026-09-16,
+            #152 — guard table `supplier_quotation_item_consumptions`, `ON CONFLICT DO NOTHING
+            RETURNING`; returns the new balance via `UPDATE … RETURNING`; Module 10's gate is
+            §3.5 "record customer response")*
       - [ ] **1.4** `PriceQuotation`'s §5.6 warning compares the requested quantity against
             **available**, not recorded. RED: a line whose quantity is ≤ recorded and > available
             warns. `pricing-invariant-reviewer`.

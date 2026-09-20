@@ -1197,7 +1197,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             §3.5 "record customer response")*
       - [x] **1.4** `PriceQuotation`'s §5.6 warning compares the requested quantity against
             **available**, not recorded. RED: a line whose quantity is ≤ recorded and > available
-            warns. `pricing-invariant-reviewer`. *(2026-09-20, #PR — one operand; the warning's
+            warns. `pricing-invariant-reviewer`. *(2026-09-20, #154 — one operand; the warning's
             sentence reworded ar/en, its wire code `quantity_exceeds_recorded` kept (OpenAPI §5.1);
             `SupplierItemPrice::$recordedQuantity` removed, it had no reader left)*
       - [ ] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per

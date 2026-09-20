@@ -48,9 +48,9 @@ const QUOTATION = {
     net_amount: '1026.000000',
     total_before_round: '1126.000000',
     rounding_diff: '24.000000',
-    payment_terms: '50% advance',
+    payment_terms: '50% advance. Balance on delivery.',
     warranty: null,
-    delivery_terms: 'Ex works',
+    delivery_terms: 'Ex works. Cairo warehouse.',
     show_delivery_terms: true,
     rejection_reason: null,
     sent_at: null,
@@ -197,7 +197,10 @@ describe('the quotation detail view', () => {
         expect(wrapper.find('[data-testid="quotation-status"]').text()).toContain('Draft');
         expect(wrapper.find('[data-testid="quotation-detail-customer"]').text()).toBe('Acme Industrial');
         expect(wrapper.find('[data-testid="quotation-detail-deal"]').attributes('href')).toBe('/deals/d1');
-        expect(wrapper.find('[data-testid="quotation-detail-payment_terms"]').text()).toBe('50% advance');
+        // D-82 cuts money and quantities only: free text a salesperson typed renders whole,
+        // periods and all — it never goes near the formatter.
+        expect(wrapper.find('[data-testid="quotation-detail-payment_terms"]').text()).toBe('50% advance. Balance on delivery.');
+        expect(wrapper.find('[data-testid="quotation-detail-delivery_terms"]').text()).toBe('Ex works. Cairo warehouse.');
         expect(wrapper.find('[data-testid="quotation-detail-warranty"]').text()).toBe('—');
     });
 
@@ -205,16 +208,20 @@ describe('the quotation detail view', () => {
         const { wrapper } = await render(respond());
 
         const totals = wrapper.find('[data-testid="quotation-detail-totals"]');
-        expect(totals.find('[data-testid="quotation-total-subtotal"]').text()).toBe('1000.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-additional_total"]').text()).toBe('100.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-discount_amount"]').text()).toBe('100.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-tax_base"]').text()).toBe('900.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-tax_amount"]').text()).toBe('126.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-rounding_diff"]').text()).toBe('24.000000 EGP');
-        expect(totals.find('[data-testid="quotation-total-final_total"]').text()).toBe('1150.000000 EGP');
+        expect(totals.find('[data-testid="quotation-total-subtotal"]').text()).toBe('1000.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-additional_total"]').text()).toBe('100.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-discount_amount"]').text()).toBe('100.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-tax_base"]').text()).toBe('900.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-tax_amount"]').text()).toBe('126.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-rounding_diff"]').text()).toBe('24.000 EGP');
+        expect(totals.find('[data-testid="quotation-total-final_total"]').text()).toBe('1150.000 EGP');
         // The percentages ride on their labels.
         expect(totals.text()).toContain('10.00%');
         expect(totals.text()).toContain('14.00%');
+        // D-82 reaches the rounding unit on its label too: it is a money figure, not a
+        // percentage, so it is cut like the diff beside it — owner's ruling 2026-09-21.
+        expect(totals.text()).toContain('Rounding (to 1.000)');
+        expect(totals.text()).not.toContain('1.000000');
     });
 
     it('draws no tax row at all on an exempt quotation, and no rounding row when the currency does not round', async () => {
@@ -236,7 +243,7 @@ describe('the quotation detail view', () => {
         expect(bare.wrapper.find('[data-testid="quotation-lines"]').text()).not.toContain('Cost');
 
         const costed = await render(respond({ quotation: { ...QUOTATION, default_margin: '25.00', items: [COSTED_LINE] } }));
-        expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.000000');
+        expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.000');
         expect(costed.wrapper.find('[data-testid="quotation-line-margin_percent"]').text()).toBe('25.00%');
         expect(costed.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('25.00%');
     });
@@ -245,9 +252,9 @@ describe('the quotation detail view', () => {
         const { wrapper } = await render(respond());
 
         expect(wrapper.find('[data-testid="quotation-line-quantity"]').text()).toBe('2.000');
-        expect(wrapper.find('[data-testid="quotation-line-unit_price"]').text()).toBe('500.000000');
+        expect(wrapper.find('[data-testid="quotation-line-unit_price"]').text()).toBe('500.000');
         expect(wrapper.find('[data-testid="quotation-additional-description"]').text()).toBe('Delivery');
-        expect(wrapper.find('[data-testid="quotation-additional-amount"]').text()).toBe('100.000000');
+        expect(wrapper.find('[data-testid="quotation-additional-amount"]').text()).toBe('100.000');
     });
 
     it('draws each warning from `meta.warnings` as an alert in the server’s words', async () => {

@@ -34,6 +34,7 @@ import {
     type QuotationGroup,
     type QuotationSummary,
 } from '@/services/quotations';
+import { displayDecimals } from '@/domain/displayDecimals';
 
 const { t } = useI18n();
 
@@ -223,7 +224,7 @@ onMounted(load);
                                     </RouterLink>
                                 </td>
                                 <td class="p-3" data-testid="approvals-customer">{{ customerName(row.customer_id) }}</td>
-                                <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total">{{ row.final_total }} {{ row.currency }}</td>
+                                <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total">{{ displayDecimals(row.final_total) }} {{ row.currency }}</td>
                                 <td class="whitespace-nowrap p-3 text-end tabular-nums">
                                     <span data-testid="approvals-days-waiting">{{ row.days_waiting ?? '—' }}</span>
                                     <!-- `D-11` in words, not only in red. -->

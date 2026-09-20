@@ -250,6 +250,20 @@ These are not. They are blocked on an owner decision or on ordinary work, they w
 created by work already merged, and keeping them under a heading that says "wait for the server"
 would hide them behind `OD-03` indefinitely.
 
+- [ ] **The quotations table clips its money column at 375 px in Arabic RTL** — *found by
+      `rtl-ui-verifier` during F-06 · 1.2 (2026-09-21, #158); pre-existing, not created by that
+      point, so it was registered rather than swept into an unrelated diff.* At 375 px the
+      `/quotations` table's wrapper overflows its container (`scrollWidth 539` vs `clientWidth 519`,
+      20 px), and in RTL the overflow lands on the Total column, so `EGP 57500.000` renders as
+      `GP 57500.000` — the leading `E` cut mid-string. Scrolling the table reveals it but then
+      clips the quotation-code column instead. In LTR at the same width the column is merely
+      off-screen until scrolled, not clipped mid-character. **Root cause is not the money column:**
+      the app-wide off-canvas sidebar contributes ~46 px of `document.scrollWidth` overflow on
+      *every* screen at 375 px, including the diagnostics page that F-06 never touched — so the fix
+      belongs to the shell, not to a quotations point. **The cost, stated:** a phone user in Arabic
+      reads a currency code one letter short on the list screen. No figure is wrong; `D-82`'s three
+      decimals are correct underneath. Nothing else on the screen is affected.
+
 - [ ] **`team`, `out` and `asgn` row scopes resolve to no rows** — *owner decision, 2026-08-29:
       deferred as debt rather than invented.* §3.2 defines five scopes and only two have a mechanism
       in the system: `all` needs no predicate and `own` is `customers.sales_owner_id`. The other
@@ -1299,7 +1313,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `CHECKLIST.md`. *(2026-09-21, #157 — the D-82 row pasted by the owner under a one-time
             authorization after the docs guard hook and the app's permission layer both refused the
             agent's write; `.claude/settings.json` untouched)*
-      - [ ] **1.2** One formatter in `crm/resources/js` (search first: only `Ping.vue:87`'s latency
+      - [x] **1.2** One formatter in `crm/resources/js` (search first: only `Ping.vue:87`'s latency
             `Intl.NumberFormat` exists, and it is not one — the `ar` locale would emit Arabic-Indic
             digits, §5 forbids), a string cut after the third decimal, never `Number()`. Applied to
             every displayed money and quantity figure — the Explore inventory of 2026-09-21: money
@@ -1311,6 +1325,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             six-decimal string today (`QuotationBuilderView.spec.ts` ~295, `SupplierQuotationsView`'s
             "digit for digit") flip to the cut form on purpose. `rtl-ui-verifier` on the changed
             screens, `waste-auditor`; no pricing or permission agent (display only, no route).
+            *(2026-09-21, #158 — 18 money + 6 quantity sites; the rounding-unit label is the 18th,
+            one past the inventory on the owner's ruling, and `text()` truncating free text at the
+            first period was the defect the point created and fixed)*
       - [ ] **1.3** Manual test list for F-06 in Arabic — one check per changed screen, the input
             digit-for-digit vs the display cut at three, AR/EN × desktop/375 px; and what the PDF's
             places are not (Module 9's).

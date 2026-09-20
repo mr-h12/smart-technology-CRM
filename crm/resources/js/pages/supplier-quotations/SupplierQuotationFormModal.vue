@@ -59,6 +59,7 @@ import {
     type SupplierQuotationLineDraft,
 } from '@/services/supplier-quotations';
 import type { Supplier } from '@/services/suppliers';
+import { displayDecimals } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{
@@ -345,7 +346,7 @@ async function loadLines(record: SupplierQuotation | null): Promise<void> {
             catalog_item_id: line.catalog_item_id,
             unit_price: line.unit_price,
             quantity: line.quantity,
-            balance: { recorded: line.quantity, consumed: line.consumed_quantity, available: line.available_quantity },
+            balance: { recorded: displayDecimals(line.quantity), consumed: displayDecimals(line.consumed_quantity), available: displayDecimals(line.available_quantity) },
         }));
         openedLines.value = JSON.stringify(lines.value);
         linesState.value = 'ready';

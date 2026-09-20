@@ -59,6 +59,7 @@ import {
     type QuotationDetail,
     type QuotationWarning,
 } from '@/services/quotations';
+import { displayDecimals } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 
 const route = useRoute();
@@ -429,11 +430,11 @@ onMounted(refresh);
                         <tbody>
                             <tr v-for="line in quotation.items" :key="line.id" class="table-row">
                                 <td class="p-3 tabular-nums">{{ line.line_no }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ line.quantity }}</td>
-                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(line.unit_cost) }}</td>
+                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayDecimals(line.quantity) }}</td>
+                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(displayDecimals(line.unit_cost)) }}</td>
                                 <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-margin_percent">{{ percent(line.margin_percent) }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ line.unit_price }}</td>
-                                <td class="p-3 text-end tabular-nums">{{ line.line_total }}</td>
+                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
+                                <td class="p-3 text-end tabular-nums">{{ displayDecimals(line.line_total) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -454,7 +455,7 @@ onMounted(refresh);
                         <tbody>
                             <tr v-for="item in quotation.additional_items" :key="item.id" class="table-row">
                                 <td class="p-3" data-testid="quotation-additional-description">{{ item.description }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-additional-amount">{{ item.amount }}</td>
+                                <td class="p-3 text-end tabular-nums" data-testid="quotation-additional-amount">{{ displayDecimals(item.amount) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -464,30 +465,30 @@ onMounted(refresh);
             <!-- §7.2's totals block, in the engine's order (§5.5). Money and currency visibly paired (§6.3). -->
             <dl class="totals rounded-xl p-4" data-testid="quotation-detail-totals">
                 <dt>{{ t('quotations.detail.subtotal') }}</dt>
-                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-subtotal">{{ quotation.subtotal }} {{ quotation.currency }}</dd>
+                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-subtotal">{{ displayDecimals(quotation.subtotal) }} {{ quotation.currency }}</dd>
 
                 <dt>{{ t('quotations.detail.discount', { percent: quotation.discount_percent }) }}</dt>
-                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-discount_amount">{{ quotation.discount_amount }} {{ quotation.currency }}</dd>
+                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-discount_amount">{{ displayDecimals(quotation.discount_amount) }} {{ quotation.currency }}</dd>
 
                 <!-- `D-63`: an exempt quotation renders no tax line at all. -->
                 <template v-if="quotation.tax_amount !== null">
                     <dt>{{ t('quotations.detail.taxBase') }}</dt>
-                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_base">{{ quotation.tax_base }} {{ quotation.currency }}</dd>
+                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_base">{{ displayDecimals(quotation.tax_base) }} {{ quotation.currency }}</dd>
                     <dt>{{ t('quotations.detail.tax', { percent: quotation.tax_percent }) }}</dt>
-                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_amount">{{ quotation.tax_amount }} {{ quotation.currency }}</dd>
+                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_amount">{{ displayDecimals(quotation.tax_amount) }} {{ quotation.currency }}</dd>
                 </template>
 
                 <dt>{{ t('quotations.detail.additionalTotal') }}</dt>
-                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-additional_total">{{ quotation.additional_total }} {{ quotation.currency }}</dd>
+                <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-additional_total">{{ displayDecimals(quotation.additional_total) }} {{ quotation.currency }}</dd>
 
                 <!-- `D-65`: rounding is per currency; off means no row, not a zero. -->
                 <template v-if="quotation.rounding_enabled">
-                    <dt>{{ t('quotations.detail.rounding', { unit: quotation.rounding_unit }) }}</dt>
-                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-rounding_diff">{{ quotation.rounding_diff }} {{ quotation.currency }}</dd>
+                    <dt>{{ t('quotations.detail.rounding', { unit: displayDecimals(quotation.rounding_unit) }) }}</dt>
+                    <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-rounding_diff">{{ displayDecimals(quotation.rounding_diff) }} {{ quotation.currency }}</dd>
                 </template>
 
                 <dt class="totals-final">{{ t('quotations.detail.finalTotal') }}</dt>
-                <dd class="totals-final whitespace-nowrap tabular-nums" data-testid="quotation-total-final_total">{{ quotation.final_total }} {{ quotation.currency }}</dd>
+                <dd class="totals-final whitespace-nowrap tabular-nums" data-testid="quotation-total-final_total">{{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}</dd>
             </dl>
         </template>
     </section>

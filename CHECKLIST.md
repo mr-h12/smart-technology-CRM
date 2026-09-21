@@ -1043,6 +1043,15 @@ would hide them behind `OD-03` indefinitely.
       With 2 suppliers in dev data none of it can be seen yet. Two fixes, not one: the filter and the
       picker take `CustomerPicker` made generic, when a second case is ordered; the row names need a
       supplier names port, as `D-83` gave customers.
+- [ ] **The `php` container mounts two single files, which go stale when git rewrites them** — *revealed
+      by F-08 Point 1.2, 2026-09-21: 50 of 2900 backend tests failed with `file(/opt/crm/docs/CRM_Documentation_EN.md):
+      Failed to open stream`.* `docker-compose.yml:195` mounts `./docs/CRM_Documentation_EN.md` and `:190`
+      mounts `./docker-compose.yml`, each as a single-file bind mount. A single-file mount follows the
+      **inode**, and git writes a changed file as a new one — so after a merge or a branch switch that
+      touches the file, the container keeps the deleted inode (`stat`: 0 links) and every test that reads the
+      master documentation fails. Nothing in the code was wrong; `docker compose restart php` re-attached
+      it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
+      the file — a change to the dev environment, so it is the owner's call, not this point's.
 
 ## Agent guide revisions — owner-directed
 

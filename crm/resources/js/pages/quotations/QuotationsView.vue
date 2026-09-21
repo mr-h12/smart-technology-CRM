@@ -49,10 +49,8 @@
  * from `listCustomers({ perPage: 100 })` degraded every row on a 403, capped
  * at the hundredth customer, and could never name an archived one. The
  * server sends the id itself when the facts do not name it, so there is no
- * fallback here. `listCustomers` stays for one thing only: the customer
- * filter's options, which is a customer list a person picks from and is
- * §3.3-scoped as one should be; its `perPage: 100` ceiling is the same one
- * Deals and Module 6 record.
+ * fallback here. The customer filter is `CustomerPicker` (`D-84`, F-08): it
+ * asks the server as the person types, so no capped list is read on load.
  *
  * ── The route is the permission's, not §8's ────────────────────────────────
  *
@@ -66,11 +64,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ApiError, type Pagination } from '@/api';
+import CustomerPicker from '@/components/customers/CustomerPicker.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
-import { listCustomers, type Customer } from '@/services/customers';
 import {
     QUOTATION_DEFAULT_SORT,
     QUOTATION_STATUSES,
@@ -120,7 +118,6 @@ function emptyPanel(): Panel {
 
 const view = ref<View>(storedView());
 const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel(), incomplete: emptyPanel(), history: emptyPanel() });
-const customers = ref<Customer[]>([]);
 
 const loading = computed(() => BUCKETS.some((bucket) => panels.value[bucket].loading));
 const denied = computed(() => BUCKETS.some((bucket) => panels.value[bucket].denied));
@@ -219,20 +216,6 @@ async function chooseView(next: View): Promise<void> {
     await load();
 }
 
-/**
- * The customer filter's options. Best-effort: §3.3 gates customers
- * separately, so a caller may read quotations and not customers — then the
- * filter is empty, not an error page over a list that loaded. The names on
- * the rows do not depend on this call (`D-83`).
- */
-async function loadCustomers(): Promise<void> {
-    try {
-        customers.value = (await listCustomers({ perPage: 100 })).items;
-    } catch {
-        customers.value = [];
-    }
-}
-
 /** Any change to the question invalidates the page number. */
 async function applyFilters(): Promise<void> {
     // A total sort without a currency is the 400 Step 5 Q3 describes; fall
@@ -287,7 +270,7 @@ function onDate(value: string | null): string {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadCustomers()]);
+    await load();
 });
 </script>
 
@@ -321,15 +304,12 @@ onMounted(async () => {
 
             <label class="flex flex-col gap-1">
                 <span>{{ t('quotations.filter.customer') }}</span>
-                <select
+                <CustomerPicker
                     v-model="customerFilter"
-                    class="form-field min-h-11 rounded-lg px-3"
-                    data-testid="quotations-filter-customer"
-                    @change="applyFilters"
-                >
-                    <option value="">{{ t('quotations.filter.customerAll') }}</option>
-                    <option v-for="customer in customers" :key="customer.id" :value="customer.id">{{ customer.name }}</option>
-                </select>
+                    :all-label="t('quotations.filter.customerAll')"
+                    test-id="quotations-filter-customer"
+                    @update:model-value="applyFilters"
+                />
             </label>
 
             <!-- §6.6's "period" — `quotation_date`, inclusive (Step 5 Q4). -->

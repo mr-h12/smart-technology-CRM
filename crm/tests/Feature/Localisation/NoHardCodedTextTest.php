@@ -96,6 +96,9 @@ final class NoHardCodedTextTest extends TestCase
                 'CustomerDetailView.vue',
                 'CustomerFormModal.vue',
                 'CustomerImportModal.vue',
+                // F-08 · 1.2 (`D-84`) — the shared customer search dropdown; every
+                // line it draws is a `customers.picker.*` key or a label its caller passes.
+                'CustomerPicker.vue',
                 'CustomersView.vue',
                 // Module 5 Point 6.2 — §8's Requests/Deals screen. Added on
                 // the same terms as every entry here: the scan below was run

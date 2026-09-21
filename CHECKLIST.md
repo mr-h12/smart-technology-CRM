@@ -1082,6 +1082,24 @@ would hide them behind `OD-03` indefinitely.
       lang key. None carries a per-module rule (the columns and the flag rule live in `SupplierCsv` /
       `ImportSuppliers`), so they could move to `App\Support\Csv` beside `CsvReader`, on its
       `SharedContracts` terms. F-10's catalog import would make it three copies — the natural moment.
+      **Taken up by F-10 · 1.2 / `D-86` (2026-09-21), before the catalog importer; closes with that point.**
+- [ ] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
+      "Not covered" of `D-85` and `D-87`, and made a ruling of F-10 (owner, 2026-09-21: "every row creates a
+      new item"); registered here 2026-09-21 because until now it lived only in prose.* Importing one file
+      twice makes two copies of every row (proved on the test database in F-09: 3 ⇒ 6). `product_code`
+      carries no unique index either (`create_catalog_items`), so the database does not catch it. Owner's
+      call when to order; any fix has to decide what "the same record" means per module first.
+- [ ] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
+      "telling the user which rows were rejected is out of F-10"; registered here the same day.* The three
+      import results (`ImportSummary` in Customers and Suppliers, and F-10's catalog one) carry
+      `row_count − imported_count` and nothing per row, so a file with 40 rejected rows gives the user no
+      way to find them but by eye. Owner's call when to order.
+- [ ] **The catalog form accepts any text as a unit or service type; the import will not** — *revealed by
+      F-10 · 1.1's measurement, 2026-09-21; registered, not fixed, by the owner's choice.*
+      `SaveCatalogItemRequest.php:104,107` check `unit` and `service_type` only as strings of ≤ 64, while
+      F-10's import rejects a value that is not in the `units` / `service_types` managed list (owner's
+      ruling Q4). So a hand-typed value the import would refuse can be saved through the form. Existing
+      rows are not measured for off-list values. Owner's call when to order.
 - [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
       — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
       reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
@@ -2080,6 +2098,98 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - **`D-85` ما زال «مقترحًا»** في §2 (سطر 156) حتّى يقلبه المالك؛ القائمة تختبر ما بُني لا ما اعتُمد.
       - **أثر الفحص:** بعد القائمة تبقى في قاعدة التطوير ثلاثة مورّدين `F09 test …` ودفعة ثانية — يُعطَّلون ولا يُحذفون (DB-01).
 
+
+- [ ] **F-10** Catalog items cannot be imported, and nothing records which supplier carries an item
+      (Module 4). Owner's request, agreed in conversation before F-08 and numbered on 2026-09-21 (first
+      written in the F-09 item above). The decision is **`D-86`** (proposed). It takes up the debt row "The two imports carry
+      three identical shapes…" as its first code point, because a catalog import would be the third copy.
+
+      **The owner's rulings (2026-09-21, in conversation: Q0–Q9, then four follow-ups A1–A4):**
+      1. **A new link between a catalog item and a supplier, with no price** (Q1). §7.3 keeps the catalog
+         "descriptive data only — no prices"; prices stay on supplier quotations. **Many suppliers per
+         item, and editable by hand on the item's form**, every change audited (A3). An import row adds
+         zero or one link.
+      2. **One CSV with a `kind` column** (Q2). Columns: `kind`, `product_code`, `name`, `category`,
+         `unit`, `service_type`, `description`, `company`, `notes`, `is_active`, `supplier` (Q3). An empty
+         `is_active` means active.
+      3. **Rejected and counted** (Q4): an unknown or missing `kind`; a product with no `name`; a `unit`,
+         `service_type` or `company` that is not in its managed list (A1: the import **never creates** a
+         list value, although the form adds an unknown company, so an unknown company is rejected); a
+         value longer than its column; a `supplier` that matches no supplier or more than one (Q7).
+      4. **Saved and flagged incomplete** (Q5, A1, `D-31`): a product with no `unit`, a service with no
+         `service_type`, any row with no `company` — what the form requires. The «سجل ناقص» chip and the
+         incomplete filter come with it, and **an edit that completes the item clears the flag from the
+         start** (`D-87`'s clear-only shape, not a later fix).
+      5. **Matching** (A2): a list value matches its code or either label, and a supplier matches by
+         name, **after trimming and ignoring case**; active and deactivated suppliers both count. A blank
+         `supplier` saves the item with no link (Q7).
+      6. **Every row creates a new item** — no update, no skip (Q6).
+      7. **`catalog.import` stays**, and which roles hold it is the administrator's call, the Manager being
+         only the default (Q8).
+      8. **Out of F-10, registered:** duplicate detection on import; a per-row list of rejected rows; the
+         form accepting off-list units and service types (A4). Three debt rows, 2026-09-21.
+
+      **Gaps found while drafting (measured 2026-09-21, not recalled):**
+      1. **Q8 already works; only the document lags.** `catalog.import` is a matrix row seeded to the
+         Manager (`PermissionMatrix.php:374`); in dev the Manager alone holds it. `PATCH
+         /roles/{role}/permissions` (`admin.manage_roles`) grants or revokes it, the matrix screen lists it
+         under «الكتالوج والموردون», every role but the Super Admin is editable (`RolePayload.php:55`), and
+         the only ungrantable rows are `customer.delete` and `catalog.delete` (`ListPermissions.php:26`).
+         **No code point is needed.** But §3.7's table (doc line 279) prints no import row, although `D-85`
+         says the row is "in §3.7" — the owner pastes it with `D-86`.
+      2. **`company` fills its list from use on the form** (`SaveCatalogItem::withListedCompany`, owner's
+         ruling 2026-08-31); the import does not (ruling 3). The two paths differ on purpose.
+      3. **The form does not check `unit` or `service_type` against their lists**
+         (`SaveCatalogItemRequest.php:104,107`); the import will. Registered as debt (ruling 8).
+      4. **No module publishes a supplier lookup.** `deptrac.modules.yaml` has no `SuppliersContract` layer;
+         Catalog cannot read a supplier by name today without reaching into another module. Point 1.4.
+      5. **`product_code` has no unique index**, so ruling 6 needs no schema change to hold.
+      6. **The existing item↔supplier relation is the priced one:** `supplier_quotation_items.catalog_item_id`.
+         It stays as it is; the new link is separate and carries no price or quantity.
+      7. **`catalog_items` has no `is_incomplete`.** A new column defaults to false, so no existing row is
+         flagged and F-10 needs **no correction command** (unlike F-11 · 1.4).
+      8. **The two imports' shared reader already exists** (`App\Support\Csv\CsvReader`, F-09 · 1.3); what is
+         still copied is the summary, its payload and the upload request (the debt row above).
+
+      **Not covered by F-10:** duplicate detection; per-row rejection reasons; `.xlsx`; importing supplier
+      prices or quantities (they stay on supplier quotations); re-flagging (`D-87` ruling 2); the form's
+      off-list values; the Arabic-Indic dates (F-12, not ordered).
+
+      Each point is its own branch, one per turn, seven-part report, owner's merge.
+
+      ### F-10 point list — published 2026-09-21, approved by merging #184
+
+      - [x] **1.1** `D-86` in §2 (proposed) + this block + the three debt rows. Docs only — the `D-86` row
+            and §3.7's `import` row are pasted by the owner, as `D-85` and `D-87` were.
+            *(2026-09-21, #184 — both rows' text is in #184's description)*
+      - [ ] **1.2** The shared import shapes move to `App\Support\Csv`: the summary, its payload and the
+            upload request, used by Customers and Suppliers. No behaviour change: every existing import
+            test passes unchanged, deptrac 0 violations both configs. Closes the debt row.
+            `waste-auditor` (the old classes are deleted, not left beside the new).
+      - [ ] **1.3** Schema, reversible: `catalog_items.is_incomplete` (default false);
+            `catalog_item_suppliers` (item, supplier, standard columns, soft delete, FKs, one live row per
+            pair); `catalog_import_batches` owned by Catalog. RED first: `migrate:rollback` round trip;
+            the pair constraint refuses a second live link.
+      - [ ] **1.4** A supplier lookup Suppliers publishes (`Domain/Contracts`, its own deptrac layer):
+            the ids matching a name (trimmed, any case, active or not), and names for ids. RED first: 0, 1
+            and 2 matches; spaces and case; a deactivated supplier found.
+      - [ ] **1.5** `POST /catalog/import` under `catalog.import`: rulings 2–6 in one transaction, an audit
+            row per item and per link, one batch row. RED first, one test per rejection and per flag
+            reason, a linked and an unlinked row, `is_active` empty = active, a list value by code and by
+            label, and no managed-list row added. `permission-matrix-auditor`.
+      - [ ] **1.6** An edit that completes a flagged item clears the flag (`D-87`'s shape): clear-only, in
+            the same `CATALOG_ITEM_UPDATED` audit row; `is_incomplete` in the payload and
+            `filter[is_incomplete]`, prohibited in a write. RED first: the three clear-only cases.
+      - [ ] **1.7** Links by hand: the item payload lists its suppliers; the save request takes the full
+            set of supplier ids and replaces it; the change is audited with old and new. Under
+            `catalog.manage`. RED first: add, remove, unchanged set writes no link audit, an unknown id is
+            a 422, a role without `catalog.manage` is refused. `permission-matrix-auditor`.
+      - [ ] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared
+            `ImportModal`), the incomplete filter and chip, the item's suppliers, and a supplier picker in
+            the form. Lang keys AR/EN, `NoHardCodedTextTest`, `rtl-ui-verifier` (AR/EN × desktop/375 px),
+            `waste-auditor`.
+      - [ ] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
+            refused), a sample `.csv` covering every ruling, AR/EN × desktop/375 px. Closes F-10.
 
 - [x] **F-11** The «سجل ناقص» / «Incomplete record» flag never clears once the record is completed
       (Modules 3 and 4). Owner's request, 2026-09-21, after running F-09: `Alex Pipes Trading` was

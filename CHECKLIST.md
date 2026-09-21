@@ -1852,7 +1852,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
         خارج F-08.
       - **تفاصيل الصفقة `/deals/:id`** تسمّي العميل عبر قراءة مقيّدة بالنطاق — دَين (#165)، خارج F-08.
 
-- [ ] **F-09** Suppliers cannot be imported, and nothing can mark a supplier incomplete (Module 4 ←
+- [x] **F-09** Suppliers cannot be imported, and nothing can mark a supplier incomplete (Module 4 ←
       Module 3). Owner's request, agreed in conversation before F-08 and numbered 2026-09-21 (F-08 =
       the customer dropdown, so this item moved from F-08 to F-09 and its decision from D-84 to
       `D-85`; the catalog import and the product↔supplier link are **F-10 / `D-86`**, and the
@@ -1949,9 +1949,10 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `rtl-ui-verifier` (`/suppliers`, AR/EN × desktop/375 px, computed border on every new
             control), `waste-auditor`.
             *(2026-09-21, #177 — the customers' dialog is shared as `components/imports/ImportModal.vue`, owner's choice (a))*
-      - [ ] **1.6** Manual test list for F-09 in Arabic — roles named (the Manager imports; a role
+      - [x] **1.6** Manual test list for F-09 in Arabic — roles named (the Manager imports; a role
             without `catalog.import` sees no button and gets a 403), a sample `.csv` with complete,
             incomplete and nameless rows, AR/EN × desktop/375 px.
+            *(2026-09-21, #178 — 25 checks; sample file (a) proved on the test database: 6 / 3 / 1 / 3)*
 
       #### قائمة الاختبار اليدوي — F-09 *(النقطة 1.6، 2026-09-21)*
 

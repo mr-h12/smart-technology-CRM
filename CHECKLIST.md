@@ -1492,10 +1492,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #PR — `customer_name` beside `customer_id` on the row, the `currency` precedent;
             an id the facts do not name stays the id, the owner's ruling; the per-row mutant failed the
             fake-port test with "actual size 3")*
-      - [ ] **1.4** The SPA stops joining: `loadCustomers`, `customerNames` and `groupLabel`'s customer
+      - [x] **1.4** The SPA stops joining: `loadCustomers`, `customerNames` and `groupLabel`'s customer
             branch go (`QuotationsView.vue`), and the row reads the name the server sent. RED first:
             vitest on the row and on the grouped heading. `rtl-ui-verifier` (AR/EN × desktop/375 px),
             `waste-auditor`.
+            *(2026-09-21, #PR — the join went; `loadCustomers` **stayed** for the customer filter's
+            options, the owner's ruling, because the line above named it without seeing the `<select>`
+            it also fed; the join-back mutant failed the row test; four browser states passed)*
       - [ ] **1.5** `DealsView.vue:209` — the same port, or the same defect registered in the debt
             register with its reason. **Decided at 1.1, not deferred silently.** *Decided 2026-09-21
             at 1.2 (the owner, after 1.1 left it open): **the same port** — Deals' list use case calls

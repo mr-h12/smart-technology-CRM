@@ -2136,7 +2136,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `SUPPLIER_UPDATED` audit row's old/new. RED first: completing a flagged supplier clears it;
             a partial edit keeps it; emptying a field on a complete supplier does not set it; the audit
             row carries `is_incomplete`. `rtl-ui-verifier` (the chip goes after a save), `waste-auditor`.
-            *(2026-09-21, #PR — `SupplierDraft::EXPECTED` is the one list, read by the importer and the
+            *(2026-09-21, #180 — `SupplierDraft::EXPECTED` is the one list, read by the importer and the
             edit; the browser check cleared 4 dev suppliers through the real API, so 1.4's dev expectation
             is now 0 suppliers, not 2.)*
       - [ ] **1.3** Customers: one core-field list (`name`, `sector`, `region`, `contact_person`,

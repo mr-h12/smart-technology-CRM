@@ -2166,7 +2166,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.5** Manual test list for F-11 in Arabic — complete a flagged supplier and customer and
             watch the chip go; a partial edit keeps it; the correction's run (0 and 0 in dev); AR/EN ×
             desktop/375 px. Closes F-11 and the debt row.
-            *(2026-09-21 — 24 checks; dev data read from `crm-postgres` the same evening)*
+            *(2026-09-21, #183 — 24 checks; import sample proved in a rolled-back transaction: 2 / 2 / 1 / 0)*
 
       #### قائمة الاختبار اليدوي — F-11 *(النقطة 1.5، 2026-09-21)*
 

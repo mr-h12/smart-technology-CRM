@@ -1468,7 +1468,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       Each point is its own `fix/…` branch, one per turn, seven-part report, owner's merge.
 
-      ### F-07 point list — published 2026-09-21
+      ### F-07 point list — published 2026-09-21, approved by merging #160
 
       - [x] **1.1** `D-83` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
             owner, as `D-82` was (#157), because the guard hook refuses an agent write to
@@ -1476,12 +1476,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #160 — the owner's reported cause was measured and disproved: the four
             customers owning quotations sit at positions 9/13/19/95 of 234, inside the page of 100,
             so the cap is latent and four other mechanisms carry the defect)*
-      - [ ] **1.2** `CustomerNamesInterface::namesOf(array<string> $ids): array<string,string>` in
+      - [x] **1.2** `CustomerNamesInterface::namesOf(array<string> $ids): array<string,string>` in
             `Customers/Domain/Contracts/`, its Eloquent implementation and its binding. **Name only** —
             never another customer field — so a caller permitted a quotation is not thereby granted
             customer data (owner's ruling, 2026-09-21). RED first: a contract test that an **archived**
             customer and one **outside the caller's row scope** both still return a name, which is
             mechanisms 3 and 4 written as a test. One query for N ids, never N queries. `waste-auditor`.
+            *(2026-09-21, #PR — `EloquentCustomerNames` mirrors `EloquentUserFacts` minus every filter:
+            no `deleted_at` either, the owner's ruling 2026-09-21, so a soft-deleted customer's name
+            still shows; the N+1 mutant failed the query-count test with "actual size 3")*
       - [ ] **1.3** Quotations' list use case calls `namesOf` **once per page** and the row and the
             customer group's `label` carry the name. RED first: a fake port asserting one call per page
             (no N+1), and a row whose customer is archived. `permission-matrix-auditor` (the name-only
@@ -1491,7 +1494,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             vitest on the row and on the grouped heading. `rtl-ui-verifier` (AR/EN × desktop/375 px),
             `waste-auditor`.
       - [ ] **1.5** `DealsView.vue:209` — the same port, or the same defect registered in the debt
-            register with its reason. **Decided at 1.1, not deferred silently.**
+            register with its reason. **Decided at 1.1, not deferred silently.** *Decided 2026-09-21
+            at 1.2 (the owner, after 1.1 left it open): **the same port** — Deals' list use case calls
+            `namesOf` once per page and its SPA join goes.*
       - [ ] **1.6** Manual test list for F-07 in Arabic — a customer inside the page, one **archived**,
             one **outside the caller's scope**, and the 403 path where the name must still appear;
             AR/EN × desktop/375 px; roles named.

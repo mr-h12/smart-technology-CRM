@@ -32,10 +32,12 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
+use App\Modules\Customers\Infrastructure\EloquentCustomerNames;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
@@ -203,6 +205,11 @@ class AppServiceProvider extends ServiceProvider
         // column read by primary key. Module 7 reads `customers.is_tax_exempt`
         // through this to derive a quotation's tax line (`D-63`).
         $this->app->bind(CustomerTaxStatusInterface::class, EloquentCustomerTaxStatus::class);
+
+        // F-07 · 1.2 (`D-83`). `bind` for the same reason: stateless, one
+        // `whereIn` on one table. Module 7 labels its rows through this —
+        // the name only, unfiltered by archive, deletion or scope.
+        $this->app->bind(CustomerNamesInterface::class, EloquentCustomerNames::class);
 
         // Module 7 Point 3.7. `bind` for the same reason: stateless, three
         // statements on one table. `OpenAPI §9.1`'s store, consumed by the

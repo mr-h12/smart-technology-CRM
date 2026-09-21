@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Application\Listing;
 
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
@@ -18,12 +19,21 @@ use App\Modules\Deals\Domain\Listing\DealSummary;
  */
 final readonly class ListDeals
 {
-    public function __construct(private DealDirectoryInterface $deals) {}
+    public function __construct(private DealDirectoryInterface $deals, private CustomerNamesInterface $customers) {}
 
-    /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
+    /**
+     * F-07 · 1.5 (`D-83`): the page carries its customers' names, read
+     * through Customers' contract **once** for the page's distinct ids —
+     * `ListQuotations::handle()`'s shape.
+     *
+     * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
+     */
     public function handle(DealListCriteria $criteria, array $heldScopes, string $actorId): DealPage
     {
-        return $this->deals->list($criteria, DealRowScope::resolve($heldScopes, $actorId));
+        $page = $this->deals->list($criteria, DealRowScope::resolve($heldScopes, $actorId));
+        $names = $this->customers->namesOf(array_values(array_unique(array_map(static fn (DealSummary $row): string => $row->customerId, $page->items))));
+
+        return new DealPage($page->items, $page->total, $page->page, $page->perPage, $names);
     }
 
     /**

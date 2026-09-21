@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Deals;
 
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -92,13 +93,13 @@ final class DealListEndpointTest extends TestCase
         return ['Authorization' => 'Bearer '.$token];
     }
 
-    private function customerId(): string
+    private function customerId(string $name = 'Test Customer'): string
     {
         $id = (string) Str::uuid7();
 
         DB::table('customers')->insert([
             'id' => $id,
-            'name' => 'Test Customer',
+            'name' => $name,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -375,5 +376,105 @@ final class DealListEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'?q=Alpha', $this->bearerFor(RoleName::IndoorSales))
             ->assertStatus(200)
             ->assertJsonPath('meta.pagination.total', 0);
+    }
+
+    // ─────────────────────────────── the customer's name (F-07 · 1.5, D-83)
+
+    /** `D-83`: the list row carries the name beside `customer_id`; the detail does not (the owner's list-only ruling). */
+    public function test_that_each_row_carries_its_customers_name(): void
+    {
+        $customer = $this->customerId('Nile Trading');
+        $id = $this->deal('Alpha', null, ['customer_id' => $customer]);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->getJson(self::ENDPOINT, $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_id', $customer)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $bearer)
+            ->assertStatus(200)
+            ->assertJsonMissingPath('data.customer_name');
+    }
+
+    /** `D-83` mechanism 3: archiving the customer (`DB-01`) does not take the name off the row. */
+    public function test_that_an_archived_customers_name_still_shows(): void
+    {
+        $customer = $this->customerId('Nile Trading');
+        $this->deal('Alpha', null, ['customer_id' => $customer]);
+        DB::table('customers')->where('id', $customer)->update(['is_archived' => true]);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /** `D-83` mechanism 4: an `own`-scoped caller's own deal names a customer somebody else owns — the port takes no scope. */
+    public function test_that_a_customer_outside_the_callers_scope_is_still_named(): void
+    {
+        $customer = $this->customerId('Nile Trading');
+        DB::table('customers')->where('id', $customer)->update(['sales_owner_id' => $this->userWith(RoleName::Manager)->id]);
+        $this->deal('Mine', $this->userWith(RoleName::IndoorSales)->id, ['customer_id' => $customer]);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /** `D-83`: "one query for N ids, never N" — the port is called once per page, with each distinct id once. */
+    public function test_that_the_names_are_read_once_per_page(): void
+    {
+        $shared = $this->customerId('Nile Trading');
+        $other = $this->customerId('Delta Steel');
+        $this->deal('Alpha', null, ['customer_id' => $shared]);
+        $this->deal('Beta', null, ['customer_id' => $shared]);
+        $this->deal('Gamma', null, ['customer_id' => $other]);
+        $fake = $this->fakeNames(static fn (array $ids): array => array_fill_keys($ids, 'Faked'));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Faked');
+
+        self::assertCount(1, $fake->calls);
+        self::assertEqualsCanonicalizing([$shared, $other], $fake->calls[0]);
+    }
+
+    /** The owner's fallback ruling (1.3): an id the port does not name is sent as the id, never null. */
+    public function test_that_an_unnamed_customer_is_sent_as_its_id(): void
+    {
+        $customer = $this->customerId();
+        $this->deal('Alpha', null, ['customer_id' => $customer]);
+        $this->fakeNames(static fn (array $ids): array => []);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', $customer);
+    }
+
+    /**
+     * @param  \Closure(list<string>): array<string, string>  $answer
+     * @return object{calls: list<list<string>>}
+     */
+    private function fakeNames(\Closure $answer): object
+    {
+        $fake = new class($answer) implements CustomerNamesInterface
+        {
+            /** @var list<list<string>> */
+            public array $calls = [];
+
+            /** @param  \Closure(list<string>): array<string, string>  $answer */
+            public function __construct(private \Closure $answer) {}
+
+            public function namesOf(array $customerIds): array
+            {
+                $this->calls[] = $customerIds;
+
+                return ($this->answer)($customerIds);
+            }
+        };
+        $this->app->instance(CustomerNamesInterface::class, $fake);
+
+        return $fake;
     }
 }

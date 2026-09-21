@@ -1025,6 +1025,15 @@ would hide them behind `OD-03` indefinitely.
       reason because 1.4 itself orphaned it; `consumedQuantity` was orphaned at birth, so it is
       registered rather than swept. Remove it in whichever F-05 point next touches the contract, unless
       Module 10's caller turns out to read it.
+- [ ] **The deal detail still names its customer through a scoped single read** — *revealed by F-07
+      Point 1.5, 2026-09-21; not fixed there, by the owner's list-only ruling.* `DealDetailView.vue:164`
+      calls `readCustomer(deal.customer_id)` (`GET /customers/{id}`, which applies the caller's
+      `customer.view` scope — `CustomerController::heldScopes()`) and shows the id when it fails. That is
+      `D-83`'s mechanism 4 on one screen: an `own`-scoped caller reading their own deal whose customer
+      another user owns sees the id, not the name. Whether an **archived** customer also fails there was
+      not checked. Its comment "exactly as the list's own name lookup is" went stale when 1.5 removed
+      that lookup. The fix is the same port on `DealPayload::of()` for `GET /deals/{id}` — a decision for
+      the owner, because it widens `D-83` past the list.
 
 ## Agent guide revisions — owner-directed
 
@@ -1499,10 +1508,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #PR — the join went; `loadCustomers` **stayed** for the customer filter's
             options, the owner's ruling, because the line above named it without seeing the `<select>`
             it also fed; the join-back mutant failed the row test; four browser states passed)*
-      - [ ] **1.5** `DealsView.vue:209` — the same port, or the same defect registered in the debt
+      - [x] **1.5** `DealsView.vue:209` — the same port, or the same defect registered in the debt
             register with its reason. **Decided at 1.1, not deferred silently.** *Decided 2026-09-21
             at 1.2 (the owner, after 1.1 left it open): **the same port** — Deals' list use case calls
             `namesOf` once per page and its SPA join goes.*
+            *(2026-09-21, #PR — list only, the owner's ruling; `loadCustomers` stayed for the form's
+            picker; the per-row mutant failed with "actual size 3"; the detail's scoped read registered
+            as debt)*
       - [ ] **1.6** Manual test list for F-07 in Arabic — a customer inside the page, one **archived**,
             one **outside the caller's scope**, and the 403 path where the name must still appear;
             AR/EN × desktop/375 px; roles named.

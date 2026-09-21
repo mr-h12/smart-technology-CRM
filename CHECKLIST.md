@@ -1933,13 +1933,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             CRLF, header with no usable column).
             *(2026-09-21, #174 — `CustomerImportEndpointTest` untouched and green; `name` stays built in, by
             the owner's choice)*
-      - [ ] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
+      - [x] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
             `PermissionMatrix`): `SupplierCsv` (its columns and headers) + `ImportSuppliers` (one
             transaction, an audit row per supplier, one `supplier_import_batches` row, `D-31`'s flag,
             the file limit `D-71` gives `ImportCustomersRequest`). RED first: 403 for a role without
             the permission, a row missing `type`/`phone`/`contact_person` saves flagged, a row missing
             `name` is counted and not saved, `color_rating` arrives `white`. `permission-matrix-auditor`.
             **After merging, run once:** `php artisan db:seed --class=RolePermissionSeeder` (as F-01).
+            *(2026-09-21, #175 — Suppliers gains `StorageContract` on Customers' terms; the directory is
+            registered with the AUD-01 writer guard; 145 permissions, 218 grants)*
       - [ ] **1.5** Suppliers screen: an import button drawn only by `catalog.import`, the import dialog
             (the four counts and a link to the incomplete filter, as customers have — reusing
             `CustomerImportModal`'s parts if they are shareable, searched before writing), the

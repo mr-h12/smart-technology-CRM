@@ -103,10 +103,11 @@ final readonly class SaveCustomer
     /**
      * @param  array<string, mixed>  $validated
      * @param  list<string>  $heldScopes
+     * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape); `own` cannot be resolved for it
      *
      * @throws CustomerNotFound when the row is absent **or** outside the caller's reach
      */
-    public function update(string $customerId, array $validated, array $heldScopes, string $actorId): CustomerWriteResult
+    public function update(string $customerId, array $validated, array $heldScopes, ?string $actorId): CustomerWriteResult
     {
         $scope = CustomerRowScope::resolve($heldScopes, $actorId);
         $draft = CustomerDraft::forUpdate($validated);

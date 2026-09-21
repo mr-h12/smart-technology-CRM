@@ -71,10 +71,11 @@ final readonly class SaveSupplier
 
     /**
      * @param  array<string, mixed>  $validated
+     * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape)
      *
      * @throws SupplierNotFound when the row is absent or soft-deleted
      */
-    public function update(string $supplierId, array $validated, string $actorId): SupplierSummary
+    public function update(string $supplierId, array $validated, ?string $actorId): SupplierSummary
     {
         $draft = SupplierDraft::of($validated);
 

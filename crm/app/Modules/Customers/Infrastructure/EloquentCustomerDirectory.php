@@ -124,7 +124,7 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
         return self::hydrate($row);
     }
 
-    public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, string $actorId): ?CustomerSummary
+    public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, ?string $actorId): ?CustomerSummary
     {
         $query = $this->scoped($scope);
 

@@ -39,8 +39,12 @@ interface SupplierDirectoryInterface
     /** Point 2.2. */
     public function create(SupplierDraft $draft, string $actorId): SupplierSummary;
 
-    /** Null on the same case as {@see find()} — absent or soft-deleted. */
-    public function update(string $supplierId, SupplierDraft $draft, string $actorId): ?SupplierSummary;
+    /**
+     * Null on the same case as {@see find()} — absent or soft-deleted.
+     *
+     * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape)
+     */
+    public function update(string $supplierId, SupplierDraft $draft, ?string $actorId): ?SupplierSummary;
 
     /**
      * `D-85` (F-09 · 1.4) — one `supplier_import_batches` row for a finished

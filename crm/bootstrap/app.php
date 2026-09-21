@@ -10,6 +10,7 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\InvalidCatalogItemListQuery;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\InvalidCustomerListQuery;
+use App\Modules\Customers\Presentation\ClearIncompleteCustomersCommand;
 use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Approval\DealStatusTransitionRefused;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
@@ -35,6 +36,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQu
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\Suppliers\Domain\Listing\InvalidSupplierListQuery;
 use App\Modules\Suppliers\Domain\Listing\SupplierNotFound;
+use App\Modules\Suppliers\Presentation\ClearIncompleteSuppliersCommand;
 use App\Support\Http\ApiExceptionRenderer;
 use App\Support\Performance\MeasureApiLatencyCommand;
 use Illuminate\Auth\AuthenticationException;
@@ -70,6 +72,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // SEC-07's live matrix, checked against §3. A module command, so it
         // has to be named here for the same reason the audit one does.
         VerifyPermissionMatrixCommand::class,
+        // `D-87`'s one-off correction, one per module (F-11 · 1.4).
+        ClearIncompleteSuppliersCommand::class,
+        ClearIncompleteCustomersCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and

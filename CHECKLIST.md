@@ -1831,6 +1831,96 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
         خارج F-08.
       - **تفاصيل الصفقة `/deals/:id`** تسمّي العميل عبر قراءة مقيّدة بالنطاق — دَين (#165)، خارج F-08.
 
+- [ ] **F-09** Suppliers cannot be imported, and nothing can mark a supplier incomplete (Module 4 ←
+      Module 3). Owner's request, agreed in conversation before F-08 and numbered 2026-09-21 (F-08 =
+      the customer dropdown, so this item moved from F-08 to F-09 and its decision from D-84 to
+      `D-85`; the catalog import and the product↔supplier link are **F-10 / `D-86`**, and the
+      Arabic-Indic dates are an **F-11** candidate the owner has not ordered). This line is the first
+      written record of that numbering. Recorded as `D-85` (proposed): suppliers get the CSV import
+      customers already have (§3.3, `D-31`, the owner's 2026-08-29 CSV ruling), and a row with missing
+      fields saves flagged **`is_incomplete`**. **`is_active` stays as it is** (owner's ruling): no
+      `is_archived` column for suppliers.
+
+      **Measured 2026-09-21 (database + code, not memory):** `suppliers` has `name` (NOT NULL) · `type`
+      · `color_rating` (NOT NULL, default `white`) · `phone` · `contact_person` · `has_open_account`
+      (NOT NULL, default false) · `is_active` (NOT NULL, default true), and **no `is_incomplete`**. Dev
+      data holds **2 suppliers, both active**, and 7 catalog items. Suppliers have **no permission
+      resource of their own**: `/suppliers` is guarded by `catalog.view` / `catalog.manage` because
+      §3.7 is one table for the catalog and its suppliers (`routes/api.php:476-523`), and **no `import`
+      action exists** under `catalog`. The customer import is `POST /customers/import` →
+      `ImportCustomers` (one transaction, an audit row per customer, one batch row) → `CustomerCsv`
+      (`fgetcsv`, no library; BOM, `;` sniffing, CRLF) → `import_batches`, a table the **Customers
+      module owns** with no column saying what was imported. `customer.import` is seeded to the
+      **Manager alone** (`PermissionMatrix.php:159`, §3.3); the dev database also grants it to the
+      **Team Leader** — a grant made at runtime through the Roles screen, not by the seeder.
+      Nothing clears a customer's `is_incomplete` once set: `CustomerDraft` lets only the importer
+      write it, and no edit recomputes it.
+
+      **Gaps the agent filled — each is the owner's to correct before merging this list:**
+      1. **Permission:** a new **`catalog.import`** (§3.7's resource, so F-10's catalog import uses the
+         same row) granted to the **Manager alone**, as §3.3's customer import is — not every
+         operational role, even though `D-45` opens single edits to all of them. Alternatives:
+         `supplier.import`, or a wider grant.
+      2. **Columns the file may carry:** `name` · `type` · `phone` · `contact_person` ·
+         `has_open_account`. **`color_rating` is not imported**: `D-19` makes it a manual rating and
+         §7.1's ⚪ White means "new / not yet rated", which every imported supplier is.
+      3. **What "missing fields" means for a supplier:** an empty `type`, `phone` or `contact_person`
+         flags the row. An empty `has_open_account` is read as *no*, not as missing. An empty `name`
+         fails the row, as for customers. `type` is taken as written — nothing validates it against
+         "supplier / distributor", because the current form does not either.
+      4. **Batch table:** a new **`supplier_import_batches`** owned by the Suppliers module, the same
+         columns as `import_batches` — not a shared table with a "kind" column, because modules do not
+         read or write each other's tables.
+      5. **One CSV reader, not two:** the format rules in `CustomerCsv` (BOM, separator, CRLF, cell
+         trimming) move to **`App\Support\Csv`**, with a narrow deptrac entry like
+         `App\Support\Search`'s. Customers keep their headers and aliases; suppliers declare their
+         own. Copying `CustomerCsv` into Suppliers would create duplicate logic.
+      6. **The flag is never cleared, as for customers:** an import sets it and no edit clears it.
+         §11 says "until completed", so the gap is real for both; it is registered as **one** debt row
+         covering customers and suppliers, not fixed for suppliers alone.
+      7. **The flag is visible:** in the payload, as `filter[is_incomplete]` on `GET /suppliers`, and
+         as a chip plus a filter on the Suppliers screen. `SaveSupplierRequest` **prohibits** the field
+         (a 422), as `SaveCustomerRequest` does.
+
+      **Not covered by F-09:** duplicate detection (importing the same file twice makes two copies of
+      every supplier — the reason dev data holds 13 copies of each customer); `.xlsx` (CSV only, per the
+      2026-08-29 ruling); the supplier-quotations screen's capped `listSuppliers({ perPage: 100 })`
+      (debt row above) — an import makes more than 100 suppliers realistic, so that debt can now be
+      reached, but it stays the owner's to order; catalog items and the product↔supplier link (F-10).
+
+      Each point is its own branch, one per turn, seven-part report, owner's merge.
+
+      ### F-09 point list — published 2026-09-21, awaiting approval (merge of this PR)
+
+      - [ ] **1.1** `D-85` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+            owner, as `D-82`, `D-83` and `D-84` were, because the guard hook refuses an agent write to
+            `CRM_Documentation_EN.md`.
+      - [ ] **1.2** Schema and read side: a migration adding `suppliers.is_incomplete` (boolean, NOT
+            NULL, default false) and creating `supplier_import_batches` (the `import_batches` columns and
+            CHECKs), with `down()` tested by `migrate:rollback`; `is_incomplete` in `SupplierPayload`;
+            `filter[is_incomplete]` in `SupplierListCriteria`; `SaveSupplierRequest` prohibits it. RED
+            first: the payload key, the filter both ways, and a 422 on a write that sends it.
+      - [ ] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
+            deptrac entry for the one namespace. No behaviour change — the proof is that every existing
+            customer-import test passes untouched, and the moved code keeps its own tests (BOM, `;`,
+            CRLF, header with no usable column).
+      - [ ] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
+            `PermissionMatrix`): `SupplierCsv` (its columns and headers) + `ImportSuppliers` (one
+            transaction, an audit row per supplier, one `supplier_import_batches` row, `D-31`'s flag,
+            the file limit `D-71` gives `ImportCustomersRequest`). RED first: 403 for a role without
+            the permission, a row missing `type`/`phone`/`contact_person` saves flagged, a row missing
+            `name` is counted and not saved, `color_rating` arrives `white`. `permission-matrix-auditor`.
+            **After merging, run once:** `php artisan db:seed --class=RolePermissionSeeder` (as F-01).
+      - [ ] **1.5** Suppliers screen: an import button drawn only by `catalog.import`, the import dialog
+            (the four counts and a link to the incomplete filter, as customers have — reusing
+            `CustomerImportModal`'s parts if they are shareable, searched before writing), the
+            `is_incomplete` chip and filter, ar/en lang keys. `NoHardCodedTextTest`,
+            `rtl-ui-verifier` (`/suppliers`, AR/EN × desktop/375 px, computed border on every new
+            control), `waste-auditor`.
+      - [ ] **1.6** Manual test list for F-09 in Arabic — roles named (the Manager imports; a role
+            without `catalog.import` sees no button and gets a 403), a sample `.csv` with complete,
+            incomplete and nameless rows, AR/EN × desktop/375 px.
+
 
 ## Shell revisions — owner-directed
 

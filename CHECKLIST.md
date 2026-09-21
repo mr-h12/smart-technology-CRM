@@ -1043,6 +1043,15 @@ would hide them behind `OD-03` indefinitely.
       With 2 suppliers in dev data none of it can be seen yet. Two fixes, not one: the filter and the
       picker take `CustomerPicker` made generic, when a second case is ordered; the row names need a
       supplier names port, as `D-83` gave customers.
+- [ ] **The `php` container mounts two single files, which go stale when git rewrites them** — *revealed
+      by F-08 Point 1.2, 2026-09-21: 50 of 2900 backend tests failed with `file(/opt/crm/docs/CRM_Documentation_EN.md):
+      Failed to open stream`.* `docker-compose.yml:195` mounts `./docs/CRM_Documentation_EN.md` and `:190`
+      mounts `./docker-compose.yml`, each as a single-file bind mount. A single-file mount follows the
+      **inode**, and git writes a changed file as a new one — so after a merge or a branch switch that
+      touches the file, the container keeps the deleted inode (`stat`: 0 links) and every test that reads the
+      master documentation fails. Nothing in the code was wrong; `docker compose restart php` re-attached
+      it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
+      the file — a change to the dev environment, so it is the owner's call, not this point's.
 
 ## Agent guide revisions — owner-directed
 
@@ -1656,7 +1665,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             screen's capped supplier read (names, filter, picker) is registered as debt (revealed, not fixed).
             *(2026-09-21, #167 — the D-84 row pasted by the owner; the supplier debt corrected from "a
             picker" to the three things one capped read feeds)*
-      - [ ] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
+      - [x] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
             into the quotations filter in the same point** — a component nothing imports is dead code.
             `QuotationsView` loses `customers` and `loadCustomers`. RED first: nothing is asked before the
             300 ms pause, then `q`; 20 results and the "more" line; the name and the muted line; the four
@@ -1664,6 +1673,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             filter's «كل العملاء» and clear button; the chosen id sent as `filter[customer_id]`; no
             `perPage: 100` call. `NoHardCodedTextTest`, `rtl-ui-verifier` (`/quotations`, AR/EN ×
             desktop/375 px), `waste-auditor`.
+            *(2026-09-21, #168 — nothing asked on load, 20 on open, `q` after 300 ms; the pause, 403 and
+            sequence-guard mutants each failed their test; the first full run's 50 failures were a stale
+            single-file docs mount, not the diff — registered as debt)*
       - [ ] **1.3** The deal form's picker: `DealFormModal` uses `CustomerPicker` and drops its
             `customers` prop; `DealsView` loses `customers` and `loadCustomers` — both capped calls are
             gone. The `deal-form-customer-id` hook still works; the placeholder is «اختر العميل» and there

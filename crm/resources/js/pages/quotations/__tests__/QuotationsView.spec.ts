@@ -200,11 +200,29 @@ describe('the quotations screen', () => {
         expect(unnamed.find('[data-testid="quotations-customer"]').text()).toBe('c-archived');
     });
 
-    it('still offers the customers it may see as filter options', async () => {
-        const wrapper = await render(respond());
-        const options = wrapper.findAll('[data-testid="quotations-filter-customer"] option');
+    /**
+     * F-08 · 1.2 (`D-84`): the filter is `CustomerPicker`, which asks the
+     * server only when opened — no capped `perPage: 100` read on load.
+     */
+    it('asks for no customers on load', async () => {
+        const fetchMock = respond();
+        await render(fetchMock);
 
-        expect(options.map((option) => option.text())).toEqual(['Any customer', 'Acme Industrial']);
+        expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/customers'))).toHaveLength(0);
+    });
+
+    it('offers the customers the server finds once the filter is opened, after “Any customer”', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+
+        await wrapper.find('[data-testid="quotations-filter-customer"]').trigger('focus');
+        await flushPromises();
+
+        const customerCall = fetchMock.mock.calls.map((call) => String(call[0])).find((url) => url.includes('/customers'));
+        expect(customerCall).toContain('per_page=20');
+        expect(customerCall).not.toContain('per_page=100');
+        expect(wrapper.find('[data-testid="quotations-filter-customer-all"]').text()).toBe('Any customer');
+        expect(wrapper.findAll('[data-testid="quotations-filter-customer-option-name"]').map((o) => o.text())).toEqual(['Acme Industrial']);
     });
 
     it('draws the status as a word with an icon beside it, through the dictionary', async () => {
@@ -302,7 +320,9 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-amount-hint"]').exists()).toBe(true);
 
         await wrapper.find('[data-testid="quotations-filter-status"]').setValue('pending');
-        await wrapper.find('[data-testid="quotations-filter-customer"]').setValue('c1');
+        await wrapper.find('[data-testid="quotations-filter-customer"]').trigger('focus');
+        await flushPromises();
+        await wrapper.find('[data-testid="quotations-filter-customer-option"]').trigger('mousedown');
         await wrapper.find('[data-testid="quotations-filter-from"]').setValue('2026-09-01');
         await wrapper.find('[data-testid="quotations-filter-to"]').setValue('2026-09-30');
         await wrapper.find('[data-testid="quotations-filter-currency"]').setValue('egp');

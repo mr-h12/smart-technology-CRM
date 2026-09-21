@@ -662,6 +662,16 @@
             "failed": "Not imported",
             "showIncomplete": "Show the incomplete records",
             "error": "The import did not run. Nothing was changed."
+        },
+        "picker": {
+            "more": "More customers match — type more letters",
+            "forbidden": "You do not have permission to view customers",
+            "emptyScope": "No customers in your scope",
+            "noMatch": "No results for “{query}”",
+            "failed": "Customers could not be loaded",
+            "retry": "Retry",
+            "clear": "Clear",
+            "detailSeparator": " · "
         }
     },
     "suppliers": {

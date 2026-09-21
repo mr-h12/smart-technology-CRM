@@ -262,3 +262,14 @@ watch(model, (value) => {
         </div>
     </div>
 </template>
+
+<style scoped>
+/* A parent's scoped `.form-field` stops at this component's root, so the
+   input carries its own copy of the rule — the same three lines every form
+   declares (a shared rule is registered as debt, not taken here). */
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+</style>

@@ -1043,6 +1043,14 @@ would hide them behind `OD-03` indefinitely.
       With 2 suppliers in dev data none of it can be seen yet. Two fixes, not one: the filter and the
       picker take `CustomerPicker` made generic, when a second case is ordered; the row names need a
       supplier names port, as `D-83` gave customers.
+- [ ] **`.form-field` is declared once per component, inside `<style scoped>`** — *revealed by F-08
+      Point 1.5, 2026-09-21; not fixed there, because the point was one missing border.* The same three
+      lines (`background-color`, `border: 1px solid var(--color-border-strong)`, `color`) live in
+      `DealFormModal.vue:436`, `QuotationsView.vue:600`, `UserFormModal.vue`, `CustomerFormModal.vue`,
+      `CustomersView.vue` and now `CustomerPicker.vue` — and a scoped copy in a parent never reaches a
+      child's nested input, which is exactly how the picker lost its border in 1.3 (the quotations
+      filter had lost it in 1.2, unnoticed). One rule in `resources/css/app.css` and the scoped copies
+      deleted is the fix, when ordered; the Design System §6.3 control is one thing, not six.
 - [ ] **The `php` container mounts two single files, which go stale when git rewrites them** — *revealed
       by F-08 Point 1.2, 2026-09-21: 50 of 2900 backend tests failed with `file(/opt/crm/docs/CRM_Documentation_EN.md):
       Failed to open stream`.* `docker-compose.yml:195` mounts `./docs/CRM_Documentation_EN.md` and `:190`
@@ -1683,6 +1691,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             is sent. `rtl-ui-verifier` (`/deals`, AR/EN × desktop/375 px), `waste-auditor`.
             *(2026-09-21, #169 — no screen reads `listCustomers({ perPage: 100 })` any more; the picker
             takes `placeholder` and lets `id`/`disabled`/`aria-invalid` fall through to its input)*
+      - [x] **1.5** The picker's input carries the field border — ordered by the owner 2026-09-21 from
+            the screenshot of 1.3's form: «اختر العميل» drew with no box while every sibling field had
+            one. Root cause: `.form-field` is `<style scoped>` per page, and a parent's scoped rule stops
+            at the child's root element; the picker's input is nested, so the class matched no rule
+            (the quotations filter had the same gap since 1.2). The picker declares its own scoped copy.
+            Numbered after 1.4 because the list was already written; it merges before it.
+            *(2026-09-21, #PR — computed border on the picker's input = its sibling's, `1px solid
+            rgb(120,113,108)`, on `/deals` (EN) and `/quotations` (AR); the per-component copies are
+            registered as debt)*
       - [ ] **1.4** Manual test list for F-08 in Arabic — roles named, AR/EN × desktop/375 px, every
             state line. The search check finds `المركز القومي للمرأة` by a word that actually finds it
             (`مرأة` or `القومي`), and the list says plainly that «المرأة» does **not** find it: the stored

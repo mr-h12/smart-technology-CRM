@@ -1034,6 +1034,15 @@ would hide them behind `OD-03` indefinitely.
       not checked. Its comment "exactly as the list's own name lookup is" went stale when 1.5 removed
       that lookup. The fix is the same port on `DealPayload::of()` for `GET /deals/{id}` — a decision for
       the owner, because it widens `D-83` past the list.
+- [ ] **The supplier-quotations screen reads only the first 100 suppliers** — *revealed by F-08 Point
+      1.1, 2026-09-21; not fixed there, because the owner's report named customer dropdowns only.*
+      One `listSuppliers({ perPage: 100 })` (`SupplierQuotationsView.vue:146`,
+      `SupplierListCriteria::MAX_PER_PAGE`) feeds three things: the rows' supplier **names** through a
+      client-side join (`supplierName()`, `:98-110` — the shape `D-83` removed for customers), the
+      supplier **filter** (`:263`), and the form's supplier **picker** (`SupplierQuotationFormModal.vue:613`).
+      With 2 suppliers in dev data none of it can be seen yet. Two fixes, not one: the filter and the
+      picker take `CustomerPicker` made generic, when a second case is ordered; the row names need a
+      supplier names port, as `D-83` gave customers.
 
 ## Agent guide revisions — owner-directed
 
@@ -1617,6 +1626,53 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
         قراءة مقيّدة بالنطاق، فتُظهر **المعرّف** للمبيعات الداخلية على `DL-2026-0001` — دَين مسجَّل (#165)،
         **ليس فشلًا** في هذه القائمة.
       - **عمود «المسؤول»** معرّف في الشاشتين — دَين الهويّة، خارج F-07.
+
+- [ ] **F-08** A customer dropdown lists only the first 100 customers, so a customer after that cannot
+      be chosen (Modules 5 · 7 ← Module 3). Owner's report 2026-09-21, recorded as `D-84` (proposed):
+      the quotations screen's customer filter and the deal form's customer picker become one shared
+      **`CustomerPicker`** that searches the server as the user types, instead of two `<select>`s filled
+      from `listCustomers({ perPage: 100 })`. Design System §6.3, "Search only when the option volume
+      needs it".
+
+      **The owner's understanding was measured, and it holds** (2026-09-21, as Manager):
+      `/customers?per_page=100` returns **100 of 234**; `per_page=101` is a **400**
+      (`CustomerListCriteria::MAX_PER_PAGE`). The page is sorted by **name**
+      (`CustomerListCriteria::DEFAULT_SORT`), so every Latin name comes first: **10 of the 18 distinct
+      names never appear** — `Sadex`, `save the children` and all eight Arabic names, among them
+      `المركز القومي للمرأة`, which owns 8 quotations. The two dropdowns are the only callers of the
+      capped list (`QuotationsView.vue:230`, `DealsView.vue:192` → `DealFormModal.vue:291`). The server
+      already searches: `q` goes through `SearchService` (`OpenAPI_Contract` §6.2) and folds Arabic
+      letter variants (`ArabicNormalisation`) — no backend change. Dev data holds 234 rows but only 18
+      names, each imported about 13 times, identical down to the phone. `D-84` also carries a measured
+      correction to `D-83`'s evidence; it is stated there only.
+
+      Each point is its own `fix/…` branch, one per turn, seven-part report, owner's merge.
+
+      ### F-08 point list — published 2026-09-21, approved by merging #167
+
+      - [x] **1.1** `D-84` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+            owner, as `D-82` (#157) and `D-83` (#160) were, because the guard hook refuses an agent write
+            to `CRM_Documentation_EN.md`; `.claude/settings.json` is not touched. The supplier picker's
+            screen's capped supplier read (names, filter, picker) is registered as debt (revealed, not fixed).
+            *(2026-09-21, #167 — the D-84 row pasted by the owner; the supplier debt corrected from "a
+            picker" to the three things one capped read feeds)*
+      - [ ] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
+            into the quotations filter in the same point** — a component nothing imports is dead code.
+            `QuotationsView` loses `customers` and `loadCustomers`. RED first: nothing is asked before the
+            300 ms pause, then `q`; 20 results and the "more" line; the name and the muted line; the four
+            state lines (403, empty by scope, no match, failure with retry); keyboard selection; the
+            filter's «كل العملاء» and clear button; the chosen id sent as `filter[customer_id]`; no
+            `perPage: 100` call. `NoHardCodedTextTest`, `rtl-ui-verifier` (`/quotations`, AR/EN ×
+            desktop/375 px), `waste-auditor`.
+      - [ ] **1.3** The deal form's picker: `DealFormModal` uses `CustomerPicker` and drops its
+            `customers` prop; `DealsView` loses `customers` and `loadCustomers` — both capped calls are
+            gone. The `deal-form-customer-id` hook still works; the placeholder is «اختر العميل» and there
+            is no clear button. RED first: a customer past the hundredth can be chosen and `customer_id`
+            is sent. `rtl-ui-verifier` (`/deals`, AR/EN × desktop/375 px), `waste-auditor`.
+      - [ ] **1.4** Manual test list for F-08 in Arabic — roles named, AR/EN × desktop/375 px, every
+            state line. The search check finds `المركز القومي للمرأة` by a word that actually finds it
+            (`مرأة` or `القومي`), and the list says plainly that «المرأة» does **not** find it: the stored
+            word is «للمرأة», and matching is by substring — expected, not a defect.
 
 
 ## Shell revisions — owner-directed

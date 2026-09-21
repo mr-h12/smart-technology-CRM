@@ -96,7 +96,9 @@ use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemQuantity;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
+use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
+use App\Modules\Suppliers\Infrastructure\EloquentSupplierLookup;
 use App\Support\Database\StandardColumns;
 use App\Support\Database\TestingDatabaseGuard;
 use App\Support\Search\PostgresSearchDriver;
@@ -225,6 +227,9 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(SearchService::class),
             ),
         );
+
+        // F-10 · 1.4 — `D-86`'s supplier cell, published for Catalog's import.
+        $this->app->bind(SupplierLookupInterface::class, EloquentSupplierLookup::class);
 
         // Module 4 Point 3.1. `bind` for the same reasons as the supplier
         // directory above, and with the same single collaborator: §3.7 covers

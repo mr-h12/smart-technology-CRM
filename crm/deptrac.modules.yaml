@@ -43,10 +43,17 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Quotations/.*
+    # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
+    # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
       collectors:
-        - type: directory
-          value: app/Modules/Suppliers/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Suppliers/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Suppliers\\Domain\\Contracts\\SupplierLookupInterface$
     # `CatalogProductProvisionerInterface` is excluded because it is collected
     # by `CatalogContract` below, and a token in two layers is checked against
     # both: while this directory also claimed it, `ProvisionCatalogProduct`
@@ -184,6 +191,13 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+    # Suppliers' published lookup, added with F-10 · 1.4 — `D-86`'s import turns
+    # a `supplier` cell into ids, and Catalog may not read `suppliers` itself.
+    # Strings in and out, so one classLike holds it, as `CatalogContract` does.
+    - name: SuppliersContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Suppliers\\Domain\\Contracts\\SupplierLookupInterface$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
@@ -592,6 +606,9 @@ parameters:
       - SharedContracts
       - AuditContract
       - StorageContract
+      # SuppliersContract, F-10 · 1.4: `EloquentSupplierLookup` implements the
+      # interface the narrow classLike collected out, as Catalog's grant below.
+      - SuppliersContract
     # Catalog → Framework, SharedContracts, added 2026-08-30 with Point 3.1,
     # the module's first endpoint. The same two entries Suppliers was granted,
     # and for the same reasons — a controller and an Eloquent model are
@@ -631,6 +648,10 @@ parameters:
       # crossing `SaveCatalogItemRequest`'s docblock predicted would be needed.
       # It points at the contract half only; nothing points at AdminDriver.
       - AdminContract
+      # SuppliersContract, F-10 · 1.4 — `D-86`'s import links an item to the
+      # supplier its `supplier` cell names. Written with the interface, as
+      # `CatalogContract` was; the caller arrives with point 1.5.
+      - SuppliersContract
     Procurement: ~
     Outdoor: ~
     Reports: ~

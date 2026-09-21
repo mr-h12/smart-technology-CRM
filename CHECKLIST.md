@@ -2181,9 +2181,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             the pair constraint refuses a second live link.
             *(2026-09-22, #186 — `2026_09_22_000000_add_catalog_import_columns_and_links`; 17 tests, 2 mutants caught;
             FKs no-action, no `supplier_id`-only index (`ponytail:`); dev: 0 of 7 items flagged)*
-      - [ ] **1.4** A supplier lookup Suppliers publishes (`Domain/Contracts`, its own deptrac layer):
+      - [x] **1.4** A supplier lookup Suppliers publishes (`Domain/Contracts`, its own deptrac layer):
             the ids matching a name (trimmed, any case, active or not), and names for ids. RED first: 0, 1
             and 2 matches; spaces and case; a deactivated supplier found.
+            *(2026-09-22, #187 — `SupplierLookupInterface` in layer `SuppliersContract`, granted to Suppliers and
+            Catalog; 8 tests, 5 mutants + 1 deptrac mutant caught; soft-deleted suppliers not found)*
       - [ ] **1.5** `POST /catalog/import` under `catalog.import`: rulings 2–6 in one transaction, an audit
             row per item and per link, one batch row. RED first, one test per rejection and per flag
             reason, a linked and an unlinked row, `is_active` empty = active, a list value by code and by

@@ -1704,7 +1704,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             state line. The search check finds `المركز القومي للمرأة` by a word that actually finds it
             (`مرأة` or `القومي`), and the list says plainly that «المرأة» does **not** find it: the stored
             word is «للمرأة», and matching is by substring — expected, not a defect.
-            *(2026-09-21, #PR — 35 checks below, merged after 1.5 (#170) whose border is check 35; the
+            *(2026-09-21, #171 — 35 checks below, merged after 1.5 (#170) whose border is check 35; the
             data was re-read from the database: 1.3's browser verification left four deals
             `DL-2026-0007…0010` (owner null); F-07's checks 6, 18, 23 are superseded here; F-08 closes
             and stays in this file — a fix-pass item, not a module)*

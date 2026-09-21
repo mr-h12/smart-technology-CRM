@@ -2172,7 +2172,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             upload request, used by Customers and Suppliers. No behaviour change: every existing import
             test passes unchanged, deptrac 0 violations both configs. Closes the debt row.
             `waste-auditor` (the old classes are deleted, not left beside the new).
-            *(2026-09-22 — **amended by the owner before coding:** the summary stays per module (deptrac:
+            *(2026-09-22, #185 — **amended by the owner before coding:** the summary stays per module (deptrac:
             `Domain` ↛ `SharedContracts`); `ImportFileRequest` + `ImportBatchPayload::of()` shared, the field
             named by `validation.attributes.file`; suite 2981/18640)*
       - [ ] **1.3** Schema, reversible: `catalog_items.is_incomplete` (default false);

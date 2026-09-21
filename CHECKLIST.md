@@ -1704,16 +1704,18 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             state line. The search check finds `المركز القومي للمرأة` by a word that actually finds it
             (`مرأة` or `القومي`), and the list says plainly that «المرأة» does **not** find it: the stored
             word is «للمرأة», and matching is by substring — expected, not a defect.
-            *(2026-09-21, #PR — 34 checks below; the data was re-read from the database: 1.3's browser
-            verification left four deals `DL-2026-0007…0010` (owner null); F-07's checks 6, 18, 23
-            are superseded here; F-08 closes and stays in this file — a fix-pass item, not a module)*
+            *(2026-09-21, #PR — 35 checks below, merged after 1.5 (#170) whose border is check 35; the
+            data was re-read from the database: 1.3's browser verification left four deals
+            `DL-2026-0007…0010` (owner null); F-07's checks 6, 18, 23 are superseded here; F-08 closes
+            and stays in this file — a fix-pass item, not a module)*
 
       #### قائمة الاختبار اليدوي — F-08 *(النقطة 1.4، 2026-09-21)*
 
       > **F-08 إصلاح لا وحدة**، فالقائمة تغطّي `D-84` وحده: منتقي العميل في **مرشّح عروض الأسعار** وفي
       > **نموذج الصفقة** صار مكوّنًا واحدًا `CustomerPicker` **يسأل الخادم** وهو يُكتب فيه، بدل قائمتين
       > `<select>` تُملآن من `listCustomers({ perPage: 100 })` فلا تعرضان العميل بعد المئة. نُفِّذ في #168
-      > (المكوّن + المرشّح) و#169 (نموذج الصفقة). **لا شاشة تقرأ صفحة عملاء مسقوفة بعد اليوم.**
+      > (المكوّن + المرشّح) و#169 (نموذج الصفقة) و#170 (إطار الحقل — عيب رآه المالك في لقطة 1.3).
+      > **لا شاشة تقرأ صفحة عملاء مسقوفة بعد اليوم.**
       >
       > ⚠️ **بيانات التطوير كما قرأتها قاعدة البيانات في 2026-09-21 — صحّحها منها لا من الذاكرة:**
       > ٢٣٤ عميلًا عاملًا، **لا مؤرشف**، ١٨ اسمًا مميّزًا × ١٣ نسخة متطابقة حتّى الهاتف، ولا عميل له
@@ -1772,6 +1774,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       | 17 | مدير | «صفقة جديدة» من جديد، اترك العميل فارغًا، اكتب عنوانًا واضغط «حفظ» ⇒ سطر «**العميل مطلوب.**» تحت الحقل، الحقل يحمل `aria-invalid="true"`، و**لا** طلب `POST` | 1.3 · المطلوب · `aria-invalid` |
       | 18 | مدير | في النموذج نفسه انقر الحقل واختر عميلًا ثمّ امسح النصّ بلوحة المفاتيح (Backspace حتّى يفرغ) ⇒ القائمة تُفتح للبحث من جديد؛ Escape ثمّ «إلغاء» | 1.3 · الكتابة بعد الاختيار |
       | 19 | مدير | أثناء الحفظ (بطّئ الشبكة إلى «Slow 3G» واضغط «حفظ» بعميل وعنوان) ⇒ حقل العميل **معطَّل** مع باقي الحقول حتّى يعود الردّ | 1.3 · `disabled` يصل للحقل |
+      | 35 | مدير | في «صفقة جديدة» وفي مرشّح «عروض الأسعار» ⇒ حقل العميل له **إطار** وخلفية كحقل «الطلب» وكقائمة «النوع» بجانبه تمامًا (لا حقل بلا صندوق) — بالعربية والإنجليزية، وفي الوضع الداكن | 1.5 · #170 · نظام التصميم §6.3 |
 
       **ج) الرفض بالصلاحية — الرئيس التنفيذي** *(SEC-07 · §3.4)*
 

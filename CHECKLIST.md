@@ -2831,7 +2831,7 @@ as the reasons two boxes will not close in this module, not as oversights.
 
       *(2026-09-13, #116 — empty ruleset, proven by a probe deptrac refused by name.)*
 
-- [ ] **1.1** `CustomerQuotationView` in `Pdf/Domain/View/` — the model the template may see, plus
+- [x] **1.1** `CustomerQuotationView` in `Pdf/Domain/View/` — the model the template may see, plus
       `CustomerQuotationLine` and `CustomerAdditionalLine`. Carries `code`, dates, customer and
       company identity, currency, per-line description / quantity / **unit price** / line total,
       the additional items, the money chain the customer is entitled to (`subtotal`,
@@ -2844,6 +2844,8 @@ as the reasons two boxes will not close in this module, not as oversights.
       `QuotationLine::COST_FIELDS`, `margin`, `cost` or `supplier` — so a future field added by
       someone in a hurry fails the suite rather than the customer's inbox — and a second test
       asserting the class is `final readonly` with no setter and no `__set`.
+
+      *(2026-09-13, #118 — three guards, each proven by a probe that broke it.)*
 
 - [ ] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
       `CustomerQuotationView`, the only place the two vocabularies meet, reading through

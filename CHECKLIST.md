@@ -1648,12 +1648,14 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       Each point is its own `fix/…` branch, one per turn, seven-part report, owner's merge.
 
-      ### F-08 point list — published 2026-09-21
+      ### F-08 point list — published 2026-09-21, approved by merging #167
 
-      - [ ] **1.1** `D-84` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+      - [x] **1.1** `D-84` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
             owner, as `D-82` (#157) and `D-83` (#160) were, because the guard hook refuses an agent write
             to `CRM_Documentation_EN.md`; `.claude/settings.json` is not touched. The supplier picker's
             screen's capped supplier read (names, filter, picker) is registered as debt (revealed, not fixed).
+            *(2026-09-21, #167 — the D-84 row pasted by the owner; the supplier debt corrected from "a
+            picker" to the three things one capped read feeds)*
       - [ ] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
             into the quotations filter in the same point** — a component nothing imports is dead code.
             `QuotationsView` loses `customers` and `loadCustomers`. RED first: nothing is asked before the

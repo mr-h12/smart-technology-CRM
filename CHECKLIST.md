@@ -1067,6 +1067,12 @@ would hide them behind `OD-03` indefinitely.
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
       one rule for both: an edit that leaves every field the importer checks filled clears the flag,
       audited. Owner's call when to order it; Module 13's report exclusion depends on it.
+- [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
+      — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
+      reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
+      too; it arrived with F-05 · 1.3 (`837c768`). The gates grep `Violations` (0), so an uncovered line
+      never fails a build — the reason every other `App\Support` entry is named. The fix is one
+      collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
 
 ## Agent guide revisions — owner-directed
 
@@ -1913,10 +1919,12 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             first: the payload key, the filter both ways, and a 422 on a write that sends it.
             *(2026-09-21, #173 — both mutants failed their tests; nothing writes the flag or the batch
             table until 1.4)*
-      - [ ] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
+      - [x] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
             deptrac entry for the one namespace. No behaviour change — the proof is that every existing
             customer-import test passes untouched, and the moved code keeps its own tests (BOM, `;`,
             CRLF, header with no usable column).
+            *(2026-09-21, #174 — `CustomerImportEndpointTest` untouched and green; `name` stays built in, by
+            the owner's choice)*
       - [ ] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
             `PermissionMatrix`): `SupplierCsv` (its columns and headers) + `ImportSuppliers` (one
             transaction, an audit row per supplier, one `supplier_import_batches` row, `D-31`'s flag,

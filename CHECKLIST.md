@@ -1067,6 +1067,12 @@ would hide them behind `OD-03` indefinitely.
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
       one rule for both: an edit that leaves every field the importer checks filled clears the flag,
       audited. Owner's call when to order it; Module 13's report exclusion depends on it.
+- [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
+      — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
+      reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
+      too; it arrived with F-05 · 1.3 (`837c768`). The gates grep `Violations` (0), so an uncovered line
+      never fails a build — the reason every other `App\Support` entry is named. The fix is one
+      collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
 
 ## Agent guide revisions — owner-directed
 

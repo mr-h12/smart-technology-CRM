@@ -1060,6 +1060,13 @@ would hide them behind `OD-03` indefinitely.
       master documentation fails. Nothing in the code was wrong; `docker compose restart php` re-attached
       it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
       the file — a change to the dev environment, so it is the owner's call, not this point's.
+- [ ] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
+      *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* `D-31` flags an imported
+      record with missing fields, and §11 excludes it from financial reports **"until completed"** — but
+      only the importer writes the flag (`CustomerDraft`, and from F-09 · 1.2 the suppliers' request
+      prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
+      one rule for both: an edit that leaves every field the importer checks filled clears the flag,
+      audited. Owner's call when to order it; Module 13's report exclusion depends on it.
 
 ## Agent guide revisions — owner-directed
 
@@ -1866,8 +1873,10 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
          §7.1's ⚪ White means "new / not yet rated", which every imported supplier is.
       3. **What "missing fields" means for a supplier:** an empty `type`, `phone` or `contact_person`
          flags the row. An empty `has_open_account` is read as *no*, not as missing. An empty `name`
-         fails the row, as for customers. `type` is taken as written — nothing validates it against
-         "supplier / distributor", because the current form does not either.
+         fails the row, as for customers. **An unknown `type` fails the row too** (owner's ruling (a),
+         2026-09-21): the type is checked at the boundary (`SaveSupplierRequest`, `Rule::in(SupplierDraft::TYPES)`)
+         and by a database CHECK. *Corrected 2026-09-21 in F-09 · 1.2:* this line first said nothing
+         checked the type, which was wrong.
       4. **Batch table:** a new **`supplier_import_batches`** owned by the Suppliers module, the same
          columns as `import_batches` — not a shared table with a "kind" column, because modules do not
          read or write each other's tables.
@@ -1890,11 +1899,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       Each point is its own branch, one per turn, seven-part report, owner's merge.
 
-      ### F-09 point list — published 2026-09-21, awaiting approval (merge of this PR)
+      ### F-09 point list — published 2026-09-21, approved by merging #172
 
-      - [ ] **1.1** `D-85` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+      - [x] **1.1** `D-85` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
             owner, as `D-82`, `D-83` and `D-84` were, because the guard hook refuses an agent write to
             `CRM_Documentation_EN.md`.
+            *(2026-09-21, #172 — the D-85 text in #172 wrongly says the type is unchecked; the corrected
+            text is in 1.2's PR)*
       - [ ] **1.2** Schema and read side: a migration adding `suppliers.is_incomplete` (boolean, NOT
             NULL, default false) and creating `supplier_import_batches` (the `import_batches` columns and
             CHECKs), with `down()` tested by `migrate:rollback`; `is_incomplete` in `SupplierPayload`;

@@ -46,7 +46,7 @@ final class RbacMatrixDataTest extends TestCase
         '§3.4' => 8,   // Deals / Requests
         '§3.5' => 14,  // Customer Quotations
         '§3.6' => 3,   // Supplier Quotations
-        '§3.7' => 3,   // Catalog & Suppliers
+        '§3.7' => 4,   // Catalog & Suppliers — 3 documented rows + D-85's `catalog.import`
         '§3.8' => 3,   // Visits
         '§3.9' => 4,   // Procurement
         '§3.10' => 6,  // Reports
@@ -75,7 +75,7 @@ final class RbacMatrixDataTest extends TestCase
         );
     }
 
-    public function test_the_matrix_holds_exactly_the_fifty_eight_documented_permissions(): void
+    public function test_the_matrix_holds_exactly_the_fifty_nine_documented_permissions(): void
     {
         $counted = [];
 
@@ -84,7 +84,7 @@ final class RbacMatrixDataTest extends TestCase
         }
 
         self::assertSame(self::SECTION_ROWS, $counted);
-        self::assertCount(58, PermissionMatrix::all());
+        self::assertCount(59, PermissionMatrix::all());
     }
 
     /**
@@ -101,6 +101,19 @@ final class RbacMatrixDataTest extends TestCase
             ['manager', 'team_leader', 'outdoor_sales', 'indoor_sales', 'procurement'],
             array_keys($permission->grants()),
         );
+    }
+
+    /**
+     * D-85 (F-09 · 1.4): the supplier import, a bulk write, is the Manager's
+     * alone, as §3.3's customer import is — although `D-45` opens single edits
+     * to every operational role.
+     */
+    public function test_catalog_import_is_granted_to_the_manager_alone(): void
+    {
+        $permission = PermissionMatrix::find('catalog.import');
+
+        self::assertNotNull($permission, 'catalog.import is missing.');
+        self::assertSame(['manager'], array_keys($permission->grants()));
     }
 
     public function test_permission_keys_are_unique_and_well_formed(): void

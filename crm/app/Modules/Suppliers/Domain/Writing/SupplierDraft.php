@@ -70,6 +70,18 @@ final readonly class SupplierDraft
     }
 
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
+    /**
+     * `D-85` (F-09 · 1.4) — the importer's row, and the one caller allowed to
+     * set `is_incomplete`: `D-31` makes the flag the importer's, which is why
+     * `SaveSupplierRequest` prohibits it.
+     *
+     * @param  array<string, mixed>  $attributes  already validated by the importer
+     */
+    public static function forImport(array $attributes, bool $incomplete): self
+    {
+        return new self(self::of($attributes)->attributes + ['is_incomplete' => $incomplete]);
+    }
+
     public function isEmpty(): bool
     {
         return $this->attributes === [];

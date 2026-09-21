@@ -378,9 +378,10 @@ final class RbacSchemaMigrationTest extends TestCase
         // Measured against the registry before the migration was written. If
         // either number moves, the matrix changed and this test should be read
         // rather than adjusted. Read 2026-09-16: D-80 added `currency.view`
-        // (one triple, five grants) — 143 → 144, 212 → 217.
-        self::assertSame(144, DB::table('permissions')->count());
-        self::assertSame(217, DB::table('role_permissions')->count());
+        // (one triple, five grants) — 143 → 144, 212 → 217. Read 2026-09-21: D-85
+        // added `catalog.import` (one triple, one grant) — 144 → 145, 217 → 218.
+        self::assertSame(145, DB::table('permissions')->count());
+        self::assertSame(218, DB::table('role_permissions')->count());
         self::assertSame(8, DB::table('roles')->count());
     }
 

@@ -367,6 +367,13 @@ final class PermissionMatrix
                 Role::Procurement->value => Grant::checkmark(Scope::All),
             ], '§3.7'),
             new Permission('catalog', 'delete', [], '§3.7'),
+            // D-85 (F-09 · 1.4): the one row §3.7 does not draw. The supplier
+            // import is a bulk write, so it is the Manager's alone, as §3.3's
+            // customer import is — although D-45 opens single edits to every
+            // operational role.
+            new Permission('catalog', 'import', [
+                Role::Manager->value => Grant::checkmark(Scope::All),
+            ], '§3.7'),
 
             /**
              * Visits. "Other roles" — Indoor Sales, Procurement, CEO — hold nothing here.

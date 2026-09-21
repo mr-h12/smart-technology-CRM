@@ -1067,6 +1067,14 @@ would hide them behind `OD-03` indefinitely.
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
       one rule for both: an edit that leaves every field the importer checks filled clears the flag,
       audited. Owner's call when to order it; Module 13's report exclusion depends on it.
+- [ ] **The two imports carry three identical shapes: the summary, its payload and the upload request** —
+      *created by F-09 Point 1.4, 2026-09-21, and registered rather than fixed because extracting a shared
+      layer was outside that point's approved list.* `Suppliers\Domain\Importing\ImportSummary` is
+      field-for-field `Customers\Domain\Importing\ImportSummary`; `SupplierPayload::importBatch()` is
+      `ImportBatchPayload::of()`'s body; `ImportSuppliersRequest` is `ImportCustomersRequest` but for one
+      lang key. None carries a per-module rule (the columns and the flag rule live in `SupplierCsv` /
+      `ImportSuppliers`), so they could move to `App\Support\Csv` beside `CsvReader`, on its
+      `SharedContracts` terms. F-10's catalog import would make it three copies — the natural moment.
 - [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
       — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
       reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`

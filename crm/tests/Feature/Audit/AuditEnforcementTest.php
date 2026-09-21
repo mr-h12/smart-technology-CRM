@@ -28,6 +28,7 @@ use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
+use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -166,6 +167,14 @@ final class AuditEnforcementTest extends TestCase
             // passes with it unlisted. The hole was eight classes; this makes
             // it nine, and it is still owed its own point.
             SaveSupplier::class => self::AUDITED,
+            // F-09 · 1.4 (`D-85`): the directory became visible to the detector
+            // when it gained `recordImportBatch`'s `DB::table(...)->insert`.
+            // Its supplier writes were already covered one layer out; the batch
+            // row is the import's own record, with the importer in `created_by`.
+            EloquentSupplierDirectory::class => 'AUD-01 is satisfied one layer out: SaveSupplier and ImportSuppliers '
+                    .'own the transactions and record SUPPLIER_CREATED / SUPPLIER_UPDATED for every supplier row. '
+                    .'The supplier_import_batches row it inserts is the import\'s own record (DB-02 names the '
+                    .'importer), not a business mutation.',
 
             // Module 4 Point 3.2, the catalog's first write. Found by this test
             // rather than predicted: the point was written expecting the

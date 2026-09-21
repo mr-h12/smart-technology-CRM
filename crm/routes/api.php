@@ -517,6 +517,12 @@ Route::middleware('auth')->prefix('suppliers')->group(function (): void {
 
     Route::patch('/{supplier}', [SupplierController::class, 'update'])
         ->middleware('permission:catalog.manage');
+
+    // `D-85` (F-09 · 1.4) — the one §3.7 row the document does not draw: a
+    // bulk write, so the Manager's alone, as §3.3's customer import is. No
+    // `Idempotency-Key`, on the same reading as the create above.
+    Route::post('/import', [SupplierController::class, 'import'])
+        ->middleware('permission:catalog.import');
 });
 
 // §7.3's catalog — Module 4 Point 3.1.

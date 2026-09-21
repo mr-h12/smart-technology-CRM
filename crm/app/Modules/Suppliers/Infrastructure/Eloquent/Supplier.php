@@ -39,7 +39,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'name', 'type', 'color_rating', 'phone', 'contact_person',
-    'has_open_account', 'is_active',
+    'has_open_account', 'is_active', 'is_incomplete',
 ])]
 class Supplier extends Model
 {

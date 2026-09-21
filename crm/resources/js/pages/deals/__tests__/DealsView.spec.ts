@@ -56,6 +56,9 @@ const DEAL = {
     id: 'd1',
     code: 'DL-2026-0001',
     customer_id: 'c1',
+    // F-07 · 1.5 (`D-83`): the server's name, deliberately not the customers
+    // list's `Acme Industrial` — a screen that still joins shows the wrong one.
+    customer_name: 'Acme Industrial Ltd',
     title: 'Twelve pumps',
     source: 'employee_entry',
     service_type: 'product',
@@ -249,25 +252,37 @@ describe('the deals screen', () => {
         expect(statuses).toEqual(['Lead', 'Negotiations']);
         // One customer, named once per row — the rows are independent of each
         // other and not grouped or merged.
-        expect(customers).toEqual(['Acme Industrial', 'Acme Industrial']);
+        expect(customers).toEqual(['Acme Industrial Ltd', 'Acme Industrial Ltd']);
     });
 
-    it('resolves the customer to a name and leaves the owner as an identifier', async () => {
+    it('shows the customer name the server sent and leaves the owner as an identifier', async () => {
         const wrapper = await render(respond());
 
-        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial');
+        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial Ltd');
         // ⚠️ Identity publishes no list this module may resolve a name against,
         // so the owner is an id. A bare identifier is honest; a made-up name
         // would not be.
         expect(wrapper.find('[data-testid="deals-owner"]').text()).toBe('u9');
     });
 
-    it('falls back to the identifier for a customer past the hundredth', async () => {
-        // The names come from one `listCustomers({ perPage: 100 })` —
-        // `MAX_PER_PAGE`, the same measured ceiling Module 6 recorded.
-        const wrapper = await render(respond([{ ...DEAL, customer_id: 'c-not-in-first-100' }]));
+    it('names a customer past the hundredth, because the name comes with the row', async () => {
+        // `D-83`: the capped `listCustomers({ perPage: 100 })` no longer names
+        // the rows, so a customer it never returns is still named.
+        const wrapper = await render(respond([{ ...DEAL, customer_id: 'c-not-in-first-100', customer_name: 'Delta Steel' }]));
 
-        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('c-not-in-first-100');
+        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Delta Steel');
+    });
+
+    it('still gives the create form its customer options', async () => {
+        // The owner's 1.4 ruling, carried to 1.5: `loadCustomers` stays
+        // because the form's customer picker reads it.
+        const wrapper = await render(respond());
+
+        await wrapper.find('[data-testid="deals-create"]').trigger('click');
+        await flushPromises();
+
+        const options = wrapper.findAll('[data-testid="deal-form-customer-id"] option').map((o) => o.text());
+        expect(options).toContain('Acme Industrial');
     });
 
     it('renders a stored code through the dictionary, never a server label', async () => {

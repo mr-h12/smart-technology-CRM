@@ -14,12 +14,19 @@ namespace App\Modules\Deals\Domain\Listing;
  */
 final readonly class DealPage
 {
-    /** @param list<DealSummary> $items */
+    /**
+     * `$customerNames` is `D-83`'s one call per page — customer id => name for
+     * the page's rows, filled by `ListDeals::handle()` (F-07 · 1.5).
+     *
+     * @param  list<DealSummary>  $items
+     * @param  array<string, string>  $customerNames
+     */
     public function __construct(
         public array $items,
         public int $total,
         public int $page,
         public int $perPage,
+        public array $customerNames = [],
     ) {}
 
     public function totalPages(): int

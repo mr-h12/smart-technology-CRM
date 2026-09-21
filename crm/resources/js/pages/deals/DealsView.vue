@@ -48,20 +48,17 @@
  * not: it says none are visible to you, which is true in both cases and is the
  * only thing this screen can know.
  *
- * ── The customer is resolved to a name; the owner cannot be ────────────────
+ * ── The customer's name comes with the row; the owner's does not ──────────
  *
- * `DealPayload` carries `customer_id` and `owner_id` and no names — the join
- * belongs on this side of the wire (`D-67`), because `CLAUDE.md` forbids Deals
- * reading another module's tables.
+ * `D-83` (F-07 · 1.5): each list row carries `customer_name`, read by the
+ * server once per page through Customers' contract, and the screen shows it
+ * as sent — no join, no fallback branch (an unnamed customer arrives as its
+ * id). `listCustomers` is still read, for the create form's customer picker.
  *
- * ⚠️ **Two stated ceilings, neither invented here.**
- * 1. The customer names come from one `listCustomers({ perPage: 100 })` —
- *    `MAX_PER_PAGE` — so a customer past the hundredth shows as an identifier.
- *    The same measured ceiling Module 6 Point 6.2 recorded for suppliers.
- * 2. **The owner is not resolved at all.** Identity publishes no list this
- *    module may call for a name against an id, so the owner column shows the
- *    identifier. A bare id is the honest option; inventing a name is not.
- *    Registered as debt.
+ * ⚠️ **The owner is not resolved at all.** Identity publishes no list this
+ * module may call for a name against an id, so the owner column shows the
+ * identifier. A bare id is the honest option; inventing a name is not.
+ * Registered as debt.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -78,6 +75,7 @@ import {
     DEAL_STATUSES,
     listDeals,
     type Deal,
+    type DealRow,
     type Pagination,
 } from '@/services/deals';
 import { listCustomers, type Customer } from '@/services/customers';
@@ -104,7 +102,7 @@ const editing = ref<Deal | null>(null);
 
 type SortField = 'code' | 'created_at' | 'last_activity_at';
 
-const deals = ref<Deal[]>([]);
+const deals = ref<DealRow[]>([]);
 const customers = ref<Customer[]>([]);
 const pagination = ref<Pagination | null>(null);
 
@@ -138,21 +136,6 @@ const filtering = computed(
         sourceFilter.value !== '' ||
         approvalFilter.value !== '',
 );
-
-const customerNames = computed(() => {
-    const names = new Map<string, string>();
-
-    for (const customer of customers.value) {
-        names.set(customer.id, customer.name);
-    }
-
-    return names;
-});
-
-/** The identifier is the fallback, not a blank: a row that cannot be named is still a row. */
-function customerName(id: string): string {
-    return customerNames.value.get(id) ?? id;
-}
 
 /**
  * A stored code rendered through the dictionary — never a server-side label.
@@ -199,10 +182,10 @@ async function load(): Promise<void> {
 }
 
 /**
- * The customer names, best-effort. A failure here must not blank the screen:
- * §3.3 gates customers separately, so a caller may legitimately read deals and
- * not customers — and then the identifier column is the correct answer rather
- * than an error page over a list that loaded perfectly well.
+ * The create form's customer options, best-effort. A failure here must not
+ * blank the screen: §3.3 gates customers separately, so a caller may
+ * legitimately read deals and not customers — the picker is then empty, and
+ * the rows still carry their names (`D-83`).
  */
 async function loadCustomers(): Promise<void> {
     try {
@@ -478,7 +461,7 @@ onMounted(async () => {
                                     {{ deal.code }}
                                 </RouterLink>
                             </td>
-                            <td class="p-3" data-testid="deals-customer">{{ customerName(deal.customer_id) }}</td>
+                            <td class="p-3" data-testid="deals-customer">{{ deal.customer_name }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
                             <td class="p-3" data-testid="deals-status">
                                 {{ statusLabel(deal.status) }}

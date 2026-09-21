@@ -1512,7 +1512,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             register with its reason. **Decided at 1.1, not deferred silently.** *Decided 2026-09-21
             at 1.2 (the owner, after 1.1 left it open): **the same port** — Deals' list use case calls
             `namesOf` once per page and its SPA join goes.*
-            *(2026-09-21, #PR — list only, the owner's ruling; `loadCustomers` stayed for the form's
+            *(2026-09-21, #165 — list only, the owner's ruling; `loadCustomers` stayed for the form's
             picker; the per-row mutant failed with "actual size 3"; the detail's scoped read registered
             as debt)*
       - [ ] **1.6** Manual test list for F-07 in Arabic — a customer inside the page, one **archived**,

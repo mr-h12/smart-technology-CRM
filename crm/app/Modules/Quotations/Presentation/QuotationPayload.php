@@ -50,15 +50,20 @@ final class QuotationPayload
      * roles without `quotation.view_cost_and_margin`, so the row cannot carry
      * what the detail gates.
      *
+     * @param  array<string, string>  $customerNames  the page's one `namesOf()` read (`D-83`)
      * @return array<string, mixed>
      */
-    public static function summary(QuotationSummary $quotation, ApprovalWaiting $waiting): array
+    public static function summary(QuotationSummary $quotation, ApprovalWaiting $waiting, array $customerNames): array
     {
         return [
             'id' => $quotation->id,
             'code' => $quotation->code,
             'status' => $quotation->status,
             'customer_id' => $quotation->customerId,
+            // F-07 · 1.3 — the name beside the id, as `currency` sits beside
+            // `currency_id` (6.3, ruling A). An id the facts do not name stays
+            // the id, the rule the group label already follows.
+            'customer_name' => $customerNames[$quotation->customerId] ?? $quotation->customerId,
             'deal_id' => $quotation->dealId,
             'currency_id' => $quotation->currencyId,
             'currency' => $quotation->currency,
@@ -79,14 +84,14 @@ final class QuotationPayload
     /**
      * `OpenAPI §6.2`'s grouped `data` — `[{key, label, count, items}]`, groups
      * ordered by `label`. The label is what `ListQuotations::grouped()` named
-     * the group — an employee's name (Step 6 Q2), a customer's id (Q7: the
-     * screen lists customers anyway); the `null` group reads
-     * `quotations.groups.unassigned`.
+     * the group — an employee's name (Step 6 Q2), a customer's name (`D-83`,
+     * reversing Q7); the `null` group reads `quotations.groups.unassigned`.
      *
      * @param  list<array{key: ?string, label: ?string, items: non-empty-list<QuotationSummary>}>  $groups
+     * @param  array<string, string>  $customerNames
      * @return list<array<string, mixed>>
      */
-    public static function groups(array $groups, ApprovalWaiting $waiting): array
+    public static function groups(array $groups, ApprovalWaiting $waiting, array $customerNames): array
     {
         $rows = [];
         foreach ($groups as $group) {
@@ -94,7 +99,7 @@ final class QuotationPayload
                 'key' => $group['key'],
                 'label' => $group['label'] ?? (string) __('quotations.groups.unassigned'),
                 'count' => count($group['items']),
-                'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting), $group['items']),
+                'items' => array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting, $customerNames), $group['items']),
             ];
         }
 
@@ -106,7 +111,7 @@ final class QuotationPayload
     /** @return list<array<string, mixed>> */
     public static function many(QuotationPage $page, ApprovalWaiting $waiting): array
     {
-        return array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting), $page->items);
+        return array_map(static fn (QuotationSummary $row): array => self::summary($row, $waiting, $page->customerNames), $page->items);
     }
 
     /**

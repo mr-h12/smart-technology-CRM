@@ -1485,10 +1485,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #PR — `EloquentCustomerNames` mirrors `EloquentUserFacts` minus every filter:
             no `deleted_at` either, the owner's ruling 2026-09-21, so a soft-deleted customer's name
             still shows; the N+1 mutant failed the query-count test with "actual size 3")*
-      - [ ] **1.3** Quotations' list use case calls `namesOf` **once per page** and the row and the
+      - [x] **1.3** Quotations' list use case calls `namesOf` **once per page** and the row and the
             customer group's `label` carry the name. RED first: a fake port asserting one call per page
             (no N+1), and a row whose customer is archived. `permission-matrix-auditor` (the name-only
             rule, one permitted and one refused role), `waste-auditor`.
+            *(2026-09-21, #PR — `customer_name` beside `customer_id` on the row, the `currency` precedent;
+            an id the facts do not name stays the id, the owner's ruling; the per-row mutant failed the
+            fake-port test with "actual size 3")*
       - [ ] **1.4** The SPA stops joining: `loadCustomers`, `customerNames` and `groupLabel`'s customer
             branch go (`QuotationsView.vue`), and the row reads the name the server sent. RED first:
             vitest on the row and on the grouped heading. `rtl-ui-verifier` (AR/EN × desktop/375 px),

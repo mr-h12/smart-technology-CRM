@@ -54,7 +54,7 @@ final class QuotationController
         // pagination still counts quotations.
         $data = $criteria->groupBy === null
             ? QuotationPayload::many($page, $this->waiting)
-            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy), $this->waiting);
+            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy), $this->waiting, $page->customerNames);
 
         return ApiEnvelope::collection($request, $data, QuotationPayload::pagination($page));
     }

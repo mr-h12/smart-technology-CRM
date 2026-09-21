@@ -226,6 +226,11 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
             $query->where('catalog_items.is_active', $criteria->isActive);
         }
 
+        // `D-86` (F-10 · 1.6): the importer's flag, tri-state like `is_active`.
+        if ($criteria->isIncomplete !== null) {
+            $query->where('catalog_items.is_incomplete', $criteria->isIncomplete);
+        }
+
         if ($criteria->q !== null) {
             $query->whereIn(
                 'catalog_items.id',
@@ -255,6 +260,7 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
             description: $row->description,
             notes: $row->notes,
             isActive: $row->is_active,
+            isIncomplete: $row->is_incomplete,
             // `DB-08`: stored UTC. The immutable copies keep a caller from
             // mutating the model's Carbon instance through the read model.
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),

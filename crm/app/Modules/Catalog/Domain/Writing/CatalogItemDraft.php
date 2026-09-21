@@ -83,6 +83,15 @@ final readonly class CatalogItemDraft
         return new self(self::of($attributes)->attributes + ['is_incomplete' => $incomplete]);
     }
 
+    /**
+     * `D-86` (F-10 · 1.6, `D-87`'s shape) — this draft plus the clear. Clear
+     * only: the caller decides the row is complete; this carries the answer.
+     */
+    public function completed(): self
+    {
+        return new self($this->attributes + ['is_incomplete' => false]);
+    }
+
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {

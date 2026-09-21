@@ -438,6 +438,97 @@ final class CatalogItemWriteEndpointTest extends TestCase
             ->assertStatus(404);
     }
 
+    // ─────────────────────────── D-86 (F-10 · 1.6) — an edit clears the flag
+
+    /** `D-86`: the importer's flag is not the caller's to write, either way. */
+    public function test_that_a_create_sending_is_incomplete_is_refused(): void
+    {
+        $this->postJson(self::ENDPOINT, self::product() + ['is_incomplete' => false], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'is_incomplete');
+
+        self::assertSame(0, DB::table('catalog_items')->count(), 'A refused create wrote an item.');
+    }
+
+    public function test_that_an_edit_sending_is_incomplete_is_refused(): void
+    {
+        $id = $this->flagged(['kind' => 'product', 'name' => 'Cable']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['name' => 'Renamed', 'is_incomplete' => false], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('catalog_items', ['id' => $id, 'name' => 'Cable', 'is_incomplete' => true]);
+    }
+
+    /**
+     * `D-86`'s flag read the other way (`D-87`'s shape): once the row holds
+     * what the form requires — a product's unit, a service's service type, and
+     * a company — it is no longer what the importer flagged. `AUD-02` wants the
+     * clear in the same row as the edit.
+     */
+    public function test_that_completing_a_flagged_item_clears_is_incomplete_and_audits_it(): void
+    {
+        $id = $this->flagged(['kind' => 'product', 'name' => 'Cable', 'company' => 'alpha_co']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['unit' => 'piece'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('catalog_items', ['id' => $id, 'unit' => 'piece', 'is_incomplete' => false]);
+
+        $rows = DB::table('audit_log')->where('event', 'CATALOG_ITEM_UPDATED')->where('entity_id', $id)->get();
+        self::assertCount(1, $rows, 'AUD-02: the clear rides the edit\'s own row.');
+
+        $row = $rows->first();
+        self::assertNotNull($row);
+
+        $old = json_decode(self::jsonColumn($row->old_values), true);
+        $new = json_decode(self::jsonColumn($row->new_values), true);
+
+        self::assertIsArray($old);
+        self::assertIsArray($new);
+        self::assertTrue($old['is_incomplete']);
+        self::assertFalse($new['is_incomplete']);
+        self::assertSame('piece', $new['unit']);
+    }
+
+    /** Owner, 2026-09-22: completeness is read against the kind the edit leaves. */
+    public function test_that_changing_the_kind_is_judged_by_the_kind_after_the_edit(): void
+    {
+        $id = $this->flagged(['kind' => 'service', 'name' => 'Cable', 'company' => 'alpha_co']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+    }
+
+    public function test_that_a_partial_edit_keeps_is_incomplete(): void
+    {
+        $id = $this->flagged(['kind' => 'product', 'name' => 'Cable']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['unit' => 'piece'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', true);
+
+        $this->assertDatabaseHas('catalog_items', ['id' => $id, 'is_incomplete' => true]);
+
+        $new = json_decode(self::jsonColumn(DB::table('audit_log')->where('entity_id', $id)->where('event', 'CATALOG_ITEM_UPDATED')->value('new_values')), true);
+        self::assertIsArray($new);
+        self::assertArrayNotHasKey('is_incomplete', $new, 'AUD-02: only what this write changed.');
+    }
+
+    /** Clear only, never set — `D-31` makes the flag the importer's. */
+    public function test_that_emptying_a_field_never_sets_is_incomplete(): void
+    {
+        $id = $this->created(self::product());
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['unit' => null], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('catalog_items', ['id' => $id, 'unit' => null, 'is_incomplete' => false]);
+    }
+
     // ─────────────────────────────────────────────── §3.12 rule 3 — no delete
 
     public function test_that_no_delete_route_exists(): void
@@ -474,6 +565,26 @@ final class CatalogItemWriteEndpointTest extends TestCase
         self::assertIsString($value, 'The audit column should hold a JSON document.');
 
         return $value;
+    }
+
+    /**
+     * An item as the importer leaves it. The API prohibits `is_incomplete`, so
+     * the flag is written straight to the table, as the importer's own write is.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function flagged(array $attributes): string
+    {
+        $id = Str::uuid7()->toString();
+
+        DB::table('catalog_items')->insert($attributes + [
+            'id' => $id,
+            'is_incomplete' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
     }
 
     /** @param array<string, mixed> $attributes */

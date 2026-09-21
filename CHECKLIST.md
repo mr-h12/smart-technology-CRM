@@ -2193,9 +2193,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-22, #188 — path under `/catalog-items` and `CATALOG_ITEM_SUPPLIER_LINKED` on the link row, owner's
             answers of 2026-09-22 (the `D-86` path is corrected by the owner); unknown `is_active` word rejected; a list
             value stored as its code, the code winning over a label; 45 tests, 11 mutants + 1 deptrac mutant caught)*
-      - [ ] **1.6** An edit that completes a flagged item clears the flag (`D-87`'s shape): clear-only, in
+      - [x] **1.6** An edit that completes a flagged item clears the flag (`D-87`'s shape): clear-only, in
             the same `CATALOG_ITEM_UPDATED` audit row; `is_incomplete` in the payload and
             `filter[is_incomplete]`, prohibited in a write. RED first: the three clear-only cases.
+            *(2026-09-22, #189 — complete = a product's `unit` / a service's `service_type` + `company`, judged by the
+            `kind` after the edit (owner, 2026-09-22); a bad filter value is `OpenAPI §6.1`'s 400; 8 tests, 7 mutants caught)*
       - [ ] **1.7** Links by hand: the item payload lists its suppliers; the save request takes the full
             set of supplier ids and replaces it; the change is audited with old and new. Under
             `catalog.manage`. RED first: add, remove, unchanged set writes no link audit, an unknown id is

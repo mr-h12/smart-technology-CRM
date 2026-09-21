@@ -465,6 +465,24 @@ describe('SuppliersView — F-09 · 1.5 import and the incomplete flag', () => {
         expect(refused.find('[data-testid="suppliers-import"]').exists()).toBe(false);
     });
 
+    /**
+     * The owner's screenshot, 2026-09-21: as a fourth child of the header's
+     * `justify-between`, the import button floated in the middle of the row.
+     * Grouped with *New supplier*, it sits beside it, as on Customers.
+     */
+    it('keeps the import button beside New supplier rather than as its own header item', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([SUPPLIER])));
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        const importButton = view.find('[data-testid="suppliers-import"]').element;
+        const createButton = view.find('[data-testid="suppliers-create"]').element;
+
+        expect(importButton.parentElement).toBe(createButton.parentElement);
+        expect(importButton.parentElement?.tagName).not.toBe('HEADER');
+    });
+
     it('uploads to the suppliers import and asks the list again once it succeeds', async () => {
         const fetchMock = vi.fn(async (input: string) => (/\/suppliers\/import$/.test(String(input))
             ? json(201, { data: BATCH })

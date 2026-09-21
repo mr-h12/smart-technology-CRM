@@ -244,29 +244,33 @@ onMounted(load);
                 {{ t('suppliers.total', { count: total }) }}
             </p>
 
-            <!-- `D-85`: the Manager's alone. §6.2 allows one Primary per
-                 context and *New supplier* is it, so this is Secondary. -->
-            <button
-                v-if="canImport"
-                type="button"
-                class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                data-testid="suppliers-import"
-                @click="importOpen = true"
-            >
-                {{ t('suppliers.import.title') }}
-            </button>
+            <!-- One group, so `justify-between` spreads three items and not
+                 four: the import sits beside *New supplier*, as on Customers. -->
+            <div class="flex flex-wrap items-baseline gap-3">
+                <!-- `D-85`: the Manager's alone. §6.2 allows one Primary per
+                     context and *New supplier* is it, so this is Secondary. -->
+                <button
+                    v-if="canImport"
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="suppliers-import"
+                    @click="importOpen = true"
+                >
+                    {{ t('suppliers.import.title') }}
+                </button>
 
-            <!-- §6.2: one primary action per context, drawn only for the
-                 permission that can complete it. -->
-            <button
-                v-if="canManage"
-                type="button"
-                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                data-testid="suppliers-create"
-                @click="startCreate()"
-            >
-                {{ t('suppliers.form.createTitle') }}
-            </button>
+                <!-- §6.2: one primary action per context, drawn only for the
+                     permission that can complete it. -->
+                <button
+                    v-if="canManage"
+                    type="button"
+                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="suppliers-create"
+                    @click="startCreate()"
+                >
+                    {{ t('suppliers.form.createTitle') }}
+                </button>
+            </div>
         </header>
 
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a

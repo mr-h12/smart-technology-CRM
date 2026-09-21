@@ -1906,11 +1906,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `CRM_Documentation_EN.md`.
             *(2026-09-21, #172 — the D-85 text in #172 wrongly says the type is unchecked; the corrected
             text is in 1.2's PR)*
-      - [ ] **1.2** Schema and read side: a migration adding `suppliers.is_incomplete` (boolean, NOT
+      - [x] **1.2** Schema and read side: a migration adding `suppliers.is_incomplete` (boolean, NOT
             NULL, default false) and creating `supplier_import_batches` (the `import_batches` columns and
             CHECKs), with `down()` tested by `migrate:rollback`; `is_incomplete` in `SupplierPayload`;
             `filter[is_incomplete]` in `SupplierListCriteria`; `SaveSupplierRequest` prohibits it. RED
             first: the payload key, the filter both ways, and a 422 on a write that sends it.
+            *(2026-09-21, #173 — both mutants failed their tests; nothing writes the flag or the batch
+            table until 1.4)*
       - [ ] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
             deptrac entry for the one namespace. No behaviour change — the proof is that every existing
             customer-import test passes untouched, and the moved code keeps its own tests (BOM, `;`,

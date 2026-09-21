@@ -56,6 +56,5 @@ return [
         'customer_status' => 'customer status',
         'is_archived' => 'archived',
         'is_incomplete' => 'incomplete',
-        'file' => 'file',
     ],
 ];

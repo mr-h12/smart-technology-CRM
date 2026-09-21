@@ -50,6 +50,5 @@ return [
         'customer_status' => 'حالة العميل',
         'is_archived' => 'مؤرشَف',
         'is_incomplete' => 'غير مكتمل',
-        'file' => 'الملف',
     ],
 ];

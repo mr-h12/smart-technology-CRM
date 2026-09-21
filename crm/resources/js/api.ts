@@ -44,8 +44,8 @@ export interface Envelope<T> {
 }
 
 /**
- * One import batch, as `ImportBatchPayload` (customers) and
- * `SupplierPayload::importBatch` (suppliers, `D-85`) both serialise it.
+ * One import batch, as `App\Support\Csv\ImportBatchPayload` serialises it for
+ * both imports — customers and suppliers (`D-85`, F-10 · 1.2).
  * Failures are `row_count - imported_count`; the server stores no fourth count.
  */
 export interface ImportBatch {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Customers\Presentation;
+namespace App\Support\Csv;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
@@ -10,7 +10,11 @@ use Illuminate\Support\Facades\Config;
 use RuntimeException;
 
 /**
- * The boundary for `POST /customers/import`.
+ * The boundary for every CSV import — `POST /customers/import` and
+ * `POST /suppliers/import` (`D-85`), and F-10's catalog import (`D-86`). Moved
+ * here from Customers in F-10 · 1.2; the suppliers' copy differed only in its
+ * lang key, and the two keys said the same word. The field's name now comes
+ * from `validation.attributes.file`, so no `attributes()` is needed.
  *
  * ── The size ceiling is §17's, not a new one ──────────────────────────────
  *
@@ -26,12 +30,12 @@ use RuntimeException;
  * §17's true-MIME check exists for files this system **stores and serves back**
  * (`D-38`, `SEC-15`), and `AllowedFileType` is `D-40`'s six — PDF · JPG · PNG ·
  * WEBP · DOCX · XLSX — which does not include CSV at all. This file is parsed
- * and dropped: `import_batches` has no path column by Point 1.2's decision, so
+ * and dropped: no import-batch table has a path column by Point 1.2's decision, so
  * nothing is stored, nothing is served, and there is nothing for a spoofed
  * extension to be spoofed *into*. A file that is not a CSV fails on its header
  * instead, with a message that says so.
  */
-final class ImportCustomersRequest extends FormRequest
+final class ImportFileRequest extends FormRequest
 {
     /** @return array<string, list<string>> */
     public function rules(): array
@@ -46,12 +50,6 @@ final class ImportCustomersRequest extends FormRequest
             // everything rather than rounding up into permission nobody gave.
             'file' => ['required', 'file', 'max:'.intdiv($bytes, 1024)],
         ];
-    }
-
-    /** @return array<string, string> */
-    public function attributes(): array
-    {
-        return ['file' => (string) __('customers.attributes.file')];
     }
 
     public function upload(): UploadedFile

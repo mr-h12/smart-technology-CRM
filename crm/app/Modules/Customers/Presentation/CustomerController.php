@@ -13,6 +13,8 @@ use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
 use App\Modules\Customers\Domain\Writing\CustomerWriteResult;
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Support\Csv\ImportBatchPayload;
+use App\Support\Csv\ImportFileRequest;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,15 +92,14 @@ final class CustomerController
         ));
     }
 
-    public function import(ImportCustomersRequest $request, ImportCustomers $customers): JsonResponse
+    public function import(ImportFileRequest $request, ImportCustomers $customers): JsonResponse
     {
         $upload = $request->upload();
+        $batch = $customers->handle($upload->getRealPath(), $upload->getClientOriginalName(), self::actorId($request));
 
-        return ApiEnvelope::single($request, ImportBatchPayload::of($customers->handle(
-            $upload->getRealPath(),
-            $upload->getClientOriginalName(),
-            self::actorId($request),
-        )), 201);
+        return ApiEnvelope::single($request, ImportBatchPayload::of(
+            $batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount,
+        ), 201);
     }
 
     /**

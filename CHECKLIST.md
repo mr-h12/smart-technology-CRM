@@ -2159,7 +2159,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             changing nothing. RED first: a complete flagged row is cleared and audited; an incomplete
             one is untouched; a second run writes no audit row. **After merging, the owner runs it
             once** (as `RolePermissionSeeder` after #175); expected in dev: 2 suppliers, 0 customers.
-            *(2026-09-21, #PR — `suppliers:clear-incomplete` and `customers:clear-incomplete`; no logic of
+            *(2026-09-21, #182 — `suppliers:clear-incomplete` and `customers:clear-incomplete`; no logic of
             their own: an empty edit through `SaveSupplier`/`SaveCustomer::update` with a null (system)
             actor, the J-15 shape; `updated_by` and the audit `user_id` are null. Dev expectation is now
             **0 and 0** — 1.2/1.3's browser checks completed the rows through the real API.)*

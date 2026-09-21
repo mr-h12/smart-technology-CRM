@@ -1439,6 +1439,60 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
         في `D-82` لا خطأ حساب — المخزَّن والمجاميع في الخادم لم تتغيّر (`D-67`). لا صفّ كهذا في بيانات
         اليوم، فالفحص يبقى نظريًّا حتّى توجد قيمة كهذه.
 
+- [ ] **F-07** A quotation row shows the customer's identifier instead of their name (Module 7 ← Module 3).
+      Owner's report 2026-09-21, recorded as `D-83` (proposed): Quotations resolves the name through a
+      **port on Customers' contract**, not through a second scoped list request from the SPA. This
+      **reverses Module 7 Step 5 Q7** (`checklist/module-07.md:300-304`), which chose the frontend lookup
+      and named `namesOf(list<string>)` as the alternative it declined — so it is a new decision, not a
+      reinterpretation.
+
+      **The stated cause was not the cause.** Measured 2026-09-21: the SPA sends no `sort`, so the server
+      falls back to `orderBy('customers.id')` (`EloquentCustomerDirectory.php:80`, UUIDv7 ⇒ id-ascending),
+      and all four customers that own quotations sit at positions **9, 13, 19, 95** of 234 — inside the
+      page of 100. `perPage: 100` is a real ceiling but it is **latent**. Four mechanisms actually break
+      the name, and one port closes all four:
+      1. **the cap** — `listCustomers({ perPage: 100 })` (`QuotationsView.vue:246`), latent today;
+      2. **the silent catch** — `loadCustomers`' `catch { customers.value = [] }` degrades *every* row to
+         an identifier on any failure, deliberately, so a 403 does not error a list that loaded;
+      3. **the archive filter** — `applyFilters` applies `where('customers.is_archived', …)`
+         **unconditionally**, so an archived customer's name is **permanently** unresolvable while the
+         system archives rather than deletes (`DB-01`);
+      4. **the scope split** — `§3.3` scopes `customer.view` `own`/`asgn`/`out` while `quotation.view` is
+         scoped separately, so a caller may legitimately read a quotation whose customer is outside their
+         customer scope.
+
+      **The precedent already exists in this repo:** the roles matrix needs every permission and uses
+      `allPages('/permissions')` (`services/identity.ts:229`) rather than a capped page. `DealsView.vue:209`
+      makes the identical capped call and carries the identical defect — covered at 1.5 or registered as
+      debt there, decided at 1.1.
+
+      Each point is its own `fix/…` branch, one per turn, seven-part report, owner's merge.
+
+      ### F-07 point list — published 2026-09-21
+
+      - [ ] **1.1** `D-83` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+            owner, as `D-82` was (#157), because the guard hook refuses an agent write to
+            `CRM_Documentation_EN.md`; `.claude/settings.json` is not touched.
+      - [ ] **1.2** `CustomerNamesInterface::namesOf(array<string> $ids): array<string,string>` in
+            `Customers/Domain/Contracts/`, its Eloquent implementation and its binding. **Name only** —
+            never another customer field — so a caller permitted a quotation is not thereby granted
+            customer data (owner's ruling, 2026-09-21). RED first: a contract test that an **archived**
+            customer and one **outside the caller's row scope** both still return a name, which is
+            mechanisms 3 and 4 written as a test. One query for N ids, never N queries. `waste-auditor`.
+      - [ ] **1.3** Quotations' list use case calls `namesOf` **once per page** and the row and the
+            customer group's `label` carry the name. RED first: a fake port asserting one call per page
+            (no N+1), and a row whose customer is archived. `permission-matrix-auditor` (the name-only
+            rule, one permitted and one refused role), `waste-auditor`.
+      - [ ] **1.4** The SPA stops joining: `loadCustomers`, `customerNames` and `groupLabel`'s customer
+            branch go (`QuotationsView.vue`), and the row reads the name the server sent. RED first:
+            vitest on the row and on the grouped heading. `rtl-ui-verifier` (AR/EN × desktop/375 px),
+            `waste-auditor`.
+      - [ ] **1.5** `DealsView.vue:209` — the same port, or the same defect registered in the debt
+            register with its reason. **Decided at 1.1, not deferred silently.**
+      - [ ] **1.6** Manual test list for F-07 in Arabic — a customer inside the page, one **archived**,
+            one **outside the caller's scope**, and the 403 path where the name must still appear;
+            AR/EN × desktop/375 px; roles named.
+
 
 ## Shell revisions — owner-directed
 

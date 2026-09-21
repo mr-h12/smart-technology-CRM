@@ -103,7 +103,7 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
 
         expect(sent[0]!.url).toBe('/api/v1/customers/import');
 
-        // `ImportCustomersRequest` validates a field literally named `file`.
+        // `ImportFileRequest` validates a field literally named `file`.
         // A FormData built under any other key is a 422 the screen cannot fix.
         const body = sent[0]!.body;
         expect(body).toBeInstanceOf(FormData);

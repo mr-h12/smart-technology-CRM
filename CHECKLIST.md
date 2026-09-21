@@ -1060,6 +1060,8 @@ would hide them behind `OD-03` indefinitely.
       master documentation fails. Nothing in the code was wrong; `docker compose restart php` re-attached
       it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
       the file — a change to the dev environment, so it is the owner's call, not this point's.
+      **Recurred in F-10 · 1.2 (2026-09-22):** the same 50 tests, after #184 changed the master doc;
+      `docker compose restart php`, then 2981 passed. Every doc-touching merge will do this until ordered.
 - [x] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
       *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
       (2026-09-21); closes with it.** *(Closed 2026-09-21 with F-11: #180, #181, #182, and the 1.5 list.)* `D-31` flags an imported
@@ -1074,7 +1076,7 @@ would hide them behind `OD-03` indefinitely.
       resolves the same code through `sectorLabel()` against the managed list the list screen already
       loads for its filter (`sectors`, line 105). Both locales. One template expression and the helper
       moved or copied; `rtl-ui-verifier` at desktop only — the column is `hidden` below `md`.
-- [ ] **The two imports carry three identical shapes: the summary, its payload and the upload request** —
+- [x] **The two imports carry three identical shapes: the summary, its payload and the upload request** —
       *created by F-09 Point 1.4, 2026-09-21, and registered rather than fixed because extracting a shared
       layer was outside that point's approved list.* `Suppliers\Domain\Importing\ImportSummary` is
       field-for-field `Customers\Domain\Importing\ImportSummary`; `SupplierPayload::importBatch()` is
@@ -1083,6 +1085,10 @@ would hide them behind `OD-03` indefinitely.
       `ImportSuppliers`), so they could move to `App\Support\Csv` beside `CsvReader`, on its
       `SharedContracts` terms. F-10's catalog import would make it three copies — the natural moment.
       **Taken up by F-10 · 1.2 / `D-86` (2026-09-21), before the catalog importer; closes with that point.**
+      *Closed 2026-09-22 for two of the three:* the upload request and the payload are
+      `App\Support\Csv\ImportFileRequest` / `ImportBatchPayload`. **`ImportSummary` stays one per module
+      by the owner's ruling:** each module's `Domain` contracts name it, and `deptrac.layers.yaml` gives
+      `Domain` no licence to depend on `SharedContracts`. A deliberate ceiling, not waste.
 - [ ] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
       "Not covered" of `D-85` and `D-87`, and made a ruling of F-10 (owner, 2026-09-21: "every row creates a
       new item"); registered here 2026-09-21 because until now it lived only in prose.* Importing one file
@@ -2162,10 +2168,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.1** `D-86` in §2 (proposed) + this block + the three debt rows. Docs only — the `D-86` row
             and §3.7's `import` row are pasted by the owner, as `D-85` and `D-87` were.
             *(2026-09-21, #184 — both rows' text is in #184's description)*
-      - [ ] **1.2** The shared import shapes move to `App\Support\Csv`: the summary, its payload and the
+      - [x] **1.2** The shared import shapes move to `App\Support\Csv`: the summary, its payload and the
             upload request, used by Customers and Suppliers. No behaviour change: every existing import
             test passes unchanged, deptrac 0 violations both configs. Closes the debt row.
             `waste-auditor` (the old classes are deleted, not left beside the new).
+            *(2026-09-22, #185 — **amended by the owner before coding:** the summary stays per module (deptrac:
+            `Domain` ↛ `SharedContracts`); `ImportFileRequest` + `ImportBatchPayload::of()` shared, the field
+            named by `validation.attributes.file`; suite 2981/18640)*
       - [ ] **1.3** Schema, reversible: `catalog_items.is_incomplete` (default false);
             `catalog_item_suppliers` (item, supplier, standard columns, soft delete, FKs, one live row per
             pair); `catalog_import_batches` owned by Catalog. RED first: `migrate:rollback` round trip;

@@ -159,6 +159,7 @@ return [
     'url'                    => 'صيغة رابط حقل :attribute غير صحيحة.',
     'uuid'                   => 'حقل :attribute يجب أن يكون بصيغة UUID سليمة.',
     'attributes'             => [
+        'file'                     => 'الملف',
         'address'                  => 'العنوان',
         'affiliate_url'            => 'رابط الأفلييت',
         'age'                      => 'العمر',

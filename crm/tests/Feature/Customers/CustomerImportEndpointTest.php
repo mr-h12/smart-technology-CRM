@@ -362,6 +362,21 @@ final class CustomerImportEndpointTest extends TestCase
             ->assertJsonPath('error.code', 'validation_failed');
     }
 
+    /** F-10 · 1.2: the shared upload request keeps calling the field «الملف» / "file". */
+    public function test_that_a_missing_file_is_named_in_both_languages(): void
+    {
+        foreach (['ar' => 'الملف', 'en' => 'file'] as $locale => $word) {
+            $message = $this->postJson(self::ENDPOINT, [], $this->bearerFor(RoleName::Manager) + ['Accept-Language' => $locale])
+                ->assertStatus(422)
+                ->assertJsonPath('error.details.0.field', 'file')
+                ->json('error.details.0.message');
+
+            self::assertIsString($message);
+            self::assertStringContainsString($word, $message);
+            self::assertStringNotContainsString('attributes', $message);
+        }
+    }
+
     public function test_that_an_unknown_column_is_refused_rather_than_ignored(): void
     {
         // `OpenAPI §6.2` takes this line about unknown query parameters, and

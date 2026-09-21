@@ -8,6 +8,8 @@ use App\Modules\Suppliers\Application\Importing\ImportSuppliers;
 use App\Modules\Suppliers\Application\Listing\ListSuppliers;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
+use App\Support\Csv\ImportBatchPayload;
+use App\Support\Csv\ImportFileRequest;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,15 +66,14 @@ final class SupplierController
     }
 
     /** `D-85` (F-09 · 1.4) — the counts of one import; the file itself is not kept. */
-    public function import(ImportSuppliersRequest $request, ImportSuppliers $suppliers): JsonResponse
+    public function import(ImportFileRequest $request, ImportSuppliers $suppliers): JsonResponse
     {
         $upload = $request->upload();
+        $batch = $suppliers->handle($upload->getRealPath(), $upload->getClientOriginalName(), self::actorId($request));
 
-        return ApiEnvelope::single($request, SupplierPayload::importBatch($suppliers->handle(
-            $upload->getRealPath(),
-            $upload->getClientOriginalName(),
-            self::actorId($request),
-        )), 201);
+        return ApiEnvelope::single($request, ImportBatchPayload::of(
+            $batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount,
+        ), 201);
     }
 
     /**

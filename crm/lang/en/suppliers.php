@@ -18,10 +18,6 @@ return [
         'missing_name_column' => 'This file has no "name" column, and a supplier cannot be imported without one.',
     ],
 
-    'attributes' => [
-        'file' => 'file',
-    ],
-
     // OpenAPI §6.1/§6.2 — one message per detail code, so `details` says what
     // the closed set of HTTP codes cannot.
     'list_query' => [

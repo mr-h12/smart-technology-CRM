@@ -300,6 +300,20 @@ describe('CustomerPicker', () => {
         expect(wrapper.find('[data-testid="picker-clear"]').exists()).toBe(false);
     });
 
+    it('shows a placeholder of its own and hands id, disabled and aria-invalid to the input (a required field)', async () => {
+        // F-08 · 1.3: a form's picker has no all label; its placeholder is
+        // the form's, and the surrounding `<label for>`, `saving` and the
+        // 422 state reach the input the way they reached the `<select>`.
+        const wrapper = render(server(), { placeholder: 'Choose the customer', id: 'f-customer', disabled: true, 'aria-invalid': 'true' });
+        const input = wrapper.find('[data-testid="picker"]');
+
+        expect(input.attributes('placeholder')).toBe('Choose the customer');
+        expect(input.attributes('id')).toBe('f-customer');
+        expect(input.attributes('disabled')).toBeDefined();
+        expect(input.attributes('aria-invalid')).toBe('true');
+        expect(wrapper.find('[data-testid="picker-clear"]').exists()).toBe(false);
+    });
+
     it('empties the box when the value is emptied from outside', async () => {
         const wrapper = render(server());
         await open(wrapper);

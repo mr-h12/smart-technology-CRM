@@ -19,16 +19,21 @@
  *
  * `allLabel` is the filter's «كل العملاء»: when given, it is the first option
  * and a clear button appears beside a chosen customer. A caller without it
- * gets neither.
+ * gets neither, and says its own `placeholder` — a form's required field.
+ * Attributes such as `id`, `disabled` and `aria-invalid` fall through to the
+ * input, so a `<label for>` and a form's saving and 422 states reach it.
  */
 import { computed, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { listCustomers, type Customer } from '@/services/customers';
 
+defineOptions({ inheritAttrs: false });
+
 const props = defineProps<{
     testId: string;
     allLabel?: string;
+    placeholder?: string;
 }>();
 
 const model = defineModel<string>({ required: true });
@@ -168,6 +173,7 @@ watch(model, (value) => {
     <div ref="root" class="relative" @focusout="left">
         <div class="flex items-center gap-1">
             <input
+                v-bind="$attrs"
                 v-model="text"
                 type="text"
                 role="combobox"
@@ -176,7 +182,7 @@ watch(model, (value) => {
                 :aria-expanded="open ? 'true' : 'false'"
                 :aria-controls="listboxId"
                 :aria-activedescendant="active >= 0 ? optionId(active) : undefined"
-                :placeholder="allLabel"
+                :placeholder="allLabel ?? placeholder"
                 class="form-field min-h-11 w-full rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                 :data-testid="testId"
                 @focus="show"

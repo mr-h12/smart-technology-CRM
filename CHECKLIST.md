@@ -2179,7 +2179,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `catalog_item_suppliers` (item, supplier, standard columns, soft delete, FKs, one live row per
             pair); `catalog_import_batches` owned by Catalog. RED first: `migrate:rollback` round trip;
             the pair constraint refuses a second live link.
-            *(2026-09-22 — `2026_09_22_000000_add_catalog_import_columns_and_links`; 17 tests, 2 mutants caught;
+            *(2026-09-22, #186 — `2026_09_22_000000_add_catalog_import_columns_and_links`; 17 tests, 2 mutants caught;
             FKs no-action, no `supplier_id`-only index (`ponytail:`); dev: 0 of 7 items flagged)*
       - [ ] **1.4** A supplier lookup Suppliers publishes (`Domain/Contracts`, its own deptrac layer):
             the ids matching a name (trimmed, any case, active or not), and names for ids. RED first: 0, 1

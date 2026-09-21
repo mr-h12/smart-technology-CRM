@@ -1470,9 +1470,12 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       ### F-07 point list — published 2026-09-21
 
-      - [ ] **1.1** `D-83` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+      - [x] **1.1** `D-83` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
             owner, as `D-82` was (#157), because the guard hook refuses an agent write to
             `CRM_Documentation_EN.md`; `.claude/settings.json` is not touched.
+            *(2026-09-21, #160 — the owner's reported cause was measured and disproved: the four
+            customers owning quotations sit at positions 9/13/19/95 of 234, inside the page of 100,
+            so the cap is latent and four other mechanisms carry the defect)*
       - [ ] **1.2** `CustomerNamesInterface::namesOf(array<string> $ids): array<string,string>` in
             `Customers/Domain/Contracts/`, its Eloquent implementation and its binding. **Name only** —
             never another customer field — so a caller permitted a quotation is not thereby granted

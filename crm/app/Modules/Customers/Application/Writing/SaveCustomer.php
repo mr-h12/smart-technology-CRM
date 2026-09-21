@@ -121,6 +121,13 @@ final readonly class SaveCustomer
                 throw CustomerNotFound::of($customerId);
             }
 
+            // `D-87`: an edit that leaves every `EXPECTED` field filled clears
+            // the importer's flag. Clear only — a row the importer did not
+            // flag is never flagged here, whatever the edit empties (`D-31`).
+            if ($before->isIncomplete && self::isComplete($before, $draft)) {
+                $draft = $draft->completed();
+            }
+
             $after = $this->customers->update($customerId, $draft, $scope, $actorId);
 
             if (! $after instanceof CustomerSummary) {
@@ -244,6 +251,7 @@ final readonly class SaveCustomer
             'email' => $before->email,
             'start_date' => $before->startDate?->format('Y-m-d'),
             'notes' => $before->notes,
+            'is_incomplete' => $before->isIncomplete,
         ];
 
         $old = [];
@@ -253,5 +261,25 @@ final readonly class SaveCustomer
         }
 
         return $old;
+    }
+
+    /** The row as this write leaves it has every `D-87` core field filled. */
+    private static function isComplete(CustomerSummary $before, CustomerDraft $draft): bool
+    {
+        $after = $draft->attributes + [
+            'name' => $before->name,
+            'sector' => $before->sector,
+            'region' => $before->region,
+            'contact_person' => $before->contactPerson,
+            'phone' => $before->phone,
+        ];
+
+        foreach (CustomerDraft::EXPECTED as $field) {
+            if (($after[$field] ?? '') === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

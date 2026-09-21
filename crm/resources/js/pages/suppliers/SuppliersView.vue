@@ -58,8 +58,9 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import ImportModal from '@/components/imports/ImportModal.vue';
 import SupplierRatingChip from '@/components/suppliers/SupplierRatingChip.vue';
-import { listSuppliers, type Pagination, type Supplier } from '@/services/suppliers';
+import { importSuppliers, listSuppliers, type Pagination, type Supplier } from '@/services/suppliers';
 import SupplierFormModal from '@/pages/suppliers/SupplierFormModal.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -77,6 +78,11 @@ const auth = useAuth();
 
 /** §3.7's write row is one cell, so one permission draws all four verbs. */
 const canManage = computed(() => auth.hasPermission('catalog.manage'));
+
+/** `D-85`: `catalog.import` is the Manager's alone, although `catalog.manage` is not. */
+const canImport = computed(() => auth.hasPermission('catalog.import'));
+
+const importOpen = ref(false);
 
 const formOpen = ref(false);
 const editing = ref<Supplier | null>(null);
@@ -100,6 +106,9 @@ const typeFilter = ref('');
  */
 const activeFilter = ref<'' | 'active' | 'inactive'>('');
 
+/** `D-85`/§10's dedicated filter. Unticked asks nothing about the flag, never `false`. */
+const incompleteOnly = ref(false);
+
 /** `SupplierListCriteria::DEFAULT_SORT`. */
 const sortField = ref<string>('name');
 const sortDescending = ref(false);
@@ -108,7 +117,7 @@ const total = computed(() => pagination.value?.total ?? 0);
 
 /** Which of the two empty states is true: "there are none" or "none matched". */
 const filtering = computed(
-    () => search.value !== '' || ratingFilter.value !== '' || typeFilter.value !== '' || activeFilter.value !== '',
+    () => search.value !== '' || ratingFilter.value !== '' || typeFilter.value !== '' || activeFilter.value !== '' || incompleteOnly.value,
 );
 
 /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
@@ -129,6 +138,7 @@ async function load(): Promise<void> {
             // `null`, never `false`, when unset. An unset select asks nothing
             // about the column; `false` would ask for the deactivated ones only.
             isActive: activeFilter.value === '' ? null : activeFilter.value === 'active',
+            isIncomplete: incompleteOnly.value ? true : null,
         });
 
         suppliers.value = result.items;
@@ -210,6 +220,14 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
+/** The customers' `onShowIncomplete`: close the dialog, then show the rows it flagged. */
+async function onShowIncomplete(): Promise<void> {
+    importOpen.value = false;
+    incompleteOnly.value = true;
+
+    await applyFilters();
+}
+
 onMounted(load);
 </script>
 
@@ -225,6 +243,18 @@ onMounted(load);
             >
                 {{ t('suppliers.total', { count: total }) }}
             </p>
+
+            <!-- `D-85`: the Manager's alone. §6.2 allows one Primary per
+                 context and *New supplier* is it, so this is Secondary. -->
+            <button
+                v-if="canImport"
+                type="button"
+                class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                data-testid="suppliers-import"
+                @click="importOpen = true"
+            >
+                {{ t('suppliers.import.title') }}
+            </button>
 
             <!-- §6.2: one primary action per context, drawn only for the
                  permission that can complete it. -->
@@ -301,6 +331,17 @@ onMounted(load);
                     <option value="inactive">{{ t('suppliers.status.inactive') }}</option>
                 </select>
             </label>
+
+            <label class="flex min-h-11 items-center gap-2">
+                <input
+                    v-model="incompleteOnly"
+                    type="checkbox"
+                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="suppliers-filter-incomplete"
+                    @change="applyFilters"
+                />
+                <span>{{ t('suppliers.filter.incomplete') }}</span>
+            </label>
         </form>
 
         <LoadingState v-if="loading" label-key="suppliers.loading" />
@@ -374,7 +415,15 @@ onMounted(load);
 
                     <tbody>
                         <tr v-for="supplier in suppliers" :key="supplier.id" class="table-row" data-testid="suppliers-row">
-                            <td class="p-3">{{ supplier.name }}</td>
+                            <td class="p-3">
+                                {{ supplier.name }}
+                                <!-- `D-31`: the word is the flag; §6.4 never colour alone. -->
+                                <span
+                                    v-if="supplier.is_incomplete"
+                                    class="ms-2 whitespace-nowrap rounded-full border border-[var(--color-warning)] bg-[var(--color-surface-muted)] px-2 py-0.5"
+                                    data-testid="suppliers-incomplete"
+                                >{{ t('suppliers.incomplete') }}</span>
+                            </td>
                             <td class="p-3">
                                 <!-- §7.1: "beside the supplier name on every screen". -->
                                 <SupplierRatingChip :rating="(supplier.color_rating as 'green' | 'yellow' | 'red' | 'white')" />
@@ -443,6 +492,15 @@ onMounted(load);
                 </button>
             </nav>
         </div>
+
+        <ImportModal
+            :open="importOpen"
+            :title="t('suppliers.import.title')"
+            :upload="importSuppliers"
+            @imported="load()"
+            @show-incomplete="onShowIncomplete"
+            @cancel="importOpen = false"
+        />
 
         <SupplierFormModal
             :open="formOpen"

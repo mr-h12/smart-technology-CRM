@@ -3,10 +3,14 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
-import CustomerImportModal from '@/pages/customers/CustomerImportModal.vue';
+import ImportModal from '@/components/imports/ImportModal.vue';
+import { importCustomers } from '@/services/customers';
 
 /**
- * Module 3, Point 4.6 — the `.csv` import screen.
+ * Module 3, Point 4.6 — the `.csv` import screen. Shared since F-09 · 1.5
+ * (`D-85`): suppliers import the same way, so the dialog takes its title and
+ * its upload from the caller. These cases drive it with the customers' upload;
+ * `SuppliersView.spec.ts` drives it with the suppliers'.
  *
  * ── Why this is a dialog on the list and not a screen of its own ───────────
  *
@@ -50,8 +54,8 @@ const BATCH = {
 };
 
 function render(locale = 'en') {
-    return mount(CustomerImportModal, {
-        props: { open: true },
+    return mount(ImportModal, {
+        props: { open: true, title: 'Import customers', upload: importCustomers },
         global: {
             plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
@@ -64,7 +68,7 @@ function csv(name = 'customers.csv'): File {
 }
 
 async function choose(view: ReturnType<typeof render>, file: File): Promise<void> {
-    const input = view.find('[data-testid="customer-import-file"]');
+    const input = view.find('[data-testid="import-file"]');
 
     Object.defineProperty(input.element, 'files', { value: [file], configurable: true });
     await input.trigger('change');
@@ -75,7 +79,14 @@ beforeEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('CustomerImportModal — Point 4.6', () => {
+describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
+    it('draws the title its caller passes', () => {
+        vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: BATCH })));
+
+        expect(render().find('h2').text()).toBe('Import customers');
+    });
+
+
     it('sends the file as multipart on the field the server validates', async () => {
         const sent: Array<{ url: string; body: unknown }> = [];
 
@@ -87,7 +98,7 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
         expect(sent[0]!.url).toBe('/api/v1/customers/import');
@@ -104,17 +115,17 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
-        const result = view.find('[data-testid="customer-import-result"]').text();
+        const result = view.find('[data-testid="import-result"]').text();
 
         expect(result).toContain('10');
         expect(result).toContain('8');
         expect(result).toContain('3');
         // 10 − 8. The server stores no failure count, so this is the one number
         // on the screen that the screen itself is responsible for.
-        expect(view.find('[data-testid="customer-import-failed"]').text()).toContain('2');
+        expect(view.find('[data-testid="import-failed"]').text()).toContain('2');
     });
 
     it('offers §10’s dedicated filter only when something was flagged', async () => {
@@ -122,12 +133,12 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
-        expect(view.find('[data-testid="customer-import-show-incomplete"]').exists()).toBe(true);
+        expect(view.find('[data-testid="import-show-incomplete"]').exists()).toBe(true);
 
-        await view.find('[data-testid="customer-import-show-incomplete"]').trigger('click');
+        await view.find('[data-testid="import-show-incomplete"]').trigger('click');
 
         expect(view.emitted('showIncomplete')).toHaveLength(1);
     });
@@ -137,13 +148,13 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
         // The other half of the test above. A control offering a filter that
         // would match nothing is a control that lies about the import.
-        expect(view.find('[data-testid="customer-import-result"]').exists()).toBe(true);
-        expect(view.find('[data-testid="customer-import-show-incomplete"]').exists()).toBe(false);
+        expect(view.find('[data-testid="import-result"]').exists()).toBe(true);
+        expect(view.find('[data-testid="import-show-incomplete"]').exists()).toBe(false);
     });
 
     it('cannot be submitted before a file is chosen', async () => {
@@ -152,12 +163,12 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
 
-        expect(view.find('[data-testid="customer-import-submit"]').attributes('disabled')).toBeDefined();
+        expect(view.find('[data-testid="import-submit"]').attributes('disabled')).toBeDefined();
 
         await choose(view, csv());
 
         // Both halves: disabled with nothing chosen, enabled once there is.
-        expect(view.find('[data-testid="customer-import-submit"]').attributes('disabled')).toBeUndefined();
+        expect(view.find('[data-testid="import-submit"]').attributes('disabled')).toBeUndefined();
     });
 
     /**
@@ -185,13 +196,13 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
-        expect(view.find('[data-testid="customer-import-error"]').text()).toContain('30720');
-        expect(view.find('[data-testid="customer-import-file-name"]').text()).toContain('customers.csv');
+        expect(view.find('[data-testid="import-error"]').text()).toContain('30720');
+        expect(view.find('[data-testid="import-file-name"]').text()).toContain('customers.csv');
         // Still submittable — a refusal is not a reason to make the person start over.
-        expect(view.find('[data-testid="customer-import-submit"]').attributes('disabled')).toBeUndefined();
+        expect(view.find('[data-testid="import-submit"]').attributes('disabled')).toBeUndefined();
     });
 
     it('announces the import to the list only when one succeeded', async () => {
@@ -206,13 +217,13 @@ describe('CustomerImportModal — Point 4.6', () => {
 
         const view = render();
         await choose(view, csv());
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
         expect(view.emitted('imported')).toBeUndefined();
 
         fetchMock.mockImplementation(async () => json(201, { data: BATCH }));
-        await view.find('[data-testid="customer-import-submit"]').trigger('click');
+        await view.find('[data-testid="import-submit"]').trigger('click');
         await flushPromises();
 
         expect(view.emitted('imported')).toHaveLength(1);
@@ -232,7 +243,7 @@ describe('CustomerImportModal — Point 4.6', () => {
         vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: BATCH })));
 
         const view = render();
-        await view.find('[data-testid="customer-import-cancel"]').trigger('click');
+        await view.find('[data-testid="import-cancel"]').trigger('click');
 
         expect(view.emitted('cancel')).toHaveLength(1);
 

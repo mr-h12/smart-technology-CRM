@@ -66,14 +66,14 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { archiveCustomer, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
+import { archiveCustomer, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // ponytail: reused where it lives. It is already generic and text-driven — its
 // own docblock says so — and moving it to a shared folder would edit Module 1's
 // screens for a tidier import path. Recorded as debt instead.
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
-import CustomerImportModal from '@/pages/customers/CustomerImportModal.vue';
+import ImportModal from '@/components/imports/ImportModal.vue';
 
 /**
  * The two date columns of `CustomerListCriteria::ALLOWED_SORTS`; `name` is the
@@ -774,8 +774,10 @@ onMounted(async () => {
             @cancel="dismiss"
         />
 
-        <CustomerImportModal
+        <ImportModal
             :open="importOpen"
+            :title="t('customers.import.title')"
+            :upload="importCustomers"
             @imported="load()"
             @show-incomplete="onShowIncomplete"
             @cancel="importOpen = false"

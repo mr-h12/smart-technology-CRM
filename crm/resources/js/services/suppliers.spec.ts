@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSupplier, listSuppliers, readSupplier, updateSupplier } from '@/services/suppliers';
+import { createSupplier, importSuppliers, listSuppliers, readSupplier, updateSupplier } from '@/services/suppliers';
 
 /**
  * Module 4, Point 4.0 — the API catalogue for the four routes Step 2 built.
@@ -128,6 +128,38 @@ describe('readSupplier', () => {
 
         expect(supplier.name).toBe('Alpha Supply');
         expect(calledWith(fetchMock).url).toContain(`/suppliers/${SUPPLIER.id}`);
+    });
+});
+
+/** F-09 · 1.5 (`D-85`) — the importer's flag, as a filter. */
+describe('listSuppliers — filter[is_incomplete]', () => {
+    it('asks for the flagged ones when told to, and says nothing about the flag otherwise', async () => {
+        const fetchMock = vi.fn(async (_url: string) => json(200, { data: [], meta: { pagination: PAGINATION } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await listSuppliers({ isIncomplete: true });
+        await listSuppliers({ isIncomplete: null });
+
+        expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+        expect(String(fetchMock.mock.calls[1]?.[0])).not.toContain(encodeURIComponent('filter[is_incomplete]'));
+    });
+});
+
+/** F-09 · 1.5 — `POST /suppliers/import`, whose request validates a field named `file`. */
+describe('importSuppliers', () => {
+    it('posts the file as multipart under the field the server validates', async () => {
+        const batch = { id: 'b1', original_filename: 'suppliers.csv', row_count: 3, imported_count: 2, incomplete_count: 1 };
+        const fetchMock = vi.fn(async () => json(201, { data: batch, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await importSuppliers(new File(['name\nAlpha Supply\n'], 'suppliers.csv', { type: 'text/csv' }));
+
+        const { url, init } = calledWith(fetchMock);
+
+        expect(url).toBe('/api/v1/suppliers/import');
+        expect(init.method).toBe('POST');
+        expect((init.body as FormData).get('file')).toBeInstanceOf(File);
+        expect(result).toEqual(batch);
     });
 });
 

@@ -95,7 +95,6 @@ final class NoHardCodedTextTest extends TestCase
                 // below passed on each.
                 'CustomerDetailView.vue',
                 'CustomerFormModal.vue',
-                'CustomerImportModal.vue',
                 // F-08 · 1.2 (`D-84`) — the shared customer search dropdown; every
                 // line it draws is a `customers.picker.*` key or a label its caller passes.
                 'CustomerPicker.vue',
@@ -128,7 +127,12 @@ final class NoHardCodedTextTest extends TestCase
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
-                'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
+                'ImpersonationBanner.vue',
+                // Module 3 Point 4.6's `CustomerImportModal.vue`, shared as
+                // `ImportModal.vue` at F-09 · 1.5 (`D-85`); every sentence is
+                // an `import.*` key and the title is its caller's.
+                'ImportModal.vue',
+                'LoadingState.vue', 'LoginView.vue',
                 // Module 2 Point 5.4 — `DB-05`'s managed lists, on the same
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',

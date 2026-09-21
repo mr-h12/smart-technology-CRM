@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 import CustomersView from '@/pages/customers/CustomersView.vue';
-import CustomerImportModal from '@/pages/customers/CustomerImportModal.vue';
+import ImportModal from '@/components/imports/ImportModal.vue';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 import { createAppRouter } from '@/router';
 
@@ -988,14 +988,14 @@ describe('CustomersView — Point 4.6, the import control', () => {
         await flushPromises();
 
         await view.find('[data-testid="customers-import"]').trigger('click');
-        expect(view.find('[data-testid="customer-import-modal"]').exists()).toBe(true);
+        expect(view.find('[data-testid="import-modal"]').exists()).toBe(true);
 
-        view.findComponent(CustomerImportModal).vm.$emit('showIncomplete');
+        view.findComponent(ImportModal).vm.$emit('showIncomplete');
         await flushPromises();
 
         expect(customerCalls(asked).at(-1)).toContain('filter[is_incomplete]=true');
         // The dialog gets out of the way of the rows it just sent the person to.
-        expect(view.find('[data-testid="customer-import-modal"]').exists()).toBe(false);
+        expect(view.find('[data-testid="import-modal"]').exists()).toBe(false);
     });
 
     it('reloads the list when an import succeeds', async () => {
@@ -1008,7 +1008,7 @@ describe('CustomersView — Point 4.6, the import control', () => {
         const before = customerCalls(asked).length;
 
         await view.find('[data-testid="customers-import"]').trigger('click');
-        view.findComponent(CustomerImportModal).vm.$emit('imported');
+        view.findComponent(ImportModal).vm.$emit('imported');
         await flushPromises();
 
         // New rows exist and the list in hand predates them.

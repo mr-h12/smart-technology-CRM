@@ -2184,7 +2184,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.4** A supplier lookup Suppliers publishes (`Domain/Contracts`, its own deptrac layer):
             the ids matching a name (trimmed, any case, active or not), and names for ids. RED first: 0, 1
             and 2 matches; spaces and case; a deactivated supplier found.
-            *(2026-09-22, #PR — `SupplierLookupInterface` in layer `SuppliersContract`, granted to Suppliers and
+            *(2026-09-22, #187 — `SupplierLookupInterface` in layer `SuppliersContract`, granted to Suppliers and
             Catalog; 8 tests, 5 mutants + 1 deptrac mutant caught; soft-deleted suppliers not found)*
       - [ ] **1.5** `POST /catalog/import` under `catalog.import`: rulings 2–6 in one transaction, an audit
             row per item and per link, one batch row. RED first, one test per rejection and per flag

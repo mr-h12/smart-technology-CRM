@@ -2190,7 +2190,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             row per item and per link, one batch row. RED first, one test per rejection and per flag
             reason, a linked and an unlinked row, `is_active` empty = active, a list value by code and by
             label, and no managed-list row added. `permission-matrix-auditor`.
-            *(2026-09-22, #PR — path under `/catalog-items` and `CATALOG_ITEM_SUPPLIER_LINKED` on the link row, owner's
+            *(2026-09-22, #188 — path under `/catalog-items` and `CATALOG_ITEM_SUPPLIER_LINKED` on the link row, owner's
             answers of 2026-09-22 (the `D-86` path is corrected by the owner); unknown `is_active` word rejected; a list
             value stored as its code, the code winning over a label; 45 tests, 11 mutants + 1 deptrac mutant caught)*
       - [ ] **1.6** An edit that completes a flagged item clears the flag (`D-87`'s shape): clear-only, in

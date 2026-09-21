@@ -1919,10 +1919,12 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             first: the payload key, the filter both ways, and a 422 on a write that sends it.
             *(2026-09-21, #173 — both mutants failed their tests; nothing writes the flag or the batch
             table until 1.4)*
-      - [ ] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
+      - [x] **1.3** `App\Support\Csv`: the format rules move out of `CustomerCsv` unchanged, plus a
             deptrac entry for the one namespace. No behaviour change — the proof is that every existing
             customer-import test passes untouched, and the moved code keeps its own tests (BOM, `;`,
             CRLF, header with no usable column).
+            *(2026-09-21, #174 — `CustomerImportEndpointTest` untouched and green; `name` stays built in, by
+            the owner's choice)*
       - [ ] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
             `PermissionMatrix`): `SupplierCsv` (its columns and headers) + `ImportSuppliers` (one
             transaction, an audit row per supplier, one `supplier_import_batches` row, `D-31`'s flag,

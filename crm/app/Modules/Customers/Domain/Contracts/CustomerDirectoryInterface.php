@@ -42,8 +42,12 @@ interface CustomerDirectoryInterface
      */
     public function create(CustomerDraft $draft, string $actorId): CustomerSummary;
 
-    /** Null on the same two indistinguishable cases as {@see find()} — absent, or out of reach. */
-    public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, string $actorId): ?CustomerSummary;
+    /**
+     * Null on the same two indistinguishable cases as {@see find()} — absent, or out of reach.
+     *
+     * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape)
+     */
+    public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, ?string $actorId): ?CustomerSummary;
 
     /**
      * §10.2's fuzzy match — the customers whose folded name scores at or above

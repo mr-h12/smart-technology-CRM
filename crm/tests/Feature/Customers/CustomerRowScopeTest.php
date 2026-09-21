@@ -140,6 +140,19 @@ final class CustomerRowScopeTest extends TestCase
         CustomerRowScope::resolve(['own'], '  ');
     }
 
+    /** `D-87`'s correction runs as the system (F-11 · 1.4): no caller, so `all` is the only reach it can hold. */
+    public function test_that_the_system_may_hold_all_without_an_actor(): void
+    {
+        self::assertTrue(CustomerRowScope::resolve(['all'], null)->unrestricted);
+    }
+
+    public function test_that_own_without_an_actor_is_refused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        CustomerRowScope::resolve(['own'], null);
+    }
+
     /**
      * §3.2's code table, read out of the document rather than restated here.
      *

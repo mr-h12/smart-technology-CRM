@@ -101,7 +101,7 @@ final readonly class EloquentSupplierDirectory implements SupplierDirectoryInter
         return self::hydrate($row);
     }
 
-    public function update(string $supplierId, SupplierDraft $draft, string $actorId): ?SupplierSummary
+    public function update(string $supplierId, SupplierDraft $draft, ?string $actorId): ?SupplierSummary
     {
         $row = Supplier::query()->whereKey($supplierId)->first();
 

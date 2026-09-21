@@ -2154,13 +2154,17 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #181 — `CustomerDraft::EXPECTED`; no existing import assertion flipped, only the
             Plan-international comment; the browser check completed 4 dev customers, so 1.4's dev
             expectation stays 0 customers.)*
-      - [ ] **1.4** The one-off correction: an idempotent artisan command per module (Suppliers,
+      - [x] **1.4** The one-off correction: an idempotent artisan command per module (Suppliers,
             Customers) that clears the flag on already-complete rows, one audit row each, a second run
             changing nothing. RED first: a complete flagged row is cleared and audited; an incomplete
             one is untouched; a second run writes no audit row. **After merging, the owner runs it
             once** (as `RolePermissionSeeder` after #175); expected in dev: 2 suppliers, 0 customers.
+            *(2026-09-21, #PR — `suppliers:clear-incomplete` and `customers:clear-incomplete`; no logic of
+            their own: an empty edit through `SaveSupplier`/`SaveCustomer::update` with a null (system)
+            actor, the J-15 shape; `updated_by` and the audit `user_id` are null. Dev expectation is now
+            **0 and 0** — 1.2/1.3's browser checks completed the rows through the real API.)*
       - [ ] **1.5** Manual test list for F-11 in Arabic — complete a flagged supplier and customer and
-            watch the chip go; a partial edit keeps it; the correction's two suppliers; AR/EN ×
+            watch the chip go; a partial edit keeps it; the correction's run (0 and 0 in dev); AR/EN ×
             desktop/375 px. Closes F-11 and the debt row.
 
 ## Shell revisions — owner-directed

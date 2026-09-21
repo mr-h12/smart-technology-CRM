@@ -50,6 +50,13 @@ final readonly class SupplierDraft
     /** §7.1: "name · type | supplier / distributor". */
     public const TYPES = ['supplier', 'distributor'];
 
+    /**
+     * The fields whose absence makes a saved row incomplete (`D-85`), read by
+     * the importer that sets the flag and by the edit that clears it (`D-87`),
+     * so the two cannot disagree on what "complete" means.
+     */
+    public const EXPECTED = ['type', 'phone', 'contact_person'];
+
     /** @param  array<string, mixed>  $attributes  already validated at the boundary */
     private function __construct(public array $attributes) {}
 
@@ -69,7 +76,6 @@ final readonly class SupplierDraft
         return new self($attributes);
     }
 
-    /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     /**
      * `D-85` (F-09 · 1.4) — the importer's row, and the one caller allowed to
      * set `is_incomplete`: `D-31` makes the flag the importer's, which is why
@@ -82,6 +88,17 @@ final readonly class SupplierDraft
         return new self(self::of($attributes)->attributes + ['is_incomplete' => $incomplete]);
     }
 
+    /**
+     * `D-87` (F-11 · 1.2) — this draft plus the clear. Clear only: `D-31`
+     * makes the flag the importer's, so nothing here ever sets it. The caller
+     * decides whether the row is complete; this only carries the answer.
+     */
+    public function completed(): self
+    {
+        return new self($this->attributes + ['is_incomplete' => false]);
+    }
+
+    /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {
         return $this->attributes === [];

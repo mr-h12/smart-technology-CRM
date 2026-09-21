@@ -36,9 +36,6 @@ final readonly class ImportSuppliers
     /** The columns' own lengths (the suppliers migration). Longer is a failed row, never a truncation. */
     private const LENGTHS = ['name' => 255, 'phone' => 32, 'contact_person' => 255];
 
-    /** The fields whose absence makes a saved row incomplete (`D-85`). */
-    private const EXPECTED = ['type', 'phone', 'contact_person'];
-
     /** English only (owner, 2026-09-21), any case. Empty is handled before this. */
     private const OPEN_ACCOUNT = ['1' => true, 'true' => true, 'yes' => true, '0' => false, 'false' => false, 'no' => false];
 
@@ -70,7 +67,7 @@ final readonly class ImportSuppliers
                     continue;
                 }
 
-                $flagged = array_diff(self::EXPECTED, array_keys($attributes)) !== [];
+                $flagged = array_diff(SupplierDraft::EXPECTED, array_keys($attributes)) !== [];
                 $draft = SupplierDraft::forImport($attributes, $flagged);
 
                 $supplier = $this->suppliers->create($draft, $actorId);

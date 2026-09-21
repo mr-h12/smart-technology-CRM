@@ -2125,16 +2125,20 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       Each point is its own branch, one per turn, seven-part report, owner's merge.
 
-      ### F-11 point list — published 2026-09-21, awaiting approval by merging this PR
+      ### F-11 point list — published 2026-09-21, approved by merging #179
 
-      - [ ] **1.1** `D-87` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+      - [x] **1.1** `D-87` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
             owner, as `D-82` … `D-85` were, because the guard hook refuses an agent write to
-            `CRM_Documentation_EN.md`.
-      - [ ] **1.2** Suppliers: `SaveSupplier::update` clears `is_incomplete` when the saved row has
+            `CRM_Documentation_EN.md`. *(2026-09-21, #179 — the `D-87` row itself was still not in the
+            master doc when 1.2 started; 1.2 cites it as proposed.)*
+      - [x] **1.2** Suppliers: `SaveSupplier::update` clears `is_incomplete` when the saved row has
             `type`, `phone` and `contact_person` filled; clear-only; the change is in the
             `SUPPLIER_UPDATED` audit row's old/new. RED first: completing a flagged supplier clears it;
             a partial edit keeps it; emptying a field on a complete supplier does not set it; the audit
             row carries `is_incomplete`. `rtl-ui-verifier` (the chip goes after a save), `waste-auditor`.
+            *(2026-09-21, #PR — `SupplierDraft::EXPECTED` is the one list, read by the importer and the
+            edit; the browser check cleared 4 dev suppliers through the real API, so 1.4's dev expectation
+            is now 0 suppliers, not 2.)*
       - [ ] **1.3** Customers: one core-field list (`name`, `sector`, `region`, `contact_person`,
             `phone`) used by `ImportCustomers` **and** `SaveCustomer::update`; clear-only; audited in
             `CUSTOMER_UPDATED`. RED first: an import row missing only `email` is not flagged; one

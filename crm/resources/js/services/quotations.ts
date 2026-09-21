@@ -10,12 +10,14 @@ import { apiDelete, apiGet, apiPatch, apiPost, collection, type ApiResult, type 
 // (`D-67`). Two things are new to this SPA and live here first: `If-Match`
 // (`OpenAPI §9.2`) and `Idempotency-Key` (`OpenAPI §9.1`).
 
-/** `QuotationPayload::summary()` — the 14 keys of a list row. No cost, margin or supplier field, by Step 5's Q6. */
+/** `QuotationPayload::summary()` — the 15 keys of a list row. No cost, margin or supplier field, by Step 5's Q6. */
 export interface QuotationSummary {
     id: string;
     code: string;
     status: string;
     customer_id: string;
+    /** The name behind `customer_id`, resolved server-side through Customers' contract (`D-83`, F-07 · 1.3); the id itself when the facts do not name it. */
+    customer_name: string;
     deal_id: string;
     currency_id: string;
     /** The ISO code behind `currency_id` — the row names it because `GET /currencies` is an admin's (Point 6.3, owner's ruling A). */

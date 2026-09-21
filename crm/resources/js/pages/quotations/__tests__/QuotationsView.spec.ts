@@ -38,6 +38,7 @@ const QUOTATION = {
     code: 'QT-2026-0001',
     status: 'draft',
     customer_id: 'c1',
+    customer_name: 'Acme Industrial Ltd',
     deal_id: 'd1',
     currency_id: 'cur-egp',
     currency: 'EGP',
@@ -184,12 +185,26 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-total"]').text()).toBe('1235.000 EGP');
     });
 
-    it('resolves the customer to a name, and falls back to the identifier', async () => {
+    /**
+     * F-07 · 1.4 (`D-83`): the name is the row's own `customer_name`, never a
+     * join against `/customers` — the mock's customer is deliberately named
+     * differently ('Acme Industrial') so a join would show. An id the server
+     * did not name arrives as the id and is shown as sent (the fallback is
+     * the server's, 1.3).
+     */
+    it('reads the customer’s name from the row, never from a second list', async () => {
         const named = await render(respond());
-        expect(named.find('[data-testid="quotations-customer"]').text()).toBe('Acme Industrial');
+        expect(named.find('[data-testid="quotations-customer"]').text()).toBe('Acme Industrial Ltd');
 
-        const unnamed = await render(respond([{ ...QUOTATION, customer_id: 'c-not-in-first-100' }]));
-        expect(unnamed.find('[data-testid="quotations-customer"]').text()).toBe('c-not-in-first-100');
+        const unnamed = await render(respond([{ ...QUOTATION, customer_id: 'c-archived', customer_name: 'c-archived' }]));
+        expect(unnamed.find('[data-testid="quotations-customer"]').text()).toBe('c-archived');
+    });
+
+    it('still offers the customers it may see as filter options', async () => {
+        const wrapper = await render(respond());
+        const options = wrapper.findAll('[data-testid="quotations-filter-customer"] option');
+
+        expect(options.map((option) => option.text())).toEqual(['Any customer', 'Acme Industrial']);
     });
 
     it('draws the status as a word with an icon beside it, through the dictionary', async () => {
@@ -498,6 +513,15 @@ describe('the quotations screen', () => {
         expect(active.findAll('[data-testid="quotations-row"]')).toHaveLength(3);
         // Pagination counts quotations, not groups (Point 5.5) — said, not hidden.
         expect(active.text()).toContain('A group may continue on the next page');
+    });
+
+    /** The customer group's label is the server's name (`D-83`, reversing Q7) — not looked up here. */
+    it('draws the customer group under the name the server sent', async () => {
+        window.localStorage.setItem('crm.quotations.view', 'customer');
+        const wrapper = await render(respond([{ key: 'c1', label: 'Acme Industrial Ltd', count: 1, items: [QUOTATION] }]));
+
+        const headings = wrapper.find('[data-testid="quotations-bucket-active"]').findAll('[data-testid="quotations-group-heading"]');
+        expect(headings.map((heading) => heading.text())).toEqual(['Acme Industrial Ltd (1)']);
     });
 
     it('draws no group heading in the flat view', async () => {

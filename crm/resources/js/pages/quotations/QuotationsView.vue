@@ -43,13 +43,16 @@
  *
  * ── Names come from the wire, or not at all ────────────────────────────────
  *
- * The row carries `customer_id` and no name — `CLAUDE.md` forbids Quotations
- * reading Customers' tables, so the join is on this side (`D-67`), from one
- * `listCustomers({ perPage: 100 })` — the same measured ceiling Deals and
- * Module 6 record; a customer past the hundredth shows as an identifier. The
- * currency is different: the row names its code, because `GET /currencies` is
- * an admin's and the SPA has nothing to join against (owner's ruling A,
- * 2026-09-13).
+ * The row names its customer (`customer_name`) and its currency (the ISO
+ * code), both resolved server-side — the currency by owner's ruling A
+ * (2026-09-13), the customer by `D-83` (F-07): the join this screen once made
+ * from `listCustomers({ perPage: 100 })` degraded every row on a 403, capped
+ * at the hundredth customer, and could never name an archived one. The
+ * server sends the id itself when the facts do not name it, so there is no
+ * fallback here. `listCustomers` stays for one thing only: the customer
+ * filter's options, which is a customer list a person picks from and is
+ * §3.3-scoped as one should be; its `perPage: 100` ceiling is the same one
+ * Deals and Module 6 record.
  *
  * ── The route is the permission's, not §8's ────────────────────────────────
  *
@@ -154,21 +157,6 @@ const filtering = computed(
         hasCurrency.value,
 );
 
-const customerNames = computed(() => {
-    const names = new Map<string, string>();
-
-    for (const customer of customers.value) {
-        names.set(customer.id, customer.name);
-    }
-
-    return names;
-});
-
-/** The identifier is the fallback, not a blank: a row that cannot be named is still a row. */
-function customerName(id: string): string {
-    return customerNames.value.get(id) ?? id;
-}
-
 async function loadBucket(bucket: Bucket): Promise<void> {
     const panel = panels.value[bucket];
     panel.loading = true;
@@ -231,15 +219,11 @@ async function chooseView(next: View): Promise<void> {
     await load();
 }
 
-/** The customer group's label is its id (Step 5 Q7); the employee's is the server's name. */
-function groupLabel(group: QuotationGroup): string {
-    return view.value === 'customer' && group.key !== null ? customerName(group.key) : group.label;
-}
-
 /**
- * Best-effort: §3.3 gates customers separately, so a caller may read
- * quotations and not customers — then the identifier column is the answer,
- * not an error page over a list that loaded.
+ * The customer filter's options. Best-effort: §3.3 gates customers
+ * separately, so a caller may read quotations and not customers — then the
+ * filter is empty, not an error page over a list that loaded. The names on
+ * the rows do not depend on this call (`D-83`).
  */
 async function loadCustomers(): Promise<void> {
     try {
@@ -530,7 +514,7 @@ onMounted(async () => {
                              scope, because the heading labels the rows beneath it. -->
                         <tr v-if="view !== 'flat'" class="group-row">
                             <th :colspan="columnCount" scope="colgroup" class="p-3 text-start font-medium" data-testid="quotations-group-heading">
-                                {{ groupLabel(group) }} ({{ group.count }})
+                                {{ group.label }} ({{ group.count }})
                             </th>
                         </tr>
 
@@ -555,7 +539,7 @@ onMounted(async () => {
                                     <SelfApprovedBadge v-if="quotation.is_self_approved" />
                                 </span>
                             </td>
-                            <td class="p-3" data-testid="quotations-customer">{{ customerName(quotation.customer_id) }}</td>
+                            <td class="p-3" data-testid="quotations-customer">{{ quotation.customer_name }}</td>
                             <!-- `Design System §6.3`: amount and currency visibly paired. The figure
                                  is the server's string — `DB-07` has no client-side exception. -->
                             <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="quotations-total">

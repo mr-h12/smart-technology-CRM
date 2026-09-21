@@ -1061,7 +1061,8 @@ would hide them behind `OD-03` indefinitely.
       it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
       the file — a change to the dev environment, so it is the owner's call, not this point's.
 - [ ] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
-      *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* `D-31` flags an imported
+      *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
+      (2026-09-21); closes with it.** `D-31` flags an imported
       record with missing fields, and §11 excludes it from financial reports **"until completed"** — but
       only the importer writes the flag (`CustomerDraft`, and from F-09 · 1.2 the suppliers' request
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
@@ -2073,6 +2074,81 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - **`D-85` ما زال «مقترحًا»** في §2 (سطر 156) حتّى يقلبه المالك؛ القائمة تختبر ما بُني لا ما اعتُمد.
       - **أثر الفحص:** بعد القائمة تبقى في قاعدة التطوير ثلاثة مورّدين `F09 test …` ودفعة ثانية — يُعطَّلون ولا يُحذفون (DB-01).
 
+
+- [ ] **F-11** The «سجل ناقص» / «Incomplete record» flag never clears once the record is completed
+      (Modules 3 and 4). Owner's request, 2026-09-21, after running F-09: `Alex Pipes Trading` was
+      imported without a phone, edited to add one at 17:11, and still carries the flag. **Numbering:**
+      the owner gave F-11 to this fix; the Arabic-Indic dates candidate that the F-09 heading called
+      "F-11" (never ordered) moves to **F-12**. `D-86` stays reserved for F-10, so the decision is
+      **`D-87`** (proposed). This item takes up the debt row "Nothing clears `is_incomplete` once an
+      import sets it — customers and suppliers alike", which closes when F-11 closes.
+
+      **The owner's three rulings (2026-09-21, in conversation):**
+      1. **A customer is complete when `name`, `sector`, `region`, `contact_person` and `phone` are
+         filled** — core fields, not all ten. `ImportCustomers` today flags a row when *any* of
+         `CustomerDraft::WRITABLE`'s ten fields is empty (its own docblock calls that reading
+         undocumented and awaiting a `D-xx`); the importer narrows to the same five, so import and
+         edit agree. A supplier is complete when `type`, `phone` and `contact_person` are filled —
+         `D-85`'s rule, unchanged.
+      2. **Clear only, never set.** An edit that leaves every core field filled clears the flag; an
+         edit that empties one does not set it. `D-31` makes the flag the importer's, and a record
+         typed by hand is never incomplete.
+      3. **A one-off correction** clears the flag on existing records that are already complete, with
+         an audit entry per cleared row.
+
+      **Gaps found while drafting (measured 2026-09-21, not recalled):**
+      1. **Only the importer writes the flag:** `SupplierDraft::forImport` (`SupplierDraft.php:82`)
+         and `CustomerDraft::forImport` (`CustomerDraft.php:89`). `SaveSupplierRequest.php:70` and
+         `SaveCustomerRequest.php:77` prohibit the field, and neither `SaveSupplier::update` nor
+         `SaveCustomer::update` recomputes it.
+      2. **The customers' completeness rule is the ten-field reading**
+         (`ImportCustomers.php:30`, `$flagged = count($attributes) < count(CustomerCsv::COLUMNS)`).
+         Ruling 1 narrows it; a file that fills the five core fields and leaves `email` empty stops
+         being flagged. That is a behaviour change to the customers' import, stated rather than hidden.
+      3. **The clear must be audited:** `AUD-02` wants old and new values. The flag change goes into
+         the same `SUPPLIER_UPDATED` / `CUSTOMER_UPDATED` row as the edit that caused it
+         (`is_incomplete: true → false`), not a second event.
+      4. **Dev data, from `crm-postgres`:** 6 suppliers flagged, **2 already complete** (`Alex Pipes
+         Trading`, `F09 verify incomplete`) — the correction clears those two. 234 customers flagged,
+         **0 complete under the core rule** (233 have no `sector`, 234 no `region`) — the correction
+         changes no customer today, and that is the correct result, not a failed run.
+      5. **The screens need no new control:** the list and the detail page re-read the record after a
+         save (`SuppliersView.vue` `onSaved` → `load()`; `CustomersView.vue:315` and
+         `CustomerDetailView.vue:142` → `load()`), so the chip disappears once the server clears the
+         flag. To be seen in the browser at 1.2 and 1.3, not assumed from this reading.
+      6. **Module 13** excludes flagged records from financial reports (§11, doc line 838); this makes
+         that exclusion end when the record is completed, as §11 says. Nothing in Module 13 exists yet.
+
+      **Not covered by F-11:** re-flagging (ruling 2); what "complete" means for a record that was
+      never imported (it is never flagged, so the question does not arise); duplicate detection;
+      the Arabic-Indic dates (F-12, not ordered).
+
+      Each point is its own branch, one per turn, seven-part report, owner's merge.
+
+      ### F-11 point list — published 2026-09-21, awaiting approval by merging this PR
+
+      - [ ] **1.1** `D-87` in §2 (proposed) + this list. Docs only — the decision row is pasted by the
+            owner, as `D-82` … `D-85` were, because the guard hook refuses an agent write to
+            `CRM_Documentation_EN.md`.
+      - [ ] **1.2** Suppliers: `SaveSupplier::update` clears `is_incomplete` when the saved row has
+            `type`, `phone` and `contact_person` filled; clear-only; the change is in the
+            `SUPPLIER_UPDATED` audit row's old/new. RED first: completing a flagged supplier clears it;
+            a partial edit keeps it; emptying a field on a complete supplier does not set it; the audit
+            row carries `is_incomplete`. `rtl-ui-verifier` (the chip goes after a save), `waste-auditor`.
+      - [ ] **1.3** Customers: one core-field list (`name`, `sector`, `region`, `contact_person`,
+            `phone`) used by `ImportCustomers` **and** `SaveCustomer::update`; clear-only; audited in
+            `CUSTOMER_UPDATED`. RED first: an import row missing only `email` is not flagged; one
+            missing `region` is; completing a flagged customer clears it; the three clear-only cases
+            as 1.2. `CustomerImportEndpointTest` updated where ruling 1 changes its expectation, named
+            case by case. `rtl-ui-verifier`, `waste-auditor`.
+      - [ ] **1.4** The one-off correction: an idempotent artisan command per module (Suppliers,
+            Customers) that clears the flag on already-complete rows, one audit row each, a second run
+            changing nothing. RED first: a complete flagged row is cleared and audited; an incomplete
+            one is untouched; a second run writes no audit row. **After merging, the owner runs it
+            once** (as `RolePermissionSeeder` after #175); expected in dev: 2 suppliers, 0 customers.
+      - [ ] **1.5** Manual test list for F-11 in Arabic — complete a flagged supplier and customer and
+            watch the chip go; a partial edit keeps it; the correction's two suppliers; AR/EN ×
+            desktop/375 px. Closes F-11 and the debt row.
 
 ## Shell revisions — owner-directed
 

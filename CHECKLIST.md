@@ -2186,10 +2186,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             and 2 matches; spaces and case; a deactivated supplier found.
             *(2026-09-22, #187 — `SupplierLookupInterface` in layer `SuppliersContract`, granted to Suppliers and
             Catalog; 8 tests, 5 mutants + 1 deptrac mutant caught; soft-deleted suppliers not found)*
-      - [ ] **1.5** `POST /catalog/import` under `catalog.import`: rulings 2–6 in one transaction, an audit
+      - [x] **1.5** `POST /catalog-items/import` under `catalog.import`: rulings 2–6 in one transaction, an audit
             row per item and per link, one batch row. RED first, one test per rejection and per flag
             reason, a linked and an unlinked row, `is_active` empty = active, a list value by code and by
             label, and no managed-list row added. `permission-matrix-auditor`.
+            *(2026-09-22, #188 — path under `/catalog-items` and `CATALOG_ITEM_SUPPLIER_LINKED` on the link row, owner's
+            answers of 2026-09-22 (the `D-86` path is corrected by the owner); unknown `is_active` word rejected; a list
+            value stored as its code, the code winning over a label; 45 tests, 11 mutants + 1 deptrac mutant caught)*
       - [ ] **1.6** An edit that completes a flagged item clears the flag (`D-87`'s shape): clear-only, in
             the same `CATALOG_ITEM_UPDATED` audit row; `is_incomplete` in the payload and
             `filter[is_incomplete]`, prohibited in a write. RED first: the three clear-only cases.

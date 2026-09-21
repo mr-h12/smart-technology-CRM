@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Presentation;
 
+use App\Modules\Catalog\Application\Importing\ImportCatalogItems;
 use App\Modules\Catalog\Application\Listing\ListCatalogItems;
 use App\Modules\Catalog\Application\Writing\SaveCatalogItem;
 use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
+use App\Support\Csv\ImportBatchPayload;
+use App\Support\Csv\ImportFileRequest;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +60,17 @@ final class CatalogItemController
             $request,
             CatalogItemPayload::of($items->update($catalogItem, $request->validated(), self::actorId($request))),
         );
+    }
+
+    /** `D-86` (F-10 · 1.5) — the counts of one import; the file itself is not kept. */
+    public function import(ImportFileRequest $request, ImportCatalogItems $items): JsonResponse
+    {
+        $upload = $request->upload();
+        $batch = $items->handle($upload->getRealPath(), $upload->getClientOriginalName(), self::actorId($request));
+
+        return ApiEnvelope::single($request, ImportBatchPayload::of(
+            $batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount,
+        ), 201);
     }
 
     /**

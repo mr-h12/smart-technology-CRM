@@ -72,6 +72,17 @@ final readonly class CatalogItemDraft
         return new self($attributes);
     }
 
+    /**
+     * `D-86` (F-10 · 1.5) — an imported row, flagged when it lacks what the
+     * form requires (`D-31`). Only the importer ever sets the flag.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function forImport(array $attributes, bool $incomplete): self
+    {
+        return new self(self::of($attributes)->attributes + ['is_incomplete' => $incomplete]);
+    }
+
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */
     public function isEmpty(): bool
     {

@@ -10,6 +10,7 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Catalog\Application\Writing\SaveCatalogItem;
+use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
@@ -194,6 +195,13 @@ final class AuditEnforcementTest extends TestCase
             // Eloquent model. The hole was nine classes; this makes it ten, and
             // it is still owed its own point.
             SaveCatalogItem::class => self::AUDITED,
+            // F-10 · 1.5 (`D-86`): visible to the detector once it gained
+            // `link` and `recordImportBatch`'s `DB::table(...)->insert`, as
+            // EloquentSupplierDirectory became with F-09 · 1.4.
+            EloquentCatalogItemDirectory::class => 'AUD-01 is satisfied one layer out: SaveCatalogItem and ImportCatalogItems '
+                    .'own the transactions and record CATALOG_ITEM_CREATED / CATALOG_ITEM_UPDATED for every item row and '
+                    .'CATALOG_ITEM_SUPPLIER_LINKED for every link row. The catalog_import_batches row it inserts is the '
+                    .'import\'s own record (DB-02 names the importer), not a business mutation.',
 
             // Module 5 Point 2.3, and seen for the same two signals as
             // SaveCustomer and SaveSupplier: `->update(` beside an imported

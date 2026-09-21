@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Domain\Contracts;
 
+use App\Modules\Catalog\Domain\Importing\ImportSummary;
 use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
 use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
@@ -54,4 +55,16 @@ interface CatalogItemDirectoryInterface
 
     /** Null on the same case as {@see find()} — absent or soft-deleted. */
     public function update(string $catalogItemId, CatalogItemDraft $draft, string $actorId): ?CatalogItemSummary;
+
+    /** `D-86` (F-10 · 1.5) — one `catalog_item_suppliers` row; its id, for the audit row. */
+    public function link(string $catalogItemId, string $supplierId, string $actorId): string;
+
+    /** `D-86` (F-10 · 1.5) — the one `catalog_import_batches` row of an import. */
+    public function recordImportBatch(
+        string $originalFilename,
+        int $rowCount,
+        int $importedCount,
+        int $incompleteCount,
+        string $actorId,
+    ): ImportSummary;
 }

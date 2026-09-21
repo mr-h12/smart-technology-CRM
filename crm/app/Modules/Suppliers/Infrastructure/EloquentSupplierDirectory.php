@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Suppliers\Infrastructure;
 
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
+use App\Modules\Suppliers\Domain\Importing\ImportSummary;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
 use App\Modules\Suppliers\Domain\Listing\SupplierPage;
 use App\Modules\Suppliers\Domain\Listing\SupplierSummary;
@@ -14,6 +15,8 @@ use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * {@see SupplierDirectoryInterface} over `suppliers`.
@@ -111,6 +114,33 @@ final readonly class EloquentSupplierDirectory implements SupplierDirectoryInter
         $row->save();
 
         return self::hydrate($row->refresh());
+    }
+
+    public function recordImportBatch(
+        string $originalFilename,
+        int $rowCount,
+        int $importedCount,
+        int $incompleteCount,
+        string $actorId,
+    ): ImportSummary {
+        // The query builder, not a model: this table is written once per
+        // import and read by nobody yet, so a model would be a class for one
+        // insert. `D-61`'s uuid7, as the other adapters use.
+        $id = Str::uuid7()->toString();
+
+        DB::table('supplier_import_batches')->insert([
+            'id' => $id,
+            'original_filename' => $originalFilename,
+            'row_count' => $rowCount,
+            'imported_count' => $importedCount,
+            'incomplete_count' => $incompleteCount,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return new ImportSummary($id, $originalFilename, $rowCount, $importedCount, $incompleteCount);
     }
 
     /** @param Builder<Supplier> $query */

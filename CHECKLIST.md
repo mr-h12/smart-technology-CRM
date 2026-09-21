@@ -1067,6 +1067,14 @@ would hide them behind `OD-03` indefinitely.
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
       one rule for both: an edit that leaves every field the importer checks filled clears the flag,
       audited. Owner's call when to order it; Module 13's report exclusion depends on it.
+- [ ] **The two imports carry three identical shapes: the summary, its payload and the upload request** —
+      *created by F-09 Point 1.4, 2026-09-21, and registered rather than fixed because extracting a shared
+      layer was outside that point's approved list.* `Suppliers\Domain\Importing\ImportSummary` is
+      field-for-field `Customers\Domain\Importing\ImportSummary`; `SupplierPayload::importBatch()` is
+      `ImportBatchPayload::of()`'s body; `ImportSuppliersRequest` is `ImportCustomersRequest` but for one
+      lang key. None carries a per-module rule (the columns and the flag rule live in `SupplierCsv` /
+      `ImportSuppliers`), so they could move to `App\Support\Csv` beside `CsvReader`, on its
+      `SharedContracts` terms. F-10's catalog import would make it three copies — the natural moment.
 - [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
       — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
       reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
@@ -1925,13 +1933,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             CRLF, header with no usable column).
             *(2026-09-21, #174 — `CustomerImportEndpointTest` untouched and green; `name` stays built in, by
             the owner's choice)*
-      - [ ] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
+      - [x] **1.4** `POST /suppliers/import` under `catalog.import` (seeded to the Manager in
             `PermissionMatrix`): `SupplierCsv` (its columns and headers) + `ImportSuppliers` (one
             transaction, an audit row per supplier, one `supplier_import_batches` row, `D-31`'s flag,
             the file limit `D-71` gives `ImportCustomersRequest`). RED first: 403 for a role without
             the permission, a row missing `type`/`phone`/`contact_person` saves flagged, a row missing
             `name` is counted and not saved, `color_rating` arrives `white`. `permission-matrix-auditor`.
             **After merging, run once:** `php artisan db:seed --class=RolePermissionSeeder` (as F-01).
+            *(2026-09-21, #175 — Suppliers gains `StorageContract` on Customers' terms; the directory is
+            registered with the AUD-01 writer guard; 145 permissions, 218 grants)*
       - [ ] **1.5** Suppliers screen: an import button drawn only by `catalog.import`, the import dialog
             (the four counts and a link to the incomplete filter, as customers have — reusing
             `CustomerImportModal`'s parts if they are shareable, searched before writing), the

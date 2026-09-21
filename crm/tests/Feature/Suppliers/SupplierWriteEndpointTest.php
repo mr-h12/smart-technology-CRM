@@ -179,6 +179,32 @@ final class SupplierWriteEndpointTest extends TestCase
             ->assertStatus(422);
     }
 
+    /**
+     * `D-85` (F-09 · 1.2): `D-31`'s flag belongs to the importer. A client that
+     * sends it is refused rather than silently dropped, as `SaveCustomerRequest`
+     * refuses the customers' flag — and nothing is written.
+     */
+    public function test_that_a_create_sending_is_incomplete_is_refused(): void
+    {
+        $this->postJson(self::ENDPOINT, ['name' => 'Alpha', 'is_incomplete' => false], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422);
+
+        self::assertSame(0, DB::table('suppliers')->count(), 'A refused create wrote a supplier.');
+    }
+
+    public function test_that_an_edit_sending_is_incomplete_is_refused(): void
+    {
+        $id = $this->created(['name' => 'Alpha Supply']);
+
+        $this->patchJson(
+            self::ENDPOINT.'/'.$id,
+            ['name' => 'Renamed', 'is_incomplete' => true],
+            $this->bearerFor(RoleName::Manager),
+        )->assertStatus(422);
+
+        self::assertSame('Alpha Supply', DB::table('suppliers')->where('id', $id)->value('name'));
+    }
+
     // ──────────────────────────────────────────────────────────── the update
 
     public function test_that_an_edit_changes_only_what_it_names(): void

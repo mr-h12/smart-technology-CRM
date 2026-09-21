@@ -35,6 +35,7 @@ final class SupplierPayload
             'contact_person' => $supplier->contactPerson,
             'has_open_account' => $supplier->hasOpenAccount,
             'is_active' => $supplier->isActive,
+            'is_incomplete' => $supplier->isIncomplete,
             'created_at' => $supplier->createdAt->format(DATE_ATOM),
             'updated_at' => $supplier->updatedAt->format(DATE_ATOM),
         ];

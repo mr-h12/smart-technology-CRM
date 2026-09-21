@@ -27,6 +27,7 @@ final readonly class SupplierSummary
         public ?string $contactPerson,
         public bool $hasOpenAccount,
         public bool $isActive,
+        public bool $isIncomplete,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {}

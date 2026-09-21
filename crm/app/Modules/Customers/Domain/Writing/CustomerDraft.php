@@ -37,6 +37,14 @@ final readonly class CustomerDraft
         'phone', 'phone2', 'whatsapp', 'email', 'start_date', 'notes',
     ];
 
+    /**
+     * The fields whose absence makes a saved row incomplete (`D-87` ruling 1:
+     * the core five, not §4.2's ten), read by the importer that sets the flag
+     * and by the edit that clears it, so the two cannot disagree on what
+     * "complete" means.
+     */
+    public const EXPECTED = ['name', 'sector', 'region', 'contact_person', 'phone'];
+
     /** @return list<string> */
     public static function writableOnCreate(): array
     {
@@ -87,6 +95,16 @@ final readonly class CustomerDraft
     public static function forImport(array $attributes, bool $isIncomplete): self
     {
         return new self([...self::only($attributes, self::WRITABLE), 'is_incomplete' => $isIncomplete]);
+    }
+
+    /**
+     * `D-87` (F-11 · 1.3) — this draft plus the clear. Clear only: `D-31`
+     * makes the flag the importer's, so nothing here ever sets it. The caller
+     * decides whether the row is complete; this only carries the answer.
+     */
+    public function completed(): self
+    {
+        return new self([...$this->attributes, 'is_incomplete' => false]);
     }
 
     /** A `PATCH` that names no writable field changes nothing, and must not be reported as a change. */

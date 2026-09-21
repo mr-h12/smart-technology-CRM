@@ -63,9 +63,12 @@ final class SupplierQuotationPayload
             ...self::of($quotation->header),
             'items' => array_map(
                 static fn ($line): array => [
+                    'id' => $line->id,
                     'catalog_item_id' => $line->catalogItemId,
                     'unit_price' => $line->unitPrice,
                     'quantity' => $line->quantity,
+                    'consumed_quantity' => $line->consumedQuantity,
+                    'available_quantity' => $line->availableQuantity,
                 ],
                 $quotation->lines,
             ),

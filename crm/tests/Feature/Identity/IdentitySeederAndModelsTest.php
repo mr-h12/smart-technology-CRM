@@ -23,7 +23,8 @@ use Tests\TestCase;
 /**
  * Point 2.1 — the models, and the seeders that fill the tables Step 1 built.
  *
- * The counts below — 8, 143, 212 — are not typed in as expectations. Each is
+ * The counts below — 8, 145, 218 — are not typed in as expectations (57 rows
+ * + D-80's `currency.view` + D-85's `catalog.import`: 145 triples, 218 grants). Each is
  * derived from `PermissionMatrix` inside the test and compared against the
  * database, and only then compared against the literal, so a matrix that grows
  * fails loudly rather than quietly disagreeing with a number nobody re-derived.
@@ -64,13 +65,13 @@ final class IdentitySeederAndModelsTest extends TestCase
         // The literals, second. If the matrix changes these fail together and
         // the disagreement is visible rather than absorbed.
         self::assertSame(8, Role::count());
-        self::assertSame(143, Permission::count());
-        self::assertSame(212, DB::table('role_permissions')->count());
+        self::assertSame(145, Permission::count());
+        self::assertSame(218, DB::table('role_permissions')->count());
     }
 
     /**
      * Counting is not the same as being right. This compares the actual set of
-     * `resource.action.scope` strings, so a seeder writing 143 of the wrong
+     * `resource.action.scope` strings, so a seeder writing 145 of the wrong
      * rows fails.
      */
     public function test_that_every_written_triple_is_one_the_matrix_names(): void
@@ -120,8 +121,8 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         // A seeder that did nothing would pass every comparison below, so the
         // rows are asserted present before anything is compared.
-        self::assertSame(143, Permission::count());
-        self::assertSame(212, DB::table('role_permissions')->count());
+        self::assertSame(145, Permission::count());
+        self::assertSame(218, DB::table('role_permissions')->count());
 
         $before = self::snapshot();
 
@@ -238,7 +239,7 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         $this->seedMatrix();
 
-        self::assertSame(143, Permission::count());
+        self::assertSame(145, Permission::count());
     }
 
     public function test_that_a_missing_password_stops_the_seeder(): void
@@ -304,7 +305,7 @@ final class IdentitySeederAndModelsTest extends TestCase
             $throughRelations += $role->permissions->count();
         }
 
-        self::assertSame(212, $throughRelations,
+        self::assertSame(218, $throughRelations,
             'Walking the relation finds a different number of grants than the table holds.');
     }
 

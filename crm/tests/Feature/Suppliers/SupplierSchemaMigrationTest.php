@@ -261,6 +261,23 @@ final class SupplierSchemaMigrationTest extends TestCase
         self::assertFalse((bool) $row->has_open_account, '§7.1 records an open account, and none is opened by default.');
     }
 
+    /** `D-85` (F-09 · 1.2): only the importer sets `D-31`'s flag, so a row written any other way is not incomplete. */
+    public function test_that_a_new_supplier_is_not_incomplete(): void
+    {
+        $row = DB::table('suppliers')->where('id', $this->insert([]))->first();
+
+        self::assertNotNull($row);
+        self::assertFalse((bool) $row->is_incomplete, 'A supplier nobody imported is not incomplete (D-31).');
+    }
+
+    public function test_that_the_incomplete_flag_is_never_null(): void
+    {
+        self::assertSame(
+            self::NOT_NULL_VIOLATION,
+            $this->refusedWith(fn () => $this->insert(['is_incomplete' => null])),
+        );
+    }
+
     // ────────────────────────────────────────────────────────────── DEV-03
 
     /**

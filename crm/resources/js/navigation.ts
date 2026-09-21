@@ -21,7 +21,7 @@
  * The type says so; nothing counts anything yet.
  */
 
-export type BadgeableItem = 'requests' | 'approvals' | 'reports' | 'my-quotations';
+export type BadgeableItem = 'requests' | 'approvals' | 'reports' | 'my_quotations';
 
 export interface NavigationItem {
     /** Named route, resolved by the router — never a raw path. */
@@ -113,6 +113,29 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 labelKey: 'nav.item.deals',
                 icon: 'M4 4h12v3H4zm0 4.5h12V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm3 2v1.5h6V10.5z',
                 permission: 'deal.view',
+            },
+            {
+                // §8's *Quotations* — Module 7's list (Point 6.3), keyed on
+                // §3.5's `quotation.view` for the same reason as the item above.
+                //
+                // §5.1's *My Quotations* counter: the caller's own returned
+                // drafts, `GET /badges` (Module 8 · 2.3), drawn since 3.3.
+                name: 'quotations',
+                labelKey: 'nav.item.quotations',
+                icon: 'M5 2h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm6 1.5V6h2.5zM6 8.5h8V10H6zm0 3h8V13H6zm0 3h4.5V16H6z',
+                permission: 'quotation.view',
+                badge: 'my_quotations',
+            },
+            {
+                // §8's *Approvals* — Module 8's page (Point 3.1), one screen
+                // for the Team Leader and the Manager (`D-10`), keyed on
+                // §3.5's `quotation.approve`. The `approvals` count is
+                // `GET /badges`' (2.3), drawn since 3.3.
+                name: 'approvals',
+                labelKey: 'nav.item.approvals',
+                icon: 'M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1.2 10.9 5-5-1.1-1.1-3.9 3.9-1.6-1.6-1.1 1.1z',
+                permission: 'quotation.approve',
+                badge: 'approvals',
             },
             {
                 // §8's *Catalog*, on the **same** permission as the item above.

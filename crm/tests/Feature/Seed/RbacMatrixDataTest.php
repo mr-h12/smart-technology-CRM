@@ -46,11 +46,11 @@ final class RbacMatrixDataTest extends TestCase
         '§3.4' => 8,   // Deals / Requests
         '§3.5' => 14,  // Customer Quotations
         '§3.6' => 3,   // Supplier Quotations
-        '§3.7' => 3,   // Catalog & Suppliers
+        '§3.7' => 4,   // Catalog & Suppliers — 3 documented rows + D-85's `catalog.import`
         '§3.8' => 3,   // Visits
         '§3.9' => 4,   // Procurement
         '§3.10' => 6,  // Reports
-        '§3.11' => 9,  // Administration
+        '§3.11' => 10, // Administration — 9 documented rows + D-80's `currency.view`
     ];
 
     // ─────────────────────────────────────────────────── coverage
@@ -75,7 +75,7 @@ final class RbacMatrixDataTest extends TestCase
         );
     }
 
-    public function test_the_matrix_holds_exactly_the_fifty_seven_documented_permissions(): void
+    public function test_the_matrix_holds_exactly_the_fifty_nine_documented_permissions(): void
     {
         $counted = [];
 
@@ -84,7 +84,36 @@ final class RbacMatrixDataTest extends TestCase
         }
 
         self::assertSame(self::SECTION_ROWS, $counted);
-        self::assertCount(57, PermissionMatrix::all());
+        self::assertCount(59, PermissionMatrix::all());
+    }
+
+    /**
+     * D-80: the one row §3.11 does not draw. `currency_id` on a supplier offer
+     * is a uuid, so the roles §3.6 lets write an offer must be able to read the
+     * list; the CEO and the Outdoor Supervisor never enter a price.
+     */
+    public function test_currency_view_is_granted_to_the_offer_writers_and_nobody_else(): void
+    {
+        $permission = PermissionMatrix::find('currency.view');
+
+        self::assertNotNull($permission, 'currency.view is missing.');
+        self::assertSame(
+            ['manager', 'team_leader', 'outdoor_sales', 'indoor_sales', 'procurement'],
+            array_keys($permission->grants()),
+        );
+    }
+
+    /**
+     * D-85 (F-09 · 1.4): the supplier import, a bulk write, is the Manager's
+     * alone, as §3.3's customer import is — although `D-45` opens single edits
+     * to every operational role.
+     */
+    public function test_catalog_import_is_granted_to_the_manager_alone(): void
+    {
+        $permission = PermissionMatrix::find('catalog.import');
+
+        self::assertNotNull($permission, 'catalog.import is missing.');
+        self::assertSame(['manager'], array_keys($permission->grants()));
     }
 
     public function test_permission_keys_are_unique_and_well_formed(): void

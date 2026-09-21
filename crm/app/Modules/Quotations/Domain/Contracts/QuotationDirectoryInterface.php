@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Contracts;
 
+use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
+use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
+use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -87,18 +90,19 @@ interface QuotationDirectoryInterface
     public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool;
 
     /**
-     * §6.4's first arrow, `Draft ──submit──► Pending`, under the same guard as
-     * `update()`: `status` moves to `pending` and `submitted_at` is stamped
-     * **only where** `version_token = $expectedToken`, and the statement
-     * advances the token. False when no row matched — stale, `409`. The
-     * caller has already checked the transition against
-     * `QuotationStatusTransition`; this writes, it does not decide.
+     * One of §6.4's arrows, under the same guard as `update()`: `status`
+     * moves to `$status` and `$attributes` (the arrow's own marks —
+     * `submitted_at` on a submit, `is_self_approved` on an approve,
+     * `returned_at` / `return_note` on a return) are written **only where**
+     * `version_token = $expectedToken`, and the statement advances the
+     * token. False when no row matched — stale, `409`. The caller has
+     * already checked the transition against `QuotationStatusTransition`;
+     * this writes, it does not decide. Three callers (7 · 4.2, 8 · 1.1,
+     * 8 · 1.2) folded here at the third, as the note on the first said.
      *
-     * ponytail: one status, one stamp. Module 8's approve and return are the
-     * second and third callers; generalise to `moveStatus(id, to, token,
-     * actor, attributes)` when they arrive, not before.
+     * @param  array<string, mixed>  $attributes
      */
-    public function submit(string $quotationId, int $expectedToken, string $actorId): bool;
+    public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool;
 
     /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with
@@ -122,10 +126,21 @@ interface QuotationDirectoryInterface
     /**
      * `D-46`'s delete (Point 4.4), soft as `DB-01` requires: `deleted_at` on
      * the row and on both child tables, nothing physically gone. Guarded in
-     * SQL the way `submit()` is — `WHERE version_token = $expectedToken` —
+     * SQL the way `moveStatus()` is — `WHERE version_token = $expectedToken` —
      * so a quotation edited from under the caller is not deleted. `false`
      * means the guard matched no row: stale, or already deleted. Draft-only
      * is the use case's rule; this writes, it does not decide.
      */
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool;
+
+    /**
+     * `GET /quotations` (Point 5.3) — the approved Step 5 filters and sorts,
+     * with `SEC-08`'s scope **in the query**: `own` is the deal's `owner_id`
+     * (owner ruling 2026-09-11), reached as `deal_id IN` the owner's deals
+     * through `DealFactsInterface::dealIdsOwnedBy()` — a set, not a join on
+     * another module's table. A scope that permits nothing answers an empty
+     * page before any read (`OpenAPI §5.1`). `total` is counted after scoping
+     * (`OpenAPI §6.1`). Soft-deleted quotations are absent (`DB-01`).
+     */
+    public function list(QuotationListCriteria $criteria, QuotationRowScope $scope): QuotationPage;
 }

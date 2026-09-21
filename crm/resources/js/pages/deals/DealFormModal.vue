@@ -51,13 +51,12 @@ import { createDeal, updateDeal, type Deal } from '@/services/deals';
 import { DEAL_SERVICE_TYPES, DEAL_SOURCES } from '@/services/deals';
 import { useAuth } from '@/stores/auth';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
-import type { Customer } from '@/services/customers';
+import CustomerPicker from '@/components/customers/CustomerPicker.vue';
 
 const props = defineProps<{
     open: boolean;
     /** Null is a create; a deal is an edit. */
     editing: Deal | null;
-    customers: Customer[];
 }>();
 
 const emit = defineEmits<{ saved: []; cancel: [] }>();
@@ -279,17 +278,16 @@ function discard(): void {
                     <!-- §6.3's "explicit required marker": a word, not only a glyph. -->
                     <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
                 </span>
-                <select
+                <!-- F-08 (`D-84`): searches the server; no all label, so no
+                     clear button — the field is required. -->
+                <CustomerPicker
                     :id="fieldId('customer_id')"
                     v-model="values.customer_id"
+                    :placeholder="t('deals.form.customerNone')"
                     :disabled="saving"
                     :aria-invalid="errorFor('customer_id') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    :data-testid="testId('customer_id')"
-                >
-                    <option value="">{{ t('deals.form.customerNone') }}</option>
-                    <option v-for="customer in customers" :key="customer.id" :value="customer.id">{{ customer.name }}</option>
-                </select>
+                    :test-id="testId('customer_id')"
+                />
                 <span
                     v-if="errorFor('customer_id') !== null"
                     class="text-[var(--color-danger)]"

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Suppliers\Presentation;
 
+use App\Modules\Suppliers\Application\Importing\ImportSuppliers;
 use App\Modules\Suppliers\Application\Listing\ListSuppliers;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
@@ -60,6 +61,18 @@ final class SupplierController
             $request,
             SupplierPayload::of($suppliers->update($supplier, $request->validated(), self::actorId($request))),
         );
+    }
+
+    /** `D-85` (F-09 · 1.4) — the counts of one import; the file itself is not kept. */
+    public function import(ImportSuppliersRequest $request, ImportSuppliers $suppliers): JsonResponse
+    {
+        $upload = $request->upload();
+
+        return ApiEnvelope::single($request, SupplierPayload::importBatch($suppliers->handle(
+            $upload->getRealPath(),
+            $upload->getClientOriginalName(),
+            self::actorId($request),
+        )), 201);
     }
 
     /**

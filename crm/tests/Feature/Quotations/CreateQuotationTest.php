@@ -349,6 +349,40 @@ final class CreateQuotationTest extends TestCase
         self::assertSame(1, DB::table('quotations')->where('id', $result->quotation->id)->count());
     }
 
+    /**
+     * `D-81` (F-05 · 1.4): the ceiling §5.6 warns against is what is left of
+     * the offer, not what it started as. 5 recorded, 3 already drawn → 4 is
+     * within the offer and still over the balance.
+     */
+    public function test_that_a_quantity_within_the_recorded_amount_but_above_the_available_balance_warns(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+        DB::table('supplier_quotation_items')->where('id', $line)->update(['consumed_quantity' => '3']);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '4', 'margin_percent' => null]],
+            additional: [],
+            overrides: [],
+        ));
+
+        self::assertSame([1], $result->quantityWarnings);
+        self::assertSame(1, DB::table('quotations')->where('id', $result->quotation->id)->count());
+    }
+
+    public function test_that_a_quantity_at_exactly_the_available_balance_does_not_warn(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+        DB::table('supplier_quotation_items')->where('id', $line)->update(['consumed_quantity' => '3']);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '2', 'margin_percent' => null]],
+            additional: [],
+            overrides: [],
+        ));
+
+        self::assertSame([], $result->quantityWarnings);
+    }
+
     // ────────────────────────────────────────────────────────────────── helpers
 
     private function currency(string $code, string $unit, bool $enabled, bool $base): string

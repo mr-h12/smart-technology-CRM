@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -12,6 +13,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\DataProviderExternal;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -35,6 +37,9 @@ final class QuotationReadEndpointTest extends TestCase
     private array $users = [];
 
     private string $customerId;
+
+    /** @var array<string, string> deal id => its customer, for `quotation()`'s POST */
+    private array $dealCustomers = [];
 
     protected function setUp(): void
     {
@@ -156,6 +161,276 @@ final class QuotationReadEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(404);
     }
 
+    // ───────────────────────────────────────────────── the list (Point 5.4)
+
+    public function test_that_an_unauthenticated_caller_cannot_list(): void
+    {
+        $this->getJson(self::ENDPOINT)->assertStatus(401);
+    }
+
+    /** §3.5 `view` = `All`: every quotation, an unowned deal's included, in one page. */
+    #[DataProvider('unrestricted')]
+    public function test_that_an_all_scoped_role_lists_every_quotation(RoleName $role): void
+    {
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal($this->userWith(RoleName::IndoorSales)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 2)
+            ->assertJsonPath('meta.pagination.per_page', 25)
+            ->assertJsonPath('meta.pagination.page', 1)
+            ->assertJsonCount(2, 'data');
+    }
+
+    /** `SEC-08` in the list: own deals' quotations only — another owner's and an unowned deal's absent. */
+    #[DataProvider('ownScoped')]
+    public function test_that_an_own_scoped_role_lists_only_its_own_deals_quotations(RoleName $role): void
+    {
+        $mine = $this->quotation($this->deal($this->userWith($role)->id));
+        $this->quotation($this->deal($this->userWith(RoleName::Manager)->id));
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.id', $mine);
+    }
+
+    /** `team` and `asgn` are unbacked: an empty page, not a 403 and not everything. */
+    #[DataProvider('unbacked')]
+    public function test_that_an_unbacked_scope_lists_an_empty_page(RoleName $role): void
+    {
+        $this->quotation($this->deal($this->userWith($role)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 0)
+            ->assertJsonPath('data', []);
+    }
+
+    public function test_that_a_role_without_the_grant_cannot_list(): void
+    {
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::OutdoorSupervisor))->assertStatus(403);
+    }
+
+    public function test_that_withdrawing_the_grant_refuses_the_list(): void
+    {
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'view')->delete();
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))->assertStatus(403);
+    }
+
+    /**
+     * Every refusal 5.2's contract makes reaches the wire as `OpenAPI §6.2`'s
+     * `400 invalid_request`, the offending parameter in `details[0].field`.
+     *
+     * @param  array<string, mixed>  $query
+     */
+    #[DataProviderExternal(QuotationListCriteriaTest::class, 'refusedQueries')]
+    public function test_that_a_refused_query_is_a_400_on_the_wire(array $query, string $parameter, string $detailCode): void
+    {
+        $this->getJson(self::ENDPOINT.'?'.http_build_query($query), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonPath('error.details.0.field', $parameter)
+            ->assertJsonPath('error.details.0.code', $detailCode);
+    }
+
+    /** §6.1: the cap is accepted at exactly 100; 101 is the provider's first row. */
+    public function test_that_the_page_size_cap_is_accepted_at_the_cap(): void
+    {
+        $this->getJson(self::ENDPOINT.'?per_page=100', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.per_page', 100)
+            ->assertJsonPath('meta.pagination.total_pages', 1);
+    }
+
+    /** Q6: §6.6's columns, `meta.request_id`, and nothing from the cost side — no grant asked. */
+    public function test_that_a_list_row_carries_the_columns_and_no_cost_field(): void
+    {
+        $id = $this->quotation($this->deal(null));
+
+        $response = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))->assertStatus(200);
+
+        self::assertIsString($response->json('meta.request_id'));
+        $row = $response->json('data.0');
+        self::assertIsArray($row);
+        self::assertSame(
+            ['id', 'code', 'status', 'customer_id', 'customer_name', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'],
+            array_keys($row),
+        );
+        self::assertSame($id, $row['id']);
+        self::assertSame('draft', $row['status']);
+        // Module 7 Point 6.3 (owner's ruling A, 2026-09-13): the row names its
+        // currency — `GET /currencies` is an admin's, so the SPA cannot join.
+        self::assertSame('EGP', $row['currency']);
+        self::assertSame(1, $row['version']);
+        foreach ([...QuotationLine::COST_FIELDS, 'default_margin', 'lines'] as $absent) {
+            self::assertArrayNotHasKey($absent, $row);
+        }
+    }
+
+    // ─────────────────────────────────────────────── group_by (Point 5.5)
+
+    /**
+     * `employee` groups by the deal's owner through `ownersOf()`; the label is
+     * the owner's name through `namesOf()` (Step 6 Q2), groups ordered by that
+     * label, counts per group.
+     */
+    public function test_that_group_by_employee_groups_the_page_by_deal_owner(): void
+    {
+        $a = $this->userWith(RoleName::IndoorSales)->id;
+        $b = $this->userWith(RoleName::OutdoorSales)->id;
+        $dealA = $this->deal($a);
+        $this->quotation($dealA);
+        $this->quotation($dealA);
+        $this->quotation($this->deal($b));
+
+        $response = $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.pagination.total', 3);
+
+        $groups = $response->json('data');
+        self::assertIsArray($groups);
+        // "Test Indoor Sales" sorts before "Test Outdoor Sales" whatever the ids are.
+        self::assertSame([$a, $b], array_column($groups, 'key'));
+        self::assertSame(['Test Indoor Sales', 'Test Outdoor Sales'], array_column($groups, 'label'));
+        self::assertSame([2, 1], array_column($groups, 'count'));
+        $items = $response->json('data.0.items');
+        self::assertIsArray($items);
+        self::assertCount(2, $items);
+        self::assertIsArray($items[0]);
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'customer_name', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+    }
+
+    /** A deal with no owner groups under the `null` key, labelled from the lang file. */
+    public function test_that_an_unowned_deals_quotation_groups_under_null(): void
+    {
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', null)
+            ->assertJsonPath('data.0.label', (string) __('quotations.groups.unassigned'))
+            ->assertJsonPath('data.0.count', 1);
+    }
+
+    /** The hidden Super Admin (§3.1) names nobody's group: the label falls back to the key. */
+    public function test_that_a_hidden_owners_group_carries_no_name(): void
+    {
+        $hidden = $this->userWith(RoleName::SuperAdmin)->id;
+        $this->quotation($this->deal($hidden));
+
+        $this->getJson(self::ENDPOINT.'?group_by=employee', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', $hidden)
+            ->assertJsonPath('data.0.label', $hidden);
+    }
+
+    /**
+     * Q7 reversed by `D-83` (F-07 · 1.3): the customer group's key is the
+     * `customer_id` and its label is the customer's name through `namesOf()`.
+     */
+    public function test_that_group_by_customer_groups_by_customer_id_and_labels_the_name(): void
+    {
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT.'?group_by=customer', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', $this->customerId)
+            ->assertJsonPath('data.0.label', 'Nile Trading')
+            ->assertJsonPath('data.0.count', 2)
+            ->assertJsonCount(2, 'data.0.items');
+    }
+
+    // ─────────────────────────────────────────── the customer's name (F-07 · 1.3)
+
+    /** `D-83`: the row carries the name beside `customer_id`, the way it carries `currency` beside `currency_id`. */
+    public function test_that_a_list_row_carries_the_customers_name(): void
+    {
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_id', $this->customerId)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /** `D-83` mechanism 3: archiving the customer (`DB-01`) does not take the name off the row. */
+    public function test_that_an_archived_customers_name_is_still_on_the_row(): void
+    {
+        $this->quotation($this->deal(null));
+        DB::table('customers')->where('id', $this->customerId)->update(['is_archived' => true]);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /**
+     * `D-83` mechanism 4: `§3.3` scopes `customer.view` apart from
+     * `quotation.view`. An `own`-scoped role reads its own deal's quotation
+     * even when the customer belongs to somebody else — and the row still
+     * carries the name, because the port takes no scope.
+     */
+    public function test_that_an_own_scoped_role_sees_the_name_of_a_customer_it_does_not_own(): void
+    {
+        DB::table('customers')->where('id', $this->customerId)->update(['sales_owner_id' => $this->userWith(RoleName::Manager)->id]);
+        $mine = $this->quotation($this->deal($this->userWith(RoleName::OutdoorSales)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::OutdoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.id', $mine)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /**
+     * `D-83`: "one query for N ids, never N" — the use case calls the port
+     * **once per page** with the page's distinct customer ids, for the plain
+     * list and for `group_by=customer` alike (the label reads the same map).
+     */
+    public function test_that_the_port_is_called_once_per_page(): void
+    {
+        $other = $this->customer('Delta Steel');
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null, $other));
+
+        $fake = new class implements CustomerNamesInterface
+        {
+            /** @var list<list<string>> */
+            public array $calls = [];
+
+            public function namesOf(array $customerIds): array
+            {
+                $this->calls[] = $customerIds;
+
+                return array_fill_keys($customerIds, 'Faked');
+            }
+        };
+        $this->app->instance(CustomerNamesInterface::class, $fake);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Faked');
+        self::assertCount(1, $fake->calls);
+        self::assertEqualsCanonicalizing([$this->customerId, $other], $fake->calls[0]);
+
+        $fake->calls = [];
+        $this->getJson(self::ENDPOINT.'?group_by=customer', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.label', 'Faked');
+        self::assertCount(1, $fake->calls);
+    }
+
     // ────────────────────────────────────────────────────── what a 200 carries
 
     public function test_that_the_detail_carries_the_header_lines_and_etag(): void
@@ -167,6 +442,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.status', 'draft')
             ->assertJsonPath('data.currency_id', $this->currencyId('EGP'))
+            ->assertJsonPath('data.currency', 'EGP')
             ->assertJsonPath('data.deal_id', fn (string $dealId): bool => $dealId !== '')
             ->assertJsonPath('data.customer_id', $this->customerId)
             ->assertJsonPath('data.default_margin', '20.000')
@@ -224,6 +500,18 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('meta.warnings.0.field', 'lines.0.unit_cost')
             ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed')
             ->assertJsonPath('meta.warnings.0.message', (string) __('quotations.warnings.supplier_price_changed'));
+    }
+
+    /** §6.5 / `D-50`: the yellow badge on the list (Module 8 · 3.3) reads a row field, not the detail. */
+    public function test_that_a_list_row_says_whether_it_was_self_approved(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotations')->where('id', $id)->update(['status' => 'approved', 'is_self_approved' => true]);
+
+        $this->getJson(self::ENDPOINT.'?filter[bucket]=active', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.id', $id)
+            ->assertJsonPath('data.0.is_self_approved', true);
     }
 
     /** §10.3's first row names Draft **or Pending**. */
@@ -311,7 +599,7 @@ final class QuotationReadEndpointTest extends TestCase
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
-            'customer_id' => $this->customerId,
+            'customer_id' => $this->dealCustomers[$dealId],
             'currency' => 'EGP',
             'default_margin' => '20',
             'discount_percent' => '0',
@@ -349,13 +637,13 @@ final class QuotationReadEndpointTest extends TestCase
         return $id;
     }
 
-    private function customer(): string
+    private function customer(string $name = 'Nile Trading'): string
     {
         $id = Uuid::uuid4()->toString();
 
         DB::table('customers')->insert([
             'id' => $id,
-            'name' => 'Nile Trading',
+            'name' => $name,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -363,14 +651,14 @@ final class QuotationReadEndpointTest extends TestCase
         return $id;
     }
 
-    private function deal(?string $ownerId): string
+    private function deal(?string $ownerId, ?string $customerId = null): string
     {
         $id = Uuid::uuid4()->toString();
 
         DB::table('deals')->insert([
             'id' => $id,
             'code' => 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
-            'customer_id' => $this->customerId,
+            'customer_id' => $this->dealCustomers[$id] = $customerId ?? $this->customerId,
             'owner_id' => $ownerId,
             'last_activity_at' => now(),
             'created_at' => now(),

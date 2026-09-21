@@ -56,6 +56,9 @@ const DEAL = {
     id: 'd1',
     code: 'DL-2026-0001',
     customer_id: 'c1',
+    // F-07 · 1.5 (`D-83`): the server's name, deliberately not the customers
+    // list's `Acme Industrial` — a screen that still joins shows the wrong one.
+    customer_name: 'Acme Industrial Ltd',
     title: 'Twelve pumps',
     source: 'employee_entry',
     service_type: 'product',
@@ -147,7 +150,7 @@ function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
 function respond(deals: unknown = [DEAL], status = 200, pagination = PAGINATION): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string) => {
         if (String(input).includes('/customers')) {
-            return json(200, envelope([CUSTOMER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            return json(200, envelope([CUSTOMER], { pagination: { ...PAGINATION, per_page: 20 } }));
         }
 
         return json(
@@ -193,6 +196,15 @@ function dealsUrl(fetchMock: ReturnType<typeof vi.fn>): string {
 
 function listReads(fetchMock: ReturnType<typeof vi.fn>): number {
     return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/deals')).length;
+}
+
+/** Open the create form, focus its customer picker and take the row the server answered. */
+async function openFormAndPickCustomer(wrapper: Awaited<ReturnType<typeof render>>): Promise<void> {
+    await wrapper.find('[data-testid="deals-create"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="deal-form-customer-id"]').trigger('focus');
+    await flushPromises();
+    await wrapper.find('[data-testid="deal-form-customer-id-option"]').trigger('mousedown');
 }
 
 describe('the deals screen', () => {
@@ -249,25 +261,37 @@ describe('the deals screen', () => {
         expect(statuses).toEqual(['Lead', 'Negotiations']);
         // One customer, named once per row — the rows are independent of each
         // other and not grouped or merged.
-        expect(customers).toEqual(['Acme Industrial', 'Acme Industrial']);
+        expect(customers).toEqual(['Acme Industrial Ltd', 'Acme Industrial Ltd']);
     });
 
-    it('resolves the customer to a name and leaves the owner as an identifier', async () => {
+    it('shows the customer name the server sent and leaves the owner as an identifier', async () => {
         const wrapper = await render(respond());
 
-        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial');
+        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial Ltd');
         // ⚠️ Identity publishes no list this module may resolve a name against,
         // so the owner is an id. A bare identifier is honest; a made-up name
         // would not be.
         expect(wrapper.find('[data-testid="deals-owner"]').text()).toBe('u9');
     });
 
-    it('falls back to the identifier for a customer past the hundredth', async () => {
-        // The names come from one `listCustomers({ perPage: 100 })` —
-        // `MAX_PER_PAGE`, the same measured ceiling Module 6 recorded.
-        const wrapper = await render(respond([{ ...DEAL, customer_id: 'c-not-in-first-100' }]));
+    it('names a customer past the hundredth, because the name comes with the row', async () => {
+        // `D-83`: the capped `listCustomers({ perPage: 100 })` no longer names
+        // the rows, so a customer it never returns is still named.
+        const wrapper = await render(respond([{ ...DEAL, customer_id: 'c-not-in-first-100', customer_name: 'Delta Steel' }]));
 
-        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('c-not-in-first-100');
+        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Delta Steel');
+    });
+
+    it('reads no customers on load — the form’s picker asks for its own (F-08 · 1.3, D-84)', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+
+        expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/customers'))).toBe(false);
+
+        await openFormAndPickCustomer(wrapper);
+
+        expect((wrapper.find('[data-testid="deal-form-customer-id"]').element as HTMLInputElement).value).toBe('Acme Industrial');
+        expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('per_page=100'))).toBe(false);
     });
 
     it('renders a stored code through the dictionary, never a server label', async () => {
@@ -458,9 +482,7 @@ describe('the deals screen', () => {
         const wrapper = await render(fetchMock);
         const before = listReads(fetchMock);
 
-        await wrapper.find('[data-testid="deals-create"]').trigger('click');
-        await flushPromises();
-        await wrapper.find('[data-testid="deal-form-customer-id"]').setValue('c1');
+        await openFormAndPickCustomer(wrapper);
         await wrapper.find('[data-testid="deal-form"]').trigger('submit');
         await flushPromises();
 

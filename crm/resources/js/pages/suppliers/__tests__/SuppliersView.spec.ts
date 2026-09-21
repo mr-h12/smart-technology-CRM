@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
+import ImportModal from '@/components/imports/ImportModal.vue';
 import SuppliersView from '@/pages/suppliers/SuppliersView.vue';
 import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
@@ -58,6 +59,7 @@ const SUPPLIER = {
     phone: '0100',
     contact_person: 'Sara',
     has_open_account: false,
+    is_incomplete: false,
     is_active: true,
     created_at: '2026-08-30T00:00:00+00:00',
     updated_at: '2026-08-30T00:00:00+00:00',
@@ -418,5 +420,140 @@ describe('SuppliersView — §3.7 write controls', () => {
         expect(view.find('[data-testid="supplier-form-modal"]').exists()).toBe(false);
         // The PATCH, and then the list again.
         expect(fetchMock.mock.calls.length).toBe(before + 2);
+    });
+});
+
+/**
+ * F-09 · 1.5 (`D-85`) — the suppliers' import, on the customers' terms.
+ *
+ * `catalog.import` is the Manager's alone (§3.7, `D-85`), although
+ * `catalog.manage` is Procurement's too — so Procurement is the negative case:
+ * the role that can write a supplier by hand and still gets no import button.
+ * `SupplierImportEndpointTest` is the gate; this is the menu.
+ */
+describe('SuppliersView — F-09 · 1.5 import and the incomplete flag', () => {
+    const MANAGER: AuthenticatedUser = {
+        ...PROCUREMENT,
+        id: '01a0-mgr',
+        name: 'Manager',
+        email: 'manager@example.test',
+        role: { id: '01a0-role-mgr', slug: 'manager', name: 'Manager' },
+        permissions: ['catalog.view.all', 'catalog.manage.all', 'catalog.import.all'],
+    };
+
+    const BATCH = { id: 'b1', original_filename: 'suppliers.csv', row_count: 5, imported_count: 4, incomplete_count: 2 };
+
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers the import to a holder of catalog.import and not to catalog.manage alone', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([SUPPLIER])));
+        await signIn(MANAGER);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="suppliers-import"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        vi.stubGlobal('fetch', vi.fn(async () => page([SUPPLIER])));
+        await signIn(PROCUREMENT);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="suppliers-import"]').exists()).toBe(false);
+    });
+
+    /**
+     * The owner's screenshot, 2026-09-21: as a fourth child of the header's
+     * `justify-between`, the import button floated in the middle of the row.
+     * Grouped with *New supplier*, it sits beside it, as on Customers.
+     */
+    it('keeps the import button beside New supplier rather than as its own header item', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([SUPPLIER])));
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        const importButton = view.find('[data-testid="suppliers-import"]').element;
+        const createButton = view.find('[data-testid="suppliers-create"]').element;
+
+        expect(importButton.parentElement).toBe(createButton.parentElement);
+        expect(importButton.parentElement?.tagName).not.toBe('HEADER');
+    });
+
+    it('uploads to the suppliers import and asks the list again once it succeeds', async () => {
+        const fetchMock = vi.fn(async (input: string) => (/\/suppliers\/import$/.test(String(input))
+            ? json(201, { data: BATCH })
+            : page([SUPPLIER])));
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="suppliers-import"]').trigger('click');
+        expect(view.find('[data-testid="import-modal"] h2').text()).toBe(en.suppliers.import.title);
+
+        const input = view.find('[data-testid="import-file"]');
+        Object.defineProperty(input.element, 'files', {
+            value: [new File(['name\nAlpha Supply\n'], 'suppliers.csv', { type: 'text/csv' })],
+            configurable: true,
+        });
+        await input.trigger('change');
+        const before = fetchMock.mock.calls.length;
+        await view.find('[data-testid="import-submit"]').trigger('click');
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls[before]?.[0])).toBe('/api/v1/suppliers/import');
+        // The upload, and then the list again.
+        expect(fetchMock.mock.calls.length).toBe(before + 2);
+        expect(view.find('[data-testid="import-failed"]').text()).toContain('1');
+    });
+
+    it('closes the dialog and applies the incomplete filter when the result asks for it', async () => {
+        const fetchMock = vi.fn(async (input: string) => (/\/suppliers\/import$/.test(String(input))
+            ? json(201, { data: BATCH })
+            : page([SUPPLIER])));
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="suppliers-import"]').trigger('click');
+        view.findComponent(ImportModal).vm.$emit('showIncomplete');
+        await flushPromises();
+
+        expect(view.find('[data-testid="import-modal"]').exists()).toBe(false);
+        expect(urlOf(fetchMock, fetchMock.mock.calls.length - 1)).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+        expect((view.find('[data-testid="suppliers-filter-incomplete"]').element as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('sends filter[is_incomplete]=true when ticked, and nothing about it when not', async () => {
+        const fetchMock = vi.fn(async () => page([SUPPLIER]));
+        vi.stubGlobal('fetch', fetchMock);
+        const view = render();
+        await flushPromises();
+
+        expect(urlOf(fetchMock, 0)).not.toContain(encodeURIComponent('filter[is_incomplete]'));
+
+        await view.find('[data-testid="suppliers-filter-incomplete"]').setValue(true);
+        await flushPromises();
+
+        expect(urlOf(fetchMock, fetchMock.mock.calls.length - 1)).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+    });
+
+    it('marks an incomplete supplier with a worded chip, and a complete one with none', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([
+            { ...SUPPLIER, is_incomplete: true },
+            { ...SUPPLIER, id: 's2', name: 'Beta Supply', is_incomplete: false },
+        ])));
+        const view = render('ar');
+        await flushPromises();
+
+        const rows = view.findAll('[data-testid="suppliers-row"]');
+
+        expect(rows[0]!.find('[data-testid="suppliers-incomplete"]').text()).toBe(ar.suppliers.incomplete);
+        expect(rows[1]!.find('[data-testid="suppliers-incomplete"]').exists()).toBe(false);
     });
 });

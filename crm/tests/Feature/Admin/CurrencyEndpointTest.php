@@ -113,9 +113,27 @@ final class CurrencyEndpointTest extends TestCase
         )->assertStatus(403);
     }
 
-    public function test_that_a_sales_employee_may_not_read_the_currencies(): void
+    /**
+     * D-80: `currency.view` is the §3.6 create/edit set, because a supplier
+     * offer's `currency_id` is a uuid the form has to be able to look up. The
+     * rounding PATCH above stays the Super Admin's.
+     */
+    public function test_that_an_offer_writer_may_read_the_currencies_with_their_ids(): void
     {
-        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::IndoorSales))->assertStatus(403);
+        foreach ([RoleName::IndoorSales, RoleName::Procurement] as $role) {
+            $response = $this->getJson(self::ENDPOINT, $this->bearerFor($role))->assertStatus(200);
+
+            $response->assertJsonStructure(['data' => ['currencies' => [['id', 'code']]]]);
+
+            $id = $response->json('data.currencies.0.id');
+            self::assertIsString($id);
+            self::assertMatchesRegularExpression('/^[0-9a-f-]{36}$/', $id);
+        }
+    }
+
+    public function test_that_the_ceo_may_not_read_the_currencies(): void
+    {
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Ceo))->assertStatus(403);
     }
 
     // ── reading ─────────────────────────────────────────────────────────────

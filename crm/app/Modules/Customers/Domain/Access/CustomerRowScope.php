@@ -74,13 +74,14 @@ final readonly class CustomerRowScope
      * The reach a caller holds, from the scope codes their grants carry.
      *
      * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
-     * @param  string  $actorId  the caller's own user id — what `own` means
+     * @param  string|null  $actorId  the caller's own user id — what `own` means; null when the
+     *                                system acts on its own behalf, which can hold `all` and nothing narrower
      *
      * @throws InvalidArgumentException on a code §3.2 does not define, or a blank actor
      */
-    public static function resolve(array $heldScopes, string $actorId): self
+    public static function resolve(array $heldScopes, ?string $actorId): self
     {
-        if (trim($actorId) === '') {
+        if ($actorId !== null && trim($actorId) === '') {
             // Never a legitimate call. Letting it through would make `own`
             // silently match nothing, which is indistinguishable from a refusal.
             throw new InvalidArgumentException('A row scope needs the caller it is being resolved for.');
@@ -96,6 +97,11 @@ final readonly class CustomerRowScope
                     return new self(true, []);
 
                 case self::OWN:
+                    if ($actorId === null) {
+                        // The system has no rows of its own; `own` without a caller is a defect, not an empty set.
+                        throw new InvalidArgumentException('The own scope needs the caller it is being resolved for.');
+                    }
+
                     $ownerIds[] = $actorId;
                     break;
 

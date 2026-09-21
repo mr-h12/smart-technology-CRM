@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Suppliers\Presentation;
 
+use App\Modules\Suppliers\Domain\Importing\ImportSummary;
 use App\Modules\Suppliers\Domain\Listing\SupplierPage;
 use App\Modules\Suppliers\Domain\Listing\SupplierSummary;
 
@@ -35,8 +36,26 @@ final class SupplierPayload
             'contact_person' => $supplier->contactPerson,
             'has_open_account' => $supplier->hasOpenAccount,
             'is_active' => $supplier->isActive,
+            'is_incomplete' => $supplier->isIncomplete,
             'created_at' => $supplier->createdAt->format(DATE_ATOM),
             'updated_at' => $supplier->updatedAt->format(DATE_ATOM),
+        ];
+    }
+
+    /**
+     * `D-85` (F-09 · 1.4) — the customers' `ImportBatchPayload` shape, so the
+     * SPA reads one import result the same way whichever list it came from.
+     *
+     * @return array<string, mixed>
+     */
+    public static function importBatch(ImportSummary $batch): array
+    {
+        return [
+            'id' => $batch->id,
+            'original_filename' => $batch->originalFilename,
+            'row_count' => $batch->rowCount,
+            'imported_count' => $batch->importedCount,
+            'incomplete_count' => $batch->incompleteCount,
         ];
     }
 

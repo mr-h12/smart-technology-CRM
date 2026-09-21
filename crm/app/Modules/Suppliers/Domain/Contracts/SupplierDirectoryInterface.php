@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Suppliers\Domain\Contracts;
 
+use App\Modules\Suppliers\Domain\Importing\ImportSummary;
 use App\Modules\Suppliers\Domain\Listing\SupplierListCriteria;
 use App\Modules\Suppliers\Domain\Listing\SupplierPage;
 use App\Modules\Suppliers\Domain\Listing\SupplierSummary;
@@ -38,6 +39,23 @@ interface SupplierDirectoryInterface
     /** Point 2.2. */
     public function create(SupplierDraft $draft, string $actorId): SupplierSummary;
 
-    /** Null on the same case as {@see find()} — absent or soft-deleted. */
-    public function update(string $supplierId, SupplierDraft $draft, string $actorId): ?SupplierSummary;
+    /**
+     * Null on the same case as {@see find()} — absent or soft-deleted.
+     *
+     * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape)
+     */
+    public function update(string $supplierId, SupplierDraft $draft, ?string $actorId): ?SupplierSummary;
+
+    /**
+     * `D-85` (F-09 · 1.4) — one `supplier_import_batches` row for a finished
+     * import. On the directory rather than a port of its own: it is the same
+     * module's persistence, and a second interface would have one method.
+     */
+    public function recordImportBatch(
+        string $originalFilename,
+        int $rowCount,
+        int $importedCount,
+        int $incompleteCount,
+        string $actorId,
+    ): ImportSummary;
 }

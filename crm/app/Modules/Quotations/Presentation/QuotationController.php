@@ -6,12 +6,20 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
+use App\Modules\Quotations\Application\Listing\BadgeCounts;
+use App\Modules\Quotations\Application\Listing\ListQuotations;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
+use App\Modules\Quotations\Application\Writing\ApproveQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
+use App\Modules\Quotations\Application\Writing\ReturnQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
+use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
+use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +37,28 @@ use RuntimeException;
  */
 final class QuotationController
 {
+    /** Module 8 Point 2.1 — every answer that carries a status carries `D-11`'s waiting fields. */
+    public function __construct(private readonly ApprovalWaiting $waiting) {}
+
+    /**
+     * Point 5.4. Parsed in Domain rather than by a Form Request: `OpenAPI §6.1`
+     * and `§6.2` want `400 invalid_request` for a bad page size or an unknown
+     * filter, and a Form Request failure is a 422 (`DealController::index()`).
+     */
+    public function index(Request $request, ListQuotations $quotations): JsonResponse
+    {
+        $criteria = QuotationListCriteria::fromQuery($request->query());
+        $page = $quotations->handle($criteria, self::heldScopes($request), self::actorId($request));
+
+        // Point 5.5 — `group_by` reshapes `data` and nothing else; the
+        // pagination still counts quotations.
+        $data = $criteria->groupBy === null
+            ? QuotationPayload::many($page, $this->waiting)
+            : QuotationPayload::groups($quotations->grouped($page, $criteria->groupBy), $this->waiting, $page->customerNames);
+
+        return ApiEnvelope::collection($request, $data, QuotationPayload::pagination($page));
+    }
+
     /**
      * Point 3.5. The 404 and the scope are decided in `ShowQuotation`; whether
      * the costs are in the body is a second grant the use case resolves and
@@ -45,7 +75,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId)),
+            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId), $this->waiting),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -91,7 +121,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId)),
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -108,7 +138,55 @@ final class QuotationController
 
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId)));
+        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting));
+    }
+
+    /**
+     * Module 8 Point 1.1. `submit()`'s shape: no body, `If-Match`, the
+     * re-read quotation with its `status` now `approved` and
+     * `is_self_approved` as §6.5 decided it.
+     */
+    public function approve(Request $request, string $quotation, ApproveQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId), $this->waiting));
+    }
+
+    /**
+     * Module 8 Point 1.3. `update()`'s body and answer (warnings included),
+     * `approve()`'s route permission; the re-read quotation is `approved`.
+     */
+    public function editAndApprove(SaveQuotationRequest $request, string $quotation, EditAndApproveQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $updated = $quotations->approve($quotation, $request->validated(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
+
+        return ApiEnvelope::single(
+            $request,
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
+            200,
+            $warnings === [] ? [] : ['warnings' => $warnings],
+        );
+    }
+
+    /**
+     * Module 8 Point 1.2. `approve()`'s shape with one body field, the
+     * mandatory note; the answer is the re-read quotation, its `status` now
+     * `draft` again.
+     */
+    public function return(ReturnQuotationRequest $request, string $quotation, ReturnQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $returned = $quotations->return($quotation, $request->note(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId), $this->waiting));
     }
 
     /**
@@ -134,6 +212,36 @@ final class QuotationController
         $quotations->delete($quotation, $request->headers->get('If-Match'), self::heldScopes($request), self::actorId($request));
 
         return response()->noContent();
+    }
+
+    /**
+     * Point 6.8 — `GET /user-term-suggestions?field=`: the caller's own terms
+     * for one of the three term fields (Step 6 Q5). `OpenAPI §4.2` allows no
+     * unpaginated collection, so the cap is written as what it is: the first
+     * and only page of twenty.
+     */
+    public function termSuggestions(Request $request, TermSuggestions $suggestions): JsonResponse
+    {
+        $data = $suggestions->forField($request->query('field'), self::actorId($request));
+
+        return ApiEnvelope::collection($request, $data, [
+            'page' => 1,
+            'per_page' => TermSuggestions::LIMIT,
+            'total' => count($data),
+            'total_pages' => 1,
+            'has_next_page' => false,
+            'has_previous_page' => false,
+        ]);
+    }
+
+    /**
+     * Module 8 Point 2.3 — `GET /badges` (Q5): the caller's two sidebar
+     * counters. `auth` only, so `heldScopes()` is not asked here; the use case
+     * decides the `approve` reach itself and answers `0` where there is none.
+     */
+    public function badges(Request $request, BadgeCounts $badges): JsonResponse
+    {
+        return ApiEnvelope::single($request, $badges->for(self::actorId($request)));
     }
 
     /**

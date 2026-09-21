@@ -91,7 +91,9 @@
             "suppliers": "Suppliers",
             "catalog": "Catalog",
             "supplierQuotations": "Supplier Quotations",
-            "deals": "Requests / Deals"
+            "deals": "Requests / Deals",
+            "quotations": "Quotations",
+            "approvals": "Approvals"
         }
     },
     "theme": {
@@ -549,6 +551,20 @@
             "action": "Restore"
         }
     },
+    "import": {
+        "hint": "CSV files only, up to 30 MB.",
+        "choose": "Choose a file",
+        "noFile": "No file chosen",
+        "submit": "Import",
+        "submitting": "Importing…",
+        "resultTitle": "Import finished",
+        "rows": "Rows read",
+        "imported": "Imported",
+        "incomplete": "Flagged incomplete",
+        "failed": "Not imported",
+        "showIncomplete": "Show the incomplete records",
+        "error": "The import did not run. Nothing was changed."
+    },
     "customers": {
         "title": "Customers",
         "total": "No customers | 1 customer | {count} customers",
@@ -647,19 +663,17 @@
             "failed": "Restored {done}, {failed} refused. Nothing else changed — try the refused rows again."
         },
         "import": {
-            "title": "Import customers",
-            "hint": "CSV files only, up to 30 MB.",
-            "choose": "Choose a file",
-            "noFile": "No file chosen",
-            "submit": "Import",
-            "submitting": "Importing…",
-            "resultTitle": "Import finished",
-            "rows": "Rows read",
-            "imported": "Imported",
-            "incomplete": "Flagged incomplete",
-            "failed": "Not imported",
-            "showIncomplete": "Show the incomplete records",
-            "error": "The import did not run. Nothing was changed."
+            "title": "Import customers"
+        },
+        "picker": {
+            "more": "More customers match — type more letters",
+            "forbidden": "You do not have permission to view customers",
+            "emptyScope": "No customers in your scope",
+            "noMatch": "No results for “{query}”",
+            "failed": "Customers could not be loaded",
+            "retry": "Retry",
+            "clear": "Clear",
+            "detailSeparator": " · "
         }
     },
     "suppliers": {
@@ -680,7 +694,8 @@
             "type": "Type",
             "typeAll": "Any type",
             "active": "State",
-            "activeAll": "Active and inactive"
+            "activeAll": "Active and inactive",
+            "incomplete": "Incomplete records only"
         },
         "column": {
             "name": "Supplier",
@@ -730,7 +745,11 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes"
-        }
+        },
+        "import": {
+            "title": "Import suppliers"
+        },
+        "incomplete": "Incomplete record"
     },
     "catalog": {
         "title": "Catalog",
@@ -838,6 +857,7 @@
             "lineProductName": "Product name",
             "linePrice": "Unit price",
             "lineQuantity": "Quantity",
+            "lineBalance": "Recorded {recorded} · consumed {consumed} · available {available}",
             "attachments": "Attachment",
             "attachmentsSaveFirst": "Save the offer first, then a scan or PDF can be attached to it.",
             "attachmentsCeiling": "Only files attached in this dialog are listed here. Files attached earlier are stored but cannot be shown yet.",
@@ -849,13 +869,16 @@
             "attachmentForbidden": "You do not have permission to attach a file to this offer.",
             "attachmentRejected": "The file was not accepted.",
             "attachmentUnreachable": "The server could not be reached. The file was not attached.",
-            "totalUnavailable": "The total and its currency cannot be entered yet: the currency list this form needs is not available to this role. An existing total is kept unchanged.",
+            "totalUnavailable": "The currency list could not be loaded, so the total cannot be given a currency right now. The offer can still be saved without a total; try again later.",
             "forbidden": "You do not have permission to save this offer.",
             "rejected": "The change was not accepted. Review the fields and try again.",
             "unreachable": "The server could not be reached. The offer was not saved.",
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
-            "discard": "Discard changes"
+            "discard": "Discard changes",
+            "totalPrice": "Total",
+            "currency": "Currency",
+            "currencyNone": "Choose a currency"
         },
         "column": {
             "code": "Code",
@@ -1005,7 +1028,8 @@
             }
         },
         "detail": {
-            "missing": "This deal could not be opened."
+            "missing": "This deal could not be opened.",
+            "newQuotation": "New quotation"
         },
         "documents": {
             "title": "Documents",
@@ -1029,5 +1053,181 @@
             "ownerNone": "Choose the employee",
             "listUnavailable": "The employee list could not be read, so the owner is set by identifier."
         }
+    },
+    "quotations": {
+        "title": "Quotations",
+        "loading": "Loading quotations…",
+        "total": "{count} quotations",
+        "version": "v{version}",
+        "filter": {
+            "status": "Status",
+            "statusAll": "Any status",
+            "customer": "Customer",
+            "customerAll": "Any customer",
+            "from": "From",
+            "to": "To",
+            "currency": "Currency",
+            "currencyPlaceholder": "EGP",
+            "amountMin": "Total from",
+            "amountMax": "Total to",
+            "amountNeedsCurrency": "Choose a currency first — totals in different currencies cannot be compared.",
+            "apply": "Apply"
+        },
+        "column": {
+            "code": "Code",
+            "version": "Version",
+            "status": "Status",
+            "customer": "Customer",
+            "total": "Total",
+            "quotationDate": "Quotation date",
+            "validUntil": "Valid until",
+            "updatedAt": "Last updated"
+        },
+        "status": {
+            "draft": "Draft",
+            "pending": "Pending approval",
+            "approved": "Approved",
+            "sent": "Sent",
+            "accepted": "Accepted",
+            "partial": "Partially accepted",
+            "counter": "Counter offer",
+            "rejected": "Rejected",
+            "expired": "Expired"
+        },
+        "empty": {
+            "title": "No quotations are visible to you",
+            "message": "Either no quotations have been built, or none of them fall inside your reach.",
+            "filtered": {
+                "title": "Nothing matches this filter",
+                "message": "Change or clear the filters to see more quotations."
+            }
+        },
+        "pagination": {
+            "label": "Quotation pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} quotations"
+        },
+        "view": {
+            "label": "View",
+            "employee": "By employee",
+            "customer": "By customer",
+            "flat": "Flat"
+        },
+        "bucket": {
+            "active": "Active",
+            "incomplete": "Incomplete",
+            "history": "History"
+        },
+        "groups": {
+            "continues": "A group may continue on the next page — pages count quotations, not groups."
+        },
+        "detail": {
+            "loading": "Loading the quotation…",
+            "missing": "This quotation could not be opened.",
+            "deal": "Deal",
+            "defaultMargin": "Default margin",
+            "submittedAt": "Submitted",
+            "sentAt": "Sent",
+            "parent": "Previous version",
+            "rejectionReason": "Rejection reason",
+            "returnNote": "Return note",
+            "paymentTerms": "Payment terms",
+            "warranty": "Warranty",
+            "deliveryTerms": "Delivery terms",
+            "notOnPdf": "(not shown on the PDF)",
+            "selfApproved": "Self-approved",
+            "conflict": "This quotation was changed by someone else. Reload to see their version before acting again.",
+            "reload": "Reload",
+            "edit": "Edit",
+            "submit": "Submit for approval",
+            "newVersion": "New version",
+            "delete": "Delete",
+            "deletePrompt": "Delete this draft? It cannot be recovered from this screen.",
+            "deleteKeep": "Keep it",
+            "deleteProceed": "Delete the draft",
+            "lines": "Lines",
+            "quantity": "Quantity",
+            "unitCost": "Unit cost",
+            "margin": "Margin",
+            "unitPrice": "Unit price",
+            "lineTotal": "Line total",
+            "additionalItems": "Additional items",
+            "description": "Description",
+            "amount": "Amount",
+            "subtotal": "Subtotal",
+            "discount": "Discount ({percent}%)",
+            "taxBase": "Tax base",
+            "tax": "Tax ({percent}%)",
+            "additionalTotal": "Additional items",
+            "rounding": "Rounding (to {unit})",
+            "finalTotal": "Final total"
+        },
+        "builder": {
+            "title": "New quotation",
+            "loading": "Opening the builder…",
+            "missing": "This deal could not be opened, so no quotation can be built for it.",
+            "unreachable": "The server could not be reached. Nothing was saved.",
+            "currency": "Currency",
+            "default_margin": "Default margin %",
+            "discount_percent": "Discount %",
+            "tax_percent": "Tax %",
+            "taxExempt": "Empty = no tax",
+            "quotation_date": "Quotation date",
+            "valid_until": "Valid until",
+            "suppliers": "Suppliers",
+            "supplierQuotation": "Supplier quotation",
+            "addSupplier": "Add supplier",
+            "removeSupplier": "Remove",
+            "supplierCap": "A quotation takes up to {max} suppliers.",
+            "noSuppliers": "No supplier yet — add one and pick its quotation.",
+            "newSupplierQuotation": "New supplier quotation",
+            "noLines": "This supplier quotation has no lines.",
+            "recorded": "Supplier price {price} · available quantity {quantity}",
+            "lineMargin": "Line margin % (optional)",
+            "addItem": "Add item",
+            "removeItem": "Remove",
+            "payment_terms": "Payment terms",
+            "warranty": "Warranty",
+            "delivery_terms": "Delivery terms",
+            "recentTerms": "Recent terms",
+            "showDeliveryTerms": "Show delivery terms on the PDF",
+            "save": "Save draft",
+            "saving": "Saving…",
+            "cancel": "Back to the deal",
+            "saved": "Draft {code} is saved.",
+            "open": "Open the quotation",
+            "editTitle": "Edit {code}",
+            "update": "Save changes",
+            "editAndApprove": "Edit & approve",
+            "cancelEdit": "Back to the quotation",
+            "noExisting": "No lines are left — add a supplier below or the draft saves empty.",
+            "lineNo": "Line {no}",
+            "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
+            "unsaved": "You have unsaved changes. Leave without saving?",
+            "currencyNone": "Choose a currency"
+        }
+    },
+    "approvals": {
+        "title": "Approvals",
+        "loading": "Loading pending quotations…",
+        "empty": {
+            "title": "Nothing to approve",
+            "message": "No quotation is waiting for your approval."
+        },
+        "column": {
+            "code": "Code",
+            "customer": "Customer",
+            "total": "Total",
+            "daysWaiting": "Days waiting",
+            "actions": "Actions"
+        },
+        "slaExceeded": "SLA exceeded",
+        "edit": "Edit & approve",
+        "approve": "Approve",
+        "return": "Return",
+        "returnNote": "Note to the seller (required)",
+        "returnSend": "Return with note",
+        "returnCancel": "Cancel"
     }
 }

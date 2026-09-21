@@ -94,6 +94,8 @@ export async function updateSettings(values: Record<string, string>): Promise<Sy
  * switch and nothing else — so the screen draws it as a fact.
  */
 export interface Currency {
+    /** D-80: the uuid a supplier offer's `currency_id` names. */
+    id: string;
     code: string;
     rounding_unit: string;
     rounding_enabled: boolean;

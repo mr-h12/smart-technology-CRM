@@ -309,6 +309,12 @@ parameters:
         # moves: `Deals` and `SupplierQuotations` already hold `SharedContracts`.
         - type: classLike
           value: ^App\\Support\\Database\\DocumentNumberAllocator$
+        # `App\Support\Csv` — the import file reader, moved out of Customers'
+        # `CustomerCsv` unchanged in F-09 · 1.3 so the suppliers' import
+        # (`D-85`) reads files by the same rules instead of a copy of them.
+        # One class; the namespace is named because it holds nothing else.
+        - type: classLike
+          value: ^App\\Support\\Csv\\.*
 
     - name: Framework
       collectors:
@@ -574,10 +580,17 @@ parameters:
     # here rather than routine — opening catalog and supplier editing to every
     # employee is mitigated by *"every edit is written to the audit log"*. The
     # **contract** half only; nothing points at `AuditDriver`, and nothing should.
+    #
+    # `StorageContract` added 2026-09-21 with F-09 · 1.4 (`D-85`), on exactly
+    # the terms Customers' crossing of 2026-08-30 was added: §14.2 puts the
+    # file system behind an abstraction and `StorageServiceTest` forbids
+    # `fopen` in a module, so the suppliers' import must ask for the uploaded
+    # CSV's stream. Contract half only; nothing points at `StorageDriver`.
     Suppliers:
       - Framework
       - SharedContracts
       - AuditContract
+      - StorageContract
     # Catalog → Framework, SharedContracts, added 2026-08-30 with Point 3.1,
     # the module's first endpoint. The same two entries Suppliers was granted,
     # and for the same reasons — a controller and an Eloquent model are

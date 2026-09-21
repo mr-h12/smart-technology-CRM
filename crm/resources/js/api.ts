@@ -19,6 +19,12 @@ export interface Pagination {
     has_previous_page: boolean;
 }
 
+/** One server page, as `collection()` unwraps it. */
+export interface Page<T> {
+    items: T[];
+    pagination: Pagination;
+}
+
 export interface EnvelopeMeta {
     request_id?: string;
     /** `OpenAPI §4.2` — present on every list endpoint, absent on a single resource. */
@@ -35,6 +41,19 @@ export interface EnvelopeMeta {
 export interface Envelope<T> {
     data: T;
     meta?: EnvelopeMeta;
+}
+
+/**
+ * One import batch, as `ImportBatchPayload` (customers) and
+ * `SupplierPayload::importBatch` (suppliers, `D-85`) both serialise it.
+ * Failures are `row_count - imported_count`; the server stores no fourth count.
+ */
+export interface ImportBatch {
+    id: string;
+    original_filename: string;
+    row_count: number;
+    imported_count: number;
+    incomplete_count: number;
 }
 
 export interface ApiResult<T> {
@@ -155,24 +174,31 @@ export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
     return request<T>('GET', path);
 }
 
-export async function apiPost<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
-    return request<T>('POST', path, body);
+/**
+ * `headers` is for the two the contract puts on a mutation and nowhere else:
+ * `If-Match` (`API-12`, `OpenAPI §9.2` — the quotation's `etag`, a stale one
+ * is a 409) and `Idempotency-Key` (`OpenAPI §9.1` — minted by the caller once
+ * per attempt, a replay returns the first answer). Both arrived with Module 7
+ * Point 6.1; nothing else may set a header here.
+ */
+export async function apiPost<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<ApiResult<T>> {
+    return request<T>('POST', path, body, headers);
 }
 
-export async function apiPatch<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
-    return request<T>('PATCH', path, body);
+export async function apiPatch<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<ApiResult<T>> {
+    return request<T>('PATCH', path, body, headers);
 }
 
 /**
- * `SEC-05`'s revocations are the only DELETEs this API has.
+ * `SEC-05`'s revocations and `D-46`'s Draft quotation are the DELETEs this
+ * API has.
  *
- * `DB-01` is not bypassed by the verb: the server soft-deletes the
- * `user_sessions` row, and a session is not business data. Every other
- * "removal" in this product is `PATCH …/deactivate` or `…/archive`, which is
- * why this helper arrives with Point 5.4 and not before.
+ * `DB-01` is not bypassed by the verb: the server soft-deletes both rows.
+ * Every other "removal" in this product is `PATCH …/deactivate` or
+ * `…/archive`, which is why this helper arrives with Point 5.4 and not before.
  */
-export async function apiDelete<T>(path: string): Promise<ApiResult<T>> {
-    return request<T>('DELETE', path);
+export async function apiDelete<T>(path: string, headers?: Record<string, string>): Promise<ApiResult<T>> {
+    return request<T>('DELETE', path, undefined, headers);
 }
 
 /**
@@ -273,9 +299,14 @@ function headersFor(token: string | null): Record<string, string> {
     return headers;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
+async function request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
+): Promise<ApiResult<T>> {
     const token = bearerToken();
-    const headers = headersFor(token);
+    const headers = { ...headersFor(token), ...extraHeaders };
 
     // FormData writes its own `Content-Type`, boundary included. Setting one
     // here would name a boundary the body does not use, and the server would
@@ -304,6 +335,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         }
 
         throw await errorFrom(response, method, path, requestId);
+    }
+
+    // A 204 has no body to parse — `DELETE /quotations/{id}` is the first
+    // (Module 7 Point 4.4). The request id still travels, in the header.
+    if (response.status === 204) {
+        return { data: undefined as T, requestId, meta: {} };
     }
 
     const envelope = (await response.json()) as Envelope<T>;

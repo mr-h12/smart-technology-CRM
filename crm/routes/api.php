@@ -283,13 +283,15 @@ Route::middleware(['auth', 'permission:admin.system_settings'])->group(function 
 });
 
 // §13 screen 5's rounding half — §5.3 files it under "System Settings →
-// Currencies", so it carries `admin.system_settings` and not `admin.fx_rates`.
-// The Manager holds the second and not the first; the rates themselves are
-// Point 3.3, and they are the row the Manager may touch.
-Route::middleware(['auth', 'permission:admin.system_settings'])->group(function (): void {
-    Route::get('/currencies', [CurrencyController::class, 'index']);
-    Route::patch('/currencies/{code}', [CurrencyController::class, 'update']);
-});
+// Currencies", so the PATCH carries `admin.system_settings` and not
+// `admin.fx_rates`. The Manager holds the second and not the first; the rates
+// themselves are Point 3.3, and they are the row the Manager may touch.
+// The read is D-80's `currency.view`: a supplier offer's `currency_id` is a
+// uuid, so whoever may write an offer (§3.6) must be able to look it up.
+Route::middleware(['auth', 'permission:currency.view'])
+    ->get('/currencies', [CurrencyController::class, 'index']);
+Route::middleware(['auth', 'permission:admin.system_settings'])
+    ->patch('/currencies/{code}', [CurrencyController::class, 'update']);
 
 // §13 screen 5's other half — "manual rate per currency · rate history",
 // behind §3.11's **FX rates** row.
@@ -515,6 +517,12 @@ Route::middleware('auth')->prefix('suppliers')->group(function (): void {
 
     Route::patch('/{supplier}', [SupplierController::class, 'update'])
         ->middleware('permission:catalog.manage');
+
+    // `D-85` (F-09 · 1.4) — the one §3.7 row the document does not draw: a
+    // bulk write, so the Manager's alone, as §3.3's customer import is. No
+    // `Idempotency-Key`, on the same reading as the create above.
+    Route::post('/import', [SupplierController::class, 'import'])
+        ->middleware('permission:catalog.import');
 });
 
 // §7.3's catalog — Module 4 Point 3.1.
@@ -729,6 +737,9 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // still refused when the grant has gone (Point 3.7).
     Route::post('/', [QuotationController::class, 'store'])
         ->middleware(['permission:quotation.create', 'idempotency']);
+    // Point 5.4 — the list; the row scope is resolved in `ListQuotations`.
+    Route::get('/', [QuotationController::class, 'index'])
+        ->middleware('permission:quotation.view');
     Route::get('/{quotation}', [QuotationController::class, 'show'])
         ->middleware('permission:quotation.view');
     Route::patch('/{quotation}', [QuotationController::class, 'update'])
@@ -737,6 +748,18 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // submit is already a `409` by the token, and a submit is undone by a return.
     Route::patch('/{quotation}/submit-for-approval', [QuotationController::class, 'submit'])
         ->middleware('permission:quotation.submit_for_approval');
+    // Module 8 Point 1.1 — `If-Match` only, as the submit; the Team Leader's
+    // `Team` fails closed (`D-a`) until a team entity exists.
+    Route::patch('/{quotation}/approve', [QuotationController::class, 'approve'])
+        ->middleware('permission:quotation.approve');
+    // Module 8 Point 1.2 — the note is the body (`ReturnQuotationRequest`), the
+    // rest is the approve's.
+    Route::patch('/{quotation}/return', [QuotationController::class, 'return'])
+        ->middleware('permission:quotation.return_with_note');
+    // Module 8 Point 1.3 — §3.5 "approve / edit & approve" is one row, so the
+    // grant is `quotation.approve`; `edit_margin` / `edit_tax` are asked inside.
+    Route::patch('/{quotation}/edit-and-approve', [QuotationController::class, 'editAndApprove'])
+        ->middleware('permission:quotation.approve');
     // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
     // `quotation.edit`, because whoever may edit the next draft may open it.
     Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])
@@ -747,3 +770,16 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     Route::delete('/{quotation}', [QuotationController::class, 'destroy'])
         ->middleware('permission:quotation.delete');
 });
+
+// Module 7 Point 6.8 — SmartTermInput's read (Step 6 Q5). Behind
+// `quotation.create` because the builder is the only reader; the rows are the
+// caller's own, so the scope on the grant does not narrow anything further.
+// Not in `OpenAPI §7`: flagged on the point list as a new requirement.
+Route::middleware(['auth', 'permission:quotation.create'])
+    ->get('user-term-suggestions', [QuotationController::class, 'termSuggestions']);
+
+// Module 8 Point 2.3 — §18.1's *Approvals* and *My Quotations* counters (Q5).
+// `auth` only, no `permission:`: a sidebar is drawn for every role, and a role
+// without `quotation.approve` is answered `approvals: 0`, not `403`. Not in
+// `OpenAPI §7`: flagged on the point list (#131) as a new requirement.
+Route::middleware('auth')->get('badges', [QuotationController::class, 'badges']);

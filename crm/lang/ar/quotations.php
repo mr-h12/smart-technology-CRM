@@ -10,6 +10,11 @@ return [
     // مفاتيحه هي `QuotationNotPriceable::$reason`؛ أكّد المالك
     // `fx_rate_missing` ككود مستقل في 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (النقطة 5.2). رسالة الغلاف هي
+    // النقطة 5.5 — مجموعة `null` في `group_by=employee`: صفقة بلا مالك.
+    'groups' => [
+        'unassigned' => 'غير مُسنَد',
+    ],
+
     // `errors.invalid_request`؛ والسبب المحدّد في `details` أدناه.
     'list_query' => [
         'not_a_positive_integer' => 'يجب أن تكون هذه القيمة رقمًا صحيحًا أكبر من صفر.',
@@ -20,6 +25,7 @@ return [
         'unknown_bucket' => 'يجب أن تكون المجموعة active أو history.',
         'not_a_uuid' => 'قيمة هذا المرشّح ليست معرّفًا.',
         'not_a_code' => 'قيمة هذا المرشّح ليست رمز عملة.',
+        'unknown_field' => 'الاقتراحات متاحة لحقول payment_terms وwarranty وdelivery_terms فقط.',
         'not_an_amount' => 'يجب أن يكون هذا المبلغ رقمًا غير سالب.',
         'currency_required' => 'مرشّحات المبلغ وترتيب الإجمالي تحتاج إلى filter[currency].',
         'not_a_date' => 'يجب أن يكون هذا التاريخ تاريخًا صالحًا بصيغة YYYY-MM-DD.',
@@ -31,7 +37,7 @@ return [
 
     'errors' => [
         'invalid_request' => 'تعذّر فهم هذا الطلب.',
-        'supplier_price_missing' => 'لا يوجد سعر صالح لبند المورّد هذا، لذا لا يمكن حفظ عرض السعر.',
+        'supplier_price_missing' => 'لا يوجد سعر قابل للاستخدام لبند المورّد هذا — البند محذوف، أو عرض المورّد بلا عملة — لذا لا يمكن حفظ عرض السعر.',
         'fx_rate_missing' => 'لا يوجد سعر صرف مسجَّل لتحويل بند المورّد هذا. سجِّل سعر الصرف أولًا.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (النقطة 3.6).
         'if_match_required' => 'أرسل الـ etag الحالي لعرض السعر في If-Match.',
@@ -44,7 +50,7 @@ return [
 
     // تحذير §5.6 — يُحمل في `meta.warnings` عند إنشاء ناجح.
     'warnings' => [
-        'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز ما سجّله المورّد.',
+        'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز المتاح من عرض المورّد.',
         'supplier_price_changed' => 'تغيّر سعر المورّد — راجع التسعير.',
     ],
 
@@ -52,5 +58,6 @@ return [
     'validation' => [
         'unknown_deal' => 'لم يُعثر على هذه الصفقة.',
         'customer_not_the_deals' => 'يجب أن يكون العميل هو عميل الصفقة.',
+        'note_not_blank' => 'لا يمكن أن تكون ملاحظة الإرجاع مسافات فقط.',
     ],
 ];

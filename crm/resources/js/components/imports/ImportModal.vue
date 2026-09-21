@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /**
- * §3.3's `import (Excel)` row, as a dialog on the Customers screen.
+ * §3.3's `import (Excel)` row, as a dialog on the Customers screen — and since
+ * F-09 · 1.5 `D-85`'s on the Suppliers screen. The caller passes the title and
+ * the upload; the counts, the refusal and the incomplete link are the same for
+ * both, so they are written once.
  *
  * ── Why a dialog and not a screen ──────────────────────────────────────────
  *
@@ -45,10 +48,9 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ApiError } from '@/api';
-import { importCustomers, type ImportBatch } from '@/services/customers';
+import { ApiError, type ImportBatch } from '@/api';
 
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean; title: string; upload: (file: File) => Promise<ImportBatch> }>();
 
 /**
  * `showIncomplete` rather than a `RouterLink`: §10 asks for "a dedicated
@@ -96,7 +98,7 @@ async function submit(): Promise<void> {
     errorMessage.value = '';
 
     try {
-        batch.value = await importCustomers(chosen.value);
+        batch.value = await props.upload(chosen.value);
         emit('imported');
     } catch (error) {
         // §6.1: the server's own sentence, near the field, with the chosen file
@@ -105,7 +107,7 @@ async function submit(): Promise<void> {
         batch.value = null;
         errorMessage.value = error instanceof ApiError
             ? error.messageFor('file') ?? error.message
-            : t('customers.import.error');
+            : t('import.error');
     } finally {
         busy.value = false;
     }
@@ -131,50 +133,50 @@ watch(() => props.open, (open) => {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="customer-import-modal">
+    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="import-modal">
         <div class="dialog-scrim absolute inset-0" @click="emit('cancel')" />
 
         <div
             class="dialog-panel relative flex w-full max-w-lg flex-col gap-4 rounded-2xl p-6"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="customer-import-title"
+            aria-labelledby="import-title"
         >
-            <h2 id="customer-import-title" class="text-card-title">{{ t('customers.import.title') }}</h2>
+            <h2 id="import-title" class="text-card-title">{{ title }}</h2>
 
             <!-- §6.3: allowed formats and the configured size limit, stated
                  before anything is chosen. -->
-            <p class="text-[var(--color-text-muted)]">{{ t('customers.import.hint') }}</p>
+            <p class="text-[var(--color-text-muted)]">{{ t('import.hint') }}</p>
 
             <label class="flex flex-col gap-1.5">
-                <span class="sr-only">{{ t('customers.import.choose') }}</span>
+                <span class="sr-only">{{ t('import.choose') }}</span>
                 <input
                     type="file"
                     accept=".csv,text/csv"
                     class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    data-testid="customer-import-file"
+                    data-testid="import-file"
                     @change="onPick"
                 />
             </label>
 
-            <p class="text-[var(--color-text-muted)]" data-testid="customer-import-file-name">
-                {{ chosen === null ? t('customers.import.noFile') : chosen.name }}
+            <p class="text-[var(--color-text-muted)]" data-testid="import-file-name">
+                {{ chosen === null ? t('import.noFile') : chosen.name }}
             </p>
 
             <!-- §6.1: server validation near the affected field. -->
-            <p v-if="errorMessage !== ''" class="import-error rounded-lg px-3 py-2" data-testid="customer-import-error">
+            <p v-if="errorMessage !== ''" class="import-error rounded-lg px-3 py-2" data-testid="import-error">
                 {{ errorMessage }}
             </p>
 
-            <div v-if="batch !== null" class="import-result flex flex-col gap-2 rounded-lg p-3" data-testid="customer-import-result">
-                <h3 class="font-semibold">{{ t('customers.import.resultTitle') }}</h3>
+            <div v-if="batch !== null" class="import-result flex flex-col gap-2 rounded-lg p-3" data-testid="import-result">
+                <h3 class="font-semibold">{{ t('import.resultTitle') }}</h3>
 
-                <p class="tabular-nums">{{ t('customers.import.rows') }}: {{ batch.row_count }}</p>
-                <p class="tabular-nums">{{ t('customers.import.imported') }}: {{ batch.imported_count }}</p>
+                <p class="tabular-nums">{{ t('import.rows') }}: {{ batch.row_count }}</p>
+                <p class="tabular-nums">{{ t('import.imported') }}: {{ batch.imported_count }}</p>
                 <!-- `D-31`: these rows were imported. They are not failures. -->
-                <p class="tabular-nums">{{ t('customers.import.incomplete') }}: {{ batch.incomplete_count }}</p>
-                <p class="tabular-nums" data-testid="customer-import-failed">
-                    {{ t('customers.import.failed') }}: {{ failedCount }}
+                <p class="tabular-nums">{{ t('import.incomplete') }}: {{ batch.incomplete_count }}</p>
+                <p class="tabular-nums" data-testid="import-failed">
+                    {{ t('import.failed') }}: {{ failedCount }}
                 </p>
 
                 <!-- §10: "Flagged 'incomplete' with a dedicated filter." Offered
@@ -183,10 +185,10 @@ watch(() => props.open, (open) => {
                     v-if="batch.incomplete_count > 0"
                     type="button"
                     class="row-action min-h-11 self-start rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    data-testid="customer-import-show-incomplete"
+                    data-testid="import-show-incomplete"
                     @click="emit('showIncomplete')"
                 >
-                    {{ t('customers.import.showIncomplete') }}
+                    {{ t('import.showIncomplete') }}
                 </button>
             </div>
 
@@ -194,7 +196,7 @@ watch(() => props.open, (open) => {
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    data-testid="customer-import-cancel"
+                    data-testid="import-cancel"
                     @click="emit('cancel')"
                 >
                     {{ t('action.cancel') }}
@@ -206,10 +208,10 @@ watch(() => props.open, (open) => {
                     type="button"
                     class="submit-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="chosen === null || busy"
-                    data-testid="customer-import-submit"
+                    data-testid="import-submit"
                     @click="submit"
                 >
-                    {{ busy ? t('customers.import.submitting') : t('customers.import.submit') }}
+                    {{ busy ? t('import.submitting') : t('import.submit') }}
                 </button>
             </div>
         </div>

@@ -70,6 +70,9 @@ final class NoHardCodedTextTest extends TestCase
         self::assertSame(
             [
                 'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                // Module 8 Point 3.1 — §8's Approvals screen; every label is
+                // an `approvals.*` or reused `quotations.detail.*` key.
+                'ApprovalsView.vue',
                 // Module 4 Point 4.4 — §7.3's catalog add/edit form. Added on
                 // the same terms: the scan below was run against it first and
                 // passed. Its labels are looked up by the *field name* —
@@ -92,7 +95,9 @@ final class NoHardCodedTextTest extends TestCase
                 // below passed on each.
                 'CustomerDetailView.vue',
                 'CustomerFormModal.vue',
-                'CustomerImportModal.vue',
+                // F-08 · 1.2 (`D-84`) — the shared customer search dropdown; every
+                // line it draws is a `customers.picker.*` key or a label its caller passes.
+                'CustomerPicker.vue',
                 'CustomersView.vue',
                 // Module 5 Point 6.2 — §8's Requests/Deals screen. Added on
                 // the same terms as every entry here: the scan below was run
@@ -122,12 +127,17 @@ final class NoHardCodedTextTest extends TestCase
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 'ForbiddenView.vue',
-                'ImpersonationBanner.vue', 'LoadingState.vue', 'LoginView.vue',
+                'ImpersonationBanner.vue',
+                // Module 3 Point 4.6's `CustomerImportModal.vue`, shared as
+                // `ImportModal.vue` at F-09 · 1.5 (`D-85`); every sentence is
+                // an `import.*` key and the title is its caller's.
+                'ImportModal.vue',
+                'LoadingState.vue', 'LoginView.vue',
                 // Module 2 Point 5.4 — `DB-05`'s managed lists, on the same
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
-                'RoleFormModal.vue', 'RolesMatrixView.vue',
+                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue', 'SelfApprovedBadge.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. Its two closed sets are the same

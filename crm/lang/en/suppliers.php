@@ -9,6 +9,19 @@ return [
 
     'not_found' => 'This supplier was not found.',
 
+    // D-85's import file (F-09 · 1.4) — the messages `App\Support\Csv\CsvReader`
+    // raises, in the suppliers' words.
+    'import' => [
+        'empty_file' => 'This file is empty. The first row must name the columns.',
+        'unknown_columns' => 'This file has columns the importer does not accept: :columns.',
+        'duplicate_columns' => 'This file names the same field in more than one column: :columns.',
+        'missing_name_column' => 'This file has no "name" column, and a supplier cannot be imported without one.',
+    ],
+
+    'attributes' => [
+        'file' => 'file',
+    ],
+
     // OpenAPI §6.1/§6.2 — one message per detail code, so `details` says what
     // the closed set of HTTP codes cannot.
     'list_query' => [

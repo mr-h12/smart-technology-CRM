@@ -80,6 +80,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $rejection_reason
  * @property string|null $sent_at
  * @property \Illuminate\Support\Carbon|null $submitted_at
+ * @property \Illuminate\Support\Carbon|null $returned_at
+ * @property string|null $return_note
  * @property bool $is_self_approved
  * @property int $version_token
  * @property string|null $created_by
@@ -138,6 +140,8 @@ class Quotation extends Model
             'rounding_diff' => Precision::CAST_MONEY,
             // Point 4.2 gives it a writer, so it gets its cast (see `sent_at` above).
             'submitted_at' => 'datetime',
+            // Module 8 Point 1.2's writer, the same reason.
+            'returned_at' => 'datetime',
         ];
     }
 }

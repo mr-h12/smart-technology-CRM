@@ -19,6 +19,8 @@ use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
+use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
+use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
@@ -26,6 +28,7 @@ use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Application\Writing\SaveSupplier;
+use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -164,6 +167,14 @@ final class AuditEnforcementTest extends TestCase
             // passes with it unlisted. The hole was eight classes; this makes
             // it nine, and it is still owed its own point.
             SaveSupplier::class => self::AUDITED,
+            // F-09 · 1.4 (`D-85`): the directory became visible to the detector
+            // when it gained `recordImportBatch`'s `DB::table(...)->insert`.
+            // Its supplier writes were already covered one layer out; the batch
+            // row is the import's own record, with the importer in `created_by`.
+            EloquentSupplierDirectory::class => 'AUD-01 is satisfied one layer out: SaveSupplier and ImportSuppliers '
+                    .'own the transactions and record SUPPLIER_CREATED / SUPPLIER_UPDATED for every supplier row. '
+                    .'The supplier_import_batches row it inserts is the import\'s own record (DB-02 names the '
+                    .'importer), not a business mutation.',
 
             // Module 4 Point 3.2, the catalog's first write. Found by this test
             // rather than predicted: the point was written expecting the
@@ -265,11 +276,25 @@ final class AuditEnforcementTest extends TestCase
             // `QuotationUpdateEndpointTest`.
             UpdateQuotation::class => self::AUDITED,
 
+            // Module 8 Point 1.3, seen for `->update(` (the call into
+            // `UpdateQuotation`) beside an imported `ConnectionInterface`.
+            EditAndApproveQuotation::class => 'Writes nothing itself and never touches the recorder: it composes '
+                    .'`UpdateQuotation` and `ApproveQuotation` in one transaction, and those two record '
+                    .'QUOTATION_UPDATED then QUOTATION_APPROVED / SELF_APPROVAL — asserted end to end by '
+                    .'`QuotationEditAndApproveEndpointTest`.',
+
             // Module 7 Point 4.4, seen for `->delete(` beside an imported
             // `ConnectionInterface`. AUDITED because it records
             // QUOTATION_DELETED inside the transaction — asserted by
             // `QuotationDeleteEndpointTest`.
             DeleteQuotation::class => self::AUDITED,
+
+            // Module 7 Point 6.8. Seen for `->upsert(` beside an imported
+            // `ConnectionInterface`.
+            TermSuggestions::class => 'Not a business mutation: SmartTermInput\'s memory of the terms a person typed, '
+                    .'written inside `CreateQuotation`/`UpdateQuotation`\'s transaction, whose own QUOTATION_CREATED / '
+                    .'QUOTATION_UPDATED rows carry the same three terms as new values. A suggestion is a convenience '
+                    .'derived from an audited write, not an entity §3.12 lists.',
 
             // Module 7 Point 3.7. Seen for `->insertOrIgnore(` / `->update(` /
             // `->delete(` beside an imported `ConnectionInterface`.

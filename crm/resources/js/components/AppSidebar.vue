@@ -15,9 +15,11 @@
  * whose guard sends them to the denial screen, and an endpoint that refuses
  * them regardless.
  */
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { NAVIGATION, type NavigationGroup } from '@/navigation';
+import { useRoute } from 'vue-router';
+import { NAVIGATION, type BadgeableItem, type NavigationGroup } from '@/navigation';
+import { readBadges } from '@/services/badges';
 import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{
@@ -57,6 +59,23 @@ const groups = computed<NavigationGroup[]>(() =>
         }))
         .filter((group) => group.items.length > 0),
 );
+
+/**
+ * §5.1's counters (Module 8 · 3.3): `GET /badges` on mount and on every route
+ * change, so acting on `/approvals` and leaving it moves the number. A zero is
+ * not drawn — it is a counter, not a status — and a failed read draws nothing:
+ * the menu is not an error state.
+ */
+const badges = ref<Partial<Record<BadgeableItem, number>>>({});
+const route = useRoute();
+
+watch(() => route.fullPath, async () => {
+    try {
+        badges.value = await readBadges();
+    } catch {
+        badges.value = {};
+    }
+}, { immediate: true });
 
 function onBackdrop(): void {
     emit('close');
@@ -170,6 +189,13 @@ function onBackdrop(): void {
                             </svg>
 
                             <span v-if="!props.collapsed" class="min-w-0 truncate">{{ t(item.labelKey) }}</span>
+                            <span
+                                v-if="item.badge !== undefined && (badges[item.badge] ?? 0) > 0"
+                                class="app-sidebar__badge ms-auto rounded-full px-2 py-0.5 text-table tabular-nums"
+                                :data-testid="`nav-badge-${item.name}`"
+                            >
+                                {{ badges[item.badge] }}
+                            </span>
                         </RouterLink>
                     </li>
                 </ul>
@@ -298,6 +324,12 @@ function onBackdrop(): void {
 
 .app-sidebar__icon {
     transition: color 160ms ease-out;
+}
+
+/* §5.1's counter: the primary tone at chip strength, the number is the meaning. */
+.app-sidebar__badge {
+    background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-primary);
 }
 
 @media (min-width: 1024px) {

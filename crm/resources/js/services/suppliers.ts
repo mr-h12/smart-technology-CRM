@@ -1,7 +1,7 @@
-import { apiGet, apiPatch, apiPost, collection, type Pagination } from '@/api';
+import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
 
 /**
- * Module 4's four supplier routes, and nothing else.
+ * Module 4's four supplier routes and F-09's import (`D-85`), and nothing else.
  *
  * `D-67`: the SPA consumes `/api/v1` and never owns a calculation, a permission
  * decision or a state transition. Every rule this file could be tempted to
@@ -34,6 +34,8 @@ export interface Supplier {
     contact_person: string | null;
     has_open_account: boolean;
     is_active: boolean;
+    /** `D-85`/`D-31` — set by the importer only; a write that sends it is a 422. */
+    is_incomplete: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -43,7 +45,7 @@ export interface Page<T> {
     pagination: Pagination;
 }
 
-/** The four filters, the sort and the search — every one of them the server's own name. */
+/** The five filters, the sort and the search — every one of them the server's own name. */
 export interface SupplierListQuery {
     page?: number;
     perPage?: number;
@@ -53,6 +55,7 @@ export interface SupplierListQuery {
     type?: string | null;
     isActive?: boolean | null;
     hasOpenAccount?: boolean | null;
+    isIncomplete?: boolean | null;
 }
 
 /** §7.1's user-entered fields. `linked_quotations` is refused with a 422 — Module 6 derives it. */
@@ -91,6 +94,7 @@ export async function listSuppliers(query: SupplierListQuery = {}): Promise<Page
     for (const [key, value] of [
         ['filter[is_active]', query.isActive],
         ['filter[has_open_account]', query.hasOpenAccount],
+        ['filter[is_incomplete]', query.isIncomplete],
     ] as const) {
         // `false` is a filter and `null`/`undefined` are not one: both of these
         // are tri-state on the server, where unset lists both halves.
@@ -110,6 +114,14 @@ export async function readSupplier(id: string): Promise<Supplier> {
 
 export async function createSupplier(draft: SupplierDraft): Promise<Supplier> {
     return (await apiPost<Supplier>('/suppliers', draft)).data;
+}
+
+/** `D-85` — the customers' import, on the suppliers' route. */
+export async function importSuppliers(file: File): Promise<ImportBatch> {
+    const form = new FormData();
+    form.append('file', file);
+
+    return (await apiUpload<ImportBatch>('/suppliers/import', form)).data;
 }
 
 /** Deactivation and the colour are ordinary fields here — §3.7 grants them under `edit`. */

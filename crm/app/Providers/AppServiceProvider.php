@@ -32,10 +32,12 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
+use App\Modules\Customers\Infrastructure\EloquentCustomerNames;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
@@ -56,6 +58,7 @@ use App\Modules\Identity\Domain\Contracts\ProfileReaderInterface;
 use App\Modules\Identity\Domain\Contracts\RoleDirectoryInterface;
 use App\Modules\Identity\Domain\Contracts\SessionStoreInterface;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Infrastructure\BearerSessionResolver;
 use App\Modules\Identity\Infrastructure\CachePasswordChallengeStore;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -65,6 +68,7 @@ use App\Modules\Identity\Infrastructure\EloquentProfileReader;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Identity\Infrastructure\EloquentSessionStore;
 use App\Modules\Identity\Infrastructure\EloquentUserDirectory;
+use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
@@ -86,8 +90,10 @@ use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemQuantityInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing;
+use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemQuantity;
 use App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierQuotationDirectory;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Infrastructure\EloquentSupplierDirectory;
@@ -200,6 +206,11 @@ class AppServiceProvider extends ServiceProvider
         // through this to derive a quotation's tax line (`D-63`).
         $this->app->bind(CustomerTaxStatusInterface::class, EloquentCustomerTaxStatus::class);
 
+        // F-07 · 1.2 (`D-83`). `bind` for the same reason: stateless, one
+        // `whereIn` on one table. Module 7 labels its rows through this —
+        // the name only, unfiltered by archive, deletion or scope.
+        $this->app->bind(CustomerNamesInterface::class, EloquentCustomerNames::class);
+
         // Module 7 Point 3.7. `bind` for the same reason: stateless, three
         // statements on one table. `OpenAPI §9.1`'s store, consumed by the
         // `idempotency` route middleware and by no module directly.
@@ -268,6 +279,16 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        // F-05 · 1.3 (`D-81`). The write Module 10's `accepted` transition will
+        // make — one supplier line's balance, by its id. Same shape as the read
+        // above, for the same reason.
+        $this->app->bind(
+            SupplierItemQuantityInterface::class,
+            fn (): EloquentSupplierItemQuantity => new EloquentSupplierItemQuantity(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
         // Module 7 Point 3.4. The read a scoped `quotation.create` forces on a
         // deal — its owner (the owner's 2026-09-11 ruling: a quotation's "own"
         // is its deal's `owner_id`) and its customer, which the quotation's own
@@ -276,6 +297,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             DealFactsInterface::class,
             fn (): EloquentDealFacts => new EloquentDealFacts(
+                $this->app->make(ConnectionInterface::class),
+            ),
+        );
+
+        // Module 7 Point 6.4 (Step 6 Q2). The name behind a deal owner's id for
+        // `group_by=employee`'s label — `bind` and `ConnectionInterface` alone,
+        // as for the deal facts above: two columns by primary key.
+        $this->app->bind(
+            UserFactsInterface::class,
+            fn (): EloquentUserFacts => new EloquentUserFacts(
                 $this->app->make(ConnectionInterface::class),
             ),
         );
@@ -290,6 +321,8 @@ class AppServiceProvider extends ServiceProvider
             QuotationDirectoryInterface::class,
             fn (): EloquentQuotationDirectory => new EloquentQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(DealFactsInterface::class),
+                $this->app->make(CurrencyRepositoryInterface::class),
             ),
         );
 

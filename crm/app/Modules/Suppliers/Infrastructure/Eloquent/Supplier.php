@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $contact_person
  * @property bool $has_open_account
  * @property bool $is_active
+ * @property bool $is_incomplete
  * @property string|null $created_by
  * @property string|null $updated_by
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -38,7 +39,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'name', 'type', 'color_rating', 'phone', 'contact_person',
-    'has_open_account', 'is_active',
+    'has_open_account', 'is_active', 'is_incomplete',
 ])]
 class Supplier extends Model
 {
@@ -52,6 +53,7 @@ class Supplier extends Model
         return [
             'has_open_account' => 'boolean',
             'is_active' => 'boolean',
+            'is_incomplete' => 'boolean',
         ];
     }
 }

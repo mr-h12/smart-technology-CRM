@@ -21,6 +21,10 @@ import RolesMatrixView from '@/pages/roles/RolesMatrixView.vue';
 import DealDetailView from '@/pages/deals/DealDetailView.vue';
 import DealsView from '@/pages/deals/DealsView.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
+import QuotationBuilderView from '@/pages/quotations/QuotationBuilderView.vue';
+import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
+import ApprovalsView from '@/pages/approvals/ApprovalsView.vue';
+import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
@@ -179,6 +183,67 @@ export const routes: RouteRecordRaw[] = [
         name: 'deal-detail',
         component: DealDetailView,
         meta: { requiresAuth: true, requiredPermission: 'deal.view', titleKey: 'deals.title' },
+    },
+    {
+        // §8's *Quotations* screen — Module 7's list (Point 6.3), keyed on
+        // §3.5's `quotation.view`, which every role but the Outdoor Supervisor
+        // holds; §8 lists the screen for the CEO as read-only and the matrix
+        // agrees (`view` All, no write cell). The owner's ruling of 2026-08-31
+        // as on every list before it: route and sidebar follow the matrix.
+        //
+        // ⚠️ §3.5's `Team` scope resolves to no rows (Step 5's fail-closed
+        // owner scope), so a Team Leader is answered with an empty page and
+        // the screen says "none are visible to you" for that reason.
+        path: '/quotations',
+        name: 'quotations',
+        component: QuotationsView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
+    },
+    {
+        // §8's *Approvals* (Module 8, Point 3.1) — the pending quotations the
+        // caller may approve, on §3.5's `quotation.approve`. The Team Leader's
+        // `Team` reaches no rows (`D-a`), so the page is empty for them.
+        path: '/approvals',
+        name: 'approvals',
+        component: ApprovalsView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.approve', titleKey: 'approvals.title' },
+    },
+    {
+        // The builder, create (Module 7, Point 6.6) — reached from the deal's
+        // page with `?deal=`, on §3.5's `quotation.create`. The server prices
+        // and refuses (`D-67`, `§5.6`); the page only draws what it answers.
+        path: '/quotations/new',
+        name: 'quotation-new',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.create', titleKey: 'quotations.builder.title' },
+    },
+    {
+        // The builder, edit (Module 7, Point 6.7) — the same form on a Draft
+        // the caller may edit, on §3.5's `quotation.edit`; `PATCH` with
+        // `If-Match` (`API-12`). Before `/quotations/:id`.
+        path: '/quotations/:id/edit',
+        name: 'quotation-edit',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.edit', titleKey: 'quotations.detail.edit' },
+    },
+    {
+        // The same builder on a Pending quotation, opened from `/approvals`
+        // (Module 8, Point 3.2): save is 1.3's `PATCH …/edit-and-approve`,
+        // so the route carries the approver's `quotation.approve`, not `edit`.
+        path: '/quotations/:id/edit-and-approve',
+        name: 'quotation-edit-and-approve',
+        component: QuotationBuilderView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.approve', titleKey: 'quotations.builder.editAndApprove' },
+    },
+    {
+        // One quotation (Module 7, Point 6.5) — `DealDetailView`'s shape on
+        // the same `quotation.view`. What the caller may do to it is decided
+        // per action by the API (`SEC-09`); the page only hides what would be
+        // refused.
+        path: '/quotations/:id',
+        name: 'quotation-detail',
+        component: QuotationDetailView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
     },
     {
         // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`

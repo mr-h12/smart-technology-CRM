@@ -57,6 +57,8 @@ const OFFER = {
     notes: null,
 };
 
+const CURRENCY = { id: 'c1', code: 'EGP', rounding_unit: '1', rounding_enabled: true, is_base: true };
+
 const SUPPLIER = { id: 's1', name: 'Alpha Supply', type: 'supplier', color_rating: 'green', phone: null, contact_person: null, has_open_account: false, is_active: true, created_at: '2026-08-01T00:00:00+00:00', updated_at: '2026-08-01T00:00:00+00:00' };
 
 const USER: AuthenticatedUser = {
@@ -125,6 +127,9 @@ const CATALOG_ITEM = {
 /** `SupplierQuotationPayload::detail()` — the header, plus `items`, always present. */
 const OFFER_LINES = [{ catalog_item_id: 'ci1', unit_price: '1500.000000', quantity: '3.000' }];
 
+/** The same lines as the detail publishes them — with F-05's balance (D-81), which the editor never sends back. */
+const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, consumed_quantity: '1.0000', available_quantity: '2.0000' }));
+
 /** A `GET /supplier-quotations/{id}`, which a `PATCH` to the same path is not. */
 function isDetailRead(input: string, init?: RequestInit): boolean {
     return /\/supplier-quotations\/[^/?]+$/.test(input) && (init?.method ?? 'GET') === 'GET';
@@ -138,10 +143,17 @@ function isDetailRead(input: string, init?: RequestInit): boolean {
 function respond(
     offers: unknown = [OFFER],
     status = 200,
-    detail: unknown = { ...OFFER, items: OFFER_LINES },
+    detail: unknown = { ...OFFER, items: OFFER_DETAIL_LINES },
     scanStatus = 'clean',
+    currenciesStatus = 200,
 ): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string, init?: RequestInit) => {
+        if (String(input).includes('/currencies')) {
+            return currenciesStatus === 200
+                ? json(200, envelope({ currencies: [CURRENCY] }))
+                : json(currenciesStatus, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } });
+        }
+
         if (String(input).endsWith('/download')) {
             return new Response('%PDF-1.4', { status: 200 });
         }
@@ -295,12 +307,12 @@ describe('the supplier quotations screen', () => {
     });
 
     /** §6.5: monetary values right-aligned with tabular numerals. */
-    it('renders the total as the server sent it, digit for digit', async () => {
+    it('renders the total cut after the third decimal (D-82), never parsed', async () => {
         const wrapper = await render(respond());
 
         const cell = wrapper.find('[data-testid="supplier-quotations-total"]');
 
-        expect(cell.text()).toBe('4500.000000');
+        expect(cell.text()).toBe('4500.000');
         expect(cell.classes()).toContain('tabular-nums');
     });
 });
@@ -308,22 +320,20 @@ describe('the supplier quotations screen', () => {
 /**
  * Module 6, Point 6.3 — §7.2's header form, create and edit in one dialog.
  *
- * ── The total and the currency are **not** here, and that is measured ──────
+ * ── The total and the currency are a pair the form now carries ─────────────
  *
- * §7.2 lists both, and this form carries neither. `currency_id` is a UUID the
- * SPA cannot obtain: `CurrencyController::payload()` publishes `code`,
- * `rounding_unit`, `rounding_enabled` and `is_base` and **no `id`**, and
- * `GET /currencies` sits behind `admin.system_settings`, which
- * `PermissionMatrix` grants to the Super Admin alone — so every role holding
- * `supplier_quotation.create` is refused the lookup as well. The two columns
- * are a pair (`SaveSupplierQuotationRequest`'s mutual `required_with`, over
- * Point 1.1's `CHECK ((total_price IS NULL) = (currency_id IS NULL))`), so
- * neither can be sent alone. Owner's ruling of 2026-09-05: ship the rest with
- * the ceiling stated. The pair returns in a later point.
+ * §7.2 lists both. Since D-80 `GET /currencies` is `currency.view` (the §3.6
+ * create/edit set) and each row carries its `id`, so the dialog can offer a
+ * closed select for `currency_id` and a text input for `total_price`. They are
+ * one pair (`SaveSupplierQuotationRequest`'s mutual `required_with`, over
+ * Point 1.1's `CHECK ((total_price IS NULL) = (currency_id IS NULL))`); the
+ * form does not re-state that rule — a half-filled pair is the server's 422,
+ * landing on the field it names.
  *
- * The consequence the tests below pin: an **edit never mentions either key**,
- * so `SupplierQuotationDraft::only()`'s `array_key_exists` leaves both columns
- * exactly as they were rather than erasing a total the form cannot show.
+ * What the tests below pin: a create and an edit **always name both keys**
+ * (`""` → `null`), so blanking them on an edit clears the offer's total on
+ * purpose, and hydration re-sends what the offer already had. A currency list
+ * that cannot be loaded is said, not hidden.
  *
  * ── Not an authorization suite ─────────────────────────────────────────────
  *
@@ -374,14 +384,17 @@ describe('the supplier quotation form', () => {
     });
 
     /** §7.2's `code` is "Automatic" and the boundary answers a supplied one with `prohibited`. */
-    it('creates with §7.2 header fields only — no code, no total, no currency', async () => {
+    it('creates with §7.2 header fields, the total and its currency — no code', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
         await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
         await view.get('[data-testid="supplier-quotation-form-offer-date"]').setValue('2026-09-04');
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('From the PDF');
+        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('4500');
+        await view.get('[data-testid="supplier-quotation-form-currency-id"]').setValue('c1');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
@@ -397,23 +410,46 @@ describe('the supplier quotation form', () => {
             offer_date: '2026-09-04',
             valid_until: null,
             notes: 'From the PDF',
+            // A string, never a number: DB-07 through JSON.
+            total_price: '4500',
+            currency_id: 'c1',
             // Point 6.4: a create always states its line set, and `forCreate()`
-            // folds absent and `[]` together anyway. Still no `code`, no
-            // `total_price`, no `currency_id`.
+            // folds absent and `[]` together anyway. Still no `code`.
             items: [],
         });
     });
 
+    it('sends the pair as null when both are left blank', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+        const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
+
+        expect(sent.total_price).toBeNull();
+        expect(sent.currency_id).toBeNull();
+    });
+
     /**
-     * The pair is absent from the body, not null in it: `array_key_exists` in
-     * `SupplierQuotationDraft::only()` is what makes an absent key mean "leave
-     * the column alone", and a `null` would erase the offer's total instead.
+     * An edit hydrates the pair from the offer and sends it back as it stands,
+     * so a PATCH that only touched the notes leaves the total exactly as it
+     * was — by re-stating it, not by omitting it.
      */
-    it('edits without naming the total or the currency, so neither is erased', async () => {
+    it('edits with the offer\'s total and currency hydrated and re-sent', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-total-price"]').element as HTMLInputElement).value).toBe('4500.000000');
+        expect((view.get('[data-testid="supplier-quotation-form-currency-id"]').element as HTMLSelectElement).value).toBe('c1');
+
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('Revised');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
@@ -424,9 +460,28 @@ describe('the supplier quotation form', () => {
 
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
-        expect(Object.keys(sent)).not.toContain('total_price');
-        expect(Object.keys(sent)).not.toContain('currency_id');
+        expect(sent.total_price).toBe('4500.000000');
+        expect(sent.currency_id).toBe('c1');
         expect(sent.notes).toBe('Revised');
+    });
+
+    /** The list not loading is said where the select is, and the rest of the form still works. */
+    it('says so when the currency list cannot be loaded, instead of a silent empty select', async () => {
+        const view = await render(respond([OFFER], 200, { ...OFFER, items: OFFER_DETAIL_LINES }, 'clean', 403));
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-form-total-unavailable"]').exists()).toBe(true);
+        expect(view.get('[data-testid="supplier-quotation-form-currency-id"]').findAll('option')).toHaveLength(1);
+
+        const loaded = await render(respond());
+
+        await loaded.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        expect(loaded.find('[data-testid="supplier-quotation-form-total-unavailable"]').exists()).toBe(false);
+        expect(loaded.get('[data-testid="supplier-quotation-form-currency-id"]').findAll('option')).toHaveLength(2);
     });
 
     /** `OpenAPI §5` — `details[]` names the field, so the sentence lands on the control that caused it. */
@@ -611,6 +666,28 @@ describe('the supplier quotation line editor', () => {
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
         expect(sent.items).toEqual(OFFER_LINES);
+    });
+
+    /** F-05 (D-81): the roles that may open an offer see all three figures; a new offer has none. */
+    it('shows recorded, consumed and available per line when editing an offer, and nothing on a new one', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        const balance = view.get('[data-testid="supplier-quotation-line-0-balance"]').text();
+        // D-82: the three figures are cut after the third decimal; the input above keeps '3.000' digit for digit.
+        expect(balance).toContain('3.000');
+        expect(balance).toContain('1.000');
+        expect(balance).toContain('2.000');
+        expect(balance).not.toContain('1.0000');
+
+        await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        expect(view.find('[data-testid="supplier-quotation-line-0-quantity"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-line-0-balance"]').exists()).toBe(false);
     });
 
     /** `[]` is the documented "clear them" case, and it is a different answer from absence. */

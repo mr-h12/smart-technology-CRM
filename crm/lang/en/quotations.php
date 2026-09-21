@@ -10,6 +10,11 @@ return [
     // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
     // `fx_rate_missing` as a distinct code on 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (Point 5.2). The envelope's
+    // Point 5.5 — `group_by=employee`'s `null` group: a deal nobody owns.
+    'groups' => [
+        'unassigned' => 'Unassigned',
+    ],
+
     // message is `errors.invalid_request`; the cause is in `details`, below.
     'list_query' => [
         'not_a_positive_integer' => 'This value must be a whole number greater than zero.',
@@ -20,6 +25,7 @@ return [
         'unknown_bucket' => 'The bucket must be active or history.',
         'not_a_uuid' => 'This filter value is not an id.',
         'not_a_code' => 'This filter value is not a currency code.',
+        'unknown_field' => 'Suggestions exist for payment_terms, warranty and delivery_terms only.',
         'not_an_amount' => 'This amount must be a non-negative number.',
         'currency_required' => 'Amount filters and the total sort need filter[currency].',
         'not_a_date' => 'This date must be a calendar date written as YYYY-MM-DD.',
@@ -31,7 +37,7 @@ return [
 
     'errors' => [
         'invalid_request' => 'This request could not be understood.',
-        'supplier_price_missing' => 'This supplier line has no usable price, so the quotation cannot be saved.',
+        'supplier_price_missing' => 'This supplier line has no usable price — the line is gone, or its supplier quotation has no currency — so the quotation cannot be saved.',
         'fx_rate_missing' => 'No exchange rate is recorded to convert this supplier line. Record the rate first.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (Point 3.6).
         'if_match_required' => 'Send the quotation\'s current etag in If-Match.',
@@ -44,7 +50,7 @@ return [
 
     // §5.6's warning — carried in `meta.warnings` on a successful create.
     'warnings' => [
-        'quantity_exceeds_recorded' => 'The requested quantity exceeds what the supplier recorded.',
+        'quantity_exceeds_recorded' => 'The requested quantity exceeds what is left of the supplier\'s offer.',
         'supplier_price_changed' => 'Supplier price has changed — review pricing.',
     ],
 
@@ -52,5 +58,6 @@ return [
     'validation' => [
         'unknown_deal' => 'This deal was not found.',
         'customer_not_the_deals' => 'The customer must be the deal\'s customer.',
+        'note_not_blank' => 'A return note cannot be only spaces.',
     ],
 ];

@@ -31,7 +31,7 @@ import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } fro
 
 export type { Pagination } from '@/api';
 
-/** §4.3's fields, as `DealPayload` serialises them. No customer or owner name: they belong to other modules. */
+/** §4.3's fields, as `DealPayload::of()` serialises them. No customer or owner name: they belong to other modules. */
 export interface Deal {
     id: string;
     code: string;
@@ -47,6 +47,11 @@ export interface Deal {
     last_activity_at: string;
     created_at: string;
     updated_at: string;
+}
+
+/** A list row: `DealPayload::many()` adds the customer's name, read once per page through Customers' contract (`D-83`, F-07 · 1.5). */
+export interface DealRow extends Deal {
+    customer_name: string;
 }
 
 /** One `DealTimelinePayload` row — §4.4's four fields, plus the event and `SEC-10`'s second identity. */
@@ -139,7 +144,7 @@ export const DEAL_SORTS = ['code', 'created_at', 'last_activity_at'] as const;
 /** The server's own default: "what needs attention" is the newest activity first. */
 export const DEAL_DEFAULT_SORT = '-last_activity_at';
 
-export async function listDeals(query: DealListQuery = {}): Promise<Page<Deal>> {
+export async function listDeals(query: DealListQuery = {}): Promise<Page<DealRow>> {
     const parameters = new URLSearchParams();
 
     if (query.page !== undefined) {
@@ -173,7 +178,7 @@ export async function listDeals(query: DealListQuery = {}): Promise<Page<Deal>> 
 
     const suffix = parameters.size === 0 ? '' : `?${parameters.toString()}`;
 
-    return collection<Deal>(await apiGet(`/deals${suffix}`));
+    return collection<DealRow>(await apiGet(`/deals${suffix}`));
 }
 
 export async function readDeal(id: string): Promise<Deal> {

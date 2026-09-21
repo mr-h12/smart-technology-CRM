@@ -44,12 +44,10 @@
  * ⚠️ **Two stated ceilings, neither invented here.**
  * 1. That call takes the first 100 suppliers (`SupplierListCriteria::MAX_PER_PAGE`).
  *    A supplier past the hundredth shows as their identifier rather than a name.
- * 2. **The currency is not shown at all.** An offer carries `currency_id`, and
- *    `CurrencyController::payload()` publishes `code`, `rounding_unit`,
- *    `rounding_enabled` and `is_base` — **no `id`** — so nothing in the SPA can
- *    turn one into the other. Showing a bare figure is the honest option;
- *    inventing a currency beside it would not be. Registered as debt against
- *    Module 2's payload.
+ * 2. **The currency is not shown in the list.** The dialog can read it since
+ *    D-80 (`GET /currencies` carries `id`, readable by `currency.view`); the
+ *    column is a later item if the owner wants it — a bare figure here is
+ *    still honest, a wrong currency beside it would not be.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -61,6 +59,7 @@ import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue
 import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuotationFormModal.vue';
 import { listSupplierQuotations, type Pagination, type SupplierQuotation } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
+import { displayDecimals } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
@@ -344,10 +343,11 @@ onMounted(async () => {
                             <td class="p-3 tabular-nums">{{ offer.code }}</td>
                             <td class="p-3" data-testid="supplier-quotations-supplier">{{ supplierName(offer.supplier_id) }}</td>
 
-                            <!-- The string the server sent, digit for digit: `DB-07`
-                                 forbids the float a number conversion would create. -->
+                            <!-- The string the server sent, cut after the third decimal (`D-82`) —
+                                 a string operation: `DB-07` forbids the float a number
+                                 conversion would create. The input keeps every digit. -->
                             <td class="p-3 text-end tabular-nums" data-testid="supplier-quotations-total">
-                                {{ offer.total_price ?? '—' }}
+                                {{ displayDecimals(offer.total_price) ?? '—' }}
                             </td>
 
                             <td class="p-3 tabular-nums">{{ onDate(offer.offer_date) }}</td>

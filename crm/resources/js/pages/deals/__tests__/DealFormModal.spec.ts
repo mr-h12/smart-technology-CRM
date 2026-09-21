@@ -5,7 +5,6 @@ import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import type { Deal } from '@/services/deals';
-import type { Customer } from '@/services/customers';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
@@ -25,14 +24,12 @@ function json(status: number, body: unknown): Response {
     return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-const CUSTOMERS: Customer[] = [
-    {
-        id: 'c1', name: 'Acme Industrial', customer_status: 'prospect', sector: null, region: null,
-        contact_person: null, phone: null, phone2: null, whatsapp: null, email: null,
-        sales_owner_id: null, start_date: null, notes: null, is_archived: false, is_incomplete: false,
-        created_at: '2026-08-01T00:00:00+00:00', updated_at: '2026-08-01T00:00:00+00:00',
-    },
-];
+/**
+ * F-08 · 1.3: the row the picker's own `/customers` read answers. Its id is
+ * deliberately not one a `<select>` filled from a hundred-row page would have
+ * held (`D-84`): position 183 by name in the dev data.
+ */
+const FOUND = { id: 'c-183', name: 'المركز القومي للمرأة', region: 'القاهرة', contact_person: null, phone: null };
 
 const DEAL: Deal = {
     id: 'd1',
@@ -103,6 +100,13 @@ async function mountModal(
     await signIn(profile);
 
     const fetchMock = vi.fn(async (input: string) => {
+        if (String(input).includes('/customers')) {
+            return json(200, {
+                data: [FOUND],
+                meta: { request_id: 'r1', pagination: { page: 1, per_page: 20, total: 1, total_pages: 1, has_next_page: false, has_previous_page: false } },
+            });
+        }
+
         if (String(input).includes('/users')) {
             return usersStatus === 200
                 ? json(200, {
@@ -120,7 +124,7 @@ async function mountModal(
     const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
 
     const wrapper = mount(DealFormModal, {
-        props: { open: true, editing, customers: CUSTOMERS },
+        props: { open: true, editing },
         global: { plugins: [i18n] },
     });
 
@@ -141,11 +145,18 @@ describe('the deal form dialog', () => {
         fetchMock = vi.fn(async () => json(201, envelope(DEAL)));
     });
 
-    /** The write call, found by path — the picker reads `/users` on open. */
+    /** The write call, found by path — the pickers read `/users` and `/customers`. */
     function writeCall(): [string, RequestInit] | undefined {
         const mock = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock;
 
-        return mock.calls.find((c) => !String(c[0]).includes('/users') && !String(c[0]).includes('/auth/')) as [string, RequestInit] | undefined;
+        return mock.calls.find((c) => !['/users', '/customers', '/auth/'].some((path) => String(c[0]).includes(path))) as [string, RequestInit] | undefined;
+    }
+
+    /** Focus the customer picker and take the row the server answered. */
+    async function pickCustomer(wrapper: Awaited<ReturnType<typeof mountModal>>): Promise<void> {
+        await wrapper.find('[data-testid="deal-form-customer-id"]').trigger('focus');
+        await flushPromises();
+        await wrapper.find('[data-testid="deal-form-customer-id-option"]').trigger('mousedown');
     }
 
     // ──────────────────────────────────────────────────────────────── creating
@@ -153,7 +164,7 @@ describe('the deal form dialog', () => {
     it('posts §4.3’s five fields, turning an unset one into null', async () => {
         const wrapper = await mountModal();
 
-        await wrapper.find('[data-testid="deal-form-customer-id"]').setValue('c1');
+        await pickCustomer(wrapper);
         await wrapper.find('[data-testid="deal-form-title"]').setValue('Twelve pumps');
         await wrapper.find('[data-testid="deal-form"]').trigger('submit');
         await flushPromises();
@@ -161,13 +172,30 @@ describe('the deal form dialog', () => {
         // "" means "not given", which on the wire is null and never an empty
         // string — the server's own vocabularies have no empty member.
         expect(JSON.parse(String(writeCall()![1].body))).toEqual({
-            customer_id: 'c1',
+            customer_id: 'c-183',
             owner_id: null,
             title: 'Twelve pumps',
             source: null,
             service_type: null,
         });
         expect(wrapper.emitted('saved')).toHaveLength(1);
+    });
+
+    it('offers the customer the server found, never a page of a hundred (F-08 · 1.3, D-84)', async () => {
+        const wrapper = await mountModal();
+        const mock = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock;
+
+        // Nothing is read before the field is touched, and the placeholder
+        // is the form's own «اختر العميل» — no clear button, the field is required.
+        expect(mock.calls.some((c) => String(c[0]).includes('/customers'))).toBe(false);
+        expect(wrapper.find('[data-testid="deal-form-customer-id"]').attributes('placeholder')).toBe('Choose the customer');
+        expect(wrapper.find('[data-testid="deal-form-customer-id-clear"]').exists()).toBe(false);
+
+        await pickCustomer(wrapper);
+
+        expect(mock.calls.some((c) => String(c[0]).includes('per_page=100'))).toBe(false);
+        expect(wrapper.find('[data-testid="deal-form-customer-id"]').attributes('aria-expanded')).toBe('false');
+        expect((wrapper.find('[data-testid="deal-form-customer-id"]').element as HTMLInputElement).value).toBe('المركز القومي للمرأة');
     });
 
     it('refuses to post without a customer, and says so before the round trip', async () => {

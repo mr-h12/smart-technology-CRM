@@ -8,12 +8,12 @@ Build the CRM MVP described by the project documentation. This is an internal, o
 
 Update this section whenever it stops being true.
 
-- **The application exists.** 14 modules under `crm/app/Modules/`, 30 migrations, and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `main` at `16b40c2`, 2026-09-12: **2453 backend tests (13981 assertions)** and **750 frontend tests (44 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
-- **Module progress**, counted from `CHECKLIST.md`'s and `checklist/`'s own boxes on that commit: 0 Foundation **56 of 56** · 1 Identity & Dynamic RBAC 38 of 40 · 2 Settings, Managed Lists & Currencies 16 of 21 · 3 Customers 22 of 28 · 4 Catalog & Suppliers 28 of 30 · 5 Requests/Deals **32 of 33, finished 2026-09-09** · 6 Supplier Quotations **31 of 32, complete** (the open box is the unapproved `2.2b Idempotency-Key`) · **7 Customer Quotations in progress** — Step 1 (schema and domain, seven points) and Step 2 (pricing engine) closed; Step 3 (the write path) closed 2026-09-12 — 3.3 (#96), 3.4 (#97), 3.5 (#100), 3.6 (#101) and 3.7 (#102, `Idempotency-Key`) merged; Step 4 (actions on one quotation, five points) approved 2026-09-12 with defaults Q1–Q6 (#103), 4.1 `QuotationStatusTransition` (#104), 4.2 `submit-for-approval` (#105), 4.3 `new-version` (#106) and 4.4 `DELETE` (#107) merged, 4.5 price-drift `meta.warnings` (#108) merged — **Step 4 closed 2026-09-12**; Step 5 (list, five points) approved on #110 2026-09-12; 5.1 the owner seam (#113) merged, 5.2 the query contract (#114). Modules 8–15 are untouched.
+- **The application exists.** 14 modules under `crm/app/Modules/`, 31 dated migrations (34 files with Laravel's three framework ones), and a Vue 3 + TypeScript SPA on `/api/v1` (`D-67`). Measured on `fix/quotation-builder-currency-select` (fix-pass F-02, 2026-09-16): **2861 backend tests (18064 assertions)** and **859 frontend tests (49 files)**. Stack is **Laravel**, recorded as **D-57** in the decision log and in §14.2.
+- **Module progress**, counted from `CHECKLIST.md`'s and `checklist/`'s own boxes on that commit: 0 Foundation **56 of 56** · 1 Identity & Dynamic RBAC 38 of 40 · 2 Settings, Managed Lists & Currencies 16 of 21 · 3 Customers 22 of 28 · 4 Catalog & Suppliers 28 of 30 · 5 Requests/Deals **32 of 33, finished 2026-09-09** · 6 Supplier Quotations **31 of 32, complete** (the open box is the unapproved `2.2b Idempotency-Key`) · 7 Customer Quotations **57 of 57, closed 2026-09-14** (Steps 1–6, PRs #83–#129; frozen in `checklist/module-07.md`) · 8 Approvals **17 of 17, closed 2026-09-16** (Steps 1–4, PRs #131–#142; frozen in `checklist/module-08.md`; the Team Leader path stays a refusal under `D-a`) · 9 PDF Generation in progress by the second developer (Point 1.1 on #118). Modules 10–15 are untouched.
 - **P-01 PASSED** — see `prototypes/p01-arabic-pdf/`. Arabic shaping verified; `R-02` retired. PDFs render through headless Chrome, the engine Laravel's Browsershot drives.
 - **P-02 deferred, not cancelled (`D-66`)** — development runs on a production-matched Docker environment (Linux containers, §14.2 stack) until the on-premise server is available. `P-02` still runs before the pilot rollout, and the deployment-debt register in `CHECKLIST.md` carries everything it would have proven.
 - **OD-01 is closed** (2026-08-12, reconfirmed 2026-08-19: additional items are not taxed). **OD-03 remains unresolved.** It no longer blocks a module — Module 0 closed under `D-66` — and still blocks the server, `P-02`, and every row of the deployment-debt register.
-- Track progress in `CHECKLIST.md` — it holds only the live boxes, the debt registers, and the modules still open; a closed module's full point history is frozen verbatim in `checklist/module-0N.md` (nothing is ticked there). `README.md` orients new contributors. Next action: **Module 7 Step 5 approved 2026-09-12 on #110 (Q1–Q7); 5.1 (#113) merged; Point 5.2 `QuotationListCriteria` on #114; Point 5.3 `QuotationDirectoryInterface::list()` next**; open owner questions: the `Idempotency-Key` retention period `OpenAPI §9.1` calls "defined" and nothing defines; the non-code items remain open — close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
+- Track progress in `CHECKLIST.md` — it holds only the live boxes, the debt registers, and the modules still open; a closed module's full point history is frozen verbatim in `checklist/module-0N.md` (nothing is ticked there). `README.md` orients new contributors. Next action: **Module 8 closed 2026-09-16 (4.1 freeze PR; Arabic manual test list handed over with it). Module 9 PDF belongs to the second developer (Step 1 on #118), so Yousef's next module is 10 Customer Response & POs — its point list is not yet published (a decisions Q-list first, as Module 8's #131 was, then Point 1.1) — unless the owner reorders**; GitHub Actions runs again since 2026-09-14 (billing fixed; `main` ruleset active: PR required, no force-push, no deletion — required status checks deferred until a no-op workflow covers docs-only PRs); open owner questions: the `Idempotency-Key` retention period `OpenAPI §9.1` calls "defined" and nothing defines; the non-code items remain open — close OD-03 + P-02 (server administrator), and confirm with the accountant whether the PO's «إشعار خصم» line is a sale discount or a separate credit note.
 
 ## Authoritative Sources
 
@@ -381,7 +381,7 @@ way a seven-part report closes a point.
 
 - Cite the relevant decision (`D-xx`), database rule (`DB-xx`), architecture/security requirement, scheduled job (`J-xx`), or MVP module acceptance criterion in implementation notes, tests, or pull-request descriptions.
 - If no authoritative source supports a proposed behavior, treat it as a new requirement and request a decision before building it.
-- `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to an Arabic counterpart once one exists.
+- `AGENTS.md` is the tool-neutral twin of this guide; a project rule that differs between them is a defect. When a rule changes here, change it there in the same edit. The same applies to the Arabic counterparts under `arabic/` (`arabic/CLAUDE_AR.md`, `arabic/AGENTS_AR.md`): a rule change here is reflected there in the same edit, not deferred to a later translation pass.
 
 ## Agent skills
 
@@ -398,3 +398,70 @@ decision record is `D-xx` in `docs/CRM_Documentation_EN.md` §2, not `docs/adr/`
 
 **There is no triage label workflow** — only GitHub's nine default labels exist, none applied. What
 an item's state means is written in `CHECKLIST.md` itself. See `docs/agents/triage.md`.
+
+## Automatic agents, MCP servers, and working-style skills
+
+These fire without being asked. Naming them here is what authorizes the agent to dispatch them on
+its own; before this section existed, each one had to be requested in every session.
+
+### Subagents — dispatched by the agent at these moments
+
+| Agent | When | Where its output goes |
+|---|---|---|
+| `rtl-ui-verifier` | before any point report whose diff touches `crm/resources/js/**` or `crm/resources/css/**` | the report's UI Verification row — its numbered manual steps, pasted |
+| `waste-auditor` | before writing every point report | the report's Waste audit row |
+| `permission-matrix-auditor` | before any PR that adds or changes a route, a scoped query, an export, or a permission check | the PR description |
+| `pricing-invariant-reviewer` | before any PR touching price, cost, margin, discount, tax, FX, rounding, or a quotation calculation | the PR description |
+
+Independent agents run in parallel. Each one's findings are relayed with its evidence; "passed"
+without the evidence is the 0.6 failure again. A UI point reported without `rtl-ui-verifier` is
+incomplete.
+
+### MCP servers — the faster path, declared in `.mcp.json`
+
+- **`context7`** answers any current-API question about Laravel 13, Vite 8, Vitest 4, Vue 3.5,
+  vue-i18n 11, or Browsershot. A version or signature is never answered from memory
+  (§ "Never assume"); this project already outran training data once.
+- **`crm-postgres`** (read-only, the Docker dev database) shows what the database actually holds:
+  seeded permissions per role, currency rows, quotation versions and etags, audit entries. Prefer
+  it over `docker compose exec … psql`. It cannot write; a write goes through artisan and is said
+  so. Its command sources `./.env` at launch, so no credential lives in `.mcp.json`.
+
+Both are project-scoped and need a one-time approval when `claude` first starts in this directory.
+
+### Skills — the rituals, invoked by the owner
+
+| Skill | When |
+|---|---|
+| `/session-start` | first thing in every session |
+| `/next-point <module> <point>` | to open every point — the only way a point branch is created |
+| `/point-gates` | before reporting any point complete and before any merge |
+| `/manual-test-list <module>` | when a module's last point closes, before the next module's first point |
+| `/session-end` | last thing in every session |
+
+### Working-style skills — kept active the whole session
+
+- **`ponytail`** at level `full`, every coding turn: the ladder before any code (exists at all? →
+  already in this codebase? → stdlib → native platform → installed dependency → one line → minimum
+  code). Shortest working diff; delete over add; a deliberate ceiling is marked with a `ponytail:`
+  comment.
+- **`superpowers`**: `brainstorming` after `/next-point` and before the failing test;
+  `test-driven-development` for every point — the test is shown RED before the implementation
+  exists; `systematic-debugging` the moment a test, gate, or CI run fails — no fix before the root
+  cause is named; `verification-before-completion` before every point report and before asking
+  for a merge.
+- **`karpathy-guidelines`** whenever code is written, reviewed, or refactored: surgical changes,
+  every assumption surfaced before it is acted on, the verifiable success criterion stated before
+  the edit.
+
+Drift is admitted in one line and the skill re-entered: a helper written before searching for one,
+a fix attempted before diagnosis, a turn without the ladder.
+
+### Precedence — the skills never override the project
+
+This guide and the authoritative sources win over every skill. Concretely: ponytail's "one
+runnable check" does not replace the mandatory tests for money, authorization, concurrency, state
+transitions, versioning, and multi-table writes; ponytail's "ship the lazy version and question it"
+does not replace stopping for approval after every point; brainstorming is bounded by the approved
+point list, not an invitation to redesign. When a skill's default conflicts with a documented rule,
+the rule is followed and the conflict is named.

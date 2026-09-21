@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -36,6 +37,9 @@ final class QuotationReadEndpointTest extends TestCase
     private array $users = [];
 
     private string $customerId;
+
+    /** @var array<string, string> deal id => its customer, for `quotation()`'s POST */
+    private array $dealCustomers = [];
 
     protected function setUp(): void
     {
@@ -253,7 +257,7 @@ final class QuotationReadEndpointTest extends TestCase
         $row = $response->json('data.0');
         self::assertIsArray($row);
         self::assertSame(
-            ['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'],
+            ['id', 'code', 'status', 'customer_id', 'customer_name', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'],
             array_keys($row),
         );
         self::assertSame($id, $row['id']);
@@ -298,7 +302,7 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertIsArray($items);
         self::assertCount(2, $items);
         self::assertIsArray($items[0]);
-        self::assertSame(['id', 'code', 'status', 'customer_id', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
+        self::assertSame(['id', 'code', 'status', 'customer_id', 'customer_name', 'deal_id', 'currency_id', 'currency', 'final_total', 'quotation_date', 'valid_until', 'submitted_at', 'days_waiting', 'sla_exceeded', 'is_self_approved', 'version', 'parent_id', 'created_at', 'updated_at'], array_keys($items[0]));
     }
 
     /** A deal with no owner groups under the `null` key, labelled from the lang file. */
@@ -327,8 +331,11 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.0.label', $hidden);
     }
 
-    /** Q7: the customer group's key and label are both the `customer_id`. */
-    public function test_that_group_by_customer_groups_by_customer_id(): void
+    /**
+     * Q7 reversed by `D-83` (F-07 · 1.3): the customer group's key is the
+     * `customer_id` and its label is the customer's name through `namesOf()`.
+     */
+    public function test_that_group_by_customer_groups_by_customer_id_and_labels_the_name(): void
     {
         $this->quotation($this->deal(null));
         $this->quotation($this->deal(null));
@@ -337,9 +344,91 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.key', $this->customerId)
-            ->assertJsonPath('data.0.label', $this->customerId)
+            ->assertJsonPath('data.0.label', 'Nile Trading')
             ->assertJsonPath('data.0.count', 2)
             ->assertJsonCount(2, 'data.0.items');
+    }
+
+    // ─────────────────────────────────────────── the customer's name (F-07 · 1.3)
+
+    /** `D-83`: the row carries the name beside `customer_id`, the way it carries `currency` beside `currency_id`. */
+    public function test_that_a_list_row_carries_the_customers_name(): void
+    {
+        $this->quotation($this->deal(null));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_id', $this->customerId)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /** `D-83` mechanism 3: archiving the customer (`DB-01`) does not take the name off the row. */
+    public function test_that_an_archived_customers_name_is_still_on_the_row(): void
+    {
+        $this->quotation($this->deal(null));
+        DB::table('customers')->where('id', $this->customerId)->update(['is_archived' => true]);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /**
+     * `D-83` mechanism 4: `§3.3` scopes `customer.view` apart from
+     * `quotation.view`. An `own`-scoped role reads its own deal's quotation
+     * even when the customer belongs to somebody else — and the row still
+     * carries the name, because the port takes no scope.
+     */
+    public function test_that_an_own_scoped_role_sees_the_name_of_a_customer_it_does_not_own(): void
+    {
+        DB::table('customers')->where('id', $this->customerId)->update(['sales_owner_id' => $this->userWith(RoleName::Manager)->id]);
+        $mine = $this->quotation($this->deal($this->userWith(RoleName::OutdoorSales)->id));
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::OutdoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.id', $mine)
+            ->assertJsonPath('data.0.customer_name', 'Nile Trading');
+    }
+
+    /**
+     * `D-83`: "one query for N ids, never N" — the use case calls the port
+     * **once per page** with the page's distinct customer ids, for the plain
+     * list and for `group_by=customer` alike (the label reads the same map).
+     */
+    public function test_that_the_port_is_called_once_per_page(): void
+    {
+        $other = $this->customer('Delta Steel');
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null));
+        $this->quotation($this->deal(null, $other));
+
+        $fake = new class implements CustomerNamesInterface
+        {
+            /** @var list<list<string>> */
+            public array $calls = [];
+
+            public function namesOf(array $customerIds): array
+            {
+                $this->calls[] = $customerIds;
+
+                return array_fill_keys($customerIds, 'Faked');
+            }
+        };
+        $this->app->instance(CustomerNamesInterface::class, $fake);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.customer_name', 'Faked');
+        self::assertCount(1, $fake->calls);
+        self::assertEqualsCanonicalizing([$this->customerId, $other], $fake->calls[0]);
+
+        $fake->calls = [];
+        $this->getJson(self::ENDPOINT.'?group_by=customer', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.label', 'Faked');
+        self::assertCount(1, $fake->calls);
     }
 
     // ────────────────────────────────────────────────────── what a 200 carries
@@ -510,7 +599,7 @@ final class QuotationReadEndpointTest extends TestCase
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
-            'customer_id' => $this->customerId,
+            'customer_id' => $this->dealCustomers[$dealId],
             'currency' => 'EGP',
             'default_margin' => '20',
             'discount_percent' => '0',
@@ -548,13 +637,13 @@ final class QuotationReadEndpointTest extends TestCase
         return $id;
     }
 
-    private function customer(): string
+    private function customer(string $name = 'Nile Trading'): string
     {
         $id = Uuid::uuid4()->toString();
 
         DB::table('customers')->insert([
             'id' => $id,
-            'name' => 'Nile Trading',
+            'name' => $name,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -562,14 +651,14 @@ final class QuotationReadEndpointTest extends TestCase
         return $id;
     }
 
-    private function deal(?string $ownerId): string
+    private function deal(?string $ownerId, ?string $customerId = null): string
     {
         $id = Uuid::uuid4()->toString();
 
         DB::table('deals')->insert([
             'id' => $id,
             'code' => 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
-            'customer_id' => $this->customerId,
+            'customer_id' => $this->dealCustomers[$id] = $customerId ?? $this->customerId,
             'owner_id' => $ownerId,
             'last_activity_at' => now(),
             'created_at' => now(),

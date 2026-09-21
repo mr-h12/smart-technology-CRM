@@ -1676,11 +1676,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #168 — nothing asked on load, 20 on open, `q` after 300 ms; the pause, 403 and
             sequence-guard mutants each failed their test; the first full run's 50 failures were a stale
             single-file docs mount, not the diff — registered as debt)*
-      - [ ] **1.3** The deal form's picker: `DealFormModal` uses `CustomerPicker` and drops its
+      - [x] **1.3** The deal form's picker: `DealFormModal` uses `CustomerPicker` and drops its
             `customers` prop; `DealsView` loses `customers` and `loadCustomers` — both capped calls are
             gone. The `deal-form-customer-id` hook still works; the placeholder is «اختر العميل» and there
             is no clear button. RED first: a customer past the hundredth can be chosen and `customer_id`
             is sent. `rtl-ui-verifier` (`/deals`, AR/EN × desktop/375 px), `waste-auditor`.
+            *(2026-09-21, #169 — no screen reads `listCustomers({ perPage: 100 })` any more; the picker
+            takes `placeholder` and lets `id`/`disabled`/`aria-invalid` fall through to its input)*
       - [ ] **1.4** Manual test list for F-08 in Arabic — roles named, AR/EN × desktop/375 px, every
             state line. The search check finds `المركز القومي للمرأة` by a word that actually finds it
             (`مرأة` or `القومي`), and the list says plainly that «المرأة» does **not** find it: the stored

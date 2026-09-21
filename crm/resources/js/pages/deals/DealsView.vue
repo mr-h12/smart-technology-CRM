@@ -53,7 +53,8 @@
  * `D-83` (F-07 · 1.5): each list row carries `customer_name`, read by the
  * server once per page through Customers' contract, and the screen shows it
  * as sent — no join, no fallback branch (an unnamed customer arrives as its
- * id). `listCustomers` is still read, for the create form's customer picker.
+ * id). Nothing here reads `/customers`: the create form's picker asks the
+ * server for its own rows (`D-84`, F-08 · 1.3).
  *
  * ⚠️ **The owner is not resolved at all.** Identity publishes no list this
  * module may call for a name against an id, so the owner column shows the
@@ -78,7 +79,6 @@ import {
     type DealRow,
     type Pagination,
 } from '@/services/deals';
-import { listCustomers, type Customer } from '@/services/customers';
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
@@ -103,7 +103,6 @@ const editing = ref<Deal | null>(null);
 type SortField = 'code' | 'created_at' | 'last_activity_at';
 
 const deals = ref<DealRow[]>([]);
-const customers = ref<Customer[]>([]);
 const pagination = ref<Pagination | null>(null);
 
 const loading = ref(true);
@@ -178,20 +177,6 @@ async function load(): Promise<void> {
         failed.value = !denied.value;
     } finally {
         loading.value = false;
-    }
-}
-
-/**
- * The create form's customer options, best-effort. A failure here must not
- * blank the screen: §3.3 gates customers separately, so a caller may
- * legitimately read deals and not customers — the picker is then empty, and
- * the rows still carry their names (`D-83`).
- */
-async function loadCustomers(): Promise<void> {
-    try {
-        customers.value = (await listCustomers({ perPage: 100 })).items;
-    } catch {
-        customers.value = [];
     }
 }
 
@@ -274,9 +259,7 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
-onMounted(async () => {
-    await Promise.all([load(), loadCustomers()]);
-});
+onMounted(load);
 </script>
 
 <template>
@@ -531,7 +514,6 @@ onMounted(async () => {
         <DealFormModal
             :open="formOpen"
             :editing="editing"
-            :customers="customers"
             @saved="onSaved"
             @cancel="formOpen = false"
         />

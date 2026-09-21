@@ -150,7 +150,7 @@ function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
 function respond(deals: unknown = [DEAL], status = 200, pagination = PAGINATION): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string) => {
         if (String(input).includes('/customers')) {
-            return json(200, envelope([CUSTOMER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            return json(200, envelope([CUSTOMER], { pagination: { ...PAGINATION, per_page: 20 } }));
         }
 
         return json(
@@ -196,6 +196,15 @@ function dealsUrl(fetchMock: ReturnType<typeof vi.fn>): string {
 
 function listReads(fetchMock: ReturnType<typeof vi.fn>): number {
     return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/deals')).length;
+}
+
+/** Open the create form, focus its customer picker and take the row the server answered. */
+async function openFormAndPickCustomer(wrapper: Awaited<ReturnType<typeof render>>): Promise<void> {
+    await wrapper.find('[data-testid="deals-create"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="deal-form-customer-id"]').trigger('focus');
+    await flushPromises();
+    await wrapper.find('[data-testid="deal-form-customer-id-option"]').trigger('mousedown');
 }
 
 describe('the deals screen', () => {
@@ -273,16 +282,16 @@ describe('the deals screen', () => {
         expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Delta Steel');
     });
 
-    it('still gives the create form its customer options', async () => {
-        // The owner's 1.4 ruling, carried to 1.5: `loadCustomers` stays
-        // because the form's customer picker reads it.
-        const wrapper = await render(respond());
+    it('reads no customers on load — the form’s picker asks for its own (F-08 · 1.3, D-84)', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
 
-        await wrapper.find('[data-testid="deals-create"]').trigger('click');
-        await flushPromises();
+        expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/customers'))).toBe(false);
 
-        const options = wrapper.findAll('[data-testid="deal-form-customer-id"] option').map((o) => o.text());
-        expect(options).toContain('Acme Industrial');
+        await openFormAndPickCustomer(wrapper);
+
+        expect((wrapper.find('[data-testid="deal-form-customer-id"]').element as HTMLInputElement).value).toBe('Acme Industrial');
+        expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('per_page=100'))).toBe(false);
     });
 
     it('renders a stored code through the dictionary, never a server label', async () => {
@@ -473,9 +482,7 @@ describe('the deals screen', () => {
         const wrapper = await render(fetchMock);
         const before = listReads(fetchMock);
 
-        await wrapper.find('[data-testid="deals-create"]').trigger('click');
-        await flushPromises();
-        await wrapper.find('[data-testid="deal-form-customer-id"]').setValue('c1');
+        await openFormAndPickCustomer(wrapper);
         await wrapper.find('[data-testid="deal-form"]').trigger('submit');
         await flushPromises();
 

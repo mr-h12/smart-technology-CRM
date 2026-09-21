@@ -1060,9 +1060,9 @@ would hide them behind `OD-03` indefinitely.
       master documentation fails. Nothing in the code was wrong; `docker compose restart php` re-attached
       it and the same classes passed. The fix is to mount the containing directory (`./docs`) instead of
       the file — a change to the dev environment, so it is the owner's call, not this point's.
-- [ ] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
+- [x] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
       *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
-      (2026-09-21); closes with it.** `D-31` flags an imported
+      (2026-09-21); closes with it.** *(Closed 2026-09-21 with F-11: #180, #181, #182, and the 1.5 list.)* `D-31` flags an imported
       record with missing fields, and §11 excludes it from financial reports **"until completed"** — but
       only the importer writes the flag (`CustomerDraft`, and from F-09 · 1.2 the suppliers' request
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
@@ -2081,7 +2081,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - **أثر الفحص:** بعد القائمة تبقى في قاعدة التطوير ثلاثة مورّدين `F09 test …` ودفعة ثانية — يُعطَّلون ولا يُحذفون (DB-01).
 
 
-- [ ] **F-11** The «سجل ناقص» / «Incomplete record» flag never clears once the record is completed
+- [x] **F-11** The «سجل ناقص» / «Incomplete record» flag never clears once the record is completed
       (Modules 3 and 4). Owner's request, 2026-09-21, after running F-09: `Alex Pipes Trading` was
       imported without a phone, edited to add one at 17:11, and still carries the flag. **Numbering:**
       the owner gave F-11 to this fix; the Arabic-Indic dates candidate that the F-09 heading called
@@ -2163,9 +2163,120 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             their own: an empty edit through `SaveSupplier`/`SaveCustomer::update` with a null (system)
             actor, the J-15 shape; `updated_by` and the audit `user_id` are null. Dev expectation is now
             **0 and 0** — 1.2/1.3's browser checks completed the rows through the real API.)*
-      - [ ] **1.5** Manual test list for F-11 in Arabic — complete a flagged supplier and customer and
+      - [x] **1.5** Manual test list for F-11 in Arabic — complete a flagged supplier and customer and
             watch the chip go; a partial edit keeps it; the correction's run (0 and 0 in dev); AR/EN ×
             desktop/375 px. Closes F-11 and the debt row.
+            *(2026-09-21 — 24 checks; dev data read from `crm-postgres` the same evening)*
+
+      #### قائمة الاختبار اليدوي — F-11 *(النقطة 1.5، 2026-09-21)*
+
+      > **F-11 إصلاح لا وحدة**، فالقائمة تغطّي `D-87` وحده: علَم «سجل ناقص» الذي يضعه المستورِد (`D-31`)
+      > **يُزال** حين يكتمل السجلّ بالتعديل، و**لا يُوضع أبدًا** بالتعديل. المورّد مكتمل بـ`type` و`phone`
+      > و`contact_person` (`D-85`)؛ العميل مكتمل بالحقول الخمسة `name` و`sector` و`region` و`contact_person`
+      > و`phone` (الحكم 1)، والمستورِد يقرأ الخمسة نفسها. نُفِّذ في #180 (المورّدون) و#181 (العملاء
+      > والمستورِد) و#182 (أمرا التصحيح). **لا تغيير في الشاشات**: الشارة تختفي لأنّ الشاشة تعيد القراءة بعد
+      > الحفظ.
+      >
+      > ⚠️ **بيانات التطوير كما قرأتها قاعدة البيانات في 2026-09-21 مساءً — صحّحها منها لا من الذاكرة:**
+      > **19 مورّدًا، 2 معلَّمان:** `Giza Tools Store` (بلا نوع ولا مسؤول تواصل، هاتفه `01099998888`) و`مخازن
+      > الصفا` (بلا هاتف). **234 عميلًا، 231 معلَّمًا، ولا واحد منها مكتمل** — 231 بلا منطقة و229 بلا قطاع،
+      > وكلّها فيها جهة الاتصال والهاتف. الثلاثة غير المعلَّمين هم نُسخ `ASPPC` الثلاث (مكتملة).
+      > في سجلّ التدقيق 4 صفوف `SUPPLIER_UPDATED` و3 `CUSTOMER_UPDATED` تحمل `is_incomplete` من فحوص
+      > المتصفّح في #180/#181، **وليس فيها صفّ بلا مستخدم** — أي أنّ تشغيل أمري التصحيح لم يجد ما يصحّحه.
+      >
+      > ⚠️ **الأدوار** (`<role>@example.test`، كلمة المرور `Passw0rd123`). المورّد: **`catalog.manage.all`**
+      > لستّة أدوار (المدير، المشتريات، المبيعات الداخلية والخارجية، مشرف الخارجي، قائد الفريق). العميل:
+      > **`customer.edit`** للمدير وقائد الفريق (`all`)، ومشرف الخارجي (`out`)، والمبيعات الداخلية والخارجية
+      > (`own`). **الرئيس التنفيذي يرى الشاشتين ولا يعدّل في أيّ منهما** (`catalog.view.all` و`customer.view.all`
+      > وحدهما)، فهو الدور المرفوض في هذه القائمة. استيراد العملاء `customer.import.all`: المدير وقائد الفريق.
+      >
+      > ⚠️ **الترتيب مهمّ:** الفحوص تغيّر بيانات التطوير (تُكمل مورّدَين وعميلًا وتستورد عميلَين)، فالأعداد
+      > المتوقَّعة مكتوبة لهذا الترتيب. **استورد الملف مرّة واحدة**: لا كشف تكرار.
+      >
+      > ⚠️ **أين يُرى التدقيق:** لا شاشة لسجلّ التدقيق بعد. الفحصان 10 و19 يُقرآن من قاعدة البيانات
+      > (`crm-postgres` أو `psql`)، وهذا مذكور فيهما.
+
+      **أ. أمر التصحيح — قبل أيّ تعديل** *(من الطرفية، في `crm/`)*
+
+      1. شغّل `docker compose exec -T php php artisan suppliers:clear-incomplete` ⇒ يجب أن ترى
+         `suppliers:clear-incomplete — 0 of 2 flagged suppliers cleared.` — **0 هي النتيجة الصحيحة**: المورّدان
+         المعلَّمان ناقصان فعلًا، والأمر لا يُزيل إلّا علَم سجلّ مكتمل (الحكم 3).
+      2. شغّل `docker compose exec -T php php artisan customers:clear-incomplete` ⇒
+         `customers:clear-incomplete — 0 of 231 flagged customers cleared.` — لا عميل معلَّم مكتمل اليوم.
+      3. أعد تشغيل الأمرين ⇒ السطران نفساهما حرفيًّا، ولا صفّ تدقيق جديد (الأمر متساوي الأثر).
+
+      **ب. المورّدون `/suppliers`** *(المدير — `manager@example.test`، بالعربية، سطح المكتب)*
+
+      4. افتح `/suppliers` ثمّ فعّل «السجلات الناقصة فقط» ⇒ يجب أن ترى صفَّين فقط، `Giza Tools Store` و`مخازن
+         الصفا`، وعلى كلّ منهما شارة «سجل ناقص».
+      5. اضغط «تعديل» على `Giza Tools Store` واختر النوع فقط (مورّد) ثمّ «حفظ» ⇒ **الشارة باقية** والصفّ باقٍ
+         تحت المرشّح: ما زال بلا مسؤول تواصل (الحكم 2 — تعديل جزئيّ لا يُزيلها).
+      6. عدّله مرّة ثانية واكتب مسؤول تواصل (أيّ اسم) ثمّ «حفظ» ⇒ **الشارة تختفي** والصفّ يخرج من المرشّح؛
+         أطفئ المرشّح ⇒ الصفّ موجود بلا شارة.
+      7. عدّل `مخازن الصفا` واكتب هاتفًا ثمّ «حفظ» ⇒ الشارة تختفي، والمرشّح يعرض الحالة الفارغة «لا مورد مطابق» —
+         لا مورّد معلَّم.
+      8. عدّل المورّد `new` (مكتمل، غير معلَّم) وامسح هاتفه ثمّ «حفظ» ⇒ **لا شارة تظهر** — التعديل لا يضع
+         العلَم أبدًا (الحكم 2، `D-31`). أعد الهاتف `01068161659` بعدها.
+      9. أعد تحميل الصفحة (F5) بعد 6 و7 و8 ⇒ النتائج نفسها: الشارة من الخادم لا من الشاشة.
+      10. *(قاعدة البيانات)* `select event, old_values, new_values from audit_log where entity_id = (select id from
+          suppliers where name = 'Giza Tools Store') order by created_at desc limit 2` ⇒ الصفّ الأحدث
+          `SUPPLIER_UPDATED` فيه `is_incomplete` من `true` إلى `false` مع مسؤول التواصل، والذي قبله (الفحص 5)
+          **ليس فيه** `is_incomplete` (`AUD-02`: الحقول التي تغيّرت وحدها).
+
+      **ج. العملاء `/customers` و`/customers/{id}`** *(المدير، بالعربية، سطح المكتب)*
+
+      11. افتح `/customers` وفعّل «السجلات الناقصة فقط» ⇒ القائمة تعرض المعلَّمين (231). **لا شارة في جدول
+          العملاء** — المرشّح وحده يدلّ هنا، والشارة في صفحة العميل.
+      12. افتح `Al Yousr Hospital` ⇒ في رأس الصفحة شارة «سجل ناقص».
+      13. «تعديل» واكتب المنطقة فقط (مثلًا «القاهرة») ثمّ «حفظ» ⇒ **الشارة باقية**: ما زال بلا قطاع.
+      14. «تعديل» واختر قطاعًا ثمّ «حفظ» ⇒ **الشارة تختفي**؛ عُد إلى `/customers` بالمرشّح ⇒ `Al Yousr
+          Hospital` لم يعد فيها (230).
+      15. افتح إحدى نسخ `ASPPC` (مكتملة) وامسح منطقتها ثمّ «حفظ» ⇒ **لا شارة** (الحكم 2). أعد المنطقة كما
+          كانت (`الإسكندرية` أو `القاهرة` أو `Alexandria`).
+      16. من جدول `/customers` اضغط «تعديل» على عميل معلَّم آخر وأكمل القطاع والمنطقة ثمّ «حفظ» ⇒ يخرج من
+          المرشّح (229) — المسار نفسه من القائمة لا من الصفحة وحدها.
+
+      **د. استيراد العملاء** *(المدير — «استيراد العملاء» على `/customers`)*
+
+      > **`f11-sample.csv`** — أنشئه بمحرّر نصّ عادي (TextEdit ⇒ Format ⇒ Make Plain Text، UTF-8):
+      > ```
+      > name,sector,region,contact_person,phone,email
+      > F11 test complete,medical,Cairo,Sara,0100,
+      > F11 test no region,medical,,Sara,0100,
+      > ```
+
+      17. استورد `f11-sample.csv` ⇒ «انتهى الاستيراد»: **الصفوف المقروءة 2 · المستورَدة 2 · المُعلَّمة ناقصة 1 ·
+          غير المستورَدة 0**.
+      18. فعّل «السجلات الناقصة فقط» ⇒ `F11 test no region` فيها و**`F11 test complete` ليس فيها** — ينقصه
+          البريد وحده، والبريد ليس حقلًا أساسيًّا. **هذا تغيير سلوك مقصود** (الحكم 1): قبل #181 كان يُعلَّم.
+      19. *(قاعدة البيانات)* `select name, is_incomplete from customers where name like 'F11 test%'` ⇒ `complete`
+          = `false`، `no region` = `true`. ثمّ افتح `F11 test no region` واكتب منطقة ⇒ الشارة تختفي.
+
+      **هـ. الرفض بالصلاحية والخطأ**
+
+      20. ادخل **الرئيس التنفيذي** (`ceo@example.test`) وافتح `/suppliers` ثمّ `/customers/{id}` لعميل
+          معلَّم ⇒ الشارة ظاهرة، و**لا زرّ «تعديل»** في أيّ منهما — لا طريق لإزالة العلَم لمن لا يعدّل
+          (`SEC-07`).
+      21. *(المدير)* افتح عميلًا معلَّمًا و«تعديل» واملأ القطاع والمنطقة، ثمّ أدوات المطوّر ⇒ Network ⇒
+          **Offline** واضغط «حفظ» ⇒ «تعذّر الوصول إلى الخادم. لم يتم حفظ العميل.»؛ أعد Network إلى
+          No throttling وأعد التحميل ⇒ الشارة **باقية** — لا نجاح وهميّ من الشاشة. *(لا تُوقف `php`: 502
+          من nginx رسالة أخرى.)*
+
+      **و. اللغتان والعرضان**
+
+      22. بدّل إلى الإنجليزية ⇒ على `/suppliers` المرشّح «Incomplete records only» والحالة الفارغة بالإنجليزية
+          (لا مورّد معلَّم بعد 7)؛ على `/customers` افتح عميلًا معلَّمًا ⇒ الشارة «Incomplete record»؛ أكمل
+          قطاعه ومنطقته ⇒ تختفي. الاتجاه من اليسار إلى اليمين.
+      23. عرض 375 px (أدوات المطوّر ⇒ جهاز)، بالعربية ثمّ بالإنجليزية، على `/suppliers` وصفحة عميل ⇒ الشارة
+          مقروءة لا مقطوعة، والنافذة تُحفظ منها. *(قطع 375 px في رأس الواجهة دين معروف ولا يخصّ F-11.)*
+      24. **أخيرًا** أعد تشغيل أمري التصحيح ⇒ `0 of 0 flagged suppliers cleared.` و`0 of 228 flagged customers
+          cleared.` إن مشيت القائمة كما هي (231، ناقص 3 أُكملت في 14 و16 و22، زائد 1 من الاستيراد، ناقص 1 أُكمل في 19 = 228)؛ وإلّا فـN هو عدد المرشّح على
+          `/customers`، ويبقى الرقم الأوّل 0.
+
+      **ما لا تغطّيه القائمة، صراحةً:** إعادة وضع العلَم (الحكم 2 — خارج F-11)؛ ما يعنيه «مكتمل» لسجلّ أُدخل
+      باليد (لا يُعلَّم أصلًا)؛ كشف التكرار في الاستيراد؛ **عمود القطاع في `/customers` يطبع الرمز
+      (`medical`) لا اسمه** — دَين مسجَّل ويبقى مفتوحًا؛ استبعاد المعلَّمين من التقارير المالية (§11) — الوحدة 13
+      لم تُبنَ بعد؛ والتواريخ بالأرقام العربية الهندية (F-12، غير مطلوبة).
 
 ## Shell revisions — owner-directed
 

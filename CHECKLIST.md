@@ -2157,10 +2157,11 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       Each point is its own branch, one per turn, seven-part report, owner's merge.
 
-      ### F-10 point list — published 2026-09-21, awaiting approval (merging this PR approves it)
+      ### F-10 point list — published 2026-09-21, approved by merging #184
 
-      - [ ] **1.1** `D-86` in §2 (proposed) + this block + the three debt rows. Docs only — the `D-86` row
+      - [x] **1.1** `D-86` in §2 (proposed) + this block + the three debt rows. Docs only — the `D-86` row
             and §3.7's `import` row are pasted by the owner, as `D-85` and `D-87` were.
+            *(2026-09-21, #184 — both rows' text is in #184's description)*
       - [ ] **1.2** The shared import shapes move to `App\Support\Csv`: the summary, its payload and the
             upload request, used by Customers and Suppliers. No behaviour change: every existing import
             test passes unchanged, deptrac 0 violations both configs. Closes the debt row.

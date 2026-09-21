@@ -189,7 +189,7 @@ final class SupplierListEndpointTest extends TestCase
         self::assertIsArray($row);
 
         foreach (['id', 'name', 'type', 'color_rating', 'phone', 'contact_person',
-            'has_open_account', 'is_active', 'created_at', 'updated_at'] as $field) {
+            'has_open_account', 'is_active', 'is_incomplete', 'created_at', 'updated_at'] as $field) {
             self::assertArrayHasKey($field, $row, "§7.1 publishes `{$field}`.");
         }
 
@@ -320,6 +320,29 @@ final class SupplierListEndpointTest extends TestCase
         $this->supplier('Cash Only', openAccount: false);
 
         self::assertSame(['On Account'], $this->names('?filter[has_open_account]=true'));
+    }
+
+    /** `D-85` (F-09 · 1.2): `D-31`'s flag is on the wire, as the customers' is. */
+    public function test_that_a_supplier_serialises_is_incomplete(): void
+    {
+        $this->supplier('Imported Gaps', incomplete: true);
+
+        $row = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data.0');
+
+        self::assertIsArray($row);
+        self::assertTrue($row['is_incomplete']);
+    }
+
+    /** `D-85`: §10.5's dedicated filter, both ways — the second half proves it narrows rather than ignores. */
+    public function test_that_the_incomplete_filter_narrows_both_ways(): void
+    {
+        $this->supplier('Imported Gaps', incomplete: true);
+        $this->supplier('Typed By Hand');
+
+        self::assertSame(['Imported Gaps'], $this->names('?filter[is_incomplete]=true'));
+        self::assertSame(['Typed By Hand'], $this->names('?filter[is_incomplete]=false'));
     }
 
     public function test_that_the_active_filter_narrows_to_the_deactivated_when_asked(): void
@@ -465,6 +488,7 @@ final class SupplierListEndpointTest extends TestCase
         ?string $type = null,
         bool $openAccount = false,
         bool $active = true,
+        bool $incomplete = false,
     ): string {
         $id = (string) Str::uuid7();
 
@@ -477,7 +501,7 @@ final class SupplierListEndpointTest extends TestCase
             'is_active' => $active,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ] + ($incomplete ? ['is_incomplete' => true] : []));
 
         return $id;
     }

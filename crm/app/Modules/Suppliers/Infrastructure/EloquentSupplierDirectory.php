@@ -134,6 +134,10 @@ final readonly class EloquentSupplierDirectory implements SupplierDirectoryInter
             $query->where('suppliers.has_open_account', $criteria->hasOpenAccount);
         }
 
+        if ($criteria->isIncomplete !== null) {
+            $query->where('suppliers.is_incomplete', $criteria->isIncomplete);
+        }
+
         if ($criteria->q !== null) {
             $query->whereIn('suppliers.id', $this->search->search(SearchIndex::Suppliers, $criteria->q));
         }
@@ -150,6 +154,7 @@ final readonly class EloquentSupplierDirectory implements SupplierDirectoryInter
             contactPerson: $row->contact_person,
             hasOpenAccount: $row->has_open_account,
             isActive: $row->is_active,
+            isIncomplete: $row->is_incomplete,
             // `DB-08`: stored UTC. The immutable copies keep a caller from
             // mutating the model's Carbon instance through the read model.
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),

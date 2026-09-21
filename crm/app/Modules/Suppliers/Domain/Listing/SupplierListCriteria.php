@@ -40,7 +40,7 @@ final readonly class SupplierListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['color_rating', 'type', 'is_active', 'has_open_account'];
+    public const ALLOWED_FILTERS = ['color_rating', 'type', 'is_active', 'has_open_account', 'is_incomplete'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'created_at'];
@@ -59,6 +59,7 @@ final readonly class SupplierListCriteria
         public ?string $type = null,
         public ?bool $isActive = null,
         public ?bool $hasOpenAccount = null,
+        public ?bool $isIncomplete = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
     ) {}
 
@@ -89,6 +90,7 @@ final readonly class SupplierListCriteria
             type: $filters['type'],
             isActive: $filters['is_active'],
             hasOpenAccount: $filters['has_open_account'],
+            isIncomplete: $filters['is_incomplete'],
             sorts: self::sorts($query['sort'] ?? null),
         );
     }
@@ -174,7 +176,7 @@ final readonly class SupplierListCriteria
     }
 
     /**
-     * @return array{color_rating: string|null, type: string|null, is_active: bool|null, has_open_account: bool|null}
+     * @return array{color_rating: string|null, type: string|null, is_active: bool|null, has_open_account: bool|null, is_incomplete: bool|null}
      *
      * @throws InvalidSupplierListQuery
      */
@@ -185,6 +187,7 @@ final readonly class SupplierListCriteria
             'type' => null,
             'is_active' => null,
             'has_open_account' => null,
+            'is_incomplete' => null,
         ];
 
         if ($value === null) {
@@ -206,6 +209,7 @@ final readonly class SupplierListCriteria
             'type' => self::code($value['type'] ?? null, 'filter[type]'),
             'is_active' => self::boolean($value['is_active'] ?? null, 'filter[is_active]'),
             'has_open_account' => self::boolean($value['has_open_account'] ?? null, 'filter[has_open_account]'),
+            'is_incomplete' => self::boolean($value['is_incomplete'] ?? null, 'filter[is_incomplete]'),
         ];
     }
 

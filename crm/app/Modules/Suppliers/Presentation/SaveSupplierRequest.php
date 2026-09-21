@@ -64,6 +64,10 @@ final class SaveSupplierRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
 
             'linked_quotations' => ['prohibited'],
+
+            // `D-85`: `D-31`'s flag belongs to the importer (F-09 · 1.4). A
+            // client that sends it is refused, not silently ignored.
+            'is_incomplete' => ['prohibited'],
         ];
     }
 }

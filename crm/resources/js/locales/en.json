@@ -551,6 +551,20 @@
             "action": "Restore"
         }
     },
+    "import": {
+        "hint": "CSV files only, up to 30 MB.",
+        "choose": "Choose a file",
+        "noFile": "No file chosen",
+        "submit": "Import",
+        "submitting": "Importing…",
+        "resultTitle": "Import finished",
+        "rows": "Rows read",
+        "imported": "Imported",
+        "incomplete": "Flagged incomplete",
+        "failed": "Not imported",
+        "showIncomplete": "Show the incomplete records",
+        "error": "The import did not run. Nothing was changed."
+    },
     "customers": {
         "title": "Customers",
         "total": "No customers | 1 customer | {count} customers",
@@ -649,19 +663,7 @@
             "failed": "Restored {done}, {failed} refused. Nothing else changed — try the refused rows again."
         },
         "import": {
-            "title": "Import customers",
-            "hint": "CSV files only, up to 30 MB.",
-            "choose": "Choose a file",
-            "noFile": "No file chosen",
-            "submit": "Import",
-            "submitting": "Importing…",
-            "resultTitle": "Import finished",
-            "rows": "Rows read",
-            "imported": "Imported",
-            "incomplete": "Flagged incomplete",
-            "failed": "Not imported",
-            "showIncomplete": "Show the incomplete records",
-            "error": "The import did not run. Nothing was changed."
+            "title": "Import customers"
         },
         "picker": {
             "more": "More customers match — type more letters",
@@ -692,7 +694,8 @@
             "type": "Type",
             "typeAll": "Any type",
             "active": "State",
-            "activeAll": "Active and inactive"
+            "activeAll": "Active and inactive",
+            "incomplete": "Incomplete records only"
         },
         "column": {
             "name": "Supplier",
@@ -742,7 +745,11 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes"
-        }
+        },
+        "import": {
+            "title": "Import suppliers"
+        },
+        "incomplete": "Incomplete record"
     },
     "catalog": {
         "title": "Catalog",

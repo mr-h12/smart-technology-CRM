@@ -43,6 +43,19 @@ export interface Envelope<T> {
     meta?: EnvelopeMeta;
 }
 
+/**
+ * One import batch, as `ImportBatchPayload` (customers) and
+ * `SupplierPayload::importBatch` (suppliers, `D-85`) both serialise it.
+ * Failures are `row_count - imported_count`; the server stores no fourth count.
+ */
+export interface ImportBatch {
+    id: string;
+    original_filename: string;
+    row_count: number;
+    imported_count: number;
+    incomplete_count: number;
+}
+
 export interface ApiResult<T> {
     data: T;
     requestId: string | null;

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } from '@/api';
+import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
 
 /**
  * Module 3's eight endpoints, and nothing else.
@@ -78,15 +78,6 @@ export interface CustomerDraft {
 export interface CustomerWritten {
     customer: Customer;
     similar: Customer[];
-}
-
-/** One `import_batches` row. Failures are `row_count - imported_count`; the server stores no fourth count. */
-export interface ImportBatch {
-    id: string;
-    original_filename: string;
-    row_count: number;
-    imported_count: number;
-    incomplete_count: number;
 }
 
 export async function listCustomers(query: CustomerListQuery = {}): Promise<Page<Customer>> {

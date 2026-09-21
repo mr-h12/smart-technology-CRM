@@ -1942,12 +1942,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             **After merging, run once:** `php artisan db:seed --class=RolePermissionSeeder` (as F-01).
             *(2026-09-21, #175 — Suppliers gains `StorageContract` on Customers' terms; the directory is
             registered with the AUD-01 writer guard; 145 permissions, 218 grants)*
-      - [ ] **1.5** Suppliers screen: an import button drawn only by `catalog.import`, the import dialog
+      - [x] **1.5** Suppliers screen: an import button drawn only by `catalog.import`, the import dialog
             (the four counts and a link to the incomplete filter, as customers have — reusing
             `CustomerImportModal`'s parts if they are shareable, searched before writing), the
             `is_incomplete` chip and filter, ar/en lang keys. `NoHardCodedTextTest`,
             `rtl-ui-verifier` (`/suppliers`, AR/EN × desktop/375 px, computed border on every new
             control), `waste-auditor`.
+            *(2026-09-21, #177 — the customers' dialog is shared as `components/imports/ImportModal.vue`, owner's choice (a))*
       - [ ] **1.6** Manual test list for F-09 in Arabic — roles named (the Manager imports; a role
             without `catalog.import` sees no button and gets a 403), a sample `.csv` with complete,
             incomplete and nameless rows, AR/EN × desktop/375 px.

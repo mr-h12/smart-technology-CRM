@@ -38,6 +38,7 @@ const EXISTING: Supplier = {
     phone: '0100',
     contact_person: 'Sara',
     has_open_account: true,
+    is_incomplete: false,
     is_active: true,
     created_at: '2026-08-30T00:00:00+00:00',
     updated_at: '2026-08-30T00:00:00+00:00',

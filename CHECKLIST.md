@@ -1697,7 +1697,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             at the child's root element; the picker's input is nested, so the class matched no rule
             (the quotations filter had the same gap since 1.2). The picker declares its own scoped copy.
             Numbered after 1.4 because the list was already written; it merges before it.
-            *(2026-09-21, #PR — computed border on the picker's input = its sibling's, `1px solid
+            *(2026-09-21, #170 — computed border on the picker's input = its sibling's, `1px solid
             rgb(120,113,108)`, on `/deals` (EN) and `/quotations` (AR); the per-component copies are
             registered as debt)*
       - [ ] **1.4** Manual test list for F-08 in Arabic — roles named, AR/EN × desktop/375 px, every

@@ -228,6 +228,29 @@ final class CustomerImportEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'is_incomplete' => false]);
     }
 
+    /**
+     * `D-87` ruling 1: complete means the five core fields, not §4.2's ten.
+     * A row that fills them and leaves `email` (or any other field) empty is
+     * not what `D-31`'s flag is for.
+     */
+    public function test_that_a_row_missing_only_a_non_core_field_is_not_flagged(): void
+    {
+        $this->import(self::HEADER."\nAlpha Trading,Medical,Cairo,Ahmed,0100,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.incomplete_count', 0);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'is_incomplete' => false]);
+    }
+
+    public function test_that_a_row_missing_a_core_field_is_flagged(): void
+    {
+        $this->import(self::HEADER."\nAlpha Trading,Medical,,Ahmed,0100,0101,0102,a@example.test,2026-01-01,ok")
+            ->assertStatus(201)
+            ->assertJsonPath('data.incomplete_count', 1);
+
+        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'is_incomplete' => true]);
+    }
+
     public function test_that_a_row_with_a_missing_field_is_flagged_and_still_saved(): void
     {
         $this->import(self::HEADER."\nBeta Trading,Medical,,,,,,,,")
@@ -423,8 +446,8 @@ final class CustomerImportEndpointTest extends TestCase
         )
             ->assertStatus(201)
             ->assertJsonPath('data.imported_count', 1)
-            // Three of §4.2's ten fields are absent from the file, so `D-31`
-            // flags the row rather than refusing it.
+            // `sector` and `region` — two of `D-87`'s five core fields — are
+            // empty, so `D-31` flags the row rather than refusing it.
             ->assertJsonPath('data.incomplete_count', 1);
 
         $this->assertDatabaseHas('customers', [

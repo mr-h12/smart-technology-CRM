@@ -503,4 +503,80 @@ final class CustomerWriteEndpointTest extends TestCase
         self::assertIsString($new);
         self::assertStringContainsString('Riyadh', $new);
     }
+
+    // ─────────────────────────────── D-87 (F-11) — an edit clears the flag
+
+    /**
+     * Ruling 1 read the other way: once `name`, `sector`, `region`,
+     * `contact_person` and `phone` are all filled, the record is no longer
+     * what the importer flagged. `AUD-02` wants the clear in the same row as
+     * the edit.
+     */
+    public function test_that_completing_a_flagged_customer_clears_is_incomplete_and_audits_it(): void
+    {
+        $id = $this->flagged('Gap Trading', ['sector' => 'Medical', 'region' => 'Cairo', 'contact_person' => 'Mona']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['phone' => '0100'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'is_incomplete' => false]);
+
+        $row = DB::table('audit_log')->where('event', 'CUSTOMER_UPDATED')->where('entity_id', $id)->first();
+        self::assertNotNull($row);
+        self::assertIsString($row->old_values);
+        self::assertIsString($row->new_values);
+
+        $old = json_decode($row->old_values, true);
+        $new = json_decode($row->new_values, true);
+
+        self::assertIsArray($old);
+        self::assertIsArray($new);
+        self::assertTrue($old['is_incomplete']);
+        self::assertFalse($new['is_incomplete']);
+        self::assertSame('0100', $new['phone']);
+    }
+
+    public function test_that_a_partial_edit_keeps_is_incomplete(): void
+    {
+        $id = $this->flagged('Gap Trading', ['sector' => 'Medical', 'contact_person' => 'Mona']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['phone' => '0100'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', true);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'is_incomplete' => true]);
+
+        $new = DB::table('audit_log')->where('event', 'CUSTOMER_UPDATED')->where('entity_id', $id)->value('new_values');
+        self::assertIsString($new);
+        self::assertStringNotContainsString('is_incomplete', $new, 'AUD-02: only what this write changed.');
+    }
+
+    /** Ruling 2: clear only, never set — `D-31` makes the flag the importer's. */
+    public function test_that_emptying_a_field_never_sets_is_incomplete(): void
+    {
+        $id = $this->customer('Full Trading');
+        DB::table('customers')->where('id', $id)->update(['sector' => 'Medical', 'region' => 'Cairo', 'contact_person' => 'Mona', 'phone' => '0100']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['region' => null], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'region' => null, 'is_incomplete' => false]);
+    }
+
+    /**
+     * A customer as the importer leaves it. The API prohibits `is_incomplete`
+     * (`D-31`), so the flag is written where the importer writes it: the row.
+     *
+     * @param  array<string, string>  $filled
+     */
+    private function flagged(string $name, array $filled): string
+    {
+        $id = $this->customer($name);
+
+        DB::table('customers')->where('id', $id)->update($filled + ['is_incomplete' => true]);
+
+        return $id;
+    }
 }

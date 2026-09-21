@@ -1068,6 +1068,12 @@ would hide them behind `OD-03` indefinitely.
       prohibits it), and no edit recomputes it. In dev data **all 234 customers** carry it. The fix is
       one rule for both: an edit that leaves every field the importer checks filled clears the flag,
       audited. Owner's call when to order it; Module 13's report exclusion depends on it.
+- [ ] **`/customers` prints the sector's stored code, not its label** — *revealed by F-11 · 1.3's browser
+      check, 2026-09-21; not fixed there because the diff was backend-only.* `CustomersView.vue:680`
+      renders `customer.sector ?? '—'` (`medical`, `government`) while `CustomerDetailView.vue:113`
+      resolves the same code through `sectorLabel()` against the managed list the list screen already
+      loads for its filter (`sectors`, line 105). Both locales. One template expression and the helper
+      moved or copied; `rtl-ui-verifier` at desktop only — the column is `hidden` below `md`.
 - [ ] **The two imports carry three identical shapes: the summary, its payload and the upload request** —
       *created by F-09 Point 1.4, 2026-09-21, and registered rather than fixed because extracting a shared
       layer was outside that point's approved list.* `Suppliers\Domain\Importing\ImportSummary` is
@@ -2139,12 +2145,15 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-21, #180 — `SupplierDraft::EXPECTED` is the one list, read by the importer and the
             edit; the browser check cleared 4 dev suppliers through the real API, so 1.4's dev expectation
             is now 0 suppliers, not 2.)*
-      - [ ] **1.3** Customers: one core-field list (`name`, `sector`, `region`, `contact_person`,
+      - [x] **1.3** Customers: one core-field list (`name`, `sector`, `region`, `contact_person`,
             `phone`) used by `ImportCustomers` **and** `SaveCustomer::update`; clear-only; audited in
             `CUSTOMER_UPDATED`. RED first: an import row missing only `email` is not flagged; one
             missing `region` is; completing a flagged customer clears it; the three clear-only cases
             as 1.2. `CustomerImportEndpointTest` updated where ruling 1 changes its expectation, named
             case by case. `rtl-ui-verifier`, `waste-auditor`.
+            *(2026-09-21, #181 — `CustomerDraft::EXPECTED`; no existing import assertion flipped, only the
+            Plan-international comment; the browser check completed 4 dev customers, so 1.4's dev
+            expectation stays 0 customers.)*
       - [ ] **1.4** The one-off correction: an idempotent artisan command per module (Suppliers,
             Customers) that clears the flag on already-complete rows, one audit row each, a second run
             changing nothing. RED first: a complete flagged row is cleared and audited; an incomplete

@@ -24,15 +24,13 @@ use Illuminate\Database\ConnectionInterface;
  * failure, and failures are `row_count - imported_count` because
  * `import_batches` deliberately has no fourth count.
  *
- * ⚠️ **What "missing fields" means is undocumented, and this is the reading.**
- * §4.2 marks only `name` required, so the literal reading flags nothing and
- * leaves `D-31`, §10.1's filter and §11's exclusion with no subject at all.
- * **Any of §4.2's ten user-entered fields left empty flags the row** — the
- * conservative direction, because it never calls a record complete when it is
- * not. The cost, stated rather than hidden: in practice nearly every imported
- * row carries the flag. Recorded in `CHECKLIST.md` awaiting a `D-xx`; the
- * narrower reading (only the columns the file itself declares) is the owner's
- * to choose.
+ * ── What "missing fields" means: `D-87` ruling 1 ───────────────────────────
+ *
+ * §4.2 marks only `name` required, so the literal reading flags nothing. Until
+ * F-11 this class flagged a row when any of §4.2's ten fields was empty, which
+ * in practice flagged nearly every imported row. `D-87` (F-11 · 1.3) names the
+ * five core fields — `CustomerDraft::EXPECTED` — and the edit that clears the
+ * flag reads the same list.
  *
  * ── One transaction for the whole file ─────────────────────────────────────
  *
@@ -101,7 +99,7 @@ final readonly class ImportCustomers
                     continue;
                 }
 
-                $flagged = count($attributes) < count(CustomerCsv::COLUMNS);
+                $flagged = array_diff(CustomerDraft::EXPECTED, array_keys($attributes)) !== [];
                 $draft = CustomerDraft::forImport($attributes, $flagged);
 
                 $customer = $this->customers->create($draft, $actorId);

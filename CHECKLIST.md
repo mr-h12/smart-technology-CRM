@@ -1665,7 +1665,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             screen's capped supplier read (names, filter, picker) is registered as debt (revealed, not fixed).
             *(2026-09-21, #167 — the D-84 row pasted by the owner; the supplier debt corrected from "a
             picker" to the three things one capped read feeds)*
-      - [ ] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
+      - [x] **1.2** `components/customers/CustomerPicker.vue`, its tests and its ar/en lang keys, **wired
             into the quotations filter in the same point** — a component nothing imports is dead code.
             `QuotationsView` loses `customers` and `loadCustomers`. RED first: nothing is asked before the
             300 ms pause, then `q`; 20 results and the "more" line; the name and the muted line; the four
@@ -1673,6 +1673,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             filter's «كل العملاء» and clear button; the chosen id sent as `filter[customer_id]`; no
             `perPage: 100` call. `NoHardCodedTextTest`, `rtl-ui-verifier` (`/quotations`, AR/EN ×
             desktop/375 px), `waste-auditor`.
+            *(2026-09-21, #168 — nothing asked on load, 20 on open, `q` after 300 ms; the pause, 403 and
+            sequence-guard mutants each failed their test; the first full run's 50 failures were a stale
+            single-file docs mount, not the diff — registered as debt)*
       - [ ] **1.3** The deal form's picker: `DealFormModal` uses `CustomerPicker` and drops its
             `customers` prop; `DealsView` loses `customers` and `loadCustomers` — both capped calls are
             gone. The `deal-form-customer-id` hook still works; the placeholder is «اختر العميل» and there

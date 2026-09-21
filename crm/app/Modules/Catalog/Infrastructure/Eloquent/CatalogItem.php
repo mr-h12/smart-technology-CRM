@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $description
  * @property string|null $notes
  * @property bool $is_active
+ * @property bool $is_incomplete
  * @property string|null $created_by
  * @property string|null $updated_by
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -41,7 +42,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'kind', 'name', 'product_code', 'category', 'unit', 'service_type',
-    'company', 'description', 'notes', 'is_active',
+    'company', 'description', 'notes', 'is_active', 'is_incomplete',
 ])]
 class CatalogItem extends Model
 {
@@ -54,6 +55,7 @@ class CatalogItem extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_incomplete' => 'boolean',
         ];
     }
 }

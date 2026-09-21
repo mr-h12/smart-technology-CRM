@@ -9,6 +9,15 @@ return [
 
     'not_found' => 'This catalog item was not found.',
 
+    // D-86's import file (F-10 · 1.5) — the messages `App\Support\Csv\CsvReader`
+    // raises, in the catalog's words.
+    'import' => [
+        'empty_file' => 'This file is empty. The first row must name the columns.',
+        'unknown_columns' => 'This file has columns the importer does not accept: :columns.',
+        'duplicate_columns' => 'This file names the same field in more than one column: :columns.',
+        'missing_name_column' => 'This file has no "name" column. Every catalog file needs one, even when a service leaves it empty.',
+    ],
+
     // OpenAPI §6.1/§6.2 — one message per detail code, so `details` says what
     // the closed set of HTTP codes cannot.
     'list_query' => [

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Catalog\Infrastructure;
 
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Importing\ImportSummary;
 use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
 use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
@@ -14,6 +15,8 @@ use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -137,6 +140,52 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
         $row->refresh();
 
         return self::hydrate($row);
+    }
+
+    /**
+     * The query builder, not a model: the import is the only writer until
+     * point 1.7, and `EloquentSupplierDirectory::recordImportBatch` writes its
+     * batch the same way. `D-61`'s uuid7.
+     */
+    public function link(string $catalogItemId, string $supplierId, string $actorId): string
+    {
+        $id = Str::uuid7()->toString();
+
+        DB::table('catalog_item_suppliers')->insert([
+            'id' => $id,
+            'catalog_item_id' => $catalogItemId,
+            'supplier_id' => $supplierId,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    public function recordImportBatch(
+        string $originalFilename,
+        int $rowCount,
+        int $importedCount,
+        int $incompleteCount,
+        string $actorId,
+    ): ImportSummary {
+        $id = Str::uuid7()->toString();
+
+        DB::table('catalog_import_batches')->insert([
+            'id' => $id,
+            'original_filename' => $originalFilename,
+            'row_count' => $rowCount,
+            'imported_count' => $importedCount,
+            'incomplete_count' => $incompleteCount,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return new ImportSummary($id, $originalFilename, $rowCount, $importedCount, $incompleteCount);
     }
 
     public function update(string $catalogItemId, CatalogItemDraft $draft, string $actorId): ?CatalogItemSummary

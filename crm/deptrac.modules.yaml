@@ -652,6 +652,10 @@ parameters:
       # supplier its `supplier` cell names. Written with the interface, as
       # `CatalogContract` was; the caller arrives with point 1.5.
       - SuppliersContract
+      # StorageContract, F-10 · 1.5 — `D-86`'s import reads the upload through
+      # `StorageServiceInterface::readUploadStream`, the one place a file may be
+      # opened; the grant Suppliers holds for its own import.
+      - StorageContract
     Procurement: ~
     Outdoor: ~
     Reports: ~

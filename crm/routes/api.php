@@ -568,6 +568,12 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
 
     Route::patch('/{catalogItem}', [CatalogItemController::class, 'update'])
         ->middleware('permission:catalog.manage');
+
+    // `D-86` (F-10 · 1.5) — the catalog's CSV import, under the permission
+    // the supplier import already uses; the administrator decides who holds
+    // it (§3.12 rule 5). The owner put it under this prefix (2026-09-22).
+    Route::post('/import', [CatalogItemController::class, 'import'])
+        ->middleware('permission:catalog.import');
 });
 
 // §3.4 Requests / Deals — Module 5 Points 2.2–2.3.

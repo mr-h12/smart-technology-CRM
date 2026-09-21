@@ -282,6 +282,63 @@ final class SupplierWriteEndpointTest extends TestCase
         );
     }
 
+    // ─────────────────────────────── D-87 (F-11) — an edit clears the flag
+
+    /**
+     * `D-85`'s rule read the other way: once `type`, `phone` and
+     * `contact_person` are all filled, the record is no longer what the
+     * importer flagged. `AUD-02` wants the clear in the same row as the edit.
+     */
+    public function test_that_completing_a_flagged_supplier_clears_is_incomplete_and_audits_it(): void
+    {
+        $id = $this->flagged(['name' => 'Gap Supply', 'type' => 'supplier', 'contact_person' => 'Mona']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['phone' => '+20100000000'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('suppliers', ['id' => $id, 'is_incomplete' => false]);
+
+        $row = DB::table('audit_log')->where('event', 'SUPPLIER_UPDATED')->where('entity_id', $id)->first();
+        self::assertNotNull($row);
+
+        $old = json_decode(self::jsonColumn($row->old_values), true);
+        $new = json_decode(self::jsonColumn($row->new_values), true);
+
+        self::assertIsArray($old);
+        self::assertIsArray($new);
+        self::assertTrue($old['is_incomplete']);
+        self::assertFalse($new['is_incomplete']);
+        self::assertSame('+20100000000', $new['phone']);
+    }
+
+    public function test_that_a_partial_edit_keeps_is_incomplete(): void
+    {
+        $id = $this->flagged(['name' => 'Gap Supply', 'type' => 'supplier']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['phone' => '+20100000000'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', true);
+
+        $this->assertDatabaseHas('suppliers', ['id' => $id, 'is_incomplete' => true]);
+
+        $new = json_decode(self::jsonColumn(DB::table('audit_log')->where('entity_id', $id)->where('event', 'SUPPLIER_UPDATED')->value('new_values')), true);
+        self::assertIsArray($new);
+        self::assertArrayNotHasKey('is_incomplete', $new, 'AUD-02: only what this write changed.');
+    }
+
+    /** Ruling 2: clear only, never set — `D-31` makes the flag the importer's. */
+    public function test_that_emptying_a_field_never_sets_is_incomplete(): void
+    {
+        $id = $this->created(['name' => 'Full Supply', 'type' => 'supplier', 'phone' => '+20100000000', 'contact_person' => 'Mona']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['phone' => null], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', false);
+
+        $this->assertDatabaseHas('suppliers', ['id' => $id, 'phone' => null, 'is_incomplete' => false]);
+    }
+
     public function test_that_the_read_only_ceo_cannot_edit(): void
     {
         $id = $this->created(['name' => 'Alpha Supply']);
@@ -322,6 +379,21 @@ final class SupplierWriteEndpointTest extends TestCase
         self::assertIsString($value, 'The audit column should hold a JSON document.');
 
         return $value;
+    }
+
+    /**
+     * A supplier as the importer leaves it. The API prohibits `is_incomplete`
+     * (`D-31`), so the flag is written where the importer writes it: the row.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function flagged(array $attributes): string
+    {
+        $id = $this->created($attributes);
+
+        DB::table('suppliers')->where('id', $id)->update(['is_incomplete' => true]);
+
+        return $id;
     }
 
     /** @param array<string, mixed> $attributes */

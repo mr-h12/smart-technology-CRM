@@ -88,6 +88,13 @@ final readonly class SaveSupplier
                 throw SupplierNotFound::of($supplierId);
             }
 
+            // `D-87`: an edit that leaves every `EXPECTED` field filled clears
+            // the importer's flag. Clear only — a row the importer did not
+            // flag is never flagged here, whatever the edit empties (`D-31`).
+            if ($before->isIncomplete && self::isComplete($before, $draft)) {
+                $draft = $draft->completed();
+            }
+
             $after = $this->suppliers->update($supplierId, $draft, $actorId);
 
             if (! $after instanceof SupplierSummary) {
@@ -128,6 +135,7 @@ final readonly class SaveSupplier
             'contact_person' => $before->contactPerson,
             'has_open_account' => $before->hasOpenAccount,
             'is_active' => $before->isActive,
+            'is_incomplete' => $before->isIncomplete,
         ];
 
         $old = [];
@@ -137,5 +145,23 @@ final readonly class SaveSupplier
         }
 
         return $old;
+    }
+
+    /** The row as this write leaves it has every `D-85` field filled. */
+    private static function isComplete(SupplierSummary $before, SupplierDraft $draft): bool
+    {
+        $after = $draft->attributes + [
+            'type' => $before->type,
+            'phone' => $before->phone,
+            'contact_person' => $before->contactPerson,
+        ];
+
+        foreach (SupplierDraft::EXPECTED as $field) {
+            if (($after[$field] ?? '') === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

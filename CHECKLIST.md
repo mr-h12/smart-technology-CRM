@@ -1518,7 +1518,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.6** Manual test list for F-07 in Arabic — a customer inside the page, one **archived**,
             one **outside the caller's scope**, and the 403 path where the name must still appear;
             AR/EN × desktop/375 px; roles named.
-            *(2026-09-21, #PR — 30 checks below; the data was read from the database and the API
+            *(2026-09-21, #166 — 30 checks below; the data was read from the database and the API
             (`/customers` answers Indoor Sales **200 with 0 rows**); the 403 path is testable by the
             owner's ruling — the tester revokes a cell and restores it; F-07 closes here and stays in
             this file — a fix-pass item, not a module)*

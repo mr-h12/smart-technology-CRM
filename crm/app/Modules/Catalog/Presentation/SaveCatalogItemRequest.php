@@ -139,6 +139,10 @@ final class SaveCatalogItemRequest extends FormRequest
             'price' => ['prohibited'],
             'cost' => ['prohibited'],
             'margin' => ['prohibited'],
+
+            // `D-86`: the importer's flag. An edit may clear it (`SaveCatalogItem`),
+            // but no caller writes it, either way.
+            'is_incomplete' => ['prohibited'],
         ];
     }
 }

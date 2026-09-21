@@ -98,6 +98,13 @@ final readonly class SaveCatalogItem
                 throw CatalogItemNotFound::of($catalogItemId);
             }
 
+            // `D-86` (`D-87`'s shape): an edit that leaves the row holding what
+            // the form requires clears the importer's flag. Clear only — a row
+            // the importer did not flag is never flagged here (`D-31`).
+            if ($before->isIncomplete && self::isComplete($before, $draft)) {
+                $draft = $draft->completed();
+            }
+
             $after = $this->items->update($catalogItemId, $draft, $actorId);
 
             if (! $after instanceof CatalogItemSummary) {
@@ -141,6 +148,7 @@ final readonly class SaveCatalogItem
             'description' => $before->description,
             'notes' => $before->notes,
             'is_active' => $before->isActive,
+            'is_incomplete' => $before->isIncomplete,
         ];
 
         $old = [];
@@ -150,6 +158,25 @@ final readonly class SaveCatalogItem
         }
 
         return $old;
+    }
+
+    /**
+     * The row as this write leaves it holds what the import flags for: a
+     * product's `unit`, a service's `service_type`, and a `company` — judged by
+     * the `kind` after the edit (owner, 2026-09-22).
+     */
+    private static function isComplete(CatalogItemSummary $before, CatalogItemDraft $draft): bool
+    {
+        $after = $draft->attributes + [
+            'kind' => $before->kind,
+            'unit' => $before->unit,
+            'service_type' => $before->serviceType,
+            'company' => $before->company,
+        ];
+
+        $required = $after['kind'] === 'product' ? 'unit' : 'service_type';
+
+        return ($after[$required] ?? '') !== '' && ($after['company'] ?? '') !== '';
     }
 
     /**

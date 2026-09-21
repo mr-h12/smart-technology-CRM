@@ -368,6 +368,29 @@ final class CatalogItemListEndpointTest extends TestCase
         self::assertSame(['Drill'], $this->names('?filter[company]=Alpha Co'));
     }
 
+    /** `D-86` (F-10 · 1.6): the importer's flag is read and filtered, never written here. */
+    public function test_that_is_incomplete_is_in_the_payload_and_filters_the_list(): void
+    {
+        $flagged = $this->item('Gap Drill');
+        DB::table('catalog_items')->where('id', $flagged)->update(['is_incomplete' => true]);
+        $this->item('Full Drill');
+
+        self::assertSame(['Gap Drill'], $this->names('?filter[is_incomplete]=true'));
+        self::assertSame(['Full Drill'], $this->names('?filter[is_incomplete]=false'));
+
+        $this->getJson(self::ENDPOINT.'/'.$flagged, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_incomplete', true);
+    }
+
+    public function test_that_a_non_boolean_is_incomplete_filter_is_refused(): void
+    {
+        // `OpenAPI §6.1`: an invalid list query is a 400, as `filter[is_active]`'s is.
+        $this->getJson(self::ENDPOINT.'?filter[is_incomplete]=maybe', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.details.0.field', 'filter[is_incomplete]');
+    }
+
     public function test_that_the_active_filter_narrows_to_the_deactivated_when_asked(): void
     {
         $this->item('Drill', active: true);

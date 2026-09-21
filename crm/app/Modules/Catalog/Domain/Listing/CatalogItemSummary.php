@@ -33,6 +33,7 @@ final readonly class CatalogItemSummary
         public ?string $description,
         public ?string $notes,
         public bool $isActive,
+        public bool $isIncomplete,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {}

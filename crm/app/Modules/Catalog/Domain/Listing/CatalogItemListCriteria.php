@@ -63,7 +63,7 @@ final readonly class CatalogItemListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active', 'company'];
+    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active', 'company', 'is_incomplete'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'created_at'];
@@ -86,6 +86,7 @@ final readonly class CatalogItemListCriteria
         public ?bool $isActive = null,
         public ?string $company = null,
         public ?string $groupBy = null,
+        public ?bool $isIncomplete = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
     ) {}
 
@@ -118,6 +119,7 @@ final readonly class CatalogItemListCriteria
             company: $filters['company'],
             groupBy: self::group($query['group_by'] ?? null),
             sorts: self::sorts($query['sort'] ?? null),
+            isIncomplete: $filters['is_incomplete'],
         );
     }
 
@@ -223,13 +225,13 @@ final readonly class CatalogItemListCriteria
     }
 
     /**
-     * @return array{kind: string|null, category: string|null, is_active: bool|null, company: string|null}
+     * @return array{kind: string|null, category: string|null, is_active: bool|null, company: string|null, is_incomplete: bool|null}
      *
      * @throws InvalidCatalogItemListQuery
      */
     private static function filters(mixed $value): array
     {
-        $empty = ['kind' => null, 'category' => null, 'is_active' => null, 'company' => null];
+        $empty = ['kind' => null, 'category' => null, 'is_active' => null, 'company' => null, 'is_incomplete' => null];
 
         if ($value === null) {
             return $empty;
@@ -254,6 +256,7 @@ final readonly class CatalogItemListCriteria
             // A company is a name a person wrote, not a code — matched as
             // written, exactly like `category` above.
             'company' => self::text($value['company'] ?? null, 'filter[company]'),
+            'is_incomplete' => self::boolean($value['is_incomplete'] ?? null, 'filter[is_incomplete]'),
         ];
     }
 

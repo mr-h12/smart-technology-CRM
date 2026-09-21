@@ -39,6 +39,7 @@ final class CatalogItemPayload
             'description' => $item->description,
             'notes' => $item->notes,
             'is_active' => $item->isActive,
+            'is_incomplete' => $item->isIncomplete,
             'created_at' => $item->createdAt->format(DATE_ATOM),
             'updated_at' => $item->updatedAt->format(DATE_ATOM),
         ];

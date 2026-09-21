@@ -2151,7 +2151,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             missing `region` is; completing a flagged customer clears it; the three clear-only cases
             as 1.2. `CustomerImportEndpointTest` updated where ruling 1 changes its expectation, named
             case by case. `rtl-ui-verifier`, `waste-auditor`.
-            *(2026-09-21, #PR — `CustomerDraft::EXPECTED`; no existing import assertion flipped, only the
+            *(2026-09-21, #181 — `CustomerDraft::EXPECTED`; no existing import assertion flipped, only the
             Plan-international comment; the browser check completed 4 dev customers, so 1.4's dev
             expectation stays 0 customers.)*
       - [ ] **1.4** The one-off correction: an idempotent artisan command per module (Suppliers,

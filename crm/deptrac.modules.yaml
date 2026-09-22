@@ -660,6 +660,17 @@ parameters:
     Outdoor: ~
     Reports: ~
     Notifications: ~
+    # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
+    # that crosses. Each grant names what the customer's document needs.
+    Pdf:
+      # AdminContract, Point 1.2 — §13 screen 4 and §14.6 make the company's
+      # name, address and phones the Super Admin's settings, read through
+      # `SettingsRepositoryInterface`, never hard-coded into the document.
+      # It points at the contract half only; nothing points at AdminDriver.
+      - AdminContract
+      # CustomersContract, Point 1.2 — the customer's name through
+      # `CustomerNamesInterface` (`D-83`), and nothing else of the customer.
+      - CustomersContract
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

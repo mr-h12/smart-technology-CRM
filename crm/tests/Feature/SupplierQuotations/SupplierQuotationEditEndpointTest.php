@@ -422,6 +422,38 @@ final class SupplierQuotationEditEndpointTest extends TestCase
      * edit as well as the create — `PATCH` replaces the lines, and a name the
      * catalog does not carry becomes a product rather than a `42703`.
      */
+    /**
+     * §5.6 on the edit: the resulting offer, not the payload, must pair every
+     * priced line with a currency. Blanking the pair under existing lines is
+     * refused; naming only the lines is fine while the stored currency stands.
+     */
+    public function test_that_blanking_the_currency_under_priced_lines_is_refused(): void
+    {
+        $id = $this->created();
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['total_price' => null, 'currency_id' => null], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'currency_id');
+
+        self::assertSame($this->currencyId, DB::table('supplier_quotations')->where('id', $id)->value('currency_id'));
+    }
+
+    public function test_that_adding_lines_to_an_offer_without_a_currency_is_refused(): void
+    {
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['total_price' => null, 'currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '10', 'quantity' => '2'],
+        ]], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'currency_id');
+
+        self::assertSame(0, DB::table('supplier_quotation_items')->where('supplier_quotation_id', $id)->whereNull('deleted_at')->count());
+    }
+
     public function test_that_a_replacement_line_may_name_a_product_the_catalog_lacks(): void
     {
         $id = $this->created();

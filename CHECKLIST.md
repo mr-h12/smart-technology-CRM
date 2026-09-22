@@ -2774,6 +2774,25 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             to it. RED first; deptrac mutants. Closes F-14; no screen, so no manual test list.
             *(2026-09-22, #195 — Pdf's grant is Module 9 · 1.2's; a Pdf probe reaches the reader, not the directory)*
 
+- [x] **F-15** *(number proposed; the owner assigns it)* A supplier offer could be saved with priced
+      lines and **no currency** (Module 6), and every customer quotation built on it then hit §5.6's
+      `supplier_price_missing` — the builder showed «سعر المورّد 900.000» and refused to save. Owner's
+      screenshot, 2026-09-22. `D-80` had named this "a correct block on a dead end" and removed only
+      the inability to *pick* a currency; nothing *required* one. Root cause: `SaveSupplierQuotationRequest`
+      ties `currency_id` to `total_price` alone, never to `items`. The fix is one guard,
+      `PricedLinesNeedCurrency`, asked by both write use cases on the **resulting** offer (a `PATCH` of
+      `items` alone passes while the stored currency stands; blanking the pair under lines is refused):
+      §5.6 "Every amount stores: amount · currency". Because the DB CHECK pairs the columns, the total
+      becomes mandatory alongside — **flagged for the owner as the consequence of that reading**. No
+      `D-xx` yet.
+
+      **Not covered:** the builder's line meta still prints the supplier price without its currency
+      code; offers already saved without a currency (`SQ-2026-0001` on the dev database) are not
+      corrected — each needs its currency and total set by hand in «عروض الموردين».
+
+      - [x] **1.1** RED on POST and PATCH (four cases), guard in Create/Update, `ar`/`en` message.
+            Closes F-15; no screen change, so no manual test list beyond the two clicks named in the PR.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

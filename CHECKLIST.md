@@ -2202,7 +2202,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             set of supplier ids and replaces it; the change is audited with old and new. Under
             `catalog.manage`. RED first: add, remove, unchanged set writes no link audit, an unknown id is
             a 422, a role without `catalog.manage` is refused. `permission-matrix-auditor`.
-            *(2026-09-22, #PR — `supplier_ids` is the full set (absent = untouched, `[]` = unlink all); one audit row per
+            *(2026-09-22, #190 — `supplier_ids` is the full set (absent = untouched, `[]` = unlink all); one audit row per
             changed link, `CATALOG_ITEM_SUPPLIER_UNLINKED` soft-deletes it; a deactivated supplier may be linked, unknown or
             soft-deleted is a 422 (owner, 2026-09-22); `suppliers` on the single-item payload only; 15 tests, 10 mutants caught)*
       - [ ] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared

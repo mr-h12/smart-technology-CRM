@@ -20,7 +20,7 @@ import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } fro
  * ── The list has two filters and no search ────────────────────────────────
  *
  * `SupplierQuotationListCriteria::ALLOWED_FILTERS` is `['supplier_id',
- * 'deal_id']` and `ALLOWED_SORTS` is `['offer_date', 'created_at']`, both
+ * 'deal_id', 'deal_code']` and `ALLOWED_SORTS` is `['offer_date', 'created_at']`, both
  * closed sets, and `OpenAPI §6.2` answers anything else with a **400**. There
  * is deliberately no `q` here: this list declares no search, and offering one
  * would produce a runtime 400 rather than a missing feature.
@@ -39,6 +39,8 @@ export interface SupplierQuotation {
     code: string;
     supplier_id: string;
     deal_id: string | null;
+    /** `D-88`: the deal's code beside its id, null when the offer has no deal. */
+    deal_code: string | null;
     total_price: string | null;
     currency_id: string | null;
     offer_date: string | null;
@@ -84,6 +86,8 @@ export interface SupplierQuotationListQuery {
     sort?: string | null;
     supplierId?: string | null;
     dealId?: string | null;
+    /** `D-88`: a fragment of a deal's code; the server trims and matches case-insensitively. */
+    dealCode?: string | null;
 }
 
 /**
@@ -127,6 +131,7 @@ export async function listSupplierQuotations(query: SupplierQuotationListQuery =
         ['sort', query.sort],
         ['filter[supplier_id]', query.supplierId],
         ['filter[deal_id]', query.dealId],
+        ['filter[deal_code]', query.dealCode],
     ] as const) {
         // An unset filter is omitted, never sent empty: `filter[deal_id]=` asks
         // for offers whose deal is the empty string, which is a different

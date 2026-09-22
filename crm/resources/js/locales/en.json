@@ -852,7 +852,8 @@
         "filter": {
             "supplier": "Supplier",
             "supplierAll": "All suppliers",
-            "deal": "Deal",
+            "deal": "Deal code",
+            "dealCodePlaceholder": "DL-2026-0003",
             "dealPlaceholder": "Deal identifier",
             "apply": "Apply"
         },

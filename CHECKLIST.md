@@ -2230,7 +2230,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             flagged row in dev data — 1.9's `.csv` makes one); 18 mutants caught)*
       - [x] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
             refused), a sample `.csv` covering every ruling, AR/EN × desktop/375 px. Closes F-10.
-            *(2026-09-22, #PR — 44 checks; sample file (a) proved on the test database: 18 / 8 / 3, 4 links; files (b)–(e) refused)*
+            *(2026-09-22, #192 — 44 checks; sample file (a) proved on the test database: 18 / 8 / 3, 4 links; files (b)–(e) refused)*
 
       #### قائمة الاختبار اليدوي — F-10 *(النقطة 1.9، 2026-09-22)*
 

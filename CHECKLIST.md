@@ -2212,7 +2212,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `ImportModal`), the incomplete filter and chip, the item's suppliers, and a supplier picker in
             the form. Lang keys AR/EN, `NoHardCodedTextTest`, `rtl-ui-verifier` (AR/EN × desktop/375 px),
             `waste-auditor`.
-            *(2026-09-22, #PR — import button by `catalog.import` on the shared `ImportModal`; incomplete filter + chip; the form reads
+            *(2026-09-22, #191 — import button by `catalog.import` on the shared `ImportModal`; incomplete filter + chip; the form reads
             the item on open and sends `supplier_ids` only when the set changed, never when the suppliers or the item failed to load;
             chip not seen on screen (no flagged row in dev data — 1.9's `.csv` makes one); 11 mutants caught)*
       - [ ] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is

@@ -59,6 +59,20 @@ interface CatalogItemDirectoryInterface
     /** `D-86` (F-10 · 1.5) — one `catalog_item_suppliers` row; its id, for the audit row. */
     public function link(string $catalogItemId, string $supplierId, string $actorId): string;
 
+    /**
+     * `D-86` (F-10 · 1.7) — the live links of one item, as supplier ids.
+     *
+     * @return list<string>
+     */
+    public function supplierIdsOf(string $catalogItemId): array;
+
+    /**
+     * `D-86` (F-10 · 1.7) — retire the live link (`DB-01`: soft delete, never
+     * a row delete) and answer its id for the audit row. Null when no live
+     * link joins the pair.
+     */
+    public function unlinkSupplier(string $catalogItemId, string $supplierId, string $actorId): ?string;
+
     /** `D-86` (F-10 · 1.5) — the one `catalog_import_batches` row of an import. */
     public function recordImportBatch(
         string $originalFilename,

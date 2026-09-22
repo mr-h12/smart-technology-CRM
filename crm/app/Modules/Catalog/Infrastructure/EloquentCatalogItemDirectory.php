@@ -164,6 +164,39 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
         return $id;
     }
 
+    public function supplierIdsOf(string $catalogItemId): array
+    {
+        $ids = DB::table('catalog_item_suppliers')
+            ->where('catalog_item_id', $catalogItemId)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->pluck('supplier_id')
+            ->all();
+
+        return array_values(array_filter($ids, 'is_string'));
+    }
+
+    public function unlinkSupplier(string $catalogItemId, string $supplierId, string $actorId): ?string
+    {
+        $id = DB::table('catalog_item_suppliers')
+            ->where('catalog_item_id', $catalogItemId)
+            ->where('supplier_id', $supplierId)
+            ->whereNull('deleted_at')
+            ->value('id');
+
+        if (! is_string($id)) {
+            return null;
+        }
+
+        DB::table('catalog_item_suppliers')->where('id', $id)->update([
+            'deleted_at' => now(),
+            'updated_by' => $actorId,
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
     public function recordImportBatch(
         string $originalFilename,
         int $rowCount,

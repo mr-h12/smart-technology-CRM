@@ -143,6 +143,14 @@ final class SaveCatalogItemRequest extends FormRequest
             // `D-86`: the importer's flag. An edit may clear it (`SaveCatalogItem`),
             // but no caller writes it, either way.
             'is_incomplete' => ['prohibited'],
+
+            // `D-86` (F-10 · 1.7): the full set of suppliers carrying the item.
+            // Absent leaves the links alone; `[]` unlinks all. Whether an id
+            // names a supplier is `SaveCatalogItem`'s question, through the
+            // lookup Suppliers publishes — never `exists:suppliers`, which
+            // would read another module's table.
+            'supplier_ids' => ['sometimes', 'array'],
+            'supplier_ids.*' => ['uuid', 'distinct'],
         ];
     }
 }

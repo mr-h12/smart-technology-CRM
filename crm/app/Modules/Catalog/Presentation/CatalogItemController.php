@@ -42,24 +42,21 @@ final class CatalogItemController
 
     public function show(Request $request, string $catalogItem, ListCatalogItems $items): JsonResponse
     {
-        return ApiEnvelope::single($request, CatalogItemPayload::of($items->one($catalogItem)));
+        return ApiEnvelope::single($request, CatalogItemPayload::of($items->one($catalogItem), $items->suppliersOf($catalogItem)));
     }
 
-    public function store(SaveCatalogItemRequest $request, SaveCatalogItem $items): JsonResponse
+    public function store(SaveCatalogItemRequest $request, SaveCatalogItem $items, ListCatalogItems $reader): JsonResponse
     {
-        return ApiEnvelope::single(
-            $request,
-            CatalogItemPayload::of($items->create($request->validated(), self::actorId($request))),
-            201,
-        );
+        $item = $items->create($request->validated(), self::actorId($request));
+
+        return ApiEnvelope::single($request, CatalogItemPayload::of($item, $reader->suppliersOf($item->id)), 201);
     }
 
-    public function update(SaveCatalogItemRequest $request, string $catalogItem, SaveCatalogItem $items): JsonResponse
+    public function update(SaveCatalogItemRequest $request, string $catalogItem, SaveCatalogItem $items, ListCatalogItems $reader): JsonResponse
     {
-        return ApiEnvelope::single(
-            $request,
-            CatalogItemPayload::of($items->update($catalogItem, $request->validated(), self::actorId($request))),
-        );
+        $item = $items->update($catalogItem, $request->validated(), self::actorId($request));
+
+        return ApiEnvelope::single($request, CatalogItemPayload::of($item, $reader->suppliersOf($item->id)));
     }
 
     /** `D-86` (F-10 · 1.5) — the counts of one import; the file itself is not kept. */

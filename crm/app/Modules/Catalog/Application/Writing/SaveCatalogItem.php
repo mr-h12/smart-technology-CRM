@@ -14,6 +14,7 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
 use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
 use App\Modules\Catalog\Domain\Writing\CatalogItemDraft;
+use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -54,6 +55,7 @@ final readonly class SaveCatalogItem
         private ConnectionInterface $connection,
         private ManagedListRepositoryInterface $lists,
         private AddListEntry $companies,
+        private SupplierLookupInterface $suppliers,
     ) {}
 
     /** @param  array<string, mixed>  $validated */
@@ -74,6 +76,8 @@ final readonly class SaveCatalogItem
                 null,
                 $draft->attributes,
             );
+
+            $this->syncSuppliers($item->id, $validated, $actorId);
 
             return $item;
         });
@@ -123,8 +127,71 @@ final readonly class SaveCatalogItem
                 );
             }
 
+            $this->syncSuppliers($catalogItemId, $validated, $actorId);
+
             return $after;
         });
+    }
+
+    /**
+     * `D-86` (F-10 · 1.7) — the item's suppliers, edited by hand.
+     *
+     * `supplier_ids` is the **full set**: absent means the links are not this
+     * request's business, `[]` means unlink all. Each link that appears or
+     * disappears gets its own audit row on the link (`AUD-02`, old and new),
+     * the shape the import chose for `CATALOG_ITEM_SUPPLIER_LINKED`; a set
+     * that does not change writes none.
+     *
+     * The existence check goes through the lookup Suppliers publishes, never
+     * its table (`D-86`). `namesFor` omits unknown and soft-deleted ids and
+     * keeps deactivated ones, which is exactly the owner's line (A2, and again
+     * on 2026-09-22): a dormant supplier may still be linked by hand.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncSuppliers(string $catalogItemId, array $validated, string $actorId): void
+    {
+        if (! array_key_exists('supplier_ids', $validated) || ! is_array($validated['supplier_ids'])) {
+            return;
+        }
+
+        $wanted = array_values(array_filter($validated['supplier_ids'], 'is_string'));
+
+        if (count($this->suppliers->namesFor($wanted)) !== count($wanted)) {
+            throw ValidationException::withMessages([
+                'supplier_ids' => [(string) __('catalog.validation.unknown_supplier')],
+            ]);
+        }
+
+        $current = $this->items->supplierIdsOf($catalogItemId);
+
+        foreach (array_diff($wanted, $current) as $supplierId) {
+            $linkId = $this->items->link($catalogItemId, $supplierId, $actorId);
+
+            $this->audit->record(
+                AuditEvent::of('CATALOG_ITEM_SUPPLIER_LINKED'),
+                'catalog_item_supplier',
+                $linkId,
+                null,
+                ['catalog_item_id' => $catalogItemId, 'supplier_id' => $supplierId],
+            );
+        }
+
+        foreach (array_diff($current, $wanted) as $supplierId) {
+            $linkId = $this->items->unlinkSupplier($catalogItemId, $supplierId, $actorId);
+
+            if ($linkId === null) {
+                continue;
+            }
+
+            $this->audit->record(
+                AuditEvent::of('CATALOG_ITEM_SUPPLIER_UNLINKED'),
+                'catalog_item_supplier',
+                $linkId,
+                ['catalog_item_id' => $catalogItemId, 'supplier_id' => $supplierId],
+                null,
+            );
+        }
     }
 
     /**

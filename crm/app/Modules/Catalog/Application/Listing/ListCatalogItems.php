@@ -9,6 +9,7 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemListCriteria;
 use App\Modules\Catalog\Domain\Listing\CatalogItemNotFound;
 use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
+use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
 
 /**
  * §8's Catalog screen — the list and the detail.
@@ -20,7 +21,10 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
  */
 final readonly class ListCatalogItems
 {
-    public function __construct(private CatalogItemDirectoryInterface $items) {}
+    public function __construct(
+        private CatalogItemDirectoryInterface $items,
+        private SupplierLookupInterface $suppliers,
+    ) {}
 
     public function handle(CatalogItemListCriteria $criteria): CatalogItemPage
     {
@@ -37,5 +41,26 @@ final readonly class ListCatalogItems
         }
 
         return $item;
+    }
+
+    /**
+     * `D-86` (F-10 · 1.7) — the item's live links with the supplier's name,
+     * resolved through the lookup Suppliers publishes. One item at a time:
+     * the list rows do not carry it (`ponytail:` no N-query list; add a batch
+     * read when a list screen needs the names).
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    public function suppliersOf(string $catalogItemId): array
+    {
+        $names = $this->suppliers->namesFor($this->items->supplierIdsOf($catalogItemId));
+
+        $suppliers = [];
+
+        foreach ($names as $id => $name) {
+            $suppliers[] = ['id' => (string) $id, 'name' => $name];
+        }
+
+        return $suppliers;
     }
 }

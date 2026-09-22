@@ -932,7 +932,7 @@ would hide them behind `OD-03` indefinitely.
       through the item). So 6.5 lists lines by number and 6.7 edits them by number. One field on the
       detail — the catalog label through `SupplierItemPricingInterface`'s join, which already touches
       `supplier_quotation_items` — names the line on both screens. Not built here: a cross-module
-      contract widening is its own point.
+      contract widening is its own point. *(2026-09-22, #200 — F-16 · 1.1: `CatalogItemLabelsInterface`, not the pricing join)*
 
 - [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
       knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
@@ -2804,6 +2804,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             service's `service_type`), outside §3.5's cost grant. A narrow Catalog contract
             `CatalogItemLabelsInterface` (Quotations → `CatalogContract`); `SupplierItemPrice` carries its
             `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.
+            *(2026-09-22, #200 — `product_name` rides `quotation.view`, not the cost grant; null when unnamed)*
 
 ## Shell revisions — owner-directed
 

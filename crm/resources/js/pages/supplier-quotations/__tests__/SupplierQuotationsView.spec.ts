@@ -18,8 +18,8 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
  * silently claims to have narrowed all of them, so every assertion about a
  * filter or a sort below reads the **query string**, never the rendered rows.
  *
- * The declared surface is `SupplierQuotationListCriteria`'s: **two** filters
- * (`supplier_id`, `deal_id`), two sorts (`offer_date`, `created_at`),
+ * The declared surface is `SupplierQuotationListCriteria`'s: **three** filters
+ * (`supplier_id`, `deal_id`, `deal_code`), two sorts (`offer_date`, `created_at`),
  * `DEFAULT_SORT = offer_date` descending, and **no search at all**.
  * `OpenAPI §6.2` answers anything else with a 400.
  *
@@ -50,6 +50,7 @@ const OFFER = {
     code: 'SQ-2026-0001',
     supplier_id: 's1',
     deal_id: null,
+    deal_code: null,
     total_price: '4500.000000',
     currency_id: 'c1',
     offer_date: '2026-09-01',
@@ -270,6 +271,38 @@ describe('the supplier quotations screen', () => {
         await flushPromises();
 
         expect(offersUrl(fetchMock)).toContain('filter%5Bsupplier_id%5D=s1');
+    });
+
+    /** `D-88`: the box is a deal-code fragment, not the deal's UUID. */
+    it('sends the deal box as filter[deal_code], never deal_id', async () => {
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+
+        const box = wrapper.find('[data-testid="supplier-quotations-filter-deal"]');
+
+        // Its own key: the form modal's UUID field shares `filter.dealPlaceholder`.
+        expect(box.attributes('placeholder')).toBe(en.supplierQuotations.filter.dealCodePlaceholder);
+
+        await box.setValue('0003');
+        await wrapper.find('[data-testid="supplier-quotations-filters"]').trigger('submit');
+        await flushPromises();
+
+        expect(offersUrl(fetchMock)).toContain('filter%5Bdeal_code%5D=0003');
+        expect(offersUrl(fetchMock)).not.toContain('deal_id');
+    });
+
+    it('shows the deal code in the deal column, and the none text without one', async () => {
+        const fetchMock = respond([
+            { ...OFFER, id: 'q1', deal_id: 'd1', deal_code: 'DL-2026-0003' },
+            { ...OFFER, id: 'q2', code: 'SQ-2026-0002' },
+        ]);
+        const wrapper = await render(fetchMock);
+
+        const text = wrapper.text();
+
+        expect(text).toContain('DL-2026-0003');
+        expect(text).not.toContain('d1');
+        expect(text).toContain(en.supplierQuotations.deal.none);
     });
 
     it('never sends a search parameter, because this list declares none', async () => {

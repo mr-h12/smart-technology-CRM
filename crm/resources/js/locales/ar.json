@@ -852,7 +852,8 @@
         "filter": {
             "supplier": "المورّد",
             "supplierAll": "كل المورّدين",
-            "deal": "الصفقة",
+            "deal": "رمز الصفقة",
+            "dealCodePlaceholder": "DL-2026-0003",
             "dealPlaceholder": "معرّف الصفقة",
             "apply": "تطبيق"
         },

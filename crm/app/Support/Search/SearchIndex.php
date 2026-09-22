@@ -70,11 +70,13 @@ enum SearchIndex: string
             self::Catalog => ['name', 'category'],
 
             // `title` is the one free-text field §4.3 names for a deal —
-            // "Short description of the request" — and the only column a
-            // caller's typed words could plausibly mean. `code` is a lookup by
-            // an exact known value, not a search, and no other column on the
-            // table is free text.
-            self::Deals => ['title'],
+            // "Short description of the request". `code` joined it with
+            // `D-88` (F-13 · 1.2, 2026-09-22): a person finds a supplier offer
+            // by a fragment of its deal's code (`0003`, `2026-00`), and that
+            // search passes through here like every other (OpenAPI §6.2) —
+            // so the deals list's own `q` finds by code too, which the owner
+            // accepted. `title` stays first: it orders the capped truncation.
+            self::Deals => ['title', 'code'],
         };
     }
 

@@ -297,12 +297,14 @@ class AppServiceProvider extends ServiceProvider
         // Module 7 Point 3.4. The read a scoped `quotation.create` forces on a
         // deal — its owner (the owner's 2026-09-11 ruling: a quotation's "own"
         // is its deal's `owner_id`) and its customer, which the quotation's own
-        // `customer_id` must match. `bind` and `ConnectionInterface` alone, as
-        // for the supplier price above: two columns by primary key.
+        // `customer_id` must match. `bind`, as for the supplier price above:
+        // columns by primary key. `SearchService` joined with `D-88` (F-13 · 1.2)
+        // for the code fragment, which passes through it like every search.
         $this->app->bind(
             DealFactsInterface::class,
             fn (): EloquentDealFacts => new EloquentDealFacts(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(SearchService::class),
             ),
         );
 

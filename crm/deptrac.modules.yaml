@@ -566,6 +566,12 @@ parameters:
       # question asked is only "does this actor hold `supplier_quotation.view`".
       - StorageContract
       - IdentityContract
+      # DealsContract, added 2026-09-22 with F-13 · 1.2 (`D-88`). An offer is
+      # searched by a fragment of its deal's code and shows that code beside
+      # `deal_id`, and the codes live on `deals` — so the module reads them
+      # through `DealFactsInterface` (`dealIdsMatchingCode`, `codesOf`), never
+      # the table, on Quotations' terms above. The first caller is F-13 · 1.3.
+      - DealsContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

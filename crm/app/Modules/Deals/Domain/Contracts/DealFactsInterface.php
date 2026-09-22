@@ -46,4 +46,25 @@ interface DealFactsInterface
      * @return array<string, ?string>
      */
     public function ownersOf(array $dealIds): array;
+
+    /**
+     * The live deals whose code contains $fragment (`D-88`, F-13 · 1.2) —
+     * what SupplierQuotations' `filter[deal_code]` becomes (`WHERE deal_id IN`).
+     * Through `SearchService`, so trimmed, any case, and `DB-01`-live; its
+     * blank-query refusal and result cap are the caller's to know.
+     *
+     * @return list<string>
+     *
+     * @throws \InvalidArgumentException on a blank fragment
+     */
+    public function dealIdsMatchingCode(string $fragment): array;
+
+    /**
+     * Deal id => code for one page's offers (`D-88`'s `deal_code`). An absent
+     * or soft-deleted id has no entry; the empty list answers `[]` without a query.
+     *
+     * @param  list<string>  $dealIds
+     * @return array<string, string>
+     */
+    public function codesOf(array $dealIds): array;
 }

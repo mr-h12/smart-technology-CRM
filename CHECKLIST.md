@@ -2793,14 +2793,14 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.1** RED on POST and PATCH (four cases), guard in Create/Update, `ar`/`en` message.
             Closes F-15; no screen change, so no manual test list beyond the two clicks named in the PR.
 
-- [ ] **F-16** A customer-quotation line names its product. The owner's report (2026-09-22): the
+- [x] **F-16** A customer-quotation line names its product. The owner's report (2026-09-22): the
       detail's lines table and the edit form list lines by number alone. The open debt row "A quotation
       line is unnamed on the wire" (Module 7 · 6.7). Ruling: the server sends the name. No `D-xx`: it
       closes a recorded gap and changes no rule.
 
       ### F-16 point list — approved 2026-09-22 in conversation
 
-      - [ ] **1.1** `items[].product_name` on every quotation-detail response (§7.3 label: `name`, or a
+      - [x] **1.1** `items[].product_name` on every quotation-detail response (§7.3 label: `name`, or a
             service's `service_type`), outside §3.5's cost grant. A narrow Catalog contract
             `CatalogItemLabelsInterface` (Quotations → `CatalogContract`); `SupplierItemPrice` carries its
             `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.

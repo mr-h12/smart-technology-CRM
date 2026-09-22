@@ -2646,7 +2646,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
             *(2026-09-22, #197 — the filter has its own placeholder key; the form modal keeps `filter.dealPlaceholder`)*
       - [x] **1.5** Manual test list for F-13 in Arabic. Closes F-13.
-            *(2026-09-22, #PRN — 27 checks; opens with the data it needs, since the dev database was reset the same day)*
+            *(2026-09-22, #198 — 27 checks; opens with the data it needs, since the dev database was reset the same day)*
 
       #### قائمة الاختبار اليدوي — F-13 *(النقطة 1.5، 2026-09-22)*
 

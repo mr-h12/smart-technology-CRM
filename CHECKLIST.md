@@ -3265,7 +3265,7 @@ as the reasons two boxes will not close in this module, not as oversights.
 
       *(2026-09-13, #118 — three guards, each proven by a probe that broke it.)*
 
-- [ ] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
+- [x] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
       `CustomerQuotationView`, the only place the two vocabularies meet, reading through
       `QuotationReaderInterface` (F-14) and never through an Eloquent model of Yousef's. Company
       identity (name, logo, address, phones) comes from Settings, not hard-coded — `§13` screen 4
@@ -3275,21 +3275,11 @@ as the reasons two boxes will not close in this module, not as oversights.
       values anywhere in the string — the acceptance criterion "no supplier name or price anywhere
       in the PDF" tested at the model rather than by reading a rendered page.
 
-      *(2026-09-22, built locally, **not pushed** — waiting on two things from Module 7's owner,
-      requested, not worked around:)*
-      ⚠️ **No `QuotationsContract` layer exists.** `QuotationDirectoryInterface` and the
-      `Domain\Listing` classes sit in the `Quotations` layer beside its Eloquent models, so `Pdf`
-      can only be granted the whole module — the reach this point forbids. `deptrac.modules.yaml`
-      reports **7 violations** until the owner publishes the contract half, as `SuppliersContract`
-      was (F-10 · 1.4). Requested with a read-only lookup rather than the full directory, which
-      also creates, updates and deletes.
-      ⚠️ **`QuotationLine` carries no description** — only `supplierQuotationItemId`. The mapper
-      asks `Pdf\Domain\Contracts\LineDescriptionsInterface`, which has **no implementation and no
-      binding** on purpose: the answer lives in SupplierQuotations → Catalog and is requested from
-      their owner. Owed before Step 3's endpoint, not before this point.
-      **Open:** `customerContact` is `null` — `QuotationDetail` carries no contact, and which of a
-      customer's contacts the PDF addresses is undecided. Grants added inside our block:
-      `AdminContract` (company identity from Settings) and `CustomersContract` (`D-83` name).
+      *(2026-09-22, #PR — sixteen supplier/cost values absent from the JSON; read through F-14's
+      `QuotationReaderInterface`.)* **Open, not hidden:** `LineDescriptionsInterface` has no binding
+      yet — owed before Step 3's endpoint, and now buildable inside `Pdf` from `SupplierItemPrice`'s
+      `catalog_item_id` + `CatalogItemLabelsInterface` (#200); `customerContact` is `null` because
+      `QuotationDetail` carries no contact and which one the PDF addresses is undecided.
 
 - [ ] **1.3** `quotation_files` + `AttachmentParent::Quotation` — one migration creating the pivot
       on the exact shape of `deal_files` (composite primary key, `file_id` index, `file_id`

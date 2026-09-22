@@ -12,7 +12,7 @@ use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationView;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
-use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
@@ -30,8 +30,8 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
  * writes it into this class by hand — the reason 1.1's view is a separate
  * vocabulary in the first place.
  *
- * - **From the quotation** (`QuotationDirectoryInterface`, never an Eloquent
- *   model of Module 7's): code, dates, currency code, the money chain §5 fixed
+ * - **From the quotation** (`QuotationReaderInterface`, Module 7's read-only
+ *   contract from F-14 · 1.1, never an Eloquent model of Module 7's): code, dates, currency code, the money chain §5 fixed
  *   when it was priced, the two percentages the labels need, and the prose.
  *   `defaultMargin`, `status`, the approval marks and every line's cost fields
  *   and `supplierQuotationItemId` stay behind.
@@ -65,7 +65,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 final readonly class CustomerQuotationViewMapper
 {
     public function __construct(
-        private QuotationDirectoryInterface $quotations,
+        private QuotationReaderInterface $quotations,
         private SettingsRepositoryInterface $settings,
         private CustomerNamesInterface $customerNames,
         private LineDescriptionsInterface $lineDescriptions,

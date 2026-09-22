@@ -10,16 +10,11 @@ use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
-use App\Modules\Quotations\Domain\Access\QuotationRowScope;
-use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
-use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
-use App\Modules\Quotations\Domain\Listing\QuotationPage;
-use App\Modules\Quotations\Domain\Listing\QuotationSummary;
-use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use ArrayObject;
 use DateTimeImmutable;
 use LogicException;
@@ -222,45 +217,15 @@ final class CustomerQuotationViewMapperTest extends TestCase
         );
     }
 
-    private static function directory(QuotationDetail $quotation): QuotationDirectoryInterface
+    private static function directory(QuotationDetail $quotation): QuotationReaderInterface
     {
-        return new class($quotation) implements QuotationDirectoryInterface
+        return new class($quotation) implements QuotationReaderInterface
         {
             public function __construct(private readonly QuotationDetail $quotation) {}
 
             public function find(string $quotationId): ?QuotationDetail
             {
                 return $quotationId === $this->quotation->id ? $this->quotation : null;
-            }
-
-            public function create(QuotationDraft $draft, string $actorId): QuotationSummary
-            {
-                throw new LogicException('The mapper only reads.');
-            }
-
-            public function update(string $quotationId, QuotationDraft $draft, int $expectedToken, string $actorId): bool
-            {
-                throw new LogicException('The mapper only reads.');
-            }
-
-            public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool
-            {
-                throw new LogicException('The mapper only reads.');
-            }
-
-            public function copy(string $parentId, string $actorId): QuotationSummary
-            {
-                throw new LogicException('The mapper only reads.');
-            }
-
-            public function delete(string $quotationId, int $expectedToken, string $actorId): bool
-            {
-                throw new LogicException('The mapper only reads.');
-            }
-
-            public function list(QuotationListCriteria $criteria, QuotationRowScope $scope): QuotationPage
-            {
-                throw new LogicException('The mapper only reads.');
             }
         };
     }

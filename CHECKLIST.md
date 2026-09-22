@@ -2633,7 +2633,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       - [x] **1.1** `D-88` in §2 (proposed) + this block + the form's debt row. Docs only — the `D-88` row is
             pasted by the owner, as `D-86` was.
-            *(2026-09-22, #PR — the `D-88` row's text and its paste script are in the PR description)*
+            *(2026-09-22, #193 — the `D-88` row's text and its paste script are in the PR description)*
       - [ ] **1.2** Deals: `code` joins `SearchIndex::Deals`; `DealFactsInterface` gains a code fragment ⇒ deal
             ids (through `SearchService`) and deal ids ⇒ codes (one page, no query for `[]`); `DealsContract`
             granted to SupplierQuotations. RED first; mutants, and a deptrac mutant.

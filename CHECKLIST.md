@@ -2666,6 +2666,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `QuotationsContract` deptrac layer (the reader + `QuotationDetail`, `QuotationLine`,
             `QuotationAdditionalLine`, `QuotationNotFound`), collected out of `Quotations` and granted
             to it. RED first; deptrac mutants. Closes F-14; no screen, so no manual test list.
+            *(2026-09-22, #195 — Pdf's grant is Module 9 · 1.2's; a Pdf probe reaches the reader, not the directory)*
 
 ## Shell revisions — owner-directed
 

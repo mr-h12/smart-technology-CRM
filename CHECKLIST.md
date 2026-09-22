@@ -1050,6 +1050,11 @@ would hide them behind `OD-03` indefinitely.
       `CustomerPicker`'s search and keyboard, 137 of its 246 lines identical. It was copied, not extracted,
       so a catalog point would not rewrite the picker the quotations and deals screens use. One shared combobox
       is now three consumers' fix (customers, catalog suppliers, and these two supplier-quotation controls).
+- [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
+      the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
+      is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
+      attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
+      describes), or a code resolved server-side on save, when ordered.
 - [ ] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
       (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
       `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls
@@ -2594,6 +2599,50 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       باليد (لا يُعلَّم أصلًا)؛ كشف التكرار في الاستيراد؛ **عمود القطاع في `/customers` يطبع الرمز
       (`medical`) لا اسمه** — دَين مسجَّل ويبقى مفتوحًا؛ استبعاد المعلَّمين من التقارير المالية (§11) — الوحدة 13
       لم تُبنَ بعد؛ والتواريخ بالأرقام العربية الهندية (F-12، غير مطلوبة).
+
+- [ ] **F-13** «عروض الموردين» searches offers by the deal's internal UUID, which nobody knows, and shows
+      that UUID in its deal column (Module 6). Owner's request, 2026-09-22, "last change before module 10":
+      search by the deal's code instead. The owner gave it **F-13** (F-12 stays the unordered dates
+      candidate). The decision is **`D-88`** (proposed).
+
+      **The owner's rulings (2026-09-22, in conversation):**
+      1. **The search box and the deal column change; the offer form does not.** The form's deal field
+         keeps taking a UUID — a debt row, not part of F-13.
+      2. **A partial code matches**: `0003` or `2026-00` finds every offer whose deal's code contains it,
+         any case, surrounding spaces ignored.
+      3. **An offer with no deal is excluded** from a code search (it has no code to match); the column
+         keeps saying «بلا صفقة» for it.
+      4. **The code joins the deals search index**, so the search goes through `SearchService` like every
+         other search — and the **deals screen's own search box then finds a deal by its code too**
+         (accepted as a side effect).
+
+      **Measured 2026-09-22, not recalled:**
+      1. `SupplierQuotationListCriteria` (`:185-186`) filters on `supplier_id` and `deal_id` only, both UUIDs;
+         the screen's box (`SupplierQuotationsView.vue:267`) is a raw text input whose own comment calls it a
+         ceiling "Module 5 replaces with a picker" — Module 5 closed without replacing it.
+      2. The payload carries `deal_id` alone (`SupplierQuotationPayload.php:40`); the column prints it raw.
+      3. `SearchIndex::Deals` indexes `title` only (`SearchIndex.php:77`), so no search finds a deal by code today.
+      4. Deals already publishes `DealFactsInterface` in the `DealsContract` deptrac layer, granted to
+         Quotations; **SupplierQuotations is not granted it**, and may not read `deals` directly.
+      5. Dev data: 12 deals (`DL-2026-0001`…), 5 offers, 2 of them on a deal.
+
+      **Not covered by F-13:** the offer form's deal field (debt row); a deal picker; searching offers by
+      anything else of the deal (title, customer).
+
+      ### F-13 point list — published 2026-09-22, approved in conversation; recorded by merging this point
+
+      - [x] **1.1** `D-88` in §2 (proposed) + this block + the form's debt row. Docs only — the `D-88` row is
+            pasted by the owner, as `D-86` was.
+            *(2026-09-22, #193 — the `D-88` row's text and its paste script are in the PR description)*
+      - [ ] **1.2** Deals: `code` joins `SearchIndex::Deals`; `DealFactsInterface` gains a code fragment ⇒ deal
+            ids (through `SearchService`) and deal ids ⇒ codes (one page, no query for `[]`); `DealsContract`
+            granted to SupplierQuotations. RED first; mutants, and a deptrac mutant.
+      - [ ] **1.3** SupplierQuotations API: `filter[deal_code]` (partial, trimmed, case-insensitive; with the
+            supplier filter and the row scope; an offer with no deal never matches) and `deal_code` on the list
+            and the single offer. RED first. `permission-matrix-auditor`.
+      - [ ] **1.4** The screen: the box becomes «رمز الصفقة» (placeholder `DL-2026-0003`), the column shows the
+            code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
+      - [ ] **1.5** Manual test list for F-13 in Arabic. Closes F-13.
 
 ## Shell revisions — owner-directed
 

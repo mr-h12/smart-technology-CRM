@@ -9,6 +9,11 @@ return [
 
     'not_found' => 'This catalog item was not found.',
 
+    // D-86 (F-10 · 1.7) — the suppliers linked by hand on the item.
+    'validation' => [
+        'unknown_supplier' => 'One of these suppliers is not in the system.',
+    ],
+
     // D-86's import file (F-10 · 1.5) — the messages `App\Support\Csv\CsvReader`
     // raises, in the catalog's words.
     'import' => [

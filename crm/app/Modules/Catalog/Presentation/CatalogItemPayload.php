@@ -24,8 +24,11 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
  */
 final class CatalogItemPayload
 {
-    /** @return array<string, mixed> */
-    public static function of(CatalogItemSummary $item): array
+    /**
+     * @param  list<array{id: string, name: string}>  $suppliers  `D-86` (F-10 · 1.7): the live links, with the supplier's name only — never its prices (§7.3)
+     * @return array<string, mixed>
+     */
+    public static function of(CatalogItemSummary $item, array $suppliers = []): array
     {
         return [
             'id' => $item->id,
@@ -40,6 +43,7 @@ final class CatalogItemPayload
             'notes' => $item->notes,
             'is_active' => $item->isActive,
             'is_incomplete' => $item->isIncomplete,
+            'suppliers' => $suppliers,
             'created_at' => $item->createdAt->format(DATE_ATOM),
             'updated_at' => $item->updatedAt->format(DATE_ATOM),
         ];

@@ -3345,7 +3345,7 @@ printed blank.
       render in the `pdf` image (`%PDF-`, Noto Sans Arabic embedded), and the `app` image refusing
       by name, at once, instead of waiting out a timeout.
 
-      *(2026-09-22, #PR — chromium flags are `verify.php`'s; JavaScript off because the sandbox is.)*
+      *(2026-09-22, #204 — chromium flags are `verify.php`'s; JavaScript off because the sandbox is.)*
 - [ ] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
       embedded base64. *Verified by* a test that the template references no OS font and no URL.
 - [ ] **2.3** `subject` (the deal's title, through Deals' own contract) and `signatoryName` (the

@@ -3275,7 +3275,7 @@ as the reasons two boxes will not close in this module, not as oversights.
       values anywhere in the string — the acceptance criterion "no supplier name or price anywhere
       in the PDF" tested at the model rather than by reading a rendered page.
 
-      *(2026-09-22, #PR — sixteen supplier/cost values absent from the JSON; read through F-14's
+      *(2026-09-22, #201 — sixteen supplier/cost values absent from the JSON; read through F-14's
       `QuotationReaderInterface`.)* **Open, not hidden:** `LineDescriptionsInterface` has no binding
       yet — owed before Step 3's endpoint, and now buildable inside `Pdf` from `SupplierItemPrice`'s
       `catalog_item_id` + `CatalogItemLabelsInterface` (#200); `customerContact` is `null` because

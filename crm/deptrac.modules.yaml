@@ -376,6 +376,11 @@ parameters:
           value: ^Symfony\\.*
         - type: classLike
           value: ^Laravel\\.*
+    # Module 9, Point 2.1 — the PDF engine, granted to `Pdf` alone.
+    - name: Browsershot
+      collectors:
+        - type: classLike
+          value: ^Spatie\\Browsershot\\.*
 
   ruleset:
     # Customers → Framework, SharedContracts, IdentityContract, added 2026-08-30
@@ -709,6 +714,11 @@ parameters:
     Outdoor: ~
     Reports: ~
     Notifications: ~
+    # Pdf, Module 9. Each grant names the point that needed it.
+    Pdf:
+      # Browsershot, Point 2.1 — `BrowsershotPdfRenderer` drives the `pdf`
+      # image's Chromium (`D-57`); no other module may.
+      - Browsershot
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

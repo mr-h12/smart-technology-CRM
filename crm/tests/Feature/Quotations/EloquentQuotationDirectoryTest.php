@@ -6,6 +6,7 @@ namespace Tests\Feature\Quotations;
 
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
@@ -89,6 +90,30 @@ final class EloquentQuotationDirectoryTest extends TestCase
             EloquentQuotationDirectory::class,
             $this->app->make(QuotationDirectoryInterface::class),
         );
+    }
+
+    // ── F-14 · 1.1: the read-only contract another module may be granted ────
+
+    /** The narrow read resolves to the same directory, so there is one `find()`, not two. */
+    public function test_that_the_read_contract_resolves_to_the_eloquent_directory(): void
+    {
+        self::assertInstanceOf(
+            EloquentQuotationDirectory::class,
+            $this->app->make(QuotationReaderInterface::class),
+        );
+    }
+
+    /** `DB-01`: through the reader, a live quotation is found and a soft-deleted or unknown one is absent. */
+    public function test_that_the_reader_finds_live_quotations_only(): void
+    {
+        $reader = $this->app->make(QuotationReaderInterface::class);
+        $live = $this->directory()->create($this->draft(), $this->actorId);
+        $deleted = $this->directory()->create($this->draft(), $this->actorId);
+        DB::table('quotations')->where('id', $deleted->id)->update(['deleted_at' => now()]);
+
+        self::assertSame($live->id, $reader->find($live->id)?->id);
+        self::assertNull($reader->find($deleted->id));
+        self::assertNull($reader->find(Uuid::uuid4()->toString()));
     }
 
     // ─────────────────────────────────────────────────────── §4.7's `QT-` code

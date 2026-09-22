@@ -2645,6 +2645,28 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
       - [ ] **1.5** Manual test list for F-13 in Arabic. Closes F-13.
 
+- [x] **F-14** Quotations publishes a read-only contract for Pdf. Requested by the second developer
+      before Module 9 · 1.2: Pdf could be granted only the whole Quotations layer, Eloquent models
+      included. The owner filed it as **F-14** and paused F-13 at 1.3 for it (2026-09-22). No `D-xx`:
+      it narrows an existing seam (modules communicate through interfaces, `CLAUDE.md`) and changes no
+      behaviour.
+
+      **The owner's rulings (2026-09-22):** Pdf's grant of `QuotationsContract` arrives with Module 9 ·
+      1.2, per Pdf's own "a grant arrives with the point that uses it"; 1.2's wording names the new
+      interface; the list is one point.
+
+      **Not covered by F-14:** the teammate's item 2 (supplier-quotation item ⇒ the catalog item's
+      customer-facing description, before Module 9 Step 3). That belongs to Catalog/SupplierQuotations,
+      not Quotations, and will be its own contract; `QuotationLine::supplierQuotationItemId` stays as
+      its key. `find()` is unscoped, so Pdf applies §3.5's generate scope itself (`DealsContract`).
+
+      ### F-14 point list — published and approved 2026-09-22 in conversation
+
+      - [x] **1.1** `QuotationReaderInterface::find()`; `QuotationDirectoryInterface` extends it; a
+            `QuotationsContract` deptrac layer (the reader + `QuotationDetail`, `QuotationLine`,
+            `QuotationAdditionalLine`, `QuotationNotFound`), collected out of `Quotations` and granted
+            to it. RED first; deptrac mutants. Closes F-14; no screen, so no manual test list.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module
@@ -3106,7 +3128,7 @@ as the reasons two boxes will not close in this module, not as oversights.
 
 - [ ] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
       `CustomerQuotationView`, the only place the two vocabularies meet, reading through
-      `QuotationDirectoryInterface` and never through an Eloquent model of Yousef's. Company
+      `QuotationReaderInterface` (F-14) and never through an Eloquent model of Yousef's. Company
       identity (name, logo, address, phones) comes from Settings, not hard-coded — `§13` screen 4
       and `§14.6` both require it. *Verified by* a three-supplier quotation whose
       `QuotationDetail` holds three distinct `supplierQuotationItemId` values and three different

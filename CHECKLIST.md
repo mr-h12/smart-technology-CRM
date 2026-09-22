@@ -3297,7 +3297,7 @@ as the reasons two boxes will not close in this module, not as oversights.
       duplicate attach refused by the primary key rather than by a pre-check, and
       `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
 
-      *(2026-09-22, #PR — fifth pivot with its parent key from day one; the permission composite
+      *(2026-09-22, #203 — fifth pivot with its parent key from day one; the permission composite
       refuses a quotation file until Step 4.)* The owed list stays at two, not "one entry shorter":
       it is computed from missing parent tables, and `quotations` already existed.
 

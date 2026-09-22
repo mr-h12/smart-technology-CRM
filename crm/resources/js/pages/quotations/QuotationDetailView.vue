@@ -420,6 +420,7 @@ onMounted(refresh);
                         <thead>
                             <tr class="table-head">
                                 <th scope="col" class="p-3 text-start">#</th>
+                                <th scope="col" class="p-3 text-start">{{ t('quotations.detail.product') }}</th>
                                 <th scope="col" class="p-3 text-end">{{ t('quotations.detail.quantity') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.unitCost') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.margin') }}</th>
@@ -430,6 +431,7 @@ onMounted(refresh);
                         <tbody>
                             <tr v-for="line in quotation.items" :key="line.id" class="table-row">
                                 <td class="p-3 tabular-nums">{{ line.line_no }}</td>
+                                <td class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
                                 <td class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayDecimals(line.quantity) }}</td>
                                 <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(displayDecimals(line.unit_cost)) }}</td>
                                 <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-margin_percent">{{ percent(line.margin_percent) }}</td>

@@ -88,6 +88,8 @@ parameters:
           must_not:
             - type: classLike
               value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+            - type: classLike
+              value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogItemLabelsInterface$
     # `SupplierItemPricingInterface` and its result `SupplierItemPrice` are
     # collected out here, the way `Catalog` collects its provisioner out above:
     # a class caught by both this module-wide directory and the narrow
@@ -206,6 +208,9 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+        # F-16 · 1.1: a quotation line's product name — strings in and out too.
+        - type: classLike
+          value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogItemLabelsInterface$
     # Suppliers' published lookup, added with F-10 · 1.4 — `D-86`'s import turns
     # a `supplier` cell into ids, and Catalog may not read `suppliers` itself.
     # Strings in and out, so one classLike holds it, as `CatalogContract` does.
@@ -521,6 +526,9 @@ parameters:
       - SupplierQuotationsContract
       - DealsContract
       - IdentityContract
+      # CatalogContract, F-16 · 1.1: the product name on a quotation line
+      # (`CatalogItemLabelsInterface`), which Quotations may not read itself.
+      - CatalogContract
       # QuotationsContract, F-14 · 1.1: the module's own read half, collected
       # out by the narrow classLikes above, as Suppliers' grant of SuppliersContract.
       - QuotationsContract

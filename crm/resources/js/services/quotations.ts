@@ -50,6 +50,8 @@ export interface QuotationLine {
     id: string;
     line_no: number;
     supplier_quotation_item_id: string;
+    /** F-16 · 1.1: the catalog item's name (a service's `service_type`); null when its supplier line is archived. */
+    product_name: string | null;
     quantity: string;
     unit_price: string;
     line_total: string;

@@ -75,7 +75,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId), $this->waiting),
+            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId), $this->waiting, $quotations->lineNames($detail)),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -121,7 +121,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($updated->quotation)),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -138,7 +138,7 @@ final class QuotationController
 
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting));
+        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($submitted)));
     }
 
     /**
@@ -152,7 +152,7 @@ final class QuotationController
 
         $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId), $this->waiting));
+        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($approved)));
     }
 
     /**
@@ -169,7 +169,7 @@ final class QuotationController
 
         return ApiEnvelope::single(
             $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting),
+            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($updated->quotation)),
             200,
             $warnings === [] ? [] : ['warnings' => $warnings],
         );
@@ -186,7 +186,7 @@ final class QuotationController
 
         $returned = $quotations->return($quotation, $request->note(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId), $this->waiting));
+        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($returned)));
     }
 
     /**

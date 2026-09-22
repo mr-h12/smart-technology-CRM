@@ -203,7 +203,8 @@ final class QuotationSubmitEndpointTest extends TestCase
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.etag', 'quotation:'.$id.':2')
-            ->assertJsonPath('data.items.0.quantity', '2.0000');
+            ->assertJsonPath('data.items.0.quantity', '2.0000')
+            ->assertJsonPath('data.items.0.product_name', 'Widget');
 
         $submittedAt = $response->json('data.submitted_at');
         self::assertIsString($submittedAt);

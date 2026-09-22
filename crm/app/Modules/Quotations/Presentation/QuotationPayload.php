@@ -131,8 +131,11 @@ final class QuotationPayload
         ];
     }
 
-    /** @return array<string, mixed> */
-    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting): array
+    /**
+     * @param  array<string, string>  $lineNames  `ShowQuotation::lineNames()` — a line it cannot name carries null (F-16 · 1.1)
+     * @return array<string, mixed>
+     */
+    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting, array $lineNames): array
     {
         return [
             'id' => $quotation->id,
@@ -177,6 +180,7 @@ final class QuotationPayload
                 static fn (QuotationLine $line): array => [
                     'id' => $line->id,
                     'line_no' => $line->lineNo,
+                    'product_name' => $lineNames[$line->id] ?? null,
                     ...($withCosts ? $line->asRow() : array_diff_key($line->asRow(), array_flip(QuotationLine::COST_FIELDS))),
                 ],
                 $quotation->items,

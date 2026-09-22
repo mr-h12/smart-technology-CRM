@@ -37,11 +37,13 @@ final readonly class SupplierItemPrice
      * @param  string  $availableQuantity  `quantity − consumed`, PostgreSQL's exact NUMERIC result (`D-81`; §5.6's warning compares to this).
      *                                     The recorded offer itself is not carried: since F-05 · 1.4 nothing prices against it — the
      *                                     supplier-quotation view reads it through `SupplierQuotationLine`, not this contract.
+     * @param  string  $catalogItemId  what the line is (F-16 · 1.1) — Module 7 names its line through Catalog's contract
      */
     public function __construct(
         public string $unitPrice,
         public ?string $currencyId,
         public string $consumedQuantity,
         public string $availableQuantity,
+        public string $catalogItemId,
     ) {}
 }

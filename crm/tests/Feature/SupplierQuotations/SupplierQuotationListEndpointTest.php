@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Deals\Domain\Contracts\DealFacts;
+use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -376,6 +378,139 @@ final class SupplierQuotationListEndpointTest extends TestCase
         self::assertNotContains($unlinked, $ids);
     }
 
+    // ─────────────────────── F-13 · 1.3 (D-88): by the deal's code, and showing it
+
+    public function test_that_the_deal_code_filter_matches_a_partial_code_any_case_trimmed(): void
+    {
+        $first = $this->created(['deal_id' => $this->deal('DL-2026-0001')]);
+        $third = $this->created(['deal_id' => $this->deal('DL-2026-0003')]);
+        $this->created(['deal_id' => $this->deal('DL-2025-0100')]);
+        $this->created();
+
+        $ids = $this->ids('?filter[deal_code]='.rawurlencode('  dl-2026-000 '));
+        sort($ids);
+        $expected = [$first, $third];
+        sort($expected);
+
+        self::assertSame($expected, $ids);
+        self::assertSame([$third], $this->ids('?filter[deal_code]=0003'));
+    }
+
+    public function test_that_an_offer_with_no_deal_never_matches_a_deal_code(): void
+    {
+        $unlinked = $this->created();
+        $linked = $this->created(['deal_id' => $this->deal('DL-2026-0003')]);
+
+        self::assertSame([$linked], $this->ids('?filter[deal_code]=DL'));
+        self::assertNotContains($unlinked, $this->ids('?filter[deal_code]=DL'));
+    }
+
+    public function test_that_a_deal_code_matching_no_deal_lists_empty(): void
+    {
+        $this->created(['deal_id' => $this->deal('DL-2026-0003')]);
+
+        self::assertSame([], $this->ids('?filter[deal_code]=9999'));
+    }
+
+    public function test_that_the_deal_code_filter_combines_with_the_supplier_filter(): void
+    {
+        $dealId = $this->deal('DL-2026-0003');
+        $mine = $this->created(['deal_id' => $dealId]);
+        $this->created(['deal_id' => $dealId, 'supplier_id' => $this->otherSupplierId]);
+
+        self::assertSame([$mine], $this->ids('?filter[deal_code]=0003&filter[supplier_id]='.$this->supplierId));
+    }
+
+    /** `DealListCriteria::freeText()`'s reading: an empty box is no filter, and never reaches `SearchService`. */
+    public function test_that_a_blank_deal_code_is_ignored(): void
+    {
+        $unlinked = $this->created();
+        $linked = $this->created(['deal_id' => $this->deal('DL-2026-0003')]);
+
+        $ids = $this->ids('?filter[deal_code]=%20%20');
+
+        self::assertContains($unlinked, $ids);
+        self::assertContains($linked, $ids);
+    }
+
+    public function test_that_the_outdoor_supervisor_is_refused_the_deal_code_filter(): void
+    {
+        $this->getJson(self::ENDPOINT.'?filter[deal_code]=0003', $this->bearerFor(RoleName::OutdoorSupervisor))
+            ->assertStatus(403);
+    }
+
+    public function test_that_each_row_carries_its_deal_code_or_null(): void
+    {
+        $unlinked = $this->created();
+        $linked = $this->created(['deal_id' => $this->deal('DL-2026-0003')]);
+
+        $data = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))->assertStatus(200)->json('data');
+        self::assertIsArray($data);
+
+        $codes = [];
+        foreach ($data as $row) {
+            self::assertIsArray($row);
+            self::assertArrayHasKey('deal_code', $row);
+            self::assertIsString($row['id']);
+            $codes[$row['id']] = $row['deal_code'];
+        }
+
+        self::assertSame('DL-2026-0003', $codes[$linked]);
+        self::assertNull($codes[$unlinked]);
+    }
+
+    /** `D-83`'s shape: one `codesOf` per page for the distinct ids, not one per row. */
+    public function test_that_the_page_reads_its_deal_codes_once(): void
+    {
+        $dealId = $this->deal('DL-2026-0003');
+        $this->created(['deal_id' => $dealId]);
+        $this->created(['deal_id' => $dealId]);
+        $this->created(['deal_id' => $this->deal('DL-2026-0004')]);
+        $this->created();
+
+        $real = $this->app->make(DealFactsInterface::class);
+        $spy = new class($real) implements DealFactsInterface
+        {
+            /** @var list<list<string>> */
+            public array $codesOfCalls = [];
+
+            public function __construct(private DealFactsInterface $real) {}
+
+            public function factsOf(string $dealId): ?DealFacts
+            {
+                return $this->real->factsOf($dealId);
+            }
+
+            public function dealIdsOwnedBy(string $ownerId): array
+            {
+                return $this->real->dealIdsOwnedBy($ownerId);
+            }
+
+            public function ownersOf(array $dealIds): array
+            {
+                return $this->real->ownersOf($dealIds);
+            }
+
+            public function dealIdsMatchingCode(string $fragment): array
+            {
+                return $this->real->dealIdsMatchingCode($fragment);
+            }
+
+            public function codesOf(array $dealIds): array
+            {
+                $this->codesOfCalls[] = $dealIds;
+
+                return $this->real->codesOf($dealIds);
+            }
+        };
+        $this->app->instance(DealFactsInterface::class, $spy);
+
+        $this->ids('');
+
+        self::assertCount(1, $spy->codesOfCalls);
+        self::assertCount(2, $spy->codesOfCalls[0], 'the distinct deal ids, without the null');
+    }
+
     /**
      * `DB-01` — a soft-deleted offer is gone from the list, and the count goes
      * with it. `SoftDeletes` on the model is what does this; the total is
@@ -492,7 +627,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
     }
 
     /** A customer and a deal, so `filter[deal_id]` has something real to select. */
-    private function deal(): string
+    private function deal(?string $code = null): string
     {
         $customerId = Uuid::uuid4()->toString();
         $dealId = Uuid::uuid4()->toString();
@@ -506,7 +641,7 @@ final class SupplierQuotationListEndpointTest extends TestCase
 
         DB::table('deals')->insert([
             'id' => $dealId,
-            'code' => 'DL-'.now()->format('Y').'-9001',
+            'code' => $code ?? 'DL-'.now()->format('Y').'-9001',
             'customer_id' => $customerId,
             'last_activity_at' => now(),
             'created_at' => now(),

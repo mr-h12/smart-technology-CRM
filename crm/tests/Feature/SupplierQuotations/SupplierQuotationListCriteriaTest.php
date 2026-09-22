@@ -48,7 +48,20 @@ final class SupplierQuotationListCriteriaTest extends TestCase
             'a filter this resource does not declare' => [['filter' => ['currency_id' => 'EGP']], 'filter', 'unknown_filter'],
             'a supplier that is not an id' => [['filter' => ['supplier_id' => 'alpha']], 'filter[supplier_id]', 'not_a_uuid'],
             'a deal that is not an id' => [['filter' => ['deal_id' => '42']], 'filter[deal_id]', 'not_a_uuid'],
+            'a deal code that is not a string' => [['filter' => ['deal_code' => ['0003']]], 'filter[deal_code]', 'not_a_string'],
         ];
+    }
+
+    /**
+     * `D-88`: the fragment is trimmed here, not only by `TrimStrings` — `fromQuery()`
+     * is the boundary and is called without the HTTP middleware too — and blank is
+     * no filter, so `SearchService` never receives one.
+     */
+    public function test_that_a_deal_code_is_trimmed_and_a_blank_one_is_no_filter(): void
+    {
+        self::assertSame('0003', SupplierQuotationListCriteria::fromQuery(['filter' => ['deal_code' => "  0003 \t"]])->dealCode);
+        self::assertNull(SupplierQuotationListCriteria::fromQuery(['filter' => ['deal_code' => '   ']])->dealCode);
+        self::assertNull(SupplierQuotationListCriteria::fromQuery([])->dealIds, 'not narrowed until a code is resolved');
     }
 
     /**

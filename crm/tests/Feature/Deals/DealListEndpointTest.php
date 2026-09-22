@@ -368,6 +368,24 @@ final class DealListEndpointTest extends TestCase
         self::assertSame('Bulk cement order', $first['title']);
     }
 
+    /** `D-88`: `code` joins the deals index, so the list's own `q` finds a deal by its code. */
+    public function test_that_q_finds_a_deal_by_its_code(): void
+    {
+        $this->deal('Bulk cement order', overrides: ['code' => 'DL-2026-0003']);
+        $this->deal('Office chairs', overrides: ['code' => 'DL-2026-0104']);
+
+        $body = $this->getJson(self::ENDPOINT.'?q=0003', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->json('data');
+
+        self::assertIsArray($body);
+
+        $first = $body[0];
+        self::assertIsArray($first);
+        self::assertSame('DL-2026-0003', $first['code']);
+    }
+
     /** `q` narrows within the caller's scope; it never widens past it. */
     public function test_that_q_cannot_reach_outside_the_row_scope(): void
     {

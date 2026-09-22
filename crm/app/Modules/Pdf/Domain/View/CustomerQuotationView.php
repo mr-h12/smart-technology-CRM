@@ -48,6 +48,13 @@ use InvalidArgumentException;
  * field is either genuinely there or genuinely absent, with no third state for
  * a template to get wrong.
  *
+ * ── Why `companyPhones` is one string ─────────────────────────────────────
+ *
+ * §13 screen 4 stores the company's phone numbers as one free-text setting
+ * (`SystemSetting::CompanyPhones`), the way §4.2 stores a customer's. Splitting
+ * it here would mean guessing at separators the Super Admin never agreed to,
+ * so the view carries it as stored and the template prints it as typed.
+ *
  * ── What is deliberately not here ─────────────────────────────────────────
  *
  * No `unitCost*`, `marginPercent`, `lineCost`, `defaultMargin`,
@@ -62,7 +69,6 @@ final readonly class CustomerQuotationView
     /**
      * @param  list<CustomerQuotationLine>  $lines
      * @param  list<CustomerAdditionalLine>  $additionalItems
-     * @param  list<string>  $companyPhones
      */
     public function __construct(
         public string $code,
@@ -73,7 +79,7 @@ final readonly class CustomerQuotationView
         public ?string $customerContact,
         public string $companyName,
         public ?string $companyAddress,
-        public array $companyPhones,
+        public ?string $companyPhones,
         public array $lines,
         public array $additionalItems,
         public string $subtotal,
@@ -100,6 +106,7 @@ final readonly class CustomerQuotationView
         self::refuseBlank('warranty', $warranty);
         self::refuseBlank('customerContact', $customerContact);
         self::refuseBlank('companyAddress', $companyAddress);
+        self::refuseBlank('companyPhones', $companyPhones);
     }
 
     private static function refuseBlank(string $field, ?string $value): void

@@ -2642,8 +2642,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             supplier filter and the row scope; an offer with no deal never matches) and `deal_code` on the list
             and the single offer. RED first. `permission-matrix-auditor`.
             *(2026-09-22, #196 — one `codesOf` per page; create/update responses carry no `deal_code`)*
-      - [ ] **1.4** The screen: the box becomes «رمز الصفقة» (placeholder `DL-2026-0003`), the column shows the
+      - [x] **1.4** The screen: the box becomes «رمز الصفقة» (placeholder `DL-2026-0003`), the column shows the
             code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
+            *(2026-09-22, #197 — the filter has its own placeholder key; the form modal keeps `filter.dealPlaceholder`)*
       - [ ] **1.5** Manual test list for F-13 in Arabic. Closes F-13.
 
 - [x] **F-14** Quotations publishes a read-only contract for Pdf. Requested by the second developer

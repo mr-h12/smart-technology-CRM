@@ -749,7 +749,17 @@
         "import": {
             "title": "Import suppliers"
         },
-        "incomplete": "Incomplete record"
+        "incomplete": "Incomplete record",
+        "picker": {
+            "placeholder": "Search suppliers by name…",
+            "more": "More suppliers match — type more letters",
+            "forbidden": "You do not have permission to view suppliers",
+            "empty": "No suppliers yet",
+            "noMatch": "No results for “{query}”",
+            "failed": "Suppliers could not be loaded",
+            "remove": "Remove {name}",
+            "detailSeparator": " · "
+        }
     },
     "catalog": {
         "title": "Catalog",
@@ -770,7 +780,8 @@
             "searchAction": "Search",
             "active": "State",
             "companyAll": "All companies",
-            "activeAll": "Active and inactive"
+            "activeAll": "Active and inactive",
+            "incomplete": "Incomplete records only"
         },
         "column": {
             "name": "Name",
@@ -825,7 +836,13 @@
             "unreachable": "The server could not be reached. Nothing was saved.",
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
-            "discard": "Discard changes"
+            "discard": "Discard changes",
+            "suppliers": "Suppliers carrying this item",
+            "suppliersUnavailable": "The item’s suppliers could not be loaded; they are left as they are."
+        },
+        "incomplete": "Incomplete record",
+        "import": {
+            "title": "Import from CSV"
         }
     },
     "supplierQuotations": {

@@ -263,6 +263,9 @@ would hide them behind `OD-03` indefinitely.
       belongs to the shell, not to a quotations point. **The cost, stated:** a phone user in Arabic
       reads a currency code one letter short on the list screen. No figure is wrong; `D-82`'s three
       decimals are correct underneath. Nothing else on the screen is affected.
+      *Seen again by `rtl-ui-verifier` in F-10 · 1.8 (2026-09-22):* on `/catalog` in Arabic at 375 px
+      the same ~46 px shifts the import dialog's primary button and the supplier picker's labels to
+      `x = -5.5`, so 5.5 px of each sits off the left edge (still tappable). Same shell root cause, not fixed there.
 
 - [ ] **`team`, `out` and `asgn` row scopes resolve to no rows** — *owner decision, 2026-08-29:
       deferred as debt rather than invented.* §3.2 defines five scopes and only two have a mechanism
@@ -1043,11 +1046,23 @@ would hide them behind `OD-03` indefinitely.
       With 2 suppliers in dev data none of it can be seen yet. Two fixes, not one: the filter and the
       picker take `CustomerPicker` made generic, when a second case is ordered; the row names need a
       supplier names port, as `D-83` gave customers.
+      *The second case arrived in F-10 · 1.8 (2026-09-22):* `SupplierPicker.vue`, a many-valued copy of
+      `CustomerPicker`'s search and keyboard, 137 of its 246 lines identical. It was copied, not extracted,
+      so a catalog point would not rewrite the picker the quotations and deals screens use. One shared combobox
+      is now three consumers' fix (customers, catalog suppliers, and these two supplier-quotation controls).
+- [ ] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
+      (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
+      `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls
+      `preventDefault()` only, so the keydown bubbles to `DealFormModal.vue:258`'s
+      `@keydown.escape.prevent="requestClose()"`: one Escape closes the list **and** starts closing the
+      dialog (the unsaved warning, or a silent close when nothing changed). WAI-ARIA APG: Escape on an
+      open popup closes the popup only. The fix is one `event.stopPropagation()` in that branch, as
+      `SupplierPicker.vue` has, plus a test in the deal form.
 - [ ] **`.form-field` is declared once per component, inside `<style scoped>`** — *revealed by F-08
       Point 1.5, 2026-09-21; not fixed there, because the point was one missing border.* The same three
       lines (`background-color`, `border: 1px solid var(--color-border-strong)`, `color`) live in
       `DealFormModal.vue:436`, `QuotationsView.vue:600`, `UserFormModal.vue`, `CustomerFormModal.vue`,
-      `CustomersView.vue` and now `CustomerPicker.vue` — and a scoped copy in a parent never reaches a
+      `CustomersView.vue`, `CustomerPicker.vue` and (F-10 · 1.8) `SupplierPicker.vue` — and a scoped copy in a parent never reaches a
       child's nested input, which is exactly how the picker lost its border in 1.3 (the quotations
       filter had lost it in 1.2, unnoticed). One rule in `resources/css/app.css` and the scoped copies
       deleted is the fix, when ordered; the Design System §6.3 control is one thing, not six.
@@ -2205,10 +2220,14 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-22, #190 — `supplier_ids` is the full set (absent = untouched, `[]` = unlink all); one audit row per
             changed link, `CATALOG_ITEM_SUPPLIER_UNLINKED` soft-deletes it; a deactivated supplier may be linked, unknown or
             soft-deleted is a 422 (owner, 2026-09-22); `suppliers` on the single-item payload only; 15 tests, 10 mutants caught)*
-      - [ ] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared
+      - [x] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared
             `ImportModal`), the incomplete filter and chip, the item's suppliers, and a supplier picker in
             the form. Lang keys AR/EN, `NoHardCodedTextTest`, `rtl-ui-verifier` (AR/EN × desktop/375 px),
             `waste-auditor`.
+            *(2026-09-22, #191 — import button by `catalog.import` on the shared `ImportModal`; incomplete filter + chip; suppliers
+            picked with a server-searched `SupplierPicker` (chips, contact · phone · inactive), after the owner rejected one checkbox per
+            supplier; `supplier_ids` sent only when the set changed, never when the item's read failed; chip not seen on screen (no
+            flagged row in dev data — 1.9's `.csv` makes one); 18 mutants caught)*
       - [ ] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
             refused), a sample `.csv` covering every ruling, AR/EN × desktop/375 px. Closes F-10.
 

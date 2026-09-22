@@ -60,7 +60,8 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { entryLabel, listEntries, type ListEntry } from '@/services/admin';
-import { listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
+import { importCatalogItems, listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
+import ImportModal from '@/components/imports/ImportModal.vue';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -86,6 +87,10 @@ const auth = useAuth();
 /** §3.7's write row is one cell, so one permission draws create, edit and deactivate. */
 const canManage = computed(() => auth.hasPermission('catalog.manage'));
 
+/** `D-86`: `catalog.import` is the Manager's by default, although `catalog.manage` is not. */
+const canImport = computed(() => auth.hasPermission('catalog.import'));
+const importOpen = ref(false);
+
 const formOpen = ref(false);
 const editing = ref<CatalogItem | null>(null);
 
@@ -93,6 +98,8 @@ const editing = ref<CatalogItem | null>(null);
 const units = ref<ListEntry[]>([]);
 const serviceTypes = ref<ListEntry[]>([]);
 const companies = ref<ListEntry[]>([]);
+
+const incompleteOnly = ref(false);
 
 const items = ref<CatalogItem[]>([]);
 const pagination = ref<Pagination | null>(null);
@@ -133,7 +140,7 @@ const total = computed(() => pagination.value?.total ?? 0);
  * products" are still different sentences.
  */
 const filtering = computed(
-    () => search.value !== '' || categoryFilter.value !== '' || companyFilter.value !== ''
+    () => search.value !== '' || categoryFilter.value !== '' || companyFilter.value !== '' || incompleteOnly.value
         || activeFilter.value !== '',
 );
 
@@ -174,6 +181,8 @@ async function load(): Promise<void> {
             // `null`, never `false`, when unset. An unset select asks nothing
             // about the column; `false` would ask for the deactivated ones only.
             isActive: activeFilter.value === '' ? null : activeFilter.value === 'active',
+
+            isIncomplete: incompleteOnly.value ? true : null,
         });
 
         items.value = result.items;
@@ -274,6 +283,14 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
+async function onShowIncomplete(): Promise<void> {
+    importOpen.value = false;
+    incompleteOnly.value = true;
+    page.value = 1;
+
+    await load();
+}
+
 /**
  * The form's three lists, on `CustomersView::loadSectors`'s terms.
  *
@@ -322,15 +339,28 @@ onMounted(async () => {
 
             <!-- §6.2: one primary action per context. Its label names the tab,
                  because that is the kind the new row will be. -->
-            <button
-                v-if="canManage"
-                type="button"
-                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                data-testid="catalog-create"
-                @click="startCreate()"
-            >
-                {{ t(`catalog.form.createTitle.${kind}`) }}
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- `D-86`: the import, drawn only for `catalog.import`. -->
+                <button
+                    v-if="canImport"
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="catalog-import"
+                    @click="importOpen = true"
+                >
+                    {{ t('catalog.import.title') }}
+                </button>
+
+                <button
+                    v-if="canManage"
+                    type="button"
+                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="catalog-create"
+                    @click="startCreate()"
+                >
+                    {{ t(`catalog.form.createTitle.${kind}`) }}
+                </button>
+            </div>
         </header>
 
         <!-- §7.3's two tabs. `aria-selected` rather than colour alone (§6.4),
@@ -417,6 +447,18 @@ onMounted(async () => {
                     <option value="active">{{ t('catalog.status.active') }}</option>
                     <option value="inactive">{{ t('catalog.status.inactive') }}</option>
                 </select>
+            </label>
+
+            <!-- `D-31`/`D-86`: the importer's flag, as a filter. -->
+            <label class="flex min-h-11 items-center gap-2">
+                <input
+                    v-model="incompleteOnly"
+                    type="checkbox"
+                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="catalog-filter-incomplete"
+                    @change="applyFilters"
+                />
+                <span>{{ t('catalog.filter.incomplete') }}</span>
             </label>
         </form>
 
@@ -505,7 +547,15 @@ onMounted(async () => {
                             </tr>
 
                             <tr class="table-row" data-testid="catalog-row">
-                                <td class="p-3">{{ row.item.name ?? '—' }}</td>
+                                <td class="p-3">
+                                    {{ row.item.name ?? '—' }}
+                                    <!-- `D-31`: the word is the flag; §6.4 never colour alone. -->
+                                    <span
+                                        v-if="row.item.is_incomplete"
+                                        class="ms-2 whitespace-nowrap rounded-full border border-[var(--color-warning)] bg-[var(--color-surface-muted)] px-2 py-0.5"
+                                        data-testid="catalog-incomplete"
+                                    >{{ t('catalog.incomplete') }}</span>
+                                </td>
 
                                 <td v-for="column in columns" :key="column" class="hidden p-3 md:table-cell">
                                     {{ cell(row.item, column) }}
@@ -579,6 +629,15 @@ onMounted(async () => {
             :companies="companies"
             @saved="onSaved"
             @cancel="formOpen = false"
+        />
+
+        <ImportModal
+            :open="importOpen"
+            :title="t('catalog.import.title')"
+            :upload="importCatalogItems"
+            @imported="load()"
+            @show-incomplete="onShowIncomplete"
+            @cancel="importOpen = false"
         />
     </section>
 </template>

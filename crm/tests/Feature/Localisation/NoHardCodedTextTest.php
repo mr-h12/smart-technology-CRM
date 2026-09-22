@@ -146,6 +146,7 @@ final class NoHardCodedTextTest extends TestCase
                 // not the server's own sentence — comes from `suppliers.form.*`
                 // in both dictionaries.
                 'SupplierFormModal.vue',
+                'SupplierPicker.vue',
                 // Module 4 Point 4.0 — §7.1's supplier rating chip. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. The file is the one place in the

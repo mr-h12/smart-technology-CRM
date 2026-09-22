@@ -58,7 +58,8 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
-import { createCatalogItem, updateCatalogItem, type CatalogItem, type CatalogItemDraft } from '@/services/catalog';
+import SupplierPicker from '@/components/suppliers/SupplierPicker.vue';
+import { createCatalogItem, readCatalogItem, updateCatalogItem, type CatalogItem, type CatalogItemDraft, type CatalogItemSupplier } from '@/services/catalog';
 
 type Kind = 'product' | 'service';
 
@@ -128,6 +129,15 @@ const openedActive = ref(true);
 const saving = ref(false);
 const confirmingDiscard = ref(false);
 
+/**
+ * `D-86` (F-10 · 1.8) — the item's suppliers, and whether they arrived. Until
+ * they do, no picker is drawn and `supplier_ids` is never sent: a save that
+ * sent `[]` because the read failed would unlink every supplier.
+ */
+const picked = ref<CatalogItemSupplier[]>([]);
+const openedSupplierIds = ref<string[]>([]);
+const links = ref<'loading' | 'ready' | 'failed'>('loading');
+
 /** Lang keys for what this screen refuses; server sentences for what the server refuses. */
 const errorKeys = ref<Partial<Record<TextField | '_form', string>>>({});
 const serverErrors = ref<Partial<Record<TextField, string>>>({});
@@ -139,8 +149,15 @@ const activeKind = computed<Kind>(() => (props.editing?.kind === 'service' ? 'se
 
 const fields = computed<readonly TextField[]>(() => FIELDS[activeKind.value]);
 
+/** Order does not make a different set. */
+const supplierSetChanged = computed(
+    () => picked.value.map((supplier) => supplier.id).sort().join() !== [...openedSupplierIds.value].sort().join(),
+);
+
 const dirty = computed(
-    () => isActive.value !== openedActive.value || fields.value.some((field) => values.value[field] !== opened.value[field]),
+    () => isActive.value !== openedActive.value
+        || fields.value.some((field) => values.value[field] !== opened.value[field])
+        || supplierSetChanged.value,
 );
 
 function fieldId(field: TextField): string {
@@ -211,7 +228,36 @@ watch(() => [props.open, props.editing, props.kind] as const, ([open]) => {
     errorKeys.value = {};
     serverErrors.value = {};
     confirmingDiscard.value = false;
+    void loadLinks(record);
 }, { immediate: true });
+
+/**
+ * The links live on the single-item read only (1.7's stated ceiling: a list
+ * row carries `suppliers: []`), so an edit reads the item once on open. A
+ * create has nothing to read.
+ */
+async function loadLinks(record: CatalogItem | null): Promise<void> {
+    links.value = 'loading';
+    picked.value = [];
+    openedSupplierIds.value = [];
+
+    if (record === null) {
+        links.value = 'ready';
+
+        return;
+    }
+
+    try {
+        const { suppliers } = await readCatalogItem(record.id);
+
+        picked.value = suppliers.map(({ id, name }) => ({ id, name }));
+        openedSupplierIds.value = suppliers.map((supplier) => supplier.id);
+        links.value = 'ready';
+    } catch {
+        // No picker: the save then omits `supplier_ids`.
+        links.value = 'failed';
+    }
+}
 
 /**
  * The three `required_if` rules, mirrored. A courtesy rather than the rule:
@@ -275,6 +321,14 @@ function draft(): CatalogItemDraft {
         payload[field] = value === '' ? null : value;
     }
 
+    // The full set, and only when it changed: the server treats absence as
+    // "leave the links alone", so an untouched picker names nothing — which
+    // is also what keeps an unavailable picker (nothing drawn, so no change)
+    // from ever sending `[]`.
+    if (supplierSetChanged.value) {
+        payload.supplier_ids = picked.value.map((supplier) => supplier.id);
+    }
+
     return payload;
 }
 
@@ -294,6 +348,7 @@ async function save(): Promise<void> {
 
         opened.value = { ...values.value };
         openedActive.value = isActive.value;
+        openedSupplierIds.value = picked.value.map((supplier) => supplier.id);
         emit('saved', written);
     } catch (error) {
         applyServerErrors(error);
@@ -430,6 +485,25 @@ function discard(): void {
                 />
                 <span>{{ t('catalog.status.active') }}</span>
             </label>
+
+            <!-- `D-86` (F-10 · 1.8): the suppliers carrying the item, searched on
+                 the server (the owner's review: hundreds of suppliers). Drawn
+                 only once the item's own links arrived, so the set is whole. -->
+            <div class="flex flex-col gap-2" data-testid="catalog-form-suppliers">
+                <label for="catalog-form-supplier-search">{{ t('catalog.form.suppliers') }}</label>
+                <p
+                    v-if="links === 'failed'"
+                    class="text-[var(--color-text-muted)]"
+                    data-testid="catalog-form-suppliers-unavailable"
+                >{{ t('catalog.form.suppliersUnavailable') }}</p>
+                <SupplierPicker
+                    v-else-if="links === 'ready'"
+                    id="catalog-form-supplier-search"
+                    v-model="picked"
+                    test-id="catalog-form-supplier-search"
+                    :disabled="saving"
+                />
+            </div>
 
             <!-- §5.2's unsaved-change warning. Inside the dialog, because a
                  native `confirm()` is neither translatable nor RTL-aware. -->

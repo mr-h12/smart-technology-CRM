@@ -749,7 +749,17 @@
         "import": {
             "title": "Import suppliers"
         },
-        "incomplete": "Incomplete record"
+        "incomplete": "Incomplete record",
+        "picker": {
+            "placeholder": "Search suppliers by name…",
+            "more": "More suppliers match — type more letters",
+            "forbidden": "You do not have permission to view suppliers",
+            "empty": "No suppliers yet",
+            "noMatch": "No results for “{query}”",
+            "failed": "Suppliers could not be loaded",
+            "remove": "Remove {name}",
+            "detailSeparator": " · "
+        }
     },
     "catalog": {
         "title": "Catalog",
@@ -828,8 +838,7 @@
             "keepEditing": "Keep editing",
             "discard": "Discard changes",
             "suppliers": "Suppliers carrying this item",
-            "suppliersNone": "No suppliers to choose from yet.",
-            "suppliersUnavailable": "The supplier list could not be loaded; the item’s suppliers are left as they are."
+            "suppliersUnavailable": "The item’s suppliers could not be loaded; they are left as they are."
         },
         "incomplete": "Incomplete record",
         "import": {

@@ -61,7 +61,6 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { entryLabel, listEntries, type ListEntry } from '@/services/admin';
 import { importCatalogItems, listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
-import { listSuppliers, type Supplier } from '@/services/suppliers';
 import ImportModal from '@/components/imports/ImportModal.vue';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
@@ -100,13 +99,6 @@ const units = ref<ListEntry[]>([]);
 const serviceTypes = ref<ListEntry[]>([]);
 const companies = ref<ListEntry[]>([]);
 
-/**
- * The picker's suppliers (F-10 · 1.8), `null` until loaded and when the load
- * failed — the form reads `null` as "do not touch the links".
- * ⚠️ The same `perPage: 100` ceiling the supplier-quotations screen carries
- * (registered debt); the 101st supplier cannot be picked here.
- */
-const suppliers = ref<Supplier[] | null>(null);
 const incompleteOnly = ref(false);
 
 const items = ref<CatalogItem[]>([]);
@@ -291,14 +283,6 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
-async function loadSuppliers(): Promise<void> {
-    try {
-        suppliers.value = (await listSuppliers({ perPage: 100 })).items;
-    } catch {
-        suppliers.value = null;
-    }
-}
-
 async function onShowIncomplete(): Promise<void> {
     importOpen.value = false;
     incompleteOnly.value = true;
@@ -336,7 +320,7 @@ async function loadLists(): Promise<void> {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadLists(), loadSuppliers()]);
+    await Promise.all([load(), loadLists()]);
 });
 </script>
 
@@ -643,7 +627,6 @@ onMounted(async () => {
             :units="units"
             :service-types="serviceTypes"
             :companies="companies"
-            :suppliers="suppliers"
             @saved="onSaved"
             @cancel="formOpen = false"
         />

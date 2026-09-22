@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
@@ -6,7 +6,6 @@ import en from '@/locales/en.json';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import type { ListEntry } from '@/services/admin';
 import type { CatalogItem } from '@/services/catalog';
-import type { Supplier } from '@/services/suppliers';
 
 /**
  * Module 4, Point 4.4 — §7.3's catalog add/edit form.
@@ -91,8 +90,7 @@ const COMPANIES: ListEntry[] = [
 
 function render(editing: CatalogItem | null = null, kind: 'product' | 'service' = 'product', locale = 'en') {
     return mount(CatalogItemFormModal, {
-        // `suppliers: []` — the picker is not these tests' question; F-10 · 1.8's block below is.
-        props: { open: true, editing, kind, units: UNITS, serviceTypes: SERVICE_TYPES, companies: COMPANIES, suppliers: [] },
+        props: { open: true, editing, kind, units: UNITS, serviceTypes: SERVICE_TYPES, companies: COMPANIES },
         global: {
             plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
@@ -491,140 +489,188 @@ describe('CatalogItemFormModal — DB-05 fills the three list fields (Point 6.4)
  * `supplier_ids: []` because the list failed would unlink every supplier.
  */
 describe('CatalogItemFormModal — the supplier picker (F-10 · 1.8)', () => {
-    const SUPPLIERS: Supplier[] = [
-        { id: 's1', name: 'Alpha Supply', type: 'supplier', color_rating: 'white', phone: null, contact_person: null, has_open_account: false, is_active: true, is_incomplete: false, created_at: PRODUCT.created_at, updated_at: PRODUCT.updated_at },
-        { id: 's2', name: 'Beta Trading', type: 'distributor', color_rating: 'white', phone: null, contact_person: null, has_open_account: false, is_active: false, is_incomplete: false, created_at: PRODUCT.created_at, updated_at: PRODUCT.updated_at },
-    ];
+    const ALPHA = { id: 's1', name: 'Alpha Supply', contact_person: null, phone: null, is_active: true };
+    const BETA = { id: 's2', name: 'Beta Trading', contact_person: null, phone: null, is_active: false };
 
-    function renderWith(editing: CatalogItem | null, suppliers: Supplier[] | null, locale = 'en') {
+    function renderWith(editing: CatalogItem | null, locale = 'en') {
         return mount(CatalogItemFormModal, {
-            props: { open: true, editing, kind: 'product', units: UNITS, serviceTypes: SERVICE_TYPES, companies: COMPANIES, suppliers },
+            props: { open: true, editing, kind: 'product', units: UNITS, serviceTypes: SERVICE_TYPES, companies: COMPANIES },
             global: {
                 plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
             },
+            attachTo: document.body,
         });
     }
 
-    /** The item as `GET /catalog-items/{id}` returns it — the one place the links are. */
-    function linked(ids: string[]): Response {
-        return json(200, { data: { ...PRODUCT, suppliers: ids.map((id) => ({ id, name: id })) } });
+    /**
+     * One server: the item's read carries its links (1.7), the picker searches
+     * `/suppliers`, and a write echoes the item back.
+     */
+    function serving(linkedIds: string[] | 'fails'): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string, init?: RequestInit) => {
+            const url = String(input);
+
+            if (url.includes('/suppliers?')) {
+                return json(200, { data: [ALPHA, BETA], meta: { pagination: { page: 1, per_page: 20, total: 2, total_pages: 1, has_next_page: false, has_previous_page: false } } });
+            }
+
+            if (init?.method === 'PATCH' || init?.method === 'POST') {
+                return json(init.method === 'POST' ? 201 : 200, { data: { ...PRODUCT, suppliers: [] } });
+            }
+
+            return linkedIds === 'fails'
+                ? json(500, { error: { code: 'server_error', message: 'boom' } })
+                : json(200, { data: { ...PRODUCT, suppliers: [ALPHA, BETA].filter((s) => linkedIds.includes(s.id)).map(({ id, name }) => ({ id, name })) } });
+        });
     }
 
-    it('draws one box per supplier, deactivated ones included, and reads the item to tick the linked ones', async () => {
-        const fetchMock = vi.fn(async () => linked(['s2']));
+    function writes(fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown>[] {
+        return fetchMock.mock.calls
+            .filter((call) => ['PATCH', 'POST'].includes(String((call[1] as RequestInit | undefined)?.method)))
+            .map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    }
+
+    async function pick(view: ReturnType<typeof renderWith>, index: number): Promise<void> {
+        await view.find('[data-testid="catalog-form-supplier-search"]').trigger('focus');
+        await flushPromises();
+        await view.findAll('[data-testid="catalog-form-supplier-search-option"]')[index]!.trigger('mousedown');
+    }
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('reads the item on open and shows its suppliers as chips, by name, with no supplier list loaded', async () => {
+        const fetchMock = serving(['s2']);
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = renderWith(PRODUCT, SUPPLIERS, 'ar');
+        const view = renderWith(PRODUCT, 'ar');
         await flushPromises();
 
         expect(requestOf(fetchMock)).toEqual({ url: `/api/v1/catalog-items/${PRODUCT.id}`, method: 'GET' });
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/suppliers'))).toBe(false);
         expect(view.find('[data-testid="catalog-form-suppliers"]').text()).toContain(ar.catalog.form.suppliers);
-        expect((view.find('[data-testid="catalog-form-supplier-s1"]').element as HTMLInputElement).checked).toBe(false);
-        expect((view.find('[data-testid="catalog-form-supplier-s2"]').element as HTMLInputElement).checked).toBe(true);
+        expect(view.findAll('[data-testid="catalog-form-supplier-search-chip"]').map((chip) => chip.text())).toEqual([expect.stringContaining('Beta Trading')]);
     });
 
-    it('sends the full checked set on an edit, an emptied set included', async () => {
-        const fetchMock = vi.fn(async (_input: string, init?: RequestInit) => (init?.method === 'PATCH'
-            ? json(200, { data: { ...PRODUCT, suppliers: [] } })
-            : linked(['s1'])));
+    it('sends the full set on an edit after a chip is removed and another supplier is searched and picked', async () => {
+        const fetchMock = serving(['s1']);
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = renderWith(PRODUCT, SUPPLIERS);
+        const view = renderWith(PRODUCT);
         await flushPromises();
 
-        await view.find('[data-testid="catalog-form-supplier-s1"]').setValue(false);
-        await view.find('[data-testid="catalog-form-supplier-s2"]').setValue(true);
+        await view.find('[data-testid="catalog-form-supplier-search-chip-remove"]').trigger('click');
+        await pick(view, 1);
         await view.find('[data-testid="catalog-form"]').trigger('submit');
         await flushPromises();
 
-        expect(sentBodies(fetchMock)[0]).toMatchObject({ supplier_ids: ['s2'] });
+        expect(writes(fetchMock)[0]).toMatchObject({ supplier_ids: ['s2'] });
     });
 
-    it('sends the checked set on a create', async () => {
-        const fetchMock = vi.fn(async () => json(201, { data: { ...PRODUCT, suppliers: [] } }));
+    it('sends an emptied set as [] — every chip removed unlinks all', async () => {
+        const fetchMock = serving(['s1']);
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = renderWith(null, SUPPLIERS);
+        const view = renderWith(PRODUCT);
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-form-supplier-search-chip-remove"]').trigger('click');
+        await view.find('[data-testid="catalog-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(writes(fetchMock)[0]).toMatchObject({ supplier_ids: [] });
+    });
+
+    it('leaves supplier_ids out when the set was not touched', async () => {
+        const fetchMock = serving(['s1']);
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = renderWith(PRODUCT);
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-form-category"]').setValue('Wiring');
+        await view.find('[data-testid="catalog-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(writes(fetchMock)[0]).not.toHaveProperty('supplier_ids');
+    });
+
+    it('sends the picked set on a create', async () => {
+        const fetchMock = serving([]);
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = renderWith(null);
         await view.find('[data-testid="catalog-form-name"]').setValue('Copper cable');
         await view.find('[data-testid="catalog-form-unit"]').setValue('metre');
-        await view.find('[data-testid="catalog-form-company"]').setValue('Acme');
-        await view.find('[data-testid="catalog-form-supplier-s1"]').setValue(true);
+        await pick(view, 0);
         await view.find('[data-testid="catalog-form"]').trigger('submit');
         await flushPromises();
 
-        expect(sentBodies(fetchMock)[0]).toMatchObject({ supplier_ids: ['s1'] });
+        expect(writes(fetchMock)[0]).toMatchObject({ supplier_ids: ['s1'] });
     });
 
-    it('says the picker is unavailable and leaves supplier_ids out when the screen could not load the suppliers', async () => {
-        const fetchMock = vi.fn(async (_input: string, init?: RequestInit) => (init?.method === 'PATCH'
-            ? json(200, { data: { ...PRODUCT, suppliers: [] } })
-            : linked(['s1'])));
-        vi.stubGlobal('fetch', fetchMock);
+    it('draws neither the picker nor the failure sentence while the item is still being read', async () => {
+        vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => undefined)));
 
-        const view = renderWith(PRODUCT, null);
+        const view = renderWith(PRODUCT);
         await flushPromises();
 
-        expect(view.find('[data-testid="catalog-form-supplier-s1"]').exists()).toBe(false);
+        expect(view.find('[data-testid="catalog-form-supplier-search"]').exists()).toBe(false);
+        expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').exists()).toBe(false);
+    });
+
+    it('says the links are unavailable, draws no picker and leaves supplier_ids out when the item could not be read', async () => {
+        const fetchMock = serving('fails');
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = renderWith(PRODUCT);
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-form-supplier-search"]').exists()).toBe(false);
         expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').text()).toBe(en.catalog.form.suppliersUnavailable);
 
         await view.find('[data-testid="catalog-form-category"]').setValue('Wiring');
         await view.find('[data-testid="catalog-form"]').trigger('submit');
         await flushPromises();
 
-        expect(sentBodies(fetchMock)[0]).not.toHaveProperty('supplier_ids');
+        expect(writes(fetchMock)[0]).not.toHaveProperty('supplier_ids');
     });
 
-    it('leaves supplier_ids out when the item itself could not be read', async () => {
-        const fetchMock = vi.fn(async (_input: string, init?: RequestInit) => (init?.method === 'PATCH'
-            ? json(200, { data: { ...PRODUCT, suppliers: [] } })
-            : json(500, { error: { code: 'server_error', message: 'boom' } })));
-        vi.stubGlobal('fetch', fetchMock);
+    /** WAI-ARIA APG combobox: Escape on an open list closes the list, and only the list. */
+    it('closes only the supplier list on Escape, not the form', async () => {
+        vi.stubGlobal('fetch', serving(['s1']));
 
-        const view = renderWith(PRODUCT, SUPPLIERS);
+        const view = renderWith(PRODUCT);
         await flushPromises();
 
-        expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').exists()).toBe(true);
-
-        await view.find('[data-testid="catalog-form-category"]').setValue('Wiring');
-        await view.find('[data-testid="catalog-form"]').trigger('submit');
+        const search = view.find('[data-testid="catalog-form-supplier-search"]');
+        await search.trigger('focus');
         await flushPromises();
+        await search.trigger('keydown', { key: 'Escape' });
 
-        expect(sentBodies(fetchMock)[0]).not.toHaveProperty('supplier_ids');
+        expect(search.attributes('aria-expanded')).toBe('false');
+        expect(view.emitted('cancel')).toBeFalsy();
+
+        await search.trigger('keydown', { key: 'Escape' });
+        expect(view.emitted('cancel')).toBeTruthy();
     });
 
-    it('says there is nobody to choose when the supplier list is empty, and sends no supplier_ids', async () => {
-        const fetchMock = vi.fn(async () => json(201, { data: { ...PRODUCT, suppliers: [] } }));
-        vi.stubGlobal('fetch', fetchMock);
-
-        const view = renderWith(null, [], 'ar');
-        await flushPromises();
-
-        expect(view.find('[data-testid="catalog-form-suppliers"]').text()).toContain(ar.catalog.form.suppliersNone);
-        expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').exists()).toBe(false);
-
-        await view.find('[data-testid="catalog-form-name"]').setValue('Copper cable');
-        await view.find('[data-testid="catalog-form-unit"]').setValue('metre');
-        await view.find('[data-testid="catalog-form"]').trigger('submit');
-        await flushPromises();
-
-        expect(sentBodies(fetchMock)[0]).not.toHaveProperty('supplier_ids');
-    });
-
-    /** §5.2: a ticked box is a change like a typed one; re-ticking back to the opened set is not. */
+    /** §5.2: a changed set is a change like a typed one; changed back, it is not. */
     it('asks before discarding a changed supplier set, and not after it is changed back', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => linked(['s1'])));
+        vi.stubGlobal('fetch', serving(['s1']));
 
-        const view = renderWith(PRODUCT, SUPPLIERS);
+        const view = renderWith(PRODUCT);
         await flushPromises();
 
-        await view.find('[data-testid="catalog-form-supplier-s2"]').setValue(true);
+        await pick(view, 1);
         await view.find('[data-testid="catalog-form-cancel"]').trigger('click');
 
         expect(view.emitted('cancel')).toBeFalsy();
         expect(view.find('[data-testid="catalog-form-unsaved"]').exists()).toBe(true);
 
         await view.find('[data-testid="catalog-form-keep-editing"]').trigger('click');
-        await view.find('[data-testid="catalog-form-supplier-s2"]').setValue(false);
+        await view.findAll('[data-testid="catalog-form-supplier-search-chip-remove"]')[1]!.trigger('click');
         await view.find('[data-testid="catalog-form-cancel"]').trigger('click');
 
         expect(view.emitted('cancel')).toBeTruthy();

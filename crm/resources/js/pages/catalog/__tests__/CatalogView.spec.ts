@@ -613,7 +613,7 @@ describe('CatalogView — filtering by company (Point 6.5)', () => {
  * incomplete filter and chip (`D-31`), and the supplier list the form's picker
  * needs, handed down as the three `DB-05` lists are.
  */
-describe('CatalogView — import, the incomplete flag and the suppliers (F-10 · 1.8)', () => {
+describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () => {
     const MANAGER: AuthenticatedUser = {
         ...PROCUREMENT,
         id: '01a0-mgr',
@@ -625,22 +625,13 @@ describe('CatalogView — import, the incomplete flag and the suppliers (F-10 ·
 
     const BATCH = { id: 'b1', original_filename: 'items.csv', row_count: 5, imported_count: 4, incomplete_count: 2 };
 
-    const SUPPLIER = {
-        id: 's1', name: 'Alpha Supply', type: 'supplier', color_rating: 'white', phone: null, contact_person: null,
-        has_open_account: false, is_active: true, is_incomplete: false, created_at: PRODUCT.created_at, updated_at: PRODUCT.updated_at,
-    };
-
-    /** The list, the import, and the suppliers the picker needs. */
+    /** The list and the import. */
     function serving(): ReturnType<typeof vi.fn> {
         return vi.fn(async (input: string) => {
             const url = String(input);
 
             if (/\/catalog-items\/import$/.test(url)) {
                 return json(201, { data: BATCH });
-            }
-
-            if (url.includes('/suppliers?')) {
-                return json(200, { data: [SUPPLIER], meta: { pagination: PAGINATION } });
             }
 
             return page([PRODUCT]);
@@ -736,35 +727,5 @@ describe('CatalogView — import, the incomplete flag and the suppliers (F-10 ·
 
         expect(rows[0]!.find('[data-testid="catalog-incomplete"]').text()).toBe(ar.catalog.incomplete);
         expect(rows[1]!.find('[data-testid="catalog-incomplete"]').exists()).toBe(false);
-    });
-
-    it('loads the suppliers once and hands them to the form as the picker', async () => {
-        const fetchMock = serving();
-        vi.stubGlobal('fetch', fetchMock);
-        await signIn(PROCUREMENT);
-        const view = render();
-        await flushPromises();
-
-        expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/suppliers?')).length).toBe(1);
-
-        await view.find('[data-testid="catalog-create"]').trigger('click');
-        await flushPromises();
-
-        expect(view.find('[data-testid="catalog-form-supplier-s1"]').exists()).toBe(true);
-    });
-
-    it('hands the form no picker when the suppliers could not be loaded, so a save cannot unlink by accident', async () => {
-        vi.stubGlobal('fetch', vi.fn(async (input: string) => (String(input).includes('/suppliers?')
-            ? json(500, { error: { code: 'server_error', message: 'boom' } })
-            : page([PRODUCT]))));
-        await signIn(PROCUREMENT);
-        const view = render();
-        await flushPromises();
-
-        await view.find('[data-testid="catalog-create"]').trigger('click');
-        await flushPromises();
-
-        expect(view.find('[data-testid="catalog-form-supplier-s1"]').exists()).toBe(false);
-        expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').text()).toBe(en.catalog.form.suppliersUnavailable);
     });
 });

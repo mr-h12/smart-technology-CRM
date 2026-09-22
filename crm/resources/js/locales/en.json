@@ -852,7 +852,8 @@
         "filter": {
             "supplier": "Supplier",
             "supplierAll": "All suppliers",
-            "deal": "Deal",
+            "deal": "Deal code",
+            "dealCodePlaceholder": "DL-2026-0003",
             "dealPlaceholder": "Deal identifier",
             "apply": "Apply"
         },
@@ -1164,6 +1165,7 @@
             "deleteKeep": "Keep it",
             "deleteProceed": "Delete the draft",
             "lines": "Lines",
+            "product": "Product",
             "quantity": "Quantity",
             "unitCost": "Unit cost",
             "margin": "Margin",

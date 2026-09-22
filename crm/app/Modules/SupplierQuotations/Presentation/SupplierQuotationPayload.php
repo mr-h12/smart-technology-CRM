@@ -57,10 +57,11 @@ final class SupplierQuotationPayload
      *
      * @return array<string, mixed>
      */
-    public static function detail(SupplierQuotationDetail $quotation): array
+    public static function detail(SupplierQuotationDetail $quotation, ?string $dealCode): array
     {
         return [
             ...self::of($quotation->header),
+            'deal_code' => $dealCode,
             'items' => array_map(
                 static fn ($line): array => [
                     'id' => $line->id,
@@ -86,7 +87,14 @@ final class SupplierQuotationPayload
      */
     public static function many(SupplierQuotationPage $page): array
     {
-        return array_map(static fn (SupplierQuotationSummary $q): array => self::of($q), $page->items);
+        return array_map(
+            static fn (SupplierQuotationSummary $q): array => [
+                ...self::of($q),
+                // `D-88`: beside `deal_id`; null with no deal or a soft-deleted one.
+                'deal_code' => $q->dealId === null ? null : ($page->dealCodes[$q->dealId] ?? null),
+            ],
+            $page->items,
+        );
     }
 
     /**

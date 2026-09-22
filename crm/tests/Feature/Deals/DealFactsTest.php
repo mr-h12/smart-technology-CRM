@@ -7,6 +7,8 @@ namespace Tests\Feature\Deals;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealFacts;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Support\Search\SearchIndex;
+use App\Support\Search\SearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -126,6 +128,73 @@ final class DealFactsTest extends TestCase
         DB::disableQueryLog();
     }
 
+    // ── F-13 · 1.2 (D-88): a deal's code, for SupplierQuotations ────────────
+
+    /** `D-88`: a fragment of the code, trimmed and any case, through `SearchService`; `DB-01` drops the deleted. */
+    public function test_that_a_code_fragment_finds_live_deals_any_case_trimmed(): void
+    {
+        $customerId = $this->customer();
+        $first = $this->deal($customerId, null, 'DL-2026-0001');
+        $third = $this->deal($customerId, null, 'DL-2026-0003');
+        $this->deal($customerId, null, 'DL-2025-0100');
+        $deleted = $this->deal($customerId, null, 'DL-2026-0005');
+        DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
+
+        $ids = $this->reader()->dealIdsMatchingCode('  dl-2026-000  ');
+        sort($ids);
+
+        self::assertSame(collect([$first, $third])->sort()->values()->all(), $ids);
+        self::assertSame([$third], $this->reader()->dealIdsMatchingCode('0003'));
+    }
+
+    /** `D-48`/`D-88`: the fragment goes through `SearchService` — the seam Meilisearch replaces — not beside it. */
+    public function test_that_a_code_fragment_is_answered_by_the_search_service(): void
+    {
+        $spy = new class implements SearchService
+        {
+            /** @var list<array{SearchIndex, string}> */
+            public array $calls = [];
+
+            public function search(SearchIndex $index, string $query, array $filters = []): array
+            {
+                $this->calls[] = [$index, $query];
+
+                return ['from-the-search-service'];
+            }
+        };
+        $this->app->instance(SearchService::class, $spy);
+
+        self::assertSame(['from-the-search-service'], $this->reader()->dealIdsMatchingCode('0003'));
+        self::assertSame([[SearchIndex::Deals, '0003']], $spy->calls);
+    }
+
+    public function test_that_codes_of_maps_live_deals_and_omits_soft_deleted_and_unknown(): void
+    {
+        $customerId = $this->customer();
+        $first = $this->deal($customerId, null, 'DL-2026-0001');
+        $second = $this->deal($customerId, null, 'DL-2026-0002');
+        $deleted = $this->deal($customerId, null, 'DL-2026-0003');
+        DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
+
+        $codes = $this->reader()->codesOf([$first, $second, $deleted, Uuid::uuid4()->toString()]);
+        ksort($codes);
+
+        $expected = [$first => 'DL-2026-0001', $second => 'DL-2026-0002'];
+        ksort($expected);
+        self::assertSame($expected, $codes);
+    }
+
+    public function test_that_codes_of_an_empty_list_answers_without_a_query(): void
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        self::assertSame([], $this->reader()->codesOf([]));
+
+        self::assertSame([], DB::getQueryLog());
+        DB::disableQueryLog();
+    }
+
     private function reader(): EloquentDealFacts
     {
         $reader = $this->app->make(DealFactsInterface::class);
@@ -148,13 +217,13 @@ final class DealFactsTest extends TestCase
         return $id;
     }
 
-    private function deal(string $customerId, ?string $ownerId): string
+    private function deal(string $customerId, ?string $ownerId, ?string $code = null): string
     {
         $id = Uuid::uuid4()->toString();
 
         DB::table('deals')->insert([
             'id' => $id,
-            'code' => 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
+            'code' => $code ?? 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
             'customer_id' => $customerId,
             'owner_id' => $ownerId,
             'last_activity_at' => now(),

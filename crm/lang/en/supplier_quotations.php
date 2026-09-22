@@ -8,6 +8,7 @@ return [
     // OpenAPI §5's envelope message for a 400. Every module carries its own
     // `errors.invalid_request`; the specific cause is in `details`, below.
     'errors' => [
+        'lines_need_currency' => 'An offer with priced lines must name their currency (and its total).',
         'invalid_request' => 'This request could not be understood.',
     ],
 
@@ -20,5 +21,6 @@ return [
         'repeated_sort_field' => 'A field can only be used once when sorting.',
         'unknown_filter' => 'This list does not offer that filter.',
         'not_a_uuid' => 'This filter value is not a valid identifier.',
+        'not_a_string' => 'This filter value must be text.',
     ],
 ];

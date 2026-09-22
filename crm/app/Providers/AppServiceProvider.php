@@ -29,8 +29,10 @@ use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Catalog\Application\Writing\ProvisionCatalogProduct;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
+use App\Modules\Catalog\Infrastructure\EloquentCatalogItemLabels;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
@@ -73,6 +75,7 @@ use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
@@ -249,6 +252,9 @@ class AppServiceProvider extends ServiceProvider
         // stay its own business.
         $this->app->bind(CatalogProductProvisionerInterface::class, ProvisionCatalogProduct::class);
 
+        // F-16 · 1.1 — a quotation line's product name, read by Quotations.
+        $this->app->bind(CatalogItemLabelsInterface::class, EloquentCatalogItemLabels::class);
+
         // Module 5 Points 2.2–2.3. `bind` for the reason
         // `CustomerDirectoryInterface` is: stateless, and a singleton would
         // outlive nothing useful. `ConnectionInterface` added with Point 2.3 —
@@ -297,12 +303,14 @@ class AppServiceProvider extends ServiceProvider
         // Module 7 Point 3.4. The read a scoped `quotation.create` forces on a
         // deal — its owner (the owner's 2026-09-11 ruling: a quotation's "own"
         // is its deal's `owner_id`) and its customer, which the quotation's own
-        // `customer_id` must match. `bind` and `ConnectionInterface` alone, as
-        // for the supplier price above: two columns by primary key.
+        // `customer_id` must match. `bind`, as for the supplier price above:
+        // columns by primary key. `SearchService` joined with `D-88` (F-13 · 1.2)
+        // for the code fragment, which passes through it like every search.
         $this->app->bind(
             DealFactsInterface::class,
             fn (): EloquentDealFacts => new EloquentDealFacts(
                 $this->app->make(ConnectionInterface::class),
+                $this->app->make(SearchService::class),
             ),
         );
 
@@ -329,6 +337,14 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(DealFactsInterface::class),
                 $this->app->make(CurrencyRepositoryInterface::class),
             ),
+        );
+
+        // F-14 · 1.1. The read-only half, resolved through the directory's own
+        // binding above so a module granted only `QuotationsContract` gets the
+        // same `find()` rather than a second implementation of it.
+        $this->app->bind(
+            QuotationReaderInterface::class,
+            fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
         );
 
         $this->app->singleton(

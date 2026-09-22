@@ -455,6 +455,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.additional_items.0.description', 'Delivery')
             ->assertJsonPath('data.additional_items.0.amount', '5.000000')
             ->assertJsonPath('data.items.0.line_no', 1)
+            ->assertJsonPath('data.items.0.product_name', 'Widget')
             ->assertJsonPath('data.items.0.quantity', '2.0000')
             ->assertJsonPath('data.items.0.unit_price', '12.000000')
             ->assertJsonPath('data.items.0.line_total', '24.000000')
@@ -479,10 +480,40 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertStatus(200)
             ->assertJsonMissingPath('data.default_margin')
             ->assertJsonPath('data.items.0.unit_price', '12.000000')
+            // F-16 · 1.1: what the line is, is not a cost — it stays.
+            ->assertJsonPath('data.items.0.product_name', 'Widget')
             ->json('data.items.0');
 
         self::assertIsArray($line);
         self::assertSame([], array_intersect(QuotationLine::COST_FIELDS, array_keys($line)));
+    }
+
+    /** F-16 · 1.1 / §7.3: a service is named by its `service_type`, the builder's `catalogLabel()` rule. */
+    public function test_that_a_service_line_is_named_by_its_service_type(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $catalogItemId = DB::table('supplier_quotation_items')
+            ->where('id', DB::table('quotation_items')->where('quotation_id', $id)->value('supplier_quotation_item_id'))
+            ->value('catalog_item_id');
+        DB::table('catalog_items')->where('id', $catalogItemId)->update(['kind' => 'service', 'name' => null, 'service_type' => 'Installation']);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.product_name', 'Installation');
+    }
+
+    /** F-16 · 1.1: an imported, incomplete item may carry neither label — the line is then unnamed, not an id. */
+    public function test_that_an_item_with_no_label_leaves_the_line_unnamed(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $catalogItemId = DB::table('supplier_quotation_items')
+            ->where('id', DB::table('quotation_items')->where('quotation_id', $id)->value('supplier_quotation_item_id'))
+            ->value('catalog_item_id');
+        DB::table('catalog_items')->where('id', $catalogItemId)->update(['name' => null, 'service_type' => null]);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.product_name', null);
     }
 
     // ─────────────────────────────────────────── §10.3 price drift (Point 4.5)

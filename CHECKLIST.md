@@ -925,14 +925,14 @@ would hide them behind `OD-03` indefinitely.
       Point 6.6 mounts `SupplierQuotationFormModal` in the builder; the saved offer becomes the next
       block. Its `deal_id` is not pre-filled: the modal's props allow none.)*
 
-- [ ] **A quotation line is unnamed on the wire** — *revealed by Module 7 Point 6.7, 2026-09-14.*
+- [x] **A quotation line is unnamed on the wire** — *revealed by Module 7 Point 6.7, 2026-09-14.*
       `QuotationPayload::detail()` writes `items[].supplier_quotation_item_id`, `quantity`, prices and
       costs, and nothing that says *what* the line is: no product name, no catalog id, no
       `supplier_quotation_id` (`quotation_items` has no such column; the offer is reachable only
       through the item). So 6.5 lists lines by number and 6.7 edits them by number. One field on the
       detail — the catalog label through `SupplierItemPricingInterface`'s join, which already touches
       `supplier_quotation_items` — names the line on both screens. Not built here: a cross-module
-      contract widening is its own point.
+      contract widening is its own point. *(2026-09-22, #200 — F-16 · 1.1: `CatalogItemLabelsInterface`, not the pricing join)*
 
 - [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
       knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
@@ -1050,6 +1050,11 @@ would hide them behind `OD-03` indefinitely.
       `CustomerPicker`'s search and keyboard, 137 of its 246 lines identical. It was copied, not extracted,
       so a catalog point would not rewrite the picker the quotations and deals screens use. One shared combobox
       is now three consumers' fix (customers, catalog suppliers, and these two supplier-quotation controls).
+- [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
+      the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
+      is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
+      attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
+      describes), or a code resolved server-side on save, when ordered.
 - [ ] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
       (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
       `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls
@@ -2120,7 +2125,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - **أثر الفحص:** بعد القائمة تبقى في قاعدة التطوير ثلاثة مورّدين `F09 test …` ودفعة ثانية — يُعطَّلون ولا يُحذفون (DB-01).
 
 
-- [ ] **F-10** Catalog items cannot be imported, and nothing records which supplier carries an item
+- [x] **F-10** Catalog items cannot be imported, and nothing records which supplier carries an item
       (Module 4). Owner's request, agreed in conversation before F-08 and numbered on 2026-09-21 (first
       written in the F-09 item above). The decision is **`D-86`** (proposed). It takes up the debt row "The two imports carry
       three identical shapes…" as its first code point, because a catalog import would be the third copy.
@@ -2228,8 +2233,175 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             picked with a server-searched `SupplierPicker` (chips, contact · phone · inactive), after the owner rejected one checkbox per
             supplier; `supplier_ids` sent only when the set changed, never when the item's read failed; chip not seen on screen (no
             flagged row in dev data — 1.9's `.csv` makes one); 18 mutants caught)*
-      - [ ] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
+      - [x] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
             refused), a sample `.csv` covering every ruling, AR/EN × desktop/375 px. Closes F-10.
+            *(2026-09-22, #192 — 44 checks; sample file (a) proved on the test database: 18 / 8 / 3, 4 links; files (b)–(e) refused)*
+
+      #### قائمة الاختبار اليدوي — F-10 *(النقطة 1.9، 2026-09-22)*
+
+      > **F-10 إصلاح لا وحدة**، فالقائمة تغطّي `D-86` وأحكامك (Q0–Q9، A1–A4، وأحكام 1.5–1.7): عناصر الكتالوج
+      > تُستورد من ملف CSV واحد، والعنصر الذي ينقصه ما يطلبه النموذج يُحفظ **ويُعلَّم ناقصًا** (`D-31`) ويزول
+      > العلَم حين يُستكمل (`D-87`)، ولكل عنصر موردون يُربطون بالاستيراد أو باليد. نُفِّذ في #184 (القائمة
+      > والقرار) و#185 (القارئ المشترك) و#186 (جدول الرابط والعمود) و#187 (بحث المورد عبر عقد) و#188
+      > (`POST /catalog-items/import`) و#189 (إزالة العلَم) و#190 (الرابط باليد) و#191 (الشاشة ومنتقي الموردين بالبحث).
+      >
+      > ⚠️ **بيانات التطوير كما قرأتها قاعدة البيانات في 2026-09-22 — صحّحها منها لا من الذاكرة:**
+      > **7 منتجات و0 خدمات**، لا عنصر ناقص ولا معطَّل، **6 روابط** (3 على `Submersible pump 5HP`: «Alex Pipes
+      > Trading» و«Cairo Valves Co» مرّتين؛ 3 على `opmflksl`)، ولا دفعة استيراد للكتالوج. القوائم: الوحدات
+      > `piece` «قطعة» · `metre` «متر» · `kilo` «كيلو»؛ أنواع الخدمة `installation` «تركيب» · `repair` «إصلاح» ·
+      > `maintenance` «صيانة» · `setup` «تجهيز»؛ الشركات `adidas` «اديداس» · `pawlar`. **17 موردًا مفعَّلًا
+      > كلّهم، بينهم أسماء مكرّرة**: «Cairo Valves Co» و«Delta Electric Supplies» و«الشرق للتوزيع» و«المتحدة
+      > للتوريدات» و«شركة النيل للمضخات» كلٌّ مرّتين. **تركتَ التكرار عمدًا (2026-09-22)**، ويُختبر في الفحص 17.
+      >
+      > ⚠️ **الأدوار** (`<role>@example.test`، كلمة المرور `Passw0rd123`). **`catalog.import.all` للمدير وحده.**
+      > `catalog.manage.all` لستّة أدوار: المدير، المشتريات، المبيعات الداخلية والخارجية، مشرف الخارجي، قائد
+      > الفريق — **فالمشتريات هو من يعدّل ولا يستورد**. الرئيس التنفيذي `catalog.view.all` وحده. المشرف الأعلى
+      > نفاذه غير مشروط (§3.1).
+      >
+      > ⚠️ **التحضير قبل الملف (أ):** لا مورد معطَّل في بيانات التطوير، وحكم A2 يحتاج واحدًا — الفحص 0 يعطّل
+      > «Giza Tools Store». **استورد الملف (أ) مرّة واحدة فقط**: لا كشف تكرار، فاستيراده مرّتين يضاعف العناصر.
+      >
+      > ⚠️ **الملفّات.** أنشئها بمحرّر نصّ عادي (TextEdit ⇒ Format ⇒ Make Plain Text، واحفظ بترميز UTF-8 وامتداد
+      > `.csv`). الفاصلة المنقوطة `;` تعمل أيضًا، وكذلك ملف يبدأ بـ BOM كالذي يحفظه Excel (مُثبت).
+      >
+      > **(أ) `f10-sample.csv`** — 18 صفًّا، والنتيجة المُثبتة على قاعدة الاختبار: **المقروءة 18 · المستورَدة 8 ·
+      > الناقصة 3 · غير المستورَدة 10**، و**4 روابط** لكلٍّ منها سطر تدقيق:
+      > ```
+      > kind,product_code,name,category,unit,service_type,description,company,notes,is_active,supplier
+      > product,F10-001,Copper cable 2mm,Cables,metre,,Copper wire,adidas,,,Alex Pipes Trading
+      > product,F10-002,Steel pipe 1in,Pipes,Metre,,,Adidas,,YES,  alex pipes trading
+      > product,F10-003,Water pump 1HP,Pumps,قطعة,,,اديداس,,no,Nile Pumps Co
+      > product,F10-004,Valve 2in,Valves,,,,pawlar,,,
+      > service,F10-005,,,,installation,Site installation,pawlar,,,
+      > service,F10-006,Pump repair,,,,,,,,Giza Tools Store
+      > product,F10-007,Drill bits set,Tools,piece,,,,,true,
+      > SERVICE,F10-008,Annual maintenance,,,Maintenance,,adidas,,0,
+      > tool,F10-009,Hammer,,piece,,,adidas,,,
+      > ,F10-010,No kind,,piece,,,adidas,,,
+      > product,F10-011,,Pipes,piece,,,adidas,,,
+      > product,F10-012,Box,,box,,,adidas,,,
+      > service,F10-013,Cleaning,,,cleaning,,adidas,,,
+      > product,F10-014,Gloves,,piece,,,Acme,,,
+      > product,F10-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX,Long code item,,piece,,,adidas,,,
+      > product,F10-016,Sensor,,piece,,,adidas,,maybe,
+      > product,F10-017,Relay,,piece,,,adidas,,,Unknown Supplier Ltd
+      > product,F10-018,Gate valve,,piece,,,adidas,,,Cairo Valves Co
+      > ```
+      > **المحفوظة (8):** 001 كامل بالكود ومربوط · 002 الوحدة والشركة بعنوانهما الإنجليزي و`YES` واسم المورد بحروف
+      > صغيرة ومسافات ⇒ `metre` و`adidas` ومفعَّل ومربوط · 003 الوحدة والشركة بعنوانهما العربي و`no` ⇒ `piece`
+      > و`adidas` و**غير مفعَّل** · 004 منتج بلا وحدة ⇒ **ناقص** · 005 خدمة بلا اسم ⇒ تُحفظ كاملة · 006 خدمة بلا نوع
+      > ولا شركة ⇒ **ناقصة** ومربوطة بمورد **معطَّل** (A2) · 007 بلا شركة ⇒ **ناقص** · 008 `SERVICE` بحروف كبيرة
+      > و`Maintenance` و`0` ⇒ خدمة `maintenance` غير مفعَّلة.
+      > **المرفوضة (10):** 009 `kind` مجهول · 010 `kind` فارغ · 011 منتج بلا اسم · 012 وحدة ليست في القائمة ·
+      > 013 نوع خدمة ليس في القائمة · 014 شركة ليست في القائمة (الاستيراد **لا يضيف** قيمة، A1) · الكود ذو 65 حرفًا
+      > (الحدّ 64) · 016 كلمة `maybe` في `is_active` · 017 مورد لا وجود له · **018 مورد يطابقه سجلّان** (Q7).
+      >
+      > **(ب) `f10-price.csv`:** `kind,name,price` ثمّ `product,Cable,10` — مرفوض كلّه.
+      > **(ج) `f10-noname.csv`:** `kind,unit,company` ثمّ `product,piece,adidas` — مرفوض كلّه.
+      > **(د) `f10-empty.csv`:** ملف فارغ تمامًا — مرفوض كلّه.
+      > **(هـ) `f10-twice.csv`:** `kind,name,Name` ثمّ `product,Cable,Cable` — مرفوض كلّه.
+      >
+      > ⚠️ **الشبكة.** افتح أدوات المطوّر ⇒ تبويب الشبكة ورشّح على `api/v1` قبل كلّ مجموعة.
+
+      **أ) التحضير والزرّ والأدوار — `/suppliers` ثمّ `/catalog`** *(D-86 · §3.7 · SEC-07)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 0 | مدير | «الموردون» ⇒ «تعديل» على «Giza Tools Store» ⇒ ألغِ «مفعَّل» واحفظ ⇒ حالته «غير مفعَّل» (تحضير لحكم A2) | تحضير |
+      | 1 | مدير | افتح «الكتالوج» ⇒ «استيراد من CSV» (زرّ ثانوي) **بجانب** «منتج جديد» (أساسي ملوَّن)؛ العدد «7 منتجًا» | D-86 · §6.2 |
+      | 2 | مشتريات | افتح «الكتالوج» ⇒ «منتج جديد» ظاهر و**لا** «استيراد من CSV» | D-86 · SEC-07 |
+      | 3 | مشتريات | في الصفحة نفسها افتح Console والصق السطر أدناه ⇒ `403` — الخادم يرفض لا الزرّ وحده | D-86 · SEC-09 |
+      | 4 | الرئيس التنفيذي | افتح «الكتالوج» ⇒ القائمة تظهر **بلا** «منتج جديد» و**بلا** «استيراد من CSV» و**بلا** «تعديل» | §3.7 |
+      | 5 | المشرف الأعلى | افتح «الكتالوج» ⇒ «استيراد من CSV» ظاهر (نفاذ غير مشروط) | §3.1 |
+
+      سطر الفحص 3 (Console، وأنت مسجَّل بدور المشتريات):
+      ```js
+      const f = new FormData(); f.append('file', new File(['kind,name\nproduct,X'], 'x.csv', { type: 'text/csv' }));
+      fetch('/api/v1/catalog-items/import', { method: 'POST', headers: { Accept: 'application/json', Authorization: 'Bearer ' + localStorage.getItem('crm.auth.token.v1') }, body: f }).then(async r => console.log(r.status, await r.json()));
+      ```
+
+      **ب) نافذة الاستيراد — الملف (أ)** *(D-86 · D-31 · §6.1 · §6.3)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 6 | مدير | اضغط «استيراد من CSV» ⇒ نافذة عنوانها «استيراد من CSV»، ونصّ «ملفات CSV فقط، حتى 30 ميغابايت.»، و«لم يُختر ملف»، وزرّ «استيراد» **معطَّل**؛ «إلغاء» يغلقها | §6.3 · §6.1 |
+      | 7 | مدير | افتحها، اختر `f10-sample.csv`، اضغط «استيراد» ⇒ «جارٍ الاستيراد…» ثمّ «انتهى الاستيراد»: **الصفوف المقروءة: 18 · المستورَدة: 8 · المُعلَّمة ناقصة: 3 · غير المستورَدة: 10** | D-86 · D-31 |
+      | 8 | مدير | في الشبكة ⇒ `POST /api/v1/catalog-items/import` ⇒ `201`، ثمّ `GET /api/v1/catalog-items…` (القائمة تُطلب من جديد) | §5.2 |
+      | 9 | مدير | اضغط «اعرض السجلّات الناقصة» ⇒ النافذة تُغلق، «السجلات الناقصة فقط» مؤشَّرة، والطلب يحمل `filter[is_incomplete]=true` ⇒ في «المنتجات» صفّان: «Valve 2in» و«Drill bits set»، وبجانب كلٍّ شارة «سجل ناقص» | D-31 · D-86 |
+      | 10 | مدير | والمرشّح مؤشَّر، انتقل إلى «الخدمات» ⇒ صفّ واحد «Pump repair» بشارة «سجل ناقص» | D-31 · A1 |
+      | 11 | مدير | ألغِ المرشّح ⇒ الطلب **بلا** `filter[is_incomplete]` أصلًا ⇒ «المنتجات»: «12 منتجًا» (7 + 5)، «الخدمات»: «3 خدمة»؛ لا عنصر بكود F10-009 إلى F10-018 ولا بالكود الطويل | D-86 · Q4 · Q6 |
+
+      **ج) كيف قرأ المستورِد القيم — افتح «تعديل» على كلّ عنصر ثمّ «إلغاء»** *(أحكام A2 و1.5)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 12 | مدير | «Copper cable 2mm» (F10-001) ⇒ الوحدة «متر»، الشركة «adidas»، مفعَّل، وتحت «الموردون الذين يوفّرون هذا العنصر» شريحة «Alex Pipes Trading» | D-86 · مطابقة بالكود |
+      | 13 | مدير | «Steel pipe 1in» (F10-002) ⇒ الوحدة «متر» (كُتبت `Metre`)، الشركة «adidas» (كُتبت `Adidas`)، مفعَّل (`YES`)، شريحة «Alex Pipes Trading» (كُتب بحروف صغيرة ومسافات) | A2 · 1.5 |
+      | 14 | مدير | «Water pump 1HP» (F10-003) ⇒ الوحدة «قطعة» والشركة «adidas» (كُتبتا بالعربية)، **غير مفعَّل** (`no`)، شريحة «Nile Pumps Co» | A2 · 1.5 |
+      | 15 | مدير | «الخدمات» ⇒ صفّ بلا اسم («—») كوده F10-005 نوعه «تركيب»، **بلا** شارة؛ و«Annual maintenance» (F10-008، كُتب `SERVICE`) نوعه «صيانة» وحالته «غير مفعَّل» | D-86 · 1.5 |
+      | 16 | مدير | «Pump repair» (F10-006) ⇒ شريحة «Giza Tools Store» — مورد **معطَّل** رُبط (الفحص 0) | A2 |
+      | 17 | مدير | لا عنصر «Gate valve»: السطر 018 سمّى «Cairo Valves Co» ويطابقه **سجلّان** في بيانات التطوير، فرُفض السطر كلّه | Q7 · قرارك 2026-09-22 |
+
+      **د) الرفض بكلمات الخادم — الملفّات (ب)(ج)(د)(هـ)** *(§6.1)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 18 | مدير | استورد `f10-price.csv` ⇒ تحت الحقل بالأحمر: «يحتوي هذا الملف على أعمدة لا يقبلها الاستيراد: price.»، اسم الملف **باقٍ**؛ أغلق ⇒ العدد لم يتغيّر | D-86 · §6.1 |
+      | 19 | مدير | استورد `f10-noname.csv` ⇒ «لا يحتوي هذا الملف على عمود «name». كل ملف للكتالوج يحتاجه، ولو تركته خدمةٌ فارغًا.» | D-86 |
+      | 20 | مدير | استورد `f10-empty.csv` ⇒ «هذا الملف فارغ. يجب أن يحمل السطر الأول أسماء الأعمدة.» | D-86 |
+      | 21 | مدير | استورد `f10-twice.csv` ⇒ «يسمّي هذا الملف الحقل نفسه في أكثر من عمود: name.» | D-86 |
+
+      **هـ) التعديل: زوال العلَم والموردون باليد** *(D-87 · D-86 · A3 · §5.2)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 22 | مدير | «تعديل» على «Valve 2in» ⇒ اختر الوحدة «قطعة» واحفظ ⇒ **تزول** شارة «سجل ناقص» | D-87 · 1.6 |
+      | 23 | مدير | «تعديل» على «Drill bits set» ⇒ الشركة «pawlar» واحفظ ⇒ تزول الشارة | D-87 · A1 |
+      | 24 | مدير | «الخدمات» ⇒ «تعديل» على «Pump repair» ⇒ نوع الخدمة «إصلاح» والشركة «adidas» واحفظ ⇒ تزول الشارة؛ الشريحة «Giza Tools Store» **باقية** | D-87 · 1.6 |
+      | 25 | مدير | «تعديل» على «Copper cable 2mm» ⇒ اضغط حقل «ابحث عن مورد بالاسم…» ⇒ طلب `GET /api/v1/suppliers?per_page=20` وقائمة تحت كلّ اسم فيها سطر «المسؤول · الهاتف» | D-86 · §6.3 |
+      | 26 | مدير | اكتب `nile` ⇒ بعد توقّف قصير طلب يحمل `q=nile`؛ اضغط «Nile Pumps Co» ⇒ تظهر شريحة وعلامة ✓، والقائمة **تبقى مفتوحة** | OpenAPI §6.2 |
+      | 27 | مدير | اضغط × على شريحة «Alex Pipes Trading» ثمّ «حفظ» ⇒ في الشبكة `PATCH` جسمه `supplier_ids` فيه معرّف واحد؛ افتح «تعديل» ثانية ⇒ شريحة «Nile Pumps Co» وحدها | 1.7 · A3 |
+      | 28 | مدير | اكتب `cai` ⇒ «Cairo Valves Co» **مرّتين بالسطر نفسه** «Karim Nabil · 01534567890» — سجلّان متطابقان تركتهما عمدًا، ولا شاشة تفرّق بينهما | قرارك 2026-09-22 |
+      | 29 | مدير | اكتب `giza` ⇒ «Giza Tools Store» وسطرها ينتهي بـ «غير مفعَّل»؛ اكتب `zzz` ⇒ «لا نتائج لـ «zzz»» | A2 · فارغ |
+      | 30 | مدير | اكتب اسمًا عربيًّا مثل `النيل` ⇒ تظهر «شركة النيل للمضخات» | SearchService |
+      | 31 | مدير | أضِف أيّ مورد ثمّ «إلغاء» ⇒ «هذا النموذج يحتوي على تغييرات لم تُحفظ.»؛ «تجاهل التغييرات» ⇒ يُغلق **بلا** `PATCH` | §5.2 |
+      | 32 | مدير | افتح قائمة البحث واضغط Esc ⇒ تُغلق **القائمة وحدها** والنموذج باقٍ؛ Esc ثانية ⇒ يُغلق النموذج (لا تغيير) | WAI-ARIA · §6.1 |
+      | 33 | مشتريات | «تعديل» على «Valve 2in» ⇒ أضِف «Alex Pipes Trading» واحفظ ⇒ يُحفظ — المشتريات يعدّل الموردين ولا يستورد | A3 · SEC-07 |
+
+      **و) الحالات: الفراغ والخطأ** *(Design §6)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 34 | مدير | أشِّر «السجلات الناقصة فقط» وابحث عن `zzz` ⇒ «لا نتيجة مطابقة» (حالة الفراغ المرشَّح) | فارغ |
+      | 35 | مدير | الشبكة ⇒ زرّ أيمن على طلب `/api/v1/suppliers` ⇒ «Block request URL»، ثمّ في نموذج عنصر اضغط حقل البحث ⇒ «تعذّر تحميل الموردين» وزرّ «إعادة المحاولة»؛ ألغِ الحجب واضغطه ⇒ القائمة تعود | خطأ |
+      | 36 | مدير | احجب طلب `GET /api/v1/catalog-items/<id>` لعنصر واحد ثمّ افتح «تعديل» عليه ⇒ «تعذّر تحميل موردي العنصر؛ يبقون كما هم.» و**لا** حقل بحث؛ غيّر الفئة واحفظ ⇒ `PATCH` **بلا** `supplier_ids`؛ ألغِ الحجب وافتحه ⇒ شرائحه كما كانت | 1.8 · لا فكّ بالخطأ |
+
+      **ز) اللغتان والعرض** *(RTL/LTR · 375 بكسل)*
+
+      | # | الدور | الفعل ⇒ النتيجة | المعيار |
+      |---|---|---|---|
+      | 37 | مدير | بدّل إلى EN ⇒ «Import from CSV» بجانب «New product»، مرشّح «Incomplete records only»، شارة «Incomplete record» بعد الاسم؛ النافذة: «CSV files only, up to 30 MB.»، «Rows read»، «Imported»، «Flagged incomplete»، «Not imported»، «Show the incomplete records»؛ الاتّجاه LTR | EN · LTR |
+      | 38 | مدير | بالإنجليزية في النموذج ⇒ «Suppliers carrying this item» و«Search suppliers by name…»، وسطر «Giza Tools Store» ينتهي بـ «Inactive» | EN |
+      | 39 | مدير | بالإنجليزية أعِد الفحص 18 بالملف (ب) ⇒ الرسالة بالإنجليزية وتنتهي بـ «price.» | EN · §6.1 |
+      | 40 | مدير | 375 بكسل بالعربية ⇒ الزرّان في سطر تحت العنوان، النافذة داخل الشاشة، الشارة داخل خانة الاسم؛ في النموذج الشرائح تلتفّ أسطرًا، والقائمة تنفتح **تحت** الحقل داخل النافذة غير مقصوصة | 375 · RTL |
+      | 41 | مدير | 375 بكسل بالإنجليزية ⇒ الشيء نفسه محاذًى لليسار | 375 · LTR |
+      | 42 | مشتريات | 375 بكسل بالإنجليزية ⇒ «New product» وحده، بلا «Import from CSV» | دور ثانٍ · EN · 375 |
+      | 43 | مدير | 375 بكسل ⇒ زرّ × في الشريحة وكلّ خيار في القائمة يسهل لمسه بالإصبع (44 بكسل على الأقل) | §6.1 · لمس |
+
+      **ما لا يمكن اختباره اليوم — ولماذا**
+      - **سجلّات التدقيق** (رابط، فكّ رابط، إزالة العلَم): لا شاشة للتدقيق في الواجهة بعد. مُثبت على قاعدة الاختبار
+        (4 أسطر `CATALOG_ITEM_SUPPLIER_LINKED` للملف أ) وفي اختبارات 1.5–1.7؛ ويُقرأ من قاعدة التطوير عند الطلب.
+      - **«الكود يسبق عنوان مدخل آخر»** و**«عنوان يحمله مدخلان»**: قوائم التطوير بلا تصادم كهذا؛ يغطّيهما
+        `CatalogImportEndpointTest`.
+      - **الاكتمال بحسب النوع بعد التعديل** (1.6): النموذج لا يغيّر نوع عنصر موجود؛ يغطّيه اختبار الخادم.
+      - **لا كشف تكرار ولا `.xlsx` ولا أسباب لكلّ صفّ مرفوض** (`D-86` «غير مغطّى»، دَينان مسجَّلان): الملخّص يعدّ
+        المرفوض ولا يسمّيه.
+      - **رسالة «ليست لديك صلاحية عرض الموردين»**: `GET /suppliers` يحرسه `catalog.view`، وكلّ من يعدّل يملكه.
+      - **ملف فوق 30 ميغابايت** (`D-71`): يغطّيه `CatalogImportEndpointTest`.
+      - **375 بكسل بالعربية:** النافذة كلّها مزاحة نحو 30 بكسل عن الحافة اليسرى — دَين الشريط الجانبي المسجَّل، لا عيب جديد.
+      - **`D-86` ما زال «مقترحًا»** في §2 (سطر 158) حتّى يقلبه المالك؛ القائمة تختبر ما بُني.
+      - **أثر الفحص:** تبقى في قاعدة التطوير 8 عناصر `F10-…` ودفعة استيراد، و«Giza Tools Store» معطَّلًا — تُعطَّل
+        ولا تُحذف (DB-01)، وأعِد تفعيل المورد إن شئت.
 
 - [x] **F-11** The «سجل ناقص» / «Incomplete record» flag never clears once the record is completed
       (Modules 3 and 4). Owner's request, 2026-09-21, after running F-09: `Alex Pipes Trading` was
@@ -2427,6 +2599,212 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       باليد (لا يُعلَّم أصلًا)؛ كشف التكرار في الاستيراد؛ **عمود القطاع في `/customers` يطبع الرمز
       (`medical`) لا اسمه** — دَين مسجَّل ويبقى مفتوحًا؛ استبعاد المعلَّمين من التقارير المالية (§11) — الوحدة 13
       لم تُبنَ بعد؛ والتواريخ بالأرقام العربية الهندية (F-12، غير مطلوبة).
+
+- [x] **F-13** «عروض الموردين» searches offers by the deal's internal UUID, which nobody knows, and shows
+      that UUID in its deal column (Module 6). Owner's request, 2026-09-22, "last change before module 10":
+      search by the deal's code instead. The owner gave it **F-13** (F-12 stays the unordered dates
+      candidate). The decision is **`D-88`** (proposed).
+
+      **The owner's rulings (2026-09-22, in conversation):**
+      1. **The search box and the deal column change; the offer form does not.** The form's deal field
+         keeps taking a UUID — a debt row, not part of F-13.
+      2. **A partial code matches**: `0003` or `2026-00` finds every offer whose deal's code contains it,
+         any case, surrounding spaces ignored.
+      3. **An offer with no deal is excluded** from a code search (it has no code to match); the column
+         keeps saying «بلا صفقة» for it.
+      4. **The code joins the deals search index**, so the search goes through `SearchService` like every
+         other search — and the **deals screen's own search box then finds a deal by its code too**
+         (accepted as a side effect).
+
+      **Measured 2026-09-22, not recalled:**
+      1. `SupplierQuotationListCriteria` (`:185-186`) filters on `supplier_id` and `deal_id` only, both UUIDs;
+         the screen's box (`SupplierQuotationsView.vue:267`) is a raw text input whose own comment calls it a
+         ceiling "Module 5 replaces with a picker" — Module 5 closed without replacing it.
+      2. The payload carries `deal_id` alone (`SupplierQuotationPayload.php:40`); the column prints it raw.
+      3. `SearchIndex::Deals` indexes `title` only (`SearchIndex.php:77`), so no search finds a deal by code today.
+      4. Deals already publishes `DealFactsInterface` in the `DealsContract` deptrac layer, granted to
+         Quotations; **SupplierQuotations is not granted it**, and may not read `deals` directly.
+      5. Dev data: 12 deals (`DL-2026-0001`…), 5 offers, 2 of them on a deal.
+
+      **Not covered by F-13:** the offer form's deal field (debt row); a deal picker; searching offers by
+      anything else of the deal (title, customer).
+
+      ### F-13 point list — published 2026-09-22, approved in conversation; recorded by merging this point
+
+      - [x] **1.1** `D-88` in §2 (proposed) + this block + the form's debt row. Docs only — the `D-88` row is
+            pasted by the owner, as `D-86` was.
+            *(2026-09-22, #193 — the `D-88` row's text and its paste script are in the PR description)*
+      - [x] **1.2** Deals: `code` joins `SearchIndex::Deals`; `DealFactsInterface` gains a code fragment ⇒ deal
+            ids (through `SearchService`) and deal ids ⇒ codes (one page, no query for `[]`); `DealsContract`
+            granted to SupplierQuotations. RED first; mutants, and a deptrac mutant.
+            *(2026-09-22, #194 — a blank fragment throws, as `SearchService` does; 1.3 validates the empty filter)*
+      - [x] **1.3** SupplierQuotations API: `filter[deal_code]` (partial, trimmed, case-insensitive; with the
+            supplier filter and the row scope; an offer with no deal never matches) and `deal_code` on the list
+            and the single offer. RED first. `permission-matrix-auditor`.
+            *(2026-09-22, #196 — one `codesOf` per page; create/update responses carry no `deal_code`)*
+      - [x] **1.4** The screen: the box becomes «رمز الصفقة» (placeholder `DL-2026-0003`), the column shows the
+            code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
+            *(2026-09-22, #197 — the filter has its own placeholder key; the form modal keeps `filter.dealPlaceholder`)*
+      - [x] **1.5** Manual test list for F-13 in Arabic. Closes F-13.
+            *(2026-09-22, #198 — 27 checks; opens with the data it needs, since the dev database was reset the same day)*
+
+      #### قائمة الاختبار اليدوي — F-13 *(النقطة 1.5، 2026-09-22)*
+
+      > **F-13 إصلاح لا وحدة**، فالقائمة تغطّي `D-88` وحده (مقترَح): البحث في «عروض الموردين» برمز
+      > الصفقة بدل معرّفها الداخلي، وعرض الرمز في عمود الصفقة. نُفِّذ في #194 (فهرس الصفقات وعقد
+      > `DealFactsInterface`)، و#196 (`filter[deal_code]` و`deal_code` في الواجهة البرمجية)، و#197 (الشاشة).
+      > **الأحكام الأربعة** التي تتحقّق منها القائمة: (1) الصندوق والعمود يتغيّران، ونموذج العرض لا —
+      > حقل الصفقة فيه ما زال معرّفًا داخليًّا (دَين `~1053`)؛ (2) جزء من الرمز يكفي، بأيّ حالة أحرف،
+      > والمسافات حوله تُهمَل؛ (3) العرض بلا صفقة لا يظهر في بحثٍ بالرمز، وعموده يبقى «غير مرتبط»
+      > (النصّ المشحون، لا «بلا صفقة» كما كُتب الحكم)؛ (4) الرمز دخل فهرس بحث الصفقات، فصندوق بحث
+      > شاشة الصفقات يجد الصفقة برمزها أيضًا.
+      >
+      > ⚠️ **قاعدة بيانات التطوير فارغة** منذ إعادة الضبط في 2026-09-22 (`migrate:fresh --seed`):
+      > لا عملاء ولا صفقات ولا مورّدين ولا عروض. المجموعة (أ) تُنشئ ما تحتاجه القائمة، **وبهذا الترتيب**
+      > لأنّ الرموز تُولَّد تلقائيًّا: أوّل صفقة تأخذ `DL-2026-0001` والثانية `DL-2026-0002`، وأوّل عرض
+      > `SQ-2026-0001`. إن كانت القاعدة غير فارغة عندك فاقرأ الرموز الفعليّة من الشاشة وبدّلها أدناه.
+      >
+      > ⚠️ **الأدوار** (`<role>@example.test`، كلمة المرور `Passw0rd123`). عرض العروض `supplier_quotation.view`
+      > (§3.6): المدير وقائد الفريق والمبيعات الداخلية والخارجية والمشتريات والرئيس التنفيذي — **شاشة
+      > مشتركة، لا نطاق ملكيّة**. **مشرف الخارجي (`outdoor.supervisor`) لا يرى العروض أصلًا**، فهو الدور
+      > المرفوض. **الرئيس التنفيذي يرى ولا ينشئ**. الصفقات (§3.4): المبيعات الخارجية `Own` — وهذا يهمّ
+      > الفحص 22 فقط.
+      >
+      > ⚠️ **معرّف الصفقة لنموذج العرض** (الحكم 1): افتح الصفقة من `/deals` وانسخ الجزء الأخير من عنوان
+      > الصفحة `/deals/<uuid>` — هذا هو ما يُلصَق في حقل «الصفقة» في نموذج العرض. لا طريقة أخرى اليوم.
+
+      **أ. تجهيز البيانات** *(المدير — `manager@example.test`، بالعربية، سطح المكتب)*
+
+      1. افتح `/customers` ثمّ «عميل جديد» واحفظ عميلًا باسم `Nisco` (الاسم والقطاع والمنطقة وجهة
+         الاتصال والهاتف) ⇒ يظهر في القائمة.
+      2. افتح `/deals` ثمّ «صفقة جديدة»، اختر `Nisco` واكتب العنوان «Server room» واحفظ ⇒ الصفقة تحمل
+         الرمز **`DL-2026-0001`** (مولَّد، لا يُكتب). كرّر بعنوان «Generators» ⇒ **`DL-2026-0002`**.
+      3. افتح `/suppliers` ثمّ «مورّد جديد» واحفظ `Nile Pumps Co` (النوع مورّد، مسؤول تواصل، هاتف) ⇒ يظهر.
+      4. افتح `/supplier-quotations` ثمّ «عرض جديد»: المورّد `Nile Pumps Co`، تاريخ العرض اليوم، الإجمالي
+         `4500`، العملة `EGP`، وفي حقل «الصفقة» الصق معرّف `DL-2026-0001` (انظر التنبيه أعلاه) ثمّ «حفظ»
+         ⇒ صفّ `SQ-2026-0001` وعموده «الصفقة» يعرض **`DL-2026-0001`** لا المعرّف.
+      5. كرّر بعرض ثانٍ على `DL-2026-0001` (الإجمالي `3000`) ⇒ `SQ-2026-0002`، وعرض ثالث على
+         `DL-2026-0002` ⇒ `SQ-2026-0003`، وعرض رابع **بلا صفقة** (اترك الحقل فارغًا) ⇒ `SQ-2026-0004`
+         وعموده **«غير مرتبط»** (الحكم 3).
+      6. الصق في حقل «الصفقة» نصًّا ليس معرّفًا (مثلًا `DL-2026-0001`) واحفظ ⇒ **رفض تحت الحقل**: النموذج
+         يقبل المعرّف الداخلي وحده (الحكم 1 — الدَّين المعلَن، لا عيب في F-13).
+
+      **ب. صندوق «رمز الصفقة» `/supplier-quotations`** *(المدير، بالعربية، سطح المكتب)* — *#197، `D-88`*
+
+      7. افتح `/supplier-quotations` ⇒ فوق الجدول صندوق عنوانه **«رمز الصفقة»** وعنصره النائب
+         `DL-2026-0003`، ولا صندوق «معرّف الصفقة». القائمة تعرض العروض الأربعة.
+      8. اكتب `0001` ثمّ «تطبيق» ⇒ عرضان فقط (`SQ-2026-0001` و`SQ-2026-0002`)، وعمود الصفقة في كليهما
+         `DL-2026-0001` (الحكم 2 — جزء من الرمز يكفي).
+      9. اكتب `dl-2026-0002` بأحرف صغيرة ثمّ «تطبيق» ⇒ `SQ-2026-0003` وحده (الحكم 2 — لا فرق في الحالة).
+      10. اكتب `  0002  ` بمسافات قبله وبعده ثمّ «تطبيق» ⇒ النتيجة نفسها (الحكم 2 — المسافات تُهمَل).
+      11. اكتب `2026-00` ثمّ «تطبيق» ⇒ ثلاثة عروض (كلّ ما على صفقة)، **و`SQ-2026-0004` غائب** (الحكم 3 —
+          بلا صفقة فلا رمز يطابق).
+      12. اكتب `ZZZZ` ثمّ «تطبيق» ⇒ الحالة الفارغة **«لا توجد عروض مطابقة»** مع «غيّر المرشِّحات أو
+          امسحها…»، لا رسالة خطأ.
+      13. امسح الصندوق ثمّ «تطبيق» ⇒ العروض الأربعة من جديد؛ `SQ-2026-0004` بعموده «غير مرتبط».
+      14. اختر المورّد `Nile Pumps Co` من مرشّح «المورّد» **مع** `0001` في الصندوق ثمّ «تطبيق» ⇒
+          العرضان نفسهما (المرشّحان معًا)؛ اختر «كل المورّدين» ⇒ لا تغيير (مورّد واحد في البيانات).
+      15. اضغط «تعديل» على `SQ-2026-0001` ⇒ حقل «الصفقة» في النموذج يعرض **المعرّف الداخلي** لا الرمز
+          (الحكم 1 — النموذج لم يتغيّر). «إلغاء».
+      16. أعد تحميل الصفحة (F5) والصندوق فيه `0001` ⇒ الصندوق يفرغ والقائمة كاملة — المرشّح لا يُحفَظ.
+
+      **ج. الاتجاه والعرض** *(المدير)*
+
+      17. بدّل اللغة إلى English ⇒ العنوان **"Deal code"** والعنصر النائب `DL-2026-0003`، والعمود
+          **"Deal"** يعرض الرموز و**"Not linked"** للرابع؛ الفحصان 8 و12 يعطيان النتائج نفسها.
+      18. بالعربية، ضيّق النافذة إلى 375 بكسل ⇒ صندوق «رمز الصفقة» وزرّ «تطبيق» ظاهران ويعملان
+          (الفحص 8 يُعطي عرضين)؛ **عمود الصفقة مخفيّ** على هذا العرض (`hidden lg:table-cell` — بالتصميم).
+          ⚠️ تجاوز العرض الأفقيّ للصفحة كلّها (411–421 من 375) دَين مسجَّل (`~862`) في كلّ شاشة، لا هنا.
+      19. بالإنجليزية على 375 بكسل ⇒ الشيء نفسه من اليسار إلى اليمين.
+
+      **د. أثر الفهرس على شاشة الصفقات `/deals`** *(المدير، بالعربية)* — *#194، الحكم 4*
+
+      20. افتح `/deals` واكتب `0002` في صندوق البحث ثمّ طبّق ⇒ `DL-2026-0002` وحدها.
+      21. اكتب `Server` ⇒ `DL-2026-0001` وحدها — البحث بالعنوان ما زال يعمل بجانب الرمز.
+
+      **هـ. الأدوار** — *#196، §3.6*
+
+      22. اخرج وادخل **المبيعات الخارجية** (`outdoor.sales@example.test`) وافتح `/supplier-quotations`
+          واكتب `0001` ثمّ «تطبيق» ⇒ العرضان نفسهما بعمود `DL-2026-0001` **وإن لم تكن الصفقة له**:
+          الشاشة مشتركة (§3.6) والرمز معروض على سابقة `D-83` كما كان المعرّف.
+      23. ادخل **الرئيس التنفيذي** (`ceo@example.test`) ⇒ الشاشة والصندوق والعمود كما في (ب)،
+          **بلا زرّ «عرض جديد» ولا «تعديل»**.
+      24. ادخل **مشرف الخارجي** (`outdoor.supervisor@example.test`) ⇒ **لا عنصر «عروض الموردين» في
+          القائمة الجانبية**؛ اكتب `/supplier-quotations` في شريط العنوان ⇒ شاشة الرفض (403)، لا قائمة فارغة.
+
+      **و. الواجهة البرمجية** *(من الطرفية، برمز جلسة المدير)* — *#196*
+
+      25. `GET /api/v1/supplier-quotations?filter[deal_code]=0001` ⇒ عنصران، كلّ منهما يحمل `deal_id`
+          **و`deal_code: "DL-2026-0001"`**؛ `?filter[deal_code]=` (فارغ) ⇒ العروض الأربعة (الفراغ يُهمَل)؛
+          `?filter[deal_code][]=x` ⇒ **400** برمز `not_a_string`.
+      26. `GET /api/v1/supplier-quotations/<id of SQ-2026-0001>` ⇒ `deal_code` موجود؛ استجابة الإنشاء
+          في الفحص 4 (أو `PATCH`) **لا تحمل `deal_code`** — مقبول من المالك في 1.3.
+      27. *(قاعدة البيانات)* أرشِف `DL-2026-0002` من شاشتها إن كان الأرشيف متاحًا، أو
+          `update deals set deleted_at = now() where code = 'DL-2026-0002'` ⇒ `GET …/supplier-quotations` يعطي
+          `SQ-2026-0003` بـ`deal_id` **و`deal_code: null`** (صفقة محذوفة ناعمًا بلا رمز). أعد
+          `deleted_at = null` بعدها.
+
+      **لا يمكن اختباره بعد**
+
+      - **اختيار الصفقة من قائمة في نموذج العرض** — ليس في F-13 (الحكم 1، دَين `~1053`)؛ الحقل يقبل المعرّف
+        الداخلي، والفحصان 4 و6 يثبتان ذلك لا أكثر.
+      - **البحث بعنوان الصفقة أو عميلها من شاشة العروض** — «غير مغطّى» في `D-88`.
+      - **التدقيق** — F-13 لا يضيف حدث تدقيق (بحث وعرض فقط)، فلا فحص تدقيق هنا.
+
+- [x] **F-14** Quotations publishes a read-only contract for Pdf. Requested by the second developer
+      before Module 9 · 1.2: Pdf could be granted only the whole Quotations layer, Eloquent models
+      included. The owner filed it as **F-14** and paused F-13 at 1.3 for it (2026-09-22). No `D-xx`:
+      it narrows an existing seam (modules communicate through interfaces, `CLAUDE.md`) and changes no
+      behaviour.
+
+      **The owner's rulings (2026-09-22):** Pdf's grant of `QuotationsContract` arrives with Module 9 ·
+      1.2, per Pdf's own "a grant arrives with the point that uses it"; 1.2's wording names the new
+      interface; the list is one point.
+
+      **Not covered by F-14:** the teammate's item 2 (supplier-quotation item ⇒ the catalog item's
+      customer-facing description, before Module 9 Step 3). That belongs to Catalog/SupplierQuotations,
+      not Quotations, and will be its own contract; `QuotationLine::supplierQuotationItemId` stays as
+      its key. `find()` is unscoped, so Pdf applies §3.5's generate scope itself (`DealsContract`).
+
+      ### F-14 point list — published and approved 2026-09-22 in conversation
+
+      - [x] **1.1** `QuotationReaderInterface::find()`; `QuotationDirectoryInterface` extends it; a
+            `QuotationsContract` deptrac layer (the reader + `QuotationDetail`, `QuotationLine`,
+            `QuotationAdditionalLine`, `QuotationNotFound`), collected out of `Quotations` and granted
+            to it. RED first; deptrac mutants. Closes F-14; no screen, so no manual test list.
+            *(2026-09-22, #195 — Pdf's grant is Module 9 · 1.2's; a Pdf probe reaches the reader, not the directory)*
+
+- [x] **F-15** *(number proposed; the owner assigns it)* A supplier offer could be saved with priced
+      lines and **no currency** (Module 6), and every customer quotation built on it then hit §5.6's
+      `supplier_price_missing` — the builder showed «سعر المورّد 900.000» and refused to save. Owner's
+      screenshot, 2026-09-22. `D-80` had named this "a correct block on a dead end" and removed only
+      the inability to *pick* a currency; nothing *required* one. Root cause: `SaveSupplierQuotationRequest`
+      ties `currency_id` to `total_price` alone, never to `items`. The fix is one guard,
+      `PricedLinesNeedCurrency`, asked by both write use cases on the **resulting** offer (a `PATCH` of
+      `items` alone passes while the stored currency stands; blanking the pair under lines is refused):
+      §5.6 "Every amount stores: amount · currency". Because the DB CHECK pairs the columns, the total
+      becomes mandatory alongside — **flagged for the owner as the consequence of that reading**. No
+      `D-xx` yet.
+
+      **Not covered:** the builder's line meta still prints the supplier price without its currency
+      code; offers already saved without a currency (`SQ-2026-0001` on the dev database) are not
+      corrected — each needs its currency and total set by hand in «عروض الموردين».
+
+      - [x] **1.1** RED on POST and PATCH (four cases), guard in Create/Update, `ar`/`en` message.
+            Closes F-15; no screen change, so no manual test list beyond the two clicks named in the PR.
+
+- [ ] **F-16** A customer-quotation line names its product. The owner's report (2026-09-22): the
+      detail's lines table and the edit form list lines by number alone. The open debt row "A quotation
+      line is unnamed on the wire" (Module 7 · 6.7). Ruling: the server sends the name. No `D-xx`: it
+      closes a recorded gap and changes no rule.
+
+      ### F-16 point list — approved 2026-09-22 in conversation
+
+      - [ ] **1.1** `items[].product_name` on every quotation-detail response (§7.3 label: `name`, or a
+            service's `service_type`), outside §3.5's cost grant. A narrow Catalog contract
+            `CatalogItemLabelsInterface` (Quotations → `CatalogContract`); `SupplierItemPrice` carries its
+            `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.
+            *(2026-09-22, #200 — `product_name` rides `quotation.view`, not the cost grant; null when unnamed)*
 
 ## Shell revisions — owner-directed
 
@@ -2889,7 +3267,7 @@ as the reasons two boxes will not close in this module, not as oversights.
 
 - [ ] **1.2** `CustomerQuotationViewMapper` in `Pdf/Application/` — `QuotationDetail` →
       `CustomerQuotationView`, the only place the two vocabularies meet, reading through
-      `QuotationDirectoryInterface` and never through an Eloquent model of Yousef's. Company
+      `QuotationReaderInterface` (F-14) and never through an Eloquent model of Yousef's. Company
       identity (name, logo, address, phones) comes from Settings, not hard-coded — `§13` screen 4
       and `§14.6` both require it. *Verified by* a three-supplier quotation whose
       `QuotationDetail` holds three distinct `supplierQuotationItemId` values and three different

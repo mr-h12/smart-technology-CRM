@@ -149,6 +149,12 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             $query->where('supplier_quotations.supplier_id', $criteria->supplierId);
         }
 
+        if ($criteria->dealIds !== null) {
+            // `D-88`: an offer with no deal is never in a code's result —
+            // `whereIn` on a null `deal_id` is false, and `[]` matches nothing.
+            $query->whereIn('supplier_quotations.deal_id', $criteria->dealIds);
+        }
+
         if ($criteria->dealId !== null) {
             $query->where('supplier_quotations.deal_id', $criteria->dealId);
         }

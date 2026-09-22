@@ -27,7 +27,7 @@ final readonly class EloquentSupplierItemPricing implements SupplierItemPricingI
 
     public function priceFor(string $supplierQuotationItemId): ?SupplierItemPrice
     {
-        /** @var object{unit_price: string, consumed_quantity: string, available_quantity: string, currency_id: string|null}|null $row */
+        /** @var object{unit_price: string, consumed_quantity: string, available_quantity: string, currency_id: string|null, catalog_item_id: string}|null $row */
         $row = $this->connection->table('supplier_quotation_items as i')
             ->join('supplier_quotations as o', 'o.id', '=', 'i.supplier_quotation_id')
             ->whereNull('i.deleted_at')
@@ -36,7 +36,7 @@ final readonly class EloquentSupplierItemPricing implements SupplierItemPricingI
             // `D-81`: the balance is subtracted here, where NUMERIC(14,4)
             // arithmetic is exact and comes back as decimal text — not in
             // PHP, which this module cannot do without `Admin`'s `Decimal`.
-            ->select('i.unit_price', 'i.consumed_quantity', 'o.currency_id')
+            ->select('i.unit_price', 'i.consumed_quantity', 'o.currency_id', 'i.catalog_item_id')
             ->selectRaw('i.quantity - i.consumed_quantity as available_quantity')
             ->first();
 
@@ -49,6 +49,7 @@ final readonly class EloquentSupplierItemPricing implements SupplierItemPricingI
             currencyId: $row->currency_id === null ? null : (string) $row->currency_id,
             consumedQuantity: (string) $row->consumed_quantity,
             availableQuantity: (string) $row->available_quantity,
+            catalogItemId: (string) $row->catalog_item_id,
         );
     }
 }

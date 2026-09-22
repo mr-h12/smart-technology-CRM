@@ -70,6 +70,10 @@ final readonly class CreateSupplierQuotation
         return $this->connection->transaction(function () use ($draft, $actorId): SupplierQuotationSummary {
             $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId));
 
+            // §5.6, before the write: nothing to roll back for a refusal the
+            // merged draft already shows.
+            PricedLinesNeedCurrency::check($draft->attributes['currency_id'] ?? null, $draft->items ?? []);
+
             $quotation = $this->quotations->create($draft, $actorId);
 
             // No old values: `AuditRecorderInterface` documents them as "absent

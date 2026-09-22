@@ -12,7 +12,7 @@
  * again, and the spec asserts on the query string rather than on the rows.
  *
  * The declared surface is `SupplierQuotationListCriteria`'s and it is smaller
- * than the suppliers screen's: **two** filters (`supplier_id`, `deal_id`), two
+ * than the suppliers screen's: **three** filters (`supplier_id`, `deal_id`, `deal_code`), two
  * sorts (`offer_date`, `created_at`), `DEFAULT_SORT = offer_date` **descending**
  * — and **no search at all**. `OpenAPI §6.2` answers anything else with a 400,
  * so a search box here would be a control that breaks the screen.
@@ -120,7 +120,7 @@ async function load(): Promise<void> {
             page: page.value,
             sort: sortParameter.value,
             supplierId: supplierFilter.value === '' ? null : supplierFilter.value,
-            dealId: dealFilter.value === '' ? null : dealFilter.value,
+            dealCode: dealFilter.value === '' ? null : dealFilter.value,
         });
 
         offers.value = result.items;
@@ -264,16 +264,15 @@ onMounted(async () => {
                 </select>
             </label>
 
-            <!-- ⚠️ A raw identifier, and a stated ceiling: there is no deals
-                 screen in this application yet, so there is no list to choose
-                 from. Module 5 replaces this with a picker. -->
+            <!-- `D-88`: a fragment of the deal's code, matched by the server.
+                 A deal picker is outside F-13. -->
             <label class="flex flex-col gap-1">
                 <span>{{ t('supplierQuotations.filter.deal') }}</span>
                 <input
                     v-model="dealFilter"
                     type="text"
                     class="form-field min-h-11 rounded-lg px-3"
-                    :placeholder="t('supplierQuotations.filter.dealPlaceholder')"
+                    :placeholder="t('supplierQuotations.filter.dealCodePlaceholder')"
                     data-testid="supplier-quotations-filter-deal"
                 />
             </label>
@@ -353,7 +352,7 @@ onMounted(async () => {
                             <td class="p-3 tabular-nums">{{ onDate(offer.offer_date) }}</td>
                             <td class="hidden p-3 tabular-nums md:table-cell">{{ onDate(offer.valid_until) }}</td>
                             <td class="hidden p-3 lg:table-cell">
-                                {{ offer.deal_id === null ? t('supplierQuotations.deal.none') : offer.deal_id }}
+                                {{ offer.deal_code ?? t('supplierQuotations.deal.none') }}
                             </td>
 
                             <td v-if="canWrite" class="p-3">

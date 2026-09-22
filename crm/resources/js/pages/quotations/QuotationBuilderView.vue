@@ -52,9 +52,8 @@
  * A quotation line names its `supplier_quotation_item_id` and nothing about
  * the offer it came from (`quotation_items` has no `supplier_quotation_id`),
  * so existing lines are edited as the flat list Point 6.5 shows — line
- * number, cost, quantity, margin, remove — and new lines still come through a
- * supplier block. Naming the product on an existing line is one backend field
- * on the detail, for 6.5 and 6.7 alike; a debt row records it.
+ * number, product name (F-16 · 1.1), cost, quantity, margin, remove — and new
+ * lines still come through a supplier block.
  *
  * Stated ceilings, all Module 6's: suppliers, catalog items and supplier
  * quotations are each read as one page of 100.
@@ -117,6 +116,7 @@ interface Block {
 interface ExistingLine {
     supplier_quotation_item_id: string;
     line_no: number;
+    product_name: string | null;
     quantity: string;
     margin: string;
     unit_cost: string | null;
@@ -268,6 +268,7 @@ function applyDetail(quotation: QuotationDetail): void {
     existing.value = quotation.items.map((line) => ({
         supplier_quotation_item_id: line.supplier_quotation_item_id,
         line_no: line.line_no,
+        product_name: line.product_name,
         quantity: line.quantity,
         margin: line.margin_percent ?? '',
         unit_cost: line.unit_cost ?? null,
@@ -724,6 +725,7 @@ onMounted(load);
                     <div v-for="(line, i) in existing" :key="line.supplier_quotation_item_id + i" class="line-grid line-row rounded-lg p-3">
                         <p class="flex flex-col gap-1">
                             <span>{{ t('quotations.builder.lineNo', { no: line.line_no }) }}</span>
+                            <span v-if="line.product_name" class="font-medium" :data-testid="fieldId(`existing-${i}-product`)">{{ line.product_name }}</span>
                             <span v-if="line.unit_cost !== null" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`existing-${i}-cost`)">
                                 {{ t('quotations.detail.unitCost') }} {{ displayDecimals(line.unit_cost) }}
                             </span>

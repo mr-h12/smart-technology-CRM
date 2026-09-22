@@ -39,10 +39,25 @@ parameters:
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+    # The five `QuotationsContract` classLikes are collected out below, on
+    # `Suppliers`' terms (F-10 · 1.4): a token in two layers is checked against both.
     - name: Quotations
       collectors:
-        - type: directory
-          value: app/Modules/Quotations/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Quotations/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Contracts\\QuotationReaderInterface$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationDetail$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationLine$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationAdditionalLine$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationNotFound$
     # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
     # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
@@ -73,6 +88,8 @@ parameters:
           must_not:
             - type: classLike
               value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+            - type: classLike
+              value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogItemLabelsInterface$
     # `SupplierItemPricingInterface` and its result `SupplierItemPrice` are
     # collected out here, the way `Catalog` collects its provisioner out above:
     # a class caught by both this module-wide directory and the narrow
@@ -191,6 +208,9 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogProductProvisionerInterface$
+        # F-16 · 1.1: a quotation line's product name — strings in and out too.
+        - type: classLike
+          value: ^App\\Modules\\Catalog\\Domain\\Contracts\\CatalogItemLabelsInterface$
     # Suppliers' published lookup, added with F-10 · 1.4 — `D-86`'s import turns
     # a `supplier` cell into ids, and Catalog may not read `suppliers` itself.
     # Strings in and out, so one classLike holds it, as `CatalogContract` does.
@@ -198,6 +218,23 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Suppliers\\Domain\\Contracts\\SupplierLookupInterface$
+    # Quotations' published read, added 2026-09-22 with F-14 · 1.1 at Module 9's
+    # request: `find()` and the four value classes it returns or throws, and
+    # none of the writes — so a module can be granted a quotation without
+    # `EloquentQuotationDirectory`, its models, or `create`/`update`/`delete`.
+    # Granted to Quotations here; Pdf's grant arrives with its Point 1.2.
+    - name: QuotationsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Contracts\\QuotationReaderInterface$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationDetail$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationLine$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationAdditionalLine$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationNotFound$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
@@ -489,6 +526,12 @@ parameters:
       - SupplierQuotationsContract
       - DealsContract
       - IdentityContract
+      # CatalogContract, F-16 · 1.1: the product name on a quotation line
+      # (`CatalogItemLabelsInterface`), which Quotations may not read itself.
+      - CatalogContract
+      # QuotationsContract, F-14 · 1.1: the module's own read half, collected
+      # out by the narrow classLikes above, as Suppliers' grant of SuppliersContract.
+      - QuotationsContract
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:
@@ -566,6 +609,12 @@ parameters:
       # question asked is only "does this actor hold `supplier_quotation.view`".
       - StorageContract
       - IdentityContract
+      # DealsContract, added 2026-09-22 with F-13 · 1.2 (`D-88`). An offer is
+      # searched by a fragment of its deal's code and shows that code beside
+      # `deal_id`, and the codes live on `deals` — so the module reads them
+      # through `DealFactsInterface` (`dealIdsMatchingCode`, `codesOf`), never
+      # the table, on Quotations' terms above. The first caller is F-13 · 1.3.
+      - DealsContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

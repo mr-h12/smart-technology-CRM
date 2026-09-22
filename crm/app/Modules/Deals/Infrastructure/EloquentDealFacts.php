@@ -6,20 +6,26 @@ namespace App\Modules\Deals\Infrastructure;
 
 use App\Modules\Deals\Domain\Contracts\DealFacts;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Support\Search\SearchIndex;
+use App\Support\Search\SearchService;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
 
 /**
- * {@see DealFactsInterface} over `deals.owner_id` and `deals.customer_id`.
+ * {@see DealFactsInterface} over `deals.owner_id`, `deals.customer_id` and
+ * `deals.code` — the code fragment through `SearchService` (`D-88`).
  *
- * Two columns by primary key through the query builder, on
+ * Columns by primary key through the query builder, on
  * {@see \App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing}'s
  * shape: nothing here needs a hydrated model, and `whereNull('deleted_at')` is
  * `DB-01` spelled out where the model's global scope would otherwise do it.
  */
 final readonly class EloquentDealFacts implements DealFactsInterface
 {
-    public function __construct(private ConnectionInterface $connection) {}
+    public function __construct(
+        private ConnectionInterface $connection,
+        private SearchService $search,
+    ) {}
 
     public function factsOf(string $dealId): ?DealFacts
     {
@@ -63,6 +69,26 @@ final readonly class EloquentDealFacts implements DealFactsInterface
         }
 
         return $owners;
+    }
+
+    public function dealIdsMatchingCode(string $fragment): array
+    {
+        return $this->search->search(SearchIndex::Deals, $fragment);
+    }
+
+    public function codesOf(array $dealIds): array
+    {
+        if ($dealIds === []) {
+            return [];
+        }
+
+        $codes = [];
+        /** @var object{id: string, code: string} $row */
+        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'code')->get() as $row) {
+            $codes[(string) $row->id] = (string) $row->code;
+        }
+
+        return $codes;
     }
 
     /** `deals` minus `DB-01`'s soft-deleted rows — the one filter every read here shares. */

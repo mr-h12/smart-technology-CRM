@@ -21,7 +21,7 @@ import {
  *
  * ── The query shape is `SupplierQuotationListCriteria`'s, exactly ──────────
  *
- * `ALLOWED_FILTERS` is `['supplier_id', 'deal_id']` and `ALLOWED_SORTS` is
+ * `ALLOWED_FILTERS` is `['supplier_id', 'deal_id', 'deal_code']` and `ALLOWED_SORTS` is
  * `['offer_date', 'created_at']`, both closed, and `OpenAPI §6.2` answers
  * anything else with a **400**. So there is no `q` here — this list has no
  * search — and an unset filter is omitted rather than sent empty.
@@ -42,6 +42,7 @@ const OFFER = {
     code: 'SQ-2026-0001',
     supplier_id: '0192f000-0000-7000-8000-000000000101',
     deal_id: null,
+    deal_code: null,
     total_price: '4500.000000',
     currency_id: '0192f000-0000-7000-8000-000000000301',
     offer_date: '2026-09-01',
@@ -109,6 +110,18 @@ describe('the supplier quotation API catalogue', () => {
         // is a different question and `OpenAPI §6.2` would answer it with a 400.
         expect(url).not.toContain('deal_id');
         expect(url).toContain('sort=-offer_date');
+    });
+
+    /** `D-88`: `filter[deal_code]` is a code fragment; `filter[deal_id]` stays for the builder. */
+    it('sends the deal code filter as the server declares it', async () => {
+        fetchMock.mockResolvedValue(json(200, envelope([], { pagination: PAGINATION })));
+
+        await listSupplierQuotations({ dealCode: '0003' });
+
+        const url = requestFor().url;
+
+        expect(url).toContain('filter%5Bdeal_code%5D=0003');
+        expect(url).not.toContain('deal_id');
     });
 
     it('never sends a search parameter, because this list declares none', async () => {

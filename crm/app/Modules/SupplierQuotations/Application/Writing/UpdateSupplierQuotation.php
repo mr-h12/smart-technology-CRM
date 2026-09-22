@@ -86,6 +86,16 @@ final readonly class UpdateSupplierQuotation
                 $draft = $draft->withItems($this->products->resolve($draft->items, $actorId));
             }
 
+            // §5.6 on the offer this edit leaves behind: the header field the
+            // caller sent, else the stored one; the lines it named, else the
+            // stored ones.
+            PricedLinesNeedCurrency::check(
+                array_key_exists('currency_id', $draft->attributes)
+                    ? $draft->attributes['currency_id']
+                    : $before->header->currencyId,
+                $draft->items ?? $before->lines,
+            );
+
             $after = $this->quotations->update($quotationId, $draft, $actorId);
 
             if (! $after instanceof SupplierQuotationSummary) {

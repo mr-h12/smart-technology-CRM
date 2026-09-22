@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Contracts;
 
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
-use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
@@ -37,9 +36,11 @@ use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
  *
  * What "own" means for a quotation — `created_by`, or the deal's owner — is
  * still open and is Step 3's decision (`CHECKLIST.md`). No column is needed
- * either way, which is why Point 1.1 left the table without a scope index.
+ * either way, which is why Point 1.1 left the table without a scope index. *
+ * `find()` is inherited from {@see QuotationReaderInterface} (F-14 · 1.1), the
+ * read-only half another module may be granted without the writes.
  */
-interface QuotationDirectoryInterface
+interface QuotationDirectoryInterface extends QuotationReaderInterface
 {
     /**
      * Allocates the `QT-YYYY-NNNN` code internally (§4.7, via
@@ -58,20 +59,6 @@ interface QuotationDirectoryInterface
      * this stores — the same division `CreateSupplierQuotation` already draws.
      */
     public function create(QuotationDraft $draft, string $actorId): QuotationSummary;
-
-    /**
-     * The header and both child tables, or null when no live row has this id
-     * (`DB-01`: a soft-deleted quotation is absent).
-     *
-     * **Unscoped, unlike `EloquentDealDirectory::find()`**, and on purpose:
-     * §3.5's "own" is the *deal's* `owner_id` (owner ruling 2026-09-11), a
-     * column in another module's table. Filtering here would mean a subquery
-     * on `deals`, which is the cross-module database access `CLAUDE.md`
-     * forbids. `ShowQuotation` (Point 3.5) asks `DealFactsInterface` — the
-     * seam Point 3.4 built for the create — and applies `QuotationRowScope`
-     * to the answer, so the boundary is crossed by the interface, not the SQL.
-     */
-    public function find(string $quotationId): ?QuotationDetail;
 
     /**
      * `DB-12`'s guarded write: the header is updated **only where**

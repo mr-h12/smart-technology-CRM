@@ -263,6 +263,9 @@ would hide them behind `OD-03` indefinitely.
       belongs to the shell, not to a quotations point. **The cost, stated:** a phone user in Arabic
       reads a currency code one letter short on the list screen. No figure is wrong; `D-82`'s three
       decimals are correct underneath. Nothing else on the screen is affected.
+      *Seen again by `rtl-ui-verifier` in F-10 · 1.8 (2026-09-22):* on `/catalog` in Arabic at 375 px
+      the same ~46 px shifts the import dialog's primary button and the supplier picker's labels to
+      `x = -5.5`, so 5.5 px of each sits off the left edge (still tappable). Same shell root cause, not fixed there.
 
 - [ ] **`team`, `out` and `asgn` row scopes resolve to no rows** — *owner decision, 2026-08-29:
       deferred as debt rather than invented.* §3.2 defines five scopes and only two have a mechanism
@@ -2205,10 +2208,13 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             *(2026-09-22, #190 — `supplier_ids` is the full set (absent = untouched, `[]` = unlink all); one audit row per
             changed link, `CATALOG_ITEM_SUPPLIER_UNLINKED` soft-deletes it; a deactivated supplier may be linked, unknown or
             soft-deleted is a 422 (owner, 2026-09-22); `suppliers` on the single-item payload only; 15 tests, 10 mutants caught)*
-      - [ ] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared
+      - [x] **1.8** The catalog screen: the import button drawn by `catalog.import` (the shared
             `ImportModal`), the incomplete filter and chip, the item's suppliers, and a supplier picker in
             the form. Lang keys AR/EN, `NoHardCodedTextTest`, `rtl-ui-verifier` (AR/EN × desktop/375 px),
             `waste-auditor`.
+            *(2026-09-22, #PR — import button by `catalog.import` on the shared `ImportModal`; incomplete filter + chip; the form reads
+            the item on open and sends `supplier_ids` only when the set changed, never when the suppliers or the item failed to load;
+            chip not seen on screen (no flagged row in dev data — 1.9's `.csv` makes one); 11 mutants caught)*
       - [ ] **1.9** Manual test list for F-10 in Arabic — roles named (who imports, who edits, who is
             refused), a sample `.csv` covering every ruling, AR/EN × desktop/375 px. Closes F-10.
 

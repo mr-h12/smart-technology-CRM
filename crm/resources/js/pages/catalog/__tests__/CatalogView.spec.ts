@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import CatalogView from '@/pages/catalog/CatalogView.vue';
+import ImportModal from '@/components/imports/ImportModal.vue';
 import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
@@ -59,6 +60,8 @@ const PRODUCT = {
     description: 'Single core',
     notes: null,
     is_active: true,
+    is_incomplete: false,
+    suppliers: [],
     created_at: '2026-08-30T00:00:00+00:00',
     updated_at: '2026-08-30T00:00:00+00:00',
 };
@@ -517,8 +520,8 @@ describe('CatalogView — §3.7 write controls', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="catalog-form-modal"]').exists()).toBe(false);
-        // The PATCH, and then the list again.
-        expect(fetchMock.mock.calls.length).toBe(before + 2);
+        // The read of the item's links on open (F-10 · 1.8), the PATCH, and then the list again.
+        expect(fetchMock.mock.calls.length).toBe(before + 3);
     });
 });
 
@@ -602,5 +605,166 @@ describe('CatalogView — filtering by company (Point 6.5)', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="empty-state"]').text()).toContain(en.catalog.empty.filtered.title);
+    });
+});
+
+/**
+ * `D-86` (F-10 · 1.8) — the import button under `catalog.import`, the
+ * incomplete filter and chip (`D-31`), and the supplier list the form's picker
+ * needs, handed down as the three `DB-05` lists are.
+ */
+describe('CatalogView — import, the incomplete flag and the suppliers (F-10 · 1.8)', () => {
+    const MANAGER: AuthenticatedUser = {
+        ...PROCUREMENT,
+        id: '01a0-mgr',
+        name: 'Manager',
+        email: 'manager@example.test',
+        role: { id: '01a0-role-mgr', slug: 'manager', name: 'Manager' },
+        permissions: ['catalog.view.all', 'catalog.manage.all', 'catalog.import.all'],
+    };
+
+    const BATCH = { id: 'b1', original_filename: 'items.csv', row_count: 5, imported_count: 4, incomplete_count: 2 };
+
+    const SUPPLIER = {
+        id: 's1', name: 'Alpha Supply', type: 'supplier', color_rating: 'white', phone: null, contact_person: null,
+        has_open_account: false, is_active: true, is_incomplete: false, created_at: PRODUCT.created_at, updated_at: PRODUCT.updated_at,
+    };
+
+    /** The list, the import, and the suppliers the picker needs. */
+    function serving(): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string) => {
+            const url = String(input);
+
+            if (/\/catalog-items\/import$/.test(url)) {
+                return json(201, { data: BATCH });
+            }
+
+            if (url.includes('/suppliers?')) {
+                return json(200, { data: [SUPPLIER], meta: { pagination: PAGINATION } });
+            }
+
+            return page([PRODUCT]);
+        });
+    }
+
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers the import to a holder of catalog.import and not to catalog.manage alone', async () => {
+        vi.stubGlobal('fetch', serving());
+        await signIn(MANAGER);
+        const permitted = render();
+        await flushPromises();
+
+        expect(permitted.find('[data-testid="catalog-import"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        vi.stubGlobal('fetch', serving());
+        await signIn(PROCUREMENT);
+        const refused = render();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="catalog-import"]').exists()).toBe(false);
+    });
+
+    it('uploads to the catalog import and asks the list again once it succeeds', async () => {
+        const fetchMock = serving();
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-import"]').trigger('click');
+        expect(view.find('[data-testid="import-modal"] h2').text()).toBe(en.catalog.import.title);
+
+        const input = view.find('[data-testid="import-file"]');
+        Object.defineProperty(input.element, 'files', {
+            value: [new File(['kind,name\nproduct,Cable\n'], 'items.csv', { type: 'text/csv' })],
+            configurable: true,
+        });
+        await input.trigger('change');
+        const before = fetchMock.mock.calls.length;
+        await view.find('[data-testid="import-submit"]').trigger('click');
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls[before]?.[0])).toBe('/api/v1/catalog-items/import');
+        expect(fetchMock.mock.calls.length).toBe(before + 2);
+        expect(view.find('[data-testid="import-failed"]').text()).toContain('1');
+    });
+
+    it('closes the dialog and applies the incomplete filter when the result asks for it', async () => {
+        const fetchMock = serving();
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(MANAGER);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-import"]').trigger('click');
+        view.findComponent(ImportModal).vm.$emit('showIncomplete');
+        await flushPromises();
+
+        expect(view.find('[data-testid="import-modal"]').exists()).toBe(false);
+        expect(urlOf(fetchMock, catalogCalls(fetchMock).length - 1)).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+        expect((view.find('[data-testid="catalog-filter-incomplete"]').element as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('sends filter[is_incomplete]=true when ticked, and nothing about it when not', async () => {
+        const fetchMock = serving();
+        vi.stubGlobal('fetch', fetchMock);
+        const view = render();
+        await flushPromises();
+
+        expect(urlOf(fetchMock, 0)).not.toContain(encodeURIComponent('filter[is_incomplete]'));
+
+        await view.find('[data-testid="catalog-filter-incomplete"]').setValue(true);
+        await flushPromises();
+
+        expect(urlOf(fetchMock, catalogCalls(fetchMock).length - 1)).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+    });
+
+    it('marks an incomplete item with a worded chip, and a complete one with none', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => page([
+            { ...PRODUCT, is_incomplete: true },
+            { ...PRODUCT, id: 'c9', name: 'Copper lug', is_incomplete: false },
+        ])));
+        const view = render('ar');
+        await flushPromises();
+
+        const rows = view.findAll('[data-testid="catalog-row"]');
+
+        expect(rows[0]!.find('[data-testid="catalog-incomplete"]').text()).toBe(ar.catalog.incomplete);
+        expect(rows[1]!.find('[data-testid="catalog-incomplete"]').exists()).toBe(false);
+    });
+
+    it('loads the suppliers once and hands them to the form as the picker', async () => {
+        const fetchMock = serving();
+        vi.stubGlobal('fetch', fetchMock);
+        await signIn(PROCUREMENT);
+        const view = render();
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/suppliers?')).length).toBe(1);
+
+        await view.find('[data-testid="catalog-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-form-supplier-s1"]').exists()).toBe(true);
+    });
+
+    it('hands the form no picker when the suppliers could not be loaded, so a save cannot unlink by accident', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (input: string) => (String(input).includes('/suppliers?')
+            ? json(500, { error: { code: 'server_error', message: 'boom' } })
+            : page([PRODUCT]))));
+        await signIn(PROCUREMENT);
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="catalog-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-form-supplier-s1"]').exists()).toBe(false);
+        expect(view.find('[data-testid="catalog-form-suppliers-unavailable"]').text()).toBe(en.catalog.form.suppliersUnavailable);
     });
 });

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, collection, type Pagination } from '@/api';
+import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
 
 /**
  * Module 4's four catalog routes, and nothing else.
@@ -44,8 +44,20 @@ export interface CatalogItem {
     description: string | null;
     notes: string | null;
     is_active: boolean;
+    /** `D-86`/`D-31` — set by the importer only; a write that sends it is a 422. */
+    is_incomplete: boolean;
+    /**
+     * `D-86` (F-10 · 1.7) — the suppliers carrying the item, name only (§7.3:
+     * no prices). Filled on the single-item read; a list row carries `[]`.
+     */
+    suppliers: CatalogItemSupplier[];
     created_at: string;
     updated_at: string;
+}
+
+export interface CatalogItemSupplier {
+    id: string;
+    name: string;
 }
 
 export interface Page<T> {
@@ -64,6 +76,7 @@ export interface CatalogItemListQuery {
     category?: string | null;
     company?: string | null;
     isActive?: boolean | null;
+    isIncomplete?: boolean | null;
 }
 
 /** §7.3's user-entered fields. A product needs `name` and `unit`, a service `service_type` — enforced at the API. */
@@ -78,6 +91,8 @@ export interface CatalogItemDraft {
     description?: string | null;
     notes?: string | null;
     is_active?: boolean;
+    /** `D-86` (F-10 · 1.7) — the full set; absent leaves the links alone, `[]` unlinks all. */
+    supplier_ids?: string[];
 }
 
 export async function listCatalogItems(query: CatalogItemListQuery = {}): Promise<Page<CatalogItem>> {
@@ -110,6 +125,10 @@ export async function listCatalogItems(query: CatalogItemListQuery = {}): Promis
         parameters.set('filter[is_active]', query.isActive ? 'true' : 'false');
     }
 
+    if (typeof query.isIncomplete === 'boolean') {
+        parameters.set('filter[is_incomplete]', query.isIncomplete ? 'true' : 'false');
+    }
+
     const suffix = parameters.size === 0 ? '' : `?${parameters.toString()}`;
 
     return collection<CatalogItem>(await apiGet(`/catalog-items${suffix}`));
@@ -126,4 +145,12 @@ export async function createCatalogItem(draft: CatalogItemDraft): Promise<Catalo
 /** Deactivation is an ordinary field here — §3.7 grants it under `edit`, and there is no DELETE. */
 export async function updateCatalogItem(id: string, draft: CatalogItemDraft): Promise<CatalogItem> {
     return (await apiPatch<CatalogItem>(`/catalog-items/${id}`, draft)).data;
+}
+
+/** `D-86` — the catalog's CSV import, on the same shape as the suppliers'. */
+export async function importCatalogItems(file: File): Promise<ImportBatch> {
+    const form = new FormData();
+    form.set('file', file);
+
+    return (await apiUpload<ImportBatch>('/catalog-items/import', form)).data;
 }

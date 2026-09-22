@@ -770,7 +770,8 @@
             "searchAction": "بحث",
             "active": "الحالة",
             "companyAll": "كل الشركات",
-            "activeAll": "المفعّل وغير المفعّل"
+            "activeAll": "المفعّل وغير المفعّل",
+            "incomplete": "السجلات الناقصة فقط"
         },
         "column": {
             "name": "الاسم",
@@ -825,7 +826,14 @@
             "unreachable": "تعذّر الوصول إلى الخادم. لم يُحفظ شيء.",
             "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
             "keepEditing": "متابعة التعديل",
-            "discard": "تجاهل التغييرات"
+            "discard": "تجاهل التغييرات",
+            "suppliers": "الموردون الذين يوفّرون هذا العنصر",
+            "suppliersNone": "لا يوجد موردون للاختيار منهم بعد.",
+            "suppliersUnavailable": "تعذّر تحميل قائمة الموردين؛ يبقى موردو العنصر كما هم."
+        },
+        "incomplete": "سجل ناقص",
+        "import": {
+            "title": "استيراد من CSV"
         }
     },
     "supplierQuotations": {

@@ -58,7 +58,8 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
-import { createCatalogItem, updateCatalogItem, type CatalogItem, type CatalogItemDraft } from '@/services/catalog';
+import { createCatalogItem, readCatalogItem, updateCatalogItem, type CatalogItem, type CatalogItemDraft } from '@/services/catalog';
+import type { Supplier } from '@/services/suppliers';
 
 type Kind = 'product' | 'service';
 
@@ -72,6 +73,13 @@ const props = defineProps<{
     units: readonly ListEntry[];
     serviceTypes: readonly ListEntry[];
     companies: readonly ListEntry[];
+    /**
+     * `D-86` (F-10 · 1.8) — the picker's suppliers, loaded by the screen as the
+     * three lists are. **`null` means the screen could not load them**, and
+     * then this form never sends `supplier_ids`: a save that sent `[]` because
+     * the list failed would unlink every supplier.
+     */
+    suppliers: readonly Supplier[] | null;
 }>();
 
 const emit = defineEmits<{ saved: [CatalogItem]; cancel: [] }>();
@@ -128,6 +136,11 @@ const openedActive = ref(true);
 const saving = ref(false);
 const confirmingDiscard = ref(false);
 
+/** The checked supplier ids, and whether they may be sent at all (see `suppliers` above). */
+const supplierIds = ref<string[]>([]);
+const openedSupplierIds = ref<string[]>([]);
+const linksLoaded = ref(false);
+
 /** Lang keys for what this screen refuses; server sentences for what the server refuses. */
 const errorKeys = ref<Partial<Record<TextField | '_form', string>>>({});
 const serverErrors = ref<Partial<Record<TextField, string>>>({});
@@ -139,9 +152,19 @@ const activeKind = computed<Kind>(() => (props.editing?.kind === 'service' ? 'se
 
 const fields = computed<readonly TextField[]>(() => FIELDS[activeKind.value]);
 
-const dirty = computed(
-    () => isActive.value !== openedActive.value || fields.value.some((field) => values.value[field] !== opened.value[field]),
+/** Order does not make a different set. */
+const supplierSetChanged = computed(
+    () => [...supplierIds.value].sort().join() !== [...openedSupplierIds.value].sort().join(),
 );
+
+const dirty = computed(
+    () => isActive.value !== openedActive.value
+        || fields.value.some((field) => values.value[field] !== opened.value[field])
+        || supplierSetChanged.value,
+);
+
+/** The picker draws only when both the list and the item's own links arrived. */
+const pickerAvailable = computed(() => props.suppliers !== null && linksLoaded.value);
 
 function fieldId(field: TextField): string {
     return `catalog-form-${field}`;
@@ -211,7 +234,35 @@ watch(() => [props.open, props.editing, props.kind] as const, ([open]) => {
     errorKeys.value = {};
     serverErrors.value = {};
     confirmingDiscard.value = false;
+    void loadLinks(record);
 }, { immediate: true });
+
+/**
+ * The links live on the single-item read only (1.7's stated ceiling: a list
+ * row carries `suppliers: []`), so an edit reads the item once on open. A
+ * create has nothing to read.
+ */
+async function loadLinks(record: CatalogItem | null): Promise<void> {
+    linksLoaded.value = false;
+    supplierIds.value = [];
+    openedSupplierIds.value = [];
+
+    if (record === null) {
+        linksLoaded.value = true;
+
+        return;
+    }
+
+    try {
+        const ids = (await readCatalogItem(record.id)).suppliers.map((supplier) => supplier.id);
+
+        supplierIds.value = [...ids];
+        openedSupplierIds.value = [...ids];
+        linksLoaded.value = true;
+    } catch {
+        // Left unavailable: the save then omits `supplier_ids`.
+    }
+}
 
 /**
  * The three `required_if` rules, mirrored. A courtesy rather than the rule:
@@ -275,6 +326,14 @@ function draft(): CatalogItemDraft {
         payload[field] = value === '' ? null : value;
     }
 
+    // The full set, and only when it changed: the server treats absence as
+    // "leave the links alone", so an untouched picker names nothing — which
+    // is also what keeps an unavailable picker (no boxes, so no change) from
+    // ever sending `[]`.
+    if (supplierSetChanged.value) {
+        payload.supplier_ids = [...supplierIds.value];
+    }
+
     return payload;
 }
 
@@ -294,6 +353,7 @@ async function save(): Promise<void> {
 
         opened.value = { ...values.value };
         openedActive.value = isActive.value;
+        openedSupplierIds.value = [...supplierIds.value];
         emit('saved', written);
     } catch (error) {
         applyServerErrors(error);
@@ -430,6 +490,36 @@ function discard(): void {
                 />
                 <span>{{ t('catalog.status.active') }}</span>
             </label>
+
+            <!-- `D-86` (F-10 · 1.8): the suppliers carrying the item. Native
+                 boxes, one per supplier, deactivated ones included (ruling A2).
+                 Drawn only when the set can be sent whole. -->
+            <fieldset class="flex flex-col gap-2" data-testid="catalog-form-suppliers">
+                <legend class="mb-1">{{ t('catalog.form.suppliers') }}</legend>
+                <p
+                    v-if="!pickerAvailable"
+                    class="text-[var(--color-text-muted)]"
+                    data-testid="catalog-form-suppliers-unavailable"
+                >{{ t('catalog.form.suppliersUnavailable') }}</p>
+                <p v-else-if="suppliers !== null && suppliers.length === 0" class="text-[var(--color-text-muted)]">
+                    {{ t('catalog.form.suppliersNone') }}
+                </p>
+                <label
+                    v-for="supplier in (pickerAvailable ? suppliers ?? [] : [])"
+                    :key="supplier.id"
+                    class="flex min-h-11 items-center gap-2"
+                >
+                    <input
+                        v-model="supplierIds"
+                        type="checkbox"
+                        :value="supplier.id"
+                        class="size-5"
+                        :disabled="saving"
+                        :data-testid="`catalog-form-supplier-${supplier.id}`"
+                    />
+                    <span>{{ supplier.name }}</span>
+                </label>
+            </fieldset>
 
             <!-- §5.2's unsaved-change warning. Inside the dialog, because a
                  native `confirm()` is neither translatable nor RTL-aware. -->

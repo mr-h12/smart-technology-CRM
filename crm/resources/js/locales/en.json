@@ -770,7 +770,8 @@
             "searchAction": "Search",
             "active": "State",
             "companyAll": "All companies",
-            "activeAll": "Active and inactive"
+            "activeAll": "Active and inactive",
+            "incomplete": "Incomplete records only"
         },
         "column": {
             "name": "Name",
@@ -825,7 +826,14 @@
             "unreachable": "The server could not be reached. Nothing was saved.",
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
-            "discard": "Discard changes"
+            "discard": "Discard changes",
+            "suppliers": "Suppliers carrying this item",
+            "suppliersNone": "No suppliers to choose from yet.",
+            "suppliersUnavailable": "The supplier list could not be loaded; the item’s suppliers are left as they are."
+        },
+        "incomplete": "Incomplete record",
+        "import": {
+            "title": "Import from CSV"
         }
     },
     "supplierQuotations": {

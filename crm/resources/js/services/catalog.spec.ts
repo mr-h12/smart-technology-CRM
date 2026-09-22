@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCatalogItem, listCatalogItems, readCatalogItem, updateCatalogItem } from '@/services/catalog';
+import { createCatalogItem, importCatalogItems, listCatalogItems, readCatalogItem, updateCatalogItem } from '@/services/catalog';
 
 /**
  * Module 4, Point 4.0 — the API catalogue for the four routes Step 3 built.
@@ -41,6 +41,8 @@ const ITEM = {
     description: null,
     notes: null,
     is_active: true,
+    is_incomplete: false,
+    suppliers: [],
     created_at: '2026-08-31T00:00:00+00:00',
     updated_at: '2026-08-31T00:00:00+00:00',
 };
@@ -178,5 +180,43 @@ describe('updateCatalogItem', () => {
         expect(url).not.toContain('deactivate');
         expect(init.method).toBe('PATCH');
         expect(JSON.parse(String(init.body))).toEqual({ is_active: false });
+    });
+});
+
+/** `D-86` (F-10 · 1.8) — the import, the incomplete filter and the supplier set. */
+describe('the catalog import and links', () => {
+    it('posts the file as multipart under the field the server validates', async () => {
+        const batch = { id: 'b1', original_filename: 'items.csv', row_count: 3, imported_count: 2, incomplete_count: 1 };
+        const fetchMock = vi.fn(async () => json(201, { data: batch, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await importCatalogItems(new File(['kind,name\nproduct,Cable\n'], 'items.csv', { type: 'text/csv' }));
+
+        const { url, init } = calledWith(fetchMock);
+
+        expect(url).toBe('/api/v1/catalog-items/import');
+        expect(init.method).toBe('POST');
+        expect((init.body as FormData).get('file')).toBeInstanceOf(File);
+        expect(result).toEqual(batch);
+    });
+
+    it('sends filter[is_incomplete]=true when asked, and nothing about it otherwise', async () => {
+        const fetchMock = vi.fn(async () => json(200, { data: [], meta: { pagination: PAGINATION } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await listCatalogItems({});
+        expect(calledWith(fetchMock).url).not.toContain(encodeURIComponent('filter[is_incomplete]'));
+
+        await listCatalogItems({ isIncomplete: true });
+        expect(String((fetchMock.mock.calls as unknown[][])[1]?.[0])).toContain(`${encodeURIComponent('filter[is_incomplete]')}=true`);
+    });
+
+    it('sends the supplier set as given, an empty set included', async () => {
+        const fetchMock = vi.fn(async () => json(200, { data: { ...ITEM, is_incomplete: false, suppliers: [] }, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await updateCatalogItem(ITEM.id, { supplier_ids: [] });
+
+        expect(JSON.parse(String(calledWith(fetchMock).init.body))).toEqual({ supplier_ids: [] });
     });
 });

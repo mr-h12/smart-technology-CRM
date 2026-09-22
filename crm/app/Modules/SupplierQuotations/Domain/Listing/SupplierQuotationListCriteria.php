@@ -47,7 +47,7 @@ final readonly class SupplierQuotationListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['supplier_id', 'deal_id'];
+    public const ALLOWED_FILTERS = ['supplier_id', 'deal_id', 'deal_code'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['offer_date', 'created_at'];
@@ -59,7 +59,14 @@ final readonly class SupplierQuotationListCriteria
     public const DEFAULT_SORT_DESCENDING = true;
 
     /**
+     * `$dealCode` is `D-88`'s fragment as typed (trimmed; null when blank).
+     * `$dealIds` is what `ListSupplierQuotations` resolves it to through Deals'
+     * contract — null means "not narrowed", `[]` means "no deal matched" and
+     * so no offer does. The directory reads only `$dealIds`: it cannot ask
+     * Deals, and the fragment means nothing to `supplier_quotations`.
+     *
      * @param  list<array{field: string, descending: bool}>  $sorts  in the order the caller wrote them
+     * @param  list<string>|null  $dealIds
      */
     public function __construct(
         public int $page = 1,
@@ -67,7 +74,15 @@ final readonly class SupplierQuotationListCriteria
         public ?string $supplierId = null,
         public ?string $dealId = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => self::DEFAULT_SORT_DESCENDING]],
+        public ?string $dealCode = null,
+        public ?array $dealIds = null,
     ) {}
+
+    /** @param  list<string>  $dealIds  the deals `$dealCode` matched */
+    public function withDealIds(array $dealIds): self
+    {
+        return new self($this->page, $this->perPage, $this->supplierId, $this->dealId, $this->sorts, $this->dealCode, $dealIds);
+    }
 
     /**
      * @param  array<array-key, mixed>  $query  the raw query string, as received
@@ -94,6 +109,7 @@ final readonly class SupplierQuotationListCriteria
             supplierId: $filters['supplier_id'],
             dealId: $filters['deal_id'],
             sorts: self::sorts($query['sort'] ?? null),
+            dealCode: $filters['deal_code'],
         );
     }
 
@@ -159,13 +175,13 @@ final readonly class SupplierQuotationListCriteria
     }
 
     /**
-     * @return array{supplier_id: string|null, deal_id: string|null}
+     * @return array{supplier_id: string|null, deal_id: string|null, deal_code: string|null}
      *
      * @throws InvalidSupplierQuotationListQuery
      */
     private static function filters(mixed $value): array
     {
-        $empty = ['supplier_id' => null, 'deal_id' => null];
+        $empty = ['supplier_id' => null, 'deal_id' => null, 'deal_code' => null];
 
         if ($value === null) {
             return $empty;
@@ -184,7 +200,30 @@ final readonly class SupplierQuotationListCriteria
         return [
             'supplier_id' => self::id($value['supplier_id'] ?? null, 'filter[supplier_id]'),
             'deal_id' => self::id($value['deal_id'] ?? null, 'filter[deal_id]'),
+            'deal_code' => self::fragment($value['deal_code'] ?? null),
         ];
+    }
+
+    /**
+     * `D-88`'s fragment, trimmed; blank is no filter, as `DealListCriteria`
+     * reads `q` — and a blank value must never reach `SearchService`, which
+     * refuses one.
+     *
+     * @throws InvalidSupplierQuotationListQuery
+     */
+    private static function fragment(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw InvalidSupplierQuotationListQuery::of('filter[deal_code]', 'not_a_string');
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**

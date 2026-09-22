@@ -191,8 +191,29 @@ final class SupplierQuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.supplier_id', $this->supplierId)
             ->assertJsonPath('data.deal_id', null)
+            ->assertJsonPath('data.deal_code', null)
+            ->assertJsonStructure(['data' => ['deal_code']])
             ->assertJsonPath('data.total_price', '4500.000000')
             ->assertJsonPath('data.currency_id', $this->currencyId);
+    }
+
+    /** `D-88`: the single offer carries its deal's code beside `deal_id`; `null` with no deal is asserted above. */
+    public function test_that_the_single_offer_carries_its_deal_code(): void
+    {
+        $customerId = Uuid::uuid4()->toString();
+        $dealId = Uuid::uuid4()->toString();
+        DB::table('customers')->insert(['id' => $customerId, 'name' => 'Nile Contracting', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('deals')->insert(['id' => $dealId, 'code' => 'DL-2026-0003', 'customer_id' => $customerId, 'last_activity_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $dealId]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.deal_id', $dealId)
+            ->assertJsonPath('data.deal_code', 'DL-2026-0003');
     }
 
     /** §4.7's `SQ-YYYY-NNNN`, read back exactly as it was allocated. */

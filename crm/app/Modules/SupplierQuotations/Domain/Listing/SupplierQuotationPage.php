@@ -15,12 +15,20 @@ namespace App\Modules\SupplierQuotations\Domain\Listing;
  */
 final readonly class SupplierQuotationPage
 {
-    /** @param list<SupplierQuotationSummary> $items */
+    /**
+     * `$dealCodes` is `D-88`'s one call per page — deal id => code for the
+     * page's distinct deals, read through Deals' contract (`DealPage`'s
+     * `$customerNames` shape, `D-83`). A soft-deleted deal has no entry.
+     *
+     * @param  list<SupplierQuotationSummary>  $items
+     * @param  array<string, string>  $dealCodes
+     */
     public function __construct(
         public array $items,
         public int $total,
         public int $page,
         public int $perPage,
+        public array $dealCodes = [],
     ) {}
 
     public function totalPages(): int

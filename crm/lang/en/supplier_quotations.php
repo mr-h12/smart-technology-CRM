@@ -20,5 +20,6 @@ return [
         'repeated_sort_field' => 'A field can only be used once when sorting.',
         'unknown_filter' => 'This list does not offer that filter.',
         'not_a_uuid' => 'This filter value is not a valid identifier.',
+        'not_a_string' => 'This filter value must be text.',
     ],
 ];

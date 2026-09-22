@@ -2638,9 +2638,10 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             ids (through `SearchService`) and deal ids ⇒ codes (one page, no query for `[]`); `DealsContract`
             granted to SupplierQuotations. RED first; mutants, and a deptrac mutant.
             *(2026-09-22, #194 — a blank fragment throws, as `SearchService` does; 1.3 validates the empty filter)*
-      - [ ] **1.3** SupplierQuotations API: `filter[deal_code]` (partial, trimmed, case-insensitive; with the
+      - [x] **1.3** SupplierQuotations API: `filter[deal_code]` (partial, trimmed, case-insensitive; with the
             supplier filter and the row scope; an offer with no deal never matches) and `deal_code` on the list
             and the single offer. RED first. `permission-matrix-auditor`.
+            *(2026-09-22, #196 — one `codesOf` per page; create/update responses carry no `deal_code`)*
       - [ ] **1.4** The screen: the box becomes «رمز الصفقة» (placeholder `DL-2026-0003`), the column shows the
             code, lang keys AR/EN. `rtl-ui-verifier` (AR/EN × desktop/375 px), `waste-auditor`.
       - [ ] **1.5** Manual test list for F-13 in Arabic. Closes F-13.

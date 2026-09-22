@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Application\Listing;
 
+use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
+use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 
 /**
  * §7.2's Supplier Quotations screen — the detail (Point 2.3) and the list.
@@ -28,7 +30,10 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationPage;
  */
 final readonly class ListSupplierQuotations
 {
-    public function __construct(private SupplierQuotationDirectoryInterface $quotations) {}
+    public function __construct(
+        private SupplierQuotationDirectoryInterface $quotations,
+        private DealFactsInterface $deals,
+    ) {}
 
     /** @throws SupplierQuotationNotFound when the row is absent or soft-deleted */
     public function one(string $quotationId): SupplierQuotationDetail
@@ -64,6 +69,26 @@ final readonly class ListSupplierQuotations
      */
     public function handle(SupplierQuotationListCriteria $criteria): SupplierQuotationPage
     {
-        return $this->quotations->list($criteria);
+        // `D-88`: the fragment becomes deal ids through Deals' contract (and so
+        // through `SearchService`) before the directory, which cannot ask Deals.
+        if ($criteria->dealCode !== null) {
+            $criteria = $criteria->withDealIds($this->deals->dealIdsMatchingCode($criteria->dealCode));
+        }
+
+        $page = $this->quotations->list($criteria);
+        $dealIds = array_values(array_unique(array_filter(
+            array_map(static fn (SupplierQuotationSummary $row): ?string => $row->dealId, $page->items),
+            static fn (?string $id): bool => $id !== null,
+        )));
+
+        return new SupplierQuotationPage($page->items, $page->total, $page->page, $page->perPage, $this->deals->codesOf($dealIds));
+    }
+
+    /** `D-88`'s code for the single offer; null with no deal, or when the deal is soft-deleted. */
+    public function dealCodeOf(SupplierQuotationDetail $quotation): ?string
+    {
+        $dealId = $quotation->header->dealId;
+
+        return $dealId === null ? null : ($this->deals->codesOf([$dealId])[$dealId] ?? null);
     }
 }

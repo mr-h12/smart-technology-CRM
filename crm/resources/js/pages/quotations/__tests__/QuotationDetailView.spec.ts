@@ -58,7 +58,7 @@ const QUOTATION = {
     is_self_approved: false,
     etag: '"v1"',
     items: [
-        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000' },
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000' },
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
     created_by: 'u1',
@@ -251,6 +251,7 @@ describe('the quotation detail view', () => {
     it('lists the additional items and the line’s quantity and price', async () => {
         const { wrapper } = await render(respond());
 
+        expect(wrapper.find('[data-testid="quotation-line-product"]').text()).toBe('Split unit 1.5HP');
         expect(wrapper.find('[data-testid="quotation-line-quantity"]').text()).toBe('2.000');
         expect(wrapper.find('[data-testid="quotation-line-unit_price"]').text()).toBe('500.000');
         expect(wrapper.find('[data-testid="quotation-additional-description"]').text()).toBe('Delivery');

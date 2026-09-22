@@ -925,14 +925,14 @@ would hide them behind `OD-03` indefinitely.
       Point 6.6 mounts `SupplierQuotationFormModal` in the builder; the saved offer becomes the next
       block. Its `deal_id` is not pre-filled: the modal's props allow none.)*
 
-- [ ] **A quotation line is unnamed on the wire** — *revealed by Module 7 Point 6.7, 2026-09-14.*
+- [x] **A quotation line is unnamed on the wire** — *revealed by Module 7 Point 6.7, 2026-09-14.*
       `QuotationPayload::detail()` writes `items[].supplier_quotation_item_id`, `quantity`, prices and
       costs, and nothing that says *what* the line is: no product name, no catalog id, no
       `supplier_quotation_id` (`quotation_items` has no such column; the offer is reachable only
       through the item). So 6.5 lists lines by number and 6.7 edits them by number. One field on the
       detail — the catalog label through `SupplierItemPricingInterface`'s join, which already touches
       `supplier_quotation_items` — names the line on both screens. Not built here: a cross-module
-      contract widening is its own point.
+      contract widening is its own point. *(2026-09-22, #200 — F-16 · 1.1: `CatalogItemLabelsInterface`, not the pricing join)*
 
 - [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
       knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
@@ -2792,6 +2792,19 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
       - [x] **1.1** RED on POST and PATCH (four cases), guard in Create/Update, `ar`/`en` message.
             Closes F-15; no screen change, so no manual test list beyond the two clicks named in the PR.
+
+- [ ] **F-16** A customer-quotation line names its product. The owner's report (2026-09-22): the
+      detail's lines table and the edit form list lines by number alone. The open debt row "A quotation
+      line is unnamed on the wire" (Module 7 · 6.7). Ruling: the server sends the name. No `D-xx`: it
+      closes a recorded gap and changes no rule.
+
+      ### F-16 point list — approved 2026-09-22 in conversation
+
+      - [ ] **1.1** `items[].product_name` on every quotation-detail response (§7.3 label: `name`, or a
+            service's `service_type`), outside §3.5's cost grant. A narrow Catalog contract
+            `CatalogItemLabelsInterface` (Quotations → `CatalogContract`); `SupplierItemPrice` carries its
+            `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.
+            *(2026-09-22, #200 — `product_name` rides `quotation.view`, not the cost grant; null when unnamed)*
 
 ## Shell revisions — owner-directed
 

@@ -29,8 +29,10 @@ use App\Modules\Audit\Infrastructure\PostgresAuditPartitions;
 use App\Modules\Audit\Infrastructure\RequestAuditContext;
 use App\Modules\Catalog\Application\Writing\ProvisionCatalogProduct;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemDirectoryInterface;
+use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
+use App\Modules\Catalog\Infrastructure\EloquentCatalogItemLabels;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
@@ -249,6 +251,9 @@ class AppServiceProvider extends ServiceProvider
         // than constructed by hand so `SaveCatalogItem`'s five collaborators
         // stay its own business.
         $this->app->bind(CatalogProductProvisionerInterface::class, ProvisionCatalogProduct::class);
+
+        // F-16 · 1.1 — a quotation line's product name, read by Quotations.
+        $this->app->bind(CatalogItemLabelsInterface::class, EloquentCatalogItemLabels::class);
 
         // Module 5 Points 2.2–2.3. `bind` for the reason
         // `CustomerDirectoryInterface` is: stateless, and a singleton would

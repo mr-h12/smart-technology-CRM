@@ -60,8 +60,8 @@ const QUOTATION = {
     payment_terms: '50% advance', warranty: null, delivery_terms: 'Ex works', show_delivery_terms: false,
     rejection_reason: null, sent_at: null, is_self_approved: false, etag: '"v1"',
     items: [
-        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.00' },
-        { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', margin_percent: null },
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.00' },
+        { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', product_name: null, quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', margin_percent: null },
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
     created_by: 'u1', updated_by: 'u1',
@@ -608,6 +608,8 @@ describe('the quotation builder (edit)', () => {
         expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25.00');
         expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.000');
         expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('400.000000');
+        expect(wrapper.find(id('existing-0-product')).text()).toBe('Split unit 1.5HP');
+        expect(wrapper.find(id('existing-1-product')).exists()).toBe(false);
         expect((wrapper.find(id('existing-1-margin_percent')).element as HTMLInputElement).value).toBe('');
         expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
         expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100.000000');

@@ -8,6 +8,7 @@ return [
     // OpenAPI §5's envelope message for a 400. Every module carries its own
     // `errors.invalid_request`; the specific cause is in `details`, below.
     'errors' => [
+        'lines_need_currency' => 'An offer with priced lines must name their currency (and its total).',
         'invalid_request' => 'This request could not be understood.',
     ],
 

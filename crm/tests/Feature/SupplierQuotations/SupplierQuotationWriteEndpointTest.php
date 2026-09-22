@@ -234,6 +234,24 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
         $this->post422(['currency_id' => Uuid::uuid4()->toString()], 'currency_id');
     }
 
+    /**
+     * §5.6: "Every amount stores: amount · currency · …" — a line's `unit_price`
+     * is an amount, and its currency is the header's. An offer that priced its
+     * lines and named no currency is the dead end `D-80` described: Module 7's
+     * `supplier_price_missing` refuses every quotation built on it.
+     */
+    public function test_that_priced_lines_without_a_currency_are_refused(): void
+    {
+        $this->post422(['total_price' => null, 'currency_id' => null], 'currency_id');
+    }
+
+    /** No lines, no amount, so §5.6 asks for no currency — the pair stays nullable. */
+    public function test_that_an_offer_without_lines_needs_no_currency(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['total_price' => null, 'currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201);
+    }
+
     /** §7.2 marks the code "Automatic"; a caller who sends one has a wrong idea. */
     public function test_that_a_caller_supplied_code_is_refused(): void
     {

@@ -73,6 +73,7 @@ use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
@@ -331,6 +332,14 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(DealFactsInterface::class),
                 $this->app->make(CurrencyRepositoryInterface::class),
             ),
+        );
+
+        // F-14 · 1.1. The read-only half, resolved through the directory's own
+        // binding above so a module granted only `QuotationsContract` gets the
+        // same `find()` rather than a second implementation of it.
+        $this->app->bind(
+            QuotationReaderInterface::class,
+            fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
         );
 
         $this->app->singleton(

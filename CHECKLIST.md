@@ -96,7 +96,7 @@ from fighting over the same eleven files.
 | **7 — Customer Quotations** | Yousef | **finished** — 57 of 57 boxes, closed 2026-09-14 (#129), archived in `checklist/module-07.md`. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
 | **9 — PDF Generation** | second developer | in progress — Step 1 approved 2026-09-13, Point 1.0 closed (#116); `OD-02` closed by `D-79` (#111) |
-| **10 — Customer Response & POs** | Yousef | point list published 2026-09-23, the owner's answers to Q1–Q12 recorded under the module |
+| **10 — Customer Response & POs** | Yousef | point list published 2026-09-23 (#206), the owner's answers to Q1–Q12 recorded under the module |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -3377,7 +3377,7 @@ rule requires.
 - [ ] Search works on both the internal PO number and the customer's reference
 - [ ] Every version preserved via `parent_id` + `version`
 
-### Point list — published 2026-09-23, approved by merging this PR
+### Point list — published 2026-09-23, approved by merging #206
 
 **What is on `main` (measured 2026-09-23 at `1573287`):** the edges `approved → sent` and
 `sent → accepted|partial|counter|rejected|expired` (`QuotationStatusTransition.php:29-39`) with **no

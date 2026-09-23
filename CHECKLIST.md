@@ -3420,7 +3420,7 @@ printed blank.
 - [~] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
       embedded base64. *Verified by* a test that the template references no OS font and no URL.
 
-      *(2026-09-23, #PR — `PdfAssetsInterface`; families `CRM Sans` / `CRM Sans Arabic`, names no OS
+      *(2026-09-23, #218 — `PdfAssetsInterface`; families `CRM Sans` / `CRM Sans Arabic`, names no OS
       ships.)* ⚠️ **The first version of the embedding test was a false verifier**: it searched the
       PDF's bytes for "Inter", which passed even with both faces deliberately broken, because this
       image installs `fonts-inter` too. Measured instead — with the faces the PDF carries

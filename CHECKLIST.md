@@ -3453,7 +3453,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       last-live rule, rules a and b) — the master is hook-protected, so the point hands the owner a
       script asserting its anchor once. `OpenAPI §7.1` gains the purchase-order routes and `§7.2` the
       `send` and `respond` rows (body, permission, audit event, state change, no `Idempotency-Key`).
-      *(2026-09-23 — `D-90` lands when the owner runs `paste_d90.py`; the upload route is `/documents`)*
+      *(2026-09-23, #207 — `D-90` lands when the owner runs `paste_d90.py`; the upload route is `/documents`)*
 - [ ] **1.2** `DealsContract` gains the write: `quotationSent(dealId, actorId)` and
       `quotationRejected(dealId, reason, actorId)`, each through `ChangeDealStatus` inside the caller's
       transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:

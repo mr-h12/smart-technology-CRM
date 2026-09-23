@@ -48,6 +48,7 @@ use App\Modules\Deals\Application\Approval\RecordQuotationOutcome;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
+use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Deals\Infrastructure\EloquentDealFacts;
 use App\Modules\Idempotency\Domain\IdempotencyStoreInterface;
@@ -319,6 +320,14 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(ConnectionInterface::class),
                 $this->app->make(SearchService::class),
             ),
+        );
+
+        // Module 9 · 2.3: the same reader answers `DealTitlesInterface` — one
+        // class over `deals`, a separate contract so Module 6's fakes of
+        // `DealFactsInterface` keep working.
+        $this->app->bind(
+            DealTitlesInterface::class,
+            fn (): EloquentDealFacts => $this->app->make(DealFactsInterface::class),
         );
 
         // Module 10 · 1.2 (`D-90`): the two deal moves a quotation causes.

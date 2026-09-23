@@ -55,6 +55,13 @@ use InvalidArgumentException;
  * it here would mean guessing at separators the Super Admin never agreed to,
  * so the view carries it as stored and the template prints it as typed.
  *
+ * ── `subject` and `signatoryName` ─────────────────────────────────────────
+ *
+ * `D-89`'s header carries a Subject and its closing one signatory. Neither
+ * lives on the quotation: the subject is the deal's title and the signatory is
+ * whoever created the quotation, so both are absent when unknown — a deal need
+ * not be titled, and Identity does not name the hidden Super Admin.
+ *
  * ── What is deliberately not here ─────────────────────────────────────────
  *
  * No `unitCost*`, `marginPercent`, `lineCost`, `defaultMargin`,
@@ -80,6 +87,8 @@ final readonly class CustomerQuotationView
         public string $companyName,
         public ?string $companyAddress,
         public ?string $companyPhones,
+        public ?string $subject,
+        public ?string $signatoryName,
         public array $lines,
         public array $additionalItems,
         public string $subtotal,
@@ -107,6 +116,8 @@ final readonly class CustomerQuotationView
         self::refuseBlank('customerContact', $customerContact);
         self::refuseBlank('companyAddress', $companyAddress);
         self::refuseBlank('companyPhones', $companyPhones);
+        self::refuseBlank('subject', $subject);
+        self::refuseBlank('signatoryName', $signatoryName);
     }
 
     private static function refuseBlank(string $field, ?string $value): void

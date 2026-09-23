@@ -7,6 +7,8 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
+use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
@@ -36,6 +38,10 @@ use PHPUnit\Framework\TestCase;
 final class CustomerQuotationViewMapperTest extends TestCase
 {
     private const CUSTOMER_ID = '0199a000-0000-7000-8000-00000000c001';
+
+    private const DEAL_ID = '0199a000-0000-7000-8000-00000000d001';
+
+    private const CREATOR_ID = '0199a000-0000-7000-8000-00000000f001';
 
     /**
      * Three supplier-quotation items, one per supplier, each with a cost chain
@@ -182,6 +188,36 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertSame('Delivery & Installation', $view->additionalItems[0]->description);
     }
 
+    public function test_that_the_subject_is_the_deals_title_and_the_signatory_its_creator(): void
+    {
+        // Point 2.3, `D-89`'s header and closing. The quotation carries neither:
+        // the title is the deal's (Module 5, ours) and the name is the
+        // creator's, through Identity's published facts.
+        $view = $this->mapper()->map(self::quotation());
+
+        self::assertSame('Printers for the Alexandria branch', $view->subject);
+        self::assertSame('Ahmed Essam', $view->signatoryName);
+    }
+
+    public function test_that_an_untitled_deal_and_an_unnameable_creator_are_omitted_not_refused(): void
+    {
+        // Neither is a fact the document cannot be written without: a deal need
+        // not be titled (`deals.title` is nullable), and Identity has no entry
+        // for the hidden Super Admin (§3.1) or a `DB-01` deleted account. The
+        // line is left out; the PDF is not refused.
+        $view = $this->mapper(titles: [], userNames: [])->map(self::quotation());
+
+        self::assertNull($view->subject);
+        self::assertNull($view->signatoryName);
+    }
+
+    public function test_that_a_quotation_nobody_created_still_maps(): void
+    {
+        $view = $this->mapper()->map(self::quotation(createdBy: null));
+
+        self::assertNull($view->signatoryName);
+    }
+
     public function test_that_the_mapper_copies_fields_by_name_and_never_spreads_a_row(): void
     {
         // `QuotationLine::asRow()` is the one list of a line's columns, cost
@@ -198,12 +234,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
      * @param  array<string, string|null>|null  $settings
      * @param  array<string, string>|null  $customerNames
      * @param  array<string, string>|null  $descriptions
+     * @param  array<string, string>|null  $titles
+     * @param  array<string, string>|null  $userNames
      */
     private function mapper(
         ?array $settings = null,
         ?array $customerNames = null,
         ?array $descriptions = null,
         ?LineDescriptionsInterface $lineDescriptions = null,
+        ?array $titles = null,
+        ?array $userNames = null,
     ): CustomerQuotationViewMapper {
         return new CustomerQuotationViewMapper(
             self::directory(self::quotation()),
@@ -214,7 +254,47 @@ final class CustomerQuotationViewMapperTest extends TestCase
             ]),
             self::customerNames($customerNames ?? [self::CUSTOMER_ID => 'Vegatrone']),
             $lineDescriptions ?? self::lineDescriptions($descriptions ?? self::descriptions()),
+            self::dealTitles($titles ?? [self::DEAL_ID => 'Printers for the Alexandria branch']),
+            self::userFacts($userNames ?? [self::CREATOR_ID => 'Ahmed Essam']),
         );
+    }
+
+    /**
+     * @param  array<string, string>  $titles
+     */
+    private static function dealTitles(array $titles): DealTitlesInterface
+    {
+        return new class($titles) implements DealTitlesInterface
+        {
+            /**
+             * @param  array<string, string>  $titles
+             */
+            public function __construct(private readonly array $titles) {}
+
+            public function titlesOf(array $dealIds): array
+            {
+                return array_intersect_key($this->titles, array_flip($dealIds));
+            }
+        };
+    }
+
+    /**
+     * @param  array<string, string>  $names
+     */
+    private static function userFacts(array $names): UserFactsInterface
+    {
+        return new class($names) implements UserFactsInterface
+        {
+            /**
+             * @param  array<string, string>  $names
+             */
+            public function __construct(private readonly array $names) {}
+
+            public function namesOf(array $userIds): array
+            {
+                return array_intersect_key($this->names, array_flip($userIds));
+            }
+        };
     }
 
     private static function directory(QuotationDetail $quotation): QuotationReaderInterface
@@ -310,6 +390,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         bool $showDeliveryTerms = true,
         ?string $deliveryTerms = 'Within two weeks.',
         bool $repeatFirstItem = false,
+        ?string $createdBy = self::CREATOR_ID,
     ): QuotationDetail {
         // Quantity, unit price and line total per supplier item — the customer's figures.
         $priced = [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
@@ -343,7 +424,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         return new QuotationDetail(
             id: '0199a000-0000-7000-8000-000000009001',
             code: 'QT-2026-0001',
-            dealId: '0199a000-0000-7000-8000-00000000d001',
+            dealId: self::DEAL_ID,
             customerId: self::CUSTOMER_ID,
             quotationDate: '2026-07-14',
             validUntil: '2026-08-13',
@@ -377,7 +458,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             returnNote: null,
             isSelfApproved: false,
             versionToken: 3,
-            createdBy: '0199a000-0000-7000-8000-00000000f001',
+            createdBy: $createdBy,
             updatedBy: null,
             createdAt: new DateTimeImmutable('2026-07-14T08:00:00+00:00'),
             updatedAt: new DateTimeImmutable('2026-07-14T09:00:00+00:00'),

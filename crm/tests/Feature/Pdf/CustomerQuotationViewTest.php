@@ -174,7 +174,30 @@ final class CustomerQuotationViewTest extends TestCase
         return $names;
     }
 
-    private static function view(?string $deliveryTerms = null): CustomerQuotationView
+    public function test_that_a_blank_subject_or_signatory_is_refused_like_the_other_prose(): void
+    {
+        // Point 2.3. `D-89`'s header carries a Subject and its closing carries
+        // one signatory; both are absent when unknown, never a heading over
+        // nothing — the rule 1.1 set for every optional string on this model.
+        foreach (['subject', 'signatoryName'] as $field) {
+            try {
+                $field === 'subject' ? self::view(subject: '   ') : self::view(signatoryName: '   ');
+                self::fail("A blank {$field} was accepted.");
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString($field, $e->getMessage());
+            }
+        }
+    }
+
+    public function test_that_an_absent_subject_or_signatory_is_allowed(): void
+    {
+        $view = self::view(subject: null, signatoryName: null);
+
+        self::assertNull($view->subject);
+        self::assertNull($view->signatoryName);
+    }
+
+    private static function view(?string $deliveryTerms = null, ?string $subject = 'IT Offer', ?string $signatoryName = 'Ahmed Essam'): CustomerQuotationView
     {
         return new CustomerQuotationView(
             code: 'QT-2026-0001',
@@ -186,6 +209,8 @@ final class CustomerQuotationViewTest extends TestCase
             companyName: 'Smart Technology for Integrated Systems',
             companyAddress: '5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt',
             companyPhones: '035829952 · 01070764779',
+            subject: $subject,
+            signatoryName: $signatoryName,
             lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1', '5219.30', '5219.30')],
             additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             subtotal: '5219.30',

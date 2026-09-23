@@ -6,6 +6,7 @@ namespace App\Modules\Deals\Infrastructure;
 
 use App\Modules\Deals\Domain\Contracts\DealFacts;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use Illuminate\Database\ConnectionInterface;
@@ -13,14 +14,16 @@ use Illuminate\Database\Query\Builder;
 
 /**
  * {@see DealFactsInterface} over `deals.owner_id`, `deals.customer_id` and
- * `deals.code` — the code fragment through `SearchService` (`D-88`).
+ * `deals.code`, and {@see DealTitlesInterface} over `deals.title` (Module 9
+ * Point 2.3 — one reader of one table rather than a second class repeating
+ * the `DB-01` filter) — the code fragment through `SearchService` (`D-88`).
  *
  * Columns by primary key through the query builder, on
  * {@see \App\Modules\SupplierQuotations\Infrastructure\EloquentSupplierItemPricing}'s
  * shape: nothing here needs a hydrated model, and `whereNull('deleted_at')` is
  * `DB-01` spelled out where the model's global scope would otherwise do it.
  */
-final readonly class EloquentDealFacts implements DealFactsInterface
+final readonly class EloquentDealFacts implements DealFactsInterface, DealTitlesInterface
 {
     public function __construct(
         private ConnectionInterface $connection,
@@ -89,6 +92,25 @@ final readonly class EloquentDealFacts implements DealFactsInterface
         }
 
         return $codes;
+    }
+
+    public function titlesOf(array $dealIds): array
+    {
+        if ($dealIds === []) {
+            return [];
+        }
+
+        $titles = [];
+        /** @var object{id: string, title: string|null} $row */
+        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'title')->get() as $row) {
+            $title = $row->title === null ? '' : trim((string) $row->title);
+
+            if ($title !== '') {
+                $titles[(string) $row->id] = $title;
+            }
+        }
+
+        return $titles;
     }
 
     /** `deals` minus `DB-01`'s soft-deleted rows — the one filter every read here shares. */

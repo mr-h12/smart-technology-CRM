@@ -3339,7 +3339,7 @@ as the reasons two boxes will not close in this module, not as oversights.
       `catalog_item_id` + `CatalogItemLabelsInterface` (#200); `customerContact` is `null` because
       `QuotationDetail` carries no contact and which one the PDF addresses is undecided.
 
-- [ ] **1.3** `quotation_files` + `AttachmentParent::Quotation` — one migration creating the pivot
+- [x] **1.3** `quotation_files` + `AttachmentParent::Quotation` — one migration creating the pivot
       on the exact shape of `deal_files` (composite primary key, `file_id` index, `file_id`
       cascade). **It creates a new table and alters none**; `quotations` is not touched, which is
       what keeps this module inside its own boundary — the arrangement Module 6 used for its
@@ -3360,6 +3360,10 @@ as the reasons two boxes will not close in this module, not as oversights.
       list one entry shorter, the attach path writing a row through `FileWriterInterface`, a
       duplicate attach refused by the primary key rather than by a pre-check, and
       `AttachmentParent::Quotation` resolving in Storage's permission path (`D-38`).
+
+      *(2026-09-22, #203 — fifth pivot with its parent key from day one; the permission composite
+      refuses a quotation file until Step 4.)* The owed list stays at two, not "one entry shorter":
+      it is computed from missing parent tables, and `quotations` already existed.
 
 > ⚠️ **A fourth carried-forward item, found 2026-09-13 against the source document.** The owner
 > supplied the original Purchase Order #226 as the reference for how the PDF should look. Checked

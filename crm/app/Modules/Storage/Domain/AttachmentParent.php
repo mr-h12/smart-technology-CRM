@@ -19,6 +19,9 @@ enum AttachmentParent: string
     case SupplierQuotation = 'supplier_quotation';
     case PurchaseOrder = 'purchase_order';
     case Report = 'report';
+    // Module 9, Point 1.3 — the customer PDF stored against its quotation
+    // (§14.6). The fifth parent, and the first added after Module 0.
+    case Quotation = 'quotation';
 
     /** The D-71 pivot that records this parent's attachments. */
     public function pivotTable(): string

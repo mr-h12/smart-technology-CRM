@@ -45,6 +45,9 @@ final class FilesMigrationTest extends TestCase
         'supplier_quotation_files' => ['parent' => 'supplier_quotations', 'column' => 'supplier_quotation_id'],
         'purchase_order_files' => ['parent' => 'purchase_orders', 'column' => 'purchase_order_id'],
         'report_files' => ['parent' => 'reports', 'column' => 'report_id'],
+        // Module 9, Point 1.3 — the fifth pivot. Module 0 shipped four and not
+        // this one; `quotations` already existed, so it arrives with its key.
+        'quotation_files' => ['parent' => 'quotations', 'column' => 'quotation_id'],
     ];
 
     /** `D-71`: 30 MB, superseding the 10 MB in `D-39`. */
@@ -358,6 +361,12 @@ final class FilesMigrationTest extends TestCase
             return self::insertPurchaseOrder();
         }
 
+        // Module 9, Point 1.3: created with its parent key, so it never had a
+        // fabricated-id phase.
+        if ($table === 'quotation_files') {
+            return self::insertQuotation();
+        }
+
         return Uuid::uuid7()->toString();
     }
 
@@ -440,6 +449,48 @@ final class FilesMigrationTest extends TestCase
         ]);
 
         return $dealId;
+    }
+
+    private static function insertQuotation(): string
+    {
+        $dealId = self::insertDeal();
+        $currencyId = Uuid::uuid7()->toString();
+
+        DB::table('currencies')->insert([
+            'id' => $currencyId,
+            'code' => 'EGP',
+            'rounding_unit' => '1',
+            'rounding_enabled' => true,
+            'is_base' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $quotationId = Uuid::uuid7()->toString();
+
+        DB::table('quotations')->insert([
+            'id' => $quotationId,
+            'code' => 'QT-2026-'.substr(str_replace('-', '', $quotationId), -4),
+            'deal_id' => $dealId,
+            'customer_id' => DB::table('deals')->where('id', $dealId)->value('customer_id'),
+            'currency_id' => $currencyId,
+            'default_margin' => '20',
+            'discount_percent' => '0',
+            'rounding_unit' => '1',
+            'rounding_enabled' => true,
+            'subtotal' => '0',
+            'additional_total' => '0',
+            'discount_amount' => '0',
+            'tax_base' => '0',
+            'net_amount' => '0',
+            'total_before_round' => '0',
+            'final_total' => '0',
+            'rounding_diff' => '0',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $quotationId;
     }
 
     /** @param  array<string, mixed>  $overrides */

@@ -3428,7 +3428,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - **Q11 · routes.** `PATCH /quotations/{id}/send`; `PATCH /quotations/{id}/respond` with
   `{response: accepted|partial|counter|rejected, reason?, customer_po_reference?, po_date?}` under
   `quotation.record_customer_response`; `GET /purchase-orders`, `GET /purchase-orders/{id}`,
-  `POST /purchase-orders/{id}/files`. The `PATCH`es carry `If-Match` and no `Idempotency-Key` (`OpenAPI
+  `POST /purchase-orders/{id}/documents` (owner, 2026-09-23 at 1.1: `/documents`, the deals and supplier-quotations shape, not the `/files` first proposed). The `PATCH`es carry `If-Match` and no `Idempotency-Key` (`OpenAPI
   §7.2`'s reading for the approval actions); `consume()` keeps its own per-line key.
 - **Q12 · a deal may hold several live quotations — measured, and the rule.** Nothing forbids it: no
   constraint on `quotations.deal_id` beyond `UNIQUE (parent_id, version)`, no check in `CreateQuotation`,
@@ -3449,10 +3449,11 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 
 #### Step 1 — send and the customer's response (backend)
 
-- [ ] **1.1** Docs only. The `D-90` row (Q1's PDF deviation, Q6's ruling, Q2's two deal moves, Q12's
+- [x] **1.1** Docs only. The `D-90` row (Q1's PDF deviation, Q6's ruling, Q2's two deal moves, Q12's
       last-live rule, rules a and b) — the master is hook-protected, so the point hands the owner a
       script asserting its anchor once. `OpenAPI §7.1` gains the purchase-order routes and `§7.2` the
       `send` and `respond` rows (body, permission, audit event, state change, no `Idempotency-Key`).
+      *(2026-09-23 — `D-90` lands when the owner runs `paste_d90.py`; the upload route is `/documents`)*
 - [ ] **1.2** `DealsContract` gains the write: `quotationSent(dealId, actorId)` and
       `quotationRejected(dealId, reason, actorId)`, each through `ChangeDealStatus` inside the caller's
       transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:
@@ -3486,7 +3487,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.
-- [ ] **2.3** The PO's attachment: `POST /purchase-orders/{id}/files` under
+- [ ] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
       `quotation.record_customer_response`, the list of its files, and the download mapping for
       `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);
       `AttachDealDocument`'s shape (validate, store, scan after commit).

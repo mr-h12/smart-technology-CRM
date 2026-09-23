@@ -103,6 +103,18 @@ interface QuotationDirectoryInterface extends QuotationReaderInterface
     public function lockStatusesOfDeal(string $dealId): array;
 
     /**
+     * Module 10 · 2.1, `J-01`: every alive `sent` quotation whose
+     * `valid_until` is before `$today` (`Y-m-d`) moves to `expired` in one
+     * statement, advancing each token and naming no actor (`updated_by` NULL —
+     * the system). PostgreSQL re-reads `status = 'sent'` on a row a concurrent
+     * response locked first, so the two cannot both move it. Does not open a
+     * transaction: the use case wraps it with the audit.
+     *
+     * @return list<string> the ids that moved
+     */
+    public function expireSentBefore(string $today): array;
+
+    /**
      * Module 10 · 1.6 — the purchase order an acceptance writes (§4.6, Q5),
      * numbered `PO-YYYY-NNNN` (§4.7). Does not open a transaction: the
      * acceptance's use case wraps it with the status move (`DB-11`).

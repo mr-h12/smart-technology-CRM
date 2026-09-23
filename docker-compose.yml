@@ -304,6 +304,26 @@ services:
     command: ["php", "artisan", "queue:work", "redis", "--queue=maintenance", "--tries=3"]
     networks: [crm]
 
+  # ── The scheduler (§15) ─────────────────────────────────────────────────────
+  # `routes/console.php`'s entries fire only while something runs the scheduler.
+  # J-01's catch-up first (D-55, ST-05: a day missed while the stack was down is
+  # repaired on start), dispatched onto `maintenance`; then `schedule:work`,
+  # which fires J-01, J-02 and J-15 at 00:00 UTC. Module 10 · 2.1.
+  scheduler:
+    build: { context: docker/php, dockerfile: Dockerfile, target: app }
+    image: crm-php:app
+    container_name: crm-scheduler
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./crm:/var/www/html
+      - laravel-storage:/var/www/html/storage
+      - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
+    command: ["sh", "-c", "php artisan quotations:expire && exec php artisan schedule:work"]
+    networks: [crm]
+
   # ── One-shot: local TLS certificate ──────────────────────────────────────────
   # Runs, writes, exits. nginx waits for it to succeed.
   #

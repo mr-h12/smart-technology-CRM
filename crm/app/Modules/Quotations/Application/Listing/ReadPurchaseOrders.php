@@ -53,14 +53,7 @@ final readonly class ReadPurchaseOrders
      */
     public function reachable(string $purchaseOrderId, array $heldScopes, string $actorId): PurchaseOrderRecord
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
-        $order = $this->quotations->findPurchaseOrder($purchaseOrderId);
-
-        if ($order === null || ! $scope->reaches($this->deals->factsOf($order->dealId)?->ownerId)) {
-            throw PurchaseOrderNotFound::of($purchaseOrderId);
-        }
-
-        return $order;
+        return $this->reach($purchaseOrderId, $heldScopes, $actorId)[0];
     }
 
     /**
@@ -70,8 +63,7 @@ final readonly class ReadPurchaseOrders
      */
     public function one(string $purchaseOrderId, array $heldScopes, string $actorId): PurchaseOrderDetail
     {
-        $order = $this->reachable($purchaseOrderId, $heldScopes, $actorId);
-        $ownerId = $this->deals->factsOf($order->dealId)?->ownerId;
+        [$order, $ownerId] = $this->reach($purchaseOrderId, $heldScopes, $actorId);
 
         $names = $this->users->namesOf(array_values(array_filter([$ownerId, $order->createdBy], is_string(...))));
 
@@ -84,5 +76,27 @@ final readonly class ReadPurchaseOrders
             createdByName: $order->createdBy === null ? null : ($names[$order->createdBy] ?? null),
             documents: $this->files->filesOf(AttachmentParent::PurchaseOrder, $order->id),
         );
+    }
+
+    /**
+     * The order and its deal's owner, read once — `one()` shows the owner the
+     * reach check already read.
+     *
+     * @param  list<string>  $heldScopes
+     * @return array{PurchaseOrderRecord, ?string}
+     *
+     * @throws PurchaseOrderNotFound
+     */
+    private function reach(string $purchaseOrderId, array $heldScopes, string $actorId): array
+    {
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+        $order = $this->quotations->findPurchaseOrder($purchaseOrderId);
+        $ownerId = $order === null ? null : $this->deals->factsOf($order->dealId)?->ownerId;
+
+        if ($order === null || ! $scope->reaches($ownerId)) {
+            throw PurchaseOrderNotFound::of($purchaseOrderId);
+        }
+
+        return [$order, $ownerId];
     }
 }

@@ -111,17 +111,17 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
         self::assertSame(self::pdfBytes(), $download->streamedContent());
     }
 
-    /** B1: several files per order, as a deal and an offer take. */
-    public function test_several_files_may_be_attached_to_one_order(): void
+    /** B1: several files per order, as a deal and an offer take — listed oldest first (`OpenAPI §7.1`). */
+    public function test_several_files_may_be_attached_to_one_order_and_are_listed_oldest_first(): void
     {
         $order = $this->accepted($this->deal(null), 'REF-1');
 
         $this->upload($order['id'], $this->uploadedPdf(self::pdfBytes(), 'first.pdf'))->assertStatus(201);
         $this->upload($order['id'], $this->uploadedPdf(self::pdfBytes(), 'second.pdf'))->assertStatus(201);
+        // Uploaded second, attached earlier: the order follows `created_at`, not insertion.
+        DB::table('files')->where('original_name', 'second.pdf')->update(['created_at' => now()->subHour()]);
 
-        $names = $this->show($order['id'])->assertStatus(200)->json('data.documents.*.original_name');
-        self::assertIsArray($names);
-        self::assertEqualsCanonicalizing(['first.pdf', 'second.pdf'], $names);
+        self::assertSame(['second.pdf', 'first.pdf'], $this->show($order['id'])->assertStatus(200)->json('data.documents.*.original_name'));
     }
 
     public function test_an_order_without_files_lists_none(): void

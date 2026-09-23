@@ -432,4 +432,163 @@ describe('the quotation detail view', () => {
         expect(wrapper.find('[data-testid="quotation-detail-conflict"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="quotation-detail-action-error"]').text()).toContain('This quotation cannot be submitted from its status.');
     });
+
+    // ─────────────────────────────────── Module 10 · 3.1: send and the response
+
+    describe('send and the customer’s response (Module 10 · 3.1)', () => {
+        const SELLER: AuthenticatedUser = {
+            ...USER,
+            permissions: [...USER.permissions, 'quotation.send_to_customer.own', 'quotation.record_customer_response.own'],
+        };
+
+        /** The body of the one `PATCH …/respond` the screen made. */
+        function respondBody(fetchMock: ReturnType<typeof vi.fn>): unknown {
+            const call = fetchMock.mock.calls.find((entry) => String(entry[0]).endsWith('/respond'));
+
+            return call === undefined ? undefined : JSON.parse(String((call[1] as RequestInit).body));
+        }
+
+        async function openDialog(status: string, action: (url: string, init?: RequestInit) => Response | null = () => null) {
+            const fetchMock = respond({ quotation: { ...QUOTATION, status }, action });
+            const rendered = await render(fetchMock, SELLER);
+
+            await rendered.wrapper.find('[data-testid="quotation-action-respond"]').trigger('click');
+            await flushPromises();
+
+            return { ...rendered, fetchMock };
+        }
+
+        it('offers Send on an Approved quotation the caller may send, and nothing otherwise', async () => {
+            const approved = await render(respond({ quotation: { ...QUOTATION, status: 'approved' } }), SELLER);
+            expect(approved.wrapper.find('[data-testid="quotation-action-send"]').exists()).toBe(true);
+
+            const withoutGrant = await render(respond({ quotation: { ...QUOTATION, status: 'approved' } }), USER);
+            expect(withoutGrant.wrapper.find('[data-testid="quotation-action-send"]').exists()).toBe(false);
+
+            const sent = await render(respond({ quotation: { ...QUOTATION, status: 'sent' } }), SELLER);
+            expect(sent.wrapper.find('[data-testid="quotation-action-send"]').exists()).toBe(false);
+        });
+
+        it('sends with the detail’s etag as If-Match and reads the answer back', async () => {
+            const fetchMock = respond({
+                quotation: { ...QUOTATION, status: 'approved' },
+                action: (url, init) =>
+                    url.endsWith('/send') && init?.method === 'PATCH' ? json(200, envelope({ ...QUOTATION, status: 'sent', etag: '"v2"' })) : null,
+            });
+            const { wrapper } = await render(fetchMock, SELLER);
+
+            await wrapper.find('[data-testid="quotation-action-send"]').trigger('click');
+            await flushPromises();
+
+            expect(writes(fetchMock)).toEqual([{ method: 'PATCH', url: expect.stringContaining('/quotations/q1/send'), ifMatch: '"v1"', idempotencyKey: null }]);
+            expect(wrapper.find('[data-testid="quotation-status"]').text()).toContain('Sent');
+        });
+
+        it('offers four outcomes on a Sent quotation and only Reject, reason prefilled, on an Expired one — by permission', async () => {
+            const sent = await openDialog('sent');
+            const outcomes = sent.wrapper.findAll('[data-testid^="quotation-respond-outcome-"]').map((radio) => radio.attributes('value'));
+            expect(outcomes).toEqual(['accepted', 'partial', 'counter', 'rejected']);
+
+            const expired = await openDialog('expired');
+            expect(expired.wrapper.findAll('[data-testid^="quotation-respond-outcome-"]').map((radio) => radio.attributes('value'))).toEqual(['rejected']);
+            // §10.5: "records Rejected with reason 'no response'" — offered, still editable.
+            expect((expired.wrapper.find('[data-testid="quotation-respond-reason"]').element as HTMLTextAreaElement).value).toBe('No response');
+
+            const withoutGrant = await render(respond({ quotation: { ...QUOTATION, status: 'sent' } }), USER);
+            expect(withoutGrant.wrapper.find('[data-testid="quotation-action-respond"]').exists()).toBe(false);
+
+            const draft = await render(respond(), SELLER);
+            expect(draft.wrapper.find('[data-testid="quotation-action-respond"]').exists()).toBe(false);
+        });
+
+        it('refuses a blank reason for Counter and Rejected, and asks the PO reference and date for Accepted', async () => {
+            const { wrapper, fetchMock } = await openDialog('sent', (url) =>
+                url.endsWith('/respond') ? json(200, envelope({ ...QUOTATION, status: 'accepted', etag: '"v2"' })) : null,
+            );
+            const record = () => wrapper.find('[data-testid="quotation-respond-record"]');
+
+            for (const outcome of ['counter', 'rejected']) {
+                await wrapper.find(`[data-testid="quotation-respond-outcome-${outcome}"]`).setValue(true);
+                await wrapper.find('[data-testid="quotation-respond-reason"]').setValue('   ');
+                expect(record().attributes('disabled')).toBeDefined();
+            }
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-accepted"]').setValue(true);
+            expect(wrapper.find('[data-testid="quotation-respond-reason"]').exists()).toBe(false);
+            expect(record().attributes('disabled')).toBeDefined();
+
+            await wrapper.find('[data-testid="quotation-respond-po-reference"]').setValue('CUST-PO-77');
+            expect(record().attributes('disabled')).toBeDefined();
+            await wrapper.find('[data-testid="quotation-respond-po-date"]').setValue('2026-09-20');
+            expect(record().attributes('disabled')).toBeUndefined();
+
+            await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
+            await flushPromises();
+
+            expect(writes(fetchMock)).toEqual([{ method: 'PATCH', url: expect.stringContaining('/quotations/q1/respond'), ifMatch: '"v1"', idempotencyKey: null }]);
+            expect(respondBody(fetchMock)).toEqual({ response: 'accepted', customer_po_reference: 'CUST-PO-77', po_date: '2026-09-20' });
+            expect(wrapper.find('[data-testid="quotation-status"]').text()).toContain('Accepted');
+            expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
+        });
+
+        it('opens the new draft after Partial or Counter', async () => {
+            for (const outcome of ['partial', 'counter']) {
+                const { wrapper, router, fetchMock } = await openDialog('sent', (url) =>
+                    url.endsWith('/respond')
+                        ? json(200, envelope({ ...QUOTATION, status: outcome, etag: '"v2"', new_version: { id: 'q2', code: 'QT-2026-0001', version: 2 } }))
+                        : null,
+                );
+
+                await wrapper.find(`[data-testid="quotation-respond-outcome-${outcome}"]`).setValue(true);
+                if (outcome === 'counter') {
+                    await wrapper.find('[data-testid="quotation-respond-reason"]').setValue('Price too high');
+                }
+                await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
+                await flushPromises();
+
+                expect(respondBody(fetchMock)).toEqual(outcome === 'counter' ? { response: 'counter', reason: 'Price too high' } : { response: 'partial' });
+                expect(router.currentRoute.value.path).toBe('/quotations/q2/edit');
+            }
+        });
+
+        it('says whether the rejection made the deal Lost', async () => {
+            for (const [dealLost, words] of [[true, 'The deal is now Lost.'], [false, 'The deal keeps its status']] as const) {
+                const { wrapper, fetchMock } = await openDialog('expired', (url) =>
+                    url.endsWith('/respond') ? json(200, envelope({ ...QUOTATION, status: 'rejected', etag: '"v2"', deal_lost: dealLost })) : null,
+                );
+
+                await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
+                await flushPromises();
+
+                expect(respondBody(fetchMock)).toEqual({ response: 'rejected', reason: 'No response' });
+                expect(wrapper.find('[data-testid="quotation-detail-deal-outcome"]').text()).toContain(words);
+            }
+        });
+
+        it('turns a 409 on send or respond into the reload banner and never retries', async () => {
+            const stale = () => json(409, { error: { code: 'concurrency_conflict', message: 'stale' }, meta: { request_id: 'r1' } });
+
+            const sending = await render(respond({ quotation: { ...QUOTATION, status: 'approved' }, action: stale }), SELLER);
+            await sending.wrapper.find('[data-testid="quotation-action-send"]').trigger('click');
+            await flushPromises();
+            expect(sending.wrapper.find('[data-testid="quotation-detail-conflict"]').exists()).toBe(true);
+
+            const { wrapper, fetchMock } = await openDialog('sent', stale);
+            await wrapper.find('[data-testid="quotation-respond-outcome-partial"]').setValue(true);
+            await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
+            await flushPromises();
+
+            expect(writes(fetchMock)).toHaveLength(1);
+            expect(wrapper.find('[data-testid="quotation-detail-conflict"]').exists()).toBe(true);
+        });
+
+        it('closes the dialog on Escape without writing (Design System §6.6)', async () => {
+            const { wrapper, fetchMock } = await openDialog('sent');
+
+            await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('keydown', { key: 'Escape' });
+
+            expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
+            expect(writes(fetchMock)).toHaveLength(0);
+        });
+    });
 });

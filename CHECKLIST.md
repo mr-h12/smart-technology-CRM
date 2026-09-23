@@ -3629,10 +3629,11 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 
 #### Step 3 — the screens
 
-- [ ] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
+- [x] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
       *Record the customer's response* dialog — four outcomes, the reason field for Counter and Rejected,
       the PO reference and date for Accepted; Partial and Counter open the new draft; an `expired`
       quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
+      *(2026-09-23 — in-page dialog; Expired pre-fills «لا رد» (§10.5, owner); `deal_lost` shown as one line (rule b, owner); the PO block stays 3.3's)*
 - [ ] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
 - [ ] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload

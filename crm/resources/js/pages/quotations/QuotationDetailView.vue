@@ -608,7 +608,7 @@ onMounted(refresh);
             </p>
 
             <!-- §4.6: the order `accepted` wrote, keyed so a reload of another quotation re-reads its files. -->
-            <QuotationPurchaseOrder v-if="quotation.purchase_order !== null" :key="quotation.purchase_order.id" :order="quotation.purchase_order" />
+            <QuotationPurchaseOrder v-if="quotation.purchase_order" :key="quotation.purchase_order.id" :order="quotation.purchase_order" />
 
             <!-- §7.2: the lines, with the cost group only when the body carries it. -->
             <section class="flex flex-col gap-2" data-testid="quotation-lines">

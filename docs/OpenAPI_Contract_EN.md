@@ -220,9 +220,15 @@ GET    /api/v1/quotations
 POST   /api/v1/quotations
 GET    /api/v1/quotations/{quotation_id}
 PATCH  /api/v1/quotations/{quotation_id}
+
+GET    /api/v1/purchase-orders
+GET    /api/v1/purchase-orders/{purchase_order_id}
+POST   /api/v1/purchase-orders/{purchase_order_id}/documents
 ```
 
 Use matching resource structures for suppliers, catalog items, supplier quotations, purchase orders, negotiations, visits, reports, users, roles, permissions, currencies, FX rates, settings, and permitted administration resources.
+
+A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10).
 
 ### 7.2 Domain actions
 
@@ -243,6 +249,8 @@ PATCH /api/v1/quotations/{quotation_id}/approve
 PATCH /api/v1/quotations/{quotation_id}/return
 PATCH /api/v1/quotations/{quotation_id}/edit-and-approve
 POST  /api/v1/quotations/{quotation_id}/new-version
+PATCH /api/v1/quotations/{quotation_id}/send
+PATCH /api/v1/quotations/{quotation_id}/respond
 ```
 
 - Every action has an explicit request schema, required permission, audit event, accepted current state, resulting state, and idempotency requirement in the generated OpenAPI document.
@@ -258,6 +266,18 @@ POST  /api/v1/quotations/{quotation_id}/new-version
 | `edit-and-approve` | the full editable body of `PATCH /quotations/{quotation_id}` | `quotation.approve`; `quotation.edit_margin` / `quotation.edit_tax` when the body moves the margin or the tax | `QUOTATION_UPDATED` (old → new), then `QUOTATION_APPROVED` or `SELF_APPROVAL`, in one transaction | `pending` → `approved` (re-priced) |
 
 All three carry `If-Match` (§9.2) and answer `409 concurrency_conflict` on a stale token and `409 state_transition_invalid` from any other state. None takes an `Idempotency-Key`: they are `PATCH` mutations whose replay is already refused by the token, the reading §9.1's "actions that change irreversible-equivalent business state" was given for `submit-for-approval` (Module 7, Point 4.2) and is kept here for consistency.
+
+**Quotation send and customer-response actions** (Module 10; `D-90`, recorded 2026-09-23):
+
+| Action | Request body | Permission (§3.5) | Audit event | Accepted state → result |
+|---|---|---|---|---|
+| `send` | none | `quotation.send_to_customer` | `QUOTATION_SENT` | `approved` → `sent`, `sent_at` set; no PDF is required (`D-90`). The deal moves `supplier_quotation` → `quotation_sent`, stays where it is from `quotation_sent` on, and a deal before `supplier_quotation` refuses the send with `422 deal_not_ready_to_send` |
+| `respond` · accepted | `{ "response": "accepted", "customer_po_reference": string, "po_date": date }` — both required | `quotation.record_customer_response` | `QUOTATION_ACCEPTED` (old → new `consumed_quantity` per line, `D-81`), `PURCHASE_ORDER_CREATED` | `sent` → `accepted`; a purchase order `PO-YYYY-NNNN` is written (§4.6); the deal does not move |
+| `respond` · partial | `{ "response": "partial" }` | `quotation.record_customer_response` | `QUOTATION_PARTIAL`, `QUOTATION_VERSION_CREATED` | `sent` → `partial`; a new version (`draft`, `parent_id`, `version + 1`) is written in the same transaction and named in the response (§6.3, `D-08`); the deal does not move |
+| `respond` · counter | `{ "response": "counter", "reason": string }` — reason required, non-blank (`422 rejection_reason_required`) | `quotation.record_customer_response` | `QUOTATION_COUNTERED`, `QUOTATION_VERSION_CREATED` | `sent` → `counter`; a new version as for partial; the deal does not move |
+| `respond` · rejected | `{ "response": "rejected", "reason": string }` — reason required, non-blank (`422 rejection_reason_required`) | `quotation.record_customer_response` | `QUOTATION_REJECTED` | `sent` or `expired` → `rejected`; the deal goes `lost` with the reason only when no other quotation of that deal is live, and is left untouched when it has no `lost` edge (`D-90`) |
+
+Both carry `If-Match` (§9.2) and answer `409 concurrency_conflict` on a stale token and `409 state_transition_invalid` from any other state. Neither takes an `Idempotency-Key`, on the approval actions' reading above: a replay is refused by the token. `accepted`'s per-line consumption stays idempotent on its own key (`D-81`). `expired` is written only by `J-01`, never by a request.
 
 ### 7.3 Bulk operations
 

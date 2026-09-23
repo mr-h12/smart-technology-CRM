@@ -3611,7 +3611,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       `quotation.record_customer_response`, the list of its files, and the download mapping for
       `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);
       `AttachDealDocument`'s shape (validate, store, scan after commit).
-      *(2026-09-23 — `documents` on the detail replaced `has_attachment` (owner A1); several per order (B1); download under `quotation.view`)*
+      *(2026-09-23, #217 — `documents` on the detail replaced `has_attachment` (owner A1); several per order (B1); download under `quotation.view`)*
 
 #### Step 3 — the screens
 

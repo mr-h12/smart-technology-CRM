@@ -11,8 +11,8 @@ use RuntimeException;
 /**
  * The boundary for `PATCH /quotations/{quotation}/respond` (Module 10 Point 1.4,
  * `OpenAPI §7.2`). Owner, 2026-09-23: a field that belongs to another response
- * is refused, not dropped (A); `accepted` and `rejected` wait for 1.6 and 1.5
- * (B). A counter's missing reason is `RespondToQuotation`'s to refuse, because
+ * is refused, not dropped (A); `accepted` waits for 1.6 (B), `rejected` came
+ * with 1.5. A missing reason is `RespondToQuotation`'s to refuse, because
  * the contract names its code (`rejection_reason_required`) and a Form Request
  * only says `invalid`.
  */
@@ -22,8 +22,8 @@ final class RespondQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'response' => ['required', 'string', Rule::in(['partial', 'counter'])],
-            'reason' => ['nullable', 'string', 'max:2000', 'prohibited_unless:response,counter'],
+            'response' => ['required', 'string', Rule::in(['partial', 'counter', 'rejected'])],
+            'reason' => ['nullable', 'string', 'max:2000', 'prohibited_unless:response,counter,rejected'],
             'customer_po_reference' => ['prohibited'],
             'po_date' => ['prohibited'],
         ];

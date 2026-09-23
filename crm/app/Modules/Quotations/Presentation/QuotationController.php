@@ -154,15 +154,16 @@ final class QuotationController
     }
 
     /**
-     * Module 10 · 1.4. `send()`'s shape with a body; the answer is the
-     * answered quotation (`partial` / `counter`, its new `etag`) plus
-     * `new_version`, `newVersion()`'s fields for the draft to open (owner, C).
+     * Module 10 · 1.4–1.5. `send()`'s shape with a body; the answer is the
+     * answered quotation with its new `etag`, plus `new_version` —
+     * `newVersion()`'s fields for the draft to open (owner, C) — after
+     * `partial` / `counter`, or `deal_lost` after `rejected` (owner, rule b).
      */
     public function respond(RespondQuotationRequest $request, string $quotation, RespondToQuotation $quotations, ShowQuotation $reader): JsonResponse
     {
         $actorId = self::actorId($request);
 
-        [$answered, $copy] = $quotations->respond(
+        $recorded = $quotations->respond(
             $quotation,
             $request->customerResponse(),
             $request->reason(),
@@ -171,10 +172,18 @@ final class QuotationController
             $actorId,
         );
 
-        return ApiEnvelope::single($request, [
-            ...QuotationPayload::detail($answered, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($answered)),
-            'new_version' => [...QuotationPayload::of($copy), 'version' => $copy->version],
-        ]);
+        $answered = $recorded->quotation;
+        $payload = QuotationPayload::detail($answered, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($answered));
+
+        if ($recorded->newVersion !== null) {
+            $payload['new_version'] = [...QuotationPayload::of($recorded->newVersion), 'version' => $recorded->newVersion->version];
+        }
+
+        if ($recorded->dealLost !== null) {
+            $payload['deal_lost'] = $recorded->dealLost;
+        }
+
+        return ApiEnvelope::single($request, $payload);
     }
 
     /**

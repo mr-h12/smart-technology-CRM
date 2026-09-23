@@ -193,6 +193,25 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         return $statuses;
     }
 
+    public function expireSentBefore(string $today): array
+    {
+        $rows = $this->connection->select(
+            "UPDATE quotations SET status = 'expired', version_token = version_token + 1, updated_by = NULL, updated_at = now()
+             WHERE status = 'sent' AND valid_until < ? AND deleted_at IS NULL
+             RETURNING id",
+            [$today],
+        );
+
+        $ids = [];
+        foreach ($rows as $row) {
+            if ($row instanceof stdClass && is_string($row->id)) {
+                $ids[] = $row->id;
+            }
+        }
+
+        return $ids;
+    }
+
     public function createPurchaseOrder(string $quotationId, string $customerPoReference, string $poDate, string $actorId): PurchaseOrderSummary
     {
         $order = new PurchaseOrder;

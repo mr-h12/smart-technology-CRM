@@ -737,6 +737,9 @@ would hide them behind `OD-03` indefinitely.
       **Point 4.4 (2026-09-12), the fourth:** `QuotationDeleteEndpointTest` — `userWith()` → **40**,
       `bearerFor()` → **33**, `supplierLine()` → **8**. Step 4 has no fifth endpoint test (4.5 is a
       read-side change), so the next copy is Step 5's.
+      **Module 10 · 2.1 (2026-09-23), another:** `ExpireQuotationsTest` carries `currency`, `customer`,
+      `deal`, `supplierLine` (and a one-role `bearer()`) — `supplierLine()` → **17** files. Measured by
+      that point's waste audit; still one owner decision away.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -1133,12 +1136,21 @@ would hide them behind `OD-03` indefinitely.
       too; it arrived with F-05 · 1.3 (`837c768`). The gates grep `Violations` (0), so an uncovered line
       never fails a build — the reason every other `App\Support` entry is named. The fix is one
       collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
-- [ ] **Nothing runs the scheduler, so no scheduled job fires in the stack** — *revealed by the Module
-      10 point list, 2026-09-23.* `routes/console.php` registers `J-15` and `J-02`, but no service in
+- [x] **Nothing runs the scheduler, so no scheduled job fires in the stack** — *revealed by the Module
+      10 point list, 2026-09-23.* *(Closed 2026-09-23 with Module 10 · 2.1, #214: the `scheduler` service runs
+      `quotations:expire` once, then `schedule:work`; `schedule:list` shows `J-15`, `J-02` and `J-01`.)* `routes/console.php` registers `J-15` and `J-02`, but no service in
       `docker-compose.yml` runs `schedule:work` or `schedule:run` (`git grep -n "schedule:(work|run)"`:
       no hit in any tracked file). The `J-15` entry above ("sits in the scheduler") argues from a
       scheduler that is not running. **Taken up by Module 10 · 2.1** — `J-01` cannot meet its
       criterion without it; closes with that point.
+- [ ] **`routes/console.php`'s `J-15` note still gives the compose-profile reason §15 struck** —
+      *revealed by Module 10 · 2.1, 2026-09-23; not fixed there, by the owner's ruling.* The comment above
+      `Schedule::command(EnsureAuditPartitionsCommand::class)` says "the worker services carry a
+      `workers` compose profile, so they are not running by default". §15's note on `J-15` records that
+      profile as removed ("`docker compose up -d` now starts all four workers") and strikes the reason;
+      no worker service in `docker-compose.yml` carries a `profiles:` key (only `search` and `verify`
+      do). The conclusion (scheduler-run, not queued) still holds on the Horizon reason. The fix is
+      deleting that one sentence from the comment.
 - [ ] **`J-02` does not meet its documented catch-up** — *revealed by the Module 10 point list,
       2026-09-23; not fixed there, by the owner's ruling (Q9).* §15 marks `J-02` catch-up ✅ and `D-55` /
       `ST-05` say missed jobs run on startup. `RecomputeStaleCustomerStatuses`'s docblock and
@@ -3493,11 +3505,12 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 
 #### Step 2 — `J-01` and the purchase order's read side
 
-- [ ] **2.1** `J-01 expire_quotations`: a use case and a job on `maintenance`, daily; `sent` and
+- [x] **2.1** `J-01 expire_quotations`: a use case and a job on `maintenance`, daily; `sent` and
       `valid_until` before today in `locale.timezone` ⇒ `expired`, `QUOTATION_EXPIRED` with a system actor,
       idempotent. A `scheduler` service in `docker-compose.yml` runs `J-01` once on start (the `D-55`
       catch-up) and then `schedule:work` — closing the "nothing runs the scheduler" debt row, and from
       then on `J-02` and `J-15` fire in the stack too. No deal move (Q2), no customer status (debt row).
+      *(2026-09-23, #214 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
 - [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.

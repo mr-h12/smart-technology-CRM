@@ -32,6 +32,7 @@ use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
+use App\Modules\Quotations\Presentation\ExpireQuotationsCommand;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -76,6 +77,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // `D-87`'s one-off correction, one per module (F-11 · 1.4).
         ClearIncompleteSuppliersCommand::class,
         ClearIncompleteCustomersCommand::class,
+        // `J-01`'s startup catch-up (`D-55`), run by the `scheduler` service.
+        ExpireQuotationsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and

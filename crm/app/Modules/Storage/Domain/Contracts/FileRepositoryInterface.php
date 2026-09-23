@@ -30,11 +30,13 @@ interface FileRepositoryInterface
     public function parentsOf(string $fileId): array;
 
     /**
-     * Whether the parent has at least one (not deleted) file — Module 10 ·
-     * 2.2's `has_attachment` on a purchase order, read here because the
-     * pivots are Storage's (`D-71`).
+     * The parent's (not deleted) files, oldest first — Module 10 · 2.3's
+     * `documents` on a purchase order, read here because the pivots are
+     * Storage's (`D-71`).
+     *
+     * @return list<StoredFile>
      */
-    public function hasFiles(AttachmentParent $parent, string $parentId): bool;
+    public function filesOf(AttachmentParent $parent, string $parentId): array;
 
     /**
      * Writes the scanner's verdict and the moment it was given (SEC-15).

@@ -80,6 +80,7 @@ use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Pdf\Infrastructure\FilePdfAssets;
+use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
@@ -483,6 +484,7 @@ class AppServiceProvider extends ServiceProvider
             fn (): AttachmentPermissionInterface => new ParentAwareAttachmentPermission([
                 AttachmentParent::Deal->value => $this->app->make(DealAttachmentPermission::class),
                 AttachmentParent::SupplierQuotation->value => $this->app->make(SupplierQuotationAttachmentPermission::class),
+                AttachmentParent::PurchaseOrder->value => $this->app->make(PurchaseOrderAttachmentPermission::class),
             ]),
         );
 

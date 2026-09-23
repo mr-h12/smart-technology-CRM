@@ -137,7 +137,14 @@ final class NoHardCodedTextTest extends TestCase
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
-                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue', 'SelfApprovedBadge.vue',
+                // Module 10 Point 3.3 — §4.6's purchase orders: the list and the
+                // block on its quotation. Added on the same terms: the scan below
+                // was run against both first and passed. Every word is a
+                // `purchaseOrders.*` key or a reused `quotations.*` /
+                // `deals.documents.*` one; the only bare values are the stored
+                // `scan_status` codes the template compares against.
+                'PurchaseOrdersView.vue',
+                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue', 'SelfApprovedBadge.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. Its two closed sets are the same

@@ -93,7 +93,8 @@
             "supplierQuotations": "Supplier Quotations",
             "deals": "Requests / Deals",
             "quotations": "Quotations",
-            "approvals": "Approvals"
+            "approvals": "Approvals",
+            "purchaseOrders": "Purchase Orders"
         }
     },
     "theme": {
@@ -1240,6 +1241,37 @@
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
             "unsaved": "You have unsaved changes. Leave without saving?",
             "currencyNone": "Choose a currency"
+        }
+    },
+    "purchaseOrders": {
+        "title": "Purchase Orders",
+        "loading": "Loading the purchase orders…",
+        "search": "Search",
+        "searchPlaceholder": "PO number or the customer's reference",
+        "apply": "Search",
+        "column": {
+            "poNumber": "PO number",
+            "quotation": "Quotation"
+        },
+        "empty": {
+            "title": "No purchase orders are visible to you",
+            "message": "Either no quotation has been accepted yet, or none of their orders fall inside your reach.",
+            "filtered": {
+                "title": "Nothing matches this search",
+                "message": "Search by the PO number or by the customer's own reference."
+            }
+        },
+        "pagination": {
+            "label": "Purchase order pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages} — {total} orders"
+        },
+        "block": {
+            "title": "Purchase order",
+            "noDocuments": "No file is attached to this order yet.",
+            "choose": "Attach a file to this order",
+            "forbidden": "You do not have permission to attach a file to this order."
         }
     },
     "approvals": {

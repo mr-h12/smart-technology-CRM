@@ -867,6 +867,8 @@ would hide them behind `OD-03` indefinitely.
       loop, 6.1's `queryString()` the eighth. Each copy is correct; the count is the defect. The fix
       is mechanical — every service imports `Page` from `@/api`, and one `listQuery(pairs)` helper
       replaces the loop — and belongs to its own point, not to a Module 7 screen.
+      **Module 10 · 3.3 (2026-09-23) adds the ninth:** `listPurchaseOrders()`'s three-key loop
+      (`PurchaseOrderListQuery` fits no existing builder) — `grep … | grep -v spec` → 9.
 
 - [ ] **Six list screens carry the same table boilerplate** (seven since 8·3.1's `ApprovalsView`) — *revealed by Module 7 Point 6.3,
       2026-09-13.* `grep -rl "function sortIndicator" crm/resources/js` → 6 (`CustomersView`,
@@ -880,7 +882,18 @@ would hide them behind `OD-03` indefinitely.
       **Module 10 · 3.2 (2026-09-23) adds a CSS-only copy:** `DealDetailView`'s "Previous Quotations"
       table carries `.table-frame/.table-head/.table-row/.row-link` from `DealsView` (no list logic —
       one page of 100, no sort or paging), so the extraction should move those four rules to a shared
-      stylesheet too.
+      stylesheet too. **Module 10 · 3.3 (2026-09-23) adds a list shell:** `PurchaseOrdersView`
+      copies `DealsView`'s `load()`/`goToPage()`, the prev/next `<nav>` and the scoped CSS (plus
+      `.form-field/.row-action`), without sort (owner Q-C) — so it escapes the `sortIndicator` grep
+      above; count it when the extraction is done.
+- [ ] **Two file panels: `QuotationPurchaseOrder` repeats `DealDocumentsPanel`** — *created by Module
+      10 Point 3.3, 2026-09-23, registered rather than extracted by the owner's rule for a fresh
+      pair (the reason-dialog row below).* `grep -rln "scan_status === 'pending'" crm/resources/js/pages`
+      → those two: the same `download()`, the same pending / infected / Download row, the same scoped
+      CSS, and 3.3 reuses `deals.documents.*` for the words. Extracting it touches Module 5's panel,
+      outside 3.3's approved list. **Fix, one point:** a `DocumentList.vue` (rows + scan + download)
+      both panels mount; the upload input stays in each, since its permission differs
+      (`deal.edit` vs `quotation.record_customer_response`).
 - [ ] **The "load a section: loading / 403 / fault" shape is copied per section** — *revealed by Module 10
       Point 3.2's waste audit, 2026-09-23.* `grep -rln "error instanceof ApiError ? error.status : 0"
       crm/resources/js` → 4 pages; `DealDetailView.vue` alone holds 3 (the deal, `loadTimeline`, and
@@ -3659,8 +3672,9 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
       *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
-- [ ] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
+- [x] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
       of its attachment.
+      *(2026-09-23, #223 — `/purchase-orders` + sidebar on `quotation.view`, §8 names none (owner Q-A); no PO page, the order and its files live on the quotation (Q-B); search + prev/next only (Q-C); `displayDate()` draws a date-only field in UTC (Q-D))*
 
 #### Step 4 — close the module
 

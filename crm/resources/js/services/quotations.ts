@@ -1,6 +1,9 @@
-import { apiDelete, apiGet, apiPatch, apiPost, collection, type ApiResult, type Page, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, collection, type ApiResult, type Page, type Pagination } from '@/api';
+import type { DealDocument } from '@/services/deals';
 
-// Module 7's client — the seven routes Steps 3–5 built, and nothing else.
+// Module 7's client — the routes Steps 3–5 built — and the ones Modules 8 and 10
+// added to the same `Quotations` module: approval, send, respond, and the
+// purchase orders `accepted` writes (a PO has no API module of its own, Q4).
 //
 // Every shape here is the server's, read back as it was written: money is a
 // string end to end (`DB-07` has no client-side exception — a `Number` here
@@ -104,6 +107,43 @@ export interface QuotationDetail extends QuotationSummary {
     additional_items: QuotationAdditionalItem[];
     created_by: string | null;
     updated_by: string | null;
+    /** Module 10 · 2.2: the order `accepted` wrote, or `null` — always present. */
+    purchase_order: PurchaseOrderReference | null;
+}
+
+/** `QuotationPayload::purchaseOrderReference()` — what the quotation says of its order. */
+export interface PurchaseOrderReference {
+    id: string;
+    po_number: string;
+    customer_po_reference: string;
+    po_date: string;
+}
+
+/** `QuotationPayload::purchaseOrder()` — a list row (2.2); never cost, margin or suppliers. */
+export interface PurchaseOrderSummary extends PurchaseOrderReference {
+    quotation_id: string;
+    quotation_code: string;
+    customer_id: string;
+    /** Null when Customers' contract could not name it (`D-83`). */
+    customer_name: string | null;
+    final_total: string;
+    currency: string;
+}
+
+/**
+ * The detail, as far as this SPA reads it: the files, oldest first (2.3, A1),
+ * each `DealDocumentPayload::of()`'s fields. The server sends more (the deal,
+ * the totals); the quotation's own page already shows them (3.3, Q-B).
+ */
+export interface PurchaseOrderDetail extends PurchaseOrderReference {
+    documents: DealDocument[];
+}
+
+export interface PurchaseOrderListQuery {
+    page?: number;
+    perPage?: number;
+    /** One search over both numbers — `po_number` and `customer_po_reference` (§4.6). */
+    q?: string | null;
 }
 
 /** One `meta.warnings` entry: `quantity_exceeds_recorded` on a save, `supplier_price_changed` on a read (`§5.6`, `D-36`). Never a block. */
@@ -322,6 +362,35 @@ export interface RespondedQuotation extends QuotationDetail {
 /** Module 10 · 1.4–1.6 — sent (or expired, reject only) → the customer's answer. */
 export async function respondToQuotation(id: string, etag: string, body: CustomerResponse): Promise<RespondedQuotation> {
     return (await apiPatch<RespondedQuotation>(`/quotations/${id}/respond`, body, { 'If-Match': etag })).data;
+}
+
+/** Module 10 · 2.2 — the orders the caller's quotations reach, newest first (the server's default sort). */
+export async function listPurchaseOrders(query: PurchaseOrderListQuery = {}): Promise<Page<PurchaseOrderSummary>> {
+    const parameters = new URLSearchParams();
+
+    for (const [key, value] of [
+        ['page', query.page],
+        ['per_page', query.perPage],
+        ['q', query.q],
+    ] as const) {
+        if (value !== undefined && value !== null && value !== '') {
+            parameters.set(key, String(value));
+        }
+    }
+
+    return collection<PurchaseOrderSummary>(await apiGet(`/purchase-orders${parameters.size === 0 ? '' : `?${parameters.toString()}`}`));
+}
+
+export async function readPurchaseOrder(id: string): Promise<PurchaseOrderDetail> {
+    return (await apiGet<PurchaseOrderDetail>(`/purchase-orders/${id}`)).data;
+}
+
+/** 2.3 — one file per call, several per order. The field is `document`, as every upload's (`ApiExceptionRenderer`). */
+export async function attachPurchaseOrderDocument(id: string, file: File): Promise<DealDocument> {
+    const form = new FormData();
+    form.append('document', file);
+
+    return (await apiUpload<DealDocument>(`/purchase-orders/${id}/documents`, form)).data;
 }
 
 /** `D-08`'s full copy as a new Draft (Point 4.3). Answers the copy's `id`, `code` and `version` — read it for the rest. */

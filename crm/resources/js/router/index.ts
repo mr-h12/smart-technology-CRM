@@ -24,6 +24,7 @@ import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotatio
 import QuotationBuilderView from '@/pages/quotations/QuotationBuilderView.vue';
 import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import ApprovalsView from '@/pages/approvals/ApprovalsView.vue';
+import PurchaseOrdersView from '@/pages/purchase-orders/PurchaseOrdersView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
@@ -207,6 +208,15 @@ export const routes: RouteRecordRaw[] = [
         name: 'approvals',
         component: ApprovalsView,
         meta: { requiresAuth: true, requiredPermission: 'quotation.approve', titleKey: 'approvals.title' },
+    },
+    {
+        // §4.6's purchase orders (Module 10 · 3.3). §8 names no such screen;
+        // a PO has no permission of its own and is read through its quotation
+        // (Q10), so the route follows §3.5's `quotation.view` (owner, Q-A).
+        path: '/purchase-orders',
+        name: 'purchase-orders',
+        component: PurchaseOrdersView,
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'purchaseOrders.title' },
     },
     {
         // The builder, create (Module 7, Point 6.6) — reached from the deal's

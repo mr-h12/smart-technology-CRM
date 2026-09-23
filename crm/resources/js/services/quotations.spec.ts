@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api';
 import {
+    attachPurchaseOrderDocument,
     createQuotation,
     createQuotationVersion,
     deleteQuotation,
     listQuotationGroups,
+    listPurchaseOrders,
     listQuotations,
+    readPurchaseOrder,
     readQuotation,
     submitQuotation,
     updateQuotation,
@@ -283,5 +286,46 @@ describe('the quotation API catalogue', () => {
         expect(failure).toBeInstanceOf(ApiError);
         expect((failure as ApiError).status).toBe(409);
         expect((failure as ApiError).code).toBe('stale_version');
+    });
+
+    // ─────────────────────────────── Module 10 · 3.3: the purchase orders (§4.6)
+
+    it('lists purchase orders with q, page and per_page, and sends no empty q', async () => {
+        // Two calls, so two responses: a `Response` body is read once.
+        fetchMock.mockImplementation(async () => json(200, envelope([], { pagination: PAGINATION })));
+
+        await listPurchaseOrders({ q: '4500123987', page: 2, perPage: 25 });
+        const url = new URL(requestFor().url);
+        expect(url.pathname).toBe('/api/v1/purchase-orders');
+        expect(url.searchParams.get('q')).toBe('4500123987');
+        expect(url.searchParams.get('page')).toBe('2');
+        expect(url.searchParams.get('per_page')).toBe('25');
+
+        await listPurchaseOrders({ q: '' });
+        expect(new URL(requestFor(1).url).searchParams.has('q')).toBe(false);
+    });
+
+    it('reads one purchase order with its documents', async () => {
+        const document = { id: 'f1', original_name: 'po.pdf', mime_type: 'application/pdf', size_bytes: 10, scan_status: 'clean', created_at: '2026-09-23T10:00:00+00:00' };
+        fetchMock.mockResolvedValue(json(200, envelope({ id: 'po1', po_number: 'PO-2026-0001', documents: [document] })));
+
+        const order = await readPurchaseOrder('po1');
+
+        expect(requestFor().url).toContain('/purchase-orders/po1');
+        expect(order.documents).toEqual([document]);
+    });
+
+    it('attaches a PO document as multipart \'document\'', async () => {
+        fetchMock.mockResolvedValue(json(201, envelope({ id: 'f2', original_name: 'scan.png' })));
+        const file = new File(['x'], 'scan.png', { type: 'image/png' });
+
+        const stored = await attachPurchaseOrderDocument('po1', file);
+
+        const [input, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(String(input)).toContain('/purchase-orders/po1/documents');
+        expect(init.method).toBe('POST');
+        // `ApiExceptionRenderer` maps a refusal onto `document`; the field name is the contract.
+        expect((init.body as FormData).get('document')).toBe(file);
+        expect(stored.id).toBe('f2');
     });
 });

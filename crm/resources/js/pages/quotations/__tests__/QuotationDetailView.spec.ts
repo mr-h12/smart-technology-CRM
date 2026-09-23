@@ -56,6 +56,7 @@ const QUOTATION = {
     sent_at: null,
     return_note: null,
     is_self_approved: false,
+    purchase_order: null,
     etag: '"v1"',
     items: [
         { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000' },
@@ -124,6 +125,11 @@ function respond(options: {
 
         if (url.includes('/customers/')) {
             return json(200, envelope(CUSTOMER));
+        }
+
+        // Module 10 · 3.3's block reads its order's files on its own.
+        if (url.includes('/purchase-orders/')) {
+            return json(200, envelope({ documents: [] }));
         }
 
         if (init?.method !== undefined && init.method !== 'GET') {
@@ -288,6 +294,16 @@ describe('the quotation detail view', () => {
         const { wrapper: plain } = await render(respond());
 
         expect(plain.find('[data-testid="quotation-detail-return_note"]').exists()).toBe(false);
+    });
+
+    it('draws the purchase order block only when the quotation carries one (Module 10 · 3.3)', async () => {
+        const accepted = await render(respond({
+            quotation: { ...QUOTATION, status: 'accepted', purchase_order: { id: 'po1', po_number: 'PO-2026-0001', customer_po_reference: '4500123987', po_date: '2026-09-20' } },
+        }));
+        expect(accepted.wrapper.find('[data-testid="purchase-order-number"]').text()).toBe('PO-2026-0001');
+
+        const draft = await render(respond({ quotation: { ...QUOTATION, purchase_order: null } }));
+        expect(draft.wrapper.find('[data-testid="quotation-purchase-order"]').exists()).toBe(false);
     });
 
     it('shows the rejection reason when there is one', async () => {

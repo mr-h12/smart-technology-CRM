@@ -1137,7 +1137,7 @@ would hide them behind `OD-03` indefinitely.
       never fails a build — the reason every other `App\Support` entry is named. The fix is one
       collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
 - [x] **Nothing runs the scheduler, so no scheduled job fires in the stack** — *revealed by the Module
-      10 point list, 2026-09-23.* *(Closed 2026-09-23 with Module 10 · 2.1: the `scheduler` service runs
+      10 point list, 2026-09-23.* *(Closed 2026-09-23 with Module 10 · 2.1, #214: the `scheduler` service runs
       `quotations:expire` once, then `schedule:work`; `schedule:list` shows `J-15`, `J-02` and `J-01`.)* `routes/console.php` registers `J-15` and `J-02`, but no service in
       `docker-compose.yml` runs `schedule:work` or `schedule:run` (`git grep -n "schedule:(work|run)"`:
       no hit in any tracked file). The `J-15` entry above ("sits in the scheduler") argues from a
@@ -3510,7 +3510,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       idempotent. A `scheduler` service in `docker-compose.yml` runs `J-01` once on start (the `D-55`
       catch-up) and then `schedule:work` — closing the "nothing runs the scheduler" debt row, and from
       then on `J-02` and `J-15` fire in the stack too. No deal move (Q2), no customer status (debt row).
-      *(2026-09-23 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
+      *(2026-09-23, #214 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
 - [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.

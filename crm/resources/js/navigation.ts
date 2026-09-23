@@ -138,6 +138,15 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 badge: 'approvals',
             },
             {
+                // §4.6's *Purchase Orders* (Module 10 · 3.3) — not in §8's list;
+                // keyed on `quotation.view` because a PO is read through its
+                // quotation (Q10). The owner's ruling of 2026-09-23 (Q-A).
+                name: 'purchase-orders',
+                labelKey: 'nav.item.purchaseOrders',
+                icon: 'M4 3h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm1.5 3.5V8h9V6.5zm0 3V11h9V9.5zm0 3V14h5v-1.5z',
+                permission: 'quotation.view',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

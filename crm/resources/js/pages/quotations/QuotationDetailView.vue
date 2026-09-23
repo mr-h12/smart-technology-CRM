@@ -41,7 +41,8 @@
  * §6.6`) — a reason for Counter and Rejected (§6.3), the PO reference and
  * date for Accepted; Partial and Counter open the draft the server copied.
  * An Expired quotation is only rejected, "no response" offered (§10.5). The
- * PO itself is 3.3's. Approve, return and PDF are Modules 8–9.
+ * order an acceptance wrote is drawn by `QuotationPurchaseOrder` (3.3), with
+ * its files and their upload. Approve, return and PDF are Modules 8–9.
  * The supplier behind a line is not named: the line carries
  * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
  * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
@@ -53,6 +54,7 @@ import { ApiError } from '@/api';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 import { readCustomer, type Customer } from '@/services/customers';
@@ -604,6 +606,9 @@ onMounted(refresh);
             <p v-if="dealLost !== null" class="rounded-lg p-3" role="status" data-testid="quotation-detail-deal-outcome">
                 {{ dealLost ? t('quotations.detail.dealLost') : t('quotations.detail.dealKept') }}
             </p>
+
+            <!-- §4.6: the order `accepted` wrote, keyed so a reload of another quotation re-reads its files. -->
+            <QuotationPurchaseOrder v-if="quotation.purchase_order !== null" :key="quotation.purchase_order.id" :order="quotation.purchase_order" />
 
             <!-- §7.2: the lines, with the cost group only when the body carries it. -->
             <section class="flex flex-col gap-2" data-testid="quotation-lines">

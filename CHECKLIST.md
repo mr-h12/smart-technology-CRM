@@ -3655,8 +3655,9 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
       *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
-- [ ] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
+- [x] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
       of its attachment.
+      *(2026-09-23 — `/purchase-orders` + sidebar on `quotation.view`, §8 names none (owner Q-A); no PO page, the order and its files live on the quotation (Q-B); search + prev/next only (Q-C); `displayDate()` draws a date-only field in UTC (Q-D))*
 
 #### Step 4 — close the module
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Contracts;
 
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
@@ -100,6 +101,13 @@ interface QuotationDirectoryInterface extends QuotationReaderInterface
      * @return array<string, string> status by quotation id
      */
     public function lockStatusesOfDeal(string $dealId): array;
+
+    /**
+     * Module 10 · 1.6 — the purchase order an acceptance writes (§4.6, Q5),
+     * numbered `PO-YYYY-NNNN` (§4.7). Does not open a transaction: the
+     * acceptance's use case wraps it with the status move (`DB-11`).
+     */
+    public function createPurchaseOrder(string $quotationId, string $customerPoReference, string $poDate, string $actorId): PurchaseOrderSummary;
 
     /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with

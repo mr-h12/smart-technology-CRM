@@ -1349,9 +1349,10 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             warns. `pricing-invariant-reviewer`. *(2026-09-20, #154 — one operand; the warning's
             sentence reworded ar/en, its wire code `quantity_exceeds_recorded` kept (OpenAPI §5.1);
             `SupplierItemPrice::$recordedQuantity` removed, it had no reader left)*
-      - [ ] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
+      - [x] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
             line inside its transaction and carries old/new `consumed_quantity` in its audit entry.
             Listed here so the dependency is visible; built as a Module 10 point, not an F-05 one.
+            *(2026-09-23, #213 — built as Module 10 · 1.6: `RespondToQuotation::consumeLines`, keyed by the quotation line's id)*
       - [x] **1.6** Screens: the builder's quantity placeholder (F-04) and the muted line show
             available; the supplier-quotation detail shows recorded · consumed · available. AR/EN ×
             desktop/375 px via `rtl-ui-verifier`. RED: vitest on both views. *(2026-09-21, #155 —
@@ -3481,13 +3482,14 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       only when it is zero. Proven with two live quotations on one deal: the first rejection leaves the
       deal, the second makes it `lost`.
       *(2026-09-23, #212 — the lock is taken before the write; the answer carries `deal_lost` (owner))*
-- [ ] **1.6** `respond` with `accepted`: migration `purchase_orders` (uuid, `quotation_id` FK and unique
+- [x] **1.6** `respond` with `accepted`: migration `purchase_orders` (uuid, `quotation_id` FK and unique
       alive, `po_number` unique, `customer_po_reference`, `po_date`, audit columns, soft delete, `down()`)
       plus the foreign key `purchase_order_files` has owed since Module 0; `customer_po_reference` and
       `po_date` required; `PO-` from `DocumentNumberAllocator`; `SupplierItemQuantityInterface` joins
       `SupplierQuotationsContract` and `consume()` runs once per line keyed by the line's id; audit
       `QUOTATION_ACCEPTED` (old/new `consumed_quantity`) + `PURCHASE_ORDER_CREATED`; one transaction.
       Ticks **F-05 · 1.5**.
+      *(2026-09-23, #213 — the answer carries `purchase_order` (owner A); old balance = new − quantity, exact under `If-Match`)*
 
 #### Step 2 — `J-01` and the purchase order's read side
 

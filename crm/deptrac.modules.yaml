@@ -112,6 +112,8 @@ parameters:
               value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
             - type: classLike
               value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemQuantityInterface$
     - name: Procurement
       collectors:
         - type: directory
@@ -255,6 +257,9 @@ parameters:
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
         - type: classLike
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+        # Module 10 · 1.6 (`D-81`): the consumption an acceptance calls once per line.
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemQuantityInterface$
 
     # `DealsContract`, on `SupplierQuotationsContract`'s exact shape: the one
     # interface Module 7 reads off a deal and the value object it returns.

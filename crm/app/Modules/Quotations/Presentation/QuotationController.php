@@ -157,7 +157,8 @@ final class QuotationController
      * Module 10 · 1.4–1.5. `send()`'s shape with a body; the answer is the
      * answered quotation with its new `etag`, plus `new_version` —
      * `newVersion()`'s fields for the draft to open (owner, C) — after
-     * `partial` / `counter`, or `deal_lost` after `rejected` (owner, rule b).
+     * `partial` / `counter`, `deal_lost` after `rejected` (owner, rule b), or
+     * `purchase_order` after `accepted` (owner A, 1.6).
      */
     public function respond(RespondQuotationRequest $request, string $quotation, RespondToQuotation $quotations, ShowQuotation $reader): JsonResponse
     {
@@ -167,6 +168,8 @@ final class QuotationController
             $quotation,
             $request->customerResponse(),
             $request->reason(),
+            $request->customerPoReference(),
+            $request->poDate(),
             $request->headers->get('If-Match'),
             self::heldScopes($request),
             $actorId,
@@ -181,6 +184,15 @@ final class QuotationController
 
         if ($recorded->dealLost !== null) {
             $payload['deal_lost'] = $recorded->dealLost;
+        }
+
+        if ($recorded->purchaseOrder !== null) {
+            $payload['purchase_order'] = [
+                'id' => $recorded->purchaseOrder->id,
+                'po_number' => $recorded->purchaseOrder->poNumber,
+                'customer_po_reference' => $recorded->purchaseOrder->customerPoReference,
+                'po_date' => $recorded->purchaseOrder->poDate,
+            ];
         }
 
         return ApiEnvelope::single($request, $payload);

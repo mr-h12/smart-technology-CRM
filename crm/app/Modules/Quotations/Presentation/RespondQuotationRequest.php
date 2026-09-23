@@ -11,8 +11,8 @@ use RuntimeException;
 /**
  * The boundary for `PATCH /quotations/{quotation}/respond` (Module 10 Point 1.4,
  * `OpenAPI §7.2`). Owner, 2026-09-23: a field that belongs to another response
- * is refused, not dropped (A); `accepted` waits for 1.6 (B), `rejected` came
- * with 1.5. A missing reason is `RespondToQuotation`'s to refuse, because
+ * is refused, not dropped (A); `rejected` came with 1.5 and `accepted`, with its
+ * two purchase-order fields, with 1.6. A missing reason is `RespondToQuotation`'s to refuse, because
  * the contract names its code (`rejection_reason_required`) and a Form Request
  * only says `invalid`.
  */
@@ -22,10 +22,13 @@ final class RespondQuotationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'response' => ['required', 'string', Rule::in(['partial', 'counter', 'rejected'])],
+            'response' => ['required', 'string', Rule::in(['accepted', 'partial', 'counter', 'rejected'])],
             'reason' => ['nullable', 'string', 'max:2000', 'prohibited_unless:response,counter,rejected'],
-            'customer_po_reference' => ['prohibited'],
-            'po_date' => ['prohibited'],
+            // Owner B (1.6): a reference with a character (`TrimStrings` makes a
+            // blank one null, so `required_if` refuses it) and a real date,
+            // future allowed; 255 is the column, not a business rule.
+            'customer_po_reference' => ['required_if:response,accepted', 'prohibited_unless:response,accepted', 'nullable', 'string', 'max:255'],
+            'po_date' => ['required_if:response,accepted', 'prohibited_unless:response,accepted', 'nullable', 'date_format:Y-m-d'],
         ];
     }
 
@@ -42,8 +45,23 @@ final class RespondQuotationRequest extends FormRequest
 
     public function reason(): ?string
     {
-        $reason = $this->validated('reason');
+        return $this->optional('reason');
+    }
 
-        return is_string($reason) ? $reason : null;
+    public function customerPoReference(): ?string
+    {
+        return $this->optional('customer_po_reference');
+    }
+
+    public function poDate(): ?string
+    {
+        return $this->optional('po_date');
+    }
+
+    private function optional(string $field): ?string
+    {
+        $value = $this->validated($field);
+
+        return is_string($value) ? $value : null;
     }
 }

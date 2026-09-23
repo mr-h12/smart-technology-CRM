@@ -3458,7 +3458,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       `quotationRejected(dealId, reason, actorId)`, each through `ChangeDealStatus` inside the caller's
       transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:
       a rolled-back caller leaves the deal where it was; a deal with no `lost` edge is untouched (rule b).
-      *(2026-09-23 — `DealOutcomeInterface` + `RecordQuotationOutcome`, unrestricted scope; 1.3/1.5 take `deal_id` only from the authorised quotation)*
+      *(2026-09-23, #209 — `DealOutcomeInterface` + `RecordQuotationOutcome`, unrestricted scope; 1.3/1.5 take `deal_id` only from the authorised quotation)*
 - [ ] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
       `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
       No PDF (`D-90`).

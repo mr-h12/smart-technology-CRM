@@ -101,6 +101,13 @@ parameters:
           value: ^Symfony\\.*
         - type: classLike
           value: ^Laravel\\.*
+    # Module 9, Point 2.1 — the PDF engine (`D-57`). Its own layer rather than
+    # an uncovered vendor call, so reaching it from anywhere but Infrastructure
+    # fails the build instead of passing unreported.
+    - name: Browsershot
+      collectors:
+        - type: classLike
+          value: ^Spatie\\Browsershot\\.*
 
   ruleset:
     Presentation:
@@ -122,6 +129,8 @@ parameters:
       - Framework
       - Factories
       - SharedContracts
+      # Module 9, Point 2.1 — only an adapter drives the browser.
+      - Browsershot
     # Domain has no entry on purpose. An empty ruleset means "may depend on
     # nothing", which is the point.
     Factories: ~

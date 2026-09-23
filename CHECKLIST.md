@@ -3379,6 +3379,42 @@ that may touch `composer.lock`. Arabic rendering is proven by `P-01` and approve
 three items `D-79` carried forward — live page numbering, the one-page re-check, and the
 customer-view model — are Steps 2 and 1.1 respectively, and only the third is closed by this step.
 
+### Step 2 — the renderer and the template *(point list published and **approved** 2026-09-22)*
+
+The layout is `D-89`'s (the company's offer form, full totals block kept), not `P-01`'s. Two facts
+shape the step: **only the `pdf` image renders** — it alone has Chromium and Puppeteer, and CI
+asserts the `app` image has neither — so template tests read HTML in the normal suite and real
+renders run in `tests/PdfImage/` inside the `pdf` image; and `D-89`'s fields with no source yet
+(Att, per-line delivery time, Settings texts, job title) wait for their owners and are omitted, never
+printed blank.
+
+**Owner decisions — ✅ approved 2026-09-22 with "approved" alone, so each default is the decision.**
+- **Q7 · a real render in CI.** Appended as one step to `php-image.yml`'s `verify` job (2.6).
+- **Q8 · Arabic wording** of the opening, closing and sign-off lines: drafted in `lang/ar/pdf.php`,
+  corrected by the owner at review; the Arabic criterion stays `[~]` until the owner confirms it.
+- **Q9 · faces.** Inter for Latin and digits (`Design_System_EN.md` §4.1), Noto Sans Arabic for
+  Arabic — not the form's Times-style serif.
+
+- [x] **2.1** `PdfRendererInterface` + `BrowsershotPdfRenderer` — `spatie/browsershot` added, the
+      only point in this module that touches `composer.lock`. *Verified by* a real Arabic + English
+      render in the `pdf` image (`%PDF-`, Noto Sans Arabic embedded), and the `app` image refusing
+      by name, at once, instead of waiting out a timeout.
+
+      *(2026-09-22, #204 — chromium flags are `verify.php`'s; JavaScript off because the sandbox is.)*
+- [ ] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
+      embedded base64. *Verified by* a test that the template references no OS font and no URL.
+- [ ] **2.3** `subject` (the deal's title, through Deals' own contract) and `signatoryName` (the
+      creator, through `UserFactsInterface`, an `IdentityContract` grant) join the view.
+      *Verified by* mapper tests, and 1.2's leak test still green.
+- [ ] **2.4** The Blade template, `D-89`'s layout, one template for RTL and LTR, every label from
+      `lang/{ar,en}/pdf.php`, **percentages as placeholders**, no tax row when exempt (`D-63`), no
+      delivery-terms line when the flag is off. *Verified by* HTML tests for each rule, and the
+      rendered HTML searched for 1.2's sixteen cost and supplier values.
+- [ ] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
+      a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
+- [ ] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
+- [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
+
 **Sketch of the remaining steps, so the module's shape is visible without committing to their
 points.** Step 2: Browsershot behind a `PdfRendererInterface`, `P-01`'s template ported to consume
 `CustomerQuotationView` only, the four faces embedded base64, live page numbers via Chrome's

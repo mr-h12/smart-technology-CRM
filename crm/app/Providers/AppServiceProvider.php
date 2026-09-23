@@ -76,6 +76,8 @@ use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
+use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
@@ -537,6 +539,17 @@ class AppServiceProvider extends ServiceProvider
         // audit columns, and Redis expires it without a sweeper job. See
         // PasswordChallengeStoreInterface for the trade-off that accepts.
         $this->app->bind(PasswordChallengeStoreInterface::class, CachePasswordChallengeStore::class);
+
+        // Module 9, Point 2.1 — the PDF renderer (D-57). Only the pdf image has
+        // the browser it points at; anywhere else it refuses by name.
+        $this->app->bind(
+            PdfRendererInterface::class,
+            fn (): PdfRendererInterface => new BrowsershotPdfRenderer(
+                chromePath: $this->app->make(ConfigRepository::class)->string('pdf.chrome_path'),
+                nodeModulesPath: $this->app->make(ConfigRepository::class)->string('pdf.node_modules_path'),
+                timeoutSeconds: $this->app->make(ConfigRepository::class)->integer('pdf.timeout_seconds'),
+            ),
+        );
     }
 
     /**

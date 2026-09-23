@@ -5,6 +5,9 @@ declare(strict_types=1);
 return [
     // `OpenAPI §5.1` — one 404 for absent or out of reach (Point 3.5).
     'not_found' => 'لم يُعثر على عرض السعر هذا.',
+    'attributes' => [
+        'document' => 'مستند أمر الشراء',
+    ],
     'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 
     // `422 business_rule_blocked` — منع §5.6، وجاره الذي يفرضه `D-09`.

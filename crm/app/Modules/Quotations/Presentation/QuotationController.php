@@ -6,6 +6,7 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
+use App\Modules\Quotations\Application\Documents\AttachPurchaseOrderDocument;
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Application\Listing\BadgeCounts;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
@@ -205,6 +206,24 @@ final class QuotationController
             array_map(static fn (PurchaseOrderRecord $order): array => QuotationPayload::purchaseOrder($order, $page->customerNames[$order->customerId] ?? null), $page->items),
             QuotationPayload::pagination($page),
         );
+    }
+
+    /**
+     * Module 10 · 2.3 — `POST /purchase-orders/{id}/documents` under
+     * `quotation.record_customer_response`; `DealController::uploadDocument()`'s shape.
+     */
+    public function uploadPurchaseOrderDocument(UploadPurchaseOrderDocumentRequest $request, string $purchaseOrder, AttachPurchaseOrderDocument $documents): JsonResponse
+    {
+        $file = $request->document();
+
+        return ApiEnvelope::single($request, QuotationPayload::document($documents->handle(
+            $purchaseOrder,
+            $file->getPathname(),
+            // The name the browser sent — display-only (§17); never the path.
+            $file->getClientOriginalName(),
+            self::heldScopes($request),
+            self::actorId($request),
+        )), 201);
     }
 
     /** Module 10 · 2.2 — `GET /purchase-orders/{id}`; the 404 and the scope are `ReadPurchaseOrders::one()`'s. */

@@ -415,7 +415,13 @@ final class StorageServiceTest extends TestCase
      */
     public function test_nothing_outside_the_storage_driver_touches_the_filesystem(): void
     {
-        $allowed = self::root().'/app/Modules/Storage/Infrastructure';
+        $allowed = [
+            self::root().'/app/Modules/Storage/Infrastructure',
+            // Module 9, Point 2.2 — the PDF's own faces and letterhead, read from
+            // resources/pdf. Not §17 files: they ship in the repository, are never
+            // uploaded, and never leave the application directory.
+            self::root().'/app/Modules/Pdf/Infrastructure/FilePdfAssets.php',
+        ];
 
         $forbidden = [
             'Facades\\Storage',
@@ -443,8 +449,10 @@ final class StorageServiceTest extends TestCase
         self::assertGreaterThan(9, count($files), 'The scanner read nothing, so it proved nothing.');
 
         foreach ($files as $file) {
-            if (str_starts_with($file, $allowed)) {
-                continue;
+            foreach ($allowed as $exempt) {
+                if (str_starts_with($file, $exempt)) {
+                    continue 2;
+                }
             }
 
             $source = self::withoutComments((string) file_get_contents($file));

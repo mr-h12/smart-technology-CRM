@@ -43,19 +43,35 @@ final readonly class ReadPurchaseOrders
     }
 
     /**
+     * The order, if these scopes reach its quotation's deal — the one reach
+     * check behind the detail, the upload (2.3, `record_customer_response`'s
+     * scopes) and the download (`quotation.view`'s, `D-38`).
+     *
      * @param  list<string>  $heldScopes
      *
-     * @throws PurchaseOrderNotFound unknown, deleted or out of reach alike (`OpenAPI §5.1`)
+     * @throws PurchaseOrderNotFound unknown, malformed, deleted or out of reach alike (`OpenAPI §5.1`)
      */
-    public function one(string $purchaseOrderId, array $heldScopes, string $actorId): PurchaseOrderDetail
+    public function reachable(string $purchaseOrderId, array $heldScopes, string $actorId): PurchaseOrderRecord
     {
         $scope = QuotationRowScope::resolve($heldScopes, $actorId);
         $order = $this->quotations->findPurchaseOrder($purchaseOrderId);
-        $ownerId = $order === null ? null : $this->deals->factsOf($order->dealId)?->ownerId;
 
-        if ($order === null || ! $scope->reaches($ownerId)) {
+        if ($order === null || ! $scope->reaches($this->deals->factsOf($order->dealId)?->ownerId)) {
             throw PurchaseOrderNotFound::of($purchaseOrderId);
         }
+
+        return $order;
+    }
+
+    /**
+     * @param  list<string>  $heldScopes
+     *
+     * @throws PurchaseOrderNotFound
+     */
+    public function one(string $purchaseOrderId, array $heldScopes, string $actorId): PurchaseOrderDetail
+    {
+        $order = $this->reachable($purchaseOrderId, $heldScopes, $actorId);
+        $ownerId = $this->deals->factsOf($order->dealId)?->ownerId;
 
         $names = $this->users->namesOf(array_values(array_filter([$ownerId, $order->createdBy], is_string(...))));
 
@@ -66,7 +82,7 @@ final readonly class ReadPurchaseOrders
             dealOwnerId: $ownerId,
             dealOwnerName: $ownerId === null ? null : ($names[$ownerId] ?? null),
             createdByName: $order->createdBy === null ? null : ($names[$order->createdBy] ?? null),
-            hasAttachment: $this->files->hasFiles(AttachmentParent::PurchaseOrder, $order->id),
+            documents: $this->files->filesOf(AttachmentParent::PurchaseOrder, $order->id),
         );
     }
 }

@@ -5,6 +5,9 @@ declare(strict_types=1);
 return [
     // `OpenAPI §5.1` — one 404 for absent or out of reach (Point 3.5).
     'not_found' => 'This quotation was not found.',
+    'attributes' => [
+        'document' => 'purchase order document',
+    ],
     'purchase_order_not_found' => 'This purchase order was not found.',
 
     // `422 business_rule_blocked` — §5.6's block, and its neighbour `D-09`

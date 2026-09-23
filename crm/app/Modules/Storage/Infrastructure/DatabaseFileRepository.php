@@ -10,6 +10,7 @@ use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\ScanStatus;
 use App\Modules\Storage\Domain\StoredFile;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
+use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -30,18 +31,7 @@ final readonly class DatabaseFileRepository implements FileRepositoryInterface
             ->where('id', $id)
             ->first();
 
-        if ($row === null) {
-            return null;
-        }
-
-        return new StoredFile(
-            id: (string) $row->id,               // @phpstan-ignore-line property.nonObject
-            originalName: (string) $row->original_name,   // @phpstan-ignore-line property.nonObject
-            mimeType: (string) $row->mime_type,           // @phpstan-ignore-line property.nonObject
-            sizeBytes: (int) $row->size_bytes,            // @phpstan-ignore-line property.nonObject
-            path: StoragePath::fromStored((string) $row->storage_path),   // @phpstan-ignore-line property.nonObject
-            scanStatus: ScanStatus::from((string) $row->scan_status),   // @phpstan-ignore-line property.nonObject
-        );
+        return $row === null ? null : self::hydrate($row);
     }
 
     public function parentsOf(string $fileId): array
@@ -63,13 +53,31 @@ final readonly class DatabaseFileRepository implements FileRepositoryInterface
         return $links;
     }
 
-    public function hasFiles(AttachmentParent $parent, string $parentId): bool
+    public function filesOf(AttachmentParent $parent, string $parentId): array
     {
-        return $this->connection->table($parent->pivotTable())
+        $rows = $this->connection->table($parent->pivotTable())
             ->join('files', 'files.id', '=', $parent->pivotTable().'.file_id')
             ->where($parent->pivotTable().'.'.$parent->value.'_id', $parentId)
             ->whereNull('files.deleted_at')
-            ->exists();
+            ->orderBy('files.created_at')
+            ->orderBy('files.id')
+            ->select('files.*')
+            ->get();
+
+        return array_values($rows->map(static fn (object $row): StoredFile => self::hydrate($row))->all());
+    }
+
+    private static function hydrate(object $row): StoredFile
+    {
+        return new StoredFile(
+            id: (string) $row->id,               // @phpstan-ignore-line property.nonObject
+            originalName: (string) $row->original_name,   // @phpstan-ignore-line property.nonObject
+            mimeType: (string) $row->mime_type,           // @phpstan-ignore-line property.nonObject
+            sizeBytes: (int) $row->size_bytes,            // @phpstan-ignore-line property.nonObject
+            path: StoragePath::fromStored((string) $row->storage_path),   // @phpstan-ignore-line property.nonObject
+            scanStatus: ScanStatus::from((string) $row->scan_status),   // @phpstan-ignore-line property.nonObject
+            createdAt: new DateTimeImmutable((string) $row->created_at),   // @phpstan-ignore-line property.nonObject
+        );
     }
 
     public function recordScan(string $fileId, ScanStatus $status): void

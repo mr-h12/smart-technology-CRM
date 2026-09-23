@@ -881,6 +881,13 @@ would hide them behind `OD-03` indefinitely.
       table carries `.table-frame/.table-head/.table-row/.row-link` from `DealsView` (no list logic —
       one page of 100, no sort or paging), so the extraction should move those four rules to a shared
       stylesheet too.
+- [ ] **The "load a section: loading / 403 / fault" shape is copied per section** — *revealed by Module 10
+      Point 3.2's waste audit, 2026-09-23.* `grep -rln "error instanceof ApiError ? error.status : 0"
+      crm/resources/js` → 4 pages; `DealDetailView.vue` alone holds 3 (the deal, `loadTimeline`, and
+      3.2's `loadQuotations`, which copies the timeline's on purpose — a refusal contained in its
+      section). Each carries its own `…Loading/…Denied/…Failed` trio. **Fix, one point:** a
+      `useSectionLoad(read)` composable returning `{items, loading, denied, failed, reload}`; belongs
+      with the `useEtagWrite()` and `useServerList()` rows.
 
 - [ ] **The context bar overflows a 375px viewport by 36–46px, in both directions** — *revealed by
       Module 7 Point 6.3's mobile check, 2026-09-13; not created by it.* On `/deals` and

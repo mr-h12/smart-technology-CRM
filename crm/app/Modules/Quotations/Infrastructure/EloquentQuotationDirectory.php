@@ -9,6 +9,7 @@ use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
@@ -17,6 +18,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
+use App\Modules\Quotations\Infrastructure\Eloquent\PurchaseOrder;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
 use DateTimeImmutable;
@@ -177,6 +179,49 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]) === 1;
+    }
+
+    public function lockStatusesOfDeal(string $dealId): array
+    {
+        $statuses = [];
+
+        // `SoftDeletes` keeps a deleted draft out: it is not live (Q12).
+        foreach (Quotation::query()->where('deal_id', $dealId)->orderBy('id')->lockForUpdate()->get(['id', 'status']) as $row) {
+            $statuses[(string) $row->id] = (string) $row->status;
+        }
+
+        return $statuses;
+    }
+
+    public function expireSentBefore(string $today): array
+    {
+        $rows = $this->connection->select(
+            "UPDATE quotations SET status = 'expired', version_token = version_token + 1, updated_by = NULL, updated_at = now()
+             WHERE status = 'sent' AND valid_until < ? AND deleted_at IS NULL
+             RETURNING id",
+            [$today],
+        );
+
+        $ids = [];
+        foreach ($rows as $row) {
+            if ($row instanceof stdClass && is_string($row->id)) {
+                $ids[] = $row->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    public function createPurchaseOrder(string $quotationId, string $customerPoReference, string $poDate, string $actorId): PurchaseOrderSummary
+    {
+        $order = new PurchaseOrder;
+        $order->fill(['quotation_id' => $quotationId, 'customer_po_reference' => $customerPoReference, 'po_date' => $poDate]);
+        $order->po_number = (new DocumentNumberAllocator($this->connection, 'PO'))->next();
+        $order->created_by = $actorId;
+        $order->updated_by = $actorId;
+        $order->save();
+
+        return new PurchaseOrderSummary($order->id, $quotationId, $order->po_number, $customerPoReference, $poDate);
     }
 
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool
@@ -378,7 +423,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $copy = $parent->replicate([
             'code', 'status', 'version', 'parent_id', 'version_token',
             'rejection_reason', 'sent_at', 'submitted_at', 'is_self_approved',
-            'created_by', 'updated_by', 'deleted_at',
+            'created_by', 'updated_by', 'deleted_at', 'returned_at', 'return_note',
         ]);
         $copy->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
         $copy->parent_id = $parentId;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Contracts;
 
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
@@ -90,6 +91,35 @@ interface QuotationDirectoryInterface extends QuotationReaderInterface
      * @param  array<string, mixed>  $attributes
      */
     public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool;
+
+    /**
+     * Module 10 · 1.5, Q12: every alive quotation of the deal locked
+     * `FOR UPDATE` in id order, and their statuses. Called **before** the
+     * rejection's write, so two last rejections on one deal serialise — the
+     * second reads the first's committed status — instead of deadlocking.
+     *
+     * @return array<string, string> status by quotation id
+     */
+    public function lockStatusesOfDeal(string $dealId): array;
+
+    /**
+     * Module 10 · 2.1, `J-01`: every alive `sent` quotation whose
+     * `valid_until` is before `$today` (`Y-m-d`) moves to `expired` in one
+     * statement, advancing each token and naming no actor (`updated_by` NULL —
+     * the system). PostgreSQL re-reads `status = 'sent'` on a row a concurrent
+     * response locked first, so the two cannot both move it. Does not open a
+     * transaction: the use case wraps it with the audit.
+     *
+     * @return list<string> the ids that moved
+     */
+    public function expireSentBefore(string $today): array;
+
+    /**
+     * Module 10 · 1.6 — the purchase order an acceptance writes (§4.6, Q5),
+     * numbered `PO-YYYY-NNNN` (§4.7). Does not open a transaction: the
+     * acceptance's use case wraps it with the status move (`DB-11`).
+     */
+    public function createPurchaseOrder(string $quotationId, string $customerPoReference, string $poDate, string $actorId): PurchaseOrderSummary;
 
     /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with

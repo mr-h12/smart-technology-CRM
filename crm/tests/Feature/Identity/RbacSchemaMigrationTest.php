@@ -380,7 +380,9 @@ final class RbacSchemaMigrationTest extends TestCase
         // rather than adjusted. Read 2026-09-16: D-80 added `currency.view`
         // (one triple, five grants) — 143 → 144, 212 → 217. Read 2026-09-21: D-85
         // added `catalog.import` (one triple, one grant) — 144 → 145, 217 → 218.
-        self::assertSame(145, DB::table('permissions')->count());
+        // Read 2026-09-23: D-91 moved seven TL/Procurement §3.5 cells to `all`,
+        // which `all` already held — 145 → 138, grants unchanged at 218.
+        self::assertSame(138, DB::table('permissions')->count());
         self::assertSame(218, DB::table('role_permissions')->count());
         self::assertSame(8, DB::table('roles')->count());
     }

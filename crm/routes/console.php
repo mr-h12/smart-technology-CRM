@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
+use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Support\Queue\QueueName;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -51,3 +52,10 @@ Schedule::command(EnsureAuditPartitionsCommand::class)->daily();
 // repaired by the next run's fresh read of the current state, not by
 // replaying the nights that did not happen.
 Schedule::job(new RecomputeStaleCustomerStatusesJob, QueueName::Maintenance->value)->daily();
+
+// J-01 expire_quotations (§15, Module 10 · 2.1). J-02's queued shape, onto
+// `maintenance`. Unlike J-02 it has its catch-up (§15 ✅, D-55): the
+// `scheduler` service runs `quotations:expire` once before `schedule:work`.
+// At 00:00 UTC — the company's day is read inside the job; local-time
+// scheduling was declined by the owner (2026-09-23).
+Schedule::job(new ExpireQuotationsJob, QueueName::Maintenance->value)->daily();

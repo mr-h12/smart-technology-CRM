@@ -185,7 +185,7 @@ final class CustomerQuotationViewTest extends TestCase
             customerContact: 'Hussein',
             companyName: 'Smart Technology for Integrated Systems',
             companyAddress: '5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt',
-            companyPhones: ['035829952', '01070764779'],
+            companyPhones: '035829952 · 01070764779',
             lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1', '5219.30', '5219.30')],
             additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             subtotal: '5219.30',

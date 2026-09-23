@@ -39,6 +39,10 @@ parameters:
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
     # The five `QuotationsContract` classLikes are collected out below, on
     # `Suppliers`' terms (F-10 · 1.4): a token in two layers is checked against both.
     - name: Quotations
@@ -108,6 +112,8 @@ parameters:
               value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
             - type: classLike
               value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+            - type: classLike
+              value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemQuantityInterface$
     - name: Procurement
       collectors:
         - type: directory
@@ -251,6 +257,9 @@ parameters:
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemPricingInterface$
         - type: classLike
           value: ^App\\Modules\\SupplierQuotations\\Domain\\Pricing\\SupplierItemPrice$
+        # Module 10 · 1.6 (`D-81`): the consumption an acceptance calls once per line.
+        - type: classLike
+          value: ^App\\Modules\\SupplierQuotations\\Domain\\Contracts\\SupplierItemQuantityInterface$
 
     # `DealsContract`, on `SupplierQuotationsContract`'s exact shape: the one
     # interface Module 7 reads off a deal and the value object it returns.
@@ -263,6 +272,11 @@ parameters:
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+        # Module 10 · 1.2 (`D-90`): the write Quotations calls, and its refusal.
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -376,6 +390,11 @@ parameters:
           value: ^Symfony\\.*
         - type: classLike
           value: ^Laravel\\.*
+    # Module 9, Point 2.1 — the PDF engine, granted to `Pdf` alone.
+    - name: Browsershot
+      collectors:
+        - type: classLike
+          value: ^Spatie\\Browsershot\\.*
 
   ruleset:
     # Customers → Framework, SharedContracts, IdentityContract, added 2026-08-30
@@ -709,6 +728,25 @@ parameters:
     Outdoor: ~
     Reports: ~
     Notifications: ~
+    # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
+    # that crosses. Each grant names what the customer's document needs.
+    Pdf:
+      # AdminContract, Point 1.2 — §13 screen 4 and §14.6 make the company's
+      # name, address and phones the Super Admin's settings, read through
+      # `SettingsRepositoryInterface`, never hard-coded into the document.
+      # It points at the contract half only; nothing points at AdminDriver.
+      - AdminContract
+      # CustomersContract, Point 1.2 — the customer's name through
+      # `CustomerNamesInterface` (`D-83`), and nothing else of the customer.
+      - CustomersContract
+      # QuotationsContract, Point 1.2 — the quotation through
+      # `QuotationReaderInterface::find()`, published read-only by Module 7's
+      # owner for this grant (F-14 · 1.1). Not `Quotations`: its models and
+      # its writes stay out of reach.
+      - QuotationsContract
+      # Browsershot, Point 2.1 — `BrowsershotPdfRenderer` drives the `pdf`
+      # image's Chromium (`D-57`); no other module may.
+      - Browsershot
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

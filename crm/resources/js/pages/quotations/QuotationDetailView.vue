@@ -261,8 +261,10 @@ async function openResponse(): Promise<void> {
 }
 
 /** §6.6: Cancel and Escape close without writing, and focus goes back to the button that opened it. */
-function closeResponse(): void {
+async function closeResponse(): Promise<void> {
     responding.value = false;
+    // The button is `disabled` while the dialog is open; it takes focus only once Vue re-enables it.
+    await nextTick();
     respondButton.value?.focus();
 }
 

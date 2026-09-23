@@ -1030,6 +1030,13 @@ would hide them behind `OD-03` indefinitely.
       first two were already copies and the extraction is a refactor, not a screen point. **Fix, one
       point:** a `useEtagWrite()` composable returning `{busy, conflict, error, act}`; the three pages
       shrink by the same twenty lines. Belongs with the `useServerList()` row above.
+- [ ] **In-page reason dialogs are hand-rolled twice, and the older one misses §6.6** — *revealed by
+      Module 10 Point 3.1's waste audit, 2026-09-23.* `ApprovalsView.vue`'s Return note and
+      `QuotationDetailView.vue`'s response dialog are each an inline `role="alertdialog"` form;
+      `ConfirmDialog.vue` has no field slot, so neither could reuse it. Only the 3.1 dialog closes on
+      Escape and returns focus to its button (Design System §6.6); the Return note does neither. **Fix,
+      one point:** Escape + focus return on the Return note, and extract the shared form shell only if a
+      third reason dialog arrives.
 - [ ] **`RequestIdTest` "a rejected correlation id never appears" is a hex-collision flake** —
       *revealed by Module 8 Point 3.1's CI run 34993785991, 2026-09-15.* Data set `'a trailing newline'`
       is `"abc\n"`, the needle becomes `abc`, and the response's server-generated `request_id` was

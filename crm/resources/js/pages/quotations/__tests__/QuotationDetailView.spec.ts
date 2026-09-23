@@ -147,7 +147,7 @@ async function signIn(profile: AuthenticatedUser, delegate: typeof globalThis.fe
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>, profile: AuthenticatedUser = USER, locale: 'en' | 'ar' = 'en') {
+async function render(fetchMock: ReturnType<typeof vi.fn>, profile: AuthenticatedUser = USER, locale: 'en' | 'ar' = 'en', attached = false) {
     await signIn(profile, fetchMock as unknown as typeof globalThis.fetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -157,7 +157,8 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, profile: Authenticate
     await router.push('/quotations/q1');
     await router.isReady();
 
-    const wrapper = mount(QuotationDetailView, { global: { plugins: [i18n, router] } });
+    // Focus only moves inside a document; `attached` is for the tests that follow it.
+    const wrapper = mount(QuotationDetailView, { global: { plugins: [i18n, router] }, ...(attached ? { attachTo: document.body } : {}) });
 
     await flushPromises();
 
@@ -582,12 +583,37 @@ describe('the quotation detail view', () => {
             expect(wrapper.find('[data-testid="quotation-detail-conflict"]').exists()).toBe(true);
         });
 
-        it('closes the dialog on Escape without writing (Design System §6.6)', async () => {
+        it('returns focus to the button that opened the dialog when it closes (Design System §6.6)', async () => {
+            const { wrapper } = await render(respond({ quotation: { ...QUOTATION, status: 'sent' } }), SELLER, 'en', true);
+            const opener = wrapper.find('[data-testid="quotation-action-respond"]');
+
+            for (const close of [
+                () => wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('keydown', { key: 'Escape' }),
+                () => wrapper.find('[data-testid="quotation-respond-cancel"]').trigger('click'),
+            ]) {
+                await opener.trigger('click');
+                await flushPromises();
+                expect(document.activeElement).not.toBe(opener.element);
+
+                await close();
+                await flushPromises();
+                expect(document.activeElement).toBe(opener.element);
+            }
+
+            wrapper.unmount();
+        });
+
+        it('closes the dialog on Escape or Cancel without writing (Design System §6.6)', async () => {
             const { wrapper, fetchMock } = await openDialog('sent');
 
             await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('keydown', { key: 'Escape' });
-
             expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
+
+            await wrapper.find('[data-testid="quotation-action-respond"]').trigger('click');
+            await flushPromises();
+            await wrapper.find('[data-testid="quotation-respond-cancel"]').trigger('click');
+            expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
+
             expect(writes(fetchMock)).toHaveLength(0);
         });
     });

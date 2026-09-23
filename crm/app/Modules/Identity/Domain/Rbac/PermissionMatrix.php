@@ -228,13 +228,22 @@ final class PermissionMatrix
              * state condition on the row, not a sixth scope, and Module 7 enforces it.
              * The CEO exports an existing PDF but has no `generate_pdf` grant — read-only,
              * as the note under the table says.
+             *
+             * `view` departs from §3.5's `Team` / `Asgn` cells by `D-91` (owner,
+             * 2026-09-23): the Team Leader and Procurement read every quotation,
+             * and through it every purchase order. Their bare ✅ cells in this
+             * section follow the new `All`, as §3.2 reads every bare ✅ (owner,
+             * same day); every explicit cell — create, edit, submit, approve,
+             * return, send, generate PDF, respond, delete — keeps `Team` /
+             * `Asgn`. Live databases are corrected by
+             * `2026_09_23_100000_grant_quotation_view_all_…`.
              */
             new Permission('quotation', 'view', [
                 Role::Manager->value => Grant::scoped(Scope::All),
-                Role::TeamLeader->value => Grant::scoped(Scope::Team),
+                Role::TeamLeader->value => Grant::scoped(Scope::All),
                 Role::OutdoorSales->value => Grant::scoped(Scope::Own),
                 Role::IndoorSales->value => Grant::scoped(Scope::Own),
-                Role::Procurement->value => Grant::scoped(Scope::Asgn),
+                Role::Procurement->value => Grant::scoped(Scope::All),
                 Role::Ceo->value => Grant::scoped(Scope::All),
             ], '§3.5'),
             new Permission('quotation', 'create', [
@@ -251,21 +260,21 @@ final class PermissionMatrix
             ], '§3.5'),
             new Permission('quotation', 'view_cost_and_margin', [
                 Role::Manager->value => Grant::checkmark(Scope::All),
-                Role::TeamLeader->value => Grant::checkmark(Scope::Team),
+                Role::TeamLeader->value => Grant::checkmark(Scope::All),
                 Role::OutdoorSales->value => Grant::checkmark(Scope::Own),
                 Role::IndoorSales->value => Grant::checkmark(Scope::Own),
-                Role::Procurement->value => Grant::checkmark(Scope::Asgn),
+                Role::Procurement->value => Grant::checkmark(Scope::All),
                 Role::Ceo->value => Grant::checkmark(Scope::All),
             ], '§3.5'),
             new Permission('quotation', 'edit_margin', [
                 Role::Manager->value => Grant::checkmark(Scope::All),
-                Role::TeamLeader->value => Grant::checkmark(Scope::Team),
+                Role::TeamLeader->value => Grant::checkmark(Scope::All),
                 Role::OutdoorSales->value => Grant::checkmark(Scope::Own),
                 Role::IndoorSales->value => Grant::checkmark(Scope::Own),
             ], '§3.5'),
             new Permission('quotation', 'edit_tax', [
                 Role::Manager->value => Grant::checkmark(Scope::All),
-                Role::TeamLeader->value => Grant::checkmark(Scope::Team),
+                Role::TeamLeader->value => Grant::checkmark(Scope::All),
                 Role::OutdoorSales->value => Grant::checkmark(Scope::Own),
                 Role::IndoorSales->value => Grant::checkmark(Scope::Own),
             ], '§3.5'),
@@ -298,7 +307,7 @@ final class PermissionMatrix
             ], '§3.5'),
             new Permission('quotation', 'export_pdf', [
                 Role::Manager->value => Grant::checkmark(Scope::All),
-                Role::TeamLeader->value => Grant::checkmark(Scope::Team),
+                Role::TeamLeader->value => Grant::checkmark(Scope::All),
                 Role::OutdoorSales->value => Grant::scoped(Scope::Own),
                 Role::IndoorSales->value => Grant::scoped(Scope::Own),
                 Role::Procurement->value => Grant::scoped(Scope::Asgn),

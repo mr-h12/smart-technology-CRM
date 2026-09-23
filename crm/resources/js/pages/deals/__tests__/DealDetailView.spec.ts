@@ -75,13 +75,30 @@ function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
     return { data, meta: { request_id: 'r1', ...extra } };
 }
 
+/** Module 10 · 3.2 — one chain of two versions (same code, `parent_id`), and a second chain. */
+const QUOTATIONS = [
+    { id: 'qa1', code: 'QT-2026-0001', version: 1, parent_id: null, status: 'partial', final_total: '1150.000000', currency: 'EGP' },
+    { id: 'qa2', code: 'QT-2026-0001', version: 2, parent_id: 'qa1', status: 'draft', final_total: '1080.500000', currency: 'EGP' },
+    { id: 'qb1', code: 'QT-2026-0002', version: 1, parent_id: null, status: 'sent', final_total: '90.000000', currency: 'USD' },
+];
+
 function respond(options: {
     deal?: unknown; dealStatus?: number; timeline?: unknown[]; timelineStatus?: number;
+    quotations?: unknown[]; quotationsStatus?: number;
 } = {}): ReturnType<typeof vi.fn> {
-    const { deal = DEAL, dealStatus = 200, timeline = [STATUS_ENTRY], timelineStatus = 200 } = options;
+    const {
+        deal = DEAL, dealStatus = 200, timeline = [STATUS_ENTRY], timelineStatus = 200,
+        quotations = QUOTATIONS, quotationsStatus = 200,
+    } = options;
 
     return vi.fn(async (input: string) => {
         const url = String(input);
+
+        if (url.includes('/quotations')) {
+            return quotationsStatus === 200
+                ? json(200, envelope(quotations, { pagination: { ...PAGINATION, total: quotations.length } }))
+                : json(quotationsStatus, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } });
+        }
 
         if (url.includes('/timeline')) {
             return timelineStatus === 200
@@ -272,6 +289,55 @@ describe('the deal detail view', () => {
 
         // Flow 1: null is "never submitted", not "waiting for a decision".
         expect(wrapper.find('[data-testid="deal-approval"]').exists()).toBe(false);
+    });
+
+    // ─────────────────────────────── Module 10 · 3.2: "Previous Quotations" (§6.3)
+
+    describe('the deal’s quotations (Module 10 · 3.2)', () => {
+        const QUOTER: AuthenticatedUser = { ...USER, permissions: [...USER.permissions, 'quotation.view.all'] };
+
+        it('lists the deal’s quotations by version chain through filter[deal_id], each linking to its detail', async () => {
+            const fetchMock = respond();
+            const wrapper = await render(fetchMock, QUOTER);
+
+            const request = fetchMock.mock.calls.map((call) => decodeURIComponent(String(call[0]))).find((url) => url.includes('/quotations'));
+            expect(request).toContain('filter[deal_id]=d1');
+            expect(request).toContain('sort=code,created_at');
+            expect(request).toContain('per_page=100');
+
+            const section = wrapper.find('[data-testid="deal-detail-quotations"]');
+            expect(section.find('h2').text()).toBe('Previous Quotations');
+
+            const rows = section.findAll('[data-testid="deal-detail-quotation"]');
+            expect(rows.map((row) => row.find('a').attributes('href'))).toEqual(['/quotations/qa1', '/quotations/qa2', '/quotations/qb1']);
+            expect(rows.map((row) => row.find('[data-testid="deal-detail-quotation-version"]').text())).toEqual(['v1', 'v2', 'v1']);
+            expect(rows[1]?.text()).toContain('QT-2026-0001');
+            expect(rows[1]?.find('[data-testid="quotation-status"]').text()).toContain('Draft');
+            // `D-82`: the server's string, cut after the third decimal — never a Number.
+            expect(rows[1]?.find('[data-testid="deal-detail-quotation-total"]').text()).toBe('1080.500 EGP');
+        });
+
+        it('says when the deal has no quotations', async () => {
+            const wrapper = await render(respond({ quotations: [] }), QUOTER);
+
+            expect(wrapper.find('[data-testid="deal-detail-quotations-empty"]').exists()).toBe(true);
+            expect(wrapper.find('[data-testid="deal-detail-quotation"]').exists()).toBe(false);
+        });
+
+        it('draws no quotations section without quotation.view, and contains a 403 or a fault inside the section', async () => {
+            const withoutGrant = respond();
+            const hidden = await render(withoutGrant);
+            expect(hidden.find('[data-testid="deal-detail-quotations"]').exists()).toBe(false);
+            expect(withoutGrant.mock.calls.some((call) => String(call[0]).includes('/quotations'))).toBe(false);
+
+            const refused = await render(respond({ quotationsStatus: 403 }), QUOTER);
+            expect(refused.find('[data-testid="deal-detail-summary"]').exists()).toBe(true);
+            expect(refused.find('[data-testid="deal-detail-quotations"]').html()).toContain('permission-denied');
+
+            const broken = await render(respond({ quotationsStatus: 500 }), QUOTER);
+            expect(broken.find('[data-testid="deal-detail-summary"]').exists()).toBe(true);
+            expect(broken.find('[data-testid="deal-detail-quotations"] [data-testid="error-state"]').exists()).toBe(true);
+        });
     });
 
     it('reloads the deal and its history after a status change', async () => {

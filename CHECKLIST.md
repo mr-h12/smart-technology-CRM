@@ -877,6 +877,17 @@ would hide them behind `OD-03` indefinitely.
       `perPage: 100` lookup. 6.3 copied it because that is the house pattern and extracting it is
       the first refactor, not a screen point. One `useServerList()` composable plus one
       `ListPagination.vue` would replace the six; its own point, after Module 7's screens.
+      **Module 10 · 3.2 (2026-09-23) adds a CSS-only copy:** `DealDetailView`'s "Previous Quotations"
+      table carries `.table-frame/.table-head/.table-row/.row-link` from `DealsView` (no list logic —
+      one page of 100, no sort or paging), so the extraction should move those four rules to a shared
+      stylesheet too.
+- [ ] **The "load a section: loading / 403 / fault" shape is copied per section** — *revealed by Module 10
+      Point 3.2's waste audit, 2026-09-23.* `grep -rln "error instanceof ApiError ? error.status : 0"
+      crm/resources/js` → 4 pages; `DealDetailView.vue` alone holds 3 (the deal, `loadTimeline`, and
+      3.2's `loadQuotations`, which copies the timeline's on purpose — a refusal contained in its
+      section). Each carries its own `…Loading/…Denied/…Failed` trio. **Fix, one point:** a
+      `useSectionLoad(read)` composable returning `{items, loading, denied, failed, reload}`; belongs
+      with the `useEtagWrite()` and `useServerList()` rows.
 
 - [ ] **The context bar overflows a 375px viewport by 36–46px, in both directions** — *revealed by
       Module 7 Point 6.3's mobile check, 2026-09-13; not created by it.* On `/deals` and
@@ -3641,8 +3652,9 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       the PO reference and date for Accepted; Partial and Counter open the new draft; an `expired`
       quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
       *(2026-09-23, #221 — in-page dialog; Expired pre-fills «لا رد» (§10.5, owner); `deal_lost` shown as one line (rule b, owner); the PO block stays 3.3's)*
-- [ ] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
+- [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
+      *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
 - [ ] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
       of its attachment.
 

@@ -3646,7 +3646,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
 - [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
-      *(2026-09-23 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
+      *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
 - [ ] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
       of its attachment.
 

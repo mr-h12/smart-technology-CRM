@@ -1027,6 +1027,11 @@
             "forbidden": "You do not have permission to save this deal.",
             "rejected": "The deal was not accepted."
         },
+        "quotations": {
+            "title": "Previous Quotations",
+            "loading": "Loading the deal's quotations…",
+            "empty": "No quotation has been created for this deal yet."
+        },
         "timeline": {
             "title": "Timeline",
             "loading": "Loading the timeline…",

@@ -33,6 +33,15 @@
  * another module's tables. Module 6 Point 6.2 took the same answer for a
  * currency it could not resolve. Owed to a later point, on the debt register.
  *
+ * ── "Previous Quotations" is a third read, and a third refusal ─────────────
+ *
+ * §6.3: every version stays visible "under 'Previous Quotations' within the
+ * deal" (Module 10 · 3.2). The existing `GET /quotations?filter[deal_id]`
+ * answers every version of every chain, and a copy keeps its parent's code, so
+ * `sort=code,created_at` lays each chain out oldest first — no grouping here.
+ * It needs `quotation.view`, so it is drawn only for a holder and its refusal
+ * stays in its section, as the timeline's does.
+ *
  * ── What is deliberately not here ──────────────────────────────────────────
  *
  * **No Kanban link**: §5.2's board is deferred with a `D-xx` owed. The
@@ -49,8 +58,11 @@ import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
+import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import { displayDecimals } from '@/domain/displayDecimals';
 import { listDealTimeline, readDeal, type Deal, type DealTimelineEntry } from '@/services/deals';
 import { readCustomer, type Customer } from '@/services/customers';
+import { listQuotations, type QuotationSummary } from '@/services/quotations';
 import { useAuth } from '@/stores/auth';
 
 const route = useRoute();
@@ -69,6 +81,12 @@ const missing = ref(false);
 const timelineLoading = ref(true);
 const timelineDenied = ref(false);
 const timelineFailed = ref(false);
+
+const quotations = ref<QuotationSummary[]>([]);
+const quotationsLoading = ref(true);
+const quotationsDenied = ref(false);
+const quotationsFailed = ref(false);
+const canViewQuotations = computed(() => hasPermission('quotation.view'));
 
 const id = computed(() => String(route.params.id ?? ''));
 
@@ -160,6 +178,28 @@ async function loadTimeline(): Promise<void> {
     }
 }
 
+/**
+ * §6.3's "Previous Quotations": every version of the deal, each chain together
+ * and oldest first. The server scopes the rows (`D-91`); a refusal stays here.
+ */
+async function loadQuotations(): Promise<void> {
+    quotationsLoading.value = true;
+    quotationsDenied.value = false;
+    quotationsFailed.value = false;
+
+    try {
+        // ponytail: one page of 100 (`MAX_PER_PAGE`); a deal past 100 quotations needs paging here.
+        quotations.value = (await listQuotations({ dealId: id.value, sort: 'code,created_at', perPage: 100 })).items;
+    } catch (error) {
+        const status = error instanceof ApiError ? error.status : 0;
+
+        quotationsDenied.value = status === 403;
+        quotationsFailed.value = !quotationsDenied.value;
+    } finally {
+        quotationsLoading.value = false;
+    }
+}
+
 /** Best-effort, exactly as the list's own name lookup is. */
 async function loadCustomer(customerId: string): Promise<void> {
     try {
@@ -179,7 +219,7 @@ async function refresh(): Promise<void> {
 }
 
 onMounted(async () => {
-    await refresh();
+    await Promise.all([refresh(), canViewQuotations.value ? loadQuotations() : Promise.resolve()]);
 });
 </script>
 
@@ -244,6 +284,48 @@ onMounted(async () => {
             <!-- §17's upload and §3.4's assign (Point 6.7). -->
             <DealDocumentsPanel :deal="deal" @assigned="refresh" />
 
+            <!-- §6.3: every version, within the deal (Module 10 · 3.2). -->
+            <section v-if="canViewQuotations" class="flex flex-col gap-2" data-testid="deal-detail-quotations">
+                <h2 class="text-card-title">{{ t('deals.quotations.title') }}</h2>
+
+                <LoadingState v-if="quotationsLoading" label-key="deals.quotations.loading" />
+                <PermissionDeniedState v-else-if="quotationsDenied" />
+                <ErrorState v-else-if="quotationsFailed" @retry="loadQuotations" />
+
+                <p v-else-if="quotations.length === 0" data-testid="deal-detail-quotations-empty">
+                    {{ t('deals.quotations.empty') }}
+                </p>
+
+                <div v-else class="table-frame overflow-x-auto rounded-xl">
+                    <table class="w-full text-table">
+                        <thead>
+                            <tr class="table-head">
+                                <th scope="col" class="p-3 text-start">{{ t('quotations.column.code') }}</th>
+                                <th scope="col" class="p-3 text-start">{{ t('quotations.column.version') }}</th>
+                                <th scope="col" class="p-3 text-start">{{ t('quotations.column.status') }}</th>
+                                <th scope="col" class="p-3 text-end">{{ t('quotations.column.total') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="quotation in quotations" :key="quotation.id" class="table-row" data-testid="deal-detail-quotation">
+                                <td class="p-3">
+                                    <RouterLink :to="{ name: 'quotation-detail', params: { id: quotation.id } }" class="row-link">
+                                        {{ quotation.code }}
+                                    </RouterLink>
+                                </td>
+                                <td class="p-3 tabular-nums" data-testid="deal-detail-quotation-version">
+                                    {{ t('quotations.version', { version: quotation.version }) }}
+                                </td>
+                                <td class="p-3"><QuotationStatusChip :status="quotation.status" /></td>
+                                <td class="p-3 text-end tabular-nums" data-testid="deal-detail-quotation-total">
+                                    {{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- §5.2: related data / timeline second. -->
             <section class="flex flex-col gap-2" data-testid="deal-detail-timeline">
                 <h2 class="text-card-title">{{ t('deals.timeline.title') }}</h2>
@@ -302,6 +384,26 @@ onMounted(async () => {
 .timeline-entry {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
+}
+
+/* `DealsView`'s table, copied — the "same table boilerplate" debt row owns the extraction. */
+.table-frame {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.table-head {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.table-row {
+    border-block-start: 1px solid var(--color-border);
+}
+
+.row-link {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
 .form-alert {

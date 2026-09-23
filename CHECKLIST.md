@@ -740,6 +740,8 @@ would hide them behind `OD-03` indefinitely.
       **Module 10 · 2.1 (2026-09-23), another:** `ExpireQuotationsTest` carries `currency`, `customer`,
       `deal`, `supplierLine` (and a one-role `bearer()`) — `supplierLine()` → **17** files. Measured by
       that point's waste audit; still one owner decision away.
+      **Module 10 · 2.2 (2026-09-23), the 18th:** `PurchaseOrderReadEndpointTest` carries the full set —
+      `grep -rl 'private function supplierLine' crm/tests | wc -l` → **18**.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -1180,6 +1182,13 @@ would hide them behind `OD-03` indefinitely.
       `respond` (1.4–1.6) will be the fifth unless one helper takes the move and its extra columns.
       Owner's call whether 1.4 extracts it first. *Owner, 2026-09-23 (b): not before 1.4 — it stays
       debt; `RespondToQuotation` is the fifth copy.*
+- [ ] **`GET /quotations/{id}` with a malformed id answers `500`, not `404`** — *revealed by Module 10
+      · 2.2, 2026-09-23; not fixed there, because it is outside the point.* `EloquentQuotationDirectory::find()`
+      sends the raw id to Postgres, which refuses it (`SQLSTATE[22P02] invalid input syntax for type
+      uuid`), and nothing maps that `QueryException`. Measured on the wire: 2.2's 404 test pointed at
+      `/quotations` got `500` for `not-a-uuid`. `OpenAPI §5.1` wants `404 resource_not_found` and
+      "never expose … SQL". 2.2 guards its own `findPurchaseOrder()` with `Str::isUuid`, as
+      `EloquentRoleDirectory` does; every other `find()` taking a path id is unmeasured.
 
 ## Agent guide revisions — owner-directed
 
@@ -3541,9 +3550,10 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       database, audited `ROLE_PERMISSIONS_UPDATED` with the system actor, reversible. The `D-91` row and
       §3.5's cells go into the master through the owner's `paste_d91.py`.
       *(2026-09-23, #215 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
-- [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
+- [x] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.
+      *(2026-09-23 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
 - [ ] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
       `quotation.record_customer_response`, the list of its files, and the download mapping for
       `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);

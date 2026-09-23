@@ -31,6 +31,9 @@ enum SearchIndex: string
     /** §4.3's deals, searched by the Module 5 Point 2.2 list endpoint. */
     case Deals = 'deals';
 
+    /** §4.6's purchase orders, searched by the Module 10 · 2.2 list endpoint. */
+    case PurchaseOrders = 'purchase_orders';
+
     public function table(): string
     {
         return $this->value;
@@ -77,6 +80,10 @@ enum SearchIndex: string
             // so the deals list's own `q` finds by code too, which the owner
             // accepted. `title` stays first: it orders the capped truncation.
             self::Deals => ['title', 'code'],
+
+            // §4.6: "Search works on both numbers" (`D-53`) — the internal
+            // `PO-YYYY-NNNN` and the customer's own reference.
+            self::PurchaseOrders => ['po_number', 'customer_po_reference'],
         };
     }
 
@@ -130,6 +137,11 @@ enum SearchIndex: string
             // allowlist. Nothing about a deal's own fields needs to be
             // *always* narrowed the way an archived customer does.
             self::Deals => [],
+
+            // Empty on Deals' precedent: the row scope (the quotation's deal
+            // owner) is applied to the builder the results are intersected
+            // with, not through this allowlist.
+            self::PurchaseOrders => [],
         };
     }
 }

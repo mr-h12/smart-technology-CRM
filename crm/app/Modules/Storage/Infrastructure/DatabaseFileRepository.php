@@ -63,6 +63,15 @@ final readonly class DatabaseFileRepository implements FileRepositoryInterface
         return $links;
     }
 
+    public function hasFiles(AttachmentParent $parent, string $parentId): bool
+    {
+        return $this->connection->table($parent->pivotTable())
+            ->join('files', 'files.id', '=', $parent->pivotTable().'.file_id')
+            ->where($parent->pivotTable().'.'.$parent->value.'_id', $parentId)
+            ->whereNull('files.deleted_at')
+            ->exists();
+    }
+
     public function recordScan(string $fileId, ScanStatus $status): void
     {
         $this->connection->table('files')

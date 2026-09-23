@@ -784,6 +784,16 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
         ->middleware('permission:quotation.delete');
 });
 
+// Module 10 · 2.2 — `OpenAPI §7.1`'s purchase-order reads. No permission of
+// their own (Q10): whoever may view the quotation reads its order, scoped
+// through the deal in `ReadPurchaseOrders`. 2.3 adds `POST …/documents`.
+Route::middleware('auth')->prefix('purchase-orders')->group(function (): void {
+    Route::get('/', [QuotationController::class, 'purchaseOrders'])
+        ->middleware('permission:quotation.view');
+    Route::get('/{purchaseOrder}', [QuotationController::class, 'purchaseOrder'])
+        ->middleware('permission:quotation.view');
+});
+
 // Module 7 Point 6.8 — SmartTermInput's read (Step 6 Q5). Behind
 // `quotation.create` because the builder is the only reader; the rows are the
 // caller's own, so the scope on the grant does not narrow anything further.

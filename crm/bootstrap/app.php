@@ -29,6 +29,7 @@ use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Modules\Identity\Presentation\VerifyPermissionMatrixCommand;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -283,6 +284,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (QuotationNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::quotationNotFound($e, $request)
+                : null,
+        );
+        $exceptions->render(
+            fn (PurchaseOrderNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::purchaseOrderNotFound($e, $request)
                 : null,
         );
         $exceptions->render(

@@ -69,5 +69,7 @@ final readonly class QuotationDetail
         public DateTimeImmutable $updatedAt,
         public array $items,
         public array $additionalItems,
+        // Module 10 · 2.2: the order an acceptance wrote, null before one.
+        public ?PurchaseOrderSummary $purchaseOrder = null,
     ) {}
 }

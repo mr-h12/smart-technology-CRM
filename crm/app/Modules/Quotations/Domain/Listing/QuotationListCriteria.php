@@ -86,11 +86,7 @@ final readonly class QuotationListCriteria
      */
     public static function fromQuery(array $query): self
     {
-        foreach (array_keys($query) as $parameter) {
-            if (! in_array($parameter, self::ALLOWED_PARAMETERS, true)) {
-                throw InvalidQuotationListQuery::of((string) $parameter, 'unknown_parameter');
-            }
-        }
+        self::refuseUnknownParameters($query, self::ALLOWED_PARAMETERS);
 
         $page = self::positiveInteger($query['page'] ?? null, 'page', 1);
         $perPage = self::positiveInteger($query['per_page'] ?? null, 'per_page', self::DEFAULT_PER_PAGE);
@@ -136,8 +132,30 @@ final readonly class QuotationListCriteria
         return ($this->page - 1) * $this->perPage;
     }
 
-    /** @throws InvalidQuotationListQuery */
-    private static function positiveInteger(mixed $value, string $parameter, int $default): int
+    /**
+     * §6.2: a parameter this resource does not declare is refused, never ignored.
+     * Public for `PurchaseOrderListCriteria` (Module 10 · 2.2).
+     *
+     * @param  array<array-key, mixed>  $query
+     * @param  list<string>  $allowed
+     *
+     * @throws InvalidQuotationListQuery
+     */
+    public static function refuseUnknownParameters(array $query, array $allowed): void
+    {
+        foreach (array_keys($query) as $parameter) {
+            if (! in_array($parameter, $allowed, true)) {
+                throw InvalidQuotationListQuery::of((string) $parameter, 'unknown_parameter');
+            }
+        }
+    }
+
+    /**
+     * Public for `PurchaseOrderListCriteria` (Module 10 · 2.2).
+     *
+     * @throws InvalidQuotationListQuery
+     */
+    public static function positiveInteger(mixed $value, string $parameter, int $default): int
     {
         if ($value === null || $value === '') {
             return $default;
@@ -288,8 +306,30 @@ final readonly class QuotationListCriteria
      */
     private static function sorts(mixed $value, ?string $currency): array
     {
+        $sorts = self::sortKeys($value, self::ALLOWED_SORTS, self::DEFAULT_SORT);
+
+        foreach ($sorts as $sort) {
+            if ($sort['field'] === 'final_total' && $currency === null) {
+                throw InvalidQuotationListQuery::of('sort', 'currency_required');
+            }
+        }
+
+        return $sorts;
+    }
+
+    /**
+     * `sort=a,-b` against a closed list; absent means `-$default` (newest
+     * first). Public for `PurchaseOrderListCriteria` (Module 10 · 2.2).
+     *
+     * @param  list<string>  $allowed
+     * @return list<array{field: string, descending: bool}>
+     *
+     * @throws InvalidQuotationListQuery
+     */
+    public static function sortKeys(mixed $value, array $allowed, string $default): array
+    {
         if ($value === null || $value === '') {
-            return [['field' => self::DEFAULT_SORT, 'descending' => true]];
+            return [['field' => $default, 'descending' => true]];
         }
 
         if (! is_string($value)) {
@@ -304,12 +344,8 @@ final readonly class QuotationListCriteria
             $descending = str_starts_with($key, '-');
             $field = $descending ? substr($key, 1) : $key;
 
-            if (! in_array($field, self::ALLOWED_SORTS, true)) {
+            if (! in_array($field, $allowed, true)) {
                 throw InvalidQuotationListQuery::of('sort', 'unknown_sort_field');
-            }
-
-            if ($field === 'final_total' && $currency === null) {
-                throw InvalidQuotationListQuery::of('sort', 'currency_required');
             }
 
             if (in_array($field, $seen, true)) {

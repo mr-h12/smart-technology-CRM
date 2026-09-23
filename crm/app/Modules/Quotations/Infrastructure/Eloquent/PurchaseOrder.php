@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $po_date
  * @property string|null $created_by
  * @property string|null $updated_by
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 #[Fillable(['quotation_id', 'customer_po_reference', 'po_date'])]
 class PurchaseOrder extends Model

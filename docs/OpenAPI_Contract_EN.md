@@ -228,7 +228,7 @@ POST   /api/v1/purchase-orders/{purchase_order_id}/documents
 
 Use matching resource structures for suppliers, catalog items, supplier quotations, purchase orders, negotiations, visits, reports, users, roles, permissions, currencies, FX rates, settings, and permitted administration resources.
 
-A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10).
+A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10). The list takes `page`, `per_page`, `q` and `sort` only — `po_date`, `po_number`, `created_at`, default `-created_at` — and never carries cost, margin or suppliers; the detail adds who recorded it and when, `has_attachment`, the deal and its owner, the quotation's status and its totals, with no tax keys when the quotation is exempt (`D-63`). `GET /quotations/{id}` always carries `purchase_order` — `{id, po_number, customer_po_reference, po_date}`, or `null` (Module 10 · 2.2).
 
 ### 7.2 Domain actions
 

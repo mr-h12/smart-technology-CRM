@@ -5,6 +5,7 @@ declare(strict_types=1);
 return [
     // `OpenAPI §5.1` — one 404 for absent or out of reach (Point 3.5).
     'not_found' => 'This quotation was not found.',
+    'purchase_order_not_found' => 'This purchase order was not found.',
 
     // `422 business_rule_blocked` — §5.6's block, and its neighbour `D-09`
     // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
@@ -32,6 +33,7 @@ return [
         'after_to' => 'The start of the date range is after its end.',
         'unknown_sort_field' => 'This list cannot be sorted by that field.',
         'repeated_sort_field' => 'A field can only be used once when sorting.',
+        'not_a_string' => 'The search term must be text.',
         'unknown_group' => 'This list can only be grouped by employee or customer.',
     ],
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 return [
     // `OpenAPI §5.1` — one 404 for absent or out of reach (Point 3.5).
     'not_found' => 'لم يُعثر على عرض السعر هذا.',
+    'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 
     // `422 business_rule_blocked` — منع §5.6، وجاره الذي يفرضه `D-09`.
     // مفاتيحه هي `QuotationNotPriceable::$reason`؛ أكّد المالك
@@ -32,6 +33,7 @@ return [
         'after_to' => 'بداية نطاق التاريخ بعد نهايته.',
         'unknown_sort_field' => 'لا يمكن ترتيب هذه القائمة بهذا الحقل.',
         'repeated_sort_field' => 'لا يمكن استخدام الحقل نفسه أكثر من مرّة في الترتيب.',
+        'not_a_string' => 'يجب أن يكون نص البحث كتابةً.',
         'unknown_group' => 'لا يمكن تجميع هذه القائمة إلا حسب الموظف أو العميل.',
     ],
 

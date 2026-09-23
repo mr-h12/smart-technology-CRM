@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderDetail;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderPage;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
@@ -119,7 +123,7 @@ final class QuotationPayload
      *
      * @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool}
      */
-    public static function pagination(QuotationPage $page): array
+    public static function pagination(QuotationPage|PurchaseOrderPage $page): array
     {
         return [
             'page' => $page->page,
@@ -176,6 +180,8 @@ final class QuotationPayload
             'return_note' => $quotation->returnNote,
             'is_self_approved' => $quotation->isSelfApproved,
             'etag' => QuotationEtag::of($quotation),
+            // Module 10 · 2.2: always present, null before an acceptance.
+            'purchase_order' => $quotation->purchaseOrder === null ? null : self::purchaseOrderReference($quotation->purchaseOrder),
             'items' => array_map(
                 static fn (QuotationLine $line): array => [
                     'id' => $line->id,
@@ -198,6 +204,70 @@ final class QuotationPayload
             'created_at' => $quotation->createdAt->format(DATE_ATOM),
             'updated_by' => $quotation->updatedBy,
             'updated_at' => $quotation->updatedAt->format(DATE_ATOM),
+        ];
+    }
+
+    /**
+     * The order as its quotation names it (1.6's answer, on the detail since 2.2).
+     *
+     * @return array<string, string>
+     */
+    public static function purchaseOrderReference(PurchaseOrderSummary $order): array
+    {
+        return [
+            'id' => $order->id,
+            'po_number' => $order->poNumber,
+            'customer_po_reference' => $order->customerPoReference,
+            'po_date' => $order->poDate,
+        ];
+    }
+
+    /**
+     * Module 10 · 2.2's list row — the owner's fields, nothing from the cost side.
+     *
+     * @return array<string, string|null>
+     */
+    public static function purchaseOrder(PurchaseOrderRecord $order, ?string $customerName): array
+    {
+        return [
+            'id' => $order->id,
+            'po_number' => $order->poNumber,
+            'customer_po_reference' => $order->customerPoReference,
+            'po_date' => $order->poDate,
+            'quotation_id' => $order->quotationId,
+            'quotation_code' => $order->quotationCode,
+            'customer_id' => $order->customerId,
+            'customer_name' => $customerName,
+            'final_total' => $order->finalTotal,
+            'currency' => $order->currency,
+        ];
+    }
+
+    /**
+     * Module 10 · 2.2's detail: the row, who and when, the deal, the status and
+     * the quotation's breakdown. An exempt quotation has **no** tax keys (`D-63`).
+     *
+     * @return array<string, string|bool|null>
+     */
+    public static function purchaseOrderDetail(PurchaseOrderDetail $detail): array
+    {
+        $order = $detail->order;
+
+        return [
+            ...self::purchaseOrder($order, $detail->customerName),
+            'created_at' => $order->createdAt,
+            'created_by' => $order->createdBy,
+            'created_by_name' => $detail->createdByName,
+            'has_attachment' => $detail->hasAttachment,
+            'deal_id' => $order->dealId,
+            'deal_code' => $detail->dealCode,
+            'deal_owner_id' => $detail->dealOwnerId,
+            'deal_owner_name' => $detail->dealOwnerName,
+            'quotation_status' => $order->quotationStatus,
+            'subtotal' => $order->subtotal,
+            'additional_total' => $order->additionalTotal,
+            'discount_amount' => $order->discountAmount,
+            ...($order->taxPercent === null ? [] : ['tax_percent' => $order->taxPercent, 'tax_amount' => $order->taxAmount]),
         ];
     }
 

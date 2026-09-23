@@ -44,6 +44,9 @@ does not create requirements. If a box here disagrees with the build plan, the b
       template *is* the approved design. Three items it carried forward stay open as Module 9 build
       work, not as decisions — live page numbering, the one-page re-check on every template change,
       and a customer-view model that structurally cannot hold supplier, cost or margin fields
+      **Layout superseded by `D-89`** (2026-09-22): the company's own offer form, with the full totals
+      block kept. Four fields it needs are requests to their owners — `contact_person` (Customers),
+      a per-line delivery time (Quotations), Settings texts and e-mails (Admin), a job title (Identity)
 - [x] ~~**OD-04** — VPN type and concurrent capacity~~ — closed by `D-59`: Cloudflare Tunnel + Access, 5 named users
 - [ ] **OD-06** — Company holiday calendar *(before Module 13)*
 - [ ] **OD-05** — Expected daily workload *(queue and storage sizing)*

@@ -9,6 +9,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -23,8 +24,13 @@ use Tests\TestCase;
  * new `draft` version written in the same transaction and named in the
  * answer (`new_version`). `counter` needs a reason (`rejection_reason_required`);
  * a field that belongs to another response is refused (owner, 2026-09-23, A);
- * `accepted` / `rejected` are refused until 1.6 / 1.5 (B). The deal does not
- * move (Q2).
+ * `accepted` is refused until 1.6 (B). The deal does not move (Q2).
+ *
+ * Module 10 · 1.5 — `rejected`, from `sent` and `expired` (Q8): reason
+ * required, no copy; the deal goes `lost` with the reason only when none of
+ * its quotations is live afterwards (Q12), counted under `FOR UPDATE`, and is
+ * left alone when it has no `lost` edge (rule b). The answer says which with
+ * `deal_lost` (owner, 2026-09-23).
  */
 final class QuotationRespondEndpointTest extends TestCase
 {
@@ -36,6 +42,9 @@ final class QuotationRespondEndpointTest extends TestCase
 
     /** @var array<string, User> */
     private array $users = [];
+
+    /** @var array<string, string> one login per role per test — the login limit counts every call */
+    private array $tokens = [];
 
     private string $customerId;
 
@@ -100,21 +109,23 @@ final class QuotationRespondEndpointTest extends TestCase
     }
 
     /** @return array<string, array{array<string, string>}> */
-    public static function counterWithoutAReason(): array
+    public static function withoutAReason(): array
     {
         return [
-            'missing' => [['response' => 'counter']],
-            'blank' => [['response' => 'counter', 'reason' => '   ']],
+            'counter, missing' => [['response' => 'counter']],
+            'counter, blank' => [['response' => 'counter', 'reason' => '   ']],
+            'rejected, missing' => [['response' => 'rejected']],
+            'rejected, blank' => [['response' => 'rejected', 'reason' => '   ']],
         ];
     }
 
     /**
-     * §6.3 "counter reasons are mandatory before the status change is accepted" — nothing is written.
+     * §6.3 "rejection and counter reasons are mandatory before the status change is accepted" — nothing is written.
      *
      * @param  array<string, string>  $body
      */
-    #[DataProvider('counterWithoutAReason')]
-    public function test_counter_without_a_reason_is_refused_and_writes_nothing(array $body): void
+    #[DataProvider('withoutAReason')]
+    public function test_a_response_without_its_reason_is_refused_and_writes_nothing(array $body): void
     {
         [$id, $etag] = $this->sent($this->deal(null));
 
@@ -200,11 +211,167 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame(2, DB::table('audit_log')->where('event', 'QUOTATION_VERSION_CREATED')->count());
     }
 
+    // ─────────────────────────────────────────────────── rejected (1.5)
+
+    /** Q2 + Q12: the sole live quotation rejected — the deal goes `lost`, the rejection reason its lost reason. */
+    public function test_rejecting_the_last_live_quotation_makes_the_deal_lost(): void
+    {
+        $deal = $this->deal(null);
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'Too expensive'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'rejected')
+            ->assertJsonPath('data.deal_lost', true)
+            ->assertJsonMissingPath('data.new_version');
+
+        self::assertSame('Too expensive', DB::table('quotations')->where('id', $id)->value('rejection_reason'));
+        self::assertSame('lost', $this->statusOf('deals', $deal));
+        self::assertSame('Too expensive', DB::table('deals')->where('id', $deal)->value('lost_reason'));
+        self::assertSame(0, DB::table('quotations')->where('parent_id', $id)->count());
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $deal)->count());
+
+        [$old, $new] = $this->audited('QUOTATION_REJECTED', $id);
+        self::assertSame('sent', $old['status'] ?? null);
+        self::assertSame('rejected', $new['status'] ?? null);
+        self::assertSame('Too expensive', $new['rejection_reason'] ?? null);
+    }
+
+    /** The point's proof (Q12): two live quotations on one deal — the first rejection leaves it, the second makes it `lost`. */
+    public function test_the_deal_is_lost_only_when_its_last_live_quotation_is_rejected(): void
+    {
+        $deal = $this->deal(null);
+        [$first, $firstEtag] = $this->sent($deal);
+        [$second, $secondEtag] = $this->sent($deal);
+
+        $this->respond($first, $firstEtag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'One'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.deal_lost', false);
+        self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
+
+        $this->respond($second, $secondEtag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'Two'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.deal_lost', true);
+        self::assertSame('lost', $this->statusOf('deals', $deal));
+        self::assertSame('Two', DB::table('deals')->where('id', $deal)->value('lost_reason'));
+    }
+
+    /** *Live* is the `active` bucket — a draft counts; a deleted draft and a finished quotation do not. */
+    public function test_what_counts_as_live(): void
+    {
+        $deal = $this->deal(null);
+        [$id, $etag] = $this->sent($deal);
+        [$draft] = $this->sent($deal);
+        DB::table('quotations')->where('id', $draft)->update(['status' => 'draft']);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.deal_lost', false);
+
+        $deal = $this->deal(null);
+        [$id, $etag] = $this->sent($deal);
+        [$deleted] = $this->sent($deal);
+        DB::table('quotations')->where('id', $deleted)->update(['status' => 'draft', 'deleted_at' => now()]);
+        [$finished] = $this->sent($deal);
+        DB::table('quotations')->where('id', $finished)->update(['status' => 'counter', 'rejection_reason' => 'x']);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.deal_lost', true);
+    }
+
+    /** Q8's new edge — §10.5 "records Rejected" after the offer expired. */
+    public function test_an_expired_quotation_can_be_rejected(): void
+    {
+        $deal = $this->deal(null);
+        [$id, $etag] = $this->sent($deal);
+        DB::table('quotations')->where('id', $id)->update(['status' => 'expired']);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'no response'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'rejected')
+            ->assertJsonPath('data.deal_lost', true);
+
+        self::assertSame('lost', $this->statusOf('deals', $deal));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function withoutALostEdge(): array
+    {
+        return ['lost' => ['lost'], 'won' => ['won']];
+    }
+
+    /** `D-90` rule b: the quotation is rejected, the deal is untouched, and the answer says so. */
+    #[DataProvider('withoutALostEdge')]
+    public function test_a_deal_with_no_lost_edge_is_left_alone(string $status): void
+    {
+        $deal = $this->deal(null, $status);
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'rejected')
+            ->assertJsonPath('data.deal_lost', false);
+
+        self::assertSame($status, $this->statusOf('deals', $deal));
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
+    }
+
+    /** Only a rejection speaks of the deal: `partial` and `counter` carry no `deal_lost`. */
+    public function test_a_partial_answer_says_nothing_about_the_deal(): void
+    {
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'partial'])
+            ->assertStatus(200)
+            ->assertJsonMissingPath('data.deal_lost');
+    }
+
+    /**
+     * Q12's race guard: the deal's quotations are locked `FOR UPDATE` **before**
+     * the status write, so two last rejections serialise instead of each seeing
+     * the other still live (or deadlocking, if the lock came after the write).
+     */
+    public function test_the_deals_quotations_are_locked_before_the_rejection_is_written(): void
+    {
+        [$id, $etag] = $this->sent($this->deal(null));
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $statements = [];
+        DB::listen(function (QueryExecuted $query) use (&$statements): void {
+            $statements[] = strtolower($query->sql);
+        });
+
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/respond', ['response' => 'rejected', 'reason' => 'x'], [...$bearer, 'If-Match' => $etag])
+            ->assertStatus(200);
+
+        $lock = $this->firstIndex($statements, fn (string $sql): bool => str_contains($sql, 'from "quotations"') && str_contains($sql, 'for update'));
+        $write = $this->firstIndex($statements, fn (string $sql): bool => str_starts_with($sql, 'update "quotations"'));
+        self::assertNotNull($lock, 'no FOR UPDATE on quotations');
+        self::assertNotNull($write, 'no quotation update');
+        self::assertLessThan($write, $lock);
+    }
+
+    /** §5.1 + 1.2's audit: another owner's quotation is out of reach, and its deal does not go `lost`. */
+    #[DataProvider('ownScoped')]
+    public function test_an_own_scoped_role_cannot_reject_another_owners_quotation(RoleName $role): void
+    {
+        $deal = $this->deal($this->userWith(RoleName::Manager)->id);
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, $role, ['response' => 'rejected', 'reason' => 'x'])
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->assertNothingWritten($id);
+        self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
+    }
+
     // ──────────────────────────────────────────── the body's boundary (A, B)
 
     /**
      * Owner, 2026-09-23: a field that belongs to another response is refused, not dropped;
-     * `accepted` and `rejected` wait for 1.6 and 1.5.
+     * `accepted` waits for 1.6.
      *
      * @return array<string, array{array<string, string>, string}>
      */
@@ -214,8 +381,8 @@ final class QuotationRespondEndpointTest extends TestCase
             'reason on partial' => [['response' => 'partial', 'reason' => 'x'], 'reason'],
             'po reference on partial' => [['response' => 'partial', 'customer_po_reference' => 'PO-7'], 'customer_po_reference'],
             'po date on counter' => [['response' => 'counter', 'reason' => 'x', 'po_date' => '2026-09-23'], 'po_date'],
+            'po reference on rejected' => [['response' => 'rejected', 'reason' => 'x', 'customer_po_reference' => 'PO-7'], 'customer_po_reference'],
             'accepted before 1.6' => [['response' => 'accepted', 'customer_po_reference' => 'PO-7', 'po_date' => '2026-09-23'], 'response'],
-            'rejected before 1.5' => [['response' => 'rejected', 'reason' => 'x'], 'response'],
             'no response' => [[], 'response'],
         ];
     }
@@ -354,7 +521,7 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame('sent', $this->statusOf('quotations', $id));
         self::assertNull(DB::table('quotations')->where('id', $id)->value('rejection_reason'));
         self::assertSame(0, DB::table('quotations')->where('parent_id', $id)->count());
-        self::assertSame(0, DB::table('audit_log')->whereIn('event', ['QUOTATION_PARTIAL', 'QUOTATION_COUNTERED', 'QUOTATION_VERSION_CREATED'])->count());
+        self::assertSame(0, DB::table('audit_log')->whereIn('event', ['QUOTATION_PARTIAL', 'QUOTATION_COUNTERED', 'QUOTATION_REJECTED', 'QUOTATION_VERSION_CREATED', 'DEAL_STATUS_CHANGED'])->count());
     }
 
     /** @return array{array<mixed>, array<mixed>} old and new values */
@@ -369,6 +536,21 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertIsArray($new);
 
         return [$old, $new];
+    }
+
+    /**
+     * @param  list<string>  $statements
+     * @param  callable(string): bool  $matches
+     */
+    private function firstIndex(array $statements, callable $matches): ?int
+    {
+        foreach ($statements as $index => $sql) {
+            if ($matches($sql)) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     private function statusOf(string $table, string $id): string
@@ -432,8 +614,8 @@ final class QuotationRespondEndpointTest extends TestCase
         return $id;
     }
 
-    /** A deal already at `quotation_sent` — where a `sent` quotation leaves it (1.3). */
-    private function deal(?string $ownerId): string
+    /** By default a deal at `quotation_sent` — where a `sent` quotation leaves it (1.3). */
+    private function deal(?string $ownerId, string $status = 'quotation_sent'): string
     {
         $id = Uuid::uuid4()->toString();
 
@@ -442,7 +624,8 @@ final class QuotationRespondEndpointTest extends TestCase
             'code' => 'DL-'.now()->format('Y').'-'.substr($id, 0, 4),
             'customer_id' => $this->customerId,
             'owner_id' => $ownerId,
-            'status' => 'quotation_sent',
+            'status' => $status,
+            'lost_reason' => $status === 'lost' ? 'Lost earlier' : null,
             'last_activity_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -513,6 +696,10 @@ final class QuotationRespondEndpointTest extends TestCase
     /** @return array<string, string> */
     private function bearerFor(RoleName $role): array
     {
+        if (isset($this->tokens[$role->value])) {
+            return ['Authorization' => 'Bearer '.$this->tokens[$role->value]];
+        }
+
         $user = $this->userWith($role);
 
         $token = $this->postJson('/api/v1/auth/login', [
@@ -521,6 +708,7 @@ final class QuotationRespondEndpointTest extends TestCase
         ])->assertStatus(201)->json('data.token');
 
         self::assertIsString($token);
+        $this->tokens[$role->value] = $token;
 
         return ['Authorization' => 'Bearer '.$token];
     }

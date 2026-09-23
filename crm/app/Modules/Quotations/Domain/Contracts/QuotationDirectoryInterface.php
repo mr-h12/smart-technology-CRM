@@ -92,6 +92,16 @@ interface QuotationDirectoryInterface extends QuotationReaderInterface
     public function moveStatus(string $quotationId, string $status, int $expectedToken, string $actorId, array $attributes = []): bool;
 
     /**
+     * Module 10 · 1.5, Q12: every alive quotation of the deal locked
+     * `FOR UPDATE` in id order, and their statuses. Called **before** the
+     * rejection's write, so two last rejections on one deal serialise — the
+     * second reads the first's committed status — instead of deadlocking.
+     *
+     * @return array<string, string> status by quotation id
+     */
+    public function lockStatusesOfDeal(string $dealId): array;
+
+    /**
      * §6.3 / `D-08`'s "full copy" (Point 4.3): a new `quotations` row with
      * `parent_id = $parentId`, `version = parent.version + 1`, `status =
      * draft`, its own `QT-` code (`create()`'s allocator), every field of the

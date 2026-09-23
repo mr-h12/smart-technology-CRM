@@ -179,6 +179,18 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             ]) === 1;
     }
 
+    public function lockStatusesOfDeal(string $dealId): array
+    {
+        $statuses = [];
+
+        // `SoftDeletes` keeps a deleted draft out: it is not live (Q12).
+        foreach (Quotation::query()->where('deal_id', $dealId)->orderBy('id')->lockForUpdate()->get(['id', 'status']) as $row) {
+            $statuses[(string) $row->id] = (string) $row->status;
+        }
+
+        return $statuses;
+    }
+
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool
     {
         // `update()`'s guard; `SoftDeletes::delete()` would skip it.

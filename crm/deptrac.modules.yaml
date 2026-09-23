@@ -39,6 +39,10 @@ parameters:
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
     # The five `QuotationsContract` classLikes are collected out below, on
     # `Suppliers`' terms (F-10 · 1.4): a token in two layers is checked against both.
     - name: Quotations
@@ -263,6 +267,11 @@ parameters:
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+        # Module 10 · 1.2 (`D-90`): the write Quotations calls, and its refusal.
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no

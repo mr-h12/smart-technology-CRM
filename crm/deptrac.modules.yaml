@@ -39,6 +39,9 @@ parameters:
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFactsInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealFacts$
+            # Module 9 · 2.3 — the Subject line's seam.
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealTitlesInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
             - type: classLike
@@ -283,6 +286,9 @@ parameters:
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
+        # Module 9 · 2.3: the deal's title, which `D-89` prints as the Subject.
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealTitlesInterface$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -756,6 +762,11 @@ parameters:
       # Browsershot, Point 2.1 — `BrowsershotPdfRenderer` drives the `pdf`
       # image's Chromium (`D-57`); no other module may.
       - Browsershot
+      # DealsContract, Point 2.3 — `DealTitlesInterface` for `D-89`'s Subject.
+      - DealsContract
+      # IdentityContract, Point 2.3 — `UserFactsInterface` names the signatory
+      # `D-89` prints over the sign-off. The contract half only.
+      - IdentityContract
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

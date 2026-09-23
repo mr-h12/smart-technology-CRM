@@ -3419,9 +3419,15 @@ printed blank.
       *(2026-09-22, #204 — chromium flags are `verify.php`'s; JavaScript off because the sandbox is.)*
 - [ ] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
       embedded base64. *Verified by* a test that the template references no OS font and no URL.
-- [ ] **2.3** `subject` (the deal's title, through Deals' own contract) and `signatoryName` (the
+- [x] **2.3** `subject` (the deal's title, through Deals' own contract) and `signatoryName` (the
       creator, through `UserFactsInterface`, an `IdentityContract` grant) join the view.
       *Verified by* mapper tests, and 1.2's leak test still green.
+
+      *(2026-09-23, #PR — a **new** `DealTitlesInterface`, not a sixth method on
+      `DealFactsInterface`: Module 6's tests fake that interface, and a method added to it is a fatal
+      error in their fakes — measured, not assumed. Both fields are absent rather than refused: a
+      deal need not be titled, and Identity does not name the hidden Super Admin or a deleted
+      account.)*
 - [ ] **2.4** The Blade template, `D-89`'s layout, one template for RTL and LTR, every label from
       `lang/{ar,en}/pdf.php`, **percentages as placeholders**, no tax row when exempt (`D-63`), no
       delivery-terms line when the flag is off. *Verified by* HTML tests for each rule, and the

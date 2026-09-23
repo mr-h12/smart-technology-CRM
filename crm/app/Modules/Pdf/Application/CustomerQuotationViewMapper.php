@@ -7,6 +7,8 @@ namespace App\Modules\Pdf\Application;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
+use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
@@ -41,6 +43,12 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
  *   own docblock), and that is Step 2's question, not this mapper's.
  * - **From Customers** (`CustomerNamesInterface`, `D-83`): the customer's name
  *   and nothing else of the customer.
+ * - **From Deals** (`DealTitlesInterface`, Point 2.3): the deal's title, which
+ *   `D-89` prints as the Subject. Absent when the deal has none.
+ * - **From Identity** (`UserFactsInterface`): the name of whoever created the
+ *   quotation, which `D-89` prints over the sign-off. Absent when Identity has
+ *   no entry — the hidden Super Admin (§3.1), or a deleted account — because a
+ *   document is not worth refusing over the name under "Best Regards".
  * - **From `LineDescriptionsInterface`**: what each line is. The supplier-quotation
  *   item id is *used* to ask, and is not carried into the view.
  *
@@ -69,6 +77,8 @@ final readonly class CustomerQuotationViewMapper
         private SettingsRepositoryInterface $settings,
         private CustomerNamesInterface $customerNames,
         private LineDescriptionsInterface $lineDescriptions,
+        private DealTitlesInterface $dealTitles,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -104,6 +114,10 @@ final readonly class CustomerQuotationViewMapper
             companyName: $companyName,
             companyAddress: self::present($settings[SystemSetting::CompanyAddress->value] ?? null),
             companyPhones: self::present($settings[SystemSetting::CompanyPhones->value] ?? null),
+            subject: self::present($this->dealTitles->titlesOf([$quotation->dealId])[$quotation->dealId] ?? null),
+            signatoryName: $quotation->createdBy === null
+                ? null
+                : self::present($this->users->namesOf([$quotation->createdBy])[$quotation->createdBy] ?? null),
             lines: $this->lines($quotation),
             additionalItems: array_map(
                 static fn (QuotationAdditionalLine $line): CustomerAdditionalLine => new CustomerAdditionalLine(

@@ -3553,7 +3553,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - [x] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.
-      *(2026-09-23 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
+      *(2026-09-23, #216 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
 - [ ] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
       `quotation.record_customer_response`, the list of its files, and the download mapping for
       `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);

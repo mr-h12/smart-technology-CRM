@@ -47,6 +47,7 @@ return [
         'invalid_transition' => 'لا يمكن نقل عرض السعر هذا إلى هذه الحالة من حيث هو الآن.',
         'version_exists' => 'توجد نسخة أحدث من عرض السعر هذا بالفعل. أكمل العمل عليها.',
         // `D-90` rule a (Module 10 · 1.3) — `OpenAPI §5.1` 422 `business_rule_blocked`.
+        'rejection_reason_required' => 'يلزم ذكر سبب العميل عند العرض المقابل.',
         'deal_not_ready_to_send' => 'لم تبلغ صفقة عرض السعر هذا مرحلة عرض المورّد بعد، فلا يمكن إرسال العرض.',
     ],
 

@@ -47,6 +47,7 @@ return [
         'invalid_transition' => 'This quotation cannot move to that status from where it is now.',
         'version_exists' => 'A newer version of this quotation already exists. Continue on that one.',
         // `D-90` rule a (Module 10 · 1.3) — `OpenAPI §5.1` 422 `business_rule_blocked`.
+        'rejection_reason_required' => 'A counter-offer needs the customer\'s reason.',
         'deal_not_ready_to_send' => 'This quotation\'s deal has not reached the supplier quotation stage yet, so the quotation cannot be sent.',
     ],
 

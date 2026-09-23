@@ -378,7 +378,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         $copy = $parent->replicate([
             'code', 'status', 'version', 'parent_id', 'version_token',
             'rejection_reason', 'sent_at', 'submitted_at', 'is_self_approved',
-            'created_by', 'updated_by', 'deleted_at',
+            'created_by', 'updated_by', 'deleted_at', 'returned_at', 'return_note',
         ]);
         $copy->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
         $copy->parent_id = $parentId;

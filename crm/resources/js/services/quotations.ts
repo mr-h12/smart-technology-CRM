@@ -300,6 +300,30 @@ export async function returnQuotation(id: string, etag: string, note: string): P
     return (await apiPatch<QuotationDetail>(`/quotations/${id}/return`, { note }, { 'If-Match': etag })).data;
 }
 
+/** Approved → Sent (Module 10 · 1.3, `D-90`: no PDF yet). A deal not ready is `422 deal_not_ready_to_send`. */
+export async function sendQuotation(id: string, etag: string): Promise<QuotationDetail> {
+    return (await apiPatch<QuotationDetail>(`/quotations/${id}/send`, undefined, { 'If-Match': etag })).data;
+}
+
+/** `RespondQuotationRequest`'s body: a reason only for counter/rejected, the PO fields only for accepted. */
+export interface CustomerResponse {
+    response: 'accepted' | 'partial' | 'counter' | 'rejected';
+    reason?: string;
+    customer_po_reference?: string;
+    po_date?: string;
+}
+
+/** The answered quotation, plus the draft `partial`/`counter` opened or whether `rejected` lost the deal (1.4–1.5). */
+export interface RespondedQuotation extends QuotationDetail {
+    new_version?: { id: string; code: string; version: number };
+    deal_lost?: boolean;
+}
+
+/** Module 10 · 1.4–1.6 — sent (or expired, reject only) → the customer's answer. */
+export async function respondToQuotation(id: string, etag: string, body: CustomerResponse): Promise<RespondedQuotation> {
+    return (await apiPatch<RespondedQuotation>(`/quotations/${id}/respond`, body, { 'If-Match': etag })).data;
+}
+
 /** `D-08`'s full copy as a new Draft (Point 4.3). Answers the copy's `id`, `code` and `version` — read it for the rest. */
 export async function createQuotationVersion(
     id: string,

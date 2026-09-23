@@ -36,12 +36,17 @@
  *
  * ── What is deliberately not here ──────────────────────────────────────────
  *
- * Approve, return, send, PDF and the customer's response are Modules 8–10.
+ * Send and the customer's response are Module 10 · 3.1: *Send* on an
+ * Approved quotation, and the response asked in the page (`Design System
+ * §6.6`) — a reason for Counter and Rejected (§6.3), the PO reference and
+ * date for Accepted; Partial and Counter open the draft the server copied.
+ * An Expired quotation is only rejected, "no response" offered (§10.5). The
+ * PO itself is 3.3's. Approve, return and PDF are Modules 8–9.
  * The supplier behind a line is not named: the line carries
  * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
  * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
@@ -55,7 +60,10 @@ import {
     createQuotationVersion,
     deleteQuotation,
     readQuotation,
+    respondToQuotation,
+    sendQuotation,
     submitQuotation,
+    type CustomerResponse,
     type QuotationDetail,
     type QuotationWarning,
 } from '@/services/quotations';
@@ -81,6 +89,17 @@ const conflict = ref(false);
 const actionError = ref('');
 const confirmingDelete = ref(false);
 
+/** The response dialog: open or not, and what is typed in it. */
+const responding = ref(false);
+const outcome = ref<CustomerResponse['response']>('accepted');
+const reason = ref('');
+const poReference = ref('');
+const poDate = ref('');
+const respondButton = ref<HTMLButtonElement | null>(null);
+const dialog = ref<HTMLFormElement | null>(null);
+/** 1.5's `deal_lost`, after a rejection only. */
+const dealLost = ref<boolean | null>(null);
+
 const id = computed(() => String(route.params.id ?? ''));
 
 /** `D-08`'s statuses, as `QuotationStatusTransition::VERSIONABLE` names them. */
@@ -91,7 +110,21 @@ const canEdit = computed(() => isDraft.value && hasPermission('quotation.edit'))
 const canSubmit = computed(() => isDraft.value && hasPermission('quotation.submit_for_approval'));
 const canDelete = computed(() => isDraft.value && hasPermission('quotation.delete'));
 const canVersion = computed(() => VERSIONABLE.includes(quotation.value?.status ?? '') && hasPermission('quotation.edit'));
-const hasActions = computed(() => canEdit.value || canSubmit.value || canDelete.value || canVersion.value);
+const canSend = computed(() => quotation.value?.status === 'approved' && hasPermission('quotation.send_to_customer'));
+const canRespond = computed(() => ['sent', 'expired'].includes(quotation.value?.status ?? '') && hasPermission('quotation.record_customer_response'));
+const hasActions = computed(
+    () => canEdit.value || canSubmit.value || canDelete.value || canVersion.value || canSend.value || canRespond.value,
+);
+
+/** `QuotationStatusTransition`: `sent` takes four answers, `expired` only a rejection (Q8). */
+const outcomes = computed<Array<CustomerResponse['response']>>(() =>
+    quotation.value?.status === 'expired' ? ['rejected'] : ['accepted', 'partial', 'counter', 'rejected'],
+);
+const needsReason = computed(() => outcome.value === 'counter' || outcome.value === 'rejected');
+/** `RespondQuotationRequest`'s rules, mirrored for the person; the server still decides. */
+const canRecord = computed(() =>
+    !busy.value && (outcome.value === 'accepted' ? poReference.value.trim() !== '' && poDate.value !== '' : !needsReason.value || reason.value.trim() !== ''),
+);
 
 /** Q7: the line carries the cost keys or it does not; the header follows the first line. */
 const showsCosts = computed(() => quotation.value?.items[0]?.unit_cost !== undefined);
@@ -149,6 +182,8 @@ async function refresh(): Promise<void> {
     conflict.value = false;
     actionError.value = '';
     confirmingDelete.value = false;
+    dealLost.value = null;
+    responding.value = false;
 
     await load();
 
@@ -201,6 +236,65 @@ async function remove(): Promise<void> {
     await act(async () => {
         await deleteQuotation(current.id, current.etag);
         await router.push({ name: 'quotations' });
+    });
+}
+
+async function send(): Promise<void> {
+    if (quotation.value === null) {
+        return;
+    }
+
+    const current = quotation.value;
+    await act(async () => {
+        quotation.value = await sendQuotation(current.id, current.etag);
+    });
+}
+
+async function openResponse(): Promise<void> {
+    outcome.value = outcomes.value[0] ?? 'rejected';
+    reason.value = quotation.value?.status === 'expired' ? t('quotations.detail.noResponse') : '';
+    poReference.value = '';
+    poDate.value = '';
+    responding.value = true;
+    await nextTick();
+    dialog.value?.querySelector<HTMLElement>('input, textarea')?.focus();
+}
+
+/** §6.6: Cancel and Escape close without writing, and focus goes back to the button that opened it. */
+async function closeResponse(): Promise<void> {
+    responding.value = false;
+    // The button is `disabled` while the dialog is open; it takes focus only once Vue re-enables it.
+    await nextTick();
+    respondButton.value?.focus();
+}
+
+/** Only the fields the chosen answer takes — the server refuses the others (`prohibited_unless`). */
+async function recordResponse(): Promise<void> {
+    if (quotation.value === null || !canRecord.value) {
+        return;
+    }
+
+    const current = quotation.value;
+    const body: CustomerResponse =
+        outcome.value === 'accepted'
+            ? { response: 'accepted', customer_po_reference: poReference.value.trim(), po_date: poDate.value }
+            : needsReason.value
+              ? { response: outcome.value, reason: reason.value.trim() }
+              : { response: outcome.value };
+
+    await act(async () => {
+        const answered = await respondToQuotation(current.id, current.etag, body);
+        responding.value = false;
+
+        if (answered.new_version !== undefined) {
+            // Partial and Counter: the server already copied the quotation (Q7); the copy opens in the builder.
+            await router.push({ name: 'quotation-edit', params: { id: answered.new_version.id } });
+
+            return;
+        }
+
+        quotation.value = answered;
+        dealLost.value = answered.deal_lost ?? null;
     });
 }
 
@@ -383,6 +477,27 @@ onMounted(refresh);
                     {{ t('quotations.detail.newVersion') }}
                 </button>
                 <button
+                    v-if="canSend"
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="busy"
+                    data-testid="quotation-action-send"
+                    @click="send"
+                >
+                    {{ t('quotations.detail.send') }}
+                </button>
+                <button
+                    v-if="canRespond"
+                    ref="respondButton"
+                    type="button"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="busy || responding"
+                    data-testid="quotation-action-respond"
+                    @click="openResponse"
+                >
+                    {{ t('quotations.detail.respond') }}
+                </button>
+                <button
                     v-if="canDelete"
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
@@ -411,6 +526,84 @@ onMounted(refresh);
                     </button>
                 </span>
             </div>
+
+            <!-- `Design System §6.6`: the answer is asked in the page; Escape closes it without writing. -->
+            <form
+                v-if="responding"
+                ref="dialog"
+                class="form-alert flex flex-col gap-3 rounded-lg p-3"
+                role="alertdialog"
+                :aria-label="t('quotations.detail.respond')"
+                data-testid="quotation-respond-dialog"
+                @submit.prevent="recordResponse"
+                @keydown.escape.prevent="closeResponse"
+            >
+                <fieldset class="flex flex-wrap gap-x-4 gap-y-2">
+                    <legend class="mb-1">{{ t('quotations.detail.respondOutcome') }}</legend>
+                    <label v-for="option in outcomes" :key="option" class="inline-flex min-h-11 items-center gap-2">
+                        <input
+                            v-model="outcome"
+                            type="radio"
+                            name="quotation-response"
+                            :value="option"
+                            :data-testid="`quotation-respond-outcome-${option}`"
+                        />
+                        {{ t(`quotations.status.${option}`) }}
+                    </label>
+                </fieldset>
+                <label v-if="needsReason" class="flex flex-col gap-1">
+                    <span>{{ t('quotations.detail.respondReason') }}</span>
+                    <textarea
+                        v-model="reason"
+                        required
+                        rows="3"
+                        maxlength="2000"
+                        class="form-field rounded-lg p-3"
+                        data-testid="quotation-respond-reason"
+                    ></textarea>
+                </label>
+                <div v-if="outcome === 'accepted'" class="flex flex-wrap gap-3">
+                    <label class="flex flex-col gap-1">
+                        <span>{{ t('quotations.detail.poReference') }}</span>
+                        <input
+                            v-model="poReference"
+                            type="text"
+                            required
+                            maxlength="255"
+                            class="form-field min-h-11 rounded-lg px-3"
+                            data-testid="quotation-respond-po-reference"
+                        />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span>{{ t('quotations.detail.poDate') }}</span>
+                        <input
+                            v-model="poDate"
+                            type="date"
+                            required
+                            class="form-field min-h-11 rounded-lg px-3"
+                            data-testid="quotation-respond-po-date"
+                        />
+                    </label>
+                </div>
+                <span class="flex gap-2">
+                    <button
+                        type="submit"
+                        class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="!canRecord"
+                        data-testid="quotation-respond-record"
+                    >
+                        {{ t('quotations.detail.respondRecord') }}
+                    </button>
+                    <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-respond-cancel" @click="closeResponse">
+                        {{ t('action.cancel') }}
+                    </button>
+                </span>
+            </form>
+
+            <!-- 1.5's `deal_lost` (rule b): whether the rejection moved the deal. -->
+            <p v-if="dealLost !== null" class="rounded-lg p-3" role="status" data-testid="quotation-detail-deal-outcome">
+                {{ dealLost ? t('quotations.detail.dealLost') : t('quotations.detail.dealKept') }}
+            </p>
 
             <!-- §7.2: the lines, with the cost group only when the body carries it. -->
             <section class="flex flex-col gap-2" data-testid="quotation-lines">

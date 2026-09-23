@@ -1041,6 +1041,13 @@ would hide them behind `OD-03` indefinitely.
       first two were already copies and the extraction is a refactor, not a screen point. **Fix, one
       point:** a `useEtagWrite()` composable returning `{busy, conflict, error, act}`; the three pages
       shrink by the same twenty lines. Belongs with the `useServerList()` row above.
+- [ ] **In-page reason dialogs are hand-rolled twice, and the older one misses §6.6** — *revealed by
+      Module 10 Point 3.1's waste audit, 2026-09-23.* `ApprovalsView.vue`'s Return note and
+      `QuotationDetailView.vue`'s response dialog are each an inline `role="alertdialog"` form;
+      `ConfirmDialog.vue` has no field slot, so neither could reuse it. Only the 3.1 dialog closes on
+      Escape and returns focus to its button (Design System §6.6); the Return note does neither. **Fix,
+      one point:** Escape + focus return on the Return note, and extract the shared form shell only if a
+      third reason dialog arrives.
 - [ ] **`RequestIdTest` "a rejected correlation id never appears" is a hex-collision flake** —
       *revealed by Module 8 Point 3.1's CI run 34993785991, 2026-09-15.* Data set `'a trailing newline'`
       is `"abc\n"`, the needle becomes `abc`, and the response's server-generated `request_id` was
@@ -3640,10 +3647,11 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 
 #### Step 3 — the screens
 
-- [ ] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
+- [x] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
       *Record the customer's response* dialog — four outcomes, the reason field for Counter and Rejected,
       the PO reference and date for Accepted; Partial and Counter open the new draft; an `expired`
       quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
+      *(2026-09-23, #221 — in-page dialog; Expired pre-fills «لا رد» (§10.5, owner); `deal_lost` shown as one line (rule b, owner); the PO block stays 3.3's)*
 - [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
       by version chain, through the existing `GET /quotations?filter[deal_id]`.
       *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*

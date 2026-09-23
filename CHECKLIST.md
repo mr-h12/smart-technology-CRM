@@ -1352,7 +1352,7 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
       - [x] **1.5** *Deferred to Module 10:* the `sent → accepted` transition calls 1.3 once per
             line inside its transaction and carries old/new `consumed_quantity` in its audit entry.
             Listed here so the dependency is visible; built as a Module 10 point, not an F-05 one.
-            *(2026-09-23 — built as Module 10 · 1.6: `RespondToQuotation::consumeLines`, keyed by the quotation line's id)*
+            *(2026-09-23, #213 — built as Module 10 · 1.6: `RespondToQuotation::consumeLines`, keyed by the quotation line's id)*
       - [x] **1.6** Screens: the builder's quantity placeholder (F-04) and the muted line show
             available; the supplier-quotation detail shows recorded · consumed · available. AR/EN ×
             desktop/375 px via `rtl-ui-verifier`. RED: vitest on both views. *(2026-09-21, #155 —
@@ -3489,7 +3489,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       `SupplierQuotationsContract` and `consume()` runs once per line keyed by the line's id; audit
       `QUOTATION_ACCEPTED` (old/new `consumed_quantity`) + `PURCHASE_ORDER_CREATED`; one transaction.
       Ticks **F-05 · 1.5**.
-      *(2026-09-23 — the answer carries `purchase_order` (owner A); old balance = new − quantity, exact under `If-Match`)*
+      *(2026-09-23, #213 — the answer carries `purchase_order` (owner A); old balance = new − quantity, exact under `If-Match`)*
 
 #### Step 2 — `J-01` and the purchase order's read side
 

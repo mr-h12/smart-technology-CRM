@@ -3427,8 +3427,22 @@ printed blank.
       by name, at once, instead of waiting out a timeout.
 
       *(2026-09-22, #204 — chromium flags are `verify.php`'s; JavaScript off because the sandbox is.)*
-- [ ] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
+- [~] **2.2** Fonts (four faces, OFL licences) and the `D-89` letterhead into `crm/resources/pdf/`,
       embedded base64. *Verified by* a test that the template references no OS font and no URL.
+
+      *(2026-09-23, #218 — `PdfAssetsInterface`; families `CRM Sans` / `CRM Sans Arabic`, names no OS
+      ships.)* ⚠️ **The first version of the embedding test was a false verifier**: it searched the
+      PDF's bytes for "Inter", which passed even with both faces deliberately broken, because this
+      image installs `fonts-inter` too. Measured instead — with the faces the PDF carries
+      `Inter-Regular` + `NotoSansArabic-Regular`, without them `DejaVuSans` — and the test now reads
+      `/BaseFont` entries and fails on the same probe.
+      ⚠️ **Blocked on one line in Module 0's test.** `StorageServiceTest::test_nothing_outside_the_
+      storage_driver_touches_the_filesystem` scans every file under `app/` for `file_get_contents(`
+      and exempts only `app/Modules/Storage/Infrastructure`. `FilePdfAssets` reads the repository's
+      own fonts and letterhead, which is not what `§17` governs — that is uploads, stored **outside
+      the application directory** and served through a permission-checked API. The scan is Module 0's
+      file, so the exemption is **requested from its owner, not written here**, and the box stays
+      open until it lands.
 - [ ] **2.3** `subject` (the deal's title, through Deals' own contract) and `signatoryName` (the
       creator, through `UserFactsInterface`, an `IdentityContract` grant) join the view.
       *Verified by* mapper tests, and 1.2's leak test still green.

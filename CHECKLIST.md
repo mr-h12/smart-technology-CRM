@@ -3504,7 +3504,7 @@ printed blank.
       delivery-terms line when the flag is off. *Verified by* HTML tests for each rule, and the
       rendered HTML searched for 1.2's sixteen cost and supplier values.
 
-      *(2026-09-23, #PR — both languages also render on one page through real Chromium with the
+      *(2026-09-23, #224 — both languages also render on one page through real Chromium with the
       embedded faces.)* **Two defects in my own tests, found by probe, not by review:** the label
       scan first flagged `{{ $view->finalTotal }}` for containing "Total", so it now strips Blade
       expressions and reads the forbidden literals out of `lang/en/pdf.php` itself; and it excluded

@@ -335,14 +335,15 @@ class AppServiceProvider extends ServiceProvider
         // two directories above give: stateless, so a singleton would outlive
         // nothing useful, and `ConnectionInterface` alone because the only
         // thing this directory needs beyond its own model is
-        // `document_sequences`' atomic upsert (§4.7, Point 1.6). No
-        // `SearchService` — nothing searches quotations until Step 5.
+        // `document_sequences`' atomic upsert (§4.7, Point 1.6). `SearchService`
+        // for the purchase orders' `q` (Module 10 · 2.2).
         $this->app->bind(
             QuotationDirectoryInterface::class,
             fn (): EloquentQuotationDirectory => new EloquentQuotationDirectory(
                 $this->app->make(ConnectionInterface::class),
                 $this->app->make(DealFactsInterface::class),
                 $this->app->make(CurrencyRepositoryInterface::class),
+                $this->app->make(SearchService::class),
             ),
         );
 

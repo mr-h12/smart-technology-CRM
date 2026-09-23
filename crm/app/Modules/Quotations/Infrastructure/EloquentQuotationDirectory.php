@@ -9,6 +9,9 @@ use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderPage;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
@@ -21,6 +24,8 @@ use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Quotations\Infrastructure\Eloquent\PurchaseOrder;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
+use App\Support\Search\SearchIndex;
+use App\Support\Search\SearchService;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,6 +74,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         private ConnectionInterface $connection,
         private DealFactsInterface $deals,
         private CurrencyRepositoryInterface $currencies,
+        private SearchService $search,
     ) {}
 
     public function create(QuotationDraft $draft, string $actorId): QuotationSummary
@@ -141,6 +147,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             updatedAt: new DateTimeImmutable((string) $row->updated_at?->toIso8601String()),
             items: $this->readItems($row->id),
             additionalItems: $this->readAdditionalItems($row->id),
+            purchaseOrder: self::purchaseOrderOf($row->id),
         );
     }
 
@@ -262,11 +269,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         // `SEC-08` in the query: `own` is the deal's `owner_id`, reached as a
         // set through the seam — never a join on `deals` (module isolation).
         if (! $scope->unrestricted) {
-            $reach = [];
-            foreach ($scope->ownerIds as $ownerId) {
-                $reach = [...$reach, ...$this->deals->dealIdsOwnedBy($ownerId)];
-            }
-            $query->whereIn('quotations.deal_id', $reach);
+            $query->whereIn('quotations.deal_id', $this->reach($scope));
         }
 
         // Q2: `filter[employee]` intersects the same way — two `IN`s on one column.
@@ -339,6 +342,110 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         }
 
         return new QuotationPage($items, $total, $criteria->page, $criteria->perPage);
+    }
+
+    public function purchaseOrders(PurchaseOrderListCriteria $criteria, QuotationRowScope $scope): PurchaseOrderPage
+    {
+        // Q10: an order is reached through its quotation — `Quotation`'s
+        // soft-delete scope rides the subquery, so a deleted quotation's
+        // order goes with it.
+        $quotations = Quotation::query()->select('quotations.id');
+        if (! $scope->unrestricted) {
+            $quotations->whereIn('quotations.deal_id', $this->reach($scope));
+        }
+
+        $query = PurchaseOrder::query()->whereIn('purchase_orders.quotation_id', $quotations);
+
+        if ($criteria->q !== null) {
+            $query->whereIn('purchase_orders.id', $this->search->search(SearchIndex::PurchaseOrders, $criteria->q));
+        }
+
+        $total = $query->count();
+
+        foreach ($criteria->sorts as $sort) {
+            $query->orderBy('purchase_orders.'.$sort['field'], $sort['descending'] ? 'desc' : 'asc');
+        }
+        $query->orderBy('purchase_orders.id');
+
+        $orders = $query->offset($criteria->offset())->limit($criteria->perPage)->get();
+        $byId = Quotation::query()->whereIn('id', $orders->pluck('quotation_id')->all())->get()->keyBy('id');
+
+        /** @var array<string, string> $codes */
+        $codes = [];
+        $items = [];
+        foreach ($orders as $order) {
+            $quotation = $byId->get($order->quotation_id);
+            if (! $quotation instanceof Quotation) {
+                throw new RuntimeException("purchase_orders {$order->id} lost its quotation between two reads.");
+            }
+            $codes[$quotation->currency_id] ??= $this->currencyCode($quotation->currency_id);
+            $items[] = self::record($order, $quotation, $codes[$quotation->currency_id]);
+        }
+
+        return new PurchaseOrderPage($items, $total, $criteria->page, $criteria->perPage);
+    }
+
+    public function findPurchaseOrder(string $purchaseOrderId): ?PurchaseOrderRecord
+    {
+        // Postgres refuses a malformed uuid with 22P02; unknown is the answer.
+        if (! Str::isUuid($purchaseOrderId)) {
+            return null;
+        }
+
+        $order = PurchaseOrder::query()->whereKey($purchaseOrderId)->first();
+        $quotation = $order instanceof PurchaseOrder ? Quotation::query()->whereKey($order->quotation_id)->first() : null;
+
+        return $order instanceof PurchaseOrder && $quotation instanceof Quotation
+            ? self::record($order, $quotation, $this->currencyCode($quotation->currency_id))
+            : null;
+    }
+
+    /**
+     * `SEC-08`'s `own` as a set of deal ids through the seam — never a join on `deals`.
+     *
+     * @return list<string>
+     */
+    private function reach(QuotationRowScope $scope): array
+    {
+        $reach = [];
+        foreach ($scope->ownerIds as $ownerId) {
+            $reach = [...$reach, ...$this->deals->dealIdsOwnedBy($ownerId)];
+        }
+
+        return $reach;
+    }
+
+    private static function purchaseOrderOf(string $quotationId): ?PurchaseOrderSummary
+    {
+        $order = PurchaseOrder::query()->where('quotation_id', $quotationId)->first();
+
+        return $order instanceof PurchaseOrder
+            ? new PurchaseOrderSummary($order->id, $quotationId, $order->po_number, $order->customer_po_reference, $order->po_date)
+            : null;
+    }
+
+    private static function record(PurchaseOrder $order, Quotation $quotation, string $currency): PurchaseOrderRecord
+    {
+        return new PurchaseOrderRecord(
+            id: $order->id,
+            poNumber: $order->po_number,
+            customerPoReference: $order->customer_po_reference,
+            poDate: $order->po_date,
+            createdAt: (string) $order->created_at?->toIso8601String(),
+            createdBy: $order->created_by,
+            quotationId: $quotation->id,
+            quotationCode: $quotation->code,
+            quotationStatus: $quotation->status,
+            customerId: $quotation->customer_id,
+            dealId: $quotation->deal_id,
+            currency: $currency,
+            subtotal: $quotation->subtotal,
+            additionalTotal: $quotation->additional_total,
+            discountAmount: $quotation->discount_amount,
+            taxPercent: $quotation->tax_percent,
+            taxAmount: $quotation->tax_amount,
+            finalTotal: $quotation->final_total,
+        );
     }
 
     /** Q6's row — §6.6's columns, nothing from the cost side. */

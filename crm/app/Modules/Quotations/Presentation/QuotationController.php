@@ -9,6 +9,7 @@ use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Application\Listing\BadgeCounts;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
+use App\Modules\Quotations\Application\Listing\ReadPurchaseOrders;
 use App\Modules\Quotations\Application\Listing\ShowQuotation;
 use App\Modules\Quotations\Application\Writing\ApproveQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
@@ -21,6 +22,8 @@ use App\Modules\Quotations\Application\Writing\SendQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
@@ -157,8 +160,8 @@ final class QuotationController
      * Module 10 · 1.4–1.5. `send()`'s shape with a body; the answer is the
      * answered quotation with its new `etag`, plus `new_version` —
      * `newVersion()`'s fields for the draft to open (owner, C) — after
-     * `partial` / `counter`, `deal_lost` after `rejected` (owner, rule b), or
-     * `purchase_order` after `accepted` (owner A, 1.6).
+     * `partial` / `counter`, or `deal_lost` after `rejected` (owner, rule b).
+     * After `accepted` the order is the detail's own `purchase_order` (2.2).
      */
     public function respond(RespondQuotationRequest $request, string $quotation, RespondToQuotation $quotations, ShowQuotation $reader): JsonResponse
     {
@@ -186,16 +189,28 @@ final class QuotationController
             $payload['deal_lost'] = $recorded->dealLost;
         }
 
-        if ($recorded->purchaseOrder !== null) {
-            $payload['purchase_order'] = [
-                'id' => $recorded->purchaseOrder->id,
-                'po_number' => $recorded->purchaseOrder->poNumber,
-                'customer_po_reference' => $recorded->purchaseOrder->customerPoReference,
-                'po_date' => $recorded->purchaseOrder->poDate,
-            ];
-        }
-
         return ApiEnvelope::single($request, $payload);
+    }
+
+    /**
+     * Module 10 · 2.2 — `GET /purchase-orders` under `quotation.view` (Q10).
+     * `index()`'s shape.
+     */
+    public function purchaseOrders(Request $request, ReadPurchaseOrders $orders): JsonResponse
+    {
+        $page = $orders->page(PurchaseOrderListCriteria::fromQuery($request->query()), self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::collection(
+            $request,
+            array_map(static fn (PurchaseOrderRecord $order): array => QuotationPayload::purchaseOrder($order, $page->customerNames[$order->customerId] ?? null), $page->items),
+            QuotationPayload::pagination($page),
+        );
+    }
+
+    /** Module 10 · 2.2 — `GET /purchase-orders/{id}`; the 404 and the scope are `ReadPurchaseOrders::one()`'s. */
+    public function purchaseOrder(Request $request, string $purchaseOrder, ReadPurchaseOrders $orders): JsonResponse
+    {
+        return ApiEnvelope::single($request, QuotationPayload::purchaseOrderDetail($orders->one($purchaseOrder, self::heldScopes($request), self::actorId($request))));
     }
 
     /**

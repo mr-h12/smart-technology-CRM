@@ -23,6 +23,7 @@ use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -519,6 +520,17 @@ final class ApiExceptionRenderer
      * are real here.
      */
     public static function quotationNotFound(QuotationNotFound $exception, Request $request): JsonResponse
+    {
+        return ApiEnvelope::error(
+            $request,
+            404,
+            'resource_not_found',
+            (string) __($exception->messageKey()),
+        );
+    }
+
+    /** Module 10 · 2.2: `quotationNotFound()`'s answer for an order (`OpenAPI §5.1`). */
+    public static function purchaseOrderNotFound(PurchaseOrderNotFound $exception, Request $request): JsonResponse
     {
         return ApiEnvelope::error(
             $request,

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Contracts;
 
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderPage;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
@@ -160,4 +163,20 @@ interface QuotationDirectoryInterface extends QuotationReaderInterface
      * (`OpenAPI §6.1`). Soft-deleted quotations are absent (`DB-01`).
      */
     public function list(QuotationListCriteria $criteria, QuotationRowScope $scope): QuotationPage;
+
+    /**
+     * `GET /purchase-orders` (Module 10 · 2.2): `list()`'s scope, reached
+     * through each order's quotation (Q10), `q` through `SearchService` over
+     * both numbers (§4.6), the criteria's sort then `id`. `total` is counted
+     * after scoping (`OpenAPI §6.1`); an order whose quotation is deleted is
+     * absent with it (`DB-01`).
+     */
+    public function purchaseOrders(PurchaseOrderListCriteria $criteria, QuotationRowScope $scope): PurchaseOrderPage;
+
+    /**
+     * One order with its quotation's figures, or null — unknown, malformed or
+     * deleted alike. Unscoped: the caller decides reach, as `find()` leaves it
+     * to `ShowQuotation`.
+     */
+    public function findPurchaseOrder(string $purchaseOrderId): ?PurchaseOrderRecord;
 }

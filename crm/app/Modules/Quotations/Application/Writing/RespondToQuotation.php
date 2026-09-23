@@ -107,6 +107,10 @@ final readonly class RespondToQuotation
 
             $copy = $accepted || $rejected ? null : $this->versions->copyOf($quotationId, $actorId);
 
+            // Written before the re-read, so the answered quotation names its
+            // order (Module 10 · 2.2: the detail carries `purchase_order`).
+            $order = $accepted ? $this->quotations->createPurchaseOrder($quotationId, $customerPoReference, $poDate, $actorId) : null;
+
             $after = $this->access->reread($quotationId);
 
             $old = ['status' => $before->status, 'rejection_reason' => $before->rejectionReason];
@@ -118,10 +122,7 @@ final readonly class RespondToQuotation
 
             $this->audit->record(AuditEvent::of($event), 'quotation', $quotationId, $old, $new);
 
-            $order = null;
-            if ($accepted) {
-                $order = $this->quotations->createPurchaseOrder($quotationId, $customerPoReference, $poDate, $actorId);
-
+            if ($order !== null) {
                 $this->audit->record(AuditEvent::of('PURCHASE_ORDER_CREATED'), 'purchase_order', $order->id, null, [
                     'quotation_id' => $order->quotationId,
                     'po_number' => $order->poNumber,
@@ -137,7 +138,7 @@ final readonly class RespondToQuotation
                 $dealLost = $othersLive === [] && $this->deals->quotationRejected($before->dealId, $reason, $actorId);
             }
 
-            return new RecordedResponse($after, $copy, $dealLost, $order);
+            return new RecordedResponse($after, $copy, $dealLost);
         });
     }
 

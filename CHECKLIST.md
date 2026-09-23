@@ -3469,7 +3469,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 - [x] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
       `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
       No PDF (`D-90`).
-      *(2026-09-23 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
+      *(2026-09-23, #210 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
 - [ ] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
       (`422 rejection_reason_required`), `partial` does not (§6.3); the new version is written in the same
       transaction through 4.3's copy, which stops copying `returned_at`/`return_note`; the response names

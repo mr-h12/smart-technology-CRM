@@ -360,6 +360,10 @@ would hide them behind `OD-03` indefinitely.
       here so the price stays visible: a shared `app/Support` home for a payload shape that four
       modules will eventually need is a decision the owner should take deliberately, not one that
       should arrive by accident on the day a fifth module copies it
+      **Module 10 · 2.3 (2026-09-23) adds the third upload flow:** `AttachPurchaseOrderDocument`,
+      `UploadPurchaseOrderDocumentRequest` and `QuotationPayload::document()` repeat Deals' and
+      Supplier Quotations' shape (`grep -rln "connection->transaction(" crm/app/Modules/*/Application/Documents`
+      → 3). Same deptrac reason; nothing inside Quotations or Storage was there to reuse.
 
 - [x] **The live permission matrix could drift from §3 with nothing to notice** — found 2026-09-05
       by the owner, who saw the Manager holding the RBAC screen. Confirmed and measured: the live
@@ -745,6 +749,8 @@ would hide them behind `OD-03` indefinitely.
       that point's waste audit; still one owner decision away.
       **Module 10 · 2.2 (2026-09-23), the 18th:** `PurchaseOrderReadEndpointTest` carries the full set —
       `grep -rl 'private function supplierLine' crm/tests | wc -l` → **18**.
+      **Module 10 · 2.3 (2026-09-23), the 19th:** `PurchaseOrderDocumentEndpointTest` — → **19**, and the
+      minimal `%PDF-1.4` bytes gain a seventh copy in the same file.
 
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
@@ -813,6 +819,10 @@ would hide them behind `OD-03` indefinitely.
       this dialog's own uploads, saying so in the panel itself. Owed, and it is a contract change
       (`OpenAPI §8`) before it is work: a `documents` array on the detail payload, or a
       `GET /{id}/documents` per parent. Not startable inside a frontend point
+      **Module 10 · 2.3 (2026-09-23) closes it for purchase orders only:** the owner chose the first
+      shape (A1) — `documents` on `GET /purchase-orders/{id}`, through Storage's new
+      `FileRepositoryInterface::filesOf()`. Deals and supplier quotations are still write-only;
+      `filesOf()` serves them as-is when their points are ordered.
 
 - [ ] **A fifth Vue form modal now carries the same 126-line shape** — created 2026-09-05 by Point
       6.3's `SupplierQuotationFormModal.vue`. `grep -rln "function applyServerErrors"
@@ -3597,10 +3607,11 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.
       *(2026-09-23, #216 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
-- [ ] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
+- [x] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
       `quotation.record_customer_response`, the list of its files, and the download mapping for
       `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);
       `AttachDealDocument`'s shape (validate, store, scan after commit).
+      *(2026-09-23, #217 — `documents` on the detail replaced `has_attachment` (owner A1); several per order (B1); download under `quotation.view`)*
 
 #### Step 3 — the screens
 

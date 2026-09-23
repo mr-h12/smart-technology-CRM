@@ -15,6 +15,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
+use App\Modules\Storage\Domain\StoredFile;
 
 /**
  * What `/quotations` answers with — Module 7 Points 3.4 and 3.5.
@@ -246,8 +247,9 @@ final class QuotationPayload
     /**
      * Module 10 · 2.2's detail: the row, who and when, the deal, the status and
      * the quotation's breakdown. An exempt quotation has **no** tax keys (`D-63`).
+     * 2.3 (A1): its files as `documents`, oldest first.
      *
-     * @return array<string, string|bool|null>
+     * @return array<string, string|list<array<string, string|int>>|null>
      */
     public static function purchaseOrderDetail(PurchaseOrderDetail $detail): array
     {
@@ -258,7 +260,7 @@ final class QuotationPayload
             'created_at' => $order->createdAt,
             'created_by' => $order->createdBy,
             'created_by_name' => $detail->createdByName,
-            'has_attachment' => $detail->hasAttachment,
+            'documents' => array_map(self::document(...), $detail->documents),
             'deal_id' => $order->dealId,
             'deal_code' => $detail->dealCode,
             'deal_owner_id' => $detail->dealOwnerId,
@@ -268,6 +270,24 @@ final class QuotationPayload
             'additional_total' => $order->additionalTotal,
             'discount_amount' => $order->discountAmount,
             ...($order->taxPercent === null ? [] : ['tax_percent' => $order->taxPercent, 'tax_amount' => $order->taxAmount]),
+        ];
+    }
+
+    /**
+     * A purchase order's file (2.3) — the upload's answer and a `documents`
+     * entry alike; `DealDocumentPayload::of()`'s fields.
+     *
+     * @return array<string, string|int>
+     */
+    public static function document(StoredFile $file): array
+    {
+        return [
+            'id' => $file->id,
+            'original_name' => $file->originalName,
+            'mime_type' => $file->mimeType,
+            'size_bytes' => $file->sizeBytes,
+            'scan_status' => $file->scanStatus->value,
+            'created_at' => $file->createdAt->format(DATE_ATOM),
         ];
     }
 

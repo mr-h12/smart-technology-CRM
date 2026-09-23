@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Storage\Domain;
 
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
+use DateTimeImmutable;
 
 /**
  * The `files` row, as the domain sees it.
@@ -22,6 +23,8 @@ final readonly class StoredFile
         public int $sizeBytes,
         public StoragePath $path,
         public ScanStatus $scanStatus,
+        // Module 10 · 2.3: a parent's file list shows when each was attached.
+        public DateTimeImmutable $createdAt,
     ) {}
 
     public function isScannedClean(): bool

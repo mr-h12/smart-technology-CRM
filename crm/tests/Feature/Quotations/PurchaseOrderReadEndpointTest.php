@@ -40,7 +40,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
 
     private const DETAIL_FIELDS = [
         ...self::LIST_FIELDS,
-        'created_at', 'created_by', 'created_by_name', 'has_attachment',
+        'created_at', 'created_by', 'created_by_name', 'documents',
         'deal_id', 'deal_code', 'deal_owner_id', 'deal_owner_name', 'quotation_status',
         'subtotal', 'additional_total', 'discount_amount',
     ];
@@ -316,7 +316,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         self::assertSame($this->userWith(RoleName::Manager)->id, $data['created_by']);
         self::assertSame($this->userWith(RoleName::Manager)->name, $data['created_by_name']);
         self::assertIsString($data['created_at']);
-        self::assertFalse($data['has_attachment']);
+        self::assertSame([], $data['documents']);
 
         // The quotation's own numbers, as its detail gives them — the order
         // carries the accepted quotation's snapshot, it computes nothing.
@@ -341,8 +341,8 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         self::assertEqualsCanonicalizing(self::DETAIL_FIELDS, array_keys($data));
     }
 
-    /** `has_attachment` reads the order's files through Storage (owner, 2.2 choice A). */
-    public function test_has_attachment_follows_the_orders_files(): void
+    /** `documents` reads the order's files through Storage (owner, 2.2 A; 2.3 A1 replaced `has_attachment`). */
+    public function test_documents_lists_the_orders_files(): void
     {
         $with = $this->accepted($this->deal(null), 'WITH-1');
         $without = $this->accepted($this->deal(null), 'WITHOUT-1');
@@ -350,10 +350,10 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         $this->attachFile($with['id']);
         DB::table('files')->where('id', $this->attachFile($deletedFile['id']))->update(['deleted_at' => now()]);
 
-        $this->show($with['id'])->assertStatus(200)->assertJsonPath('data.has_attachment', true);
-        $this->show($without['id'])->assertStatus(200)->assertJsonPath('data.has_attachment', false);
+        $this->show($with['id'])->assertStatus(200)->assertJsonCount(1, 'data.documents')->assertJsonPath('data.documents.0.original_name', 'po.pdf');
+        $this->show($without['id'])->assertStatus(200)->assertJsonCount(0, 'data.documents');
         // `FileRepositoryInterface`: "Soft-deleted rows are invisible here" (DB-01).
-        $this->show($deletedFile['id'])->assertStatus(200)->assertJsonPath('data.has_attachment', false);
+        $this->show($deletedFile['id'])->assertStatus(200)->assertJsonCount(0, 'data.documents');
     }
 
     // ────────────────────────────────────────────── the quotation detail's PO
@@ -464,7 +464,8 @@ final class PurchaseOrderReadEndpointTest extends TestCase
             'original_name' => 'po.pdf',
             'mime_type' => 'application/pdf',
             'size_bytes' => 9,
-            'storage_path' => 'files/'.$fileId,
+            // §17's shape — `StoragePath::fromStored()` refuses anything else.
+            'storage_path' => '2026/09/purchase_order/'.$purchaseOrderId.'/'.$fileId.'.pdf',
             'scan_status' => 'clean',
             'created_at' => now(),
             'updated_at' => now(),

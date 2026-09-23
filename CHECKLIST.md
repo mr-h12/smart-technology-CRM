@@ -1143,6 +1143,14 @@ would hide them behind `OD-03` indefinitely.
       no hit in any tracked file). The `J-15` entry above ("sits in the scheduler") argues from a
       scheduler that is not running. **Taken up by Module 10 · 2.1** — `J-01` cannot meet its
       criterion without it; closes with that point.
+- [ ] **`quotation.export_pdf` must gate on the quotation's row scope, not only on the grant** —
+      *revealed by Module 10 · 2.2a's permission audit, 2026-09-23; nothing to fix there, because no
+      consumer exists yet* (`grep -rn "export_pdf" crm/app crm/routes` → `PermissionMatrix.php` only).
+      `D-91` made the Team Leader's bare ✅ `All`, and Procurement keeps an explicit, unbacked `Asgn`.
+      `view_cost_and_margin` / `edit_margin` / `edit_tax` are safe as booleans because they act only on a
+      row the caller already reached; a download endpoint *is* the reach, so it must resolve
+      `QuotationRowScope` from its own scopes the way `ShowQuotation::one()` does, or export exceeds view.
+      **Owner: the second developer** (Module 9 · PDF download).
 - [ ] **`routes/console.php`'s `J-15` note still gives the compose-profile reason §15 struck** —
       *revealed by Module 10 · 2.1, 2026-09-23; not fixed there, by the owner's ruling.* The comment above
       `Schedule::command(EnsureAuditPartitionsCommand::class)` says "the worker services carry a
@@ -3460,6 +3468,21 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
   inside the rejection's transaction, the deal's quotations locked `FOR UPDATE`, so two last rejections
   racing cannot both see one survivor. Recorded in `D-90`.
 
+**The owner's answers during 2.2's questions, 2026-09-23:**
+
+- **The Team Leader and Procurement read every quotation**, and through it every purchase order —
+  `D-91`, built as point 2.2a before 2.2. `quotation.view` only; their bare ✅ cells in §3.5 follow
+  the new `All` (§3.2's reading), so both see cost and margin on every quotation (accepted).
+- **«إشعار خصم» is a discount on the sale price only** — the quotation's own `discount_amount`, not a
+  separate credit note. Closes the question that waited for the accountant.
+- **What a purchase order shows (2.2).** List: PO number, customer's PO reference, PO date, quotation
+  code, customer name, the quotation's final total with its currency. Detail: all of that, plus when
+  and by whom it was recorded, whether it has an attachment (the file itself is 2.3), the deal code,
+  the salesperson who owns the deal, the quotation's status, and the total's breakdown (subtotal,
+  discount, tax, additional items). **Never** cost, margin or suppliers. Sort `po_date` / `po_number` /
+  `created_at` (default `-created_at`), no filter besides `q`; the quotation detail always carries
+  `purchase_order` (null when none), and `respond` stops adding its own copy.
+
 **Two edge rules this list adds, for the owner to confirm at merge** (no document settles them):
 
 - **a · send from a deal that is not ready.** A deal before `supplier_quotation` (`lead` … `supplier_rfq`)
@@ -3511,6 +3534,13 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       catch-up) and then `schedule:work` — closing the "nothing runs the scheduler" debt row, and from
       then on `J-02` and `J-15` fire in the stack too. No deal move (Q2), no customer status (debt row).
       *(2026-09-23, #214 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
+- [x] **2.2a** `D-91`: the Team Leader and Procurement read every quotation. `PermissionMatrix` moves
+      §3.5's TL `view` `Team → All` and Procurement's `Asgn → All`, with their bare ✅ cells (TL: view
+      cost & margin, edit margin, edit tax, export PDF; Procurement: view cost & margin); every
+      explicit cell keeps `Team` / `Asgn`. A migration swaps the live grants on an already-seeded
+      database, audited `ROLE_PERMISSIONS_UPDATED` with the system actor, reversible. The `D-91` row and
+      §3.5's cells go into the master through the owner's `paste_d91.py`.
+      *(2026-09-23 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
 - [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.

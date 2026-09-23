@@ -256,7 +256,8 @@ final class FilesMigrationTest extends TestCase
         // this test fails until the constraint is added and the entry removed —
         // which is the point: a comment would not. `deals` closed the first
         // entry (Module 5, Point 1.1); `supplier_quotations` closed the second
-        // (Module 6, Point 1.1), each in the migration that created the parent.
+        // (Module 6, Point 1.1) and `purchase_orders` the third (Module 10,
+        // Point 1.6), each in the migration that created the parent.
         $pending = [];
 
         foreach (self::PIVOTS as $table => $meta) {
@@ -266,7 +267,6 @@ final class FilesMigrationTest extends TestCase
         }
 
         self::assertSame([
-            'purchase_order_files.purchase_order_id → purchase_orders',
             'report_files.report_id → reports',
         ], $pending, 'A parent table now exists; add its foreign key and drop it from this list.');
     }
@@ -351,10 +351,14 @@ final class FilesMigrationTest extends TestCase
 
         // Module 6, Point 1.1 added the parent key, so a fabricated id no
         // longer satisfies the pivot — which is the whole reason the key was
-        // added. `purchase_order_files` and `report_files` keep the fabricated
-        // id until Modules 10 and 13 create their parents.
+        // added; Module 10, Point 1.6 did the same for `purchase_order_files`.
+        // `report_files` keeps the fabricated id until Module 13 creates its parent.
         if ($table === 'supplier_quotation_files') {
             return self::insertSupplierQuotation();
+        }
+
+        if ($table === 'purchase_order_files') {
+            return self::insertPurchaseOrder();
         }
 
         // Module 9, Point 1.3: created with its parent key, so it never had a
@@ -388,6 +392,38 @@ final class FilesMigrationTest extends TestCase
         ]);
 
         return $quotationId;
+    }
+
+    /** A purchase order on an `accepted` quotation — the chain its key now requires. */
+    private static function insertPurchaseOrder(): string
+    {
+        $dealId = self::insertDeal();
+        $customerId = DB::table('deals')->where('id', $dealId)->value('customer_id');
+        $currencyId = Uuid::uuid7()->toString();
+        $quotationId = Uuid::uuid7()->toString();
+        $orderId = Uuid::uuid7()->toString();
+
+        DB::table('currencies')->insert([
+            'id' => $currencyId, 'code' => 'XPO', 'rounding_unit' => '1', 'rounding_enabled' => false,
+            'is_base' => false, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('quotations')->insert([
+            'id' => $quotationId, 'code' => 'QT-2026-'.substr(str_replace('-', '', $quotationId), -4),
+            'deal_id' => $dealId, 'customer_id' => $customerId, 'currency_id' => $currencyId,
+            'status' => 'accepted', 'quotation_date' => '2026-09-23',
+            'default_margin' => '0', 'discount_percent' => '0', 'rounding_unit' => '1', 'rounding_enabled' => false,
+            'subtotal' => '10', 'additional_total' => '0', 'discount_amount' => '0', 'tax_base' => '10',
+            'net_amount' => '10', 'total_before_round' => '10', 'final_total' => '10', 'rounding_diff' => '0',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('purchase_orders')->insert([
+            'id' => $orderId, 'quotation_id' => $quotationId,
+            'po_number' => 'PO-2026-'.substr(str_replace('-', '', $orderId), -4),
+            'customer_po_reference' => '4500123987', 'po_date' => '2026-09-23',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $orderId;
     }
 
     private static function insertDeal(): string

@@ -49,7 +49,11 @@ enum SystemSetting: string
     /** §13/4 "language". `§14.2`'s two, and what `SetLocaleFromRequest` falls back to. */
     case Language = 'locale.language';
 
-    /** §13/4 "time zone" — for display only. `DB-08` stores UTC regardless. */
+    /**
+     * §13/4 "time zone". `DB-08` stores UTC regardless; this is the company's
+     * calendar day — for display, and for `J-01`, which expires a quotation once
+     * its `valid_until` is before today here (Module 10 · 2.1).
+     */
     case Timezone = 'locale.timezone';
 
     /** §13/4 "date format". */

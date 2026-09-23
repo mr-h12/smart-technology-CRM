@@ -766,6 +766,13 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // grant is `quotation.approve`; `edit_margin` / `edit_tax` are asked inside.
     Route::patch('/{quotation}/edit-and-approve', [QuotationController::class, 'editAndApprove'])
         ->middleware('permission:quotation.approve');
+    // Module 10 Point 1.3 — `If-Match` only, as the submit (`D-90`: no PDF awaited).
+    Route::patch('/{quotation}/send', [QuotationController::class, 'send'])
+        ->middleware('permission:quotation.send_to_customer');
+    // Module 10 Point 1.4 — `If-Match`, no `Idempotency-Key` (`OpenAPI §7.2`):
+    // a replay is refused by the token, the copy by `DB-03`.
+    Route::patch('/{quotation}/respond', [QuotationController::class, 'respond'])
+        ->middleware('permission:quotation.record_customer_response');
     // Point 4.3 — §9.1 names "versions" among the POSTs that carry the key;
     // `quotation.edit`, because whoever may edit the next draft may open it.
     Route::post('/{quotation}/new-version', [QuotationController::class, 'newVersion'])

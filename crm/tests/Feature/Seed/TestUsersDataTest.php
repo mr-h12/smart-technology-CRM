@@ -205,7 +205,8 @@ final class TestUsersDataTest extends TestCase
         // Spot the far end of each chain, not just the count.
         // The probe's primary key is permission|role, because a permission has
         // one row per granted role.
-        self::assertSame('team', DB::table('seed_probe_permissions')
+        // `all` since D-91 (2026-09-23); `team` before.
+        self::assertSame('all', DB::table('seed_probe_permissions')
             ->where('key', 'quotation.view|team_leader')->value('scope'));
         self::assertSame('1', DB::table('seed_probe_currencies')->where('code', 'EGP')->value('rounding_unit'));
         self::assertSame('حكومي', DB::table('seed_probe_lists')->where('code', 'government')->value('label_ar'));

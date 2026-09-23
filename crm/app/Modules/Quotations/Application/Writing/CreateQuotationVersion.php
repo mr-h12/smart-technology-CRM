@@ -52,17 +52,29 @@ final readonly class CreateQuotationVersion
                 throw QuotationWriteRefused::invalidTransition($parent->status, 'draft');
             }
 
-            $copy = $this->quotations->copy($parentId, $actorId);
-
-            $this->audit->record(
-                AuditEvent::of('QUOTATION_VERSION_CREATED'),
-                'quotation',
-                $copy->id,
-                null,
-                ['parent_id' => $parentId, 'version' => $copy->version, 'code' => $copy->code],
-            );
-
-            return $copy;
+            return $this->copyOf($parentId, $actorId);
         });
+    }
+
+    /**
+     * The copy and its audit row, for a caller that has already authorised the
+     * parent and checked its status inside its own transaction — `create()`
+     * above, and Module 10 · 1.4's `RespondToQuotation` under its own grant.
+     *
+     * @throws QuotationWriteRefused
+     */
+    public function copyOf(string $parentId, string $actorId): QuotationSummary
+    {
+        $copy = $this->quotations->copy($parentId, $actorId);
+
+        $this->audit->record(
+            AuditEvent::of('QUOTATION_VERSION_CREATED'),
+            'quotation',
+            $copy->id,
+            null,
+            ['parent_id' => $parentId, 'version' => $copy->version, 'code' => $copy->code],
+        );
+
+        return $copy;
     }
 }

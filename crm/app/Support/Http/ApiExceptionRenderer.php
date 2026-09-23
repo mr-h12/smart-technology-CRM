@@ -619,6 +619,14 @@ final class ApiExceptionRenderer
         );
     }
 
+    /** `D-90` rule a (Module 10 · 1.3): {@see self::quotationNotPriceable()}'s 422 `business_rule_blocked`, with no field — the request has none to point at. */
+    public static function dealNotReadyToSend(Request $request): JsonResponse
+    {
+        $message = (string) __('quotations.errors.deal_not_ready_to_send');
+
+        return ApiEnvelope::error($request, 422, 'business_rule_blocked', $message, [['code' => 'deal_not_ready_to_send', 'message' => $message]]);
+    }
+
     /**
      * `OpenAPI §5.1` — 422 `validation_failed`, for a §17 bytes-level refusal.
      *

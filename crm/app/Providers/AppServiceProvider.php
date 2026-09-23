@@ -44,8 +44,10 @@ use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Deals\Application\Access\DealAttachmentPermission;
+use App\Modules\Deals\Application\Approval\RecordQuotationOutcome;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Deals\Infrastructure\EloquentDealFacts;
 use App\Modules\Idempotency\Domain\IdempotencyStoreInterface;
@@ -74,6 +76,8 @@ use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
+use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
@@ -314,6 +318,9 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        // Module 10 · 1.2 (`D-90`): the two deal moves a quotation causes.
+        $this->app->bind(DealOutcomeInterface::class, RecordQuotationOutcome::class);
+
         // Module 7 Point 6.4 (Step 6 Q2). The name behind a deal owner's id for
         // `group_by=employee`'s label — `bind` and `ConnectionInterface` alone,
         // as for the deal facts above: two columns by primary key.
@@ -532,6 +539,17 @@ class AppServiceProvider extends ServiceProvider
         // audit columns, and Redis expires it without a sweeper job. See
         // PasswordChallengeStoreInterface for the trade-off that accepts.
         $this->app->bind(PasswordChallengeStoreInterface::class, CachePasswordChallengeStore::class);
+
+        // Module 9, Point 2.1 — the PDF renderer (D-57). Only the pdf image has
+        // the browser it points at; anywhere else it refuses by name.
+        $this->app->bind(
+            PdfRendererInterface::class,
+            fn (): PdfRendererInterface => new BrowsershotPdfRenderer(
+                chromePath: $this->app->make(ConfigRepository::class)->string('pdf.chrome_path'),
+                nodeModulesPath: $this->app->make(ConfigRepository::class)->string('pdf.node_modules_path'),
+                timeoutSeconds: $this->app->make(ConfigRepository::class)->integer('pdf.timeout_seconds'),
+            ),
+        );
     }
 
     /**

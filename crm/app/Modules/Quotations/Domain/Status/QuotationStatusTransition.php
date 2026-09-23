@@ -35,7 +35,8 @@ final class QuotationStatusTransition
         'partial' => [],
         'counter' => [],
         'rejected' => [],
-        'expired' => [],
+        // Module 10 Q8: §10.5 "records Rejected" after the offer expired.
+        'expired' => ['rejected'],
     ];
 
     /** §6.3's copy is not an edge: the three terminals a new version may be opened from (Q4). */

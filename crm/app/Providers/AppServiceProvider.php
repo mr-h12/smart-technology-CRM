@@ -44,8 +44,10 @@ use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
 use App\Modules\Deals\Application\Access\DealAttachmentPermission;
+use App\Modules\Deals\Application\Approval\RecordQuotationOutcome;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Deals\Infrastructure\EloquentDealFacts;
 use App\Modules\Idempotency\Domain\IdempotencyStoreInterface;
@@ -315,6 +317,9 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->make(SearchService::class),
             ),
         );
+
+        // Module 10 · 1.2 (`D-90`): the two deal moves a quotation causes.
+        $this->app->bind(DealOutcomeInterface::class, RecordQuotationOutcome::class);
 
         // Module 7 Point 6.4 (Step 6 Q2). The name behind a deal owner's id for
         // `group_by=employee`'s label — `bind` and `ConnectionInterface` alone,

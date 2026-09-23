@@ -58,7 +58,11 @@ final class QuotationReadEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.Uuid::uuid4()->toString())->assertStatus(401);
     }
 
-    /** §3.5 `view` = `All` for Manager and CEO — an unowned deal's quotation included. */
+    /**
+     * §3.5 `view` = `All` for Manager and CEO, and for the Team Leader and
+     * Procurement since `D-91` (Module 10 · 2.2a) — an unowned deal's quotation
+     * included.
+     */
     #[DataProvider('unrestricted')]
     public function test_that_an_all_scoped_role_reads_any_quotation(RoleName $role): void
     {
@@ -72,7 +76,12 @@ final class QuotationReadEndpointTest extends TestCase
     /** @return array<string, array{RoleName}> */
     public static function unrestricted(): array
     {
-        return ['manager' => [RoleName::Manager], 'ceo' => [RoleName::Ceo]];
+        return [
+            'manager' => [RoleName::Manager],
+            'ceo' => [RoleName::Ceo],
+            'team leader' => [RoleName::TeamLeader],
+            'procurement' => [RoleName::Procurement],
+        ];
     }
 
     /** @return array<string, array{RoleName}> */
@@ -104,26 +113,6 @@ final class QuotationReadEndpointTest extends TestCase
     public function test_that_an_own_scoped_role_cannot_read_an_unowned_deals_quotation(RoleName $role): void
     {
         $id = $this->quotation($this->deal(null));
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor($role))->assertStatus(404);
-    }
-
-    /**
-     * `team` (Team Leader) and `asgn` (Procurement) are granted by §3.5 and
-     * backed by nothing — `QuotationRowScope` fails closed, so both see 404
-     * even on a quotation they created the deal for.
-     *
-     * @return array<string, array{RoleName}>
-     */
-    public static function unbacked(): array
-    {
-        return ['team leader' => [RoleName::TeamLeader], 'procurement' => [RoleName::Procurement]];
-    }
-
-    #[DataProvider('unbacked')]
-    public function test_that_an_unbacked_scope_sees_nothing(RoleName $role): void
-    {
-        $id = $this->quotation($this->deal($this->userWith($role)->id));
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor($role))->assertStatus(404);
     }
@@ -195,18 +184,6 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('meta.pagination.total', 1)
             ->assertJsonPath('data.0.id', $mine);
-    }
-
-    /** `team` and `asgn` are unbacked: an empty page, not a 403 and not everything. */
-    #[DataProvider('unbacked')]
-    public function test_that_an_unbacked_scope_lists_an_empty_page(RoleName $role): void
-    {
-        $this->quotation($this->deal($this->userWith($role)->id));
-
-        $this->getJson(self::ENDPOINT, $this->bearerFor($role))
-            ->assertStatus(200)
-            ->assertJsonPath('meta.pagination.total', 0)
-            ->assertJsonPath('data', []);
     }
 
     public function test_that_a_role_without_the_grant_cannot_list(): void

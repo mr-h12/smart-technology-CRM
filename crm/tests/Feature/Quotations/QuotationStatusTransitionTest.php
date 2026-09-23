@@ -37,6 +37,7 @@ final class QuotationStatusTransitionTest extends TestCase
         yield 'sent → counter (§6.1)' => ['sent', 'counter'];
         yield 'sent → rejected (§6.1)' => ['sent', 'rejected'];
         yield 'sent → expired (§6.1, J-01)' => ['sent', 'expired'];
+        yield 'expired → rejected (Module 10 Q8, §10.5 "records Rejected")' => ['expired', 'rejected'];
     }
 
     #[DataProvider('drawnEdges')]
@@ -70,7 +71,6 @@ final class QuotationStatusTransitionTest extends TestCase
         yield 'partial' => ['partial'];
         yield 'counter' => ['counter'];
         yield 'rejected' => ['rejected'];
-        yield 'expired' => ['expired'];
     }
 
     #[DataProvider('terminalStatuses')]

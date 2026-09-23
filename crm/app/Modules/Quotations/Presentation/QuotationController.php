@@ -15,6 +15,7 @@ use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
+use App\Modules\Quotations\Application\Writing\RespondToQuotation;
 use App\Modules\Quotations\Application\Writing\ReturnQuotation;
 use App\Modules\Quotations\Application\Writing\SendQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
@@ -150,6 +151,30 @@ final class QuotationController
         $sent = $quotations->send($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($sent, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($sent)));
+    }
+
+    /**
+     * Module 10 · 1.4. `send()`'s shape with a body; the answer is the
+     * answered quotation (`partial` / `counter`, its new `etag`) plus
+     * `new_version`, `newVersion()`'s fields for the draft to open (owner, C).
+     */
+    public function respond(RespondQuotationRequest $request, string $quotation, RespondToQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        [$answered, $copy] = $quotations->respond(
+            $quotation,
+            $request->customerResponse(),
+            $request->reason(),
+            $request->headers->get('If-Match'),
+            self::heldScopes($request),
+            $actorId,
+        );
+
+        return ApiEnvelope::single($request, [
+            ...QuotationPayload::detail($answered, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($answered)),
+            'new_version' => [...QuotationPayload::of($copy), 'version' => $copy->version],
+        ]);
     }
 
     /**

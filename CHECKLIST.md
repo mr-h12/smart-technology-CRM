@@ -1158,7 +1158,8 @@ would hide them behind `OD-03` indefinitely.
       transaction → `QuotationWriteAccess::open` → `QuotationStatusTransition::isAllowed` → `moveStatus`
       → `reread` → audit (`grep -rln "moveStatus(" crm/app/Modules/Quotations/Application/Writing`: 4).
       `respond` (1.4–1.6) will be the fifth unless one helper takes the move and its extra columns.
-      Owner's call whether 1.4 extracts it first.
+      Owner's call whether 1.4 extracts it first. *Owner, 2026-09-23 (b): not before 1.4 — it stays
+      debt; `RespondToQuotation` is the fifth copy.*
 
 ## Agent guide revisions — owner-directed
 
@@ -3470,10 +3471,11 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
       No PDF (`D-90`).
       *(2026-09-23, #210 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
-- [ ] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
+- [x] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
       (`422 rejection_reason_required`), `partial` does not (§6.3); the new version is written in the same
       transaction through 4.3's copy, which stops copying `returned_at`/`return_note`; the response names
       the new draft. Audit: `QUOTATION_PARTIAL` / `QUOTATION_COUNTERED` + `QUOTATION_VERSION_CREATED`.
+      *(2026-09-23 — `RespondToQuotation` + `CreateQuotationVersion::copyOf`; a stray field is refused, the answer carries `new_version`)*
 - [ ] **1.5** `respond` with `rejected`, from `sent` and from `expired` (Q8's new edge): reason required,
       `QUOTATION_REJECTED`, then Q12's last-live count under `FOR UPDATE` and 1.2's `quotationRejected`
       only when it is zero. Proven with two live quotations on one deal: the first rejection leaves the

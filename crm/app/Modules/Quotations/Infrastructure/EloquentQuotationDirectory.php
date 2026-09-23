@@ -9,6 +9,7 @@ use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderSummary;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
@@ -17,6 +18,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
+use App\Modules\Quotations\Infrastructure\Eloquent\PurchaseOrder;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
 use App\Support\Database\DocumentNumberAllocator;
 use DateTimeImmutable;
@@ -189,6 +191,18 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         }
 
         return $statuses;
+    }
+
+    public function createPurchaseOrder(string $quotationId, string $customerPoReference, string $poDate, string $actorId): PurchaseOrderSummary
+    {
+        $order = new PurchaseOrder;
+        $order->fill(['quotation_id' => $quotationId, 'customer_po_reference' => $customerPoReference, 'po_date' => $poDate]);
+        $order->po_number = (new DocumentNumberAllocator($this->connection, 'PO'))->next();
+        $order->created_by = $actorId;
+        $order->updated_by = $actorId;
+        $order->save();
+
+        return new PurchaseOrderSummary($order->id, $quotationId, $order->po_number, $customerPoReference, $poDate);
     }
 
     public function delete(string $quotationId, int $expectedToken, string $actorId): bool

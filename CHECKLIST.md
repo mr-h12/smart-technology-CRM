@@ -3540,7 +3540,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       explicit cell keeps `Team` / `Asgn`. A migration swaps the live grants on an already-seeded
       database, audited `ROLE_PERMISSIONS_UPDATED` with the system actor, reversible. The `D-91` row and
       §3.5's cells go into the master through the owner's `paste_d91.py`.
-      *(2026-09-23 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
+      *(2026-09-23, #215 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
 - [ ] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
       `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
       `GET /purchase-orders/{id}`; the quotation detail names its PO.

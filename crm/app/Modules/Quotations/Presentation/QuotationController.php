@@ -16,6 +16,7 @@ use App\Modules\Quotations\Application\Writing\CreateQuotationVersion;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\ReturnQuotation;
+use App\Modules\Quotations\Application\Writing\SendQuotation;
 use App\Modules\Quotations\Application\Writing\SubmitQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
@@ -139,6 +140,16 @@ final class QuotationController
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
         return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($submitted)));
+    }
+
+    /** Module 10 · 1.3. `submit()`'s shape; the answer's `status` is `sent` (`D-90`). */
+    public function send(Request $request, string $quotation, SendQuotation $quotations, ShowQuotation $reader): JsonResponse
+    {
+        $actorId = self::actorId($request);
+
+        $sent = $quotations->send($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
+
+        return ApiEnvelope::single($request, QuotationPayload::detail($sent, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($sent)));
     }
 
     /**

@@ -1152,6 +1152,13 @@ would hide them behind `OD-03` indefinitely.
       `J-01`'s expiry changes no customer status. **Owner: the second developer** (Module 5 owns the
       derivation and `J-02`); Yousef supplies the Quotations read (a `QuotationsContract` method
       answering "does this customer have an expired quotation with no reply") when it is ordered.
+- [ ] **The quotation status-move skeleton is written out four times** — *deepened by Module 10 · 1.3,
+      2026-09-23; not extracted there, because it would edit three classes outside the point.*
+      `SubmitQuotation`, `ApproveQuotation`, `ReturnQuotation` and now `SendQuotation` each repeat
+      transaction → `QuotationWriteAccess::open` → `QuotationStatusTransition::isAllowed` → `moveStatus`
+      → `reread` → audit (`grep -rln "moveStatus(" crm/app/Modules/Quotations/Application/Writing`: 4).
+      `respond` (1.4–1.6) will be the fifth unless one helper takes the move and its extra columns.
+      Owner's call whether 1.4 extracts it first.
 
 ## Agent guide revisions — owner-directed
 
@@ -3459,9 +3466,10 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
       transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:
       a rolled-back caller leaves the deal where it was; a deal with no `lost` edge is untouched (rule b).
       *(2026-09-23, #209 — `DealOutcomeInterface` + `RecordQuotationOutcome`, unrestricted scope; 1.3/1.5 take `deal_id` only from the authorised quotation)*
-- [ ] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
+- [x] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
       `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
       No PDF (`D-90`).
+      *(2026-09-23, #210 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
 - [ ] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
       (`422 rejection_reason_required`), `partial` does not (§6.3); the new version is written in the same
       transaction through 4.3's copy, which stops copying `returned_at`/`return_note`; the response names

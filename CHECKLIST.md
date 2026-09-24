@@ -3541,7 +3541,15 @@ printed blank.
       (proven by a probe that removed the wiring). **A person still has to look at the numbers, at
       Point 2.7**, and the same goes for the no-split rule, which is asserted as CSS and not as a
       measured row position.
-- [ ] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
+- [x] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
+
+      *(2026-09-24, #227 — one step appended to `php-image.yml`'s `verify` job, which already builds
+      the pdf image.)* It runs `php artisan test tests/PdfImage` inside `crm-php:ci-pdf`, the only
+      image with a browser — the shards cannot run these, and a `markTestSkipped` there would have
+      reported a pass for a test that never ran, which is point 0.6's failure in a different
+      costume. `verify.php` proves the **image** renders Arabic; this proves the **module** does.
+      *Probed* with the identical command locally: `CHROME_PATH=/nonexistent/chromium` fails the run
+      with `No browser at …` and exits 2, so a renderer that stops working turns the build red.
 - [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
 
 **Sketch of the remaining steps, so the module's shape is visible without committing to their

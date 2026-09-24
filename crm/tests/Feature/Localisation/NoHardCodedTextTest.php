@@ -144,7 +144,10 @@ final class NoHardCodedTextTest extends TestCase
                 // `deals.documents.*` one; the only bare values are the stored
                 // `scan_status` codes the template compares against.
                 'PurchaseOrdersView.vue',
-                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue', 'SelfApprovedBadge.vue',
+                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                // F-18 · 1.1 — the one server-searched combobox the customer and
+                // supplier pickers share; every sentence is a lang key the caller names.
+                'SearchCombobox.vue', 'SelfApprovedBadge.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run
                 // against it first and passed. Its two closed sets are the same

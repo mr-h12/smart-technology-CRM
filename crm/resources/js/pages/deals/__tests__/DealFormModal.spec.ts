@@ -380,6 +380,24 @@ describe('the deal form dialog', () => {
         expect(wrapper.emitted('cancel')).toBeUndefined();
     });
 
+    // F-18 · 1.1, the owner's ruling (2026-09-24): the open list takes the
+    // Escape, so one press closes the menu and not the dialog around it (§6.1).
+    it('closes only the customer list on Escape, not the form', async () => {
+        const wrapper = await mountModal();
+        const customer = wrapper.find('[data-testid="deal-form-customer-id"]');
+
+        await customer.trigger('focus');
+        await flushPromises();
+        await customer.trigger('keydown', { key: 'Escape' });
+
+        expect(customer.attributes('aria-expanded')).toBe('false');
+        expect(wrapper.emitted('cancel')).toBeUndefined();
+
+        // The list is closed now, so the next Escape is the dialog's.
+        await customer.trigger('keydown', { key: 'Escape' });
+        expect(wrapper.emitted('cancel')).toHaveLength(1);
+    });
+
     it('keeps editing when the discard is declined', async () => {
         const wrapper = await mountModal(DEAL);
 

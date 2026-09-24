@@ -99,7 +99,7 @@ from fighting over the same eleven files.
 | **7 — Customer Quotations** | Yousef | **finished** — 57 of 57 boxes, closed 2026-09-14 (#129), archived in `checklist/module-07.md`. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
 | **9 — PDF Generation** | second developer | in progress — Step 1 approved 2026-09-13, Point 1.0 closed (#116); `OD-02` closed by `D-79` (#111) |
-| **10 — Customer Response & POs** | Yousef | point list published 2026-09-23 (#206), the owner's answers to Q1–Q12 recorded under the module |
+| **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -3566,181 +3566,13 @@ rule requires.
 
 ## Module 10 — Customer Response & Purchase Orders
 
-> As a sales employee, I want to record the customer's response, so that the deal moves along the
-> correct path.
+**Closed 20 of 20 boxes** · full point history: [checklist/module-10.md](checklist/module-10.md) ·
+Arabic manual test list handed over 2026-09-24 (#225).
 
-**Tables** `purchase_orders` — auto `po_number` + free-text `customer_po_reference` + date + attachment
-
-**Acceptance criteria**
-- [ ] Partial or Counter → full copy saved automatically, employee edits the new version
-- [ ] Counter or Rejected → **mandatory reason** before the status is accepted
-- [ ] Rejected → quotation archived · **customer stays in the list** · deal becomes Lost
-- [ ] `valid_until` passes with no reply → **Expired** automatically (J-01)
-- [ ] Search works on both the internal PO number and the customer's reference
-- [ ] Every version preserved via `parent_id` + `version`
-
-### Point list — published 2026-09-23, approved by merging #206
-
-**What is on `main` (measured 2026-09-23 at `1573287`):** the edges `approved → sent` and
-`sent → accepted|partial|counter|rejected|expired` (`QuotationStatusTransition.php:29-39`) with **no
-writer** — no route, use case or screen sends a quotation or records a response, and `sent_at` is
-read but never written. `rejection_reason` is already required by a CHECK for `rejected` **and**
-`counter` (`create_quotations.php:277-279`). 7 · 4.3's copy exists (`POST /new-version`, from
-`partial|counter|expired`, by hand) and copies `returned_at`/`return_note` onto the new version. The
-permissions `quotation.send_to_customer` and `quotation.record_customer_response` are seeded (Manager
-All, TL Team, both Sales Own) and unused. `PO-` needs no change to `DocumentNumberAllocator`;
-`purchase_order_files` exists **without** its foreign key (`FilesMigrationTest.php:265`); no
-`purchase_orders` table, no PO permission, no `SearchIndex` case. `SupplierItemQuantityInterface::consume`
-has no caller and is outside `SupplierQuotationsContract`. No deal write is reachable from another
-module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_sent` or `negotiations`
-(`DealStatusTransition.php:39-40`). `J-01` does not exist, and nothing runs the scheduler (debt register).
-
-**The owner's answers, 2026-09-23 (Q1–Q11 asked in conversation; Q12 raised by the owner):**
-
-- **Q1 · send.** Built here, **without waiting for the PDF**. Flow 1 step 8 couples sending with the PDF,
-  so the deviation is **`D-90`**, not only a debt line.
-- **Q2 · the deal moves on two events only.** Sending moves `supplier_quotation → quotation_sent`
-  (§4.4 "Quotation Sent · Sales (after approval)"); a rejection moves it to `lost` under Q12's rule, the
-  rejection reason becoming the lost reason. Accepted, Partial and Counter do not move the deal —
-  §4.4 gives `won` to TL/Manager.
-- **Q3 · how Quotations moves a deal.** A narrow write interface in `DealsContract` that runs
-  `ChangeDealStatus` inside the caller's transaction and recomputes the customer status as it does
-  today. No domain event.
-- **Q4 · placement.** Inside `crm/app/Modules/Quotations/`, Module 8's Q1 reasoning; the PO is written in
-  the acceptance's transaction. Quotations gains `StorageContract` for the PO's attachment.
-- **Q5 · the PO at acceptance.** Accepted **requires** `customer_po_reference` and `po_date` and writes
-  `purchase_orders` with a `PO-YYYY-NNNN` number (`D-12`, `D-53`, §4.6) in the same transaction, plus one
-  `consume()` per quotation line (`D-81`, F-05 · 1.5). The attachment is uploaded **after** acceptance.
-- **Q6 · archive on rejection.** The `history` bucket (`QuotationListCriteria::BUCKETS`) is the quotation
-  archive; **no restore is built**. The owner's ruling on Flow 7's "Restore · Manager": when a customer
-  comes back after a rejection, **a new deal is opened — a Lost deal is never revived**. Recorded in `D-90`.
-- **Q7 · Partial and Counter copy automatically** (§6.3, `D-08`), in the response's transaction; the
-  response returns the new draft's id. `new-version` by hand stays for `expired`. The copy stops carrying
-  `returned_at`/`return_note`.
-- **Q8 · `expired → rejected`** is a new edge (§10.5 "records Rejected with reason 'no response'"), reason
-  required, and Q12's rule applies to it.
-- **Q9 · `J-01`.** Daily on `maintenance`; `sent` with `valid_until` before today in `locale.timezone`
-  ⇒ `expired`; audited with a system actor. **Catch-up on startup is required:** §15 marks `J-01` ✅ and
-  `D-55`/`ST-05` say missed jobs run on startup (only `J-15`'s ❌ is exempted in §15). `J-02` marks ✅ too
-  and skips it — registered as debt, not fixed here. §4.5 row 3 ("Expired with no reply ⇒ No Response")
-  is registered as debt with its owner named.
-- **Q10 · no PO permission.** A PO is read by whoever may view its quotation, scoped through the deal;
-  its file is attached under `quotation.record_customer_response` (§17: a file's permission is its
-  parent's, `D-38`).
-- **Q11 · routes.** `PATCH /quotations/{id}/send`; `PATCH /quotations/{id}/respond` with
-  `{response: accepted|partial|counter|rejected, reason?, customer_po_reference?, po_date?}` under
-  `quotation.record_customer_response`; `GET /purchase-orders`, `GET /purchase-orders/{id}`,
-  `POST /purchase-orders/{id}/documents` (owner, 2026-09-23 at 1.1: `/documents`, the deals and supplier-quotations shape, not the `/files` first proposed). The `PATCH`es carry `If-Match` and no `Idempotency-Key` (`OpenAPI
-  §7.2`'s reading for the approval actions); `consume()` keeps its own per-line key.
-- **Q12 · a deal may hold several live quotations — measured, and the rule.** Nothing forbids it: no
-  constraint on `quotations.deal_id` beyond `UNIQUE (parent_id, version)`, no check in `CreateQuotation`,
-  no document limits it; the dev database holds `DL-2026-0002` with **4** live and `DL-2026-0003` with **2**.
-  *Live* = the `active` bucket: `draft`, `pending`, `approved`, `sent`. **Rule:** a rejection
-  (`sent → rejected` or `expired → rejected`) moves the deal to `lost` **only when no other quotation of
-  that deal is live** afterwards; otherwise the quotation is rejected and the deal is untouched. Counted
-  inside the rejection's transaction, the deal's quotations locked `FOR UPDATE`, so two last rejections
-  racing cannot both see one survivor. Recorded in `D-90`.
-
-**The owner's answers during 2.2's questions, 2026-09-23:**
-
-- **The Team Leader and Procurement read every quotation**, and through it every purchase order —
-  `D-91`, built as point 2.2a before 2.2. `quotation.view` only; their bare ✅ cells in §3.5 follow
-  the new `All` (§3.2's reading), so both see cost and margin on every quotation (accepted).
-- **«إشعار خصم» is a discount on the sale price only** — the quotation's own `discount_amount`, not a
-  separate credit note. Closes the question that waited for the accountant.
-- **What a purchase order shows (2.2).** List: PO number, customer's PO reference, PO date, quotation
-  code, customer name, the quotation's final total with its currency. Detail: all of that, plus when
-  and by whom it was recorded, whether it has an attachment (the file itself is 2.3), the deal code,
-  the salesperson who owns the deal, the quotation's status, and the total's breakdown (subtotal,
-  discount, tax, additional items). **Never** cost, margin or suppliers. Sort `po_date` / `po_number` /
-  `created_at` (default `-created_at`), no filter besides `q`; the quotation detail always carries
-  `purchase_order` (null when none), and `respond` stops adding its own copy.
-
-**Two edge rules this list adds, for the owner to confirm at merge** (no document settles them):
-
-- **a · send from a deal that is not ready.** A deal before `supplier_quotation` (`lead` … `supplier_rfq`)
-  cannot reach `quotation_sent` in one move, so send is refused `422` naming the deal's status; a deal
-  already at `quotation_sent` or later is left where it is.
-- **b · a rejection on a deal with no `lost` edge** (already `lost`, or `won` and beyond): the quotation
-  is rejected and the deal is untouched, and the response says so.
-
-#### Step 1 — send and the customer's response (backend)
-
-- [x] **1.1** Docs only. The `D-90` row (Q1's PDF deviation, Q6's ruling, Q2's two deal moves, Q12's
-      last-live rule, rules a and b) — the master is hook-protected, so the point hands the owner a
-      script asserting its anchor once. `OpenAPI §7.1` gains the purchase-order routes and `§7.2` the
-      `send` and `respond` rows (body, permission, audit event, state change, no `Idempotency-Key`).
-      *(2026-09-23, #207 — `D-90` lands when the owner runs `paste_d90.py`; the upload route is `/documents`)*
-- [x] **1.2** `DealsContract` gains the write: `quotationSent(dealId, actorId)` and
-      `quotationRejected(dealId, reason, actorId)`, each through `ChangeDealStatus` inside the caller's
-      transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:
-      a rolled-back caller leaves the deal where it was; a deal with no `lost` edge is untouched (rule b).
-      *(2026-09-23, #209 — `DealOutcomeInterface` + `RecordQuotationOutcome`, unrestricted scope; 1.3/1.5 take `deal_id` only from the authorised quotation)*
-- [x] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
-      `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
-      No PDF (`D-90`).
-      *(2026-09-23, #210 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
-- [x] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
-      (`422 rejection_reason_required`), `partial` does not (§6.3); the new version is written in the same
-      transaction through 4.3's copy, which stops copying `returned_at`/`return_note`; the response names
-      the new draft. Audit: `QUOTATION_PARTIAL` / `QUOTATION_COUNTERED` + `QUOTATION_VERSION_CREATED`.
-      *(2026-09-23, #211 — `RespondToQuotation` + `CreateQuotationVersion::copyOf`; a stray field is refused, the answer carries `new_version`)*
-- [x] **1.5** `respond` with `rejected`, from `sent` and from `expired` (Q8's new edge): reason required,
-      `QUOTATION_REJECTED`, then Q12's last-live count under `FOR UPDATE` and 1.2's `quotationRejected`
-      only when it is zero. Proven with two live quotations on one deal: the first rejection leaves the
-      deal, the second makes it `lost`.
-      *(2026-09-23, #212 — the lock is taken before the write; the answer carries `deal_lost` (owner))*
-- [x] **1.6** `respond` with `accepted`: migration `purchase_orders` (uuid, `quotation_id` FK and unique
-      alive, `po_number` unique, `customer_po_reference`, `po_date`, audit columns, soft delete, `down()`)
-      plus the foreign key `purchase_order_files` has owed since Module 0; `customer_po_reference` and
-      `po_date` required; `PO-` from `DocumentNumberAllocator`; `SupplierItemQuantityInterface` joins
-      `SupplierQuotationsContract` and `consume()` runs once per line keyed by the line's id; audit
-      `QUOTATION_ACCEPTED` (old/new `consumed_quantity`) + `PURCHASE_ORDER_CREATED`; one transaction.
-      Ticks **F-05 · 1.5**.
-      *(2026-09-23, #213 — the answer carries `purchase_order` (owner A); old balance = new − quantity, exact under `If-Match`)*
-
-#### Step 2 — `J-01` and the purchase order's read side
-
-- [x] **2.1** `J-01 expire_quotations`: a use case and a job on `maintenance`, daily; `sent` and
-      `valid_until` before today in `locale.timezone` ⇒ `expired`, `QUOTATION_EXPIRED` with a system actor,
-      idempotent. A `scheduler` service in `docker-compose.yml` runs `J-01` once on start (the `D-55`
-      catch-up) and then `schedule:work` — closing the "nothing runs the scheduler" debt row, and from
-      then on `J-02` and `J-15` fire in the stack too. No deal move (Q2), no customer status (debt row).
-      *(2026-09-23, #214 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
-- [x] **2.2a** `D-91`: the Team Leader and Procurement read every quotation. `PermissionMatrix` moves
-      §3.5's TL `view` `Team → All` and Procurement's `Asgn → All`, with their bare ✅ cells (TL: view
-      cost & margin, edit margin, edit tax, export PDF; Procurement: view cost & margin); every
-      explicit cell keeps `Team` / `Asgn`. A migration swaps the live grants on an already-seeded
-      database, audited `ROLE_PERMISSIONS_UPDATED` with the system actor, reversible. The `D-91` row and
-      §3.5's cells go into the master through the owner's `paste_d91.py`.
-      *(2026-09-23, #215 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
-- [x] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
-      `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
-      `GET /purchase-orders/{id}`; the quotation detail names its PO.
-      *(2026-09-23, #216 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
-- [x] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
-      `quotation.record_customer_response`, the list of its files, and the download mapping for
-      `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);
-      `AttachDealDocument`'s shape (validate, store, scan after commit).
-      *(2026-09-23, #217 — `documents` on the detail replaced `has_attachment` (owner A1); several per order (B1); download under `quotation.view`)*
-
-#### Step 3 — the screens
-
-- [x] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
-      *Record the customer's response* dialog — four outcomes, the reason field for Counter and Rejected,
-      the PO reference and date for Accepted; Partial and Counter open the new draft; an `expired`
-      quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
-      *(2026-09-23, #221 — in-page dialog; Expired pre-fills «لا رد» (§10.5, owner); `deal_lost` shown as one line (rule b, owner); the PO block stays 3.3's)*
-- [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
-      by version chain, through the existing `GET /quotations?filter[deal_id]`.
-      *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
-- [x] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
-      of its attachment.
-      *(2026-09-23, #223 — `/purchase-orders` + sidebar on `quotation.view`, §8 names none (owner Q-A); no PO page, the order and its files live on the quotation (Q-B); search + prev/next only (Q-C); `displayDate()` draws a date-only field in UTC (Q-D))*
-
-#### Step 4 — close the module
-
-- [ ] **4.1** Arabic manual test list, freeze to `checklist/module-10.md`, stub here, ownership row.
+Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
+the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒
+No Response") and `J-02`'s missing catch-up stay in the debt register above; the post-QA fix pass
+(F-17…F-30, 2026-09-24) runs before Module 11.
 
 ---
 

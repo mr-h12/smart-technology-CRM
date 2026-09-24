@@ -2985,8 +2985,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 
 ### Point list — approved 2026-09-24 with the owner's fix-pass plan
 
-- [ ] **F-00** This section; the `Idempotency-Key` and optimistic-concurrency debt rows corrected
-      against the code; `D-92`…`D-96` drafted.
+- [x] **F-00** This section; the `Idempotency-Key` and optimistic-concurrency debt rows corrected
+      against the code; `D-92`…`D-96` drafted. *(2026-09-24, #229 — the drafts are in the PR, for the
+      owner to paste)*
 
 **High**
 

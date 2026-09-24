@@ -17,9 +17,16 @@ use App\Modules\Pdf\Domain\Rendering\PdfRenderingFailed;
 interface PdfRendererInterface
 {
     /**
+     * @param  string|null  $footerHtml  drawn in the bottom margin of every page —
+     *                                   Chrome's own `footerTemplate`, where
+     *                                   `<span class="pageNumber">` and
+     *                                   `<span class="totalPages">` are filled in per
+     *                                   page. `D-79` carried this forward as build
+     *                                   work: item counts vary per quotation, so the
+     *                                   numbering cannot be part of the document.
      * @return string the PDF's bytes
      *
      * @throws PdfRenderingFailed when this image cannot render, or the render fails
      */
-    public function render(string $html): string;
+    public function render(string $html, ?string $footerHtml = null): string;
 }

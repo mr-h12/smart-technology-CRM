@@ -31,23 +31,33 @@ final readonly class BrowsershotPdfRenderer implements PdfRendererInterface
         private int $timeoutSeconds,
     ) {}
 
-    public function render(string $html): string
+    public function render(string $html, ?string $footerHtml = null): string
     {
         if (! is_executable($this->chromePath)) {
             throw PdfRenderingFailed::browserUnavailable($this->chromePath);
         }
 
         try {
-            return Browsershot::html($html)
+            $browsershot = Browsershot::html($html)
                 ->setChromePath($this->chromePath)
                 ->setNodeModulePath($this->nodeModulesPath)
                 ->noSandbox()
                 ->disableJavascript()
                 ->addChromiumArguments(['disable-dev-shm-usage', 'disable-gpu'])
                 ->format('A4')
+                // The page box, set here rather than in the template's CSS:
+                // Chrome draws the footer inside the bottom margin, so the
+                // margin and the footer are one decision. 20mm leaves room for
+                // the letterhead band and the page number beneath it.
+                ->margins(14, 12, 20, 12)
                 ->showBackground()
-                ->timeout($this->timeoutSeconds)
-                ->pdf();
+                ->timeout($this->timeoutSeconds);
+
+            if ($footerHtml !== null) {
+                $browsershot->showBrowserHeaderAndFooter()->hideHeader()->footerHtml($footerHtml);
+            }
+
+            return $browsershot->pdf();
         } catch (Throwable $e) {
             throw PdfRenderingFailed::because($e);
         }

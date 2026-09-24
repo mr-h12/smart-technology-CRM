@@ -170,6 +170,54 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
+    public function test_that_the_page_number_footer_is_localised_and_left_to_chrome(): void
+    {
+        // Point 2.5, and D-79's carried-forward item: the count varies per
+        // quotation, so the numbering belongs to Chrome's footerTemplate and
+        // not to the document.
+        $html = $this->app->make(CustomerQuotationHtml::class);
+
+        foreach (['en', 'ar'] as $locale) {
+            $footer = $html->footer($locale);
+
+            self::assertStringContainsString('<span class="pageNumber"></span>', $footer);
+            self::assertStringContainsString('<span class="totalPages"></span>', $footer);
+            // No embedded face here, and the docblock says why: Browsershot
+            // passes this template as a command argument, and a base64 face
+            // makes the command too long for the OS. The families are the ones
+            // the rendering image installs.
+            self::assertStringNotContainsString('data:font/woff2;base64,', $footer);
+            self::assertMatchesRegularExpression('/font-family:[^"]*(Inter|Noto Sans Arabic)/', $footer);
+            self::assertLessThan(2000, strlen($footer), 'A footer this large risks Chrome\'s command-line limit.');
+        }
+
+        // The words come from the lang files, and Arabic puts them in the other
+        // order — which is why the label takes both numbers as placeholders
+        // rather than being concatenated around them.
+        self::assertStringContainsString('Page', $html->footer('en'));
+        self::assertStringContainsString('صفحة', $html->footer('ar'));
+        self::assertStringContainsString('dir="rtl"', $html->footer('ar'));
+
+        // The visible text only — `class="totalPages"` is Chrome's own hook and
+        // contains "Page", which an assertion over the whole string would flag.
+        $arabicText = strip_tags($html->footer('ar'));
+        self::assertDoesNotMatchRegularExpression('/[A-Za-z]{2,}/', $arabicText, 'English reached the Arabic footer.');
+    }
+
+    public function test_that_an_unknown_locale_is_refused_by_both_halves(): void
+    {
+        $html = $this->app->make(CustomerQuotationHtml::class);
+
+        foreach (['fr', 'en-GB', ''] as $locale) {
+            try {
+                $html->footer($locale);
+                self::fail("The footer rendered in {$locale}.");
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('ar or en', $e->getMessage());
+            }
+        }
+    }
+
     private function html(
         string $locale = 'en',
         mixed ...$overrides,

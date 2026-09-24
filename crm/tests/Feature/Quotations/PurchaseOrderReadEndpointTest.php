@@ -257,7 +257,12 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.Uuid::uuid4()->toString())->assertStatus(401);
     }
 
-    /** `OpenAPI §5.1`: "Do not reveal which case applies" — out of reach, unknown, malformed and deleted answer alike. */
+    /**
+     * `OpenAPI §5.1`: "Do not reveal which case applies" — out of reach, unknown
+     * and deleted answer alike. A malformed id is refused by the route since
+     * F-17 · 1.2: the same `404 resource_not_found`, in the router's words; it
+     * names no order, so it reveals nothing (the owner's ruling A, 2026-09-24).
+     */
     public function test_an_order_out_of_reach_unknown_malformed_or_deleted_is_the_same_404(): void
     {
         $theirs = $this->accepted($this->deal($this->userWith(RoleName::OutdoorSales)->id), 'THEIRS-1');
@@ -268,7 +273,6 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         foreach ([
             [$theirs['id'], RoleName::IndoorSales],
             [Uuid::uuid4()->toString(), RoleName::Manager],
-            ['not-a-uuid', RoleName::Manager],
             [$deleted['id'], RoleName::Manager],
         ] as [$id, $role]) {
             $message = $this->show($id, $role)
@@ -280,6 +284,10 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         }
 
         self::assertCount(1, array_unique($messages));
+
+        $this->show('not-a-uuid', RoleName::Manager)
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found');
     }
 
     public function test_a_deleted_order_is_not_listed(): void

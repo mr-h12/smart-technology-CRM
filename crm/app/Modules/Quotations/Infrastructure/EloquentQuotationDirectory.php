@@ -387,11 +387,8 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
 
     public function findPurchaseOrder(string $purchaseOrderId): ?PurchaseOrderRecord
     {
-        // Postgres refuses a malformed uuid with 22P02; unknown is the answer.
-        if (! Str::isUuid($purchaseOrderId)) {
-            return null;
-        }
-
+        // A malformed id never gets here: `{purchaseOrder}` matches only a UUID
+        // (`routes/api.php`, F-17 · 1.2).
         $order = PurchaseOrder::query()->whereKey($purchaseOrderId)->first();
         $quotation = $order instanceof PurchaseOrder ? Quotation::query()->whereKey($order->quotation_id)->first() : null;
 

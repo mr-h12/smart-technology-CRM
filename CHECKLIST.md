@@ -665,7 +665,7 @@ would hide them behind `OD-03` indefinitely.
       `If-Match` only (`OpenAPI §7.2`). **Stale beside it:** the comment above the supplier-quotations
       routes (`routes/api.php:669-678`) still says "No such infrastructure exists anywhere in this
       codebase". Owed: that comment corrected by the next point that edits `routes/api.php` — not
-      in F-00, which stays docs-only
+      in F-00, which stays docs-only. *Done by F-17 · 1.2, 2026-09-24.*
 
 - [x] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
       it** — recorded 2026-09-02 by Module 6 Point 2.4, which read §9.2 and correctly found supplier
@@ -1274,13 +1274,22 @@ would hide them behind `OD-03` indefinitely.
       `respond` (1.4–1.6) will be the fifth unless one helper takes the move and its extra columns.
       Owner's call whether 1.4 extracts it first. *Owner, 2026-09-23 (b): not before 1.4 — it stays
       debt; `RespondToQuotation` is the fifth copy.*
-- [ ] **`GET /quotations/{id}` with a malformed id answers `500`, not `404`** — *revealed by Module 10
+- [x] **`GET /quotations/{id}` with a malformed id answers `500`, not `404`** — *revealed by Module 10
       · 2.2, 2026-09-23; not fixed there, because it is outside the point.* `EloquentQuotationDirectory::find()`
       sends the raw id to Postgres, which refuses it (`SQLSTATE[22P02] invalid input syntax for type
       uuid`), and nothing maps that `QueryException`. Measured on the wire: 2.2's 404 test pointed at
       `/quotations` got `500` for `not-a-uuid`. `OpenAPI §5.1` wants `404 resource_not_found` and
       "never expose … SQL". 2.2 guards its own `findPurchaseOrder()` with `Str::isUuid`, as
       `EloquentRoleDirectory` does; every other `find()` taking a path id is unmeasured.
+      — *closed 2026-09-24 by F-17 · 1.2:* the 11 id parameters match only a UUID (`Route::patterns`
+      at the top of `routes/api.php`), so a malformed id is the router's `404`; measured red first on
+      9 of them. `findPurchaseOrder()`'s guard is removed.
+- [ ] **`EloquentRoleDirectory` still guards route ids with `Str::isUuid`, which F-17 · 1.2 made
+      redundant** — *revealed by F-17 · 1.2, 2026-09-24; not fixed there, because the approved line
+      names only the purchase-order guard.* `findRole()` (`:127`), `countUsersWithRole()` (`:174`)
+      and `labelTaken()`'s `$exceptRoleId` (`:249`) are reached only with the `{role}` route id or a
+      role's own stored id; `permissionsByIds()` (`:142`) filters ids from a request body and must
+      stay. Owed: the three removed, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -3001,9 +3010,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             Red first: a missing download answers with a `trace`. *(2026-09-24, #230 — one
             `httpException()` callback, registered last; unlisted 4xx `invalid_request`, 5xx
             `internal_error`)*
-      - [ ] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
+      - [x] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
-            today. Then the purchase orders' own `Str::isUuid` guard goes.
+            today. Then the purchase orders' own `Str::isUuid` guard goes. *(2026-09-24, #231 —
+            `Route::patterns` over 11 names; a malformed id answers in the router's words, ruling A)*
       - [ ] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
             the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
             2026-09-24 during 1.1's questions, rather than widening 1.1.

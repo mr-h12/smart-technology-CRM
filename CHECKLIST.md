@@ -1290,6 +1290,14 @@ would hide them behind `OD-03` indefinitely.
       and `labelTaken()`'s `$exceptRoleId` (`:249`) are reached only with the `{role}` route id or a
       role's own stored id; `permissionsByIds()` (`:142`) filters ids from a request body and must
       stay. Owed: the three removed, when the owner orders it
+- [ ] **Two comments still describe the error renderer as Module 1's handful of shapes** — *revealed
+      by F-17 · 1.3, 2026-09-24; not fixed there, because the approved line is the `Throwable`
+      500 only.* `bootstrap/app.php:136-138` says "These four are the shapes Module 1 can produce;
+      §5.1's other nine arrive with the modules", and `ApiExceptionRenderer.php:56-60` says "The
+      five shapes … the remaining eight belong to the modules". `bootstrap/app.php` registers 34
+      `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
+      `Throwable` is covered generically rather than module by module. Owed: both comments
+      rewritten to say what the renderer covers now, in a docs point, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -3000,7 +3008,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 
 **High**
 
-- [ ] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
+- [x] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
       (E5-7, E5-9; debt row "`GET /quotations/{id}` with a malformed id answers `500`, not `404`"). Ids
       are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
       orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
@@ -3014,9 +3022,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
             today. Then the purchase orders' own `Str::isUuid` guard goes. *(2026-09-24, #231 —
             `Route::patterns` over 11 names; a malformed id answers in the router's words, ruling A)*
-      - [ ] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
+      - [x] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
             the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
-            2026-09-24 during 1.1's questions, rather than widening 1.1.
+            2026-09-24 during 1.1's questions, rather than widening 1.1. *(2026-09-24, #232 — one
+            `Throwable` callback, last; debug on or off; a middleware `HttpResponseException` keeps
+            its response)*
 - [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
       `SupplierQuotationFormModal.vue` reads `perPage: 100`).
       - [ ] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,

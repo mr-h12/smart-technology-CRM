@@ -3527,7 +3527,15 @@ printed blank.
       The Arabic prose is the agent's draft and stays `[~]` until the owner corrects it (Q8).
 - [ ] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
       a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
-- [ ] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
+- [x] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
+
+      *(2026-09-24, #PR — one step appended to `php-image.yml`'s `verify` job, which already builds
+      the pdf image.)* It runs `php artisan test tests/PdfImage` inside `crm-php:ci-pdf`, the only
+      image with a browser — the shards cannot run these, and a `markTestSkipped` there would have
+      reported a pass for a test that never ran, which is point 0.6's failure in a different
+      costume. `verify.php` proves the **image** renders Arabic; this proves the **module** does.
+      *Probed* with the identical command locally: `CHROME_PATH=/nonexistent/chromium` fails the run
+      with `No browser at …` and exits 2, so a renderer that stops working turns the build red.
 - [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
 
 **Sketch of the remaining steps, so the module's shape is visible without committing to their

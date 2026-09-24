@@ -423,6 +423,38 @@ jobs:
             echo "::endgroup::"
           done
 
+      # Module 9 · 2.6 (Step 2's Q7). `verify.php` above proves the *image* can
+      # render Arabic; this proves the *module* can — the template, its embedded
+      # faces, the page-number footer and the customer view behind them. It runs
+      # here because `tests/PdfImage` is in no phpunit suite: the app image has
+      # no browser, which the step below asserts, so the shards cannot run these
+      # and a `markTestSkipped` would have reported a pass for a test that never
+      # ran (point 0.6's failure, in a different costume).
+      #
+      # --user root: the runner's checkout is not www-data's, and Chromium is
+      # started with --no-sandbox by the renderer, which is what a root browser
+      # needs. No database container: these tests render, they do not read.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ hashFiles('crm/composer.lock') }}
+      - name: Render a customer quotation in the pdf image (Module 9 · 2.6)
+        run: |
+          mkdir -p ~/.cache/composer
+          docker run --rm \
+            -v "$PWD/crm:/app" \
+            -v "$HOME/.cache/composer:/tmp/composer" -e COMPOSER_CACHE_DIR=/tmp/composer \
+            -w /app --user root crm-php:ci-pdf sh -c '
+              set -e
+
+              composer install --no-interaction --no-progress --prefer-dist --quiet
+
+              cp -n .env.example .env 2>/dev/null || true
+              php artisan key:generate --force --quiet
+
+              php artisan test tests/PdfImage
+            '
+
       # The split is only real if it holds. A browser leaking into the app
       # image would silently undo the whole point of building two.
       - name: Assert the app target carries no browser

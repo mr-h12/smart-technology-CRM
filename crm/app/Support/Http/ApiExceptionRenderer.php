@@ -37,6 +37,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * `OpenAPI §5` — "All non-2xx responses use this shape. Never return
@@ -733,6 +734,39 @@ final class ApiExceptionRenderer
         // Retry-After that disagrees with the limiter is worse than none,
         // because a client obeys it and is refused again.
         $response->headers->set('Retry-After', is_scalar($retryAfter) ? (string) $retryAfter : '60');
+
+        return $response;
+    }
+
+    /**
+     * F-17 · 1.1 — an `abort()`, a missing route, a wrong method, and whatever
+     * the framework's `prepareException()` turned into one (a model not found,
+     * a policy denial, a CSRF mismatch). The status stays; the code is
+     * `OpenAPI §5.1`'s for that status, and a status the table does not list
+     * is `invalid_request` or `internal_error` (the owner's ruling,
+     * 2026-09-24). 423 and 429 have their own renderers, `refusal()` and
+     * `throttled()`, so they have no arm here. The exception's headers
+     * survive: a 405 must carry `Allow`.
+     */
+    public static function httpException(HttpExceptionInterface $exception, Request $request): JsonResponse
+    {
+        $status = $exception->getStatusCode();
+
+        $response = ApiEnvelope::error(
+            $request,
+            $status,
+            match ($status) {
+                400 => 'invalid_request',
+                401 => 'authentication_required',
+                403 => 'permission_denied',
+                404 => 'resource_not_found',
+                503 => 'service_unavailable',
+                default => $status >= 500 ? 'internal_error' : 'invalid_request',
+            },
+            (string) __('http-statuses.'.$status),
+        );
+
+        $response->headers->add($exception->getHeaders());
 
         return $response;
     }

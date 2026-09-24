@@ -2996,12 +2996,17 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
       orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
       `NotFoundHttpException` nor `HttpException`.
-      - [ ] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
+      - [x] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
             envelope, which also covers `DownloadFileController`'s `abort`s and Identity's `abort_if`s.
-            Red first: a missing download answers with a `trace`.
+            Red first: a missing download answers with a `trace`. *(2026-09-24, #230 — one
+            `httpException()` callback, registered last; unlisted 4xx `invalid_request`, 5xx
+            `internal_error`)*
       - [ ] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
             today. Then the purchase orders' own `Str::isUuid` guard goes.
+      - [ ] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
+            the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
+            2026-09-24 during 1.1's questions, rather than widening 1.1.
 - [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
       `SupplierQuotationFormModal.vue` reads `perPage: 100`).
       - [ ] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,

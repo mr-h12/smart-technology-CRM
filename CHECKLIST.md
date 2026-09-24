@@ -1290,6 +1290,14 @@ would hide them behind `OD-03` indefinitely.
       and `labelTaken()`'s `$exceptRoleId` (`:249`) are reached only with the `{role}` route id or a
       role's own stored id; `permissionsByIds()` (`:142`) filters ids from a request body and must
       stay. Owed: the three removed, when the owner orders it
+- [ ] **Two comments still describe the error renderer as Module 1's handful of shapes** — *revealed
+      by F-17 · 1.3, 2026-09-24; not fixed there, because the approved line is the `Throwable`
+      500 only.* `bootstrap/app.php:136-138` says "These four are the shapes Module 1 can produce;
+      §5.1's other nine arrive with the modules", and `ApiExceptionRenderer.php:56-60` says "The
+      five shapes … the remaining eight belong to the modules". `bootstrap/app.php` registers 34
+      `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
+      `Throwable` is covered generically rather than module by module. Owed: both comments
+      rewritten to say what the renderer covers now, in a docs point, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 

@@ -767,6 +767,10 @@ parameters:
       # IdentityContract, Point 2.3 — `UserFactsInterface` names the signatory
       # `D-89` prints over the sign-off. The contract half only.
       - IdentityContract
+      # Framework, Point 2.4 — the template is Blade, so the class that renders
+      # it holds Laravel's view factory and translator. Every other module that
+      # renders or translates holds the same grant.
+      - Framework
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

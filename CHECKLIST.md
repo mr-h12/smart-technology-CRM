@@ -271,6 +271,37 @@ would hide them behind `OD-03` indefinitely.
       the same ~46 px shifts the import dialog's primary button and the supplier picker's labels to
       `x = -5.5`, so 5.5 px of each sits off the left edge (still tappable). Same shell root cause, not fixed there.
 
+- [ ] **The customer PDF's footer prints a picture of the company's contact details, not the
+      settings** — *found while building Point 2.4 (2026-09-23), by the localisation guard flagging
+      the image's `alt` text.* `§14.6` requires "company logo and details from settings", and the
+      header meets it: the company name comes from `SystemSetting::CompanyName`. The **footer** does
+      not — `D-89` approved the company's own letterhead band, and that image has the address, the
+      phone and fax numbers and the three e-mail addresses **drawn into it**. `CustomerQuotationView`
+      carries `companyAddress` and `companyPhones` from Settings and the template prints neither,
+      because printing them under a band that already shows them would duplicate the block.
+      **The cost, stated:** if the Super Admin edits the address or the phones, every PDF keeps
+      showing the old ones until someone replaces `resources/pdf/letterhead/footer-band.jpg`. The
+      e-mails and the fax are not in Settings at all yet (requested from Module 2's owner).
+      **The fix, when it is decided:** either redraw the band as a plain stripe and render the
+      contact block as text from Settings, or accept the baked image and say so in `D-89`. Owner's
+      call at Point 2.7's visual sign-off.
+
+- [ ] **The customer PDF's template is a file in the repository, not a screen** — *owner ruling,
+      2026-09-23 ("option A"): build Step 2 as approved and register the gap rather than redesign
+      the step.* `§14.6`'s first clause is "template editable from the Super Admin screen without
+      code", and Point 2.4 ships `resources/views/pdf/customer-quotation.blade.php`, which only a
+      developer can change. `D-79` and `D-89` both approved a **design** — the layout, the faces,
+      the engine — and neither says where the template lives, so this was never settled and is not
+      a departure from a decision; it is a clause nothing has implemented. **The cost, stated:** a
+      wording or layout change to the customer's document needs a developer and a deploy, which is
+      exactly what `§14.6` wanted to avoid, and the Arabic prose the owner still has to correct
+      (Step 2's Q8) reaches production the same way. **What it is not:** the *content* is already
+      out of the code — every label lives in `lang/{ar,en}/pdf.php` and the company identity in
+      Settings (`§13` screen 4), so the clause that remains unmet is editing the **layout** from a
+      screen. Needs a `D-xx` before it is built: a Blade file stored in the database and compiled at
+      runtime is `Blade::render()` over owner-supplied input, which is a code-execution surface
+      `§14.3` would have to rule on first.
+
 - [ ] **`team`, `out` and `asgn` row scopes resolve to no rows** — *owner decision, 2026-08-29:
       deferred as debt rather than invented.* §3.2 defines five scopes and only two have a mechanism
       in the system: `all` needs no predicate and `own` is `customers.sales_owner_id`. The other
@@ -3481,10 +3512,19 @@ printed blank.
       error in their fakes — measured, not assumed. Both fields are absent rather than refused: a
       deal need not be titled, and Identity does not name the hidden Super Admin or a deleted
       account.)*
-- [ ] **2.4** The Blade template, `D-89`'s layout, one template for RTL and LTR, every label from
+- [x] **2.4** The Blade template, `D-89`'s layout, one template for RTL and LTR, every label from
       `lang/{ar,en}/pdf.php`, **percentages as placeholders**, no tax row when exempt (`D-63`), no
       delivery-terms line when the flag is off. *Verified by* HTML tests for each rule, and the
       rendered HTML searched for 1.2's sixteen cost and supplier values.
+
+      *(2026-09-23, #224 — both languages also render on one page through real Chromium with the
+      embedded faces.)* **Two defects in my own tests, found by probe, not by review:** the label
+      scan first flagged `{{ $view->finalTotal }}` for containing "Total", so it now strips Blade
+      expressions and reads the forbidden literals out of `lang/en/pdf.php` itself; and it excluded
+      every label containing a colon — which is the intro line — so a hard-coded copy of that line
+      passed until the filter was narrowed to `:placeholder`. **§14.6's "template editable from the
+      Super Admin screen" is not met** and is on the debt register above, by the owner's ruling.
+      The Arabic prose is the agent's draft and stays `[~]` until the owner corrects it (Q8).
 - [ ] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
       a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
 - [ ] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.

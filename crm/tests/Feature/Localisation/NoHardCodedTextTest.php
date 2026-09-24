@@ -204,7 +204,17 @@ final class NoHardCodedTextTest extends TestCase
         $files = self::sourceFiles(base_path('resources/views'), 'php');
 
         self::assertNotEmpty($files, 'No Blade views were scanned.');
-        self::assertSame(['welcome.blade.php'], self::basenames($files));
+        self::assertSame(
+            [
+                // Module 9 Point 2.4 — §14.6's customer quotation. Added after
+                // the scan below passed on it: every label comes from
+                // lang/{ar,en}/pdf.php through the template's `$t`.
+                'customer-quotation.blade.php',
+                'welcome.blade.php',
+            ],
+            self::basenames($files),
+            'The set of scanned Blade views changed. Confirm the new file is covered rather than adjusting this list blindly.',
+        );
 
         foreach ($files as $path) {
             self::assertSame([], self::scanBlade(self::read($path)), self::report($path));

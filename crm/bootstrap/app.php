@@ -50,6 +50,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -321,6 +322,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (ThrottleRequestsException $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::throttled($e, $request)
+                : null,
+        );
+
+        // F-17 · 1.1 — every other `HttpException`. Last, because the throttle
+        // exception above is one too and must keep its own handler.
+        $exceptions->render(
+            fn (HttpExceptionInterface $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::httpException($e, $request)
                 : null,
         );
     })->create();

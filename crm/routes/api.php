@@ -38,6 +38,16 @@ use Illuminate\Support\Facades\Route;
 | unversioned.
 */
 
+// F-17 · 1.2 — every id is a UUIDv7 (`D-61`), so an id parameter matches only a
+// UUID: a malformed one is the router's 404, in 1.1's envelope, before it can
+// reach Postgres as a `22P02` 500. Declared before any route, because the
+// router copies these patterns onto each route as it is registered. `{code}`
+// and `{list}` are not ids and stay free. The regex is `whereUuid()`'s.
+Route::patterns(array_fill_keys([
+    'catalogItem', 'customer', 'deal', 'file', 'purchaseOrder', 'quotation',
+    'role', 'session', 'supplier', 'supplierQuotation', 'user',
+], '[\da-fA-F]{8}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{12}'));
+
 // A liveness probe for the SPA, and the first thing to demonstrate the response
 // envelope OpenAPI §4.1 requires: a `data` object and a `meta.request_id`.
 // It is deliberately not /health — ST-08 wants a health endpoint that reports
@@ -134,7 +144,8 @@ Route::prefix('auth')->group(function (): void {
         // impersonated session, which holds no `admin.*` grant, before anything
         // looks for a user called "leave". Either way the Super Admin is stuck
         // inside somebody else's account until D-29's eight idle hours expire
-        // the session. `ImpersonationTest` pins the order.
+        // the session. `ImpersonationTest` pins the order. Since F-17 · 1.2
+        // `{user}` matches only a UUID, so a swap could no longer capture `leave`.
         //
         // It also carries **no** permission middleware, and that is not an
         // omission: while impersonating, the authenticated user is the target,
@@ -672,10 +683,10 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
 // item, each of which the earlier modules correctly found absent from that
 // list. §9.1 also requires a persisted store (actor, route, key, request hash,
 // final status and response), replay of the original response, and
-// `409 idempotency_conflict` on a reused key with a changed payload. **No such
-// infrastructure exists anywhere in this codebase**, and building it inside
-// this point would rebuild the oversized point the owner's four-way split just
-// removed. Recorded in `CHECKLIST.md` and proposed as its own point.
+// `409 idempotency_conflict` on a reused key with a changed payload. That store
+// exists since #102 (`app/Modules/Idempotency/`) but guards only two quotation
+// POSTs; wiring it here is still the unapproved Module 6 Point 2.2b, recorded
+// in `CHECKLIST.md`.
 //
 // **And no DELETE, at any permission.** §3.6 seeds no `delete` grant, and
 // `DB-01` forbids physically removing business data.

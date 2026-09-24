@@ -29,7 +29,9 @@
     <style>
         {!! $fontFaceCss !!}
 
-        @page { size: A4; margin: 14mm 12mm 26mm; }
+        /* The margins live in the renderer (Point 2.5): Chrome draws the page
+           number inside the bottom margin, so one place decides both. */
+        @page { size: A4; }
 
         body {
             margin: 0;

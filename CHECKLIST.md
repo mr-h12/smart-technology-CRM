@@ -1148,12 +1148,23 @@ would hide them behind `OD-03` indefinitely.
       `CustomerPicker`'s search and keyboard, 137 of its 246 lines identical. It was copied, not extracted,
       so a catalog point would not rewrite the picker the quotations and deals screens use. One shared combobox
       is now three consumers' fix (customers, catalog suppliers, and these two supplier-quotation controls).
+      *F-18 · 1.1 (2026-09-24) extracted it:* `SearchCombobox.vue`, which `CustomerPicker` and
+      `SupplierPicker` now wrap. The filter and the picker here still read `perPage: 100` until F-24 · 1.2
+      puts them on it; the row names still need the supplier names port.
+- [ ] **The quotation builder names suppliers and catalog items from the first 100 of each** —
+      *revealed by F-18 · 1.1, 2026-09-24; not fixed there, because the approved line is the shared
+      picker only.* `QuotationBuilderView.vue:344` and `:348` read `listSuppliers({ perPage: 100 })` and
+      `listCatalogItems({ perPage: 100, isActive: true })` once, best-effort, only to look names up
+      (`supplierName()` `:194`, the item lookup `:200`); past the 100th, an offer line shows an identifier
+      instead of a name — the client-side join `D-83` removed for customers. Neither F-18 nor F-24 names
+      this screen. Owed: a names port for suppliers and catalog items, as `D-83` gave customers, when the
+      owner orders it
 - [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
       the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
       is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
       attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
       describes), or a code resolved server-side on save, when ordered.
-- [ ] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
+- [x] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
       (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
       `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls
       `preventDefault()` only, so the keydown bubbles to `DealFormModal.vue:258`'s
@@ -1161,6 +1172,9 @@ would hide them behind `OD-03` indefinitely.
       dialog (the unsaved warning, or a silent close when nothing changed). WAI-ARIA APG: Escape on an
       open popup closes the popup only. The fix is one `event.stopPropagation()` in that branch, as
       `SupplierPicker.vue` has, plus a test in the deal form.
+      — *closed 2026-09-24 by F-18 · 1.1 (the owner's ruling):* both pickers share
+      `SearchCombobox.vue`'s Escape, which stops at an open list; `DealFormModal.spec.ts` proves one
+      Escape closes the list and the next closes the form.
 - [ ] **`.form-field` is declared once per component, inside `<style scoped>`** — *revealed by F-08
       Point 1.5, 2026-09-21; not fixed there, because the point was one missing border.* The same three
       lines (`background-color`, `border: 1px solid var(--color-border-strong)`, `color`) live in

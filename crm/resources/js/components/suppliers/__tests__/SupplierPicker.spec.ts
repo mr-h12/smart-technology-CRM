@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import SupplierPicker from '@/components/suppliers/SupplierPicker.vue';
+import SearchCombobox from '@/components/SearchCombobox.vue';
 
 /**
  * F-10 · 1.8 (`D-86`) — the catalog item's suppliers, chosen by searching the
@@ -78,6 +79,11 @@ describe('SupplierPicker', () => {
     afterEach(() => {
         vi.useRealTimers();
         document.body.innerHTML = '';
+    });
+
+    // F-18 · 1.1: one shared picker, so a third one is a wrapper and not a copy.
+    it('is built on the shared search combobox', () => {
+        expect(render(server()).findComponent(SearchCombobox).exists()).toBe(true);
     });
 
     it('asks nothing until opened, then asks the server for the first 20', async () => {

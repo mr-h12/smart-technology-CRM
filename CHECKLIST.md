@@ -655,8 +655,19 @@ would hide them behind `OD-03` indefinitely.
       changed payload, and authorisation re-checked on each replay. Proposed as Module 6 Point 2.2b;
       **needs an owner decision on where it lives**, because a persisting middleware is a database
       writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
+      **Corrected 2026-09-24 by F-00: the store exists, on two routes.** Module 7 Point 3.7 (#102,
+      2026-09-12) built it as its own module, `app/Modules/Idempotency/` (`DatabaseIdempotencyStore`,
+      the `idempotency` middleware `RequireIdempotencyKey`, migration
+      `2026_09_12_000100_create_idempotency_keys`). It guards `POST /quotations` and
+      `POST /quotations/{id}/new-version` only (`routes/api.php:745`, `:779`). Still without it:
+      `POST /deals`, supplier quotations (the unapproved Module 6 Point 2.2b) and reports (Module 13).
+      A purchase order is created by `PATCH /quotations/{id}/respond`, which Module 10 · 1.4 read as
+      `If-Match` only (`OpenAPI §7.2`). **Stale beside it:** the comment above the supplier-quotations
+      routes (`routes/api.php:669-678`) still says "No such infrastructure exists anywhere in this
+      codebase". Owed: that comment corrected by the next point that edits `routes/api.php` — not
+      in F-00, which stays docs-only
 
-- [ ] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
+- [x] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
       it** — recorded 2026-09-02 by Module 6 Point 2.4, which read §9.2 and correctly found supplier
       quotations *outside* it. §9.2 owes a version token on a quotation read (`"etag":
       "quotation:uuid:7"`), `If-Match` on a quotation mutation, and `409 concurrency_conflict` with a
@@ -666,6 +677,12 @@ would hide them behind `OD-03` indefinitely.
       through a documented contract update", and the owner confirmed on 2026-09-02 that 2.4 builds
       none. It becomes due with Module 7, and if supplier quotations are ever to have it, that needs
       a `D-xx` first
+      — *closed for quotations 2026-09-12 by Module 7 Point 4.2 (#105); recorded 2026-09-24 by F-00.*
+      `QuotationEtag` is the token on a quotation read, and every quotation mutation reads `If-Match`
+      (`Quotations/Application/Writing/*`) and refuses a stale one with `409 concurrency_conflict`
+      (`QuotationWriteRefused`). Supplier quotations stay outside it by design
+      (`UpdateSupplierQuotation.php:26`: "No scope, no `If-Match`, no recomputation"); that still needs a
+      `D-xx` first
 
 - [ ] **Five modules each carry a private `changedFrom()` that limits `AUD-02`'s old values to the
       fields an edit touched** — the fifth was added 2026-09-02 by Module 6 Point 2.4. `SaveCustomer`,
@@ -2938,6 +2955,150 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `CatalogItemLabelsInterface` (Quotations → `CatalogContract`); `SupplierItemPrice` carries its
             `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.
             *(2026-09-22, #200 — `product_name` rides `quotation.view`, not the cost grant; null when unnamed)*
+
+## Fix pass — owner-directed, 2026-09-24
+
+What the field QA of 2026-09-23 found in closed modules (report:
+https://claude.ai/artifact/KKWrafDX5DYQFc8nBVVewM; evidence in the owner's `~/crm-qa-run/findings/E1–E5.md`,
+a verdict per finding in `VERIFY.md`; E3-2 and E3-3 were refuted as browser-tool artifacts). The owner's
+order, 2026-09-24: everything below is fixed **before Module 11**; then the limits test L.0–L.7 runs,
+then Module 11. The rules are the 2026-09-16 pass's: each point on its own `fix/…` branch off `main`, a
+failing test first, the six gates, the browser at both widths and in both languages when a screen
+changed, a seven-part report, and the owner's merge — one per turn. The numbers are the owner's,
+confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
+
+**The owner's rulings, 2026-09-24:**
+- Import duplicates are **skipped and reported**, never merged (`D-94`).
+- **`.xlsx` import is added**, amending `D-85` and `D-86` (`D-95`). No spreadsheet library is installed
+  (`composer.json`), so `openspout/openspout` waits for the owner's approval at F-22 · 1.1.
+- **In:** bulk assign (`D-92`), the supplier-offer checks (`D-93`), the catalog improvements (`D-96`).
+- **Out:** PO search by QT code (E2-13). The contract stands: a purchase order is searched by
+  `po_number` and `customer_po_reference` only (`SearchIndex.php:86`).
+- The load test (L.3) is run by the owner with `ab`; in the page it tops out near 48 concurrent requests.
+- **Not in this pass:** local draft preservation during a short connection drop. No screen has one, and
+  it is Module 12's own criterion ("Connection drops while typing → draft saved locally and not lost",
+  below; `MVP_Build_Plan_EN.md:289`, `Design_System_EN.md` §7.3, `User_Personas_EN.md:95` for P-06).
+  No F-31.
+
+`D-92`…`D-96` are drafted in F-00's PR description, proposed; the owner pastes them into
+`CRM_Documentation_EN.md`.
+
+### Point list — approved 2026-09-24 with the owner's fix-pass plan
+
+- [x] **F-00** This section; the `Idempotency-Key` and optimistic-concurrency debt rows corrected
+      against the code; `D-92`…`D-96` drafted. *(2026-09-24, #229 — the drafts are in the PR, for the
+      owner to paste)*
+
+**High**
+
+- [ ] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
+      (E5-7, E5-9; debt row "`GET /quotations/{id}` with a malformed id answers `500`, not `404`"). Ids
+      are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
+      orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
+      `NotFoundHttpException` nor `HttpException`.
+      - [ ] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
+            envelope, which also covers `DownloadFileController`'s `abort`s and Identity's `abort_if`s.
+            Red first: a missing download answers with a `trace`.
+      - [ ] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
+            1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
+            today. Then the purchase orders' own `Str::isUuid` guard goes.
+- [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
+      `SupplierQuotationFormModal.vue` reads `perPage: 100`).
+      - [ ] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,
+            neither one's behaviour changed (the copy is recorded in the debt row "The supplier-quotations
+            screen reads only the first 100 suppliers"); a third copy would be a defect.
+      - [ ] **1.2** The line's product picker on it, searched on the server, the selected supplier's
+            items first (`D-93`). A typed new name still joins the catalog (`D-22`).
+- [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
+      `D-34`).
+      - [ ] **1.1** Assign from the customer's page through the existing
+            `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
+            caller today).
+      - [ ] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
+            customer, under `customer.assign` at its scope (`D-92`).
+      - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
+- [ ] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
+      "No import detects duplicates" and "An import reports how many rows it rejected, never which";
+      `D-94`). The reader is shared (`App\Support\Csv\CsvReader`); each module keeps its own converter
+      and `ImportSummary`, deliberately, for the module boundary.
+      - [ ] **1.1** One per-row result shape: `rejected[]` with the row number and the reason,
+            `skipped[]` for duplicates.
+      - [ ] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
+            same file included.
+      - [ ] **1.3** Suppliers, by the same rule.
+      - [ ] **1.4** Catalog items: `product_code` when present, the name otherwise.
+      - [ ] **1.5** The import dialog lists the rejected and the skipped rows.
+- [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
+      375px viewport by 36–46px, in both directions"). One point, verified in the browser at 375 px
+      and on the desktop, in Arabic and English.
+
+**Medium**
+
+- [ ] **F-22** Excel (`.xlsx`) import, with a clear refusal for anything else (§3.3; E2-4; `D-95`).
+      - [ ] **1.1** An `.xlsx` reader (first sheet) beside `CsvReader` in `app/Support/Csv/`, yielding
+            rows in the same shape, on `openspout/openspout` — the new dependency the owner approves
+            here, its version checked through context7.
+      - [ ] **1.2** Wired into the three imports through `ImportFileRequest`, which checks no file type
+            today on purpose; the reader is chosen by the file's signature, not its extension. A file
+            that is neither CSV nor `.xlsx` is a clear `422`, with no control characters in the message.
+      - [ ] **1.3** The three import screens accept `.xlsx`.
+- [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
+      declared and unseeded, so `D-35`'s warning never fires").
+      - [ ] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds
+            `limits.field|hint.limits_customer_similarity_threshold`, which neither `ar.json` nor
+            `en.json` holds.
+      - [ ] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
+            owner enters it on the limits screen** — configuration, not code.
+- [ ] **F-24** The supplier offer (E1-3, E1-4).
+      - [ ] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
+            form's deal field still takes a raw UUID").
+      - [ ] **1.2** The suppliers list, filter and picker without the 100 cap
+            (`SupplierQuotationsView.vue` reads `perPage: 100`; debt row "The supplier-quotations screen
+            reads only the first 100 suppliers").
+      - [ ] **1.3** A non-blocking warning when the typed total differs from the sum of the lines
+            (`D-93`).
+- [ ] **F-25** The catalog (E2-7, E2-8, E2-9, E2-10; `D-96`).
+      - [ ] **1.1** The catalog list stops answering a misleading `suppliers: []`.
+      - [ ] **1.2** "Company" marked required in the form (debt row "`company` is required on the server
+            but is not in the catalog form's `REQUIRED` mirror"), and why it is stored in lower case
+            checked.
+      - [ ] **1.3** `filter[supplier_id]` works and is in the contract; the supplier's page shows its
+            items.
+      - [ ] **1.4** Category suggestions from the values already in use.
+- [ ] **F-26** Security and operations (E5b-13; `laravel.log` at 1.44 GB during the QA).
+      - [ ] **1.1** nginx (`docker/nginx/default.conf`): `server_tokens off` (absent today), HSTS,
+            `Referrer-Policy`, and a CSP that fits the Vite build.
+      - [ ] **1.2** CORS limited to the application's origin. There is no `config/cors.php`, so
+            Laravel's built-in default applies.
+      - [ ] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
+            the `daily` channel replaces it, with the deployment-debt register updated.
+- [ ] **F-27** Deals (E2-11, E2-12).
+      - [ ] **1.1** The owner's name, and each timeline event's actor, instead of their ids.
+            `DealPayload` and `DealTimelinePayload` send the id on purpose, because Deals reads no
+            Identity rows; the fix is a names interface Identity publishes, on
+            `CatalogItemLabelsInterface`'s pattern, adding `owner_name` and `actor_name`. No name lookup
+            in the browser (`D-83`).
+      - [ ] **1.2** An early hint on the quotation page that sending needs the documented deal stage
+            (`D-90`), before the employee meets the `422`.
+
+**Low**
+
+- [ ] **F-28** The customer list shows the sector's label and the "incomplete" chip (E1-1, E2-3). One
+      point: the cell draws the raw code although `CustomersView.vue` has `sectorLabel()`; the chip
+      comes from `CatalogView.vue`.
+- [ ] **F-29** The admin screens (E4-2, E4-3).
+      - [ ] **1.1** E4-3 is the server's: a validation message names the field by its raw key
+            (`label_ar`), so the field names join `attributes` in `lang/ar/validation.php` and its
+            English twin.
+      - [ ] **1.2** E4-2 is reproduced first: `RolesMatrixView.vue` already has the generic
+            `roles.error.invalid`. If that message appears, the item closes unchanged.
+- [ ] **F-30** Money input and names.
+      - [ ] **1.1** More than 6 decimals is a `422`, not a silent rounding (E5b-14). Three rules today:
+            `SaveQuotationRequest` and `RecordFxRateRequest` use a regex with no limit on the fraction,
+            `SaveSupplierQuotationRequest` only `numeric`. One rule in `app/Support`, tied to
+            `Precision::MONEY_SCALE` (6). `pricing-invariant-reviewer` required.
+      - [ ] **1.2** Names in tables isolated for direction (`dir="auto"` or `<bdi>`), the stored data
+            unchanged (E5-6).
 
 ## Shell revisions — owner-directed
 

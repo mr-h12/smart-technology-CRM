@@ -2996,9 +2996,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
       orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
       `NotFoundHttpException` nor `HttpException`.
-      - [ ] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
+      - [x] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
             envelope, which also covers `DownloadFileController`'s `abort`s and Identity's `abort_if`s.
-            Red first: a missing download answers with a `trace`.
+            Red first: a missing download answers with a `trace`. *(2026-09-24, #230 — one
+            `httpException()` callback, registered last; unlisted 4xx `invalid_request`, 5xx
+            `internal_error`)*
       - [ ] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
             today. Then the purchase orders' own `Str::isUuid` guard goes.

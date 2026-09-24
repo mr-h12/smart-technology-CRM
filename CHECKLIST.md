@@ -3550,7 +3550,22 @@ printed blank.
       costume. `verify.php` proves the **image** renders Arabic; this proves the **module** does.
       *Probed* with the identical command locally: `CHROME_PATH=/nonexistent/chromium` fails the run
       with `No browser at …` and exits 2, so a renderer that stops working turns the build red.
-- [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
+- [~] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
+
+      *(2026-09-24, #228 — both pages rendered and **looked at**; samples in
+      `~/Desktop/module9-pdf-samples/`, PDF and PNG per language.)* **A defect no test here could
+      have caught, found by looking:** on the Arabic page `2026-08-13` rendered as `13-08-2026` —
+      bidi reorders a Latin-digit date inside an RTL paragraph. Nothing in the value is wrong, so
+      only an eye catches it, and a reader cannot tell which half is the day. Dates are now wrapped
+      in U+2066…U+2069 isolates — invisible characters, so Blade still escapes the value — with a
+      regression test proven by a probe. **A second finding that was not a defect:** the first
+      Arabic capture looked shifted and clipped; measuring `scrollWidth` against `clientWidth` gave
+      **794 = 794 in both languages**, so there is no overflow — it was Chromium's `fullPage`
+      screenshot of an RTL document. Measured before "fixing" something that was not broken.
+      **`[~]` until the owner has looked.** Four questions for him: the Arabic prose (Q8, still the
+      agent's draft); whether Arabic should read `٥٪` rather than the bidi-rendered `(%5)`;
+      whether money wants thousands separators (`34,854.10`); and whether the date should be
+      `14/07/2026` as the paper form writes it rather than `2026-07-14`.
 
 **Sketch of the remaining steps, so the module's shape is visible without committing to their
 points.** Step 2: Browsershot behind a `PdfRendererInterface`, `P-01`'s template ported to consume

@@ -3552,7 +3552,7 @@ printed blank.
       with `No browser at …` and exits 2, so a renderer that stops working turns the build red.
 - [~] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
 
-      *(2026-09-24, #PR — both pages rendered and **looked at**; samples in
+      *(2026-09-24, #228 — both pages rendered and **looked at**; samples in
       `~/Desktop/module9-pdf-samples/`, PDF and PNG per language.)* **A defect no test here could
       have caught, found by looking:** on the Arabic page `2026-08-13` rendered as `13-08-2026` —
       bidi reorders a Latin-digit date inside an RTL paragraph. Nothing in the value is wrong, so

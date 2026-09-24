@@ -3528,7 +3528,7 @@ printed blank.
 - [~] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
       a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
 
-      *(2026-09-24, #PR — `CustomerQuotationHtml::footer()`, the page box moved from the template's
+      *(2026-09-24, #226 — `CustomerQuotationHtml::footer()`, the page box moved from the template's
       `@page` to the renderer so the margin and the footer are one decision.)* ⚠️ **The footer is the
       one place the document does not embed its faces, and not by choice:** Browsershot passes
       `footerTemplate` to Chrome as a command argument, so a base64 face in it makes the command

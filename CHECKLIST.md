@@ -3529,7 +3529,7 @@ printed blank.
       a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
 - [x] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
 
-      *(2026-09-24, #PR — one step appended to `php-image.yml`'s `verify` job, which already builds
+      *(2026-09-24, #227 — one step appended to `php-image.yml`'s `verify` job, which already builds
       the pdf image.)* It runs `php artisan test tests/PdfImage` inside `crm-php:ci-pdf`, the only
       image with a browser — the shards cannot run these, and a `markTestSkipped` there would have
       reported a pass for a test that never ran, which is point 0.6's failure in a different

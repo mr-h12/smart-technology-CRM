@@ -218,6 +218,24 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
+    public function test_that_dates_keep_their_order_on_the_arabic_page(): void
+    {
+        // Found at Point 2.7 by looking at the rendered page: `2026-08-13` came
+        // out as `13-08-2026` in Arabic. Bidi reorders a Latin-digit date's
+        // parts inside an RTL paragraph, and the reader cannot tell which half
+        // is the day. U+2066…U+2069 isolate it — invisible characters, so Blade
+        // still escapes the value.
+        $ar = $this->html(locale: 'ar');
+
+        foreach (['2026-07-14', '2026-08-13'] as $date) {
+            self::assertStringContainsString("\u{2066}{$date}\u{2069}", $ar, "The {$date} on the Arabic page is not isolated.");
+        }
+
+        // The English page carries the same isolates: one template, one rule,
+        // and nothing to forget when a third language is added.
+        self::assertStringContainsString("\u{2066}2026-07-14\u{2069}", $this->html(locale: 'en'));
+    }
+
     private function html(
         string $locale = 'en',
         mixed ...$overrides,

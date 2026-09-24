@@ -104,6 +104,14 @@ final readonly class CustomerQuotationHtml
                 $replace,
                 $locale,
             ),
+            // A date is Latin digits with neutral separators, so in an RTL
+            // paragraph bidi reorders its parts: `2026-08-13` was rendering as
+            // `13-08-2026` on the Arabic page — the same value, printed in an
+            // order the reader cannot tell apart from a day-first date. The
+            // isolate characters (U+2066 … U+2069) pin it, and they are
+            // invisible text rather than markup, so Blade still escapes the
+            // value itself.
+            'ltr' => static fn (?string $value): string => $value === null ? '' : "\u{2066}{$value}\u{2069}",
         ])->render();
     }
 }

@@ -3008,7 +3008,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 
 **High**
 
-- [ ] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
+- [x] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
       (E5-7, E5-9; debt row "`GET /quotations/{id}` with a malformed id answers `500`, not `404`"). Ids
       are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
       orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
@@ -3022,9 +3022,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
             today. Then the purchase orders' own `Str::isUuid` guard goes. *(2026-09-24, #231 —
             `Route::patterns` over 11 names; a malformed id answers in the router's words, ruling A)*
-      - [ ] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
+      - [x] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
             the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
-            2026-09-24 during 1.1's questions, rather than widening 1.1.
+            2026-09-24 during 1.1's questions, rather than widening 1.1. *(2026-09-24, #232 — one
+            `Throwable` callback, last; debug on or off; a middleware `HttpResponseException` keeps
+            its response)*
 - [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
       `SupplierQuotationFormModal.vue` reads `perPage: 100`).
       - [ ] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,

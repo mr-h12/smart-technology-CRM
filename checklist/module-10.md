@@ -178,7 +178,7 @@ module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_s
 #### Step 4 — close the module
 
 - [x] **4.1** Arabic manual test list, freeze to `checklist/module-10.md`, stub here, ownership row.
-      *(2026-09-24, PR of this stub — 20 of 20; the six criteria ticked with the point that proves each; 61 checks, approved by the owner before the PR)*
+      *(2026-09-24, #225 — 20 of 20; the six criteria ticked with the point that proves each; 61 checks, approved by the owner before the PR)*
 
 #### قائمة الاختبار اليدوي — الوحدة 10 كاملة *(النقطة 4.1، 2026-09-24)*
 

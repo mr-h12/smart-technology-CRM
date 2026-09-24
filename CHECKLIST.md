@@ -3505,7 +3505,7 @@ rule requires.
 ## Module 10 — Customer Response & Purchase Orders
 
 **Closed 20 of 20 boxes** · full point history: [checklist/module-10.md](checklist/module-10.md) ·
-Arabic manual test list handed over 2026-09-24 (PR of this stub).
+Arabic manual test list handed over 2026-09-24 (#225).
 
 Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
 the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒

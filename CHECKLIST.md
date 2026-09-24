@@ -3043,9 +3043,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             its response)*
 - [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
       `SupplierQuotationFormModal.vue` reads `perPage: 100`).
-      - [ ] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,
+      - [x] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,
             neither one's behaviour changed (the copy is recorded in the debt row "The supplier-quotations
-            screen reads only the first 100 suppliers"); a third copy would be a defect.
+            screen reads only the first 100 suppliers"); a third copy would be a defect. *(2026-09-24,
+            #233 — `SearchCombobox.vue`, both pickers its wrappers; an open list takes its own Escape)*
       - [ ] **1.2** The line's product picker on it, searched on the server, the selected supplier's
             items first (`D-93`). A typed new name still joins the catalog (`D-22`).
 - [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,

@@ -3010,9 +3010,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             Red first: a missing download answers with a `trace`. *(2026-09-24, #230 — one
             `httpException()` callback, registered last; unlisted 4xx `invalid_request`, 5xx
             `internal_error`)*
-      - [ ] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
+      - [x] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
             1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
-            today. Then the purchase orders' own `Str::isUuid` guard goes.
+            today. Then the purchase orders' own `Str::isUuid` guard goes. *(2026-09-24, #231 —
+            `Route::patterns` over 11 names; a malformed id answers in the router's words, ruling A)*
       - [ ] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
             the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
             2026-09-24 during 1.1's questions, rather than widening 1.1.

@@ -48,6 +48,10 @@ return [
         'validity' => 'Offer validity: valid until :date.',
     ],
 
+    'footer' => [
+        'page' => 'Page :current of :total',
+    ],
+
     'closing' => 'Please do not hesitate to contact us in case you have any questions.',
     'regards' => 'Best Regards,',
 ];

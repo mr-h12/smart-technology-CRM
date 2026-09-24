@@ -40,6 +40,47 @@ final readonly class CustomerQuotationHtml
     ) {}
 
     /**
+     * The page number Chrome draws in every page's bottom margin — Point 2.5.
+     *
+     * A separate document from the page above it: Chrome renders
+     * `footerTemplate` on its own, so it inherits none of the template's CSS.
+     *
+     * ⚠️ **This is the one place the document does not embed its faces**, and
+     * not by choice: Browsershot passes the template to Chrome as a command
+     * argument, so a base64 face in it makes the command exceed the OS limit —
+     * `proc_open(): posix_spawn() failed: Argument list too long`, measured.
+     * The names below are the faces `docker/php/Dockerfile` installs in the
+     * image that renders (`fonts-inter`, `fonts-noto-core`), which under `D-66`
+     * is the production environment too, with `fonts.conf` pinning how a family
+     * name resolves. The page above it still embeds everything, so what depends
+     * on the image is the page number's shape, not the document's.
+     *
+     * The two spans are Chrome's own: it replaces their contents per page,
+     * which is why the label's words arrive through `:current` and `:total`
+     * rather than being concatenated — Arabic puts them in the other order.
+     *
+     * @throws InvalidArgumentException when the locale is not `ar` or `en`
+     */
+    public function footer(string $locale): string
+    {
+        $direction = self::LOCALES[$locale] ?? throw new InvalidArgumentException(
+            "The customer PDF renders in ar or en, not {$locale}."
+        );
+
+        $label = (string) $this->translator->get('pdf.footer.page', [
+            'current' => '<span class="pageNumber"></span>',
+            'total' => '<span class="totalPages"></span>',
+        ], $locale);
+
+        $family = $direction === 'rtl' ? "'Noto Sans Arabic', 'Inter'" : "'Inter', 'Noto Sans Arabic'";
+
+        return "<div dir=\"{$direction}\" style=\"width:100%;margin:0 12mm;font-size:8pt;text-align:center;"
+            ."color:#4a4a52;font-family:{$family},sans-serif\">"
+            .$label
+            .'</div>';
+    }
+
+    /**
      * @param  string  $locale  `ar` or `en` — §1's two languages, and no third
      *
      * @throws InvalidArgumentException when the locale is not one of them

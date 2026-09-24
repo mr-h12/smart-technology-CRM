@@ -3525,8 +3525,22 @@ printed blank.
       passed until the filter was narrowed to `:placeholder`. **§14.6's "template editable from the
       Super Admin screen" is not met** and is on the debt register above, by the owner's ruling.
       The Arabic prose is the agent's draft and stays `[~]` until the owner corrects it (Q8).
-- [ ] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
+- [~] **2.5** Live page numbering (Chrome `footerTemplate`) and rows that never split. *Verified by*
       a 40-line quotation over several pages numbered correctly, and a 3-line one on one page.
+
+      *(2026-09-24, #226 — `CustomerQuotationHtml::footer()`, the page box moved from the template's
+      `@page` to the renderer so the margin and the footer are one decision.)* ⚠️ **The footer is the
+      one place the document does not embed its faces, and not by choice:** Browsershot passes
+      `footerTemplate` to Chrome as a command argument, so a base64 face in it makes the command
+      exceed the OS limit — `proc_open(): posix_spawn() failed: Argument list too long`, measured,
+      not reasoned. It therefore names `Inter` / `Noto Sans Arabic`, which `docker/php/Dockerfile`
+      installs in the image that renders and which under `D-66` is the production environment too.
+      The page above the footer still embeds everything. **`[~]` and not `[x]`:** a PDF's text is
+      glyph indices, so the printed numbers cannot be read back in a test — what is proven here is
+      that 40 lines paginate, 3 lines do not, and that asking for the footer changes the document
+      (proven by a probe that removed the wiring). **A person still has to look at the numbers, at
+      Point 2.7**, and the same goes for the no-split rule, which is asserted as CSS and not as a
+      measured row position.
 - [ ] **2.6** The real render in CI (Q7). *Verified by* the job failing on a broken renderer first.
 - [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
 

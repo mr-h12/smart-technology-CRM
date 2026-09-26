@@ -79,6 +79,10 @@ final class NoHardCodedTextTest extends TestCase
                 // `catalog.column.{field}` — so the bare strings in the source
                 // are column keys and stored `kind` codes, never a sentence.
                 'CatalogItemFormModal.vue',
+                // F-18 · 1.2 — a supplier offer line's product picker. Every
+                // word is a `catalog.picker.*` key; the option text is the
+                // item's stored name.
+                'CatalogItemPicker.vue',
                 // Module 4 Point 4.3 — §8's Catalog screen. Added on the same
                 // terms as every entry here: the scan below was run against it
                 // first and passed. §7.3's two tabs, its per-tab column names

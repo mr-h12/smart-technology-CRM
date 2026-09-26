@@ -105,7 +105,7 @@ describe('listCatalogItems', () => {
         const fetchMock = vi.fn(async () => json(200, { data: [], meta: { pagination: PAGINATION } }));
         vi.stubGlobal('fetch', fetchMock);
 
-        await listCatalogItems({ page: 3, perPage: 10, q: 'cable', sort: '-created_at', category: 'Wiring' });
+        await listCatalogItems({ page: 3, perPage: 10, q: 'cable', sort: '-created_at', category: 'Wiring', supplierFirst: 's1' });
 
         const { url } = calledWith(fetchMock);
 
@@ -115,13 +115,15 @@ describe('listCatalogItems', () => {
         expect(url).toContain('sort=-created_at');
         expect(url).toContain(encodeURIComponent('filter[category]'));
         expect(url).toContain('Wiring');
+        // D-93 (F-18 · 1.2): an ordering the resource declares, not a filter.
+        expect(url).toContain('supplier_first=s1');
     });
 
     it('omits an empty filter rather than sending it blank', async () => {
         const fetchMock = vi.fn(async () => json(200, { data: [], meta: { pagination: PAGINATION } }));
         vi.stubGlobal('fetch', fetchMock);
 
-        await listCatalogItems({ q: '', kind: null, category: '', groupBy: null });
+        await listCatalogItems({ q: '', kind: null, category: '', groupBy: null, supplierFirst: '' });
 
         expect(calledWith(fetchMock).url).not.toContain('?');
     });

@@ -844,6 +844,15 @@
         "incomplete": "Incomplete record",
         "import": {
             "title": "Import from CSV"
+        },
+        "picker": {
+            "placeholder": "Search the catalog by name…",
+            "byName": "Type a name instead",
+            "more": "More items match — type more letters",
+            "forbidden": "You do not have permission to view the catalog",
+            "empty": "No catalog items yet",
+            "noMatch": "No results for “{query}”",
+            "failed": "The catalog could not be loaded"
         }
     },
     "supplierQuotations": {
@@ -872,7 +881,6 @@
             "lineAdd": "Add a line",
             "lineRemove": "Remove",
             "lineProduct": "Product",
-            "lineProductByName": "Type a name instead",
             "lineProductName": "Product name",
             "linePrice": "Unit price",
             "lineQuantity": "Quantity",

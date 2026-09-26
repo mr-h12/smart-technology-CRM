@@ -55,9 +55,12 @@ final class SupplierQuotationPayload
      * The two numbers stay **strings** at `D-68`'s scales, for `total_price`'s
      * reason — JSON's number type would quietly undo `DB-07`.
      *
+     * `product_name` is `D-93`'s label for the line's item (F-18 · 1.2).
+     *
+     * @param  array<string, string>  $productNames  catalog item id => label
      * @return array<string, mixed>
      */
-    public static function detail(SupplierQuotationDetail $quotation, ?string $dealCode): array
+    public static function detail(SupplierQuotationDetail $quotation, ?string $dealCode, array $productNames): array
     {
         return [
             ...self::of($quotation->header),
@@ -66,6 +69,7 @@ final class SupplierQuotationPayload
                 static fn ($line): array => [
                     'id' => $line->id,
                     'catalog_item_id' => $line->catalogItemId,
+                    'product_name' => $productNames[$line->catalogItemId] ?? null,
                     'unit_price' => $line->unitPrice,
                     'quantity' => $line->quantity,
                     'consumed_quantity' => $line->consumedQuantity,

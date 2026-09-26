@@ -77,6 +77,8 @@ export interface CatalogItemListQuery {
     company?: string | null;
     isActive?: boolean | null;
     isIncomplete?: boolean | null;
+    /** `D-93` (F-18 · 1.2): this supplier's linked items first. An ordering, not a filter. */
+    supplierFirst?: string | null;
 }
 
 /** §7.3's user-entered fields. A product needs `name` and `unit`, a service `service_type` — enforced at the API. */
@@ -113,6 +115,7 @@ export async function listCatalogItems(query: CatalogItemListQuery = {}): Promis
         ['filter[kind]', query.kind],
         ['filter[category]', query.category],
         ['filter[company]', query.company],
+        ['supplier_first', query.supplierFirst],
     ] as const) {
         if (typeof value === 'string' && value !== '') {
             parameters.set(key, value);

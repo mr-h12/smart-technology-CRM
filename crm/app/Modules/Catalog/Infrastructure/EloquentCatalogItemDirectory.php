@@ -52,6 +52,18 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
 
         $total = $query->count();
 
+        // `D-93`: the offer's supplier's live `D-86` links first, then the usual
+        // order. The pair's partial unique index answers each row's probe.
+        // ponytail: one correlated probe per listed row; a join if the catalog
+        // outgrows it.
+        if ($criteria->supplierFirst !== null) {
+            $query->orderByRaw(
+                'exists (select 1 from catalog_item_suppliers s where s.catalog_item_id = catalog_items.id '
+                .'and s.supplier_id = ? and s.deleted_at is null) desc',
+                [$criteria->supplierFirst],
+            );
+        }
+
         // `API-06`'s grouping, expressed as the first ordering key so every row
         // of a company is adjacent and the caller's `sort` still applies inside
         // each group. `nulls last` is stated rather than inherited: §7.3 leaves

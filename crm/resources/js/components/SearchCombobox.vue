@@ -154,14 +154,19 @@ function keydown(event: KeyboardEvent): void {
     }
 }
 
-/** A value emptied from outside empties the box; nothing else outside moves it. */
+/**
+ * A value emptied from outside empties the box; any other moves it only while
+ * the list is closed, so it never overwrites typing. Immediate, so a value set
+ * before mount shows at once — an opened offer's line (F-18 · 1.2).
+ */
 watch(
     () => props.display,
     (value) => {
-        if (value === '') {
-            text.value = '';
+        if (value === '' || (value !== undefined && !open.value)) {
+            text.value = value;
         }
     },
+    { immediate: true },
 );
 </script>
 

@@ -10,6 +10,7 @@ use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\CustomerPage;
 use App\Modules\Customers\Domain\Listing\CustomerSummary;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 
 /**
  * §10's customer list and detail, with `SEC-08`'s reach applied once.
@@ -21,7 +22,7 @@ use App\Modules\Customers\Domain\Listing\CustomerSummary;
  */
 final readonly class ListCustomers
 {
-    public function __construct(private CustomerDirectoryInterface $customers) {}
+    public function __construct(private CustomerDirectoryInterface $customers, private UserFactsInterface $users) {}
 
     /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
     public function handle(CustomerListCriteria $criteria, array $heldScopes, string $actorId): CustomerPage
@@ -46,5 +47,18 @@ final readonly class ListCustomers
         }
 
         return $customer;
+    }
+
+    /**
+     * F-19 · 1.1a (`D-83`): the owner's name for the customer's page, read
+     * through Identity's contract. `null` when there is no owner, or when the
+     * contract names nobody (the hidden Super Admin, a soft-deleted account);
+     * a deactivated owner keeps their name (§10.1).
+     */
+    public function salesOwnerName(CustomerSummary $customer): ?string
+    {
+        $ownerId = $customer->salesOwnerId;
+
+        return $ownerId === null ? null : ($this->users->namesOf([$ownerId])[$ownerId] ?? null);
     }
 }

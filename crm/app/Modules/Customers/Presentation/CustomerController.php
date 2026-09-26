@@ -47,9 +47,9 @@ final class CustomerController
 
     public function show(Request $request, string $customer, ListCustomers $customers): JsonResponse
     {
-        return ApiEnvelope::single($request, CustomerPayload::of(
-            $customers->one($customer, self::heldScopes($request), self::actorId($request)),
-        ));
+        $record = $customers->one($customer, self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, CustomerPayload::detail($record, $customers->salesOwnerName($record)));
     }
 
     public function store(SaveCustomerRequest $request, SaveCustomer $customers): JsonResponse
@@ -71,11 +71,12 @@ final class CustomerController
         ));
     }
 
-    public function assign(AssignCustomerRequest $request, string $customer, AssignCustomer $customers): JsonResponse
+    /** The page's own shape back, so the new owner's name shows without a second read (F-19 · 1.1a). */
+    public function assign(AssignCustomerRequest $request, string $customer, AssignCustomer $customers, ListCustomers $read): JsonResponse
     {
-        return ApiEnvelope::single($request, CustomerPayload::of(
-            $customers->handle($customer, $request->ownerId(), self::heldScopes($request), self::actorId($request)),
-        ));
+        $record = $customers->handle($customer, $request->ownerId(), self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, CustomerPayload::detail($record, $read->salesOwnerName($record)));
     }
 
     public function archive(Request $request, string $customer, ArchiveCustomer $customers): JsonResponse

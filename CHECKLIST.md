@@ -3095,10 +3095,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
             caller today). *(2026-09-27, #235 — a "Sales owner" section on `customer.assign`, the
             reused `DealOwnerPicker`; a round trip on Alex Scan wrote two `CUSTOMER_REASSIGNED` rows)*
-      - [ ] **1.1a** The customer's page names its sales owner: `sales_owner_name` on the customer's
+      - [x] **1.1a** The customer's page names its sales owner: `sales_owner_name` on the customer's
             payload through Identity's existing `UserFactsInterface::namesOf`, with no lookup in the
             browser (`D-83`). Added by the owner 2026-09-27 during 1.1's questions, rather than
-            widening 1.1.
+            widening 1.1. *(2026-09-27, #237 — on `GET /customers/{id}` and the assign answer only,
+            list rows excluded by the owner's ruling; `null` when unnamed, a deactivated owner named)*
       - [ ] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
             customer, under `customer.assign` at its scope (`D-92`).
       - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.

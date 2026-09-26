@@ -11,9 +11,10 @@ use App\Modules\Customers\Domain\Listing\CustomerSummary;
  * How a customer appears on the wire — §4.2's fields, in `OpenAPI §8`'s shapes.
  *
  * `sales_owner_id` is an explicit id per §8.2, "represent direct relationships
- * with explicit ID fields". The owner's *name* is deliberately not expanded
- * here: it belongs to Identity, and inlining it would mean this module reaching
- * for another module's rows on every list row.
+ * with explicit ID fields". The owner's *name* is not on a list row: it belongs
+ * to Identity, and no list screen shows it. The customer's page does, so
+ * {@see self::detail()} adds it (F-19 · 1.1a, `D-83`; list rows excluded by the
+ * owner's ruling of 2026-09-27).
  *
  * `customer_status` is sent as its stored code, not a translated label. §4.5
  * derives the value and the SPA translates it — a server-side label would make
@@ -46,6 +47,17 @@ final class CustomerPayload
             'created_at' => $customer->createdAt->format(DATE_ATOM),
             'updated_at' => $customer->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    /**
+     * The customer's page: the record plus its owner's name, which Identity
+     * resolved on the server.
+     *
+     * @return array<string, mixed>
+     */
+    public static function detail(CustomerSummary $customer, ?string $salesOwnerName): array
+    {
+        return self::of($customer) + ['sales_owner_name' => $salesOwnerName];
     }
 
     /** @return list<array<string, mixed>> */

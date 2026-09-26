@@ -588,6 +588,11 @@ would hide them behind `OD-03` indefinitely.
       dependency for a gain the shards already give; the day the shards exceed 4 minutes each is
       the day to reconsider. Runner minutes rose: three test jobs plus four cache restores per
       run, against one serial job before.
+      **Measured live, 2026-09-26 (F-18 · 1.2, #234):** `tests/Feature/Pdf` (47 tests, Module 9)
+      and `tests/Feature/Support` (12) are in no shard. The three shards passed 1121 + 746 + 1446 =
+      3313 on `4d691ba` against 3372 in the local full suite, and the 59 missing are exactly those two
+      directories. Not fixed there, because the approved line is the product picker and `Pdf` is
+      the second developer's module. Owed: both added to the matrix, when the owner orders it
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb

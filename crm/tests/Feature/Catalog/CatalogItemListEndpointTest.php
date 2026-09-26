@@ -523,6 +523,50 @@ final class CatalogItemListEndpointTest extends TestCase
         self::assertTrue($pagination['has_previous_page']);
     }
 
+    // ─────────────────────────────── D-93 (F-18 · 1.2) — the supplier's items first
+
+    /** `D-93`: a supplier offer's product picker lists first the items `D-86` links to its supplier. */
+    public function test_that_supplier_first_lists_that_suppliers_items_first(): void
+    {
+        $supplier = $this->supplier('Cairo Valves Co');
+        $this->item('Anchor');
+        $this->item('Bolt');
+        $this->link($this->item('Cable'), $supplier);
+
+        self::assertSame(['Cable', 'Anchor', 'Bolt'], $this->names('?supplier_first='.$supplier));
+    }
+
+    /** An ordering, not a filter: `q` still narrows, and a linked item it excludes stays out. */
+    public function test_that_supplier_first_keeps_the_search_narrowing(): void
+    {
+        $supplier = $this->supplier('Cairo Valves Co');
+        $this->item('Bolt');
+        $this->link($this->item('Bolt cutter'), $supplier);
+        $this->link($this->item('Cable'), $supplier);
+
+        self::assertSame(['Bolt cutter', 'Bolt'], $this->names('?q=bolt&supplier_first='.$supplier));
+    }
+
+    /** Another supplier's link, and a removed one, put nothing first. */
+    public function test_that_only_the_suppliers_live_links_count(): void
+    {
+        $supplier = $this->supplier('Cairo Valves Co');
+        $this->item('Anchor');
+        $this->link($this->item('Bolt'), $this->supplier('Delta Pumps'));
+        $this->link($this->item('Cable'), $supplier, removed: true);
+
+        self::assertSame(['Anchor', 'Bolt', 'Cable'], $this->names('?supplier_first='.$supplier));
+    }
+
+    public function test_that_a_malformed_supplier_first_is_refused(): void
+    {
+        $this->getJson(self::ENDPOINT.'?supplier_first=abc', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'invalid_request')
+            ->assertJsonPath('error.details.0.field', 'supplier_first')
+            ->assertJsonPath('error.details.0.code', 'not_a_uuid');
+    }
+
     // ───────────────────────────────────────────────────────────── helpers
 
     /** @return list<string> */
@@ -609,5 +653,27 @@ final class CatalogItemListEndpointTest extends TestCase
         ]);
 
         return $id;
+    }
+
+    private function supplier(string $name): string
+    {
+        $id = (string) Str::uuid7();
+
+        DB::table('suppliers')->insert(['id' => $id, 'name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+
+        return $id;
+    }
+
+    /** `D-86`'s link, inserted directly like the item; `removed` is a soft-deleted one. */
+    private function link(string $item, string $supplier, bool $removed = false): void
+    {
+        DB::table('catalog_item_suppliers')->insert([
+            'id' => (string) Str::uuid7(),
+            'catalog_item_id' => $item,
+            'supplier_id' => $supplier,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => $removed ? now() : null,
+        ]);
     }
 }

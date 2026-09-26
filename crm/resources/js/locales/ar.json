@@ -844,6 +844,15 @@
         "incomplete": "سجل ناقص",
         "import": {
             "title": "استيراد من CSV"
+        },
+        "picker": {
+            "placeholder": "ابحث في الكتالوج بالاسم…",
+            "byName": "اكتب الاسم بدلًا من ذلك",
+            "more": "توجد أصناف أخرى مطابقة — اكتب أحرفًا أكثر",
+            "forbidden": "ليست لديك صلاحية عرض الكتالوج",
+            "empty": "لا توجد أصناف في الكتالوج بعد",
+            "noMatch": "لا نتائج لـ «{query}»",
+            "failed": "تعذّر تحميل الكتالوج"
         }
     },
     "supplierQuotations": {
@@ -872,7 +881,6 @@
             "lineAdd": "إضافة بند",
             "lineRemove": "حذف",
             "lineProduct": "المنتج",
-            "lineProductByName": "اكتب الاسم بدلًا من ذلك",
             "lineProductName": "اسم المنتج",
             "linePrice": "سعر الوحدة",
             "lineQuantity": "الكمية",

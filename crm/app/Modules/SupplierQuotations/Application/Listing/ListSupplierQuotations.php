@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Application\Listing;
 
+use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationDetail;
@@ -33,6 +34,7 @@ final readonly class ListSupplierQuotations
     public function __construct(
         private SupplierQuotationDirectoryInterface $quotations,
         private DealFactsInterface $deals,
+        private CatalogItemLabelsInterface $catalogLabels,
     ) {}
 
     /** @throws SupplierQuotationNotFound when the row is absent or soft-deleted */
@@ -90,5 +92,19 @@ final readonly class ListSupplierQuotations
         $dealId = $quotation->header->dealId;
 
         return $dealId === null ? null : ($this->deals->codesOf([$dealId])[$dealId] ?? null);
+    }
+
+    /**
+     * `D-93` (F-18 · 1.2): what each line priced is called, so the offer form's
+     * picker can show it — §7.3's label through Catalog's contract, as F-16 reads it.
+     *
+     * @return array<string, string> catalog item id => label
+     */
+    public function productNamesOf(SupplierQuotationDetail $quotation): array
+    {
+        return $this->catalogLabels->labelsOf(array_values(array_unique(array_map(
+            static fn ($line): string => $line->catalogItemId,
+            $quotation->lines,
+        ))));
     }
 }

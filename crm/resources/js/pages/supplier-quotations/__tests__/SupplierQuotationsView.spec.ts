@@ -128,8 +128,11 @@ const CATALOG_ITEM = {
 /** `SupplierQuotationPayload::detail()` — the header, plus `items`, always present. */
 const OFFER_LINES = [{ catalog_item_id: 'ci1', unit_price: '1500.000000', quantity: '3.000' }];
 
-/** The same lines as the detail publishes them — with F-05's balance (D-81), which the editor never sends back. */
-const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, consumed_quantity: '1.0000', available_quantity: '2.0000' }));
+/**
+ * The same lines as the detail publishes them — with F-05's balance (D-81) and
+ * F-18 · 1.2's `product_name` (D-93), neither of which the editor sends back.
+ */
+const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, product_name: 'Cable 2.5mm', consumed_quantity: '1.0000', available_quantity: '2.0000' }));
 
 /** A `GET /supplier-quotations/{id}`, which a `PATCH` to the same path is not. */
 function isDetailRead(input: string, init?: RequestInit): boolean {
@@ -212,6 +215,13 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, profile: Authenticate
     await flushPromises();
 
     return wrapper;
+}
+
+/** F-18 · 1.2: a line's product is picked in `CatalogItemPicker` — open it, take the first item. */
+async function pickProduct(view: Awaited<ReturnType<typeof render>>, index: number): Promise<void> {
+    await view.get(`[data-testid="supplier-quotation-line-${index}-product"]`).trigger('focus');
+    await flushPromises();
+    await view.get(`[data-testid="supplier-quotation-line-${index}-product-option"]`).trigger('mousedown');
 }
 
 /** The methods of every non-GET call, in order — what the screen actually submitted. */
@@ -602,11 +612,13 @@ describe('the supplier quotation form', () => {
  * not *validate* that rule, it makes it unreachable: one control chooses either
  * a catalog item or "type a name instead", and only the chosen key is sent.
  *
- * ── The picker offers active items only (§10.4) ───────────────────────────
+ * ── The picker searches the server: active items, the supplier's first ────
  *
  * §10.4's table: a deactivated product is "**Hidden** from selection lists" for
- * new quotations while staying functional on open ones. So the catalog call
- * carries `filter[is_active]=true`, and the test reads the URL.
+ * new quotations while staying functional on open ones. F-18 · 1.2 (`D-93`):
+ * nothing is loaded when the form opens — the product box asks the server
+ * when it is opened, active items only, the offer's supplier's items first.
+ * The tests read the URL.
  *
  * ── The dangerous case, and the reason it has its own test ────────────────
  *
@@ -624,17 +636,24 @@ describe('the supplier quotation line editor', () => {
         window.localStorage.clear();
     });
 
-    /** §10.4: "New quotations — **Hidden** from selection lists". */
-    it('asks the catalog for active items only', async () => {
+    /** §10.4: "New quotations — **Hidden** from selection lists"; E1-5: no 100-item page. */
+    it('asks the catalog nothing until a product box opens, then active items, the supplier\'s first', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
+        const catalogCalls = (): string[] => fetchMock.mock.calls.map((c) => String(c[0])).filter((url) => url.includes('/catalog-items'));
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
+        expect(catalogCalls()).toEqual([]);
 
-        const call = [...fetchMock.mock.calls].find((c) => String(c[0]).includes('/catalog-items'));
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+        await pickProduct(view, 0);
 
-        expect(String(call?.[0])).toContain('filter%5Bis_active%5D=true');
+        const url = new URL(catalogCalls()[0] ?? '', 'http://localhost');
+        expect(url.searchParams.get('filter[is_active]')).toBe('true');
+        expect(url.searchParams.get('supplier_first')).toBe('s1');
+        expect(url.searchParams.get('per_page')).toBe('20');
     });
 
     it('adds a line and sends the catalog id, never a name beside it', async () => {
@@ -646,7 +665,7 @@ describe('the supplier quotation line editor', () => {
         await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
 
-        await view.get('[data-testid="supplier-quotation-line-0-product"]').setValue('ci1');
+        await pickProduct(view, 0);
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('1500.000000');
         await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('3');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
@@ -668,8 +687,12 @@ describe('the supplier quotation line editor', () => {
         await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
 
-        // "" is the "type a name instead" option, which is what reveals the box.
-        await view.get('[data-testid="supplier-quotation-line-0-product"]').setValue('');
+        // An item first, then "type a name instead", which brings the box back.
+        await pickProduct(view, 0);
+        expect(view.find('[data-testid="supplier-quotation-line-0-product-name"]').exists()).toBe(false);
+        await view.get('[data-testid="supplier-quotation-line-0-product"]').trigger('focus');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-line-0-product-all"]').trigger('mousedown');
         await view.get('[data-testid="supplier-quotation-line-0-product-name"]').setValue('Breaker 63A');
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('90');
         await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('12');
@@ -691,6 +714,9 @@ describe('the supplier quotation line editor', () => {
 
         expect((view.get('[data-testid="supplier-quotation-line-0-unit-price"]').element as HTMLInputElement).value)
             .toBe('1500.000000');
+        // D-93 (F-18 · 1.2): the name the detail sent, not a page of 100 searched for the id.
+        expect((view.get('[data-testid="supplier-quotation-line-0-product"]').element as HTMLInputElement).value)
+            .toBe('Cable 2.5mm');
 
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();

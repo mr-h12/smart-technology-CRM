@@ -293,8 +293,36 @@ final class SupplierQuotationReadEndpointTest extends TestCase
 
         $this->assertSame($stored, array_column($items, 'id'));
         $this->assertIsArray($items[0]);
-        // D-81 (F-05 · 1.2) added the balance pair beside the offer's `quantity`.
-        $this->assertSame(['id', 'catalog_item_id', 'unit_price', 'quantity', 'consumed_quantity', 'available_quantity'], array_keys($items[0]));
+        // D-81 (F-05 · 1.2) added the balance pair beside the offer's `quantity`;
+        // D-93 (F-18 · 1.2) the item's name beside its id.
+        $this->assertSame(['id', 'catalog_item_id', 'product_name', 'unit_price', 'quantity', 'consumed_quantity', 'available_quantity'], array_keys($items[0]));
+    }
+
+    /**
+     * `D-93` (F-18 · 1.2): the offer form's product picker shows what an opened
+     * line priced, past the hundredth item too. §7.3's label — a product's
+     * `name`, a service's `service_type` — as F-16 gave customer-quotation lines.
+     */
+    public function test_that_each_line_names_its_catalog_item(): void
+    {
+        $serviceId = Uuid::uuid4()->toString();
+        DB::table('catalog_items')->insert(['id' => $serviceId, 'kind' => 'service', 'service_type' => 'installation', 'created_at' => now(), 'updated_at' => now()]);
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],
+            ['catalog_item_id' => $serviceId, 'unit_price' => '200', 'quantity' => '1'],
+        ]]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        self::assertIsString($id);
+
+        $items = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data.items');
+        self::assertIsArray($items);
+
+        self::assertEquals(
+            [$this->catalogItemId => 'Split unit 1.5HP', $serviceId => 'installation'],
+            array_column($items, 'product_name', 'catalog_item_id'),
+        );
     }
 
     /** Two calls agree with each other, which is what ordering by `id` buys. */

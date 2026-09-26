@@ -588,6 +588,11 @@ would hide them behind `OD-03` indefinitely.
       dependency for a gain the shards already give; the day the shards exceed 4 minutes each is
       the day to reconsider. Runner minutes rose: three test jobs plus four cache restores per
       run, against one serial job before.
+      **Measured live, 2026-09-26 (F-18 · 1.2, #234):** `tests/Feature/Pdf` (47 tests, Module 9)
+      and `tests/Feature/Support` (12) are in no shard. The three shards passed 1121 + 746 + 1446 =
+      3313 on `4d691ba` against 3372 in the local full suite, and the 59 missing are exactly those two
+      directories. Not fixed there, because the approved line is the product picker and `Pdf` is
+      the second developer's module. Owed: both added to the matrix, when the owner orders it
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb
@@ -1157,8 +1162,9 @@ would hide them behind `OD-03` indefinitely.
       `listCatalogItems({ perPage: 100, isActive: true })` once, best-effort, only to look names up
       (`supplierName()` `:194`, the item lookup `:200`); past the 100th, an offer line shows an identifier
       instead of a name — the client-side join `D-83` removed for customers. Neither F-18 nor F-24 names
-      this screen. Owed: a names port for suppliers and catalog items, as `D-83` gave customers, when the
-      owner orders it
+      this screen. Its `:202` also spells §7.3's label rule (`name ?? service_type ?? id`) a second time
+      beside `CatalogItemPicker.vue` (F-18 · 1.2, which moved the offer form's copy there). Owed: a names
+      port for suppliers and catalog items, as `D-83` gave customers, when the owner orders it
 - [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
       the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
       is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
@@ -1312,6 +1318,13 @@ would hide them behind `OD-03` indefinitely.
       `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
       `Throwable` is covered generically rather than module by module. Owed: both comments
       rewritten to say what the renderer covers now, in a docs point, when the owner orders it
+- [ ] **A list query's UUID check is written out in three Domain criteria** — *created and revealed
+      by F-18 · 1.2, 2026-09-24; kept, because a Domain layer depends on nothing
+      (`deptrac.layers.yaml` gives it no ruleset) and the approved line is the product picker.*
+      `SupplierQuotationListCriteria::id()` (`:241`), `QuotationListCriteria` (`:244`) and now
+      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code;
+      `StoragePath::UUID` is a fourth spelling. Owed: one shared domain value (a narrow
+      `SharedContracts` prefix Domain may reach), when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -3041,14 +3054,16 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             2026-09-24 during 1.1's questions, rather than widening 1.1. *(2026-09-24, #232 — one
             `Throwable` callback, last; debug on or off; a middleware `HttpResponseException` keeps
             its response)*
-- [ ] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
+- [x] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
       `SupplierQuotationFormModal.vue` reads `perPage: 100`).
       - [x] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,
             neither one's behaviour changed (the copy is recorded in the debt row "The supplier-quotations
             screen reads only the first 100 suppliers"); a third copy would be a defect. *(2026-09-24,
             #233 — `SearchCombobox.vue`, both pickers its wrappers; an open list takes its own Escape)*
-      - [ ] **1.2** The line's product picker on it, searched on the server, the selected supplier's
-            items first (`D-93`). A typed new name still joins the catalog (`D-22`).
+      - [x] **1.2** The line's product picker on it, searched on the server, the selected supplier's
+            items first (`D-93`). A typed new name still joins the catalog (`D-22`). *(2026-09-26, #234 —
+            `CatalogItemPicker`; `GET /catalog-items?supplier_first=`, `product_name` on the offer's
+            lines)*
 - [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
       `D-34`).
       - [ ] **1.1** Assign from the customer's page through the existing

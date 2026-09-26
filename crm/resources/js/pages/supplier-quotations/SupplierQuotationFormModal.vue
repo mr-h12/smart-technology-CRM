@@ -46,7 +46,6 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { listCurrencies, type Currency } from '@/services/admin';
-import { listCatalogItems, type CatalogItem } from '@/services/catalog';
 import { downloadFile } from '@/services/files';
 import {
     attachSupplierQuotationDocument,
@@ -60,6 +59,7 @@ import {
 } from '@/services/supplier-quotations';
 import type { Supplier } from '@/services/suppliers';
 import { displayDecimals } from '@/domain/displayDecimals';
+import CatalogItemPicker from '@/components/catalog/CatalogItemPicker.vue';
 import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{
@@ -123,10 +123,16 @@ interface LineValues extends Record<LineField, string> {
      * `items()` never sends it back.
      */
     balance?: { recorded: string; consumed: string; available: string };
+    /**
+     * D-93 (F-18 · 1.2), never sent: the picked item's name, which the picker
+     * shows, `''` until one is picked. It lives on the line because the rows
+     * are keyed by index.
+     */
+    label: string;
 }
 
 function blankLine(): LineValues {
-    return { catalog_item_id: '', product_name: '', unit_price: '', quantity: '' };
+    return { catalog_item_id: '', product_name: '', unit_price: '', quantity: '', label: '' };
 }
 
 const lines = ref<LineValues[]>([]);
@@ -145,9 +151,6 @@ const openedLines = ref('[]');
  * them). The dialog says so rather than pretending the offer has no lines.
  */
 const linesState = ref<'ready' | 'loading' | 'unavailable'>('ready');
-
-/** §10.4's selection list: active items only. Best-effort — `D-22` still lets a name be typed. */
-const catalogItems = ref<CatalogItem[]>([]);
 
 const currencies = ref<Currency[]>([]);
 
@@ -195,11 +198,6 @@ const isEdit = computed(() => props.editing !== null);
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
     || JSON.stringify(lines.value) !== openedLines.value);
-
-/** §7.3 keeps a service's label in `service_type` and a product's in `name`; the id is the last resort. */
-function catalogLabel(item: CatalogItem): string {
-    return item.name ?? item.service_type ?? item.id;
-}
 
 function lineTestId(index: number, suffix: string): string {
     return `supplier-quotation-line-${index}-${suffix}`;
@@ -278,36 +276,11 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     uploading.value = false;
     downloadingId.value = null;
 
-    void loadCatalog();
     void loadCurrencies();
     void loadLines(record);
 }, { immediate: true });
 
-/**
- * §10.4's rule read from the source: a deactivated product is "**Hidden** from
- * selection lists" for a new quotation while it stays functional on an open
- * one. So the picker asks for the active items and nothing else.
- *
- * Best-effort, like the list screen's supplier call: a caller may hold
- * `supplier_quotation.create` and be refused the catalog, and `D-22` still
- * lets them type the product's name. An empty picker is worse than a name box;
- * an error page over a working form is worse than both.
- *
- * ⚠️ Stated ceiling: `CatalogItemListCriteria::MAX_PER_PAGE` is 100, so an item
- * past the hundredth is not in the list. Typing its **name** still resolves to
- * it rather than duplicating it — `ProvisionCatalogProduct::productIdFor()`
- * looks the name up before creating — so the ceiling costs convenience, not
- * correctness.
- */
-async function loadCatalog(): Promise<void> {
-    try {
-        catalogItems.value = (await listCatalogItems({ perPage: 100, isActive: true })).items;
-    } catch {
-        catalogItems.value = [];
-    }
-}
-
-/** Best-effort like the catalog, but a failure is said: a uuid cannot be typed instead. */
+/** Best-effort like the product picker, but a failure is said: a uuid cannot be typed instead. */
 async function loadCurrencies(): Promise<void> {
     try {
         currencies.value = await listCurrencies();
@@ -344,6 +317,7 @@ async function loadLines(record: SupplierQuotation | null): Promise<void> {
         lines.value = detail.items.map((line) => ({
             ...blankLine(),
             catalog_item_id: line.catalog_item_id,
+            label: line.product_name ?? '',
             unit_price: line.unit_price,
             quantity: line.quantity,
             balance: { recorded: displayDecimals(line.quantity), consumed: displayDecimals(line.consumed_quantity), available: displayDecimals(line.available_quantity) },
@@ -777,19 +751,20 @@ function discard(): void {
                     <!-- `D-22` as a control rather than a rule: an item, or a
                          name. There is no third state, so a line carrying both
                          cannot be built here. -->
+                    <!-- F-18 · 1.2 (`D-93`): searched on the server, the offer's
+                         supplier's items first; its first option is `D-22`'s
+                         «type a name instead». -->
                     <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="lineTestId(index, 'product')">
                         <span>{{ t('supplierQuotations.form.lineProduct') }}</span>
-                        <select
+                        <CatalogItemPicker
                             :id="lineTestId(index, 'product')"
                             v-model="line.catalog_item_id"
+                            v-model:label="line.label"
+                            :supplier-id="values.supplier_id"
                             :disabled="saving"
                             :aria-invalid="lineProductError(index) !== null"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                            :data-testid="lineTestId(index, 'product')"
-                        >
-                            <option value="">{{ t('supplierQuotations.form.lineProductByName') }}</option>
-                            <option v-for="item in catalogItems" :key="item.id" :value="item.id">{{ catalogLabel(item) }}</option>
-                        </select>
+                            :test-id="lineTestId(index, 'product')"
+                        />
                     </label>
 
                     <label

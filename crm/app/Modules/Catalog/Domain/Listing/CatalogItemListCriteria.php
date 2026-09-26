@@ -55,6 +55,15 @@ namespace App\Modules\Catalog\Domain\Listing;
  *
  * `q` is **not** parsed into a pattern here. §6.2: it "always passes through
  * `SearchService`; do not expose a database-specific search syntax".
+ *
+ * ── `supplier_first` is an ordering, not a filter ─────────────────────────
+ *
+ * `D-93` (F-18 · 1.2, the owner's ruling of 2026-09-24): a supplier offer's
+ * product picker lists first the items `D-86` links to the offer's supplier.
+ * §6.2's `sort` takes field names and cannot carry a supplier, so the resource
+ * declares this one parameter. It narrows nothing — every item `q` and the
+ * filters keep is still listed — and an id no supplier has simply puts nothing
+ * first. A value that is not a UUID is malformed, and refused.
  */
 final readonly class CatalogItemListCriteria
 {
@@ -88,6 +97,7 @@ final readonly class CatalogItemListCriteria
         public ?string $groupBy = null,
         public ?bool $isIncomplete = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
+        public ?string $supplierFirst = null,
     ) {}
 
     /**
@@ -120,6 +130,7 @@ final readonly class CatalogItemListCriteria
             groupBy: self::group($query['group_by'] ?? null),
             sorts: self::sorts($query['sort'] ?? null),
             isIncomplete: $filters['is_incomplete'],
+            supplierFirst: self::uuid($query['supplier_first'] ?? null, 'supplier_first'),
         );
     }
 
@@ -294,6 +305,25 @@ final readonly class CatalogItemListCriteria
 
         if (! is_string($value) || preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $value) !== 1) {
             throw InvalidCatalogItemListQuery::of($parameter, 'not_a_code');
+        }
+
+        return $value;
+    }
+
+    /**
+     * `SupplierQuotationListCriteria::id()`'s check and code. Copied, not shared:
+     * a Domain layer depends on nothing (`deptrac.layers.yaml`).
+     *
+     * @throws InvalidCatalogItemListQuery
+     */
+    private static function uuid(mixed $value, string $parameter): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iD', $value) !== 1) {
+            throw InvalidCatalogItemListQuery::of($parameter, 'not_a_uuid');
         }
 
         return $value;

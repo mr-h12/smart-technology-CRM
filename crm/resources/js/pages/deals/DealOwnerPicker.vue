@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Choosing a deal's owner — the one control, used by both the create dialog
- * (Point 6.3/6.7b) and the assign panel (Point 6.7/6.7a).
+ * Choosing an owner — the one control, used by the deal's create dialog
+ * (Point 6.3/6.7b) and assign panel (Point 6.7/6.7a), and since F-19 · 1.1 by
+ * the customer page's assign section.
  *
  * ── Why this exists as a component at all ──────────────────────────────────
  *
@@ -83,7 +84,7 @@ onMounted(async () => {
         :id="fieldId"
         v-model="chosen"
         :disabled="disabled"
-        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+        class="form-field min-h-11 max-w-full rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
         :data-testid="testId"
     >
         <option value="">{{ t('deals.assign.ownerNone') }}</option>

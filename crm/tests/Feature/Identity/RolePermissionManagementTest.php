@@ -577,11 +577,14 @@ final class RolePermissionManagementTest extends TestCase
     public function test_a_role_id_that_is_not_a_uuid_is_404_and_not_500(): void
     {
         // PostgreSQL raises `invalid input syntax for type uuid` on a bare
-        // comparison, and OpenAPI §5.1 does not let a malformed identifier and
-        // a missing row answer differently.
+        // comparison. Since F-17 · 1.2 `{role}` matches only a UUID, so this is
+        // the router's 404 — `resource_not_found`, without the module's
+        // `role_not_found` detail; a malformed id names no role, so the
+        // difference reveals nothing §5.1 protects (the owner's ruling A,
+        // 2026-09-24).
         $this->patchGrants($this->superAdminToken(), 'not-a-uuid')
             ->assertStatus(404)
-            ->assertJsonPath('error.details.0.code', 'role_not_found');
+            ->assertJsonPath('error.code', 'resource_not_found');
 
         $this->withHeaders($this->bearer($this->superAdminToken()))
             ->getJson(self::ROLES.'/not-a-uuid')

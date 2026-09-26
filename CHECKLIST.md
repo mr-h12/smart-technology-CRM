@@ -99,7 +99,7 @@ from fighting over the same eleven files.
 | **7 — Customer Quotations** | Yousef | **finished** — 57 of 57 boxes, closed 2026-09-14 (#129), archived in `checklist/module-07.md`. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
 | **9 — PDF Generation** | second developer | in progress — Step 1 approved 2026-09-13, Point 1.0 closed (#116); `OD-02` closed by `D-79` (#111) |
-| **10 — Customer Response & POs** | Yousef | point list published 2026-09-23 (#206), the owner's answers to Q1–Q12 recorded under the module |
+| **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -588,6 +588,11 @@ would hide them behind `OD-03` indefinitely.
       dependency for a gain the shards already give; the day the shards exceed 4 minutes each is
       the day to reconsider. Runner minutes rose: three test jobs plus four cache restores per
       run, against one serial job before.
+      **Measured live, 2026-09-26 (F-18 · 1.2, #234):** `tests/Feature/Pdf` (47 tests, Module 9)
+      and `tests/Feature/Support` (12) are in no shard. The three shards passed 1121 + 746 + 1446 =
+      3313 on `4d691ba` against 3372 in the local full suite, and the 59 missing are exactly those two
+      directories. Not fixed there, because the approved line is the product picker and `Pdf` is
+      the second developer's module. Owed: both added to the matrix, when the owner orders it
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb
@@ -655,8 +660,19 @@ would hide them behind `OD-03` indefinitely.
       changed payload, and authorisation re-checked on each replay. Proposed as Module 6 Point 2.2b;
       **needs an owner decision on where it lives**, because a persisting middleware is a database
       writer and `app/Http`, `app/Support` and `routes` are forbidden from writing
+      **Corrected 2026-09-24 by F-00: the store exists, on two routes.** Module 7 Point 3.7 (#102,
+      2026-09-12) built it as its own module, `app/Modules/Idempotency/` (`DatabaseIdempotencyStore`,
+      the `idempotency` middleware `RequireIdempotencyKey`, migration
+      `2026_09_12_000100_create_idempotency_keys`). It guards `POST /quotations` and
+      `POST /quotations/{id}/new-version` only (`routes/api.php:745`, `:779`). Still without it:
+      `POST /deals`, supplier quotations (the unapproved Module 6 Point 2.2b) and reports (Module 13).
+      A purchase order is created by `PATCH /quotations/{id}/respond`, which Module 10 · 1.4 read as
+      `If-Match` only (`OpenAPI §7.2`). **Stale beside it:** the comment above the supplier-quotations
+      routes (`routes/api.php:669-678`) still says "No such infrastructure exists anywhere in this
+      codebase". Owed: that comment corrected by the next point that edits `routes/api.php` — not
+      in F-00, which stays docs-only. *Done by F-17 · 1.2, 2026-09-24.*
 
-- [ ] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
+- [x] **`OpenAPI §9.2`'s optimistic concurrency exists nowhere, and Module 7 cannot ship without
       it** — recorded 2026-09-02 by Module 6 Point 2.4, which read §9.2 and correctly found supplier
       quotations *outside* it. §9.2 owes a version token on a quotation read (`"etag":
       "quotation:uuid:7"`), `If-Match` on a quotation mutation, and `409 concurrency_conflict` with a
@@ -666,6 +682,12 @@ would hide them behind `OD-03` indefinitely.
       through a documented contract update", and the owner confirmed on 2026-09-02 that 2.4 builds
       none. It becomes due with Module 7, and if supplier quotations are ever to have it, that needs
       a `D-xx` first
+      — *closed for quotations 2026-09-12 by Module 7 Point 4.2 (#105); recorded 2026-09-24 by F-00.*
+      `QuotationEtag` is the token on a quotation read, and every quotation mutation reads `If-Match`
+      (`Quotations/Application/Writing/*`) and refuses a stale one with `409 concurrency_conflict`
+      (`QuotationWriteRefused`). Supplier quotations stay outside it by design
+      (`UpdateSupplierQuotation.php:26`: "No scope, no `If-Match`, no recomputation"); that still needs a
+      `D-xx` first
 
 - [ ] **Five modules each carry a private `changedFrom()` that limits `AUD-02`'s old values to the
       fields an edit touched** — the fifth was added 2026-09-02 by Module 6 Point 2.4. `SaveCustomer`,
@@ -1131,12 +1153,24 @@ would hide them behind `OD-03` indefinitely.
       `CustomerPicker`'s search and keyboard, 137 of its 246 lines identical. It was copied, not extracted,
       so a catalog point would not rewrite the picker the quotations and deals screens use. One shared combobox
       is now three consumers' fix (customers, catalog suppliers, and these two supplier-quotation controls).
+      *F-18 · 1.1 (2026-09-24) extracted it:* `SearchCombobox.vue`, which `CustomerPicker` and
+      `SupplierPicker` now wrap. The filter and the picker here still read `perPage: 100` until F-24 · 1.2
+      puts them on it; the row names still need the supplier names port.
+- [ ] **The quotation builder names suppliers and catalog items from the first 100 of each** —
+      *revealed by F-18 · 1.1, 2026-09-24; not fixed there, because the approved line is the shared
+      picker only.* `QuotationBuilderView.vue:344` and `:348` read `listSuppliers({ perPage: 100 })` and
+      `listCatalogItems({ perPage: 100, isActive: true })` once, best-effort, only to look names up
+      (`supplierName()` `:194`, the item lookup `:200`); past the 100th, an offer line shows an identifier
+      instead of a name — the client-side join `D-83` removed for customers. Neither F-18 nor F-24 names
+      this screen. Its `:202` also spells §7.3's label rule (`name ?? service_type ?? id`) a second time
+      beside `CatalogItemPicker.vue` (F-18 · 1.2, which moved the offer form's copy there). Owed: a names
+      port for suppliers and catalog items, as `D-83` gave customers, when the owner orders it
 - [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
       the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
       is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
       attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
       describes), or a code resolved server-side on save, when ordered.
-- [ ] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
+- [x] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
       (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
       `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls
       `preventDefault()` only, so the keydown bubbles to `DealFormModal.vue:258`'s
@@ -1144,6 +1178,9 @@ would hide them behind `OD-03` indefinitely.
       dialog (the unsaved warning, or a silent close when nothing changed). WAI-ARIA APG: Escape on an
       open popup closes the popup only. The fix is one `event.stopPropagation()` in that branch, as
       `SupplierPicker.vue` has, plus a test in the deal form.
+      — *closed 2026-09-24 by F-18 · 1.1 (the owner's ruling):* both pickers share
+      `SearchCombobox.vue`'s Escape, which stops at an open list; `DealFormModal.spec.ts` proves one
+      Escape closes the list and the next closes the form.
 - [ ] **`.form-field` is declared once per component, inside `<style scoped>`** — *revealed by F-08
       Point 1.5, 2026-09-21; not fixed there, because the point was one missing border.* The same three
       lines (`background-color`, `border: 1px solid var(--color-border-strong)`, `color`) live in
@@ -1257,13 +1294,62 @@ would hide them behind `OD-03` indefinitely.
       `respond` (1.4–1.6) will be the fifth unless one helper takes the move and its extra columns.
       Owner's call whether 1.4 extracts it first. *Owner, 2026-09-23 (b): not before 1.4 — it stays
       debt; `RespondToQuotation` is the fifth copy.*
-- [ ] **`GET /quotations/{id}` with a malformed id answers `500`, not `404`** — *revealed by Module 10
+- [x] **`GET /quotations/{id}` with a malformed id answers `500`, not `404`** — *revealed by Module 10
       · 2.2, 2026-09-23; not fixed there, because it is outside the point.* `EloquentQuotationDirectory::find()`
       sends the raw id to Postgres, which refuses it (`SQLSTATE[22P02] invalid input syntax for type
       uuid`), and nothing maps that `QueryException`. Measured on the wire: 2.2's 404 test pointed at
       `/quotations` got `500` for `not-a-uuid`. `OpenAPI §5.1` wants `404 resource_not_found` and
       "never expose … SQL". 2.2 guards its own `findPurchaseOrder()` with `Str::isUuid`, as
       `EloquentRoleDirectory` does; every other `find()` taking a path id is unmeasured.
+      — *closed 2026-09-24 by F-17 · 1.2:* the 11 id parameters match only a UUID (`Route::patterns`
+      at the top of `routes/api.php`), so a malformed id is the router's `404`; measured red first on
+      9 of them. `findPurchaseOrder()`'s guard is removed.
+- [ ] **`EloquentRoleDirectory` still guards route ids with `Str::isUuid`, which F-17 · 1.2 made
+      redundant** — *revealed by F-17 · 1.2, 2026-09-24; not fixed there, because the approved line
+      names only the purchase-order guard.* `findRole()` (`:127`), `countUsersWithRole()` (`:174`)
+      and `labelTaken()`'s `$exceptRoleId` (`:249`) are reached only with the `{role}` route id or a
+      role's own stored id; `permissionsByIds()` (`:142`) filters ids from a request body and must
+      stay. Owed: the three removed, when the owner orders it
+- [ ] **Two comments still describe the error renderer as Module 1's handful of shapes** — *revealed
+      by F-17 · 1.3, 2026-09-24; not fixed there, because the approved line is the `Throwable`
+      500 only.* `bootstrap/app.php:136-138` says "These four are the shapes Module 1 can produce;
+      §5.1's other nine arrive with the modules", and `ApiExceptionRenderer.php:56-60` says "The
+      five shapes … the remaining eight belong to the modules". `bootstrap/app.php` registers 34
+      `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
+      `Throwable` is covered generically rather than module by module. Owed: both comments
+      rewritten to say what the renderer covers now, in a docs point, when the owner orders it
+- [ ] **A list query's UUID check is written out in three Domain criteria** — *created and revealed
+      by F-18 · 1.2, 2026-09-24; kept, because a Domain layer depends on nothing
+      (`deptrac.layers.yaml` gives it no ruleset) and the approved line is the product picker.*
+      `SupplierQuotationListCriteria::id()` (`:241`), `QuotationListCriteria` (`:244`) and now
+      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code;
+      `StoragePath::UUID` is a fourth spelling. Owed: one shared domain value (a narrow
+      `SharedContracts` prefix Domain may reach), when the owner orders it
+- [ ] **The employee picker reads only the first 25 active employees** — *revealed by F-19 · 1.1,
+      2026-09-27; not fixed there, because the approved line is the customer page's assign section,
+      which reuses the picker as it stands.* `DealOwnerPicker.vue` calls
+      `listUsers({ isActive: true })` with no `per_page`, so `GET /users` answers
+      `UserListCriteria::DEFAULT_PER_PAGE`, 25 rows (`MAX_PER_PAGE` is 100). Past the 25th active
+      employee, nobody further can be chosen in the deal form, the deal's assign panel or the
+      customer page's assign section: the capped-list class F-18 removed for catalog items. Measured
+      2026-09-27: 8 active users in the dev database, so it does not bite yet. Owed: the picker on the
+      shared server-searched `SearchCombobox.vue` (F-18 · 1.1), when the owner orders it
+- [ ] **Six client-side messages are stored as translated sentences, so a language switch leaves them
+      in the old language** — *revealed by F-19 · 1.1, 2026-09-27 (`rtl-ui-verifier`), which fixed its
+      own copy with a flag the template translates; not fixed there, because the approved line is the
+      customer page's assign section.* `CustomersView.vue:370` and `:396`, `DealDocumentsPanel.vue:125`,
+      `DealApprovalControls.vue:99`, `DealStatusControl.vue:101` and `QuotationBuilderView.vue:500`
+      assign `t('…')` to a ref, so switching AR↔EN redraws every other label and leaves these until the
+      next attempt. 18 other places keep a key and translate it when drawn. Owed: the key-or-flag shape
+      at the six, when the owner orders it
+- [ ] **The deal page's owner picker likely overflows a 375 px card, as the customer page's did** —
+      *revealed by F-19 · 1.1, 2026-09-27; not fixed there, because the approved line is the customer
+      page.* `DealDocumentsPanel.vue:224-225` puts `DealOwnerPicker` in the same `flex flex-wrap` row
+      with no `min-w-0` on its label. On the customer page that layout measured the select at 359 px in
+      a 309 px card, and `min-w-0` on the label plus the picker's new `max-w-full` brought it to 309.
+      Not measured on the deal page: the dev database holds no deal (2026-09-27), and creating one is a
+      write. The deal create dialog, which stacks its fields, measured clean at 375 px in both
+      languages. Owed: `min-w-0` on that label, measured, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -2939,6 +3025,166 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
             `catalog_item_id`. Detail table gets a product column; the edit form names each existing line.
             *(2026-09-22, #200 — `product_name` rides `quotation.view`, not the cost grant; null when unnamed)*
 
+## Fix pass — owner-directed, 2026-09-24
+
+What the field QA of 2026-09-23 found in closed modules (report:
+https://claude.ai/artifact/KKWrafDX5DYQFc8nBVVewM; evidence in the owner's `~/crm-qa-run/findings/E1–E5.md`,
+a verdict per finding in `VERIFY.md`; E3-2 and E3-3 were refuted as browser-tool artifacts). The owner's
+order, 2026-09-24: everything below is fixed **before Module 11**; then the limits test L.0–L.7 runs,
+then Module 11. The rules are the 2026-09-16 pass's: each point on its own `fix/…` branch off `main`, a
+failing test first, the six gates, the browser at both widths and in both languages when a screen
+changed, a seven-part report, and the owner's merge — one per turn. The numbers are the owner's,
+confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
+
+**The owner's rulings, 2026-09-24:**
+- Import duplicates are **skipped and reported**, never merged (`D-94`).
+- **`.xlsx` import is added**, amending `D-85` and `D-86` (`D-95`). No spreadsheet library is installed
+  (`composer.json`), so `openspout/openspout` waits for the owner's approval at F-22 · 1.1.
+- **In:** bulk assign (`D-92`), the supplier-offer checks (`D-93`), the catalog improvements (`D-96`).
+- **Out:** PO search by QT code (E2-13). The contract stands: a purchase order is searched by
+  `po_number` and `customer_po_reference` only (`SearchIndex.php:86`).
+- The load test (L.3) is run by the owner with `ab`; in the page it tops out near 48 concurrent requests.
+- **Not in this pass:** local draft preservation during a short connection drop. No screen has one, and
+  it is Module 12's own criterion ("Connection drops while typing → draft saved locally and not lost",
+  below; `MVP_Build_Plan_EN.md:289`, `Design_System_EN.md` §7.3, `User_Personas_EN.md:95` for P-06).
+  No F-31.
+
+`D-92`…`D-96` are drafted in F-00's PR description, proposed; the owner pastes them into
+`CRM_Documentation_EN.md`.
+
+### Point list — approved 2026-09-24 with the owner's fix-pass plan
+
+- [x] **F-00** This section; the `Idempotency-Key` and optimistic-concurrency debt rows corrected
+      against the code; `D-92`…`D-96` drafted. *(2026-09-24, #229 — the drafts are in the PR, for the
+      owner to paste)*
+
+**High**
+
+- [x] **F-17** A malformed id answers `500` with a trace, and not every HTTP error is in the envelope
+      (E5-7, E5-9; debt row "`GET /quotations/{id}` with a malformed id answers `500`, not `404`"). Ids
+      are plain strings in `routes/api.php`, with no `Route::pattern` or `whereUuid`; only purchase
+      orders guard with `Str::isUuid` (`EloquentQuotationDirectory`); `ApiExceptionRenderer` maps neither
+      `NotFoundHttpException` nor `HttpException`.
+      - [x] **1.1** `ApiExceptionRenderer` renders `NotFoundHttpException` and `HttpException` in the
+            envelope, which also covers `DownloadFileController`'s `abort`s and Identity's `abort_if`s.
+            Red first: a missing download answers with a `trace`. *(2026-09-24, #230 — one
+            `httpException()` callback, registered last; unlisted 4xx `invalid_request`, 5xx
+            `internal_error`)*
+      - [x] **1.2** One UUID constraint on every id route parameter, declared once, so a malformed id is
+            1.1's `404` before it reaches the database. Red first: the malformed-id routes answer `500`
+            today. Then the purchase orders' own `Str::isUuid` guard goes. *(2026-09-24, #231 —
+            `Route::patterns` over 11 names; a malformed id answers in the router's words, ruling A)*
+      - [x] **1.3** Any other unexpected failure (a plain `Throwable`) answers `500 internal_error` in
+            the envelope, with no trace, SQL or exception message (`OpenAPI §5.1`). Added by the owner
+            2026-09-24 during 1.1's questions, rather than widening 1.1. *(2026-09-24, #232 — one
+            `Throwable` callback, last; debug on or off; a middleware `HttpResponseException` keeps
+            its response)*
+- [x] **F-18** A supplier-offer line's product lists only the first 100 catalog items (E1-5;
+      `SupplierQuotationFormModal.vue` reads `perPage: 100`).
+      - [x] **1.1** One shared picker extracted from `CustomerPicker.vue` and `SupplierPicker.vue`,
+            neither one's behaviour changed (the copy is recorded in the debt row "The supplier-quotations
+            screen reads only the first 100 suppliers"); a third copy would be a defect. *(2026-09-24,
+            #233 — `SearchCombobox.vue`, both pickers its wrappers; an open list takes its own Escape)*
+      - [x] **1.2** The line's product picker on it, searched on the server, the selected supplier's
+            items first (`D-93`). A typed new name still joins the catalog (`D-22`). *(2026-09-26, #234 —
+            `CatalogItemPicker`; `GET /catalog-items?supplier_first=`, `product_name` on the offer's
+            lines)*
+- [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
+      `D-34`).
+      - [x] **1.1** Assign from the customer's page through the existing
+            `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
+            caller today). *(2026-09-27, #235 — a "Sales owner" section on `customer.assign`, the
+            reused `DealOwnerPicker`; a round trip on Alex Scan wrote two `CUSTOMER_REASSIGNED` rows)*
+      - [ ] **1.1a** The customer's page names its sales owner: `sales_owner_name` on the customer's
+            payload through Identity's existing `UserFactsInterface::namesOf`, with no lookup in the
+            browser (`D-83`). Added by the owner 2026-09-27 during 1.1's questions, rather than
+            widening 1.1.
+      - [ ] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
+            customer, under `customer.assign` at its scope (`D-92`).
+      - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
+- [ ] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
+      "No import detects duplicates" and "An import reports how many rows it rejected, never which";
+      `D-94`). The reader is shared (`App\Support\Csv\CsvReader`); each module keeps its own converter
+      and `ImportSummary`, deliberately, for the module boundary.
+      - [ ] **1.1** One per-row result shape: `rejected[]` with the row number and the reason,
+            `skipped[]` for duplicates.
+      - [ ] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
+            same file included.
+      - [ ] **1.3** Suppliers, by the same rule.
+      - [ ] **1.4** Catalog items: `product_code` when present, the name otherwise.
+      - [ ] **1.5** The import dialog lists the rejected and the skipped rows.
+- [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
+      375px viewport by 36–46px, in both directions"). One point, verified in the browser at 375 px
+      and on the desktop, in Arabic and English.
+
+**Medium**
+
+- [ ] **F-22** Excel (`.xlsx`) import, with a clear refusal for anything else (§3.3; E2-4; `D-95`).
+      - [ ] **1.1** An `.xlsx` reader (first sheet) beside `CsvReader` in `app/Support/Csv/`, yielding
+            rows in the same shape, on `openspout/openspout` — the new dependency the owner approves
+            here, its version checked through context7.
+      - [ ] **1.2** Wired into the three imports through `ImportFileRequest`, which checks no file type
+            today on purpose; the reader is chosen by the file's signature, not its extension. A file
+            that is neither CSV nor `.xlsx` is a clear `422`, with no control characters in the message.
+      - [ ] **1.3** The three import screens accept `.xlsx`.
+- [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
+      declared and unseeded, so `D-35`'s warning never fires").
+      - [ ] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds
+            `limits.field|hint.limits_customer_similarity_threshold`, which neither `ar.json` nor
+            `en.json` holds.
+      - [ ] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
+            owner enters it on the limits screen** — configuration, not code.
+- [ ] **F-24** The supplier offer (E1-3, E1-4).
+      - [ ] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
+            form's deal field still takes a raw UUID").
+      - [ ] **1.2** The suppliers list, filter and picker without the 100 cap
+            (`SupplierQuotationsView.vue` reads `perPage: 100`; debt row "The supplier-quotations screen
+            reads only the first 100 suppliers").
+      - [ ] **1.3** A non-blocking warning when the typed total differs from the sum of the lines
+            (`D-93`).
+- [ ] **F-25** The catalog (E2-7, E2-8, E2-9, E2-10; `D-96`).
+      - [ ] **1.1** The catalog list stops answering a misleading `suppliers: []`.
+      - [ ] **1.2** "Company" marked required in the form (debt row "`company` is required on the server
+            but is not in the catalog form's `REQUIRED` mirror"), and why it is stored in lower case
+            checked.
+      - [ ] **1.3** `filter[supplier_id]` works and is in the contract; the supplier's page shows its
+            items.
+      - [ ] **1.4** Category suggestions from the values already in use.
+- [ ] **F-26** Security and operations (E5b-13; `laravel.log` at 1.44 GB during the QA).
+      - [ ] **1.1** nginx (`docker/nginx/default.conf`): `server_tokens off` (absent today), HSTS,
+            `Referrer-Policy`, and a CSP that fits the Vite build.
+      - [ ] **1.2** CORS limited to the application's origin. There is no `config/cors.php`, so
+            Laravel's built-in default applies.
+      - [ ] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
+            the `daily` channel replaces it, with the deployment-debt register updated.
+- [ ] **F-27** Deals (E2-11, E2-12).
+      - [ ] **1.1** The owner's name, and each timeline event's actor, instead of their ids.
+            `DealPayload` and `DealTimelinePayload` send the id on purpose, because Deals reads no
+            Identity rows; the fix is a names interface Identity publishes, on
+            `CatalogItemLabelsInterface`'s pattern, adding `owner_name` and `actor_name`. No name lookup
+            in the browser (`D-83`).
+      - [ ] **1.2** An early hint on the quotation page that sending needs the documented deal stage
+            (`D-90`), before the employee meets the `422`.
+
+**Low**
+
+- [ ] **F-28** The customer list shows the sector's label and the "incomplete" chip (E1-1, E2-3). One
+      point: the cell draws the raw code although `CustomersView.vue` has `sectorLabel()`; the chip
+      comes from `CatalogView.vue`.
+- [ ] **F-29** The admin screens (E4-2, E4-3).
+      - [ ] **1.1** E4-3 is the server's: a validation message names the field by its raw key
+            (`label_ar`), so the field names join `attributes` in `lang/ar/validation.php` and its
+            English twin.
+      - [ ] **1.2** E4-2 is reproduced first: `RolesMatrixView.vue` already has the generic
+            `roles.error.invalid`. If that message appears, the item closes unchanged.
+- [ ] **F-30** Money input and names.
+      - [ ] **1.1** More than 6 decimals is a `422`, not a silent rounding (E5b-14). Three rules today:
+            `SaveQuotationRequest` and `RecordFxRateRequest` use a regex with no limit on the fraction,
+            `SaveSupplierQuotationRequest` only `numeric`. One rule in `app/Support`, tied to
+            `Precision::MONEY_SCALE` (6). `pricing-invariant-reviewer` required.
+      - [ ] **1.2** Names in tables isolated for direction (`dir="auto"` or `<bdi>`), the stored data
+            unchanged (E5-6).
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module
@@ -3581,181 +3827,13 @@ rule requires.
 
 ## Module 10 — Customer Response & Purchase Orders
 
-> As a sales employee, I want to record the customer's response, so that the deal moves along the
-> correct path.
+**Closed 20 of 20 boxes** · full point history: [checklist/module-10.md](checklist/module-10.md) ·
+Arabic manual test list handed over 2026-09-24 (#225).
 
-**Tables** `purchase_orders` — auto `po_number` + free-text `customer_po_reference` + date + attachment
-
-**Acceptance criteria**
-- [ ] Partial or Counter → full copy saved automatically, employee edits the new version
-- [ ] Counter or Rejected → **mandatory reason** before the status is accepted
-- [ ] Rejected → quotation archived · **customer stays in the list** · deal becomes Lost
-- [ ] `valid_until` passes with no reply → **Expired** automatically (J-01)
-- [ ] Search works on both the internal PO number and the customer's reference
-- [ ] Every version preserved via `parent_id` + `version`
-
-### Point list — published 2026-09-23, approved by merging #206
-
-**What is on `main` (measured 2026-09-23 at `1573287`):** the edges `approved → sent` and
-`sent → accepted|partial|counter|rejected|expired` (`QuotationStatusTransition.php:29-39`) with **no
-writer** — no route, use case or screen sends a quotation or records a response, and `sent_at` is
-read but never written. `rejection_reason` is already required by a CHECK for `rejected` **and**
-`counter` (`create_quotations.php:277-279`). 7 · 4.3's copy exists (`POST /new-version`, from
-`partial|counter|expired`, by hand) and copies `returned_at`/`return_note` onto the new version. The
-permissions `quotation.send_to_customer` and `quotation.record_customer_response` are seeded (Manager
-All, TL Team, both Sales Own) and unused. `PO-` needs no change to `DocumentNumberAllocator`;
-`purchase_order_files` exists **without** its foreign key (`FilesMigrationTest.php:265`); no
-`purchase_orders` table, no PO permission, no `SearchIndex` case. `SupplierItemQuantityInterface::consume`
-has no caller and is outside `SupplierQuotationsContract`. No deal write is reachable from another
-module (`ChangeDealStatus` only); the deal reaches `lost` only from `quotation_sent` or `negotiations`
-(`DealStatusTransition.php:39-40`). `J-01` does not exist, and nothing runs the scheduler (debt register).
-
-**The owner's answers, 2026-09-23 (Q1–Q11 asked in conversation; Q12 raised by the owner):**
-
-- **Q1 · send.** Built here, **without waiting for the PDF**. Flow 1 step 8 couples sending with the PDF,
-  so the deviation is **`D-90`**, not only a debt line.
-- **Q2 · the deal moves on two events only.** Sending moves `supplier_quotation → quotation_sent`
-  (§4.4 "Quotation Sent · Sales (after approval)"); a rejection moves it to `lost` under Q12's rule, the
-  rejection reason becoming the lost reason. Accepted, Partial and Counter do not move the deal —
-  §4.4 gives `won` to TL/Manager.
-- **Q3 · how Quotations moves a deal.** A narrow write interface in `DealsContract` that runs
-  `ChangeDealStatus` inside the caller's transaction and recomputes the customer status as it does
-  today. No domain event.
-- **Q4 · placement.** Inside `crm/app/Modules/Quotations/`, Module 8's Q1 reasoning; the PO is written in
-  the acceptance's transaction. Quotations gains `StorageContract` for the PO's attachment.
-- **Q5 · the PO at acceptance.** Accepted **requires** `customer_po_reference` and `po_date` and writes
-  `purchase_orders` with a `PO-YYYY-NNNN` number (`D-12`, `D-53`, §4.6) in the same transaction, plus one
-  `consume()` per quotation line (`D-81`, F-05 · 1.5). The attachment is uploaded **after** acceptance.
-- **Q6 · archive on rejection.** The `history` bucket (`QuotationListCriteria::BUCKETS`) is the quotation
-  archive; **no restore is built**. The owner's ruling on Flow 7's "Restore · Manager": when a customer
-  comes back after a rejection, **a new deal is opened — a Lost deal is never revived**. Recorded in `D-90`.
-- **Q7 · Partial and Counter copy automatically** (§6.3, `D-08`), in the response's transaction; the
-  response returns the new draft's id. `new-version` by hand stays for `expired`. The copy stops carrying
-  `returned_at`/`return_note`.
-- **Q8 · `expired → rejected`** is a new edge (§10.5 "records Rejected with reason 'no response'"), reason
-  required, and Q12's rule applies to it.
-- **Q9 · `J-01`.** Daily on `maintenance`; `sent` with `valid_until` before today in `locale.timezone`
-  ⇒ `expired`; audited with a system actor. **Catch-up on startup is required:** §15 marks `J-01` ✅ and
-  `D-55`/`ST-05` say missed jobs run on startup (only `J-15`'s ❌ is exempted in §15). `J-02` marks ✅ too
-  and skips it — registered as debt, not fixed here. §4.5 row 3 ("Expired with no reply ⇒ No Response")
-  is registered as debt with its owner named.
-- **Q10 · no PO permission.** A PO is read by whoever may view its quotation, scoped through the deal;
-  its file is attached under `quotation.record_customer_response` (§17: a file's permission is its
-  parent's, `D-38`).
-- **Q11 · routes.** `PATCH /quotations/{id}/send`; `PATCH /quotations/{id}/respond` with
-  `{response: accepted|partial|counter|rejected, reason?, customer_po_reference?, po_date?}` under
-  `quotation.record_customer_response`; `GET /purchase-orders`, `GET /purchase-orders/{id}`,
-  `POST /purchase-orders/{id}/documents` (owner, 2026-09-23 at 1.1: `/documents`, the deals and supplier-quotations shape, not the `/files` first proposed). The `PATCH`es carry `If-Match` and no `Idempotency-Key` (`OpenAPI
-  §7.2`'s reading for the approval actions); `consume()` keeps its own per-line key.
-- **Q12 · a deal may hold several live quotations — measured, and the rule.** Nothing forbids it: no
-  constraint on `quotations.deal_id` beyond `UNIQUE (parent_id, version)`, no check in `CreateQuotation`,
-  no document limits it; the dev database holds `DL-2026-0002` with **4** live and `DL-2026-0003` with **2**.
-  *Live* = the `active` bucket: `draft`, `pending`, `approved`, `sent`. **Rule:** a rejection
-  (`sent → rejected` or `expired → rejected`) moves the deal to `lost` **only when no other quotation of
-  that deal is live** afterwards; otherwise the quotation is rejected and the deal is untouched. Counted
-  inside the rejection's transaction, the deal's quotations locked `FOR UPDATE`, so two last rejections
-  racing cannot both see one survivor. Recorded in `D-90`.
-
-**The owner's answers during 2.2's questions, 2026-09-23:**
-
-- **The Team Leader and Procurement read every quotation**, and through it every purchase order —
-  `D-91`, built as point 2.2a before 2.2. `quotation.view` only; their bare ✅ cells in §3.5 follow
-  the new `All` (§3.2's reading), so both see cost and margin on every quotation (accepted).
-- **«إشعار خصم» is a discount on the sale price only** — the quotation's own `discount_amount`, not a
-  separate credit note. Closes the question that waited for the accountant.
-- **What a purchase order shows (2.2).** List: PO number, customer's PO reference, PO date, quotation
-  code, customer name, the quotation's final total with its currency. Detail: all of that, plus when
-  and by whom it was recorded, whether it has an attachment (the file itself is 2.3), the deal code,
-  the salesperson who owns the deal, the quotation's status, and the total's breakdown (subtotal,
-  discount, tax, additional items). **Never** cost, margin or suppliers. Sort `po_date` / `po_number` /
-  `created_at` (default `-created_at`), no filter besides `q`; the quotation detail always carries
-  `purchase_order` (null when none), and `respond` stops adding its own copy.
-
-**Two edge rules this list adds, for the owner to confirm at merge** (no document settles them):
-
-- **a · send from a deal that is not ready.** A deal before `supplier_quotation` (`lead` … `supplier_rfq`)
-  cannot reach `quotation_sent` in one move, so send is refused `422` naming the deal's status; a deal
-  already at `quotation_sent` or later is left where it is.
-- **b · a rejection on a deal with no `lost` edge** (already `lost`, or `won` and beyond): the quotation
-  is rejected and the deal is untouched, and the response says so.
-
-#### Step 1 — send and the customer's response (backend)
-
-- [x] **1.1** Docs only. The `D-90` row (Q1's PDF deviation, Q6's ruling, Q2's two deal moves, Q12's
-      last-live rule, rules a and b) — the master is hook-protected, so the point hands the owner a
-      script asserting its anchor once. `OpenAPI §7.1` gains the purchase-order routes and `§7.2` the
-      `send` and `respond` rows (body, permission, audit event, state change, no `Idempotency-Key`).
-      *(2026-09-23, #207 — `D-90` lands when the owner runs `paste_d90.py`; the upload route is `/documents`)*
-- [x] **1.2** `DealsContract` gains the write: `quotationSent(dealId, actorId)` and
-      `quotationRejected(dealId, reason, actorId)`, each through `ChangeDealStatus` inside the caller's
-      transaction. Touches Module 5 (the second developer's) on F-13 · 1.2's precedent (#194). Proven:
-      a rolled-back caller leaves the deal where it was; a deal with no `lost` edge is untouched (rule b).
-      *(2026-09-23, #209 — `DealOutcomeInterface` + `RecordQuotationOutcome`, unrestricted scope; 1.3/1.5 take `deal_id` only from the authorised quotation)*
-- [x] **1.3** `PATCH /quotations/{id}/send` under `quotation.send_to_customer`: `If-Match`,
-      `approved → sent`, `sent_at`, `QUOTATION_SENT`, the deal moved per Q2 and rule a, one transaction.
-      No PDF (`D-90`).
-      *(2026-09-23, #210 — `SendQuotation`; rule a is `422 business_rule_blocked` · `deal_not_ready_to_send`)*
-- [x] **1.4** `PATCH /quotations/{id}/respond` for `partial` and `counter`: `counter` needs a reason
-      (`422 rejection_reason_required`), `partial` does not (§6.3); the new version is written in the same
-      transaction through 4.3's copy, which stops copying `returned_at`/`return_note`; the response names
-      the new draft. Audit: `QUOTATION_PARTIAL` / `QUOTATION_COUNTERED` + `QUOTATION_VERSION_CREATED`.
-      *(2026-09-23, #211 — `RespondToQuotation` + `CreateQuotationVersion::copyOf`; a stray field is refused, the answer carries `new_version`)*
-- [x] **1.5** `respond` with `rejected`, from `sent` and from `expired` (Q8's new edge): reason required,
-      `QUOTATION_REJECTED`, then Q12's last-live count under `FOR UPDATE` and 1.2's `quotationRejected`
-      only when it is zero. Proven with two live quotations on one deal: the first rejection leaves the
-      deal, the second makes it `lost`.
-      *(2026-09-23, #212 — the lock is taken before the write; the answer carries `deal_lost` (owner))*
-- [x] **1.6** `respond` with `accepted`: migration `purchase_orders` (uuid, `quotation_id` FK and unique
-      alive, `po_number` unique, `customer_po_reference`, `po_date`, audit columns, soft delete, `down()`)
-      plus the foreign key `purchase_order_files` has owed since Module 0; `customer_po_reference` and
-      `po_date` required; `PO-` from `DocumentNumberAllocator`; `SupplierItemQuantityInterface` joins
-      `SupplierQuotationsContract` and `consume()` runs once per line keyed by the line's id; audit
-      `QUOTATION_ACCEPTED` (old/new `consumed_quantity`) + `PURCHASE_ORDER_CREATED`; one transaction.
-      Ticks **F-05 · 1.5**.
-      *(2026-09-23, #213 — the answer carries `purchase_order` (owner A); old balance = new − quantity, exact under `If-Match`)*
-
-#### Step 2 — `J-01` and the purchase order's read side
-
-- [x] **2.1** `J-01 expire_quotations`: a use case and a job on `maintenance`, daily; `sent` and
-      `valid_until` before today in `locale.timezone` ⇒ `expired`, `QUOTATION_EXPIRED` with a system actor,
-      idempotent. A `scheduler` service in `docker-compose.yml` runs `J-01` once on start (the `D-55`
-      catch-up) and then `schedule:work` — closing the "nothing runs the scheduler" debt row, and from
-      then on `J-02` and `J-15` fire in the stack too. No deal move (Q2), no customer status (debt row).
-      *(2026-09-23, #214 — one `UPDATE … RETURNING`, `user_id` NULL; unset/unknown zone ⇒ `app.timezone` (Q-A); dev `locale.timezone` = `Africa/Cairo`)*
-- [x] **2.2a** `D-91`: the Team Leader and Procurement read every quotation. `PermissionMatrix` moves
-      §3.5's TL `view` `Team → All` and Procurement's `Asgn → All`, with their bare ✅ cells (TL: view
-      cost & margin, edit margin, edit tax, export PDF; Procurement: view cost & margin); every
-      explicit cell keeps `Team` / `Asgn`. A migration swaps the live grants on an already-seeded
-      database, audited `ROLE_PERMISSIONS_UPDATED` with the system actor, reversible. The `D-91` row and
-      §3.5's cells go into the master through the owner's `paste_d91.py`.
-      *(2026-09-23, #215 — 145 → 138 permission rows, grants 218 unchanged; dev `rbac:verify` 7/7 drift ⇒ matches)*
-- [x] **2.2** `GET /purchase-orders` (paginated, scoped through the quotation's deal) with `q` over
-      `po_number` **and** `customer_po_reference` through a new `SearchIndex::PurchaseOrders`;
-      `GET /purchase-orders/{id}`; the quotation detail names its PO.
-      *(2026-09-23, #216 — `has_attachment` through Storage's `hasFiles` (owner A); exempt ⇒ no tax keys; `respond` writes the PO before its re-read)*
-- [x] **2.3** The PO's attachment: `POST /purchase-orders/{id}/documents` under
-      `quotation.record_customer_response`, the list of its files, and the download mapping for
-      `AttachmentParent::PurchaseOrder` (an unmapped parent is refused today, `ParentAwareAttachmentPermission.php:33-35`);
-      `AttachDealDocument`'s shape (validate, store, scan after commit).
-      *(2026-09-23, #217 — `documents` on the detail replaced `has_attachment` (owner A1); several per order (B1); download under `quotation.view`)*
-
-#### Step 3 — the screens
-
-- [x] **3.1** The quotation detail: a *Send* button (`approved`, `quotation.send_to_customer`) and a
-      *Record the customer's response* dialog — four outcomes, the reason field for Counter and Rejected,
-      the PO reference and date for Accepted; Partial and Counter open the new draft; an `expired`
-      quotation offers *Reject* with its reason; `409` shows the refresh message (§10.5).
-      *(2026-09-23, #221 — in-page dialog; Expired pre-fills «لا رد» (§10.5, owner); `deal_lost` shown as one line (rule b, owner); the PO block stays 3.3's)*
-- [x] **3.2** "Previous Quotations" in the deal detail (§6.3; the sixth criterion): the deal's quotations
-      by version chain, through the existing `GET /quotations?filter[deal_id]`.
-      *(2026-09-23, #222 — every version, live ones included (owner); `sort=code,created_at` lays each chain out, a copy keeping its code; one page of 100 (owner))*
-- [x] **3.3** Purchase orders: a list searchable by both numbers, the PO on its quotation, and the upload
-      of its attachment.
-      *(2026-09-23, #223 — `/purchase-orders` + sidebar on `quotation.view`, §8 names none (owner Q-A); no PO page, the order and its files live on the quotation (Q-B); search + prev/next only (Q-C); `displayDate()` draws a date-only field in UTC (Q-D))*
-
-#### Step 4 — close the module
-
-- [ ] **4.1** Arabic manual test list, freeze to `checklist/module-10.md`, stub here, ownership row.
+Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
+the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒
+No Response") and `J-02`'s missing catch-up stay in the debt register above; the post-QA fix pass
+(F-17…F-30, 2026-09-24) runs before Module 11.
 
 ---
 

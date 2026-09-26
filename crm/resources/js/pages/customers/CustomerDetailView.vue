@@ -22,9 +22,12 @@
  *
  * **No archive or restore.** §3.3 gives them one merged `customer.archive`
  * permission and the approved decomposition puts them on Point 4.5's screen.
- * **No assign**, though Point 3.5 shipped the route: no point in the approved
- * list names a screen for it, and inventing one here would be building past the
- * plan. Both are recorded rather than quietly added.
+ * Recorded rather than quietly added.
+ *
+ * **No owner's name, though the owner can be changed.** Assign is the last
+ * section since F-19 · 1.1 (E2-1: no screen reached the route Point 3.5
+ * shipped), on §3.3's own `assign` row. The name belongs to Identity and
+ * arrives from the server with F-19 · 1.1a (`D-83`), not by a lookup here.
  *
  * **No deals and no timeline.** §5.2 wants "related data/timeline second" and
  * for a customer that is Module 5's deals, which do not exist. `D-16` puts the
@@ -45,9 +48,10 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { readCustomer, type Customer } from '@/services/customers';
+import { assignCustomer, readCustomer, type Customer } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
+import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 
 const route = useRoute();
 const { t, locale } = useI18n();
@@ -60,8 +64,17 @@ const denied = ref(false);
 const missing = ref(false);
 const sectors = ref<ListEntry[]>([]);
 const formOpen = ref(false);
+const ownerId = ref('');
+const assignDone = ref(false);
+/** A flag, not a sentence: the template translates it when drawn, so a language switch reaches it. */
+const ownerMissing = ref(false);
+/** The server's own sentence, already in the language of the request that earned it. */
+const assignFieldError = ref<string | null>(null);
+const assignErrorKey = ref<string | null>(null);
 
 const canEdit = computed(() => auth.hasPermission('customer.edit'));
+/** §3.3's own `assign` row, never `edit`: two roles hold it where five hold `edit`. */
+const canAssign = computed(() => auth.hasPermission('customer.assign'));
 
 const id = computed(() => String(route.params.id ?? ''));
 
@@ -140,6 +153,41 @@ async function onSaved(): Promise<void> {
     // Re-read rather than patch the object in hand: the server owns the record,
     // and `is_incomplete` in particular is its calculation, not the form's.
     await load();
+}
+
+/**
+ * Flow 10. The route checks `customer.assign`, the row scope and that the
+ * owner exists, and writes §3.12 rule 4's audit entry in the same transaction.
+ * The page only asks.
+ */
+async function submitAssign(): Promise<void> {
+    ownerMissing.value = false;
+    assignFieldError.value = null;
+    assignErrorKey.value = null;
+    assignDone.value = false;
+
+    // §3.3 has no unassign row, so an empty choice never reaches the server.
+    if (ownerId.value === '') {
+        ownerMissing.value = true;
+
+        return;
+    }
+
+    try {
+        await assignCustomer(id.value, ownerId.value);
+        assignDone.value = true;
+    } catch (error) {
+        // The server's sentence, e.g. an owner who is not a user of this system.
+        const sentence = error instanceof ApiError ? error.messageFor('sales_owner_id') : null;
+
+        if (sentence !== null) {
+            assignFieldError.value = sentence;
+        } else {
+            assignErrorKey.value = error instanceof ApiError && error.status === 403
+                ? 'customers.assign.forbidden'
+                : 'customers.assign.rejected';
+        }
+    }
 }
 
 onMounted(async () => {
@@ -259,6 +307,43 @@ onMounted(async () => {
                 </p>
             </section>
 
+            <!-- Flow 10, last after §5.2's summary and related data. The picker
+                 is the deal page's own control, reused rather than copied. -->
+            <section v-if="canAssign" class="detail-card flex flex-col gap-2 rounded-2xl p-4" data-testid="customer-assign">
+                <h2 class="text-card-title">{{ t('customers.assign.title') }}</h2>
+
+                <p v-if="assignErrorKey !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="customer-assign-error">
+                    {{ t(assignErrorKey) }}
+                </p>
+
+                <form class="flex flex-wrap items-end gap-2" data-testid="customer-assign-form" @submit.prevent="submitAssign()">
+                    <!-- `min-w-0`: a flex item never shrinks below its content, and the
+                         picker's longest option is wider than a 375 px card. -->
+                    <label class="flex min-w-0 flex-col gap-1.5" for="customer-assign-owner">
+                        <span>
+                            {{ t('customers.assign.owner') }}
+                            <span class="text-[var(--color-danger)]">{{ t('customers.form.required') }}</span>
+                        </span>
+                        <DealOwnerPicker v-model="ownerId" field-id="customer-assign-owner" test-id="customer-assign-owner" />
+
+                        <span v-if="ownerMissing || assignFieldError !== null" class="text-[var(--color-danger)]" data-testid="customer-assign-owner-error">
+                            {{ ownerMissing ? t('customers.assign.ownerRequired') : assignFieldError }}
+                        </span>
+                    </label>
+
+                    <button
+                        type="submit"
+                        class="edit-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    >
+                        {{ t('customers.assign.action') }}
+                    </button>
+                </form>
+
+                <p v-if="assignDone" role="status" aria-live="polite" data-testid="customer-assign-done">
+                    {{ t('customers.assign.done') }}
+                </p>
+            </section>
+
             <CustomerFormModal
                 :open="formOpen"
                 :editing="customer"
@@ -284,6 +369,11 @@ onMounted(async () => {
 .flag-chip {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-warning);
+}
+
+.form-alert {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-border-strong);
 }
 
 .row-action {

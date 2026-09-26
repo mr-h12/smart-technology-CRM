@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import CustomerPicker from '@/components/customers/CustomerPicker.vue';
+import SearchCombobox from '@/components/SearchCombobox.vue';
 
 /**
  * F-08 · 1.2 (`D-84`) — one customer dropdown that searches the server.
@@ -81,6 +82,11 @@ describe('CustomerPicker', () => {
     afterEach(() => {
         vi.useRealTimers();
         document.body.innerHTML = '';
+    });
+
+    // F-18 · 1.1: one shared picker, so a third one is a wrapper and not a copy.
+    it('is built on the shared search combobox', () => {
+        expect(render(server()).findComponent(SearchCombobox).exists()).toBe(true);
     });
 
     it('asks nothing until opened, then the first 20 by name', async () => {

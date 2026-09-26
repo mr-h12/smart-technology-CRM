@@ -239,18 +239,14 @@ final class FileDownloadTest extends TestCase
 
         $user = User::factory()->create();
 
-        // Debug is on in testing and Laravel's debug 404 embeds a stack trace,
-        // whose line numbers differ between two calls made from different lines.
-        // Production is what this test is about, so it asks production's
-        // question.
-        config(['app.debug' => false]);
-
         $denied = $this->actingAs($user)->download($real);
         $missing = $this->actingAs($user)->download($imaginary);
 
         self::assertSame(404, $denied->getStatusCode());
         self::assertSame($denied->getStatusCode(), $missing->getStatusCode());
-        self::assertSame($denied->getContent(), $missing->getContent());
+        // The whole envelope but `meta.request_id`, which is minted per
+        // request (`OpenAPI §3.3`) and so differs by design (F-17 · 1.1).
+        self::assertSame($denied->json('error'), $missing->json('error'));
         self::assertSame(
             $denied->headers->get('Content-Type'),
             $missing->headers->get('Content-Type'),

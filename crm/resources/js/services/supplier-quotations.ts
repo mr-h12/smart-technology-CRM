@@ -52,6 +52,8 @@ export interface SupplierQuotation {
 export interface SupplierQuotationLine {
     id: string;
     catalog_item_id: string;
+    /** D-93 (F-18 · 1.2): §7.3's label for the item — its `name`, or a service's `service_type`. */
+    product_name: string | null;
     unit_price: string;
     /** The supplier's original offer — never edited by consumption (D-81). */
     quantity: string;

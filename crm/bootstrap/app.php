@@ -46,10 +46,13 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -321,6 +324,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (ThrottleRequestsException $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::throttled($e, $request)
+                : null,
+        );
+
+        // F-17 · 1.1 — every other `HttpException`. Last, because the throttle
+        // exception above is one too and must keep its own handler.
+        $exceptions->render(
+            fn (HttpExceptionInterface $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::httpException($e, $request)
+                : null,
+        );
+
+        // F-17 · 1.3 — anything else is an unexpected failure: `OpenAPI §5.1`'s
+        // 500 `internal_error`, with no trace, SQL or message, debug on or off
+        // (the owner's ruling, 2026-09-24). `report()` has already logged it
+        // (`Routing\Pipeline::handleException`). Last of all, or it would take every
+        // exception above. An `HttpResponseException` from middleware (a rate
+        // limiter's own `->response()`) carries a response built on purpose, so
+        // it is not a failure and keeps that response.
+        $exceptions->render(
+            fn (Throwable $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request) && ! $e instanceof HttpResponseException
+                ? ApiExceptionRenderer::httpException(new HttpException(500), $request)
                 : null,
         );
     })->create();

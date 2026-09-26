@@ -65,7 +65,11 @@ final class SupplierQuotationController
     {
         $quotation = $quotations->one($supplierQuotation);
 
-        return ApiEnvelope::single($request, SupplierQuotationPayload::detail($quotation, $quotations->dealCodeOf($quotation)));
+        return ApiEnvelope::single($request, SupplierQuotationPayload::detail(
+            $quotation,
+            $quotations->dealCodeOf($quotation),
+            $quotations->productNamesOf($quotation),
+        ));
     }
 
     public function store(SaveSupplierQuotationRequest $request, CreateSupplierQuotation $quotations): JsonResponse

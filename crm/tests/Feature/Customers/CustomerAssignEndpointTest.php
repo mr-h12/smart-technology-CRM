@@ -199,6 +199,18 @@ final class CustomerAssignEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $to->id]);
     }
 
+    /** F-19 · 1.1a: the response names the new owner, so the page shows it without reading the record again. */
+    public function test_that_the_answer_names_the_new_owner(): void
+    {
+        $from = $this->userWith(RoleName::IndoorSales);
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $id = $this->customer('Alpha Trading', ownerId: $from->id);
+
+        $this->patchJson($this->assignUrl($id), ['sales_owner_id' => $to->id], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.sales_owner_name', 'Test Outdoor Sales');
+    }
+
     public function test_that_assigning_records_the_actor_on_the_row(): void
     {
         $to = $this->userWith(RoleName::IndoorSales);

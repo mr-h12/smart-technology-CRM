@@ -3056,7 +3056,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             screen reads only the first 100 suppliers"); a third copy would be a defect. *(2026-09-24,
             #233 — `SearchCombobox.vue`, both pickers its wrappers; an open list takes its own Escape)*
       - [x] **1.2** The line's product picker on it, searched on the server, the selected supplier's
-            items first (`D-93`). A typed new name still joins the catalog (`D-22`). *(2026-09-24 —
+            items first (`D-93`). A typed new name still joins the catalog (`D-22`). *(2026-09-26, #234 —
             `CatalogItemPicker`; `GET /catalog-items?supplier_first=`, `product_name` on the offer's
             lines)*
 - [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,

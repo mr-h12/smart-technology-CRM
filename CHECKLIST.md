@@ -3091,9 +3091,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             lines)*
 - [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
       `D-34`).
-      - [ ] **1.1** Assign from the customer's page through the existing
+      - [x] **1.1** Assign from the customer's page through the existing
             `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
-            caller today).
+            caller today). *(2026-09-27, #235 — a "Sales owner" section on `customer.assign`, the
+            reused `DealOwnerPicker`; a round trip on Alex Scan wrote two `CUSTOMER_REASSIGNED` rows)*
       - [ ] **1.1a** The customer's page names its sales owner: `sales_owner_name` on the customer's
             payload through Identity's existing `UserFactsInterface::namesOf`, with no lookup in the
             browser (`D-83`). Added by the owner 2026-09-27 during 1.1's questions, rather than

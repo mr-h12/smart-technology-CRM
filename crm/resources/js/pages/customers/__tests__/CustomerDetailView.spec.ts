@@ -270,3 +270,247 @@ describe('CustomerDetailView — §5.2 action controls only by permission', () =
         expect(view.text()).toContain('Alpha Trading Co');
     });
 });
+
+/**
+ * F-19 · 1.1 — Flow 10 on the customer's own page. E2-1: no screen assigned an
+ * owner, though `PATCH /customers/{customer}/assign` has existed since Point 3.5.
+ *
+ * The picker is `DealOwnerPicker`, reused rather than copied. It reads
+ * `GET /users` on mount, so every stub below answers that path too.
+ */
+
+/** `AdministeredUser` in full, as `GET /users` answers it (`UserPayload::of`). */
+const EMPLOYEES = [
+    {
+        id: 'u-indoor', name: 'Test Indoor Sales', email: 'indoor.sales@example.test',
+        role_id: 'r5', role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
+        is_active: true, created_at: '2026-08-01T00:00:00+00:00', updated_at: '2026-08-01T00:00:00+00:00',
+    },
+];
+
+/** §3.3's `assign` row, which the Manager holds at `All`; `view` so the page opens at all. */
+const MANAGER: AuthenticatedUser = {
+    ...VIEWER,
+    id: '01a0-manager',
+    name: 'Test Manager',
+    email: 'manager@example.test',
+    role: { id: '01a0-role-mgr', slug: 'manager', name: 'Manager' },
+    permissions: ['customer.view.all', 'customer.assign.all'],
+};
+
+/**
+ * The page's four resources, routed by path for the reason `stubDetail` gives:
+ * the record, the sector list, the employee list the picker reads on mount,
+ * and the write. `assign` answers the write, so each refusal is its own stub.
+ */
+function stubAssign(
+    assign: () => Response = () => json(200, { data: { ...CUSTOMER, sales_owner_id: 'u-indoor' }, meta: {} }),
+): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+        if (String(url).includes('/managed-lists/')) {
+            return json(200, { data: [], meta: { pagination: PAGINATION } });
+        }
+
+        if (String(url).includes('/users')) {
+            return json(200, { data: EMPLOYEES, meta: { pagination: { ...PAGINATION, total: 1 } } });
+        }
+
+        if (String(url).endsWith('/assign')) {
+            return assign();
+        }
+
+        return json(200, { data: CUSTOMER, meta: {} });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    return fetchMock;
+}
+
+/** The write, found by its path: the picker's `/users` read comes first. */
+function assignCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] | undefined {
+    return fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/assign')) as [string, RequestInit] | undefined;
+}
+
+describe('CustomerDetailView — Flow 10 · F-19 · 1.1 assign', () => {
+    it('assigns the chosen employee through its own route and says so', async () => {
+        const fetchMock = stubAssign();
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        const [url, init] = assignCall(fetchMock) ?? ['', {}];
+
+        // `OpenAPI §7.2`'s suffix and `AssignCustomerRequest`'s one field:
+        // `sales_owner_id`, not the deal route's `owner_id`.
+        expect(url).toContain('/customers/c1/assign');
+        expect(init.method).toBe('PATCH');
+        expect(JSON.parse(String(init.body))).toEqual({ sales_owner_id: 'u-indoor' });
+        expect(view.find('[data-testid="customer-assign-done"]').exists()).toBe(true);
+    });
+
+    /**
+     * §3.3 gives `assign` its own row beside `edit`: five roles hold `edit`,
+     * two hold `assign`. Without the row there is no section, so no
+     * `GET /users` either, a list §3.11 gives to `admin.create_user`, so the
+     * request could only be refused.
+     */
+    it('draws the assign section only for §3.3’s own customer.assign row', async () => {
+        stubAssign();
+
+        const manager = await render(MANAGER);
+        await flushPromises();
+
+        expect(manager.find('[data-testid="customer-assign"]').exists()).toBe(true);
+
+        vi.restoreAllMocks();
+        useAuth().forgetSession();
+        const fetchMock = stubAssign();
+
+        const editor = await render(EDITOR);
+        await flushPromises();
+
+        expect(editor.find('[data-testid="customer-assign"]').exists()).toBe(false);
+        expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/users'))).toHaveLength(0);
+    });
+
+    /** §3.3 has no unassign row, and `AssignCustomerRequest` requires the field. */
+    it('refuses a blank owner without asking the server', async () => {
+        const fetchMock = stubAssign();
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        // Nothing chosen: the picker opens on "Choose the employee", valued "".
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(assignCall(fetchMock)).toBeUndefined();
+        expect(view.find('[data-testid="customer-assign-owner-error"]').exists()).toBe(true);
+    });
+
+    /** The page's own message is looked up when drawn, so a language switch reaches it. */
+    it('draws the required message in the language the page is in now', async () => {
+        stubAssign();
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        view.vm.$i18n.locale = 'ar';
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-assign-owner-error"]').text()).toBe(ar.customers.assign.ownerRequired);
+    });
+
+    /** Design System §6.1: the server's sentence, localised for this request, beside the field. */
+    it('renders the server’s own sentence under the field when it refuses the owner', async () => {
+        stubAssign(() => json(422, {
+            error: {
+                code: 'validation_failed',
+                message: 'Please correct the highlighted fields.',
+                details: [{ field: 'sales_owner_id', code: 'invalid', message: 'That sales owner is not a user of this system.' }],
+            },
+            meta: { request_id: 'r1' },
+        }));
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-assign-owner-error"]').text())
+            .toBe('That sales owner is not a user of this system.');
+    });
+
+    /** A 403 is about the caller's permission, and says so rather than blaming the field. */
+    it('says a refused assignment was a permission problem on a 403', async () => {
+        stubAssign(() => json(403, {
+            error: { code: 'permission_denied', message: 'You do not have permission to perform this action.', details: [] },
+            meta: { request_id: 'r1' },
+        }));
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-assign-error"]').text()).toBe(en.customers.assign.forbidden);
+    });
+
+    /** `OpenAPI §5.1`'s 404 (the customer left the caller's reach meanwhile) is not a permission problem. */
+    it('reports any other refusal as not accepted rather than as a permission problem', async () => {
+        stubAssign(() => json(404, {
+            error: { code: 'resource_not_found', message: 'The requested resource was not found.', details: [] },
+            meta: { request_id: 'r1' },
+        }));
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-assign-error"]').text()).toBe(en.customers.assign.rejected);
+    });
+
+    /** "Assigned" beside "you do not have permission" would be two answers to one question. */
+    it('replaces the last outcome with each new attempt', async () => {
+        const assigned = (): Response => json(200, { data: { ...CUSTOMER, sales_owner_id: 'u-indoor' }, meta: {} });
+        // The server's refusals, in the order the attempts below meet them; then it accepts.
+        const refusals = [
+            (): Response => json(422, {
+                error: {
+                    code: 'validation_failed',
+                    message: 'Please correct the highlighted fields.',
+                    details: [{ field: 'sales_owner_id', code: 'invalid', message: 'That sales owner is not a user of this system.' }],
+                },
+                meta: { request_id: 'r1' },
+            }),
+            (): Response => json(403, {
+                error: { code: 'permission_denied', message: 'You do not have permission to perform this action.', details: [] },
+                meta: { request_id: 'r2' },
+            }),
+        ];
+        stubAssign(() => (refusals.shift() ?? assigned)());
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        const submit = async (): Promise<void> => {
+            await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+            await flushPromises();
+        };
+        const shown = (testId: string): boolean => view.find(`[data-testid="${testId}"]`).exists();
+        const fieldMessage = (): string => view.find('[data-testid="customer-assign-owner-error"]').text();
+
+        // Nothing chosen: the page's own message.
+        await submit();
+        expect(fieldMessage()).toBe(en.customers.assign.ownerRequired);
+
+        // A 422: the server's sentence replaces the page's own.
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await submit();
+        expect(fieldMessage()).toBe('That sales owner is not a user of this system.');
+
+        // A 403: the field is clear and the alert speaks.
+        await submit();
+        expect(shown('customer-assign-owner-error')).toBe(false);
+        expect(shown('customer-assign-error')).toBe(true);
+
+        // Accepted: the alert is gone and the confirmation shows.
+        await submit();
+        expect(shown('customer-assign-error')).toBe(false);
+        expect(shown('customer-assign-done')).toBe(true);
+
+        // Nothing chosen again: the confirmation is withdrawn.
+        await view.find('[data-testid="customer-assign-owner"]').setValue('');
+        await submit();
+        expect(shown('customer-assign-done')).toBe(false);
+        expect(fieldMessage()).toBe(en.customers.assign.ownerRequired);
+    });
+});

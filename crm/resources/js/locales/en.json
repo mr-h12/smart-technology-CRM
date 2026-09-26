@@ -663,6 +663,15 @@
             "done": "Restored {count} customers.",
             "failed": "Restored {done}, {failed} refused. Nothing else changed — try the refused rows again."
         },
+        "assign": {
+            "title": "Sales owner",
+            "owner": "Assign to",
+            "action": "Assign",
+            "ownerRequired": "Choose the employee first.",
+            "done": "The customer was assigned to the chosen employee.",
+            "forbidden": "You do not have permission to assign this customer.",
+            "rejected": "The assignment was not accepted."
+        },
         "import": {
             "title": "Import customers"
         },

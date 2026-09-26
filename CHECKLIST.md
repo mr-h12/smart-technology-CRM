@@ -1325,6 +1325,31 @@ would hide them behind `OD-03` indefinitely.
       `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code;
       `StoragePath::UUID` is a fourth spelling. Owed: one shared domain value (a narrow
       `SharedContracts` prefix Domain may reach), when the owner orders it
+- [ ] **The employee picker reads only the first 25 active employees** — *revealed by F-19 · 1.1,
+      2026-09-27; not fixed there, because the approved line is the customer page's assign section,
+      which reuses the picker as it stands.* `DealOwnerPicker.vue` calls
+      `listUsers({ isActive: true })` with no `per_page`, so `GET /users` answers
+      `UserListCriteria::DEFAULT_PER_PAGE`, 25 rows (`MAX_PER_PAGE` is 100). Past the 25th active
+      employee, nobody further can be chosen in the deal form, the deal's assign panel or the
+      customer page's assign section: the capped-list class F-18 removed for catalog items. Measured
+      2026-09-27: 8 active users in the dev database, so it does not bite yet. Owed: the picker on the
+      shared server-searched `SearchCombobox.vue` (F-18 · 1.1), when the owner orders it
+- [ ] **Six client-side messages are stored as translated sentences, so a language switch leaves them
+      in the old language** — *revealed by F-19 · 1.1, 2026-09-27 (`rtl-ui-verifier`), which fixed its
+      own copy with a flag the template translates; not fixed there, because the approved line is the
+      customer page's assign section.* `CustomersView.vue:370` and `:396`, `DealDocumentsPanel.vue:125`,
+      `DealApprovalControls.vue:99`, `DealStatusControl.vue:101` and `QuotationBuilderView.vue:500`
+      assign `t('…')` to a ref, so switching AR↔EN redraws every other label and leaves these until the
+      next attempt. 18 other places keep a key and translate it when drawn. Owed: the key-or-flag shape
+      at the six, when the owner orders it
+- [ ] **The deal page's owner picker likely overflows a 375 px card, as the customer page's did** —
+      *revealed by F-19 · 1.1, 2026-09-27; not fixed there, because the approved line is the customer
+      page.* `DealDocumentsPanel.vue:224-225` puts `DealOwnerPicker` in the same `flex flex-wrap` row
+      with no `min-w-0` on its label. On the customer page that layout measured the select at 359 px in
+      a 309 px card, and `min-w-0` on the label plus the picker's new `max-w-full` brought it to 309.
+      Not measured on the deal page: the dev database holds no deal (2026-09-27), and creating one is a
+      write. The deal create dialog, which stacks its fields, measured clean at 375 px in both
+      languages. Owed: `min-w-0` on that label, measured, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -3069,6 +3094,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.1** Assign from the customer's page through the existing
             `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
             caller today).
+      - [ ] **1.1a** The customer's page names its sales owner: `sales_owner_name` on the customer's
+            payload through Identity's existing `UserFactsInterface::namesOf`, with no lookup in the
+            browser (`D-83`). Added by the owner 2026-09-27 during 1.1's questions, rather than
+            widening 1.1.
       - [ ] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
             customer, under `customer.assign` at its scope (`D-92`).
       - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.

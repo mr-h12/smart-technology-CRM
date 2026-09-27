@@ -8,6 +8,7 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
+use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
 use App\Modules\Suppliers\Domain\Importing\ImportSummary;
 use App\Modules\Suppliers\Domain\Writing\SupplierDraft;
 use App\Support\Csv\RowRejected;
@@ -26,6 +27,8 @@ use Illuminate\Database\ConnectionInterface;
  * - **Not saved, counted** (owner's ruling (a), 2026-09-21): no name, a type
  *   §7.1 does not name, an open-account word that is not a yes or a no, or a
  *   value longer than its column. Each would be a CHECK violation or a guess.
+ * - **Skipped** (`D-94`, F-20 · 1.3): a name already on file, deactivated
+ *   included (owner's ruling, 2026-09-27), or on an earlier row of the file.
  * - **`color_rating`** is never written, so the column's default — White,
  *   "new / not yet rated" — is what every imported supplier gets (`D-19`).
  *
@@ -42,6 +45,7 @@ final readonly class ImportSuppliers
 
     public function __construct(
         private SupplierDirectoryInterface $suppliers,
+        private SupplierLookupInterface $lookup,
         private AuditRecorderInterface $audit,
         private StorageServiceInterface $storage,
         private ConnectionInterface $connection,
@@ -61,12 +65,24 @@ final readonly class ImportSuppliers
             $imported = 0;
             $incomplete = 0;
             $rejected = [];
+            $skipped = [];
 
             foreach ($rows as $number => $row) {
                 try {
                     $attributes = self::attributes($row);
                 } catch (RowRejected $rejection) {
                     $rejected[] = $rejection->at($number);
+
+                    continue;
+                }
+
+                // `D-94`: neither imported nor merged, only named. Earlier rows
+                // were created in this transaction, so `idsNamed()` sees them
+                // too; no scope applies, `catalog.import` being `.all` alone.
+                // The cast is for PHPStan: `attributes()` always sets a string
+                // name; only `has_open_account` is a bool.
+                if ($this->lookup->idsNamed((string) $attributes['name']) !== []) {
+                    $skipped[] = $number;
 
                     continue;
                 }
@@ -93,7 +109,7 @@ final readonly class ImportSuppliers
 
             $batch = $this->suppliers->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
 
-            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected, $skipped);
         });
     }
 

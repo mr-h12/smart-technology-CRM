@@ -31,6 +31,7 @@ use Tests\TestCase;
  */
 final class QuotationFilesTest extends TestCase
 {
+    use InsertsQuotationRows;
     use RefreshDatabase;
 
     private const MIGRATION = 'database/migrations/2026_09_22_100000_create_quotation_files.php';
@@ -119,73 +120,5 @@ final class QuotationFilesTest extends TestCase
 
         self::assertSame(0, Artisan::call('migrate'));
         self::assertTrue(Schema::hasTable('quotation_files'), 'The table did not come back.');
-    }
-
-    private function insertQuotation(): string
-    {
-        $customerId = Uuid::uuid7()->toString();
-        $dealId = Uuid::uuid7()->toString();
-        $currencyId = Uuid::uuid7()->toString();
-        $quotationId = Uuid::uuid7()->toString();
-
-        DB::table('customers')->insert(['id' => $customerId, 'name' => 'Nile Trading', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('deals')->insert([
-            'id' => $dealId,
-            'code' => 'DL-2026-'.substr(str_replace('-', '', $dealId), -4),
-            'customer_id' => $customerId,
-            'last_activity_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        DB::table('currencies')->insert([
-            'id' => $currencyId,
-            'code' => 'EGP',
-            'rounding_unit' => '1',
-            'rounding_enabled' => true,
-            'is_base' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        DB::table('quotations')->insert([
-            'id' => $quotationId,
-            'code' => 'QT-2026-'.substr(str_replace('-', '', $quotationId), -4),
-            'deal_id' => $dealId,
-            'customer_id' => $customerId,
-            'currency_id' => $currencyId,
-            'default_margin' => '20',
-            'discount_percent' => '0',
-            'rounding_unit' => '1',
-            'rounding_enabled' => true,
-            'subtotal' => '0',
-            'additional_total' => '0',
-            'discount_amount' => '0',
-            'tax_base' => '0',
-            'net_amount' => '0',
-            'total_before_round' => '0',
-            'final_total' => '0',
-            'rounding_diff' => '0',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $quotationId;
-    }
-
-    private function insertFile(): string
-    {
-        $id = Uuid::uuid7()->toString();
-
-        DB::table('files')->insert([
-            'id' => $id,
-            'original_name' => 'QT-2026-0001.pdf',
-            'mime_type' => 'application/pdf',
-            'size_bytes' => 1024,
-            'storage_path' => '2026/09/quotation/'.Uuid::uuid7()->toString().'/'.$id.'.pdf',
-            'scan_status' => 'clean',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $id;
     }
 }

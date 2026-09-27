@@ -53,6 +53,9 @@ final class CustomerAssignEndpointTest extends TestCase
 
     private const ENDPOINT = '/api/v1/customers';
 
+    /** F-19 · 1.2 (`D-92`): several customers, one owner, one request. */
+    private const BULK = self::ENDPOINT.'/assign';
+
     private const PASSWORD = 'Passw0rd123';
 
     private const EVENT = 'CUSTOMER_REASSIGNED';
@@ -197,6 +200,18 @@ final class CustomerAssignEndpointTest extends TestCase
             ->assertJsonPath('data.sales_owner_id', $to->id);
 
         $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $to->id]);
+    }
+
+    /** F-19 · 1.1a: the response names the new owner, so the page shows it without reading the record again. */
+    public function test_that_the_answer_names_the_new_owner(): void
+    {
+        $from = $this->userWith(RoleName::IndoorSales);
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $id = $this->customer('Alpha Trading', ownerId: $from->id);
+
+        $this->patchJson($this->assignUrl($id), ['sales_owner_id' => $to->id], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.sales_owner_name', 'Test Outdoor Sales');
     }
 
     public function test_that_assigning_records_the_actor_on_the_row(): void
@@ -387,5 +402,135 @@ final class CustomerAssignEndpointTest extends TestCase
             ->assertStatus(422);
 
         $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => null]);
+    }
+
+    // ─────────────────────────────── F-19 · 1.2: several customers in one request (`D-92`)
+
+    public function test_that_an_unauthenticated_caller_cannot_bulk_assign(): void
+    {
+        $this->postJson(self::BULK)->assertStatus(401);
+    }
+
+    /** §3.12 rule 1: the same five roles refused, at the API. */
+    #[DataProvider('rolesWithoutAssign')]
+    public function test_that_a_role_without_the_permission_cannot_bulk_assign(RoleName $role): void
+    {
+        $owner = $this->userWith($role);
+        $id = $this->customer('Alpha Trading', ownerId: $owner->id);
+        $target = $this->userWith(RoleName::Manager);
+
+        $this->postJson(self::BULK, ['ids' => [$id], 'sales_owner_id' => $target->id], $this->bearerFor($role))
+            ->assertStatus(403);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $owner->id]);
+    }
+
+    /** `D-92`: `customer.assign` at its scope for every customer, so the unbacked `team` reaches none of them. */
+    public function test_that_a_team_leader_bulk_assigns_nothing_while_team_is_unbacked(): void
+    {
+        $a = $this->customer('Alpha Trading');
+        $b = $this->customer('Beta Supplies');
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        // The customer's own refusal, not an unmatched route's: both are `404 resource_not_found`.
+        $this->postJson(self::BULK, ['ids' => [$a, $b], 'sales_owner_id' => $target->id], $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(404)
+            ->assertJsonPath('error.message', (string) __('customers.not_found'));
+
+        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => null]);
+        $this->assertDatabaseHas('customers', ['id' => $b, 'sales_owner_id' => null]);
+    }
+
+    /** `D-92` and `OpenAPI §7.3`: one owner for the list, and a result per record, in the order asked. */
+    public function test_that_a_manager_assigns_several_customers_in_one_request(): void
+    {
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $a = $this->customer('Alpha Trading', ownerId: $this->userWith(RoleName::IndoorSales)->id);
+        $b = $this->customer('Beta Supplies');
+
+        $this->postJson(self::BULK, ['ids' => [$a, $b], 'sales_owner_id' => $to->id], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.id', $a)
+            ->assertJsonPath('data.items.0.sales_owner_id', $to->id)
+            ->assertJsonPath('data.items.1.id', $b)
+            ->assertJsonPath('data.items.1.sales_owner_id', $to->id);
+
+        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => $to->id]);
+        $this->assertDatabaseHas('customers', ['id' => $b, 'sales_owner_id' => $to->id]);
+    }
+
+    /** §3.12 rule 4 per customer: each one that moved has its own entry; one already theirs has none (`AUD-03`). */
+    public function test_that_each_moved_customer_gets_its_own_reassignment_entry(): void
+    {
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $a = $this->customer('Alpha Trading', ownerId: $this->userWith(RoleName::IndoorSales)->id);
+        $b = $this->customer('Beta Supplies');
+        $already = $this->customer('Gamma Tools', ownerId: $to->id);
+
+        $this->postJson(self::BULK, ['ids' => [$a, $b, $already], 'sales_owner_id' => $to->id], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200);
+
+        self::assertSame(1, $this->auditCount(self::EVENT, $a));
+        self::assertSame(1, $this->auditCount(self::EVENT, $b));
+        self::assertSame(0, $this->auditCount(self::EVENT, $already));
+    }
+
+    /**
+     * `D-92`'s "all or none". The first customer is written before the second
+     * refuses, so only the outer transaction takes it back, with its entry.
+     * The refusal names no customer (§5.1; the owner's ruling of 2026-09-27).
+     */
+    public function test_that_one_customer_out_of_reach_refuses_the_whole_request(): void
+    {
+        $from = $this->userWith(RoleName::IndoorSales);
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $a = $this->customer('Alpha Trading', ownerId: $from->id);
+        $missing = (string) Str::uuid7();
+
+        $response = $this->postJson(self::BULK, ['ids' => [$a, $missing], 'sales_owner_id' => $to->id], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found')
+            ->assertJsonPath('error.message', (string) __('customers.not_found'));
+
+        self::assertStringNotContainsString($missing, (string) $response->getContent());
+        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => $from->id]);
+        self::assertSame(0, $this->auditCount(self::EVENT, $a));
+    }
+
+    /** @return array<string, array{\Closure(string, string, string): array<string, mixed>}> */
+    public static function malformedBulkBodies(): array
+    {
+        return [
+            'no ids' => [static fn (string $a, string $owner, string $admin): array => ['sales_owner_id' => $owner]],
+            'an empty list' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [], 'sales_owner_id' => $owner]],
+            'ids that are not a list' => [static fn (string $a, string $owner, string $admin): array => ['ids' => $a, 'sales_owner_id' => $owner]],
+            // `OpenAPI §7.3`'s "bounded identifier list", at §6.1's page of 100.
+            'more than a page (101)' => [static fn (string $a, string $owner, string $admin): array => [
+                'ids' => [$a, ...array_map(static fn (): string => (string) Str::uuid7(), range(1, 100))],
+                'sales_owner_id' => $owner,
+            ]],
+            'the same customer twice' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [$a, $a], 'sales_owner_id' => $owner]],
+            'an id that is not a UUID' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [$a, 'not-a-uuid'], 'sales_owner_id' => $owner]],
+            'no owner' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [$a]]],
+            'an owner who is not a user' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [$a], 'sales_owner_id' => (string) Str::uuid7()]],
+            'the hidden Super Admin as owner' => [static fn (string $a, string $owner, string $admin): array => ['ids' => [$a], 'sales_owner_id' => $admin]],
+        ];
+    }
+
+    /** @param \Closure(string, string, string): array<string, mixed> $body */
+    #[DataProvider('malformedBulkBodies')]
+    public function test_that_a_malformed_bulk_request_is_refused_and_writes_nothing(\Closure $body): void
+    {
+        $from = $this->userWith(RoleName::IndoorSales);
+        $a = $this->customer('Alpha Trading', ownerId: $from->id);
+        $owner = $this->userWith(RoleName::OutdoorSales)->id;
+        $admin = $this->userWith(RoleName::SuperAdmin)->id;
+
+        $this->postJson(self::BULK, $body($a, $owner, $admin), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => $from->id]);
+        self::assertSame(0, $this->auditCount(self::EVENT, $a));
     }
 }

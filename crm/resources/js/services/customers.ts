@@ -19,7 +19,7 @@ import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, typ
 
 export type { Pagination } from '@/api';
 
-/** §4.2's fields, as `CustomerPayload` serialises them. No owner name: it belongs to Identity. */
+/** §4.2's fields, as `CustomerPayload` serialises them. No owner name on a list row: it belongs to Identity. */
 export interface Customer {
     id: string;
     name: string;
@@ -38,6 +38,11 @@ export interface Customer {
     is_incomplete: boolean;
     created_at: string;
     updated_at: string;
+}
+
+/** The customer's page (`CustomerPayload::detail`): the owner's name, resolved by the server (F-19 · 1.1a, `D-83`). */
+export interface CustomerDetail extends Customer {
+    sales_owner_name: string | null;
 }
 
 export interface Page<T> {
@@ -125,8 +130,8 @@ export async function listCustomers(query: CustomerListQuery = {}): Promise<Page
     return collection<Customer>(await apiGet(`/customers${suffix}`));
 }
 
-export async function readCustomer(id: string): Promise<Customer> {
-    return (await apiGet<Customer>(`/customers/${id}`)).data;
+export async function readCustomer(id: string): Promise<CustomerDetail> {
+    return (await apiGet<CustomerDetail>(`/customers/${id}`)).data;
 }
 
 export async function createCustomer(draft: CustomerDraft): Promise<CustomerWritten> {
@@ -150,8 +155,8 @@ export async function restoreCustomer(id: string): Promise<Customer> {
  * Flow 10. `salesOwnerId` is required, not nullable: §3.3 has no unassign row,
  * and an ownerless customer is `D-34`'s deactivation path rather than this one.
  */
-export async function assignCustomer(id: string, salesOwnerId: string): Promise<Customer> {
-    return (await apiPatch<Customer>(`/customers/${id}/assign`, { sales_owner_id: salesOwnerId })).data;
+export async function assignCustomer(id: string, salesOwnerId: string): Promise<CustomerDetail> {
+    return (await apiPatch<CustomerDetail>(`/customers/${id}/assign`, { sales_owner_id: salesOwnerId })).data;
 }
 
 export async function importCustomers(file: File): Promise<ImportBatch> {

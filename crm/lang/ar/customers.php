@@ -47,6 +47,7 @@ return [
         'start_date' => 'تاريخ أول تعامل',
         'notes' => 'الملاحظات',
         'sales_owner_id' => 'مسؤول المبيعات',
+        'ids' => 'العملاء المحدّدون',
         'customer_status' => 'حالة العميل',
         'is_archived' => 'مؤرشَف',
         'is_incomplete' => 'غير مكتمل',

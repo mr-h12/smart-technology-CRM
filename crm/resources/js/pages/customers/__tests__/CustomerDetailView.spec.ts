@@ -146,6 +146,24 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         expect(summary.text()).toContain('—');
     });
 
+    /** F-19 · 1.1a (`D-83`): the server names the owner; the page prints it for everyone who can view the customer. */
+    it('names the sales owner in the summary, a dash when there is none', async () => {
+        stubDetail(() => ({ ...CUSTOMER, sales_owner_name: 'Test Indoor Sales' }));
+
+        const owned = await render();
+        await flushPromises();
+
+        expect(owned.find('[data-testid="customer-detail-owner"]').text()).toBe('Test Indoor Sales');
+
+        vi.restoreAllMocks();
+        stubDetail(() => ({ ...CUSTOMER, sales_owner_id: null, sales_owner_name: null }));
+
+        const ownerless = await render();
+        await flushPromises();
+
+        expect(ownerless.find('[data-testid="customer-detail-owner"]').text()).toBe('—');
+    });
+
     /** §4.5 · `D-49`: derived, read-only, with the reason. Never a control. */
     it('states the derived status with its reason and offers nothing to change it', async () => {
         stubDetail(() => CUSTOMER);
@@ -350,6 +368,26 @@ describe('CustomerDetailView — Flow 10 · F-19 · 1.1 assign', () => {
         expect(init.method).toBe('PATCH');
         expect(JSON.parse(String(init.body))).toEqual({ sales_owner_id: 'u-indoor' });
         expect(view.find('[data-testid="customer-assign-done"]').exists()).toBe(true);
+    });
+
+    /**
+     * F-19 · 1.1a: the page takes the record the write answers with. The first
+     * read carries no name, so a page that kept it, or read it again, still
+     * shows no owner.
+     */
+    it('after an assign, the summary names the new owner from the answer', async () => {
+        stubAssign(() => json(200, {
+            data: { ...CUSTOMER, sales_owner_id: 'u-indoor', sales_owner_name: 'Test Indoor Sales' },
+            meta: {},
+        }));
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-detail-owner"]').text()).toBe('Test Indoor Sales');
     });
 
     /**

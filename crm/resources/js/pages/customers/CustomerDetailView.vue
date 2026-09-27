@@ -48,7 +48,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { assignCustomer, readCustomer, type Customer } from '@/services/customers';
+import { assignCustomer, readCustomer, type CustomerDetail } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
@@ -57,7 +57,7 @@ const route = useRoute();
 const { t, locale } = useI18n();
 const auth = useAuth();
 
-const customer = ref<Customer | null>(null);
+const customer = ref<CustomerDetail | null>(null);
 const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
@@ -174,7 +174,8 @@ async function submitAssign(): Promise<void> {
     }
 
     try {
-        await assignCustomer(id.value, ownerId.value);
+        // The answer is the page's own shape, so the new owner's name shows at once.
+        customer.value = await assignCustomer(id.value, ownerId.value);
         assignDone.value = true;
     } catch (error) {
         // The server's sentence, e.g. an owner who is not a user of this system.
@@ -280,6 +281,11 @@ onMounted(async () => {
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
                         <dd class="tabular-nums">{{ orDash(customer[field.key]) }}</dd>
+                    </div>
+                    <!-- §4.2's order; the name comes from the server (F-19 · 1.1a, `D-83`). -->
+                    <div class="flex flex-col">
+                        <dt class="text-[var(--color-text-muted)]">{{ t('customers.assign.title') }}</dt>
+                        <dd data-testid="customer-detail-owner">{{ orDash(customer.sales_owner_name) }}</dd>
                     </div>
                     <div class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t('customers.column.startDate') }}</dt>

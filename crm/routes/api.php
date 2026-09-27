@@ -468,6 +468,13 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     Route::patch('/{customer}/assign', [CustomerController::class, 'assign'])
         ->middleware('permission:customer.assign');
 
+    // F-19 · 1.2 · `D-92`: several customers, one owner, one transaction, all
+    // or none. The same `customer.assign`, applied at its scope to every
+    // customer in the use case (`OpenAPI §7.3`). `POST` because `D-92` names it,
+    // over §7.2's `PATCH` for an action on one existing resource.
+    Route::post('/assign', [CustomerController::class, 'assignMany'])
+        ->middleware('permission:customer.assign');
+
     // Flow 7 · `OpenAPI §7.2`'s action suffixes. **One permission for both**:
     // §3.3 writes the row as a single merged `archive / restore` granted
     // `All · Team · — · — · — · — · —`, and `PermissionMatrix` carries one

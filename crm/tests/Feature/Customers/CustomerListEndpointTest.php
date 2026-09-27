@@ -261,6 +261,43 @@ final class CustomerListEndpointTest extends TestCase
             ->assertJsonPath('data.id', $id);
     }
 
+    /** F-19 · 1.1a (`D-83`): the page names its owner through Identity's contract, not a lookup in the browser. */
+    public function test_that_the_detail_names_its_sales_owner(): void
+    {
+        $id = $this->customer('Alpha Trading', $this->userWith(RoleName::IndoorSales)->id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.sales_owner_name', 'Test Indoor Sales');
+    }
+
+    /** The key is present and null: `assertJsonPath(…, null)` would also pass on a missing key. */
+    public function test_that_a_detail_with_no_owner_names_nobody(): void
+    {
+        $id = $this->customer('Alpha Trading');
+
+        $data = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data');
+
+        self::assertIsArray($data);
+        self::assertArrayHasKey('sales_owner_name', $data);
+        self::assertNull($data['sales_owner_name']);
+    }
+
+    /** §10.1: a deactivated employee's customers stay attached to them, so the page still names them. */
+    public function test_that_a_deactivated_owner_is_still_named(): void
+    {
+        $owner = $this->userWith(RoleName::IndoorSales);
+        $owner->is_active = false;
+        $owner->save();
+        $id = $this->customer('Alpha Trading', $owner->id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.sales_owner_name', 'Test Indoor Sales');
+    }
+
     public function test_that_a_row_outside_the_callers_scope_is_404_and_not_403(): void
     {
         $id = $this->customer('Someone Elses', $this->userWith(RoleName::OutdoorSales)->id);

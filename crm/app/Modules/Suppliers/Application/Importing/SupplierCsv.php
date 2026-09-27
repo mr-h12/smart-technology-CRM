@@ -27,7 +27,7 @@ final readonly class SupplierCsv
 
     /**
      * @param  resource  $handle  an open read stream; the caller closes it
-     * @return list<array<string, string>> one entry per data row, keyed by column, missing cells as ''
+     * @return array<int, array<string, string>> one entry per data row, by its spreadsheet row number, keyed by column, missing cells as ''
      *
      * @throws ValidationException when the file carries no usable header
      */

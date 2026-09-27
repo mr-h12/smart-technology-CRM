@@ -1204,6 +1204,8 @@ would hide them behind `OD-03` indefinitely.
       **Recurred in F-10 · 1.2 (2026-09-22):** the same 50 tests, after #184 changed the master doc;
       `docker compose restart php`, then 2981 passed. Every doc-touching merge will do this until ordered.
       **Recurred in F-19 · 1.2 (2026-09-27):** the same 50, after #238 (`D-92`); restart, then 3395 passed.
+      **Recurred twice more on 2026-09-27,** after pulling #244 (`D-94`) and #245 (`D-97`): `stat` 0 links,
+      `grep` inside the container "No such file"; restart each time, then 1 link. Five times in all.
 - [x] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
       *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
       (2026-09-21); closes with it.** *(Closed 2026-09-21 with F-11: #180, #181, #182, and the 1.5 list.)* `D-31` flags an imported
@@ -3141,8 +3143,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       "No import detects duplicates" and "An import reports how many rows it rejected, never which";
       `D-94`). The reader is shared (`App\Support\Csv\CsvReader`); each module keeps its own converter
       and `ImportSummary`, deliberately, for the module boundary.
-      - [ ] **1.1** One per-row result shape: `rejected[]` with the row number and the reason,
-            `skipped[]` for duplicates.
+      - [x] **1.1** One per-row result shape: `rejected[]` with the row number and the reason,
+            `skipped[]` for duplicates. *(2026-09-27, #246 — `{row, field, code, message}`, the row as a
+            spreadsheet numbers it; `skipped` stays `[]` until 1.2–1.4)*
       - [ ] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
             same file included.
       - [ ] **1.3** Suppliers, by the same rule.

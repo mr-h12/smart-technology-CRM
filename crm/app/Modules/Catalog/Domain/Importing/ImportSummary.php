@@ -11,11 +11,17 @@ namespace App\Modules\Catalog\Domain\Importing;
  */
 final readonly class ImportSummary
 {
+    /**
+     * @param  list<array{row: int, field: string, code: string, message: string}>  $rejected  `D-94`: each row not saved, and why
+     * @param  list<int>  $skipped  `D-94`: the duplicates' spreadsheet rows
+     */
     public function __construct(
         public string $id,
         public string $originalFilename,
         public int $rowCount,
         public int $importedCount,
         public int $incompleteCount,
+        public array $rejected = [],
+        public array $skipped = [],
     ) {}
 }

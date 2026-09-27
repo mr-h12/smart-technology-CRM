@@ -18,8 +18,15 @@ namespace App\Support\Csv;
  */
 final readonly class ImportBatchPayload
 {
-    /** @return array<string, string|int> */
-    public static function of(string $id, string $originalFilename, int $rowCount, int $importedCount, int $incompleteCount): array
+    /**
+     * `rejected` and `skipped` are `D-94`'s per-row lists (F-20 · 1.1), not
+     * stored: they answer this upload and nothing reads them later.
+     *
+     * @param  list<array{row: int, field: string, code: string, message: string}>  $rejected
+     * @param  list<int>  $skipped  the spreadsheet rows of the duplicates
+     * @return array<string, mixed>
+     */
+    public static function of(string $id, string $originalFilename, int $rowCount, int $importedCount, int $incompleteCount, array $rejected, array $skipped): array
     {
         return [
             'id' => $id,
@@ -27,6 +34,8 @@ final readonly class ImportBatchPayload
             'row_count' => $rowCount,
             'imported_count' => $importedCount,
             'incomplete_count' => $incompleteCount,
+            'rejected' => $rejected,
+            'skipped' => $skipped,
         ];
     }
 }

@@ -11,6 +11,7 @@ use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Domain\Importing\ImportSummary;
 use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
+use App\Support\Csv\RowRejected;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -89,13 +90,16 @@ final readonly class ImportCustomers
         return $this->connection->transaction(function () use ($rows, $originalFilename, $actorId): ImportSummary {
             $imported = 0;
             $incomplete = 0;
+            $rejected = [];
 
-            foreach ($rows as $row) {
-                $attributes = self::attributes($row);
+            foreach ($rows as $number => $row) {
+                try {
+                    $attributes = self::attributes($row);
+                } catch (RowRejected $rejection) {
+                    // Counted in row_count, absent from imported_count, and
+                    // named by its spreadsheet row (`D-94`).
+                    $rejected[] = $rejection->at($number);
 
-                if ($attributes === null) {
-                    // No name, a name of spaces, or a value longer than its
-                    // column. Counted in row_count, absent from imported_count.
                     continue;
                 }
 
@@ -122,21 +126,25 @@ final readonly class ImportCustomers
                 }
             }
 
-            return $this->batches->record($originalFilename, count($rows), $imported, $incomplete, $actorId);
+            $batch = $this->batches->record($originalFilename, count($rows), $imported, $incomplete, $actorId);
+
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
         });
     }
 
     /**
-     * The row as columns worth writing, or null when it cannot be saved at all.
+     * The row as columns worth writing.
      *
      * Empty cells are dropped rather than written as `''`: the columns are
      * nullable, and an empty string is a value that would make
      * `filter[is_incomplete]` disagree with what the row actually holds.
      *
      * @param  array<string, string>  $row
-     * @return array<string, string>|null
+     * @return array<string, string>
+     *
+     * @throws RowRejected when it cannot be saved at all
      */
-    private static function attributes(array $row): ?array
+    private static function attributes(array $row): array
     {
         $attributes = [];
 
@@ -152,7 +160,7 @@ final readonly class ImportCustomers
                 // `strlen('أحمد')` is 8 where the column counts 4 (measured in
                 // Point 3.3). Refusing beats truncating: a name cut at 255 is a
                 // different customer, silently.
-                return null;
+                throw RowRejected::tooLong($column, self::LENGTHS[$column]);
             }
 
             if ($column === 'start_date' && strtotime($value) === false) {
@@ -167,6 +175,10 @@ final readonly class ImportCustomers
 
         // `customers_name_not_blank` is a CHECK. A row that would violate it is
         // a failure, not `D-31`'s incomplete — an incomplete row still saves.
-        return isset($attributes['name']) ? $attributes : null;
+        if (! isset($attributes['name'])) {
+            throw RowRejected::required('name');
+        }
+
+        return $attributes;
     }
 }

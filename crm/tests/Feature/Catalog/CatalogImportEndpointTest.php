@@ -114,27 +114,28 @@ final class CatalogImportEndpointTest extends TestCase
 
     // ── rejected and counted ────────────────────────────────────────────────
 
-    /** @return array<string, array{string}> */
+    /** @return array<string, array{string, string, string}> the row, then the field and code `D-94` names it by */
     public static function rowsThatAreRejected(): array
     {
         return [
-            'a missing kind' => [',P-1,Cable,,pcs,,,alpha,,,'],
-            'an unknown kind' => ['bundle,P-1,Cable,,pcs,,,alpha,,,'],
-            'a product without a name' => ['product,P-1,,,pcs,,,alpha,,,'],
-            'an off-list unit' => ['product,P-1,Cable,,metre,,,alpha,,,'],
-            'an off-list service type' => ['service,,Fitting,,,painting,,alpha,,,'],
-            'an off-list company' => ['product,P-1,Cable,,pcs,,,Globex,,,'],
-            'a name longer than its column' => ['product,P-1,'.str_repeat('n', 256).',,pcs,,,alpha,,,'],
-            'a product code longer than its column' => ['product,'.str_repeat('c', 65).',Cable,,pcs,,,alpha,,,'],
-            'a category longer than its column' => ['product,P-1,Cable,'.str_repeat('c', 129).',pcs,,,alpha,,,'],
-            'an unknown is_active word' => ['product,P-1,Cable,,pcs,,,alpha,,maybe,'],
-            'a supplier matching none' => ['product,P-1,Cable,,pcs,,,alpha,,,Nobody'],
-            'a supplier matching two' => ['product,P-1,Cable,,pcs,,,alpha,,,Twin'],
+            'a missing kind' => [',P-1,Cable,,pcs,,,alpha,,,', 'kind', 'required'],
+            'an unknown kind' => ['bundle,P-1,Cable,,pcs,,,alpha,,,', 'kind', 'not_allowed'],
+            'a product without a name' => ['product,P-1,,,pcs,,,alpha,,,', 'name', 'required'],
+            'an off-list unit' => ['product,P-1,Cable,,metre,,,alpha,,,', 'unit', 'not_allowed'],
+            'an off-list service type' => ['service,,Fitting,,,painting,,alpha,,,', 'service_type', 'not_allowed'],
+            'an off-list company' => ['product,P-1,Cable,,pcs,,,Globex,,,', 'company', 'not_allowed'],
+            'a name longer than its column' => ['product,P-1,'.str_repeat('n', 256).',,pcs,,,alpha,,,', 'name', 'too_long'],
+            'a product code longer than its column' => ['product,'.str_repeat('c', 65).',Cable,,pcs,,,alpha,,,', 'product_code', 'too_long'],
+            'a category longer than its column' => ['product,P-1,Cable,'.str_repeat('c', 129).',pcs,,,alpha,,,', 'category', 'too_long'],
+            'an unknown is_active word' => ['product,P-1,Cable,,pcs,,,alpha,,maybe,', 'is_active', 'not_allowed'],
+            'a supplier matching none' => ['product,P-1,Cable,,pcs,,,alpha,,,Nobody', 'supplier', 'not_found'],
+            'a supplier matching two' => ['product,P-1,Cable,,pcs,,,alpha,,,Twin', 'supplier', 'ambiguous'],
         ];
     }
 
+    /** F-20 · 1.1 (`D-94`): named in `rejected[]` as spreadsheet row 2, by its column and code. */
     #[DataProvider('rowsThatAreRejected')]
-    public function test_a_rejected_row_is_counted_and_not_saved(string $row): void
+    public function test_a_rejected_row_is_counted_and_not_saved(string $row, string $field, string $code): void
     {
         $this->supplier('Twin');
         $this->supplier('twin ');
@@ -142,10 +143,29 @@ final class CatalogImportEndpointTest extends TestCase
         $this->import(self::HEADER."\n".$row."\n".self::SERVICE)
             ->assertStatus(201)
             ->assertJsonPath('data.row_count', 2)
-            ->assertJsonPath('data.imported_count', 1);
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonCount(1, 'data.rejected')
+            ->assertJsonPath('data.rejected.0.row', 2)
+            ->assertJsonPath('data.rejected.0.field', $field)
+            ->assertJsonPath('data.rejected.0.code', $code)
+            ->assertJsonPath('data.skipped', []);
 
         $this->assertDatabaseCount('catalog_items', 1);
         $this->assertDatabaseCount('catalog_item_suppliers', 0);
+    }
+
+    /** The one reason no validation sentence covers, in both languages (OpenAPI §4). */
+    public function test_a_supplier_matching_two_is_explained_in_both_languages(): void
+    {
+        $this->supplier('Twin');
+        $this->supplier('twin ');
+
+        foreach (['en' => 'More than one supplier has this name.', 'ar' => 'أكثر من مورّد يحمل هذا الاسم.'] as $locale => $sentence) {
+            $this->post(self::ENDPOINT, ['file' => $this->csv(self::HEADER."\nproduct,P-1,Cable,,pcs,,,alpha,,,Twin")], $this->bearerFor(RoleName::Manager) + ['Accept-Language' => $locale])
+                ->assertStatus(201)
+                ->assertJsonPath('data.rejected.0.code', 'ambiguous')
+                ->assertJsonPath('data.rejected.0.message', $sentence);
+        }
     }
 
     // ── saved and flagged ───────────────────────────────────────────────────

@@ -108,6 +108,7 @@ final class CustomerController
 
         return ApiEnvelope::single($request, ImportBatchPayload::of(
             $batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount,
+            $batch->rejected, $batch->skipped,
         ), 201);
     }
 

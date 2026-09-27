@@ -13,14 +13,19 @@ use PHPUnit\Framework\TestCase;
  */
 final class ImportBatchPayloadTest extends TestCase
 {
-    public function test_that_the_five_keys_carry_the_counts_in_order(): void
+    /** F-20 · 1.1 (`D-94`): the rows it rejected and skipped follow the counts, as given. */
+    public function test_that_the_counts_are_followed_by_the_rejected_and_skipped_rows(): void
     {
+        $rejected = [['row' => 3, 'field' => 'name', 'code' => 'required', 'message' => 'The name field is required.']];
+
         self::assertSame([
             'id' => 'batch-1',
             'original_filename' => 'rows.csv',
             'row_count' => 6,
             'imported_count' => 3,
             'incomplete_count' => 1,
-        ], ImportBatchPayload::of('batch-1', 'rows.csv', 6, 3, 1));
+            'rejected' => $rejected,
+            'skipped' => [5, 6],
+        ], ImportBatchPayload::of('batch-1', 'rows.csv', 6, 3, 1, $rejected, [5, 6]));
     }
 }

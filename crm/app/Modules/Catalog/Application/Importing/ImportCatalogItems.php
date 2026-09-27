@@ -14,6 +14,7 @@ use App\Modules\Catalog\Domain\Importing\ImportSummary;
 use App\Modules\Catalog\Domain\Writing\CatalogItemDraft;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
+use App\Support\Csv\RowRejected;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -66,11 +67,15 @@ final readonly class ImportCatalogItems
             $imported = 0;
             $incomplete = 0;
 
-            foreach ($rows as $row) {
-                $attributes = self::attributes($row, $entries);
-                $supplierId = $attributes === null ? null : $this->supplierFor($row['supplier'] ?? '');
+            $rejected = [];
 
-                if ($attributes === null || $supplierId === false) {
+            foreach ($rows as $number => $row) {
+                try {
+                    $attributes = self::attributes($row, $entries);
+                    $supplierId = $this->supplierFor($row['supplier'] ?? '');
+                } catch (RowRejected $rejection) {
+                    $rejected[] = $rejection->at($number);
+
                     continue;
                 }
 
@@ -99,24 +104,28 @@ final readonly class ImportCatalogItems
                 }
             }
 
-            return $this->items->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
+            $batch = $this->items->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
+
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
         });
     }
 
     /**
-     * The row as columns worth writing, or null when it is rejected. Empty
-     * cells are dropped, not written as `''`, so the flag agrees with the row.
+     * The row as columns worth writing. Empty cells are dropped, not written
+     * as `''`, so the flag agrees with the row.
      *
      * @param  array<string, string>  $row
      * @param  array<string, list<ListEntry>>  $entries
-     * @return array<string, string|bool>|null
+     * @return array<string, string|bool>
+     *
+     * @throws RowRejected when it is rejected
      */
-    private static function attributes(array $row, array $entries): ?array
+    private static function attributes(array $row, array $entries): array
     {
         $kind = strtolower($row['kind'] ?? '');
 
         if (! in_array($kind, CatalogItemDraft::KINDS, true)) {
-            return null;
+            throw $kind === '' ? RowRejected::required('kind') : RowRejected::notAllowed('kind');
         }
 
         $attributes = ['kind' => $kind];
@@ -129,14 +138,14 @@ final readonly class ImportCatalogItems
             }
 
             if (isset(self::LENGTHS[$column]) && mb_strlen($value) > self::LENGTHS[$column]) {
-                return null;
+                throw RowRejected::tooLong($column, self::LENGTHS[$column]);
             }
 
             if ($column === 'is_active') {
                 $word = strtolower($value);
 
                 if (! array_key_exists($word, self::IS_ACTIVE)) {
-                    return null;
+                    throw RowRejected::notAllowed($column);
                 }
 
                 $attributes[$column] = self::IS_ACTIVE[$word];
@@ -148,7 +157,7 @@ final readonly class ImportCatalogItems
                 $code = self::codeFor($value, $entries[$column]);
 
                 if ($code === null) {
-                    return null;
+                    throw RowRejected::notAllowed($column);
                 }
 
                 $value = $code;
@@ -157,7 +166,11 @@ final readonly class ImportCatalogItems
             $attributes[$column] = $value;
         }
 
-        return $kind === 'product' && ! isset($attributes['name']) ? null : $attributes;
+        if ($kind === 'product' && ! isset($attributes['name'])) {
+            throw RowRejected::required('name');
+        }
+
+        return $attributes;
     }
 
     /**
@@ -185,8 +198,12 @@ final readonly class ImportCatalogItems
         return null;
     }
 
-    /** The one supplier the cell names; null for a blank cell (no link), false for none or several (rejected). */
-    private function supplierFor(string $name): string|false|null
+    /**
+     * The one supplier the cell names; null for a blank cell (no link).
+     *
+     * @throws RowRejected when it names none or several
+     */
+    private function supplierFor(string $name): ?string
     {
         if ($name === '') {
             return null;
@@ -194,7 +211,11 @@ final readonly class ImportCatalogItems
 
         $ids = $this->suppliers->idsNamed($name);
 
-        return count($ids) === 1 ? $ids[0] : false;
+        if (count($ids) === 1) {
+            return $ids[0];
+        }
+
+        throw $ids === [] ? RowRejected::notFound('supplier') : RowRejected::ambiguous('supplier', 'catalog.import.supplier_ambiguous');
     }
 
     /** @param  array<string, string|bool>  $attributes */

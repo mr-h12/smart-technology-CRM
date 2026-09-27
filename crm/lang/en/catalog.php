@@ -21,6 +21,8 @@ return [
         'unknown_columns' => 'This file has columns the importer does not accept: :columns.',
         'duplicate_columns' => 'This file names the same field in more than one column: :columns.',
         'missing_name_column' => 'This file has no "name" column. Every catalog file needs one, even when a service leaves it empty.',
+        // F-20 · 1.1 (`D-94`): one row's reason, the one no validation sentence covers.
+        'supplier_ambiguous' => 'More than one supplier has this name.',
     ],
 
     // OpenAPI §6.1/§6.2 — one message per detail code, so `details` says what

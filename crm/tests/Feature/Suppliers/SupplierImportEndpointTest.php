@@ -11,6 +11,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -204,6 +205,82 @@ final class SupplierImportEndpointTest extends TestCase
         $this->import("phone\n0100")
             ->assertStatus(422)
             ->assertJsonFragment([__('suppliers.import.missing_name_column')]);
+    }
+
+    // ─────────────────────────────── duplicates are skipped, never merged (`D-94`)
+
+    /** A supplier already on file, seeded the way `CatalogImportEndpointTest` seeds one. */
+    private function supplierOnFile(string $name, bool $active = true): void
+    {
+        DB::table('suppliers')->insert([
+            'id' => (string) Str::uuid7(),
+            'name' => $name,
+            'is_active' => $active,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * F-20 · 1.3: a name already on file is skipped, neither imported nor
+     * merged — whatever its case, and whatever spaces surround either name.
+     */
+    public function test_that_a_name_already_on_file_is_skipped_whatever_its_spaces_and_case(): void
+    {
+        $this->supplierOnFile(' Alpha Supply ');
+
+        $this->import(self::HEADER."\n  ALPHA supply  ,supplier,0100,Sara,yes")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 1)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.rejected', [])
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('suppliers', 1);
+        $this->assertDatabaseHas('suppliers', ['name' => ' Alpha Supply ', 'phone' => null]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'SUPPLIER_CREATED')->count());
+    }
+
+    /** `D-94`'s "an earlier row of the same file": the first is imported, the repeat is skipped. */
+    public function test_that_a_name_repeated_in_the_file_is_imported_once(): void
+    {
+        $this->import(self::HEADER."\nمورد النور,,,,\n".self::COMPLETE."\n مورد النور ,supplier,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 3)
+            ->assertJsonPath('data.imported_count', 2)
+            ->assertJsonPath('data.skipped', [4]);
+
+        self::assertSame(1, DB::table('suppliers')->where('name', 'مورد النور')->count());
+    }
+
+    /** The owner's ruling of 2026-09-27: a deactivated supplier is still on file (§3.7), so its name is taken. */
+    public function test_that_a_deactivated_supplier_still_counts_as_on_file(): void
+    {
+        $this->supplierOnFile('Delta Supply', active: false);
+
+        $this->import(self::HEADER."\ndelta supply,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('suppliers', 1);
+        $this->assertDatabaseHas('suppliers', ['name' => 'Delta Supply', 'is_active' => false]);
+    }
+
+    /**
+     * A rejected row created nothing, so the same name below it is imported,
+     * and only the repeat of *that* row is skipped — each named by its own
+     * spreadsheet row.
+     */
+    public function test_that_a_rejected_row_is_not_on_file_and_the_rows_keep_their_numbers(): void
+    {
+        $this->import(self::HEADER."\nGamma,,".str_repeat('1', 33).",,\nGamma,,,,\ngamma,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 3)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonCount(1, 'data.rejected')
+            ->assertJsonPath('data.rejected.0.row', 2)
+            ->assertJsonPath('data.skipped', [4]);
     }
 
     // ─────────────────────────────── the record of it

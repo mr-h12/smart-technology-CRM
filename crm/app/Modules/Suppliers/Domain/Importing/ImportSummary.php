@@ -6,8 +6,9 @@ namespace App\Modules\Suppliers\Domain\Importing;
 
 /**
  * `D-85` (F-09 · 1.4) — what one supplier import produced. The customers' own
- * `ImportSummary` has the same shape; modules do not share classes, and the
- * failures are `rowCount - importedCount`, as there.
+ * `ImportSummary` has the same shape; modules do not share classes.
+ * `rowCount - importedCount` is the rejected rows plus the skipped duplicates
+ * (`D-94`, F-20 · 1.3).
  */
 final readonly class ImportSummary
 {

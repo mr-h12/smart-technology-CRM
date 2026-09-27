@@ -3155,7 +3155,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
             same file included. *(2026-09-27, #247 — archived counts; checked within the importer's
             `customer.view` scope plus the file's own rows, owner's ruling a′)*
-      - [ ] **1.3** Suppliers, by the same rule.
+      - [x] **1.3** Suppliers, by the same rule. *(2026-09-27, #248 — deactivated counts (owner);
+            `idsNamed()` reused, no new SQL; no scope, every `catalog.*` row being `.all`)*
       - [ ] **1.4** Catalog items: `product_code` when present, the name otherwise.
       - [ ] **1.5** The import dialog lists the rejected and the skipped rows.
 - [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a

@@ -79,6 +79,14 @@ final class CustomerController
         return ApiEnvelope::single($request, CustomerPayload::detail($record, $read->salesOwnerName($record)));
     }
 
+    /** F-19 · 1.2 (`D-92`, `OpenAPI §7.3`): one owner for several customers, all or none; a result per customer. */
+    public function assignMany(AssignCustomersRequest $request, AssignCustomer $customers): JsonResponse
+    {
+        $records = $customers->handleMany($request->ids(), $request->ownerId(), self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, ['items' => array_map(CustomerPayload::of(...), $records)]);
+    }
+
     public function archive(Request $request, string $customer, ArchiveCustomer $customers): JsonResponse
     {
         return ApiEnvelope::single($request, CustomerPayload::of(

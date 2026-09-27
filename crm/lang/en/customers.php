@@ -53,6 +53,7 @@ return [
         'start_date' => 'first engagement date',
         'notes' => 'notes',
         'sales_owner_id' => 'sales owner',
+        'ids' => 'selected customers',
         'customer_status' => 'customer status',
         'is_archived' => 'archived',
         'is_incomplete' => 'incomplete',

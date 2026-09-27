@@ -1206,6 +1206,11 @@ would hide them behind `OD-03` indefinitely.
       **Recurred in F-19 · 1.2 (2026-09-27):** the same 50, after #238 (`D-92`); restart, then 3395 passed.
       **Recurred twice more on 2026-09-27,** after pulling #244 (`D-94`) and #245 (`D-97`): `stat` 0 links,
       `grep` inside the container "No such file"; restart each time, then 1 link. Five times in all.
+      **Recurred in F-20 · 1.4 (2026-09-27) with no git write in this checkout:** the host file became a
+      new inode at 22:46:34 local, content unchanged, four minutes before #249 (`D-98`) merged. This
+      checkout's reflog shows nothing at that time, so another process wrote it; it coincides with the
+      `D-98` paste, and the mechanism is unproven. 9 tests failed mid-suite; restart, then 3425 passed.
+      Six times in all.
 - [x] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
       *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
       (2026-09-21); closes with it.** *(Closed 2026-09-21 with F-11: #180, #181, #182, and the 1.5 list.)* `D-31` flags an imported
@@ -1233,18 +1238,24 @@ would hide them behind `OD-03` indefinitely.
       `App\Support\Csv\ImportFileRequest` / `ImportBatchPayload`. **`ImportSummary` stays one per module
       by the owner's ruling:** each module's `Domain` contracts name it, and `deptrac.layers.yaml` gives
       `Domain` no licence to depend on `SharedContracts`. A deliberate ceiling, not waste.
-- [ ] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
+- [x] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
       "Not covered" of `D-85` and `D-87`, and made a ruling of F-10 (owner, 2026-09-21: "every row creates a
       new item"); registered here 2026-09-21 because until now it lived only in prose.* Importing one file
       twice makes two copies of every row (proved on the test database in F-09: 3 ⇒ 6). `product_code`
       carries no unique index either (`create_catalog_items`), so the database does not catch it. Owner's
       call when to order; any fix has to decide what "the same record" means per module first.
-- [ ] **The duplicate-name rule `lower(btrim(name)) = lower(?)` is written twice, in Customers and
+      *(Closed 2026-09-27 by F-20 · 1.2–1.4, `D-94`: each import skips a duplicate — customers by name
+      within the importer's view (#247), suppliers by name (#248), catalog items by `product_code` or
+      else name (1.4). Still no unique index: two imports at the same moment can each insert one.)*
+- [x] **The duplicate-name rule `lower(btrim(name)) = lower(?)` is written twice, in Customers and
       Suppliers** — *created by F-20 · 1.2, 2026-09-27; kept by the owner's ruling (B) until the third
       copy.* `EloquentCustomerDirectory::nameTaken()` repeats `EloquentSupplierLookup::idsNamed()`'s
       SQL; `EloquentCatalogItemDirectory.php:130` has a variant without `btrim`. F-20 · 1.3 reuses
       `idsNamed()` and adds no copy. F-20 · 1.4 (catalog items) would add the third — the natural moment
       to extract one helper into `App\Support`, as the import shapes above were.
+      *(Closed 2026-09-27 by F-20 · 1.4: `App\Support\Database\SameText` is the one copy, and Customers,
+      Suppliers and Catalog ask it. `findProductIdByName`'s variant without `btrim` stays: it serves the
+      supplier offer's automatic add, not an import.)*
 - [ ] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
       "telling the user which rows were rejected is out of F-10"; registered here the same day.* The three
       import results (`ImportSummary` in Customers and Suppliers, and F-10's catalog one) carry
@@ -3157,7 +3168,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `customer.view` scope plus the file's own rows, owner's ruling a′)*
       - [x] **1.3** Suppliers, by the same rule. *(2026-09-27, #248 — deactivated counts (owner);
             `idsNamed()` reused, no new SQL; no scope, every `catalog.*` row being `.all`)*
-      - [ ] **1.4** Catalog items: `product_code` when present, the name otherwise.
+      - [x] **1.4** Catalog items: `product_code` when present, the name otherwise. *(2026-09-27, #250 —
+            deactivated counts, any kind, codes trimmed and any case (owner); `App\Support\Database\SameText`
+            is now the rule's one copy, which Customers and Suppliers ask too)*
       - [ ] **1.5** The import dialog lists the rejected and the skipped rows.
 - [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
       375px viewport by 36–46px, in both directions"). One point, verified in the browser at 375 px

@@ -50,6 +50,14 @@ interface CatalogItemDirectoryInterface
      */
     public function findProductIdByName(string $name): ?string;
 
+    /**
+     * `D-94` (F-20 · 1.4): is an item already on file under this row's
+     * `product_code`, or, when the row has none, under its name? `''` is an
+     * empty cell; a row with neither is never a duplicate. Any kind, and a
+     * deactivated item counts (owner, 2026-09-27); a soft-deleted one does not.
+     */
+    public function duplicateExists(string $productCode, string $name): bool;
+
     /** Point 3.2. */
     public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary;
 

@@ -11,6 +11,7 @@ use App\Modules\Catalog\Domain\Listing\CatalogItemPage;
 use App\Modules\Catalog\Domain\Listing\CatalogItemSummary;
 use App\Modules\Catalog\Domain\Writing\CatalogItemDraft;
 use App\Modules\Catalog\Infrastructure\Eloquent\CatalogItem;
+use App\Support\Database\SameText;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
 use DateTimeImmutable;
@@ -133,6 +134,13 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
             ->value('id');
 
         return is_string($id) ? $id : null;
+    }
+
+    public function duplicateExists(string $productCode, string $name): bool
+    {
+        [$column, $value] = $productCode !== '' ? ['product_code', $productCode] : ['name', $name];
+
+        return $value !== '' && SameText::where(CatalogItem::query(), $column, $value)->exists();
     }
 
     public function create(CatalogItemDraft $draft, string $actorId): CatalogItemSummary

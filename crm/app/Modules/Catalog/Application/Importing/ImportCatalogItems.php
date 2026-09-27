@@ -27,7 +27,9 @@ use Illuminate\Database\ConnectionInterface;
  * more than one. The import never adds a list value (ruling 3), unlike the
  * form's company. A row is **saved and flagged** when it lacks what the form
  * requires (`D-31`): a product's `unit`, a service's `service_type`, anyone's
- * `company`. Every row is a new item (ruling 6).
+ * `company`. A row is **skipped** when its `product_code`, or its name when it
+ * has none, is already on file or on an earlier row of the file (`D-94`,
+ * F-20 · 1.4): that replaces ruling 6's "every row is a new item".
  *
  * A list value is stored as its entry's code, matched by code first and then
  * by either label, trimmed and case-folded (owner, 2026-09-22: the code wins).
@@ -68,6 +70,7 @@ final readonly class ImportCatalogItems
             $incomplete = 0;
 
             $rejected = [];
+            $skipped = [];
 
             foreach ($rows as $number => $row) {
                 try {
@@ -75,6 +78,16 @@ final readonly class ImportCatalogItems
                     $supplierId = $this->supplierFor($row['supplier'] ?? '');
                 } catch (RowRejected $rejection) {
                     $rejected[] = $rejection->at($number);
+
+                    continue;
+                }
+
+                // `D-94`: neither imported, linked nor merged, only named. The
+                // cells as `attributes()` read them (`CsvReader` has trimmed;
+                // '' is empty). Earlier rows were created in this transaction,
+                // so the directory sees them too.
+                if ($this->items->duplicateExists($row['product_code'] ?? '', $row['name'] ?? '')) {
+                    $skipped[] = $number;
 
                     continue;
                 }
@@ -106,7 +119,7 @@ final readonly class ImportCatalogItems
 
             $batch = $this->items->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
 
-            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected, $skipped);
         });
     }
 

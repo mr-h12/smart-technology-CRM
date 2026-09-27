@@ -1200,6 +1200,7 @@ would hide them behind `OD-03` indefinitely.
       the file — a change to the dev environment, so it is the owner's call, not this point's.
       **Recurred in F-10 · 1.2 (2026-09-22):** the same 50 tests, after #184 changed the master doc;
       `docker compose restart php`, then 2981 passed. Every doc-touching merge will do this until ordered.
+      **Recurred in F-19 · 1.2 (2026-09-27):** the same 50, after #238 (`D-92`); restart, then 3395 passed.
 - [x] **Nothing clears `is_incomplete` once an import sets it — customers and suppliers alike** —
       *revealed by the F-09 draft, 2026-09-21 (F-09 gap 6); not fixed there.* **Taken up by F-11 / `D-87`
       (2026-09-21); closes with it.** *(Closed 2026-09-21 with F-11: #180, #181, #182, and the 1.5 list.)* `D-31` flags an imported
@@ -1350,6 +1351,13 @@ would hide them behind `OD-03` indefinitely.
       Not measured on the deal page: the dev database holds no deal (2026-09-27), and creating one is a
       write. The deal create dialog, which stacks its fields, measured clean at 375 px in both
       languages. Owed: `min-w-0` on that label, measured, when the owner orders it
+- [ ] **Identity's two role requests narrow `permission_ids` with one copied method** — *revealed by
+      F-19 · 1.2, 2026-09-27 (`waste-auditor`); not fixed there, because the approved line is the
+      customer bulk-assign route.* `CreateRoleRequest::permissionIds()` (`:91`) and
+      `SyncRolePermissionsRequest::permissionIds()` (`:59`) are byte-identical, and both silently drop a
+      non-string entry. F-19 · 1.2's `AssignCustomersRequest::ids()` throws instead, on
+      `AssignCustomerRequest::ownerId()`'s reasoning, so a validated list of strings is now narrowed
+      two ways. Owed: one shape, the owner's choice of the two, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 

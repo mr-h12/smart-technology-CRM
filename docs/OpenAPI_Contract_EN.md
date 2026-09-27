@@ -291,6 +291,8 @@ Bulk archive/restore is permitted only where the CRM documentation permits it. U
 
 Return per-record result data. Authorize and audit each affected record; do not allow a bulk request to bypass row scope.
 
+**Customer bulk assign** (`D-92`; F-19 · 1.2): `POST /api/v1/customers/assign` with `{ "ids": [uuid, …], "sales_owner_id": uuid }`, under `customer.assign`. `ids` is a list of 1 to 100 distinct UUIDs (§6.1's page); anything else is `422 validation_failed`, as is an owner who is not a user of this system. One transaction, all or none: every customer is reached at the caller's scope, and one that is absent or out of reach answers `404 resource_not_found`, naming none of them, with nothing written. Each customer that moves gets its own `CUSTOMER_REASSIGNED` entry; one already the owner's is left untouched and unaudited. The answer is `data.items`: one customer per id, in the order sent. No `Idempotency-Key` (§9.1: a customer is on none of its resources); a replay moves nothing. `POST` rather than §7.2's `PATCH`, because `D-92` names it.
+
 ## 8. Data Representation Rules
 
 ### 8.1 Money

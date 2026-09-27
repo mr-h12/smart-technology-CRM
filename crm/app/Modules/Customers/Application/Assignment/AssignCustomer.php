@@ -58,6 +58,39 @@ final readonly class AssignCustomer
      */
     public function handle(string $customerId, string $newOwnerId, array $heldScopes, string $actorId): CustomerSummary
     {
+        $this->ensureOwnerExists($newOwnerId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+
+        return $this->connection->transaction(fn (): CustomerSummary => $this->assignOne($customerId, $newOwnerId, $scope, $actorId));
+    }
+
+    /**
+     * F-19 · 1.2 (`D-92`): one owner for several customers, "all or none".
+     * One transaction around every customer, so a refusal anywhere rolls back
+     * the customers before it together with their audit entries, which
+     * `AuditRecorder` writes inside the caller's transaction (`DB-11`). Each
+     * customer is reached at the caller's scope (`OpenAPI §7.3`).
+     *
+     * @param  list<string>  $customerIds
+     * @param  list<string>  $heldScopes
+     * @return list<CustomerSummary> in the order asked
+     *
+     * @throws CustomerNotFound when any one is absent **or** outside the caller's reach
+     * @throws ValidationException when the named owner is not a user of this system
+     */
+    public function handleMany(array $customerIds, string $newOwnerId, array $heldScopes, string $actorId): array
+    {
+        $this->ensureOwnerExists($newOwnerId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+
+        return $this->connection->transaction(fn (): array => array_map(
+            fn (string $customerId): CustomerSummary => $this->assignOne($customerId, $newOwnerId, $scope, $actorId),
+            $customerIds,
+        ));
+    }
+
+    private function ensureOwnerExists(string $newOwnerId): void
+    {
         if ($this->users->find($newOwnerId) === null) {
             // Asked of Identity's contract rather than of `users`: `CLAUDE.md`
             // forbids the direct cross-module read, and `SaveCustomer` already
@@ -68,54 +101,54 @@ final readonly class AssignCustomer
                 'sales_owner_id' => [(string) __('customers.validation.unknown_owner')],
             ]);
         }
+    }
 
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+    /** One customer, inside the caller's transaction: {@see handle()} opens one per customer, {@see handleMany()} one for all. */
+    private function assignOne(string $customerId, string $newOwnerId, CustomerRowScope $scope, string $actorId): CustomerSummary
+    {
+        // Read inside the transaction and through the same scope the write
+        // uses, so `AUD-02`'s old value is the one this write replaced.
+        $before = $this->customers->find($customerId, $scope);
 
-        return $this->connection->transaction(function () use ($customerId, $newOwnerId, $scope, $actorId): CustomerSummary {
-            // Read inside the transaction and through the same scope the write
-            // uses, so `AUD-02`'s old value is the one this write replaced.
-            $before = $this->customers->find($customerId, $scope);
+        if (! $before instanceof CustomerSummary) {
+            // §5.1: 404 for absent **or** out of reach, never revealing
+            // which. A Team Leader reaches here for every customer in the
+            // company while `team` has no mechanism (owner's deferral,
+            // 2026-08-29), which is why half of §3.3's `assign` row is
+            // currently unreachable.
+            throw CustomerNotFound::of($customerId);
+        }
 
-            if (! $before instanceof CustomerSummary) {
-                // §5.1: 404 for absent **or** out of reach, never revealing
-                // which. A Team Leader reaches here for every customer in the
-                // company while `team` has no mechanism (owner's deferral,
-                // 2026-08-29), which is why half of §3.3's `assign` row is
-                // currently unreachable.
-                throw CustomerNotFound::of($customerId);
-            }
+        if ($before->salesOwnerId === $newOwnerId) {
+            // Already theirs. No write, so no `updated_by` churn, and no
+            // audit row claiming a transfer that did not happen.
+            return $before;
+        }
 
-            if ($before->salesOwnerId === $newOwnerId) {
-                // Already theirs. No write, so no `updated_by` churn, and no
-                // audit row claiming a transfer that did not happen.
-                return $before;
-            }
+        $after = $this->customers->update(
+            $customerId,
+            CustomerDraft::forAssignment($newOwnerId),
+            $scope,
+            $actorId,
+        );
 
-            $after = $this->customers->update(
-                $customerId,
-                CustomerDraft::forAssignment($newOwnerId),
-                $scope,
-                $actorId,
-            );
+        if (! $after instanceof CustomerSummary) {
+            // Unreachable: the same scope found the row one statement ago,
+            // inside this transaction. A silent 200 would hide the defect.
+            throw CustomerNotFound::of($customerId);
+        }
 
-            if (! $after instanceof CustomerSummary) {
-                // Unreachable: the same scope found the row one statement ago,
-                // inside this transaction. A silent 200 would hide the defect.
-                throw CustomerNotFound::of($customerId);
-            }
+        // Inside the transaction (`DB-11`): §3.12 rule 4 names "customer
+        // reassignment" among the nine entries that must always exist, so
+        // the transfer and its record commit together or not at all.
+        $this->audit->record(
+            AuditEvent::customerReassigned(),
+            'customer',
+            $customerId,
+            ['sales_owner_id' => $before->salesOwnerId],
+            ['sales_owner_id' => $after->salesOwnerId],
+        );
 
-            // Inside the transaction (`DB-11`): §3.12 rule 4 names "customer
-            // reassignment" among the nine entries that must always exist, so
-            // the transfer and its record commit together or not at all.
-            $this->audit->record(
-                AuditEvent::customerReassigned(),
-                'customer',
-                $customerId,
-                ['sales_owner_id' => $before->salesOwnerId],
-                ['sales_owner_id' => $after->salesOwnerId],
-            );
-
-            return $after;
-        });
+        return $after;
     }
 }

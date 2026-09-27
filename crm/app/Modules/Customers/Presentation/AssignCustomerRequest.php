@@ -18,7 +18,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * `exists:users,id` — that rule is a direct read of another module's table,
  * which `CLAUDE.md` forbids. {@see AssignCustomer}
  */
-final class AssignCustomerRequest extends FormRequest
+class AssignCustomerRequest extends FormRequest
 {
     /** @return array<string, list<string>> */
     public function rules(): array

@@ -87,7 +87,7 @@
 <header>
     <img class="logo" src="{{ $logo }}" alt="">
     <div class="meta">
-        <div><span>{{ $t('header.date') }}:</span> {{ $view->quotationDate }}</div>
+        <div><span>{{ $t('header.date') }}:</span> {{ $ltr($view->quotationDate) }}</div>
         <div><span>{{ $t('header.to') }}:</span> {{ $view->customerName }}</div>
         @if ($view->customerContact !== null)
             <div id="contact-line"><span>{{ $t('header.attention') }}:</span> {{ $view->customerContact }}</div>
@@ -169,7 +169,7 @@
         <li id="delivery-terms">{{ $t('conditions.delivery', ['terms' => $view->deliveryTerms]) }}</li>
     @endif
     @if ($view->validUntil !== null)
-        <li id="validity">{{ $t('conditions.validity', ['date' => $view->validUntil]) }}</li>
+        <li id="validity">{{ $t('conditions.validity', ['date' => $ltr($view->validUntil)]) }}</li>
     @endif
 </ul>
 

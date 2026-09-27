@@ -66,7 +66,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { archiveCustomer, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
+import { archiveCustomer, assignCustomers, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // ponytail: reused where it lives. It is already generic and text-driven — its
@@ -74,6 +74,7 @@ import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // screens for a tidier import path. Recorded as debt instead.
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import ImportModal from '@/components/imports/ImportModal.vue';
+import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 
 /**
  * The two date columns of `CustomerListCriteria::ALLOWED_SORTS`; `name` is the
@@ -139,25 +140,55 @@ const canArchive = computed(() => auth.hasPermission('customer.archive'));
 /** §3.3's `import (Excel)` row is `All · — · — · — · — · — · —` — the Manager alone. */
 const canImport = computed(() => auth.hasPermission('customer.import'));
 
+/** §3.3's own `assign` row, never `edit` (F-19 · 1.3, `D-92`). */
+const canAssign = computed(() => auth.hasPermission('customer.assign'));
+
 const importOpen = ref(false);
 
 const selectedIds = ref<string[]>([]);
 const acting = ref(false);
-/** §6.6: "a toast must not be the only place an error is explained" — so it is not a toast. */
-const actionMessage = ref('');
-const pending = ref<{ kind: 'archive'; customer: Customer } | { kind: 'restore-selected' } | null>(null);
+/**
+ * §6.6: "a toast must not be the only place an error is explained" — so it is not a toast.
+ * A key is translated when drawn, so a language switch reaches it (F-19 · 1.3).
+ * ponytail: a string is the older shape; the debt row "Six client-side messages…"
+ * owes its two sites here a key, after which only the key remains.
+ */
+const actionMessage = ref<string | { key: string; count?: number }>('');
+type Question = { kind: 'archive'; customer: Customer } | { kind: 'restore-selected' } | { kind: 'assign-selected' };
+const pending = ref<Question | null>(null);
 /** §6.6: "return focus to the invoking control". */
 let invoker: HTMLElement | null = null;
+
+/** F-19 · 1.3: the employee the ticked rows go to, and why the choice was refused. */
+const bulkOwnerId = ref('');
+const bulkOwnerMissing = ref(false);
+const bulkOwnerSentence = ref<string | null>(null);
 
 /**
  * Selection follows the row, never the filter. A row carries `is_archived`, so
  * a list holding both kinds still offers the right action on each one.
  */
 const restorableIds = computed(() => customers.value.filter((row) => row.is_archived).map((row) => row.id));
-const showSelection = computed(() => canArchive.value && restorableIds.value.length > 0);
+
+/** Assign reaches every row, archived ones included (F-19 · 1.2's test); restore, the archived ones. */
+function selectable(row: Customer): boolean {
+    return canAssign.value || (canArchive.value && row.is_archived);
+}
+
+const selectableIds = computed(() => customers.value.filter(selectable).map((row) => row.id));
+const showSelection = computed(() => selectableIds.value.length > 0);
 const allSelected = computed(
-    () => restorableIds.value.length > 0 && selectedIds.value.length === restorableIds.value.length,
+    () => selectableIds.value.length > 0 && selectedIds.value.length === selectableIds.value.length,
 );
+
+/** The three questions, by kind. Only archive is §6.2's Danger variant: the other two put nothing out of reach. */
+const QUESTIONS = {
+    archive: ['customers.archive.confirmTitle', 'customers.archive.confirmMessage', 'customers.archive.confirmAction'],
+    'restore-selected': ['customers.restore.confirmTitle', 'customers.restore.confirmMessage', 'customers.restore.confirmAction'],
+    'assign-selected': ['customers.assign.bulkConfirmTitle', 'customers.assign.bulkConfirmMessage', 'customers.assign.action'],
+} as const;
+
+const question = computed(() => QUESTIONS[pending.value?.kind ?? 'restore-selected']);
 
 const total = computed(() => pagination.value?.total ?? 0);
 
@@ -316,11 +347,11 @@ async function onSaved(_customer: Customer, similar: Customer[]): Promise<void> 
 }
 
 function toggleAll(checked: boolean): void {
-    selectedIds.value = checked ? [...restorableIds.value] : [];
+    selectedIds.value = checked ? [...selectableIds.value] : [];
 }
 
 /** §6.6's focus contract, kept in the caller so Module 1's dialog is not edited. */
-function ask(request: { kind: 'archive'; customer: Customer } | { kind: 'restore-selected' }): void {
+function ask(request: Question): void {
     invoker = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     actionMessage.value = '';
     pending.value = request;
@@ -359,6 +390,48 @@ async function restoreSelected(): Promise<void> {
         : t('customers.restore.failed', { done: ids.length - refused, failed: refused });
 }
 
+/** §3.3 has no unassign row, so an empty choice never reaches the question, let alone the server. */
+function askAssign(): void {
+    bulkOwnerMissing.value = bulkOwnerId.value === '';
+    bulkOwnerSentence.value = null;
+
+    if (!bulkOwnerMissing.value) {
+        ask({ kind: 'assign-selected' });
+    }
+}
+
+/**
+ * F-19 · 1.3 (`D-92`): one request for the ticked rows, all or none. Answers
+ * whether the list must be read again: after a success, and after `OpenAPI
+ * §7.3`'s 404, which wrote nothing but means the rows in hand are stale. A
+ * refused owner or a permission refusal keeps the ticks for a second try.
+ */
+async function assignSelected(): Promise<boolean> {
+    try {
+        const assigned = await assignCustomers([...selectedIds.value], bulkOwnerId.value);
+        actionMessage.value = { key: 'customers.assign.bulkDone', count: assigned.length };
+
+        return true;
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+            actionMessage.value = { key: 'customers.assign.bulkGone' };
+
+            return true;
+        }
+
+        // The server's sentence, e.g. an owner who is not a user of this system.
+        bulkOwnerSentence.value = error instanceof ApiError ? error.messageFor('sales_owner_id') : null;
+
+        if (bulkOwnerSentence.value === null) {
+            actionMessage.value = {
+                key: error instanceof ApiError && error.status === 403 ? 'customers.assign.forbidden' : 'customers.assign.rejected',
+            };
+        }
+
+        return false;
+    }
+}
+
 /** One row, no question asked — see the template for why §6.6 does not ask for one. */
 async function restoreOne(customer: Customer): Promise<void> {
     acting.value = true;
@@ -383,12 +456,15 @@ async function onConfirm(): Promise<void> {
     }
 
     acting.value = true;
+    let reload = true;
 
     try {
         if (request.kind === 'archive') {
             await archiveCustomer(request.customer.id);
-        } else {
+        } else if (request.kind === 'restore-selected') {
             await restoreSelected();
+        } else {
+            reload = await assignSelected();
         }
     } catch {
         // Archive is one record, so a refusal is the whole outcome and is said
@@ -399,7 +475,9 @@ async function onConfirm(): Promise<void> {
         dismiss();
     }
 
-    await load();
+    if (reload) {
+        await load();
+    }
 }
 
 /**
@@ -553,7 +631,7 @@ onMounted(async () => {
             aria-live="polite"
             data-testid="customers-bulk-result"
         >
-            {{ actionMessage }}
+            {{ typeof actionMessage === 'string' ? actionMessage : t(actionMessage.key, { count: actionMessage.count }) }}
         </p>
 
         <LoadingState v-if="loading" label-key="customers.loading" />
@@ -570,8 +648,9 @@ onMounted(async () => {
         <div v-else class="flex flex-col gap-3">
             <!-- Flow 7: "Manager / TL (individually or select-all)". The count
                  is on the button because it is the consequence of the click. -->
-            <div v-if="showSelection" class="flex flex-wrap items-center gap-3">
+            <div v-if="showSelection" class="flex flex-wrap items-end gap-3">
                 <button
+                    v-if="canArchive && restorableIds.length > 0"
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="selectedIds.length === 0 || acting"
@@ -580,6 +659,34 @@ onMounted(async () => {
                 >
                     {{ t('customers.restore.bulkAction', { count: selectedIds.length }) }}
                 </button>
+
+                <!-- F-19 · 1.3 (`D-92`): one owner for the ticked rows, in one request.
+                     `min-w-0` for the customer page's reason: the picker's longest
+                     option is wider than a 375 px screen. -->
+                <template v-if="canAssign">
+                    <label class="flex min-w-0 flex-col gap-1.5" for="customers-bulk-assign-owner">
+                        <span>{{ t('customers.assign.owner') }}</span>
+                        <DealOwnerPicker v-model="bulkOwnerId" field-id="customers-bulk-assign-owner" test-id="customers-bulk-assign-owner" />
+
+                        <span
+                            v-if="bulkOwnerMissing || bulkOwnerSentence !== null"
+                            class="text-[var(--color-danger)]"
+                            data-testid="customers-bulk-assign-owner-error"
+                        >
+                            {{ bulkOwnerMissing ? t('customers.assign.ownerRequired') : bulkOwnerSentence }}
+                        </span>
+                    </label>
+
+                    <button
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="selectedIds.length === 0 || acting"
+                        data-testid="customers-bulk-assign"
+                        @click="askAssign()"
+                    >
+                        {{ t('customers.assign.bulkAction', { count: selectedIds.length }) }}
+                    </button>
+                </template>
             </div>
 
             <div class="table-frame overflow-x-auto rounded-xl">
@@ -595,7 +702,7 @@ onMounted(async () => {
                                 type="checkbox"
                                 class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                 :checked="allSelected"
-                                :aria-label="t('customers.archive.selectAll')"
+                                :aria-label="t(canAssign ? 'customers.assign.selectAll' : 'customers.archive.selectAll')"
                                 data-testid="customers-select-all"
                                 @change="toggleAll(($event.target as HTMLInputElement).checked)"
                             />
@@ -653,7 +760,7 @@ onMounted(async () => {
                                 v-model="selectedIds"
                                 type="checkbox"
                                 :value="customer.id"
-                                :disabled="!customer.is_archived"
+                                :disabled="!selectable(customer)"
                                 class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:opacity-40"
                                 :aria-label="t('customers.archive.select', { name: customer.name })"
                                 data-testid="customers-select-row"
@@ -764,9 +871,9 @@ onMounted(async () => {
              is the archive half only — a restore puts a record back. -->
         <ConfirmDialog
             :open="pending !== null"
-            :title-key="pending?.kind === 'archive' ? 'customers.archive.confirmTitle' : 'customers.restore.confirmTitle'"
-            :message-key="pending?.kind === 'archive' ? 'customers.archive.confirmMessage' : 'customers.restore.confirmMessage'"
-            :confirm-key="pending?.kind === 'archive' ? 'customers.archive.confirmAction' : 'customers.restore.confirmAction'"
+            :title-key="question[0]"
+            :message-key="question[1]"
+            :confirm-key="question[2]"
             :subject="pending?.kind === 'archive' ? pending.customer.name : String(selectedIds.length)"
             :busy="acting"
             :danger="pending?.kind === 'archive'"

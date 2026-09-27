@@ -43,6 +43,23 @@ interface CustomerDirectoryInterface
     public function create(CustomerDraft $draft, string $actorId): CustomerSummary;
 
     /**
+     * F-20 · 1.2 (`D-94`): true when a customer within $scope, or one of
+     * $alsoAmong, has $name as its name, trimmed and compared case-insensitively
+     * — archived customers included (the owner, 2026-09-27).
+     *
+     * Scoped like every other read (`SEC-08`; `Coding_Standards_EN.md:111`: a
+     * caller "must be unable to … infer" what it cannot read), so an importer
+     * that reads fewer customers is never told a name outside its reach is
+     * taken — that row is imported instead (the owner's ruling, 2026-09-27).
+     * $alsoAmong is the ids this import created: `D-94`'s "an earlier row of the
+     * same file" under any scope, since an imported row has no owner.
+     *
+     * @param  string  $name  trimmed already — `CsvReader` trims every cell
+     * @param  list<string>  $alsoAmong
+     */
+    public function nameTaken(string $name, CustomerRowScope $scope, array $alsoAmong): bool;
+
+    /**
      * Null on the same two indistinguishable cases as {@see find()} — absent, or out of reach.
      *
      * @param  string|null  $actorId  null when the system acts on its own behalf (`D-87`'s correction; the J-15 shape)

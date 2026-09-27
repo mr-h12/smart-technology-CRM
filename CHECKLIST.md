@@ -1239,6 +1239,12 @@ would hide them behind `OD-03` indefinitely.
       twice makes two copies of every row (proved on the test database in F-09: 3 ⇒ 6). `product_code`
       carries no unique index either (`create_catalog_items`), so the database does not catch it. Owner's
       call when to order; any fix has to decide what "the same record" means per module first.
+- [ ] **The duplicate-name rule `lower(btrim(name)) = lower(?)` is written twice, in Customers and
+      Suppliers** — *created by F-20 · 1.2, 2026-09-27; kept by the owner's ruling (B) until the third
+      copy.* `EloquentCustomerDirectory::nameTaken()` repeats `EloquentSupplierLookup::idsNamed()`'s
+      SQL; `EloquentCatalogItemDirectory.php:130` has a variant without `btrim`. F-20 · 1.3 reuses
+      `idsNamed()` and adds no copy. F-20 · 1.4 (catalog items) would add the third — the natural moment
+      to extract one helper into `App\Support`, as the import shapes above were.
 - [ ] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
       "telling the user which rows were rejected is out of F-10"; registered here the same day.* The three
       import results (`ImportSummary` in Customers and Suppliers, and F-10's catalog one) carry
@@ -3146,8 +3152,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** One per-row result shape: `rejected[]` with the row number and the reason,
             `skipped[]` for duplicates. *(2026-09-27, #246 — `{row, field, code, message}`, the row as a
             spreadsheet numbers it; `skipped` stays `[]` until 1.2–1.4)*
-      - [ ] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
-            same file included.
+      - [x] **1.2** Customers. A duplicate is the trimmed, case-insensitive name, repeats inside the
+            same file included. *(2026-09-27, #247 — archived counts; checked within the importer's
+            `customer.view` scope plus the file's own rows, owner's ruling a′)*
       - [ ] **1.3** Suppliers, by the same rule.
       - [ ] **1.4** Catalog items: `product_code` when present, the name otherwise.
       - [ ] **1.5** The import dialog lists the rejected and the skipped rows.

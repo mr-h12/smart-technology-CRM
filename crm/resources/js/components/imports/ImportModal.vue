@@ -19,18 +19,19 @@
  * way. **The permission keeps the document's name.** The narrowing is about
  * the format and is recorded in `CHECKLIST.md` awaiting a `D-xx`.
  *
- * ── Four numbers, one of which is this screen's own ────────────────────────
+ * ── The rows that did not import, named (F-20 · 1.5, `D-94`) ───────────────
  *
- * `ImportBatchPayload` sends three — `row_count`, `imported_count`,
- * `incomplete_count` — and deliberately no failure count, because "a field
- * that can disagree with the two it is derived from is a field that eventually
- * will". So failures are `row_count - imported_count`, computed here.
+ * `rejected[]` (the row and the server's sentence, already in the request's
+ * language) and `skipped[]` (the duplicates' rows) are each listed and counted
+ * by their own length. The screen computes nothing: the old "Not imported"
+ * figure, `row_count - imported_count`, mixed the two once duplicates were
+ * skipped, and the owner ruled it out (2026-09-27). Every row is drawn, in a
+ * list that scrolls, because `D-94` names every row.
  *
- * ⚠️ **A failed row and an incomplete row are not the same thing.** `D-31`
+ * ⚠️ **A rejected row and an incomplete row are not the same thing.** `D-31`
  * says an import "accepts incomplete data (records flagged incomplete)" — those
- * rows **were** imported and are counted in `imported_count`. A failure is a
- * row that saved nothing at all (a blank name violates the table's CHECK). The
- * two counts overlap in neither direction, and the labels say so.
+ * rows **were** imported and are counted in `imported_count`. A rejected row
+ * saved nothing at all. The two overlap in neither direction.
  *
  * ── The limit is stated here and enforced nowhere near here ────────────────
  *
@@ -46,7 +47,7 @@
  * It is a **label, not a check** — the server refuses an oversized file with
  * its own sentence, and that sentence is what is shown.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError, type ImportBatch } from '@/api';
 
@@ -66,11 +67,6 @@ const chosen = ref<File | null>(null);
 const batch = ref<ImportBatch | null>(null);
 const busy = ref(false);
 const errorMessage = ref('');
-
-/** The count the server does not send, from the two it does. */
-const failedCount = computed(() =>
-    batch.value === null ? 0 : batch.value.row_count - batch.value.imported_count,
-);
 
 function reset(): void {
     chosen.value = null;
@@ -137,7 +133,7 @@ watch(() => props.open, (open) => {
         <div class="dialog-scrim absolute inset-0" @click="emit('cancel')" />
 
         <div
-            class="dialog-panel relative flex w-full max-w-lg flex-col gap-4 rounded-2xl p-6"
+            class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="import-title"
@@ -175,9 +171,27 @@ watch(() => props.open, (open) => {
                 <p class="tabular-nums">{{ t('import.imported') }}: {{ batch.imported_count }}</p>
                 <!-- `D-31`: these rows were imported. They are not failures. -->
                 <p class="tabular-nums">{{ t('import.incomplete') }}: {{ batch.incomplete_count }}</p>
-                <p class="tabular-nums" data-testid="import-failed">
-                    {{ t('import.failed') }}: {{ failedCount }}
-                </p>
+                <p class="tabular-nums" data-testid="import-rejected">{{ t('import.rejected') }}: {{ batch.rejected.length }}</p>
+                <ul
+                    v-if="batch.rejected.length > 0"
+                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    tabindex="0"
+                    :aria-label="t('import.rejected')"
+                    data-testid="import-rejected-rows"
+                >
+                    <li v-for="line in batch.rejected" :key="line.row">{{ t('import.row', { row: line.row }) }}: {{ line.message }}</li>
+                </ul>
+
+                <p class="tabular-nums" data-testid="import-skipped">{{ t('import.skipped') }}: {{ batch.skipped.length }}</p>
+                <ul
+                    v-if="batch.skipped.length > 0"
+                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    tabindex="0"
+                    :aria-label="t('import.skipped')"
+                    data-testid="import-skipped-rows"
+                >
+                    <li v-for="row in batch.skipped" :key="row">{{ t('import.row', { row }) }}</li>
+                </ul>
 
                 <!-- §10: "Flagged 'incomplete' with a dedicated filter." Offered
                      only when there is something for it to match. -->
@@ -253,6 +267,11 @@ watch(() => props.open, (open) => {
 
 .import-result {
     background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+}
+
+.import-rows {
+    background-color: var(--color-surface);
     border: 1px solid var(--color-border);
 }
 </style>

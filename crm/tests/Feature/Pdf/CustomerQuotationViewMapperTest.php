@@ -6,17 +6,21 @@ namespace Tests\Feature\Pdf;
 
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
+use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
+use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
+use App\Modules\SupplierQuotations\Domain\Pricing\SupplierItemPrice;
 use ArrayObject;
 use DateTimeImmutable;
 use LogicException;
@@ -151,6 +155,42 @@ final class CustomerQuotationViewMapperTest extends TestCase
         $this->expectExceptionMessageMatches('/no description for line\(s\) 3\.$/');
 
         $this->mapper(descriptions: $descriptions)->map(self::quotation());
+    }
+
+    public function test_that_an_archived_supplier_line_is_refused_through_the_catalog_lookup(): void
+    {
+        // Point 3.2 — the bound `CatalogLineDescriptions`, not a fake of its
+        // port. Line 3's offer was archived, so `priceFor()` answers null, the
+        // line has no description, and the document is refused, not blanked.
+        [$first, $second] = array_keys(self::SUPPLIER_ITEMS);
+
+        $pricing = new class([$first => 'c1', $second => 'c2']) implements SupplierItemPricingInterface
+        {
+            /**
+             * @param  array<string, string>  $catalogBySupplierLine
+             */
+            public function __construct(private readonly array $catalogBySupplierLine) {}
+
+            public function priceFor(string $supplierQuotationItemId): ?SupplierItemPrice
+            {
+                $catalogItemId = $this->catalogBySupplierLine[$supplierQuotationItemId] ?? null;
+
+                return $catalogItemId === null ? null : new SupplierItemPrice('1.000000', null, '0.0000', '1.0000', $catalogItemId);
+            }
+        };
+
+        $labels = new class implements CatalogItemLabelsInterface
+        {
+            public function labelsOf(array $catalogItemIds): array
+            {
+                return array_intersect_key(['c1' => 'Formatter M428dw', 'c2' => 'Toner CF259A'], array_flip($catalogItemIds));
+            }
+        };
+
+        $this->expectException(CustomerViewIncomplete::class);
+        $this->expectExceptionMessageMatches('/no description for line\(s\) 3\.$/');
+
+        $this->mapper(lineDescriptions: new CatalogLineDescriptions($pricing, $labels))->map(self::quotation());
     }
 
     public function test_that_descriptions_are_asked_for_once_with_each_item_once(): void

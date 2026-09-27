@@ -19,11 +19,10 @@ namespace App\Modules\Pdf\Domain\Contracts;
  * ── Why a port in `Pdf` rather than a call into his modules ───────────────
  *
  * The per-module rule: nothing is written inside a module this developer does
- * not own. The lookup that answers this belongs to SupplierQuotations or
- * Catalog, and is requested from their owner. Until it is on `main` this
- * interface has **no implementation and no binding**, deliberately — nothing
- * resolves the mapper before Step 3's endpoint, and a stub answering blanks
- * would be the silent gap this module exists to refuse.
+ * not own. The facts live in SupplierQuotations and Catalog, so `Pdf` reads
+ * them through the two contracts their owner published (F-16) and answers here
+ * in `Infrastructure\CatalogLineDescriptions` (Point 3.2) — never a stub that
+ * answers blanks, which would be the silent gap this module exists to refuse.
  *
  * ── What an implementation must never return ──────────────────────────────
  *

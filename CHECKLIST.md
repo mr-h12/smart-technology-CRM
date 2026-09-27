@@ -3798,7 +3798,7 @@ printed blank.
       with `No browser at …` and exits 2, so a renderer that stops working turns the build red.
 - [ ] **2.7** Visual sign-off: Arabic and English sample PDFs on the PR, against the offer form.
 
-### Step 3 — generation *(point list published 2026-09-27 with Steps 4 and 5, **awaiting approval**)*
+### Step 3 — generation *(point list published 2026-09-27 with Steps 4 and 5, **approved** by merging #236)*
 
 Step 3 builds `POST /api/v1/quotations/{quotation}/pdf`, the job on the `pdf` queue (`PRF-04`,
 `§15.1`), its retry and failure record (`§14.6`, Q3) and the stored snapshot (`D-71`, Q4). It first
@@ -3811,7 +3811,8 @@ draining `--queue=pdf --tries=3` (`docker-compose.yml`); `quotation_files` (1.3)
 kind** raised by Quotations.
 
 **Owner decisions this list needs — each names its default, and the default is what ships if the
-owner says only "approved".**
+owner says only "approved".** ✅ **Approved 2026-09-27 with "do all the work", so every default
+below is now the decision** — Q11's stated risk and Q13's amendment of Q5 included.
 - **Q10 · the snapshot is taken when the button is pressed.** The endpoint maps the quotation to
   `CustomerQuotationView` and hands the view to the job, which renders exactly that. The criterion's
   "fixed snapshot" is then the quotation as the employee saw it — an edit landing between the click
@@ -3887,7 +3888,7 @@ owner says only "approved".**
       `QuotationSent`. *Verified by* a send leaving one `queued` generation in the sender's name, and
       a failed render leaving the quotation `sent`.
 
-### Step 4 — reading and downloading *(published with Step 3, awaiting approval)*
+### Step 4 — reading and downloading *(published and approved with Step 3, #236)*
 
 - [ ] **4.1** `QuotationPdfAttachmentPermission` in `Pdf/Application/Access`, registered for
       `AttachmentParent::Quotation` in `ParentAwareAttachmentPermission`'s map (our append in
@@ -3902,7 +3903,7 @@ owner says only "approved".**
       scope. One object, not a list: Q4 serves the most recent, and earlier snapshots stay stored
       (`DB-01`) with no screen of their own. *Verified by* each status read back, and 4.1's role cases.
 
-### Step 5 — the screen *(published with Step 3, awaiting approval)*
+### Step 5 — the screen *(published and approved with Step 3, #236)*
 
 - [ ] **5.1** `QuotationPdfPanel.vue` and `services/pdf.ts`: *Generate* under
       `quotation.generate_pdf`; a queued state that polls 4.2 until `completed` or `failed`; the

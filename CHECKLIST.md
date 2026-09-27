@@ -3228,10 +3228,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.2** E4-2 is reproduced first: `RolesMatrixView.vue` already has the generic
             `roles.error.invalid`. If that message appears, the item closes unchanged.
 - [ ] **F-30** Money input and names.
-      - [ ] **1.1** More than 6 decimals is a `422`, not a silent rounding (E5b-14). Three rules today:
-            `SaveQuotationRequest` and `RecordFxRateRequest` use a regex with no limit on the fraction,
-            `SaveSupplierQuotationRequest` only `numeric`. One rule in `app/Support`, tied to
-            `Precision::MONEY_SCALE` (6). `pricing-invariant-reviewer` required.
+      - [ ] **1.1** A typed money amount with more than 3 decimals is rounded half-up to 3 and saved, with
+            a warning in the response shown after the save (`D-98`; E5b-14). *Changed by the owner,
+            2026-09-27: was a `422` for more than 6.* One rule in `app/Support` replaces today's two
+            (`SaveQuotationRequest`'s regex with no limit on the fraction, `SaveSupplierQuotationRequest`'s
+            bare `numeric`); `RecordFxRateRequest` is excluded and keeps `D-68`'s 8. Storage stays 6
+            (`D-68`), display 3 (`D-82`). `pricing-invariant-reviewer` required.
       - [ ] **1.2** Names in tables isolated for direction (`dir="auto"` or `<bdi>`), the stored data
             unchanged (E5-6).
 

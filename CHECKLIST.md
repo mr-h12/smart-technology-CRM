@@ -3108,8 +3108,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             browser (`D-83`). Added by the owner 2026-09-27 during 1.1's questions, rather than
             widening 1.1. *(2026-09-27, #237 — on `GET /customers/{id}` and the assign answer only,
             list rows excluded by the owner's ruling; `null` when unnamed, a deactivated owner named)*
-      - [ ] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
-            customer, under `customer.assign` at its scope (`D-92`).
+      - [x] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
+            customer, under `customer.assign` at its scope (`D-92`). *(2026-09-27, #239 — all or none,
+            at most 100 ids; one out of reach is a 404 naming none; an entry per customer that moved)*
       - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
 - [ ] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
       "No import detects duplicates" and "An import reports how many rows it rejected, never which";

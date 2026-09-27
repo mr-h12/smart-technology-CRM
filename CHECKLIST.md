@@ -3823,15 +3823,131 @@ printed blank.
       whether money wants thousands separators (`34,854.10`); and whether the date should be
       `14/07/2026` as the paper form writes it rather than `2026-07-14`.
 
-**Sketch of the remaining steps, so the module's shape is visible without committing to their
-points.** Step 2: Browsershot behind a `PdfRendererInterface`, `P-01`'s template ported to consume
-`CustomerQuotationView` only, the four faces embedded base64, live page numbers via Chrome's
-`headerTemplate`/`footerTemplate`, and **the percentages taken out of the labels** — see below.
-Step 3: `POST /api/v1/quotations/{id}/pdf` dispatching to the
-`pdf` queue (`PRF-04`, `config/queue.php:163`), the job, retry, and the `files` write. Step 4:
-`GET …/pdf` download, §3.5's two permission rows including the CEO's download-not-generate rule and
-Q2's fail-closed Procurement. Step 5: the screen, then the Arabic manual test list the module-end
-rule requires.
+### Step 3 — generation *(point list published 2026-09-27 with Steps 4 and 5, **approved** by merging #236)*
+
+Step 3 builds `POST /api/v1/quotations/{quotation}/pdf`, the job on the `pdf` queue (`PRF-04`,
+`§15.1`), its retry and failure record (`§14.6`, Q3) and the stored snapshot (`D-71`, Q4). It first
+closes the two things owed before the endpoint: `LineDescriptionsInterface`'s binding (1.2's open
+note) and `tests/Feature/Pdf` running in no CI shard (the debt row "Measured live, 2026-09-26").
+**What `main` already holds (measured 2026-09-27 at `142ceb1`):** `quotation.generate_pdf` and
+`quotation.export_pdf` seeded exactly as §3.5 reads (`PermissionMatrix.php:301-315`); a `pdf` worker
+draining `--queue=pdf --tries=3` (`docker-compose.yml`); `quotation_files` (1.3), with
+`AttachmentParent::Quotation` refused by the attachment composite until Step 4; and **no event of any
+kind** raised by Quotations.
+
+**Owner decisions this list needs — each names its default, and the default is what ships if the
+owner says only "approved".** ✅ **Approved 2026-09-27 with "do all the work", so every default
+below is now the decision** — Q11's stated risk and Q13's amendment of Q5 included.
+- **Q10 · the snapshot is taken when the button is pressed.** The endpoint maps the quotation to
+  `CustomerQuotationView` and hands the view to the job, which renders exactly that. The criterion's
+  "fixed snapshot" is then the quotation as the employee saw it — an edit landing between the click
+  and the render cannot change the document — and a quotation that cannot be described (a line whose
+  supplier offer was archived, so 1.2's mapper refuses the view) is a `422` at once, not three failed
+  attempts in the queue. **Default: yes.** The alternative maps inside the job.
+- **Q11 · every status may be printed.** §3.5's *generate PDF* row carries no state condition, unlike
+  *edit*'s "Own (Draft)", and the ordering note above already names a status rule as a check at this
+  endpoint. **Default: no status check** — the documented reading. **The risk, stated:** a Draft's or
+  a Pending quotation's prices can leave the building as a PDF before anyone approved them. The
+  alternative — `approved` and later only, `422 quotation_not_approved` otherwise — is a `D-xx`.
+- **Q12 · no `Idempotency-Key`.** `OpenAPI §9.1` asks for one on "actions that change
+  irreversible-equivalent business state"; a generation adds one snapshot and changes nothing else
+  (Q4), so a replay costs a file, not a wrong state. The screen (5.1) disables its button while a
+  generation is queued. **Default: no key**, with this as the recorded reason.
+- **Q13 · Q5 amended — a generated PDF is scanned like any other file, not inserted as `clean`.**
+  Q5's default needs `FileWriterInterface::create()` to take a scan status, and it has no such
+  parameter; Storage is Module 0, where since 2026-09-10 a change is requested, not written. Our
+  render through `ScanStoredFile` — the path Deals, SupplierQuotations and Purchase Orders already
+  take — reaches the same `clean` without a change to anyone's module, and a scanner outage becomes
+  one more failure the retry absorbs (`DownloadFile` serves nothing that is not clean). **Default:
+  scan.** The alternative keeps Q5 and requests the parameter from Module 0's owner.
+- **Q14 · a send queues a PDF** — `D-90`'s "connecting the two is Module 9's to do". Flow 1 step 8 and
+  §6.1 ("Sent — PDF generated") give a sent quotation its PDF; `D-90` lets the send not wait for it.
+  **Default: a successful send queues one generation in the sender's name, and the send does not
+  wait.** Quotations raises no event, so this needs Module 7's owner to dispatch a `QuotationSent`
+  event once the send commits, published in `QuotationsContract`, for `Pdf` to listen to — **3.6 is
+  blocked on that request**, the way 2.2 waited on #219. The alternative keeps generation manual and
+  records in a `D-xx` that Flow 1 step 8 is a second click.
+
+- [ ] **3.1** `tests/Feature/Pdf` (47 tests on `main`, 48 with #228) and `tests/Feature/Support` (12)
+      join the shard matrix (`php-image.yml:263-279`), and a test fails when a directory under
+      `tests/Feature` is named in no shard or in two — the check `php-image.yml:252-255` leaves to a
+      person adding up three `Tests:` lines, which is how 59 tests went unrun. *Verified by* the PR's
+      three shards summing to the local full suite, and the guard failing on a probe that drops
+      `tests/Feature/Pdf`.
+- [ ] **3.2** `LineDescriptionsInterface` bound: `Pdf/Infrastructure/CatalogLineDescriptions` takes
+      each supplier line's `catalogItemId` from `SupplierItemPricingInterface::priceFor()` and its
+      label from `CatalogItemLabelsInterface`; Pdf's ruleset gains `SupplierQuotationsContract` and
+      `CatalogContract`. It returns the catalog label and nothing else, although `SupplierItemPrice`
+      carries the supplier's price. *Verified by* a supplier line holding a distinctive price that is
+      asserted absent from the result, and an archived supplier line having no entry, so 1.2's
+      refusal fires. **A duplicate, stated:** the same join is `ShowQuotation::lineNames()` in Module
+      7's Application layer, which `Pdf` may not reach. The ceiling: this class is deleted the day
+      `QuotationLine` carries the name.
+- [ ] **3.3** `pdf_generations`, Pdf's own table: `id` (the `job_id` of `OpenAPI §4.3`),
+      `quotation_id`, `status` (`queued` · `completed` · `failed`, a CHECK), nullable `file_id`,
+      `attempts`, `failure_reason`, the audit columns with `created_by` as the requester, and
+      `deleted_at` (`DB-01`); every foreign key declared (`DB-04`) and an index for "the latest for one
+      quotation". Written through the query builder behind a `Pdf` interface — **no Eloquent model,
+      so `D-77`'s split is still not forced** (1.0). *Verified by* up and down inside the suite (never
+      a `migrate:*` against `crm`), the CHECK refusing an unknown status, and each key refusing an
+      orphan.
+- [ ] **3.4** The job, on the `pdf` queue: render the view it was handed, `store()` it under
+      `AttachmentParent::Quotation`, write the `files` row, the `quotation_files` pivot and the
+      generation's `file_id` in one transaction, scan (Q13), mark `completed`. **Idempotent
+      (§15.1):** an attempt that finds `file_id` set only re-scans, so no retry writes a second file.
+      The retry count is the worker's `--tries=3`, as for every job here; `failed()` marks the
+      generation `failed` with its reason — Q3's failure record — and Q3's notification row goes on
+      the debt register naming §18.2. *Verified by* a renderer that fails twice then succeeds leaving
+      exactly one file, one that always fails ending `failed` with no file, and a scanner outage
+      retried to `completed`.
+- [ ] **3.5** `POST /api/v1/quotations/{quotation}/pdf`, in our own block of `routes/api.php`, under
+      `permission:quotation.generate_pdf`. The scope is the deal owner's (owner ruling 2026-09-11),
+      read through `DealFactsInterface` and resolved by `DealRowScope` — published in our own
+      `DealsContract`, not copied. The view is mapped here (Q10); the answer is `202` with `job_id`
+      and `queued`; audited `QUOTATION_PDF_REQUESTED` with the caller as the actor, since a queued job
+      has no request to take one from. Refusals as named cases, each a test: the CEO and the Outdoor
+      Supervisor `403` (no grant); Procurement (`Asgn`, Q2) and the Team Leader (`Team`, `D-a`) `403`
+      by name; a quotation outside an `Own` caller's reach `404`, which does not confirm it exists; an
+      indescribable one `422`. *Verified by* those tests and `permission-matrix-auditor` on the PR.
+- [ ] **3.6** A send queues a generation (Q14). **Blocked** until Module 7's owner publishes
+      `QuotationSent`. *Verified by* a send leaving one `queued` generation in the sender's name, and
+      a failed render leaving the quotation `sent`.
+
+### Step 4 — reading and downloading *(published and approved with Step 3, #236)*
+
+- [ ] **4.1** `QuotationPdfAttachmentPermission` in `Pdf/Application/Access`, registered for
+      `AttachmentParent::Quotation` in `ParentAwareAttachmentPermission`'s map (our append in
+      `AppServiceProvider`), so the existing `GET /files/{file}/download` serves a quotation PDF under
+      `quotation.export_pdf` at its scope (`D-38`; `OpenAPI §8.3`'s re-check at request time). The
+      Manager, the Team Leader and the CEO hold ✅, read as `All` (§3.2, `D-91`); the sales roles
+      `Own`; Procurement fails closed (Q2). *Verified by* a download per role — the CEO's, with no
+      generate grant, among them — and 1.3's "refused until Step 4" test turned around.
+- [ ] **4.2** `GET /api/v1/quotations/{quotation}/pdf` — what `OpenAPI §4.3` leaves to "the module
+      contract": the latest generation (`job_id`, `status`, `requested_at`, `completed_at`,
+      `failure_reason`) and the latest completed file's id, under `quotation.export_pdf` at its
+      scope. One object, not a list: Q4 serves the most recent, and earlier snapshots stay stored
+      (`DB-01`) with no screen of their own. *Verified by* each status read back, and 4.1's role cases.
+
+### Step 5 — the screen *(published and approved with Step 3, #236)*
+
+- [ ] **5.1** `QuotationPdfPanel.vue` and `services/pdf.ts`: *Generate* under
+      `quotation.generate_pdf`; a queued state that polls 4.2 until `completed` or `failed`; the
+      failure's reason; *Download* under `quotation.export_pdf` through `services/files.ts`'s existing
+      download. Both languages; empty, loading, error and refused states. *Verified by* Vitest,
+      `rtl-ui-verifier`, and the browser at 375 px and on the desktop, in Arabic and English.
+- [ ] **5.2** The panel on the quotation page: one import and one element in
+      `QuotationDetailView.vue`, beside `QuotationPurchaseOrder` (`:611`). **Requested from Module 7's
+      owner, not written by us** (the per-module rule); until it lands, 5.1 stands on its own tests.
+- [ ] **5.3** Module 9 closes: the Arabic manual test list (in the message and on the PR), the section
+      frozen to `checklist/module-09.md` with its stub, the ownership row, and the guide's Current
+      State.
+
+**What stays open after 5.3, stated now rather than discovered then:** the failure *notification*
+(Q3 — §18 belongs to no module, so that criterion stays `[~]`); the Arabic criterion until the owner
+confirms Q8's prose; 2.5's page numbers until an eye has read them (2.7); "visible in Queue Monitor"
+(`§15.1`), because Horizon is not installed — the `pdf_generations` row and `failed_jobs` are the
+record meanwhile; §14.6's editable template and the footer band (debt register above); and `D-89`'s
+Att, per-line delivery time, Settings texts and job title, each waiting on its owner.
 
 ---
 

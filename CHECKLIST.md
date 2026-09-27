@@ -3068,6 +3068,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 - Import duplicates are **skipped and reported**, never merged (`D-94`).
 - **`.xlsx` import is added**, amending `D-85` and `D-86` (`D-95`). No spreadsheet library is installed
   (`composer.json`), so `openspout/openspout` waits for the owner's approval at F-22 · 1.1.
+  **Withdrawn by the owner, 2026-09-27** (`D-97`): "Excel import" is a CSV file saved from Excel, `D-95` is
+  never pasted, and no spreadsheet library is added. F-22 keeps only the clear refusal of a file that is
+  not CSV.
 - **In:** bulk assign (`D-92`), the supplier-offer checks (`D-93`), the catalog improvements (`D-96`).
 - **Out:** PO search by QT code (E2-13). The contract stands: a purchase order is searched by
   `po_number` and `customer_po_reference` only (`SearchIndex.php:86`).
@@ -3078,7 +3081,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
   No F-31.
 
 `D-92`…`D-96` are drafted in F-00's PR description, proposed; the owner pastes them into
-`CRM_Documentation_EN.md`.
+`CRM_Documentation_EN.md`. `D-95` is withdrawn unpasted (owner, 2026-09-27); `D-97` records why.
 
 ### Point list — approved 2026-09-24 with the owner's fix-pass plan
 
@@ -3151,14 +3154,18 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 
 **Medium**
 
-- [ ] **F-22** Excel (`.xlsx`) import, with a clear refusal for anything else (§3.3; E2-4; `D-95`).
-      - [ ] **1.1** An `.xlsx` reader (first sheet) beside `CsvReader` in `app/Support/Csv/`, yielding
+- [ ] **F-22** A file that is not CSV is refused clearly (§3.3; E2-4; `D-97`). *Narrowed by the owner,
+      2026-09-27: the `.xlsx` import (`D-95`) is withdrawn, and E2-4's other half stays — a fake `.xlsx`
+      is answered today "This file has columns the importer does not accept: PK\u0003\u0004."
+      (`~/crm-qa-run/findings/E2.md:49`).*
+      - [~] **1.1** An `.xlsx` reader (first sheet) beside `CsvReader` in `app/Support/Csv/`, yielding
             rows in the same shape, on `openspout/openspout` — the new dependency the owner approves
-            here, its version checked through context7.
-      - [ ] **1.2** Wired into the three imports through `ImportFileRequest`, which checks no file type
-            today on purpose; the reader is chosen by the file's signature, not its extension. A file
-            that is neither CSV nor `.xlsx` is a clear `422`, with no control characters in the message.
-      - [ ] **1.3** The three import screens accept `.xlsx`.
+            here, its version checked through context7. — **withdrawn by the owner, 2026-09-27** (`D-97`).
+      - [ ] **1.2** `ImportFileRequest`, which checks no file type today on purpose, refuses a file that is
+            not CSV, judged by its content (its true MIME type), not its extension: a clear `422` for the
+            three imports that names CSV as the accepted type and quotes nothing from the file.
+      - [~] **1.3** The three import screens accept `.xlsx`. — **withdrawn by the owner, 2026-09-27**
+            (`D-97`).
 - [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
       declared and unseeded, so `D-35`'s warning never fires").
       - [ ] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds

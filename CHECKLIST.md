@@ -3880,7 +3880,7 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
       *(2026-09-27, #240 — both in `suppliers-customers`; the guard is a `build` step, not a PHPUnit test,
       because no container a test runs in can see `.github/`. Probed three ways: missing, doubled, stale.)*
-- [ ] **3.2** `LineDescriptionsInterface` bound: `Pdf/Infrastructure/CatalogLineDescriptions` takes
+- [x] **3.2** `LineDescriptionsInterface` bound: `Pdf/Infrastructure/CatalogLineDescriptions` takes
       each supplier line's `catalogItemId` from `SupplierItemPricingInterface::priceFor()` and its
       label from `CatalogItemLabelsInterface`; Pdf's ruleset gains `SupplierQuotationsContract` and
       `CatalogContract`. It returns the catalog label and nothing else, although `SupplierItemPrice`
@@ -3889,6 +3889,9 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       refusal fires. **A duplicate, stated:** the same join is `ShowQuotation::lineNames()` in Module
       7's Application layer, which `Pdf` may not reach. The ceiling: this class is deleted the day
       `QuotationLine` carries the name.
+
+      *(2026-09-27, #241 — `CatalogLineDescriptions`; a probe leaking the price and one removing the
+      binding each turned their test red.)*
 - [ ] **3.3** `pdf_generations`, Pdf's own table: `id` (the `job_id` of `OpenAPI §4.3`),
       `quotation_id`, `status` (`queued` · `completed` · `failed`, a CHECK), nullable `file_id`,
       `attempts`, `failure_reason`, the audit columns with `created_by` as the requester, and

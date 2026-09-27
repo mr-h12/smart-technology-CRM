@@ -6,10 +6,12 @@ namespace App\Modules\Customers\Application\Importing;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
+use App\Modules\Customers\Domain\Access\CustomerRowScope;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Domain\Importing\ImportSummary;
 use App\Modules\Customers\Domain\Writing\CustomerDraft;
+use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Support\Csv\RowRejected;
 use Illuminate\Database\ConnectionInterface;
@@ -22,8 +24,9 @@ use Illuminate\Database\ConnectionInterface;
  * *"Excel import accepts incomplete data (records flagged incomplete)"*, and
  * §10.5 adds the filter and the exclusion from financial reports. So a row with
  * gaps **saves** and is flagged; only a row that cannot save at all is a
- * failure, and failures are `row_count - imported_count` because
- * `import_batches` deliberately has no fourth count.
+ * failure. `import_batches` deliberately has no fourth count, so
+ * `row_count - imported_count` is the rejected rows plus the skipped
+ * duplicates, each named in the answer (`D-94`).
  *
  * ── What "missing fields" means: `D-87` ruling 1 ───────────────────────────
  *
@@ -37,7 +40,7 @@ use Illuminate\Database\ConnectionInterface;
  *
  * `DB-11` puts each customer beside its own audit row, and a partial import
  * that half-succeeded would leave a batch record describing a state nobody can
- * reconstruct. Skipped rows are skipped, not thrown: nothing here rolls the
+ * reconstruct. A rejected row is caught, not rethrown: nothing here rolls the
  * file back because one row had no name.
  *
  * ponytail: the whole file in one transaction, in one request. A 30 MB upload
@@ -71,6 +74,7 @@ final readonly class ImportCustomers
         private AuditRecorderInterface $audit,
         private StorageServiceInterface $storage,
         private ConnectionInterface $connection,
+        private AuthorizeAction $authorize,
     ) {}
 
     public function handle(string $path, string $originalFilename, string $actorId): ImportSummary
@@ -91,6 +95,12 @@ final readonly class ImportCustomers
             $imported = 0;
             $incomplete = 0;
             $rejected = [];
+            $skipped = [];
+            $created = [];
+
+            // The route carries only `customer.import`'s decision, and its one
+            // row is `all`; what the importer may *read* is `customer.view`'s.
+            $scope = CustomerRowScope::resolve($this->authorize->decide($actorId, 'customer', 'view')->scopeValues(), $actorId);
 
             foreach ($rows as $number => $row) {
                 try {
@@ -103,10 +113,20 @@ final readonly class ImportCustomers
                     continue;
                 }
 
+                // `D-94`: a name already on file is neither imported nor merged,
+                // only named — within what the importer may read, plus this
+                // file's earlier rows (the owner's ruling, 2026-09-27).
+                if ($this->customers->nameTaken($attributes['name'], $scope, $created)) {
+                    $skipped[] = $number;
+
+                    continue;
+                }
+
                 $flagged = array_diff(CustomerDraft::EXPECTED, array_keys($attributes)) !== [];
                 $draft = CustomerDraft::forImport($attributes, $flagged);
 
                 $customer = $this->customers->create($draft, $actorId);
+                $created[] = $customer->id;
 
                 // `AUD-01` names create explicitly, and an import is many
                 // creates rather than one silent write. Inside the transaction
@@ -128,7 +148,7 @@ final readonly class ImportCustomers
 
             $batch = $this->batches->record($originalFilename, count($rows), $imported, $incomplete, $actorId);
 
-            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected, $skipped);
         });
     }
 

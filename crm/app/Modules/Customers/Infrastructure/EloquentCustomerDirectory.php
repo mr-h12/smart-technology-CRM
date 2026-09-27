@@ -124,6 +124,29 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
         return self::hydrate($row);
     }
 
+    public function nameTaken(string $name, CustomerRowScope $scope, array $alsoAmong): bool
+    {
+        // `lower()` on this database folds more than ASCII (`lower('ÉCOLE')` is
+        // `école`, measured 2026-09-27) and leaves Arabic, which has no case, as
+        // it is. `SoftDeletes` keeps a deleted row out; `DB-01` means none exists.
+        // The same rule as `EloquentSupplierLookup::idsNamed()`, deliberately
+        // twice until F-20 · 1.4 adds the third copy (debt register).
+        //
+        // ponytail: an unindexed scan per imported row (177 customers today); an
+        // expression index on `lower(btrim(name))` when an import is measurably slow.
+        $named = static fn (Builder $query): bool => $query->whereRaw('lower(btrim(customers.name)) = lower(?)', [$name])->exists();
+        $visible = $this->scoped($scope);
+
+        // The import's own rows: an unrestricted scope already sees them. They
+        // were written by this caller, so naming them reveals nothing.
+        //
+        // ponytail: the ids ride as bindings, one per row already imported —
+        // past PostgreSQL's 65,535 a narrower importer's file fails; pass them
+        // as one `uuid[]` then. The Manager, who sees every row, never sends them.
+        return ($visible !== null && $named($visible))
+            || (! $scope->unrestricted && $named(Customer::query()->whereKey($alsoAmong)));
+    }
+
     public function update(string $customerId, CustomerDraft $draft, CustomerRowScope $scope, ?string $actorId): ?CustomerSummary
     {
         $query = $this->scoped($scope);

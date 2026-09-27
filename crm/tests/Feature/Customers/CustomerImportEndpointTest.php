@@ -11,6 +11,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -153,7 +154,13 @@ final class CustomerImportEndpointTest extends TestCase
     /** @return TestResponse<\Illuminate\Http\JsonResponse> */
     private function import(string $contents, string $name = 'customers.csv'): TestResponse
     {
-        return $this->post(self::ENDPOINT, ['file' => $this->csv($contents, $name)], $this->bearerFor(RoleName::Manager));
+        return $this->importAs(RoleName::Manager, $contents, $name);
+    }
+
+    /** @return TestResponse<\Illuminate\Http\JsonResponse> */
+    private function importAs(RoleName $role, string $contents, string $name = 'customers.csv'): TestResponse
+    {
+        return $this->post(self::ENDPOINT, ['file' => $this->csv($contents, $name)], $this->bearerFor($role));
     }
 
     public function test_that_a_manager_imports_two_rows(): void
@@ -331,6 +338,146 @@ final class CustomerImportEndpointTest extends TestCase
             ->assertJsonPath('data.rejected', [
                 ['row' => 2, 'field' => 'name', 'code' => 'required', 'message' => 'حقل name مطلوب.'],
             ]);
+    }
+
+    // ─────────────────────────────── duplicates are skipped, never merged (`D-94`)
+
+    /** A customer already on file, seeded the way `CustomerAssignEndpointTest` seeds one. */
+    private function customerOnFile(string $name, bool $archived = false, ?string $ownerId = null): void
+    {
+        DB::table('customers')->insert([
+            'id' => (string) Str::uuid7(),
+            'name' => $name,
+            'sales_owner_id' => $ownerId,
+            'customer_status' => 'prospect',
+            'is_archived' => $archived,
+            'is_incomplete' => false,
+            'created_by' => $this->userWith(RoleName::Manager)->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * F-20 · 1.2: a name already on file is skipped, neither imported nor
+     * merged — whatever its case, and whatever spaces surround either name.
+     */
+    public function test_that_a_row_naming_an_existing_customer_is_skipped_not_merged(): void
+    {
+        $this->customerOnFile(' Alpha Trading ');
+
+        $this->import(self::HEADER."\n  ALPHA trading  ,Medical,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 1)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.rejected', [])
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('customers', 1);
+        $this->assertDatabaseHas('customers', ['name' => ' Alpha Trading ', 'sector' => null]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'CUSTOMER_CREATED')->count());
+    }
+
+    /**
+     * `D-94`'s "an earlier row of the same file": the first is imported, the
+     * repeat is skipped, and every row lands in exactly one place —
+     * 4 rows = 2 imported + 1 rejected + 1 skipped.
+     */
+    public function test_that_a_repeat_inside_the_same_file_is_skipped(): void
+    {
+        $this->import(self::HEADER."\nشركة الأمل,,,,,,,,,\nBeta Trading,,,,,,,,,\n شركة الأمل ,Medical,,,,,,,,\n,Medical,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 4)
+            ->assertJsonPath('data.imported_count', 2)
+            ->assertJsonCount(1, 'data.rejected')
+            ->assertJsonPath('data.rejected.0.row', 5)
+            ->assertJsonPath('data.skipped', [4]);
+
+        self::assertSame(1, DB::table('customers')->where('name', 'شركة الأمل')->count());
+    }
+
+    /** The owner's ruling of 2026-09-27: an archived customer is still on file (`DB-01`), so its name is taken. */
+    public function test_that_a_row_naming_an_archived_customer_is_skipped(): void
+    {
+        $this->customerOnFile('Delta Medical', archived: true);
+
+        $this->import(self::HEADER."\ndelta medical,,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('customers', 1);
+        $this->assertDatabaseHas('customers', ['name' => 'Delta Medical', 'is_archived' => true]);
+    }
+
+    /** A rejected row created nothing, so the same name further down is not a repeat of it. */
+    public function test_that_a_rejected_row_does_not_make_a_later_row_a_duplicate(): void
+    {
+        $this->import(self::HEADER."\nGamma,,,,".str_repeat('1', 33).",,,,,\nGamma,,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.rejected.0.row', 2)
+            ->assertJsonPath('data.skipped', []);
+    }
+
+    /**
+     * An administrator's grant: `customer.import.all`, the only import row, to
+     * Indoor Sales, which reads fewer customers (`customer.view.own`).
+     */
+    private function grantImportToIndoorSales(): void
+    {
+        DB::table('role_permissions')->insert([
+            'id' => (string) Str::uuid7(),
+            'role_id' => Role::query()->where('slug', RoleName::IndoorSales->value)->value('id'),
+            'permission_id' => DB::table('permissions')
+                ->where(['resource' => 'customer', 'action' => 'import', 'scope' => 'all'])
+                ->value('id'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * `Coding_Standards_EN.md:111`, SEC-08: an importer that cannot read a
+     * customer must be unable to infer it exists. The check looks through the
+     * importer's `customer.view` scope (the owner's ruling, 2026-09-27), so a
+     * name outside it is imported rather than reported as taken.
+     */
+    public function test_that_a_name_outside_the_importers_view_is_not_reported_as_taken(): void
+    {
+        $this->grantImportToIndoorSales();
+        $this->customerOnFile('Alpha Trading');
+
+        $this->importAs(RoleName::IndoorSales, self::HEADER."\nAlpha Trading,,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.skipped', []);
+    }
+
+    /** The same importer's own customer is inside its view, so the name is taken. */
+    public function test_that_a_name_inside_the_importers_view_is_skipped(): void
+    {
+        $this->grantImportToIndoorSales();
+        $this->customerOnFile('Alpha Trading', ownerId: $this->userWith(RoleName::IndoorSales)->id);
+
+        $this->importAs(RoleName::IndoorSales, self::HEADER."\nalpha trading,,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+    }
+
+    /**
+     * `D-94`'s "an earlier row of the same file", whatever the importer reads:
+     * an imported row has no owner, so `customer.view.own` alone would not see it.
+     */
+    public function test_that_a_repeat_inside_the_file_is_skipped_whatever_the_importers_view(): void
+    {
+        $this->grantImportToIndoorSales();
+
+        $this->importAs(RoleName::IndoorSales, self::HEADER."\nBeta Trading,,,,,,,,,\n beta TRADING ,,,,,,,,,")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.skipped', [3]);
     }
 
     // ─────────────────────────────── the batch, the owner, the audit

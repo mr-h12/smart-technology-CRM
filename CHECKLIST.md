@@ -3114,7 +3114,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             items first (`D-93`). A typed new name still joins the catalog (`D-22`). *(2026-09-26, #234 —
             `CatalogItemPicker`; `GET /catalog-items?supplier_first=`, `product_name` on the offer's
             lines)*
-- [ ] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
+- [x] **F-19** No screen assigns a customer's owner, and none assigns several (E2-1, E2-2; Flow 10,
       `D-34`).
       - [x] **1.1** Assign from the customer's page through the existing
             `PATCH /customers/{customer}/assign` (`assignCustomer` in `services/customers.ts` has no
@@ -3128,7 +3128,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.2** `POST /customers/assign`: several customers in one transaction, an audit entry per
             customer, under `customer.assign` at its scope (`D-92`). *(2026-09-27, #239 — all or none,
             at most 100 ids; one out of reach is a 404 naming none; an entry per customer that moved)*
-      - [ ] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
+      - [x] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
+            *(2026-09-27, #243 — a confirm dialog, both lists; one request; a round trip on two
+            customers wrote four `CUSTOMER_REASSIGNED` rows)*
 - [ ] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
       "No import detects duplicates" and "An import reports how many rows it rejected, never which";
       `D-94`). The reader is shared (`App\Support\Csv\CsvReader`); each module keeps its own converter

@@ -25,30 +25,30 @@ final class CsvReaderTest extends TestCase
 
     public function test_that_a_bom_does_not_corrupt_the_first_column(): void
     {
-        self::assertSame([['name' => 'Alpha', 'phone' => '0100']], $this->read("\xEF\xBB\xBFname,phone\nAlpha,0100\n"));
+        self::assertSame([2 => ['name' => 'Alpha', 'phone' => '0100']], $this->read("\xEF\xBB\xBFname,phone\nAlpha,0100\n"));
     }
 
     public function test_that_semicolons_and_crlf_are_read(): void
     {
         self::assertSame(
-            [['name' => 'Alpha', 'phone' => '0100'], ['name' => 'Beta', 'phone' => '0111']],
+            [2 => ['name' => 'Alpha', 'phone' => '0100'], 3 => ['name' => 'Beta', 'phone' => '0111']],
             $this->read("name;phone\r\nAlpha;0100\r\nBeta;0111\r\n"),
         );
     }
 
     public function test_that_a_quoted_field_keeps_its_newline(): void
     {
-        self::assertSame([['name' => "Alpha\nBranch"]], $this->read("name\n\"Alpha\nBranch\"\n"));
+        self::assertSame([2 => ['name' => "Alpha\nBranch"]], $this->read("name\n\"Alpha\nBranch\"\n"));
     }
 
     public function test_that_a_header_is_matched_by_the_word_and_by_an_alias(): void
     {
         self::assertSame(
-            [['name' => 'Alpha', 'contact_person' => 'Sara']],
+            [2 => ['name' => 'Alpha', 'contact_person' => 'Sara']],
             $this->read("Name,Contact\nAlpha,Sara\n"),
         );
         self::assertSame(
-            [['name' => 'Alpha', 'contact_person' => 'Sara']],
+            [2 => ['name' => 'Alpha', 'contact_person' => 'Sara']],
             $this->read("NAME,Contact-Person\nAlpha,Sara\n"),
         );
     }
@@ -81,21 +81,34 @@ final class CsvReaderTest extends TestCase
 
     public function test_that_a_blank_line_is_not_a_row(): void
     {
-        self::assertSame([['name' => 'Alpha'], ['name' => 'Beta']], $this->read("name\nAlpha\n\nBeta\n"));
+        self::assertSame([2 => ['name' => 'Alpha'], 4 => ['name' => 'Beta']], $this->read("name\nAlpha\n\nBeta\n"));
+    }
+
+    /**
+     * `D-94` (F-20 · 1.1): a rejected row is named by the number a spreadsheet
+     * shows — the header is row 1, a blank line is a row, and a quoted cell's
+     * line break stays inside its one row.
+     */
+    public function test_that_each_row_is_keyed_by_its_spreadsheet_row_number(): void
+    {
+        self::assertSame(
+            [2 => ['name' => 'Alpha'], 4 => ['name' => "Beta\nBranch"], 5 => ['name' => 'Gamma']],
+            $this->read("name\nAlpha\n\n\"Beta\nBranch\"\nGamma\n"),
+        );
     }
 
     /** `D-31`: a short row is missing fields, not a malformed file. */
     public function test_that_a_short_row_is_padded_with_empty_cells(): void
     {
         self::assertSame(
-            [['name' => 'Alpha', 'phone' => '', 'contact_person' => '']],
+            [2 => ['name' => 'Alpha', 'phone' => '', 'contact_person' => '']],
             $this->read("name,phone,contact_person\nAlpha\n"),
         );
     }
 
     public function test_that_an_empty_header_cell_is_skipped(): void
     {
-        self::assertSame([['name' => 'Alpha']], $this->read("name,\nAlpha,ignored\n"));
+        self::assertSame([2 => ['name' => 'Alpha']], $this->read("name,\nAlpha,ignored\n"));
     }
 
     /** The prefix is the caller's: suppliers will name their own messages. */
@@ -115,7 +128,7 @@ final class CsvReaderTest extends TestCase
 
     // ───────────────────────────────────────────────────────────── helpers
 
-    /** @return list<array<string, string>> */
+    /** @return array<int, array<string, string>> */
     private function read(string $csv): array
     {
         $stream = $this->stream($csv);

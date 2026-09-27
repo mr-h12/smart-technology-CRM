@@ -162,7 +162,9 @@ final class CustomerImportEndpointTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('data.row_count', 2)
             ->assertJsonPath('data.imported_count', 2)
-            ->assertJsonPath('data.original_filename', 'customers.csv');
+            ->assertJsonPath('data.original_filename', 'customers.csv')
+            ->assertJsonPath('data.rejected', [])
+            ->assertJsonPath('data.skipped', []);
 
         $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'sector' => 'Medical']);
         $this->assertDatabaseHas('customers', ['name' => 'Beta Trading']);
@@ -299,6 +301,36 @@ final class CustomerImportEndpointTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('data.row_count', 1)
             ->assertJsonPath('data.imported_count', 1);
+    }
+
+    /**
+     * F-20 · 1.1 (`D-94`): every row it did not import is named by its
+     * spreadsheet row — the header is row 1, the blank line is row 4 — its
+     * column, a stable code and a sentence in the caller's language.
+     */
+    public function test_that_a_rejected_row_is_named_by_its_row_field_and_code(): void
+    {
+        $csv = self::HEADER."\n".self::COMPLETE."\n,Medical,,,,,,,,\n\nGamma,,,,".str_repeat('1', 33).',,,,,';
+
+        $this->post(self::ENDPOINT, ['file' => $this->csv($csv)], $this->bearerFor(RoleName::Manager) + ['Accept-Language' => 'en'])
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 3)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.rejected', [
+                ['row' => 3, 'field' => 'name', 'code' => 'required', 'message' => 'The name field is required.'],
+                ['row' => 5, 'field' => 'phone', 'code' => 'too_long', 'message' => 'The phone field must not be greater than 32 characters.'],
+            ])
+            ->assertJsonPath('data.skipped', []);
+    }
+
+    /** OpenAPI §4: the code stays English, the sentence follows `Accept-Language`. */
+    public function test_that_a_rejected_row_is_explained_in_arabic(): void
+    {
+        $this->post(self::ENDPOINT, ['file' => $this->csv(self::HEADER."\n,Medical,,,,,,,,")], $this->bearerFor(RoleName::Manager) + ['Accept-Language' => 'ar'])
+            ->assertStatus(201)
+            ->assertJsonPath('data.rejected', [
+                ['row' => 2, 'field' => 'name', 'code' => 'required', 'message' => 'حقل name مطلوب.'],
+            ]);
     }
 
     // ─────────────────────────────── the batch, the owner, the audit

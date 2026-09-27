@@ -94,7 +94,8 @@ final readonly class CsvReader
      * @param  array<string, string>  $aliases  a different word for a field, normalised form on the left
      * @param  string  $messages  the caller's lang prefix: `{prefix}.empty_file`, `.unknown_columns`,
      *                            `.duplicate_columns`, `.missing_name_column`
-     * @return list<array<string, string>> one entry per data row, keyed by column, missing cells as ''
+     * @return array<int, array<string, string>> one entry per data row, keyed by column, missing cells as '',
+     *                                           and by the row number a spreadsheet shows (`D-94`)
      *
      * @throws ValidationException when the file carries no usable header
      */
@@ -114,12 +115,16 @@ final readonly class CsvReader
         $columns = self::header($header, $columns, $aliases, $messages);
 
         $rows = [];
+        // The header is row 1. One `fgetcsv` is one spreadsheet row: a blank
+        // line still counts, and a quoted line break stays inside its row.
+        $number = 1;
 
         while (($values = fgetcsv($handle, 0, $separator, '"', '\\')) !== false) {
+            $number++;
             $row = self::row($columns, $values);
 
             if ($row !== null) {
-                $rows[] = $row;
+                $rows[$number] = $row;
             }
         }
 

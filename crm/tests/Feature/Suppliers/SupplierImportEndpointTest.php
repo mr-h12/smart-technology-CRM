@@ -159,26 +159,34 @@ final class SupplierImportEndpointTest extends TestCase
         $this->assertDatabaseHas('suppliers', ['name' => 'Case Supply', 'type' => 'distributor']);
     }
 
-    /** @return array<string, array{string}> */
+    /** @return array<string, array{string, string, string}> the row, then the field and code `D-94` names it by */
     public static function rowsThatCannotSave(): array
     {
         return [
-            'no name' => [',supplier,0100,Sara,yes'],
-            'a name of spaces' => ['   ,supplier,0100,Sara,yes'],
-            'an unknown type (ruling a)' => ['Odd Supply,wholesaler,0100,Sara,yes'],
-            'an unknown open-account word' => ['Odd Supply,supplier,0100,Sara,maybe'],
-            'a phone longer than its column' => ['Odd Supply,supplier,'.str_repeat('1', 33).',Sara,yes'],
+            'no name' => [',supplier,0100,Sara,yes', 'name', 'required'],
+            'a name of spaces' => ['   ,supplier,0100,Sara,yes', 'name', 'required'],
+            'an unknown type (ruling a)' => ['Odd Supply,wholesaler,0100,Sara,yes', 'type', 'not_allowed'],
+            'an unknown open-account word' => ['Odd Supply,supplier,0100,Sara,maybe', 'has_open_account', 'not_allowed'],
+            'a phone longer than its column' => ['Odd Supply,supplier,'.str_repeat('1', 33).',Sara,yes', 'phone', 'too_long'],
         ];
     }
 
-    /** Counted in `row_count`, absent from `imported_count`, and nothing written for it. */
+    /**
+     * Counted in `row_count`, absent from `imported_count`, nothing written
+     * for it — and named in `rejected[]` as spreadsheet row 3 (F-20 · 1.1).
+     */
     #[DataProvider('rowsThatCannotSave')]
-    public function test_that_a_row_that_cannot_save_is_counted_and_not_imported(string $row): void
+    public function test_that_a_row_that_cannot_save_is_counted_and_not_imported(string $row, string $field, string $code): void
     {
         $this->import(self::HEADER."\n".self::COMPLETE."\n".$row)
             ->assertStatus(201)
             ->assertJsonPath('data.row_count', 2)
-            ->assertJsonPath('data.imported_count', 1);
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonCount(1, 'data.rejected')
+            ->assertJsonPath('data.rejected.0.row', 3)
+            ->assertJsonPath('data.rejected.0.field', $field)
+            ->assertJsonPath('data.rejected.0.code', $code)
+            ->assertJsonPath('data.skipped', []);
 
         $this->assertDatabaseCount('suppliers', 1);
     }

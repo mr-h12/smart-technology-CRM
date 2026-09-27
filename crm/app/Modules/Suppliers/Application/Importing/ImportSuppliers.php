@@ -10,6 +10,7 @@ use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Suppliers\Domain\Contracts\SupplierDirectoryInterface;
 use App\Modules\Suppliers\Domain\Importing\ImportSummary;
 use App\Modules\Suppliers\Domain\Writing\SupplierDraft;
+use App\Support\Csv\RowRejected;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -59,11 +60,14 @@ final readonly class ImportSuppliers
         return $this->connection->transaction(function () use ($rows, $originalFilename, $actorId): ImportSummary {
             $imported = 0;
             $incomplete = 0;
+            $rejected = [];
 
-            foreach ($rows as $row) {
-                $attributes = self::attributes($row);
+            foreach ($rows as $number => $row) {
+                try {
+                    $attributes = self::attributes($row);
+                } catch (RowRejected $rejection) {
+                    $rejected[] = $rejection->at($number);
 
-                if ($attributes === null) {
                     continue;
                 }
 
@@ -87,19 +91,22 @@ final readonly class ImportSuppliers
                 }
             }
 
-            return $this->suppliers->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
+            $batch = $this->suppliers->recordImportBatch($originalFilename, count($rows), $imported, $incomplete, $actorId);
+
+            return new ImportSummary($batch->id, $batch->originalFilename, $batch->rowCount, $batch->importedCount, $batch->incompleteCount, $rejected);
         });
     }
 
     /**
-     * The row as columns worth writing, or null when it cannot be saved at all.
-     * Empty cells are dropped, not written as `''`, so `is_incomplete` agrees
-     * with what the row holds.
+     * The row as columns worth writing. Empty cells are dropped, not written
+     * as `''`, so `is_incomplete` agrees with what the row holds.
      *
      * @param  array<string, string>  $row
-     * @return array<string, string|bool>|null
+     * @return array<string, string|bool>
+     *
+     * @throws RowRejected when it cannot be saved at all
      */
-    private static function attributes(array $row): ?array
+    private static function attributes(array $row): array
     {
         $attributes = [];
 
@@ -111,14 +118,14 @@ final readonly class ImportSuppliers
             }
 
             if (isset(self::LENGTHS[$column]) && mb_strlen($value) > self::LENGTHS[$column]) {
-                return null;
+                throw RowRejected::tooLong($column, self::LENGTHS[$column]);
             }
 
             if ($column === 'type') {
                 $value = strtolower($value);
 
                 if (! in_array($value, SupplierDraft::TYPES, true)) {
-                    return null;
+                    throw RowRejected::notAllowed($column);
                 }
             }
 
@@ -126,7 +133,7 @@ final readonly class ImportSuppliers
                 $word = strtolower($value);
 
                 if (! array_key_exists($word, self::OPEN_ACCOUNT)) {
-                    return null;
+                    throw RowRejected::notAllowed($column);
                 }
 
                 $attributes[$column] = self::OPEN_ACCOUNT[$word];
@@ -139,6 +146,10 @@ final readonly class ImportSuppliers
 
         // `suppliers_name_not_blank` is a CHECK; `CsvReader` has trimmed, so a
         // name of spaces arrives here as ''.
-        return isset($attributes['name']) ? $attributes : null;
+        if (! isset($attributes['name'])) {
+            throw RowRejected::required('name');
+        }
+
+        return $attributes;
     }
 }

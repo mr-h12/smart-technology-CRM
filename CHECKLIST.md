@@ -4022,13 +4022,16 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
 ### Step 4 — reading and downloading *(published and approved with Step 3, #236)*
 
-- [ ] **4.1** `QuotationPdfAttachmentPermission` in `Pdf/Application/Access`, registered for
+- [x] **4.1** `QuotationPdfAttachmentPermission` in `Pdf/Application/Access`, registered for
       `AttachmentParent::Quotation` in `ParentAwareAttachmentPermission`'s map (our append in
       `AppServiceProvider`), so the existing `GET /files/{file}/download` serves a quotation PDF under
       `quotation.export_pdf` at its scope (`D-38`; `OpenAPI §8.3`'s re-check at request time). The
       Manager, the Team Leader and the CEO hold ✅, read as `All` (§3.2, `D-91`); the sales roles
       `Own`; Procurement fails closed (Q2). *Verified by* a download per role — the CEO's, with no
       generate grant, among them — and 1.3's "refused until Step 4" test turned around.
+
+      *(2026-09-27, #243 — `DealRowScope::reaches()` published in our `DealsContract`; the tests store a real
+      file through `store()` and remove only the paths they wrote, since tests share the dev volume.)*
 - [ ] **4.2** `GET /api/v1/quotations/{quotation}/pdf` — what `OpenAPI §4.3` leaves to "the module
       contract": the latest generation (`job_id`, `status`, `requested_at`, `completed_at`,
       `failure_reason`) and the latest completed file's id, under `quotation.export_pdf` at its

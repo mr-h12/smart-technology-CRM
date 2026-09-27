@@ -46,6 +46,9 @@ parameters:
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealOutcomeInterface$
             - type: classLike
               value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealNotReadyToSend$
+            # Module 9 · 4.1 — the reach a quotation's PDF resolves against its deal's owner.
+            - type: classLike
+              value: ^App\\Modules\\Deals\\Domain\\Access\\DealRowScope$
     # The five `QuotationsContract` classLikes are collected out below, on
     # `Suppliers`' terms (F-10 · 1.4): a token in two layers is checked against both.
     - name: Quotations
@@ -289,6 +292,10 @@ parameters:
         # Module 9 · 2.3: the deal's title, which `D-89` prints as the Subject.
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Contracts\\DealTitlesInterface$
+        # Module 9 · 4.1: §3.4's row scope, which a quotation's PDF is read
+        # under — its "own" is the deal owner's (owner ruling 2026-09-11).
+        - type: classLike
+          value: ^App\\Modules\\Deals\\Domain\\Access\\DealRowScope$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -785,6 +792,10 @@ parameters:
       # for the detail screen. Only the label leaves `CatalogLineDescriptions`.
       - SupplierQuotationsContract
       - CatalogContract
+      # StorageContract, Point 4.1 — `D-38` for `AttachmentParent::Quotation`:
+      # `QuotationPdfAttachmentPermission` implements Storage's
+      # `AttachmentPermissionInterface`. The contract half only.
+      - StorageContract
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

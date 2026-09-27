@@ -41,6 +41,28 @@ final class DealRowScopeTest extends TestCase
         self::assertNotContains(self::OTHER, $scope->ownerIds);
     }
 
+    /**
+     * Module 9 · 4.1 — one row's owner against the reach, the question a
+     * quotation's PDF asks of its deal. A null owner is nobody's, so `own`
+     * never reaches it; `all` reaches it like any other.
+     */
+    public function test_that_reaches_answers_for_one_owner(): void
+    {
+        $all = DealRowScope::resolve(['all'], self::ACTOR);
+        $own = DealRowScope::resolve(['own'], self::ACTOR);
+        $unbacked = DealRowScope::resolve(['asgn', 'team'], self::ACTOR);
+
+        self::assertTrue($all->reaches(self::OTHER));
+        self::assertTrue($all->reaches(null));
+
+        self::assertTrue($own->reaches(self::ACTOR));
+        self::assertFalse($own->reaches(self::OTHER));
+        self::assertFalse($own->reaches(null));
+
+        self::assertFalse($unbacked->reaches(self::ACTOR));
+        self::assertFalse($unbacked->reaches(null));
+    }
+
     /** Two answers to one question is the defect; `all` subsumes `own`. */
     public function test_that_all_and_own_together_answer_once(): void
     {

@@ -77,6 +77,7 @@ use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
@@ -487,15 +488,17 @@ class AppServiceProvider extends ServiceProvider
         // answer; this map is the only place that has to know about both, and
         // it is already outside every module boundary.
         //
-        // `PurchaseOrder` and `Report` have no entry and are refused by the
-        // composite — `DenyAllAttachmentPermission`'s deny-by-default kept for
-        // the two parents whose modules are still `.gitkeep`.
+        // `Report` has no entry and is refused by the composite —
+        // `DenyAllAttachmentPermission`'s deny-by-default, kept for the one
+        // parent no module answers for yet.
         $this->app->bind(
             AttachmentPermissionInterface::class,
             fn (): AttachmentPermissionInterface => new ParentAwareAttachmentPermission([
                 AttachmentParent::Deal->value => $this->app->make(DealAttachmentPermission::class),
                 AttachmentParent::SupplierQuotation->value => $this->app->make(SupplierQuotationAttachmentPermission::class),
                 AttachmentParent::PurchaseOrder->value => $this->app->make(PurchaseOrderAttachmentPermission::class),
+                // Module 9 · 4.1 — §3.5's export/download PDF row for a quotation's stored PDFs.
+                AttachmentParent::Quotation->value => $this->app->make(QuotationPdfAttachmentPermission::class),
             ]),
         );
 

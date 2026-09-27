@@ -15,11 +15,13 @@ use Ramsey\Uuid\Uuid;
  */
 trait InsertsQuotationRows
 {
-    private function insertQuotation(): string
+    /**
+     * @param  string|null  $ownerId  the deal's `owner_id` — §3.5's "own" for its quotations
+     */
+    private function insertQuotation(?string $ownerId = null): string
     {
         $customerId = Uuid::uuid7()->toString();
         $dealId = Uuid::uuid7()->toString();
-        $currencyId = Uuid::uuid7()->toString();
         $quotationId = Uuid::uuid7()->toString();
 
         DB::table('customers')->insert(['id' => $customerId, 'name' => 'Nile Trading', 'created_at' => now(), 'updated_at' => now()]);
@@ -27,19 +29,28 @@ trait InsertsQuotationRows
             'id' => $dealId,
             'code' => 'DL-2026-'.substr(str_replace('-', '', $dealId), -4),
             'customer_id' => $customerId,
+            'owner_id' => $ownerId,
             'last_activity_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        DB::table('currencies')->insert([
-            'id' => $currencyId,
-            'code' => 'EGP',
-            'rounding_unit' => '1',
-            'rounding_enabled' => true,
-            'is_base' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+
+        // One base currency however many quotations a test builds.
+        $currencyId = DB::table('currencies')->where('code', 'EGP')->value('id');
+
+        if (! is_string($currencyId)) {
+            $currencyId = Uuid::uuid7()->toString();
+
+            DB::table('currencies')->insert([
+                'id' => $currencyId,
+                'code' => 'EGP',
+                'rounding_unit' => '1',
+                'rounding_enabled' => true,
+                'is_base' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
         DB::table('quotations')->insert([
             'id' => $quotationId,
             'code' => 'QT-2026-'.substr(str_replace('-', '', $quotationId), -4),

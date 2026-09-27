@@ -120,6 +120,17 @@ final readonly class DealRowScope
     }
 
     /**
+     * Whether one row, owned by `$ownerId`, is within this reach — what a
+     * single record asks where a list asks `ownerIds` (Module 9 · 4.1: a
+     * quotation's PDF, whose "own" is its deal's owner). A null owner is
+     * nobody's, so it is nobody's under `own`.
+     */
+    public function reaches(?string $ownerId): bool
+    {
+        return $this->unrestricted || ($ownerId !== null && in_array($ownerId, $this->ownerIds, true));
+    }
+
+    /**
      * §3.2's five codes, in the document's order.
      *
      * @return list<string>

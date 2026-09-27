@@ -1233,18 +1233,24 @@ would hide them behind `OD-03` indefinitely.
       `App\Support\Csv\ImportFileRequest` / `ImportBatchPayload`. **`ImportSummary` stays one per module
       by the owner's ruling:** each module's `Domain` contracts name it, and `deptrac.layers.yaml` gives
       `Domain` no licence to depend on `SharedContracts`. A deliberate ceiling, not waste.
-- [ ] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
+- [x] **No import detects duplicates — customers, suppliers and catalog items alike** — *named in the
       "Not covered" of `D-85` and `D-87`, and made a ruling of F-10 (owner, 2026-09-21: "every row creates a
       new item"); registered here 2026-09-21 because until now it lived only in prose.* Importing one file
       twice makes two copies of every row (proved on the test database in F-09: 3 ⇒ 6). `product_code`
       carries no unique index either (`create_catalog_items`), so the database does not catch it. Owner's
       call when to order; any fix has to decide what "the same record" means per module first.
-- [ ] **The duplicate-name rule `lower(btrim(name)) = lower(?)` is written twice, in Customers and
+      *(Closed 2026-09-27 by F-20 · 1.2–1.4, `D-94`: each import skips a duplicate — customers by name
+      within the importer's view (#247), suppliers by name (#248), catalog items by `product_code` or
+      else name (1.4). Still no unique index: two imports at the same moment can each insert one.)*
+- [x] **The duplicate-name rule `lower(btrim(name)) = lower(?)` is written twice, in Customers and
       Suppliers** — *created by F-20 · 1.2, 2026-09-27; kept by the owner's ruling (B) until the third
       copy.* `EloquentCustomerDirectory::nameTaken()` repeats `EloquentSupplierLookup::idsNamed()`'s
       SQL; `EloquentCatalogItemDirectory.php:130` has a variant without `btrim`. F-20 · 1.3 reuses
       `idsNamed()` and adds no copy. F-20 · 1.4 (catalog items) would add the third — the natural moment
       to extract one helper into `App\Support`, as the import shapes above were.
+      *(Closed 2026-09-27 by F-20 · 1.4: `App\Support\Database\SameText` is the one copy, and Customers,
+      Suppliers and Catalog ask it. `findProductIdByName`'s variant without `btrim` stays: it serves the
+      supplier offer's automatic add, not an import.)*
 - [ ] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
       "telling the user which rows were rejected is out of F-10"; registered here the same day.* The three
       import results (`ImportSummary` in Customers and Suppliers, and F-10's catalog one) carry

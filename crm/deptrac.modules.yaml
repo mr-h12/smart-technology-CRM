@@ -386,6 +386,14 @@ parameters:
         # moves: `Deals` and `SupplierQuotations` already hold `SharedContracts`.
         - type: classLike
           value: ^App\\Support\\Database\\DocumentNumberAllocator$
+        # `App\Support\Database\SameText` — `D-94`'s duplicate comparison,
+        # added 2026-09-27 with F-20 · 1.4. Customers and Suppliers each wrote
+        # `lower(btrim(name)) = lower(?)`, and Catalog would have been the third
+        # (and a fourth, for `product_code`). On `DocumentNumberAllocator`'s
+        # terms: the mechanism moved, and each module keeps its own column.
+        # No ruleset moves: `CustomersDriver`, `Suppliers` and `Catalog` hold it.
+        - type: classLike
+          value: ^App\\Support\\Database\\SameText$
         # `App\Support\Csv` — the import file reader, moved out of Customers'
         # `CustomerCsv` unchanged in F-09 · 1.3 so the suppliers' import
         # (`D-85`) reads files by the same rules instead of a copy of them.

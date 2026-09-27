@@ -13,6 +13,7 @@ use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Customers\Infrastructure\Eloquent\Customer;
 use App\Modules\Identity\Domain\Administration\UserListCriteria;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Support\Database\SameText;
 use App\Support\Search\ArabicNormalisation;
 use App\Support\Search\SearchIndex;
 use App\Support\Search\SearchService;
@@ -126,15 +127,12 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
 
     public function nameTaken(string $name, CustomerRowScope $scope, array $alsoAmong): bool
     {
-        // `lower()` on this database folds more than ASCII (`lower('ÉCOLE')` is
-        // `école`, measured 2026-09-27) and leaves Arabic, which has no case, as
-        // it is. `SoftDeletes` keeps a deleted row out; `DB-01` means none exists.
-        // The same rule as `EloquentSupplierLookup::idsNamed()`, deliberately
-        // twice until F-20 · 1.4 adds the third copy (debt register).
+        // `SameText` is `D-94`'s comparison, shared with Suppliers and Catalog.
+        // `SoftDeletes` keeps a deleted row out; `DB-01` means none exists.
         //
         // ponytail: an unindexed scan per imported row (177 customers today); an
         // expression index on `lower(btrim(name))` when an import is measurably slow.
-        $named = static fn (Builder $query): bool => $query->whereRaw('lower(btrim(customers.name)) = lower(?)', [$name])->exists();
+        $named = static fn (Builder $query): bool => SameText::where($query, 'customers.name', $name)->exists();
         $visible = $this->scoped($scope);
 
         // The import's own rows: an unrestricted scope already sees them. They

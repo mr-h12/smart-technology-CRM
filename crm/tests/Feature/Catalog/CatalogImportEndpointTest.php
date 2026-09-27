@@ -105,11 +105,133 @@ final class CatalogImportEndpointTest extends TestCase
         $this->assertDatabaseHas('catalog_items', ['kind' => 'service', 'name' => 'Fitting', 'service_type' => 'install', 'is_incomplete' => false]);
     }
 
-    public function test_every_row_creates_a_new_item(): void
+    // ── duplicates are skipped, never merged (`D-94`) ───────────────────────
+
+    /** An item already on file, seeded directly: the import is what is under test. */
+    private function itemOnFile(string $kind, ?string $code, ?string $name, bool $active = true): void
     {
-        $this->import(self::HEADER."\n".self::PRODUCT."\n".self::PRODUCT)->assertJsonPath('data.imported_count', 2);
+        DB::table('catalog_items')->insert([
+            'id' => (string) Str::uuid7(),
+            'kind' => $kind,
+            'product_code' => $code,
+            'name' => $name,
+            'is_active' => $active,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * F-20 · 1.4: a row with a `product_code` is compared by it, trimmed and in
+     * any case (owner, 2026-09-27). A duplicate is neither imported, linked nor
+     * audited.
+     */
+    public function test_a_row_whose_code_is_on_file_is_skipped_whatever_its_spaces_and_case(): void
+    {
+        $this->itemOnFile('product', ' P-1 ', 'Old');
+        $this->supplier('Acme');
+
+        $this->import(self::HEADER."\nproduct, p-1 ,Cable,,pcs,,,alpha,,,Acme")
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 1)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.rejected', [])
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('catalog_items', 1);
+        $this->assertDatabaseHas('catalog_items', ['product_code' => ' P-1 ', 'name' => 'Old']);
+        $this->assertDatabaseCount('catalog_item_suppliers', 0);
+        self::assertSame(0, DB::table('audit_log')->whereIn('event', ['CATALOG_ITEM_CREATED', 'CATALOG_ITEM_SUPPLIER_LINKED'])->count());
+    }
+
+    /** "Its `product_code` when it has one": the code decides, so the same name under another code is a new item. */
+    public function test_a_row_with_a_code_is_not_matched_by_its_name(): void
+    {
+        $this->itemOnFile('product', 'P-9', 'Cable');
+
+        $this->import(self::HEADER."\n".self::PRODUCT)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.skipped', []);
 
         self::assertSame(2, DB::table('catalog_items')->where('name', 'Cable')->count());
+    }
+
+    /** No code, so the name decides, whatever the kind on either side (owner, 2026-09-27). */
+    public function test_a_row_without_a_code_is_skipped_by_its_name_whatever_its_kind(): void
+    {
+        $this->itemOnFile('service', null, 'Fitting');
+
+        $this->import(self::HEADER."\nproduct,,  FITTING  ,,pcs,,,alpha,,,")
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('catalog_items', 1);
+    }
+
+    /** A row without a code is compared by name against every item, one that has a code included. */
+    public function test_a_row_without_a_code_matches_an_item_that_has_one(): void
+    {
+        $this->itemOnFile('product', 'P-1', 'Cable');
+
+        $this->import(self::HEADER."\nproduct,,cable,,pcs,,,alpha,,,")
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('catalog_items', 1);
+    }
+
+    /** The owner's ruling of 2026-09-27: a deactivated item is still on file, so its code is taken. */
+    public function test_a_deactivated_item_still_counts_as_on_file(): void
+    {
+        $this->itemOnFile('product', 'P-1', 'Cable', active: false);
+
+        $this->import(self::HEADER."\n".self::PRODUCT)
+            ->assertJsonPath('data.imported_count', 0)
+            ->assertJsonPath('data.skipped', [2]);
+
+        $this->assertDatabaseCount('catalog_items', 1);
+        $this->assertDatabaseHas('catalog_items', ['product_code' => 'P-1', 'is_active' => false]);
+    }
+
+    /**
+     * `D-94`'s "an earlier row of the same file", by code and by name. It takes
+     * the place of F-10's "every row creates a new item" (`D-86`), which `D-94`
+     * supersedes for a duplicate.
+     */
+    public function test_a_repeat_inside_the_file_is_skipped(): void
+    {
+        $this->import(self::HEADER."\n".self::PRODUCT."\n".self::SERVICE."\n".self::PRODUCT."\n".self::SERVICE)
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 4)
+            ->assertJsonPath('data.imported_count', 2)
+            ->assertJsonPath('data.skipped', [4, 5]);
+
+        self::assertSame(1, DB::table('catalog_items')->where('name', 'Cable')->count());
+        self::assertSame(1, DB::table('catalog_items')->where('name', 'Fitting')->count());
+    }
+
+    /** A service may have neither a code nor a name; with nothing to compare, it is never a duplicate. */
+    public function test_a_row_with_neither_code_nor_name_is_never_a_duplicate(): void
+    {
+        $this->import(self::HEADER."\nservice,,,,,install,,alpha,,,\nservice,,,,,install,,alpha,,,")
+            ->assertJsonPath('data.imported_count', 2)
+            ->assertJsonPath('data.skipped', []);
+    }
+
+    /**
+     * A rejected row created nothing, so the same code below it is imported,
+     * and only the repeat of *that* row is skipped, each named by its own
+     * spreadsheet row.
+     */
+    public function test_a_rejected_row_is_not_on_file_and_the_rows_keep_their_numbers(): void
+    {
+        $this->import(self::HEADER."\nproduct,P-1,Cable,,metre,,,alpha,,,\n".self::PRODUCT."\n".self::PRODUCT)
+            ->assertStatus(201)
+            ->assertJsonPath('data.row_count', 3)
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonCount(1, 'data.rejected')
+            ->assertJsonPath('data.rejected.0.row', 2)
+            ->assertJsonPath('data.skipped', [4]);
     }
 
     // ── rejected and counted ────────────────────────────────────────────────

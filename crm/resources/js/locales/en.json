@@ -670,7 +670,13 @@
             "ownerRequired": "Choose the employee first.",
             "done": "The customer was assigned to the chosen employee.",
             "forbidden": "You do not have permission to assign this customer.",
-            "rejected": "The assignment was not accepted."
+            "rejected": "The assignment was not accepted.",
+            "selectAll": "Select every customer on this page",
+            "bulkAction": "Assign selected ({count})",
+            "bulkConfirmTitle": "Assign the selected customers?",
+            "bulkConfirmMessage": "{name} customers will move to the chosen employee, with their full history.",
+            "bulkDone": "Assigned {count} customers.",
+            "bulkGone": "Nothing was changed: a selected customer is no longer within your reach. The list has been refreshed."
         },
         "import": {
             "title": "Import customers"

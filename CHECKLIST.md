@@ -1334,7 +1334,8 @@ would hide them behind `OD-03` indefinitely.
       employee, nobody further can be chosen in the deal form, the deal's assign panel or the
       customer page's assign section: the capped-list class F-18 removed for catalog items. Measured
       2026-09-27: 8 active users in the dev database, so it does not bite yet. Owed: the picker on the
-      shared server-searched `SearchCombobox.vue` (F-18 · 1.1), when the owner orders it
+      shared server-searched `SearchCombobox.vue` (F-18 · 1.1), when the owner orders it.
+      **A fourth caller since F-19 · 1.3 (2026-09-27):** the customer list's bulk assign bar.
 - [ ] **Six client-side messages are stored as translated sentences, so a language switch leaves them
       in the old language** — *revealed by F-19 · 1.1, 2026-09-27 (`rtl-ui-verifier`), which fixed its
       own copy with a flag the template translates; not fixed there, because the approved line is the
@@ -1358,6 +1359,22 @@ would hide them behind `OD-03` indefinitely.
       non-string entry. F-19 · 1.2's `AssignCustomersRequest::ids()` throws instead, on
       `AssignCustomerRequest::ownerId()`'s reasoning, so a validated list of strings is now narrowed
       two ways. Owed: one shape, the owner's choice of the two, when the owner orders it
+- [ ] **Test fixtures build a deal code from four random hex digits, so two deals in one test can
+      collide** — *revealed by F-19 · 1.3, 2026-09-27: the full suite failed once with
+      `deals_code_unique` on `DL-2026-c211` (`PurchaseOrderReadEndpointTest.php:519`, `substr($id, 0, 4)`
+      of a UUIDv4); the file alone then passed `32 passed`.* 65,536 codes, and a test that inserts two
+      deals collides about once in 65,536 runs. 36 files under `crm/tests` build `DL-…` codes by `substr`
+      of a UUID (`grep -rlE "'DL-(2026|'\.now\(\)->format\('Y'\)\.')-'\.substr\("`), most of them four
+      characters; the same file builds `SQ-` codes the same way (`:550`). Owed: a code unique by
+      construction (a counter, or the whole id), when the owner
+      orders it
+- [ ] **After a confirmed bulk action, focus falls to the page instead of the invoking button** —
+      *revealed by F-19 · 1.3, 2026-09-27 (browser); bulk restore has the same flow.* `onConfirm` in
+      `CustomersView.vue` returns focus to the button (`dismiss()`, Design System §6.6), then `load()`
+      clears the selection, which disables that button, and a disabled element drops focus: measured
+      in the browser, a focused Assign button ticked-then-unticked leaves `document.activeElement` =
+      `BODY`. The outcome is still announced (`role="status"`, `aria-live="polite"`). Owed: a focus
+      target that survives the reload (the outcome line, `tabindex="-1"`), when the owner orders it
 
 ## Agent guide revisions — owner-directed
 

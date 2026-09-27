@@ -1015,3 +1015,292 @@ describe('CustomersView — Point 4.6, the import control', () => {
         expect(customerCalls(asked).length).toBe(before + 1);
     });
 });
+
+/**
+ * F-19 · 1.3 (`D-92`, Flow 10): several customers, one owner, from the list.
+ *
+ * The screen's resources are routed by path, as `CustomerDetailView.spec`'s
+ * `stubAssign` routes them: the list, the sector list, the employee list
+ * `DealOwnerPicker` reads on mount, and the write. `assign` answers the write,
+ * so each refusal is its own stub.
+ */
+describe('CustomersView — F-19 · 1.3 bulk assign', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** §3.3's `assign` row and no `archive`, so any selection seen here is assign's own. */
+    const ASSIGNER: AuthenticatedUser = {
+        ...SALES,
+        id: '01a0-manager',
+        name: 'Test Manager',
+        email: 'manager@example.test',
+        role: { id: '01a0-role-mgr', slug: 'manager', name: 'Manager' },
+        permissions: ['customer.view.all', 'customer.assign.all'],
+    };
+
+    /** `AdministeredUser` in full, as `GET /users` answers it (`UserPayload::of`). */
+    const EMPLOYEES = [
+        {
+            id: 'u-indoor', name: 'Test Indoor Sales', email: 'indoor.sales@example.test',
+            role_id: 'r5', role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
+            is_active: true, created_at: '2026-08-01T00:00:00+00:00', updated_at: '2026-08-01T00:00:00+00:00',
+        },
+    ];
+
+    const ROWS = [ROW, { ...ROW, id: 'c2', name: 'Beta Medical' }, { ...ROW, id: 'c3', name: 'Gamma Tools' }];
+
+    function refusal(status: number, code: string, details: unknown[] = []): Response {
+        return json(status, { error: { code, message: 'Refused.', details }, meta: { request_id: 'r1' } });
+    }
+
+    function stubBulk(
+        assign: () => Response = () => json(200, { data: { items: ROWS.slice(0, 2) }, meta: {} }),
+        rows: unknown[] = ROWS,
+    ): ReturnType<typeof vi.fn> {
+        const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+            if (url.includes('/managed-lists/')) {
+                return json(200, { data: [SECTOR], meta: { pagination: PAGINATION } });
+            }
+
+            if (url.includes('/users')) {
+                return json(200, { data: EMPLOYEES, meta: { pagination: { ...PAGINATION, total: 1 } } });
+            }
+
+            if (url.endsWith('/customers/assign')) {
+                return assign();
+            }
+
+            return json(200, page(rows, { total: rows.length }));
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        return fetchMock;
+    }
+
+    /** The write, found by its path: the picker's `/users` read and the list come first. */
+    function bulkCalls(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit][] {
+        return fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/customers/assign')) as [string, RequestInit][];
+    }
+
+    /** The list reads alone: every one carries a query, the write never does. */
+    function listReads(fetchMock: ReturnType<typeof vi.fn>): number {
+        return fetchMock.mock.calls.filter((c) => String(c[0]).startsWith('/api/v1/customers?')).length;
+    }
+
+    async function tick(view: ReturnType<typeof render>, rows: number[]): Promise<void> {
+        const boxes = view.findAll('[data-testid="customers-select-row"]');
+
+        for (const row of rows) {
+            await boxes[row]!.setValue(true);
+        }
+    }
+
+    /** Chooses the employee (none when `ownerId` is ""), then presses the bulk button. */
+    async function assignTo(view: ReturnType<typeof render>, ownerId: string): Promise<void> {
+        if (ownerId !== '') {
+            await view.find('[data-testid="customers-bulk-assign-owner"]').setValue(ownerId);
+        }
+
+        await view.find('[data-testid="customers-bulk-assign"]').trigger('click');
+        await flushPromises();
+    }
+
+    async function accept(view: ReturnType<typeof render>): Promise<void> {
+        await view.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+    }
+
+    /** Design System "Data list": bulk actions when permission permits them — here, every row. */
+    it('offers every row and the assign control to a holder of customer.assign on the working list', async () => {
+        stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        const boxes = view.findAll('[data-testid="customers-select-row"]');
+
+        expect(boxes).toHaveLength(3);
+        expect(boxes.every((box) => box.attributes('disabled') === undefined)).toBe(true);
+        expect(view.find('[data-testid="customers-select-all"]').attributes('aria-label')).toBe(en.customers.assign.selectAll);
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
+    });
+
+    /** `D-92`: one request for the ticked rows, after the question (owner's ruling, 2026-09-27). */
+    it('assigns the ticked customers in one request after the question, and reloads the list', async () => {
+        const fetchMock = stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+        const before = listReads(fetchMock);
+
+        await tick(view, [0, 1]);
+        await assignTo(view, 'u-indoor');
+
+        expect(bulkCalls(fetchMock)).toHaveLength(0);
+
+        await accept(view);
+        const calls = bulkCalls(fetchMock);
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0]![1].method).toBe('POST');
+        expect(calls[0]![1].body).toBe(JSON.stringify({ ids: ['c1', 'c2'], sales_owner_id: 'u-indoor' }));
+        expect(listReads(fetchMock)).toBe(before + 1);
+        expect(view.find('[data-testid="customers-bulk-result"]').text())
+            .toBe(en.customers.assign.bulkDone.replace('{count}', '2'));
+    });
+
+    /** §3.3 has no unassign row, so an empty choice never reaches the server, nor the question. */
+    it('asks for the employee and sends nothing when none is chosen', async () => {
+        const fetchMock = stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        await tick(view, [0]);
+        await assignTo(view, '');
+
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect(bulkCalls(fetchMock)).toHaveLength(0);
+        expect(view.find('[data-testid="customers-bulk-assign-owner-error"]').text()).toBe(en.customers.assign.ownerRequired);
+    });
+
+    /** Design System §6.1: the server's sentence beside the field; the ticks stay for a second try. */
+    it('renders the server’s sentence under the picker when it refuses the owner, and keeps the ticks', async () => {
+        stubBulk(() => refusal(422, 'validation_failed', [
+            { field: 'sales_owner_id', code: 'invalid', message: 'That sales owner is not a user of this system.' },
+        ]));
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        await tick(view, [0]);
+        await assignTo(view, 'u-indoor');
+        await accept(view);
+
+        expect(view.find('[data-testid="customers-bulk-assign-owner-error"]').text())
+            .toBe('That sales owner is not a user of this system.');
+        expect((view.findAll('[data-testid="customers-select-row"]')[0]!.element as HTMLInputElement).checked).toBe(true);
+    });
+
+    /** `OpenAPI §7.3`: a 404 means nothing was written, so the list in hand is stale and is read again. */
+    it('says nothing changed on a 404, and reloads the list', async () => {
+        const fetchMock = stubBulk(() => refusal(404, 'resource_not_found'));
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+        const before = listReads(fetchMock);
+
+        await tick(view, [0, 1]);
+        await assignTo(view, 'u-indoor');
+        await accept(view);
+
+        expect(view.find('[data-testid="customers-bulk-result"]').text()).toBe(en.customers.assign.bulkGone);
+        expect(listReads(fetchMock)).toBe(before + 1);
+    });
+
+    /** A 403 is about the caller's permission, and says so rather than "not accepted". */
+    it('says a refusal on permission was a permission problem', async () => {
+        stubBulk(() => refusal(403, 'permission_denied'));
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        await tick(view, [0]);
+        await assignTo(view, 'u-indoor');
+        await accept(view);
+
+        expect(view.find('[data-testid="customers-bulk-result"]').text()).toBe(en.customers.assign.forbidden);
+    });
+
+    /** §3.3: Indoor Sales holds `edit` and not `assign`, so the working list offers no selection at all. */
+    it('offers no assign control and no selection without customer.assign', async () => {
+        stubBulk();
+        await signIn(SALES);
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(false);
+        expect(view.findAll('[data-testid="customers-select-row"]')).toHaveLength(0);
+    });
+
+    /** Both lists (owner's ruling, 2026-09-27): an archived customer can be assigned (F-19 · 1.2's test). */
+    it('offers assign beside restore on the archived list', async () => {
+        const archived = ROWS.map((row) => ({ ...row, is_archived: true }));
+        stubBulk(undefined, archived);
+        await signIn({ ...ASSIGNER, permissions: [...ASSIGNER.permissions, 'customer.archive.all'] });
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-restore"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
+    });
+
+    /** §3.3: `archive` and `assign` are separate rows, so the archived list's selection is not a licence to assign. */
+    it('offers restore and no assign to a holder of customer.archive alone on the archived list', async () => {
+        stubBulk(undefined, ROWS.map((row) => ({ ...row, is_archived: true })));
+        await signIn({ ...SALES, permissions: ['customer.view.own', 'customer.archive.own'] });
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-restore"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(false);
+    });
+
+    /** Restore puts an archived record back; on the working list there is none, whatever else is selectable. */
+    it('keeps restore off the working list for a holder of both', async () => {
+        stubBulk();
+        await signIn({ ...ASSIGNER, permissions: [...ASSIGNER.permissions, 'customer.archive.all'] });
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customers-bulk-restore"]').exists()).toBe(false);
+    });
+
+    /** §6.5 bounds select-all to the page in hand; for assign that is every row on it. */
+    it('ticks every row on the page with select-all', async () => {
+        stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        await view.find('[data-testid="customers-select-all"]').setValue(true);
+
+        const boxes = view.findAll('[data-testid="customers-select-row"]');
+
+        expect(boxes.map((box) => (box.element as HTMLInputElement).checked)).toEqual([true, true, true]);
+    });
+
+    /** Looked up when drawn, so a language switch reaches it (debt row "Six client-side messages…"). */
+    it('draws the bulk outcome in the language the page is in now', async () => {
+        stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        await tick(view, [0, 1]);
+        await assignTo(view, 'u-indoor');
+        await accept(view);
+
+        view.vm.$i18n.locale = 'ar';
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-result"]').text())
+            .toBe(ar.customers.assign.bulkDone.replace('{count}', '2'));
+    });
+});

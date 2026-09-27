@@ -159,6 +159,11 @@ export async function assignCustomer(id: string, salesOwnerId: string): Promise<
     return (await apiPatch<CustomerDetail>(`/customers/${id}/assign`, { sales_owner_id: salesOwnerId })).data;
 }
 
+/** `D-92`: one owner for several customers, all or none; a customer per id, in the order sent (`OpenAPI §7.3`). */
+export async function assignCustomers(ids: string[], salesOwnerId: string): Promise<Customer[]> {
+    return (await apiPost<{ items: Customer[] }>('/customers/assign', { ids, sales_owner_id: salesOwnerId })).data.items;
+}
+
 export async function importCustomers(file: File): Promise<ImportBatch> {
     const form = new FormData();
     form.append('file', file);

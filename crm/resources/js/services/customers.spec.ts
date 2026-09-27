@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     archiveCustomer,
     assignCustomer,
+    assignCustomers,
     createCustomer,
     importCustomers,
     listCustomers,
@@ -229,6 +230,24 @@ describe('the domain actions', () => {
         expect(url).toBe(`/api/v1/customers/${CUSTOMER.id}/assign`);
         expect(init.method).toBe('PATCH');
         expect(init.body).toBe(JSON.stringify({ sales_owner_id: 'owner-1' }));
+    });
+
+    /** `D-92` and `OpenAPI §7.3`: one request for the list, a result per id, in the order sent. */
+    it('assigns several through POST /customers/assign and returns the items in order', async () => {
+        const second = { ...CUSTOMER, id: '0192f000-0000-7000-8000-000000000002' };
+        const fetchMock = vi.fn(async () => json(200, { data: { items: [CUSTOMER, second] }, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const assigned = await assignCustomers([CUSTOMER.id, second.id], 'owner-1');
+        const { url, init } = calledWith(fetchMock);
+
+        expect(url).toBe('/api/v1/customers/assign');
+        expect(init.method).toBe('POST');
+        expect(init.body).toBe(JSON.stringify({ ids: [CUSTOMER.id, second.id], sales_owner_id: 'owner-1' }));
+        expect(assigned.map((customer) => customer.id)).toEqual([
+            '0192f000-0000-7000-8000-000000000001',
+            '0192f000-0000-7000-8000-000000000002',
+        ]);
     });
 });
 

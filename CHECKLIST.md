@@ -593,6 +593,9 @@ would hide them behind `OD-03` indefinitely.
       3313 on `4d691ba` against 3372 in the local full suite, and the 59 missing are exactly those two
       directories. Not fixed there, because the approved line is the product picker and `Pdf` is
       the second developer's module. Owed: both added to the matrix, when the owner orders it
+      *(2026-09-27, #240, Module 9 · 3.1 — both added, and part (1) is now a `build` step that fails on
+      a directory in no shard or in two.)* **Part (2) stays open, measured the same day:**
+      `quotations-deals` ran 367 s against 179 s for the other two (run 36276380290), past the 30 % line.
 - [ ] **The `AUD-01` writer scanner cannot see an Eloquent adapter** — found 2026-08-25 while
       closing Point 3.2, by noticing that `EloquentUserDirectory` writes three ways and the scanner
       never named it. `AuditEnforcementTest` calls something a database write only when a DML verb
@@ -3868,12 +3871,15 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
   blocked on that request**, the way 2.2 waited on #219. The alternative keeps generation manual and
   records in a `D-xx` that Flow 1 step 8 is a second click.
 
-- [ ] **3.1** `tests/Feature/Pdf` (47 tests on `main`, 48 with #228) and `tests/Feature/Support` (12)
+- [x] **3.1** `tests/Feature/Pdf` (47 tests on `main`, 48 with #228) and `tests/Feature/Support` (12)
       join the shard matrix (`php-image.yml:263-279`), and a test fails when a directory under
       `tests/Feature` is named in no shard or in two — the check `php-image.yml:252-255` leaves to a
       person adding up three `Tests:` lines, which is how 59 tests went unrun. *Verified by* the PR's
       three shards summing to the local full suite, and the guard failing on a probe that drops
       `tests/Feature/Pdf`.
+
+      *(2026-09-27, #240 — both in `suppliers-customers`; the guard is a `build` step, not a PHPUnit test,
+      because no container a test runs in can see `.github/`. Probed three ways: missing, doubled, stale.)*
 - [ ] **3.2** `LineDescriptionsInterface` bound: `Pdf/Infrastructure/CatalogLineDescriptions` takes
       each supplier line's `catalogItemId` from `SupplierItemPricingInterface::priceFor()` and its
       label from `CatalogItemLabelsInterface`; Pdf's ruleset gains `SupplierQuotationsContract` and

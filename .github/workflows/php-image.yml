@@ -95,6 +95,29 @@ jobs:
           fi
           echo "every compose variable is declared"
 
+      # A test directory named in no shard below is never run, and nothing
+      # fails: `tests/Feature/Pdf` and `tests/Feature/Support` went unrun that
+      # way until #234 measured it (Module 9 · 3.1). Every child of
+      # `tests/Feature`, and every other directory under `tests/`, is named in
+      # exactly one shard — except `tests/PdfImage`, which needs the pdf image
+      # and runs in `verify`, and `tests/Fixtures`, which holds no tests.
+      - name: Assert every test directory is in exactly one shard
+        run: |
+          sed -n '/^        shard:$/,/^    name: tests (/p' .github/workflows/php-image.yml \
+            | grep -oE 'tests/[A-Za-z0-9_./-]+' | sort > /tmp/sharded
+          ( cd crm && {
+              find tests/Feature -mindepth 1 -maxdepth 1 \( -type d -o -name '*.php' \)
+              find tests -mindepth 1 -maxdepth 1 -type d ! -name Feature ! -name Fixtures ! -name PdfImage
+            } ) | sort > /tmp/expected
+          twice=$(uniq -d /tmp/sharded)
+          unrun=$(comm -23 /tmp/expected <(sort -u /tmp/sharded))
+          stale=$(comm -13 /tmp/expected <(sort -u /tmp/sharded))
+          [ -z "$twice" ] || printf 'named in two shards:\n%s\n' "$twice"
+          [ -z "$unrun" ] || printf 'in no shard, so never run:\n%s\n' "$unrun"
+          [ -z "$stale" ] || printf 'named in a shard but absent:\n%s\n' "$stale"
+          if [ -n "$twice$unrun$stale" ]; then exit 1; fi
+          echo "every test directory is in exactly one shard"
+
       - uses: docker/setup-buildx-action@v3
 
       # Registry names must be lowercase; this repository's name is not
@@ -249,11 +272,11 @@ jobs:
   # Shards are balanced by measured local duration (2026-09-12: 74 / 66 / 57 s;
   # 1068 / 953 / 631 tests — Quotations, Customers and SupplierQuotations
   # tests log in over HTTP per test and cost ~0.1 s each, the rest ~0.01 s). Every
-  # test directory is named in exactly one shard, and `tests/Feature` has no
-  # other children — a new directory that is not added here is not run, so
-  # the sum of the three `Tests:` lines is checked against the local full
-  # suite on every point. Rebalance when one shard runs >30 % longer than the
-  # others (`gh run view <id> --json jobs`).
+  # test directory is named in exactly one shard — a new directory that is not
+  # added here is not run, which the `build` job's "Assert every test directory
+  # is in exactly one shard" now refuses (Module 9 · 3.1) instead of a person
+  # adding up the three `Tests:` lines. Rebalance when one shard runs >30 %
+  # longer than the others (`gh run view <id> --json jobs`).
   tests:
     needs: [build, bundle]
     runs-on: ubuntu-latest
@@ -277,6 +300,7 @@ jobs:
               tests/Feature/Suppliers tests/Feature/Infrastructure tests/Feature/Database
               tests/Feature/Search tests/Feature/EnvironmentTest.php
               tests/Feature/ExampleTest.php
+              tests/Feature/Pdf tests/Feature/Support
     name: tests (${{ matrix.shard.name }})
     steps:
       - uses: actions/checkout@v4

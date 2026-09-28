@@ -148,7 +148,13 @@ final class NoHardCodedTextTest extends TestCase
                 // `deals.documents.*` one; the only bare values are the stored
                 // `scan_status` codes the template compares against.
                 'PurchaseOrdersView.vue',
-                'QuotationBuilderView.vue', 'QuotationDetailView.vue', 'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                'QuotationBuilderView.vue', 'QuotationDetailView.vue',
+                // Module 9 Point 5.1 — the customer PDF panel. Added on the same
+                // terms: the scan below was run against it first and passed.
+                // Every word is a `pdf.panel.*` key or `language.arabic/english`;
+                // the job's `failure_reason` is data drawn from the API.
+                'QuotationPdfPanel.vue',
+                'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.
                 'SearchCombobox.vue', 'SelfApprovedBadge.vue',

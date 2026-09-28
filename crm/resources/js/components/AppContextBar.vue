@@ -116,7 +116,7 @@ function localeCode(option: Locale): string {
 
 <template>
     <header
-        class="sticky top-0 z-20 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 sm:gap-3 sm:px-4"
+        class="sticky top-0 z-20 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 max-sm:flex-wrap sm:gap-3 sm:px-4"
         data-testid="context-bar"
     >
         <!-- §4.3: the drawer control exists only where there is a drawer. -->
@@ -133,120 +133,129 @@ function localeCode(option: Locale): string {
             </svg>
         </button>
 
-        <h1 class="me-auto min-w-0 truncate text-start text-section-title text-balance">
+        <h1 class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1">
             {{ title }}
         </h1>
 
-        <!-- ── Theme ─────────────────────────────────────────────────────────
-             Real buttons rather than a custom menu: §6.1 requires a keyboard
-             path and visible focus on every control, and a native button has
-             both without being re-implemented. Each is a toggle in a labelled
-             group, so assistive technology reads the name and the pressed
-             state rather than a position in a list. -->
-        <div
-            class="segmented flex items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1"
-            role="group"
-            :aria-label="t('theme.switch')"
-            data-testid="theme-switch"
-        >
-            <button
-                v-for="option in THEMES"
-                :key="option"
-                type="button"
-                class="segmented__option grid size-11 place-items-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                :class="option === theme ? 'segmented__option--on' : ''"
-                :aria-pressed="option === theme"
-                :title="themeLabel(option)"
-                :data-theme-option="option"
-                @click="chooseTheme(option)"
+        <!-- §4.3 "< 640px" (F-21): on one row, the menu button and these
+             controls needed 399–410px of the 351 a 375px phone has inside the
+             padding, so the title got none and the page scrolled sideways. Below
+             640px they take a row of their own, spread edge to edge, and the
+             title keeps the first row with the menu button. Even alone the row
+             is 11–36px short, so sign-out shrinks and its label takes two lines
+             inside its 44px height (owner, 2026-09-28) rather than a third row. -->
+        <div class="flex items-center gap-2 max-sm:basis-full max-sm:justify-between sm:gap-3">
+            <!-- ── Theme ─────────────────────────────────────────────────────────
+                 Real buttons rather than a custom menu: §6.1 requires a keyboard
+                 path and visible focus on every control, and a native button has
+                 both without being re-implemented. Each is a toggle in a labelled
+                 group, so assistive technology reads the name and the pressed
+                 state rather than a position in a list. -->
+            <div
+                class="segmented flex items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1"
+                role="group"
+                :aria-label="t('theme.switch')"
+                data-testid="theme-switch"
             >
-                <svg viewBox="0 0 20 20" class="size-5" aria-hidden="true" fill="currentColor">
-                    <path v-for="(shape, index) in THEME_ICON[option]" :key="index" :d="shape" />
-                </svg>
-                <span class="sr-only">{{ themeLabel(option) }}</span>
-            </button>
-        </div>
+                <button
+                    v-for="option in THEMES"
+                    :key="option"
+                    type="button"
+                    class="segmented__option grid size-11 place-items-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                    :class="option === theme ? 'segmented__option--on' : ''"
+                    :aria-pressed="option === theme"
+                    :title="themeLabel(option)"
+                    :data-theme-option="option"
+                    @click="chooseTheme(option)"
+                >
+                    <svg viewBox="0 0 20 20" class="size-5" aria-hidden="true" fill="currentColor">
+                        <path v-for="(shape, index) in THEME_ICON[option]" :key="index" :d="shape" />
+                    </svg>
+                    <span class="sr-only">{{ themeLabel(option) }}</span>
+                </button>
+            </div>
 
-        <!-- ── Language ──────────────────────────────────────────────────────
-             The visible token is the locale code; the accessible name is the
-             language. Neither button is disabled — a disabled control drops out
-             of the tab order, so the current language became unreachable by
-             keyboard and unannounceable. `aria-pressed` says the same thing
-             without removing it. -->
-        <div
-            class="segmented flex items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1"
-            role="group"
-            :aria-label="t('language.switch')"
-        >
-            <button
-                v-for="option in SUPPORTED"
-                :key="option"
-                type="button"
-                class="segmented__option grid min-h-11 min-w-11 place-items-center rounded-lg px-1 text-table text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                :class="locale === option ? 'segmented__option--on' : ''"
-                :aria-pressed="locale === option"
-                :title="localeLabel(option)"
-                :data-locale="option"
-                @click="chooseLocale(option)"
+            <!-- ── Language ──────────────────────────────────────────────────────
+                 The visible token is the locale code; the accessible name is the
+                 language. Neither button is disabled — a disabled control drops out
+                 of the tab order, so the current language became unreachable by
+                 keyboard and unannounceable. `aria-pressed` says the same thing
+                 without removing it. -->
+            <div
+                class="segmented flex items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1"
+                role="group"
+                :aria-label="t('language.switch')"
             >
-                <span aria-hidden="true" translate="no">{{ localeCode(option) }}</span>
-                <span class="sr-only">{{ localeLabel(option) }}</span>
-            </button>
-        </div>
+                <button
+                    v-for="option in SUPPORTED"
+                    :key="option"
+                    type="button"
+                    class="segmented__option grid min-h-11 min-w-11 place-items-center rounded-lg px-1 text-table text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                    :class="locale === option ? 'segmented__option--on' : ''"
+                    :aria-pressed="locale === option"
+                    :title="localeLabel(option)"
+                    :data-locale="option"
+                    @click="chooseLocale(option)"
+                >
+                    <span aria-hidden="true" translate="no">{{ localeCode(option) }}</span>
+                    <span class="sr-only">{{ localeLabel(option) }}</span>
+                </button>
+            </div>
 
-        <!-- ── Identity ──────────────────────────────────────────────────────
-             §5.1 lists a "user menu" in the context bar. This is it: the chip
-             names who is signed in and links to the account-security screen —
-             `SEC-04`'s password change and `SEC-05`'s devices. A link and not a
-             dropdown, because a dropdown with one item is a menu that has to be
-             opened to be read, and §6.1 would then owe it a keyboard model.
+            <!-- ── Identity ──────────────────────────────────────────────────────
+                 §5.1 lists a "user menu" in the context bar. This is it: the chip
+                 names who is signed in and links to the account-security screen —
+                 `SEC-04`'s password change and `SEC-05`'s devices. A link and not a
+                 dropdown, because a dropdown with one item is a menu that has to be
+                 opened to be read, and §6.1 would then owe it a keyboard model.
 
-             It is hidden below 768px, so `navigation.ts` carries the same
-             destination as a sidebar item; a security screen a phone cannot
-             reach is one the outdoor roles do not have. -->
-        <RouterLink
-            v-if="auth.isAuthenticated.value"
-            :to="{ name: 'account-security' }"
-            class="context-control hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
-            :title="t('account.title')"
-            data-testid="user-context"
-        >
+                 It is hidden below 768px, so `navigation.ts` carries the same
+                 destination as a sidebar item; a security screen a phone cannot
+                 reach is one the outdoor roles do not have. -->
+            <RouterLink
+                v-if="auth.isAuthenticated.value"
+                :to="{ name: 'account-security' }"
+                class="context-control hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
+                :title="t('account.title')"
+                data-testid="user-context"
+            >
+                <span
+                    class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--color-surface-muted)] text-[var(--color-status-neutral)]"
+                    aria-hidden="true"
+                >
+                    <svg viewBox="0 0 20 20" class="size-4" fill="currentColor">
+                        <path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.5c-3 0-5.5 1.6-5.5 3.6V17h11v-1.9c0-2-2.5-3.6-5.5-3.6z" />
+                    </svg>
+                </span>
+                <span class="min-w-0 truncate">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
+            </RouterLink>
+
+            <!-- Signed out, the same chip is inert text: a link to a screen that
+                 requires a session is a guard redirect wearing a name badge. -->
             <span
-                class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--color-surface-muted)] text-[var(--color-status-neutral)]"
-                aria-hidden="true"
+                v-else
+                class="hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
+                data-testid="user-context"
             >
-                <svg viewBox="0 0 20 20" class="size-4" fill="currentColor">
-                    <path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.5c-3 0-5.5 1.6-5.5 3.6V17h11v-1.9c0-2-2.5-3.6-5.5-3.6z" />
-                </svg>
+                <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
             </span>
-            <span class="min-w-0 truncate">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
-        </RouterLink>
 
-        <!-- Signed out, the same chip is inert text: a link to a screen that
-             requires a session is a guard redirect wearing a name badge. -->
-        <span
-            v-else
-            class="hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
-            data-testid="user-context"
-        >
-            <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
-        </span>
-
-        <!-- SEC-05's force-logout, applied by the person themselves. Present
-             only with a session, because a sign-out control on the login screen
-             is an action with nothing to act on. -->
-        <button
-            v-if="auth.isAuthenticated.value"
-            type="button"
-            class="context-control inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 text-table"
-            data-testid="sign-out"
-            @click="signOut"
-        >
-            <svg viewBox="0 0 20 20" class="size-4 shrink-0" fill="currentColor" aria-hidden="true">
-                <path d="M11 3a1 1 0 0 1 0 2H6v10h5a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm3.3 3.3 3 3a1 1 0 0 1 0 1.4l-3 3a1 1 0 0 1-1.4-1.4L14.08 11H9a1 1 0 1 1 0-2h5.08l-1.18-1.3a1 1 0 0 1 1.4-1.4z" />
-            </svg>
-            <span>{{ t('user.signOut') }}</span>
-        </button>
+            <!-- SEC-05's force-logout, applied by the person themselves. Present
+                 only with a session, because a sign-out control on the login screen
+                 is an action with nothing to act on. -->
+            <button
+                v-if="auth.isAuthenticated.value"
+                type="button"
+                class="context-control inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 text-table"
+                data-testid="sign-out"
+                @click="signOut"
+            >
+                <svg viewBox="0 0 20 20" class="size-4 shrink-0" fill="currentColor" aria-hidden="true">
+                    <path d="M11 3a1 1 0 0 1 0 2H6v10h5a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm3.3 3.3 3 3a1 1 0 0 1 0 1.4l-3 3a1 1 0 0 1-1.4-1.4L14.08 11H9a1 1 0 1 1 0-2h5.08l-1.18-1.3a1 1 0 0 1 1.4-1.4z" />
+                </svg>
+                <span>{{ t('user.signOut') }}</span>
+            </button>
+        </div>
     </header>
 </template>
 

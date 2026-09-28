@@ -57,7 +57,9 @@ import {
     type SupplierQuotationDraft,
     type SupplierQuotationLineDraft,
 } from '@/services/supplier-quotations';
-import type { Supplier } from '@/services/suppliers';
+import { listSuppliers, readSupplier, type Supplier } from '@/services/suppliers';
+import SearchCombobox from '@/components/SearchCombobox.vue';
+import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 import { displayDecimals } from '@/domain/displayDecimals';
 import CatalogItemPicker from '@/components/catalog/CatalogItemPicker.vue';
 import { useAuth } from '@/stores/auth';
@@ -66,12 +68,6 @@ const props = defineProps<{
     open: boolean;
     /** Null for a create. */
     editing: SupplierQuotation | null;
-    /**
-     * The list screen's own `listSuppliers({ perPage: 100 })` result, handed
-     * down rather than fetched again: a second call would be a second request
-     * and a second copy of the same stated ceiling.
-     */
-    suppliers: Supplier[];
 }>();
 
 const emit = defineEmits<{ saved: [SupplierQuotation]; cancel: [] }>();
@@ -243,6 +239,34 @@ function errorFor(field: Field): string | null {
     return key === undefined ? null : t(key);
 }
 
+/**
+ * F-24 · 1.4: the supplier is searched on the server (Design System §6.3), so
+ * the form no longer holds the list screen's first 100. An offer carries only
+ * `supplier_id`, so an edit reads the name; if that fails the id shows —
+ * `CustomerPicker`'s fallback — and the offer still saves.
+ */
+const supplierName = ref('');
+
+function pickSupplier(supplier: Supplier | null): void {
+    values.value.supplier_id = supplier?.id ?? '';
+    supplierName.value = supplier?.name ?? '';
+}
+
+async function loadSupplierName(id: string): Promise<void> {
+    supplierName.value = id;
+
+    try {
+        const { name } = await readSupplier(id);
+
+        // A reopened dialog or a new pick may have moved on while this read ran.
+        if (values.value.supplier_id === id) {
+            supplierName.value = name;
+        }
+    } catch {
+        // The id stays.
+    }
+}
+
 watch(() => [props.open, props.editing] as const, ([open]) => {
     if (!open) {
         return;
@@ -275,6 +299,12 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     attachmentError.value = null;
     uploading.value = false;
     downloadingId.value = null;
+
+    supplierName.value = '';
+
+    if (record !== null) {
+        void loadSupplierName(record.supplier_id);
+    }
 
     void loadCurrencies();
     void loadLines(record);
@@ -575,17 +605,29 @@ function discard(): void {
                     <!-- §6.3's "explicit required marker": a word, not only a glyph. -->
                     <span class="text-[var(--color-danger)]">{{ t('supplierQuotations.form.required') }}</span>
                 </span>
-                <select
+                <!-- In the dialog's flow, not floated: a dialog that scrolls
+                     clips a floating list (`SupplierPicker`'s finding). -->
+                <SearchCombobox
                     :id="fieldId('supplier_id')"
-                    v-model="values.supplier_id"
+                    :test-id="testId('supplier_id')"
+                    :search="listSuppliers"
+                    :keys="SUPPLIER_KEYS"
+                    :selected="(supplier: Supplier) => supplier.id === values.supplier_id"
+                    :display="supplierName"
+                    :placeholder="t('supplierQuotations.form.supplierNone')"
                     :disabled="saving"
                     :aria-invalid="errorFor('supplier_id') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    :data-testid="testId('supplier_id')"
+                    @pick="pickSupplier"
                 >
-                    <option value="">{{ t('supplierQuotations.form.supplierNone') }}</option>
-                    <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
-                </select>
+                    <template #option="{ item }">
+                        <span class="block">{{ item.name }}</span>
+                        <span
+                            v-if="supplierDetail(item, t) !== ''"
+                            class="block text-sm text-[var(--color-text-muted)]"
+                            :data-testid="`${testId('supplier_id')}-option-detail`"
+                        >{{ supplierDetail(item, t) }}</span>
+                    </template>
+                </SearchCombobox>
                 <span
                     v-if="errorFor('supplier_id') !== null"
                     class="text-[var(--color-danger)]"

@@ -173,6 +173,11 @@ function respond(
             }));
         }
 
+        // F-24 · 1.4: the edit dialog reads its supplier's name.
+        if (/\/suppliers\/[^/?]+$/.test(String(input))) {
+            return json(200, envelope(SUPPLIER));
+        }
+
         if (String(input).includes('/suppliers')) {
             return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
         }
@@ -222,6 +227,59 @@ async function pickProduct(view: Awaited<ReturnType<typeof render>>, index: numb
     await view.get(`[data-testid="supplier-quotation-line-${index}-product"]`).trigger('focus');
     await flushPromises();
     await view.get(`[data-testid="supplier-quotation-line-${index}-product-option"]`).trigger('mousedown');
+}
+
+/** F-24 · 1.4: the offer's supplier is picked in a server search — open it, take the row named. */
+async function pickSupplier(view: Awaited<ReturnType<typeof render>>, name = 'Alpha Supply'): Promise<void> {
+    await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
+    await flushPromises();
+
+    const option = view.findAll('[data-testid="supplier-quotation-form-supplier-id-option"]').find((row) => row.text().includes(name));
+
+    expect(option, `no «${name}» option`).toBeDefined();
+    await option!.trigger('mousedown');
+}
+
+/** Deactivated, with a contact and a phone, and outside the list screen's own load. */
+const BETA = { ...SUPPLIER, id: 's2', name: 'Beta Trading', contact_person: 'Mona', phone: '0100', is_active: false };
+
+/**
+ * Over `respond()`: the picker's own search (`per_page=20`, `SearchCombobox`'s
+ * page) answers Alpha and Beta, while the list screen's `per_page=100` load
+ * still answers Alpha alone. `readStatus` fails the edit dialog's supplier read.
+ */
+function withSupplierSearch(readStatus = 200): ReturnType<typeof vi.fn> {
+    const base = respond() as unknown as typeof globalThis.fetch;
+
+    return vi.fn(async (input: string, init?: RequestInit) => {
+        const url = new URL(String(input), 'http://localhost');
+
+        if (readStatus !== 200 && /\/suppliers\/[^/]+$/.test(url.pathname)) {
+            return json(readStatus, { error: { code: 'internal_error' }, meta: { request_id: 'r1' } });
+        }
+
+        if (url.pathname.endsWith('/suppliers') && url.searchParams.get('per_page') === '20') {
+            return json(200, envelope([SUPPLIER, BETA], { pagination: { ...PAGINATION, total: 2, per_page: 20 } }));
+        }
+
+        return base(input, init);
+    });
+}
+
+/** The picker's searches — not the list screen's 100. */
+function supplierSearches(fetchMock: ReturnType<typeof vi.fn>): URL[] {
+    return fetchMock.mock.calls
+        .map((call) => new URL(String(call[0]), 'http://localhost'))
+        .filter((url) => url.pathname.endsWith('/suppliers') && url.searchParams.get('per_page') === '20');
+}
+
+/** The body of the first call with this method. */
+function sentBody(fetchMock: ReturnType<typeof vi.fn>, method: 'POST' | 'PATCH'): Record<string, unknown> {
+    const call = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === method);
+
+    expect(call, `no ${method}`).toBeDefined();
+
+    return JSON.parse(String((call![1] as RequestInit).body)) as Record<string, unknown>;
 }
 
 /** The methods of every non-GET call, in order — what the screen actually submitted. */
@@ -417,12 +475,14 @@ describe('the supplier quotation form', () => {
         expect(view.find('[data-testid="supplier-quotation-form-modal"]').exists()).toBe(false);
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
-        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLSelectElement).value).toBe('');
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLInputElement).value).toBe('');
 
         await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
         await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
 
-        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLSelectElement).value).toBe('s1');
+        // F-24 · 1.4: the field shows the supplier's name, not its id.
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLInputElement).value).toBe('Alpha Supply');
         expect((view.get('[data-testid="supplier-quotation-form-offer-date"]').element as HTMLInputElement).value).toBe('2026-09-01');
     });
 
@@ -433,7 +493,7 @@ describe('the supplier quotation form', () => {
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-offer-date"]').setValue('2026-09-04');
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('From the PDF');
         await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('4500');
@@ -467,7 +527,7 @@ describe('the supplier quotation form', () => {
         const view = await render(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
@@ -551,7 +611,7 @@ describe('the supplier quotation form', () => {
         const view = await render(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
@@ -576,6 +636,163 @@ describe('the supplier quotation form', () => {
         expect(writes(fetchMock)).toEqual([]);
         expect(view.get('[data-testid="supplier-quotation-form-supplier-id-error"]').text())
             .toBe(en.supplierQuotations.form.supplierRequired);
+    });
+
+    // ── F-24 · 1.4: the supplier is searched on the server, not picked from
+    // the list screen's first 100 (debt row "The supplier-quotations screen
+    // reads only the first 100 suppliers"; Design System §6.3).
+
+    it('searches the server for the offer\'s supplier as the user types', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        const field = view.get('[data-testid="supplier-quotation-form-supplier-id"]');
+        await field.trigger('focus');
+        await flushPromises();
+
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await field.setValue('Bet');
+        vi.advanceTimersByTime(300);
+        vi.useRealTimers();
+        await flushPromises();
+
+        expect(supplierSearches(fetchMock).at(-1)?.searchParams.get('q')).toBe('Bet');
+    });
+
+    it('offers and saves a supplier the list screen never loaded', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        // The list screen's own load holds Alpha alone.
+        expect(view.get('[data-testid="supplier-quotations-filter-supplier"]').text()).not.toContain('Beta Trading');
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view, 'Beta Trading');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'POST').supplier_id).toBe('s2');
+    });
+
+    it('reads the offer\'s supplier from the server when editing', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((call) => new URL(String(call[0]), 'http://localhost').pathname.endsWith('/suppliers/s1'))).toBe(true);
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLInputElement).value).toBe('Alpha Supply');
+    });
+
+    it('falls back to the id when the supplier cannot be read, and still saves', async () => {
+        const fetchMock = withSupplierSearch(500);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((call) => new URL(String(call[0]), 'http://localhost').pathname.endsWith('/suppliers/s1'))).toBe(true);
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLInputElement).value).toBe('s1');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').supplier_id).toBe('s1');
+    });
+
+    it('lets an edit change the supplier', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view, 'Beta Trading');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').supplier_id).toBe('s2');
+    });
+
+    it('marks the offer\'s own supplier as the selected option', async () => {
+        const view = await render(withSupplierSearch());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
+        await flushPromises();
+
+        const selected = view.findAll('[data-testid="supplier-quotation-form-supplier-id-option"]')
+            .filter((row) => row.attributes('aria-selected') === 'true')
+            .map((row) => row.text());
+
+        expect(selected).toEqual(['Alpha Supply']);
+    });
+
+    /** The edit's name read is slow; a pick made meanwhile must not be overwritten by it. */
+    it('keeps a supplier picked while the edit\'s read is still running', async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        const search = withSupplierSearch() as unknown as typeof globalThis.fetch;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (/\/suppliers\/s1$/.test(String(input))) {
+                await gate;
+            }
+
+            return search(input, init);
+        });
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view, 'Beta Trading');
+        release();
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-supplier-id"]').element as HTMLInputElement).value).toBe('Beta Trading');
+    });
+
+    /** §6.3: "show inactive/deactivated selection warnings when the CRM permits use" — it does (`alive()`). */
+    it('marks a deactivated supplier among the options', async () => {
+        const view = await render(withSupplierSearch());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
+        await flushPromises();
+
+        const beta = view.findAll('[data-testid="supplier-quotation-form-supplier-id-option"]').find((row) => row.text().includes('Beta Trading'));
+
+        expect(beta, 'no «Beta Trading» option').toBeDefined();
+
+        const detail = beta!.get('[data-testid="supplier-quotation-form-supplier-id-option-detail"]').text();
+
+        expect(detail).toContain('Mona');
+        expect(detail).toContain(en.suppliers.status.inactive);
+    });
+
+    /**
+     * `rtl-ui-verifier`, 2026-09-28: in English, «يوسف · 01287436897» drew as
+     * "01287436897 · يوسف" — digits after Arabic letters turn Arabic-number and
+     * pull the separator into one right-to-left run (UAX #9 W2, N1). Each part
+     * in its own isolate (U+2068 … U+2069) keeps its own direction.
+     */
+    it('isolates each part of an option\'s detail, so a phone keeps its place beside an Arabic contact', async () => {
+        const view = await render(withSupplierSearch());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
+        await flushPromises();
+
+        const beta = view.findAll('[data-testid="supplier-quotation-form-supplier-id-option"]').find((row) => row.text().includes('Beta Trading'));
+
+        expect(beta!.get('[data-testid="supplier-quotation-form-supplier-id-option-detail"]').text())
+            .toBe('\u2068Mona\u2069 · \u20680100\u2069 · \u2068Inactive\u2069');
     });
 
     /** §5.2, §6.5: a saved offer may not belong on the page in view, so the list is asked again. */
@@ -646,7 +863,7 @@ describe('the supplier quotation line editor', () => {
         await flushPromises();
         expect(catalogCalls()).toEqual([]);
 
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
         await pickProduct(view, 0);
 
@@ -662,7 +879,7 @@ describe('the supplier quotation line editor', () => {
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
 
         await pickProduct(view, 0);
@@ -684,7 +901,7 @@ describe('the supplier quotation line editor', () => {
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
 
         // An item first, then "type a name instead", which brings the box back.
@@ -865,7 +1082,7 @@ describe('the supplier quotation line editor', () => {
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();
-        await view.get('[data-testid="supplier-quotation-form-supplier-id"]').setValue('s1');
+        await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('-1');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');

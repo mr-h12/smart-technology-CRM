@@ -1159,6 +1159,15 @@ would hide them behind `OD-03` indefinitely.
       *F-18 · 1.1 (2026-09-24) extracted it:* `SearchCombobox.vue`, which `CustomerPicker` and
       `SupplierPicker` now wrap. The filter and the picker here still read `perPage: 100` until F-24 · 1.2
       puts them on it; the row names still need the supplier names port.
+      *F-24 · 1.4 (2026-09-28, #253) put the form's picker on it:* the form searches the server and no
+      longer takes this list. Two of the three remain: the filter (`:263`, F-24 · 1.2) and the row names.
+- [ ] **`CustomerPicker`'s option detail can draw its parts in the wrong order on the English screen** —
+      *revealed by F-24 · 1.4, 2026-09-28; registered, not fixed, by the owner's ruling.*
+      `CustomerPicker.vue:59-63` joins region · contact · phone bare. An Arabic part followed by digits
+      turns the digits into Arabic numbers and the separator right-to-left (UAX #9 W2, N1), so in English
+      the phone draws before the name. 1.4 fixed the same join for suppliers by isolating each part
+      (U+2068 … U+2069, `components/suppliers/supplierOptions.ts`); the customer copy is the same fix.
+      Owner's call when to order.
 - [ ] **The quotation builder names suppliers and catalog items from the first 100 of each** —
       *revealed by F-18 · 1.1, 2026-09-24; not fixed there, because the approved line is the shared
       picker only.* `QuotationBuilderView.vue:344` and `:348` read `listSuppliers({ perPage: 100 })` and
@@ -3219,11 +3228,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       *1.4 and 1.5 added by the owner, 2026-09-28, from the owner's own screenshots of the form, with
       priority: they run next, right after the point in progress (F-21), before F-22. F-24's 1.1–1.3
       keep their place.*
-      - [ ] **1.4** The offer form's supplier is chosen by searching, like the customer on the deal form:
+      - [x] **1.4** The offer form's supplier is chosen by searching, like the customer on the deal form:
             typing filters the list from the server. Today it is a closed `<select>`
             (`SupplierQuotationFormModal.vue:578`) fed by the list screen's `perPage: 100` load; the
             shared `SearchCombobox` already drives `CustomerPicker` (single) and `SupplierPicker`
-            (many). Closes 1.2's cap for the form, not for the list filter.
+            (many). Closes 1.2's cap for the form, not for the list filter. *(2026-09-28, #253 — searched
+            on the server; an edit reads the name; each option's detail isolated for bidi (owner))*
       - [ ] **1.5** A line's product shows its whole name, both when picked and when typed by hand.
             Today the product control is `min-w-40 flex-1` in one wrapping row with price (`w-32`),
             quantity (`w-28`) and remove, inside a `max-w-xl` modal, so a name like

@@ -405,7 +405,6 @@ onMounted(async () => {
         <SupplierQuotationFormModal
             :open="formOpen"
             :editing="editing"
-            :suppliers="suppliers"
             @saved="onSaved"
             @cancel="formOpen = false"
         />

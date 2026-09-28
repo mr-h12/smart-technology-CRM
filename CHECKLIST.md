@@ -3337,7 +3337,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             development volume (`DB-01`); the teammate named the first.
             *(2026-09-28, #259 — trait `RemovesOnlyFilesItStored`: what appeared after `setUp`; a sentinel under
             each parent deleted before, surviving after)*
-      - [ ] **1.2** `StorageServiceInterface::storeContents()`, the same path rule as `store()`.
+      - [x] **1.2** `StorageServiceInterface::storeContents()`, the same path rule as `store()`.
+            *(2026-09-28 — `newPath()` shared by both; first caller is Module 9 · 3.4. Also fixes 1.1's
+            regression: `AttachSupplierQuotationDocumentTest` never removed its 5 stored files, which 1.1's
+            old glob had; a full run now leaves the volume empty)*
       - [ ] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and
             published in `QuotationsContract`.
       - [ ] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`

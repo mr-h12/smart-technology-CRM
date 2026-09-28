@@ -1256,11 +1256,20 @@ would hide them behind `OD-03` indefinitely.
       *(Closed 2026-09-27 by F-20 · 1.4: `App\Support\Database\SameText` is the one copy, and Customers,
       Suppliers and Catalog ask it. `findProductIdByName`'s variant without `btrim` stays: it serves the
       supplier offer's automatic add, not an import.)*
-- [ ] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
+- [x] **An import reports how many rows it rejected, never which** — *owner's F-10 ruling, 2026-09-21:
       "telling the user which rows were rejected is out of F-10"; registered here the same day.* The three
       import results (`ImportSummary` in Customers and Suppliers, and F-10's catalog one) carry
       `row_count − imported_count` and nothing per row, so a file with 40 rejected rows gives the user no
       way to find them but by eye. Owner's call when to order.
+      *(Closed 2026-09-28 by F-20 · 1.1 and 1.5, `D-94`: the result names each rejected row with the
+      server's reason and each skipped row (#246), and the import dialog lists both (#251).)*
+- [ ] **Two backend docblocks still say an import's failures are `row_count − imported_count`** —
+      *revealed by F-20 · 1.5, 2026-09-28; registered, not fixed, as outside that SPA point.*
+      `App\Support\Csv\ImportBatchPayload.php:14-17` ("failures are `row_count - imported_count` … does
+      not serialise one") and `Customers/Domain/Importing/ImportSummary.php:10-13` ("Four numbers and no
+      fifth") predate `D-94`: since F-20 · 1.1 the payload carries `rejected[]` and `skipped[]`, and since
+      1.2 that difference is the two together. `ImportCustomers.php:28-29` already says it correctly.
+      Comment-only. Owner's call when to order.
 - [ ] **The catalog form accepts any text as a unit or service type; the import will not** — *revealed by
       F-10 · 1.1's measurement, 2026-09-21; registered, not fixed, by the owner's choice.*
       `SaveCatalogItemRequest.php:104,107` check `unit` and `service_type` only as strings of ≤ 64, while
@@ -3156,7 +3165,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.3** Bulk assign from the list, on `CustomersView.vue`'s existing `selectedIds`.
             *(2026-09-27, #243 — a confirm dialog, both lists; one request; a round trip on two
             customers wrote four `CUSTOMER_REASSIGNED` rows)*
-- [ ] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
+- [x] **F-20** An import neither skips a duplicate nor names the rows it rejected (E2-5, E2-6; debt rows
       "No import detects duplicates" and "An import reports how many rows it rejected, never which";
       `D-94`). The reader is shared (`App\Support\Csv\CsvReader`); each module keeps its own converter
       and `ImportSummary`, deliberately, for the module boundary.
@@ -3171,7 +3180,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.4** Catalog items: `product_code` when present, the name otherwise. *(2026-09-27, #250 —
             deactivated counts, any kind, codes trimmed and any case (owner); `App\Support\Database\SameText`
             is now the rule's one copy, which Customers and Suppliers ask too)*
-      - [ ] **1.5** The import dialog lists the rejected and the skipped rows.
+      - [x] **1.5** The import dialog lists the rejected and the skipped rows. *(2026-09-28, #251 — two
+            counts, each with its rows in a list that scrolls; the server's sentence as sent; "Not imported"
+            removed and `ImportBatch.rejected` narrowed to `{row, message}` (owner))*
 - [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
       375px viewport by 36–46px, in both directions"). One point, verified in the browser at 375 px
       and on the desktop, in Arabic and English.

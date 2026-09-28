@@ -7,10 +7,12 @@ namespace Tests\Feature\Quotations;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
@@ -216,6 +218,56 @@ final class QuotationSendEndpointTest extends TestCase
         self::assertNull($old['sent_at'] ?? null);
         self::assertSame('sent', $new['status'] ?? null);
         self::assertIsString($new['sent_at'] ?? null);
+    }
+
+    // ───────────────────────────────────── the event (F-31 · 1.3, Q14, D-90)
+
+    /**
+     * `D-90` leaves "connecting the two" — a send and its PDF — to Module 9,
+     * which listens for this. It carries the quotation and the sender, the
+     * name Q14 queues the generation in.
+     */
+    public function test_that_a_send_announces_quotation_sent_once_with_the_quotation_and_the_sender(): void
+    {
+        Event::fake([QuotationSent::class]);
+        [$id, $etag] = $this->approved($this->deal(null, 'supplier_quotation'));
+
+        $this->send($id, $etag, RoleName::Manager)->assertStatus(200);
+
+        Event::assertDispatchedTimes(QuotationSent::class, 1);
+        Event::assertDispatched(
+            QuotationSent::class,
+            fn (QuotationSent $event): bool => $event->quotationId === $id
+                && $event->senderId === (string) $this->userWith(RoleName::Manager)->id,
+        );
+    }
+
+    /**
+     * The status moves before the deal refuses, and the transaction rolls
+     * both back: announced from inside it, Module 9 would queue a PDF for a
+     * quotation that was never sent.
+     */
+    public function test_that_a_send_refused_inside_the_transaction_announces_nothing(): void
+    {
+        Event::fake([QuotationSent::class]);
+        [$id, $etag] = $this->approved($this->deal(null, 'supplier_rfq'));
+
+        $this->send($id, $etag, RoleName::Manager)->assertStatus(422);
+
+        Event::assertNotDispatched(QuotationSent::class);
+    }
+
+    public function test_that_a_stale_or_invalid_send_announces_nothing(): void
+    {
+        Event::fake([QuotationSent::class]);
+        [$stale] = $this->approved($this->deal(null, 'supplier_quotation'));
+        [$pending, $etag] = $this->approved($this->deal(null, 'supplier_quotation'));
+        DB::table('quotations')->where('id', $pending)->update(['status' => 'pending']);
+
+        $this->send($stale, 'quotation:'.$stale.':0', RoleName::Manager)->assertStatus(409);
+        $this->send($pending, $etag, RoleName::Manager)->assertStatus(409);
+
+        Event::assertNotDispatched(QuotationSent::class);
     }
 
     public function test_that_an_unknown_id_is_a_404(): void

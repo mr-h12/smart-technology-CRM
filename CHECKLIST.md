@@ -3341,8 +3341,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-09-28, #261 — `newPath()` shared by both; first caller is Module 9 · 3.4. Also fixes 1.1's
             regression: `AttachSupplierQuotationDocumentTest` never removed its 5 stored files, which 1.1's
             old glob had; a full run now leaves the volume empty)*
-      - [ ] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and
+      - [x] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and
             published in `QuotationsContract`.
+            *(2026-09-28 — dispatched after `transaction()` returns, as `AccountLocked` is; the 422 rollback
+            announces nothing; a Pdf probe: 1 deptrac violation before the collector, 0 after. The listener
+            is Module 9 · 3.6)*
       - [ ] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`
             (`D-61`; deptrac's one uncovered dependency).
 

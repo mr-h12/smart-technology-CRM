@@ -70,6 +70,8 @@ parameters:
               value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationNotFound$
             - type: classLike
               value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderSummary$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Writing\\QuotationSent$
     # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
     # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
@@ -253,6 +255,9 @@ parameters:
         # Module 10 · 2.2: `QuotationDetail::$purchaseOrder` names the order.
         - type: classLike
           value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderSummary$
+        # F-31 · 1.3: the send's event, for Pdf to queue a generation on (Q14).
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Writing\\QuotationSent$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's

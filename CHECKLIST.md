@@ -3257,7 +3257,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 
 **Medium**
 
-- [ ] **F-22** A file that is not CSV is refused clearly (§3.3; E2-4; `D-97`). *Narrowed by the owner,
+- [x] **F-22** A file that is not CSV is refused clearly (§3.3; E2-4; `D-97`). *Narrowed by the owner,
       2026-09-27: the `.xlsx` import (`D-95`) is withdrawn, and E2-4's other half stays — a fake `.xlsx`
       is answered today "This file has columns the importer does not accept: PK\u0003\u0004."
       (`~/crm-qa-run/findings/E2.md:49`).*
@@ -3267,7 +3267,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.2** `ImportFileRequest`, which checks no file type today on purpose, refuses a file that is
             not CSV, judged by its content (its true MIME type), not its extension: a clear `422` for the
             three imports that names CSV as the accepted type and quotes nothing from the file.
-            *(2026-09-29 — `mimetypes:text/csv,text/plain,application/x-empty` read through libmagic; a
+            *(2026-09-29, #264 — `mimetypes:text/csv,text/plain,application/x-empty` read through libmagic; a
             ZIP named `.csv` is refused, a CSV named `.txt` imports; Excel's CSV UTF-8 and a Windows-1256
             Arabic CSV measured `text/csv`; an empty file keeps its own message (owner))*
       - [~] **1.3** The three import screens accept `.xlsx`. — **withdrawn by the owner, 2026-09-27**

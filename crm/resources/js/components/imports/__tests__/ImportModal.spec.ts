@@ -18,12 +18,14 @@ import { importCustomers } from '@/services/customers';
  * drawing a destination §8 does not name. Import is an action on the Customers
  * screen, so it lives where that screen is. No route, no nav item.
  *
- * ── Four numbers, and the fourth is arithmetic ─────────────────────────────
+ * ── The rows that did not import, named (F-20 · 1.5, `D-94`) ───────────────
  *
  * `ImportBatchPayload` sends `row_count`, `imported_count` and
- * `incomplete_count`, and deliberately **no failure count** — its own docblock
- * says why: "A field that can disagree with the two it is derived from is a
- * field that eventually will." So failures are computed here, from the two.
+ * `incomplete_count`, and since F-20 · 1.1 `rejected[]` (row and the server's
+ * sentence) and `skipped[]` (row). Both are listed, and each is counted by its
+ * own list. The old "Not imported" figure, `row_count - imported_count`, mixed
+ * the two once 1.2 began skipping duplicates, and the owner ruled it out
+ * (2026-09-27). Every row is drawn, none truncated: `D-94` names every row.
  *
  * ── The link §10 asks for ──────────────────────────────────────────────────
  *
@@ -45,13 +47,31 @@ function json(status: number, body: unknown): Response {
     return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
+/** 10 rows read, 6 imported: 3 rejected + 1 skipped. Rows as a spreadsheet numbers them. */
 const BATCH = {
     id: 'b1',
     original_filename: 'customers.csv',
     row_count: 10,
-    imported_count: 8,
+    imported_count: 6,
     incomplete_count: 3,
+    rejected: [
+        { row: 2, field: 'name', code: 'required', message: 'The name field is required.' },
+        { row: 4, field: 'name', code: 'too_long', message: 'The name field must not be greater than 255 characters.' },
+        { row: 6, field: 'sector', code: 'not_allowed', message: 'The selected sector is invalid.' },
+    ],
+    skipped: [9],
 };
+
+async function imported(batch: object, locale = 'en') {
+    vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: batch })));
+
+    const view = render(locale);
+    await choose(view, csv());
+    await view.find('[data-testid="import-submit"]').trigger('click');
+    await flushPromises();
+
+    return view;
+}
 
 function render(locale = 'en') {
     return mount(ImportModal, {
@@ -110,22 +130,68 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
         expect((body as FormData).get('file')).toBeInstanceOf(File);
     });
 
-    it('reports the three counts the server sends and the fourth it does not', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: BATCH })));
-
-        const view = render();
-        await choose(view, csv());
-        await view.find('[data-testid="import-submit"]').trigger('click');
-        await flushPromises();
+    it('counts rejected and skipped apart, and shows no "Not imported" figure', async () => {
+        const view = await imported(BATCH);
 
         const result = view.find('[data-testid="import-result"]').text();
 
         expect(result).toContain('10');
-        expect(result).toContain('8');
-        expect(result).toContain('3');
-        // 10 − 8. The server stores no failure count, so this is the one number
-        // on the screen that the screen itself is responsible for.
-        expect(view.find('[data-testid="import-failed"]').text()).toContain('2');
+        expect(result).toContain('6');
+        expect(view.find('[data-testid="import-rejected"]').text()).toContain('3');
+        expect(view.find('[data-testid="import-skipped"]').text()).toContain('1');
+        // 10 − 6 = 4 is the two mixed, which is what the owner ruled out.
+        expect(view.find('[data-testid="import-failed"]').exists()).toBe(false);
+    });
+
+    it('lists every rejected row by its spreadsheet number with the server’s sentence', async () => {
+        const rows = (await imported(BATCH)).findAll('[data-testid="import-rejected-rows"] li');
+
+        expect(rows).toHaveLength(3);
+        expect(rows[0]!.text()).toContain('Row 2');
+        expect(rows[0]!.text()).toContain('The name field is required.');
+        expect(rows[2]!.text()).toContain('Row 6');
+        expect(rows[2]!.text()).toContain('The selected sector is invalid.');
+    });
+
+    it('lists the skipped duplicates by row number', async () => {
+        const view = await imported({ ...BATCH, imported_count: 5, skipped: [5, 9] });
+
+        expect(view.findAll('[data-testid="import-skipped-rows"] li').map((row) => row.text())).toEqual(['Row 5', 'Row 9']);
+    });
+
+    it('draws no row list when nothing was rejected or skipped', async () => {
+        const view = await imported({ ...BATCH, imported_count: 10, rejected: [], skipped: [] });
+
+        expect(view.find('[data-testid="import-rejected"]').text()).toContain('0');
+        expect(view.find('[data-testid="import-skipped"]').text()).toContain('0');
+        expect(view.find('[data-testid="import-rejected-rows"]').exists()).toBe(false);
+        expect(view.find('[data-testid="import-skipped-rows"]').exists()).toBe(false);
+    });
+
+    it('keeps every row of a long list, none truncated', async () => {
+        const rejected = Array.from({ length: 200 }, (_, i) => (
+            { row: i + 2, field: 'name', code: 'required', message: 'The name field is required.' }
+        ));
+        const view = await imported({ ...BATCH, row_count: 200, imported_count: 0, incomplete_count: 0, rejected, skipped: [] });
+        const rows = view.findAll('[data-testid="import-rejected-rows"] li');
+
+        expect(rows).toHaveLength(200);
+        expect(rows[199]!.text()).toContain('Row 201');
+    });
+
+    it('draws the lists in Arabic, with the server’s sentence as sent', async () => {
+        const view = await imported({
+            ...BATCH,
+            imported_count: 8,
+            rejected: [{ row: 2, field: 'name', code: 'required', message: 'حقل name مطلوب.' }],
+            skipped: [9],
+        }, 'ar');
+
+        const rejected = view.find('[data-testid="import-rejected-rows"] li').text();
+
+        expect(rejected).toContain('الصف 2');
+        expect(rejected).toContain('حقل name مطلوب.');
+        expect(view.find('[data-testid="import-skipped-rows"] li').text()).toBe('الصف 9');
     });
 
     it('offers §10’s dedicated filter only when something was flagged', async () => {

@@ -562,7 +562,9 @@
         "rows": "Rows read",
         "imported": "Imported",
         "incomplete": "Flagged incomplete",
-        "failed": "Not imported",
+        "rejected": "Rejected",
+        "skipped": "Skipped as duplicates",
+        "row": "Row {row}",
         "showIncomplete": "Show the incomplete records",
         "error": "The import did not run. Nothing was changed."
     },

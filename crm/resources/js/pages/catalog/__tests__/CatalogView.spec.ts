@@ -623,7 +623,10 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
         permissions: ['catalog.view.all', 'catalog.manage.all', 'catalog.import.all'],
     };
 
-    const BATCH = { id: 'b1', original_filename: 'items.csv', row_count: 5, imported_count: 4, incomplete_count: 2 };
+    const BATCH = {
+        id: 'b1', original_filename: 'items.csv', row_count: 5, imported_count: 4, incomplete_count: 2,
+        rejected: [{ row: 3, field: 'kind', code: 'required', message: 'The kind field is required.' }], skipped: [],
+    };
 
     /** The list and the import. */
     function serving(): ReturnType<typeof vi.fn> {
@@ -682,7 +685,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
 
         expect(String(fetchMock.mock.calls[before]?.[0])).toBe('/api/v1/catalog-items/import');
         expect(fetchMock.mock.calls.length).toBe(before + 2);
-        expect(view.find('[data-testid="import-failed"]').text()).toContain('1');
+        expect(view.find('[data-testid="import-rejected"]').text()).toContain('1');
     });
 
     it('closes the dialog and applies the incomplete filter when the result asks for it', async () => {

@@ -441,7 +441,10 @@ describe('SuppliersView — F-09 · 1.5 import and the incomplete flag', () => {
         permissions: ['catalog.view.all', 'catalog.manage.all', 'catalog.import.all'],
     };
 
-    const BATCH = { id: 'b1', original_filename: 'suppliers.csv', row_count: 5, imported_count: 4, incomplete_count: 2 };
+    const BATCH = {
+        id: 'b1', original_filename: 'suppliers.csv', row_count: 5, imported_count: 4, incomplete_count: 2,
+        rejected: [{ row: 3, field: 'name', code: 'required', message: 'The name field is required.' }], skipped: [],
+    };
 
     beforeEach(() => {
         useAuth().forgetSession();
@@ -508,7 +511,7 @@ describe('SuppliersView — F-09 · 1.5 import and the incomplete flag', () => {
         expect(String(fetchMock.mock.calls[before]?.[0])).toBe('/api/v1/suppliers/import');
         // The upload, and then the list again.
         expect(fetchMock.mock.calls.length).toBe(before + 2);
-        expect(view.find('[data-testid="import-failed"]').text()).toContain('1');
+        expect(view.find('[data-testid="import-rejected"]').text()).toContain('1');
     });
 
     it('closes the dialog and applies the incomplete filter when the result asks for it', async () => {

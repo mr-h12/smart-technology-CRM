@@ -45,8 +45,9 @@ export interface Envelope<T> {
 
 /**
  * One import batch, as `App\Support\Csv\ImportBatchPayload` serialises it for
- * both imports — customers and suppliers (`D-85`, F-10 · 1.2).
- * Failures are `row_count - imported_count`; the server stores no fourth count.
+ * the three imports — customers, suppliers and catalog items (`D-85`, `D-86`).
+ * `rejected` and `skipped` are `D-94`'s rows, numbered as a spreadsheet numbers
+ * them; together they are `row_count - imported_count`.
  */
 export interface ImportBatch {
     id: string;
@@ -54,6 +55,9 @@ export interface ImportBatch {
     row_count: number;
     imported_count: number;
     incomplete_count: number;
+    /** `message` is the server's sentence, in the request's language; its `field` and `code` go unread. */
+    rejected: { row: number; message: string }[];
+    skipped: number[];
 }
 
 export interface ApiResult<T> {

@@ -814,6 +814,16 @@ would hide them behind `OD-03` indefinitely.
       **Module 10 · 2.3 (2026-09-23), the 19th:** `PurchaseOrderDocumentEndpointTest` — → **19**, and the
       minimal `%PDF-1.4` bytes gain a seventh copy in the same file.
 
+- [ ] **A real-file upload builder is written out in four test files** — *revealed by F-22 · 1.2's waste
+      audit, 2026-09-29; not fixed there, because sharing it means editing three files outside the point.*
+      `grep -rln "new UploadedFile" crm/tests` → 4: `DealDocumentUploadTest` (`uploadedPdf`),
+      `SupplierQuotationDocumentUploadEndpointTest` (`pdfUpload`) and `PurchaseOrderDocumentEndpointTest`
+      (`uploadedPdf`), each with client MIME `application/pdf` and a `$this->scratch` cleanup; and
+      `ImportFileTypeTest::file()`, client MIME `null` so libmagic decides. `UploadedFile::fake()` cannot
+      stand in: it reports its MIME type from the name. The same point made `ImportFileTypeTest` the first
+      user outside Module 9 of `Tests\Feature\Pdf\SignsInByRole` (owner, 2026-09-29: used, not edited),
+      the one shared `bearerFor()` against 47 private copies (`grep -rlE 'private function bearerFor'`;
+      the row above counts them). Where shared test helpers live is the owner's call.
 - [ ] **`DealAttachmentPermission`'s parent guard is inert, and so was the mirror of it** —
       revealed 2026-09-04 by Module 6 Point 5.1, which wrote the mirror, defended it in a comment,
       then probed it: deleting `if ($link->parent !== SupplierQuotation) return false;` reddened
@@ -3254,9 +3264,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [~] **1.1** An `.xlsx` reader (first sheet) beside `CsvReader` in `app/Support/Csv/`, yielding
             rows in the same shape, on `openspout/openspout` — the new dependency the owner approves
             here, its version checked through context7. — **withdrawn by the owner, 2026-09-27** (`D-97`).
-      - [ ] **1.2** `ImportFileRequest`, which checks no file type today on purpose, refuses a file that is
+      - [x] **1.2** `ImportFileRequest`, which checks no file type today on purpose, refuses a file that is
             not CSV, judged by its content (its true MIME type), not its extension: a clear `422` for the
             three imports that names CSV as the accepted type and quotes nothing from the file.
+            *(2026-09-29 — `mimetypes:text/csv,text/plain,application/x-empty` read through libmagic; a
+            ZIP named `.csv` is refused, a CSV named `.txt` imports; Excel's CSV UTF-8 and a Windows-1256
+            Arabic CSV measured `text/csv`; an empty file keeps its own message (owner))*
       - [~] **1.3** The three import screens accept `.xlsx`. — **withdrawn by the owner, 2026-09-27**
             (`D-97`).
 - [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is

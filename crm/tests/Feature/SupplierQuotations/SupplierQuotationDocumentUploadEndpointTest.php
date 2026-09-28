@@ -7,6 +7,7 @@ namespace Tests\Feature\SupplierQuotations;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Storage\Domain\AttachmentParent;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Feature\Storage\RemovesOnlyFilesItStored;
 use Tests\TestCase;
 
 /**
@@ -48,6 +50,7 @@ use Tests\TestCase;
 final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
 {
     use RefreshDatabase;
+    use RemovesOnlyFilesItStored;
 
     private const ENDPOINT = '/api/v1/supplier-quotations';
 
@@ -64,6 +67,8 @@ final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->rememberStoredFiles(AttachmentParent::SupplierQuotation);
 
         $this->seed(RolePermissionSeeder::class);
 
@@ -85,15 +90,7 @@ final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
             }
         }
 
-        $root = config('filesystems.disks.secure_uploads.root');
-
-        if (is_string($root)) {
-            foreach (glob($root.'/*/*/supplier_quotation/*/*') ?: [] as $stored) {
-                if (is_file($stored)) {
-                    unlink($stored);
-                }
-            }
-        }
+        $this->removeFilesStoredSince(AttachmentParent::SupplierQuotation);
 
         parent::tearDown();
     }

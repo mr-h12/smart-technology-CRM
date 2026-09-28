@@ -3324,6 +3324,24 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.2** Names in tables isolated for direction (`dir="auto"` or `<bdi>`), the stored data
             unchanged (E5-6).
 
+- [ ] **F-31** Module 9's requests and findings. Requested by the second developer, 2026-09-28: a
+      bytes-in `store` (their 3.4, then 3.5 and 5.1) and a `QuotationSent` event (their 3.6, Q14), plus
+      two findings in our code. The owner filed it as **F-31** ahead of F-22 (2026-09-28), as F-14 was.
+      The point list was published and approved 2026-09-28 in conversation. **Changed at 1.1 by the owner:** it
+      was a test-only `STORAGE_PATH` in `phpunit.xml`, which would have hollowed out
+      `StorageServiceTest`'s check that the real volume is writable.
+      - [x] **1.1** The upload tests' tearDowns remove only the files their test stored. Three of them
+            (`PurchaseOrderDocumentEndpointTest`, `DealDocumentUploadTest`,
+            `SupplierQuotationDocumentUploadEndpointTest`) deleted every `$root/*/*/<parent>/*/*` in the
+            development volume (`DB-01`); the teammate named the first.
+            *(2026-09-28 — trait `RemovesOnlyFilesItStored`: what appeared after `setUp`; a sentinel under
+            each parent deleted before, surviving after)*
+      - [ ] **1.2** `StorageServiceInterface::storeContents()`, the same path rule as `store()`.
+      - [ ] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and
+            published in `QuotationsContract`.
+      - [ ] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`
+            (`D-61`; deptrac's one uncovered dependency).
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

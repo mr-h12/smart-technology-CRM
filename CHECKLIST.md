@@ -270,6 +270,12 @@ would hide them behind `OD-03` indefinitely.
       *Seen again by `rtl-ui-verifier` in F-10 · 1.8 (2026-09-22):* on `/catalog` in Arabic at 375 px
       the same ~46 px shifts the import dialog's primary button and the supplier picker's labels to
       `x = -5.5`, so 5.5 px of each sits off the left edge (still tappable). Same shell root cause, not fixed there.
+      *Re-measured after F-21 · 1.1 (#257), 2026-09-28:* the ~46 px this row blames on "the off-canvas
+      sidebar" was the context bar (the row "The context bar overflows a 375px viewport"), and it is gone:
+      `scrollWidth` 375 at 375 px, and `/catalog`'s import dialog now sits at 16..359 with nothing past
+      either edge (F-10 · 1.8's `x = -5.5` no longer occurs). The money column itself could not be
+      re-seen: `/quotations` lists 0 quotations for `manager@example.test`. The table's own 20 px (539 vs
+      519) is untested.
 
 - [ ] **The customer PDF's footer prints a picture of the company's contact details, not the
       settings** — *found while building Point 2.4 (2026-09-23), by the localisation guard flagging
@@ -958,7 +964,7 @@ would hide them behind `OD-03` indefinitely.
       `useSectionLoad(read)` composable returning `{items, loading, denied, failed, reload}`; belongs
       with the `useEtagWrite()` and `useServerList()` rows.
 
-- [ ] **The context bar overflows a 375px viewport by 36–46px, in both directions** — *revealed by
+- [x] **The context bar overflows a 375px viewport by 36–46px, in both directions** — *revealed by
       Module 7 Point 6.3's mobile check, 2026-09-13; not created by it.* On `/deals` and
       `/quotations` alike, `document.documentElement.scrollWidth` is 411 (LTR) / 421 (RTL) against
       a 375 client width, and the overflowing element is `AppContextBar`'s sign-out button
@@ -966,6 +972,8 @@ would hide them behind `OD-03` indefinitely.
       `Design System §4.3`'s "< 640px" row forbids for anything but tables. The shell belongs to no
       module (the row above on the sidebar says why); the fix is the context bar's — wrap or collapse
       its right cluster under 640px — and is not a Module 7 screen's to make.
+      *(Closed 2026-09-28 by F-21 · 1.1 (#257): below 640 px the bar is two rows, the menu button and
+      the title, then theme · language · sign-out; `scrollWidth` 375 at 375 px in Arabic and English.)*
 
 - [ ] **Eleven schema tests carry a byte-identical `refusedWith()` helper** — *revealed by Module 7
       Point 1.1, 2026-09-07.* `grep -rln "private function refusedWith" crm/tests/` returns eleven
@@ -1168,6 +1176,34 @@ would hide them behind `OD-03` indefinitely.
       the phone draws before the name. 1.4 fixed the same join for suppliers by isolating each part
       (U+2068 … U+2069, `components/suppliers/supplierOptions.ts`); the customer copy is the same fix.
       Owner's call when to order.
+- [ ] **The quotation builder's additional-item description is one line in a narrow column** —
+      *revealed by F-24 · 1.5's waste audit, 2026-09-28; registered, not fixed, by the owner's ruling.*
+      `QuotationBuilderView.vue:880-890` is an `<input type="text" maxlength="255">` in a
+      `minmax(10rem, 2fr)` grid column: the shape that cut the offer form's product names before
+      F-24 · 1.5 gave them a row of their own. Nobody has reported it. Owner's call when to order.
+- [ ] **The context bar's title never truncates** — *revealed by F-21 · 1.1, 2026-09-28; registered,
+      not fixed, by the owner's ruling.* `AppContextBar.vue`'s `<h1>` carries both `truncate` and
+      `text-balance`; `text-balance` (`text-wrap: balance`) resets `text-wrap-mode` to `wrap`, so the
+      computed `white-space` is `normal` and a long title wraps onto more lines instead of ending in
+      "…", at every width. Latent: the longest title (`You do not have access`, 22 characters) is about
+      200 of the 299 px the title has at 375 px. One class. Owner's call when to order.
+- [ ] **No committed test queries the context bar's five `data-testid`s** — *revealed by F-21 · 1.1's
+      waste audit, 2026-09-28; registered, not fixed.* `context-bar`, `sidebar-toggle`, `theme-switch`,
+      `user-context` and `sign-out` (`AppContextBar.vue`) have no reader under `crm/resources/js` or
+      `crm/tests`; `AppContextBar` has no spec. Browser checks read them (F-21's measurement script, the
+      2026-09-23 QA run's E3 steps), and the language group has none while the theme group does. Either a
+      spec pins the bar, or the ids are named as browser-check hooks. Owner's call.
+- [ ] **The closed drawer's links are Tab stops below 1024px** — *revealed by `rtl-ui-verifier` in
+      F-21 · 1.1, 2026-09-28; registered, not fixed.* Closed, `AppSidebar.vue` only slides off-canvas
+      (`.app-sidebar--closed { inset-inline-start: -16rem }`); nothing sets `inert`, `aria-hidden` or
+      `visibility: hidden`, so at 375 px its 14 links sit between the skip link and the menu button in
+      the Tab order, invisible. A keyboard user presses Tab 15 times to reach the first visible
+      control. §8's keyboard path. Owner's call when to order.
+- [ ] **Sign-out's focus ring is the browser's, not the design system's** — *revealed by
+      `rtl-ui-verifier` in F-21 · 1.1, 2026-09-28; registered, not fixed.* The four other bar controls
+      carry `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]`;
+      `AppContextBar.vue`'s `sign-out` button does not, so it shows `outline: auto`. Visible, but
+      unlike its siblings. Owner's call.
 - [ ] **The quotation builder names suppliers and catalog items from the first 100 of each** —
       *revealed by F-18 · 1.1, 2026-09-24; not fixed there, because the approved line is the shared
       picker only.* `QuotationBuilderView.vue:344` and `:348` read `listSuppliers({ perPage: 100 })` and
@@ -3192,9 +3228,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.5** The import dialog lists the rejected and the skipped rows. *(2026-09-28, #251 — two
             counts, each with its rows in a list that scrolls; the server's sentence as sent; "Not imported"
             removed and `ImportBatch.rejected` narrowed to `{row, message}` (owner))*
-- [ ] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
+- [x] **F-21** The top bar fits 375 px in both directions (E3-1; debt row "The context bar overflows a
       375px viewport by 36–46px, in both directions"). One point, verified in the browser at 375 px
-      and on the desktop, in Arabic and English.
+      and on the desktop, in Arabic and English. *(2026-09-28, #257 — below 640 px the controls take their
+      own row and sign-out's label breaks onto two lines (owner); the page is 375 wide at 375 in both
+      directions, the title shows, desktop geometry unchanged)*
 
 **Medium**
 

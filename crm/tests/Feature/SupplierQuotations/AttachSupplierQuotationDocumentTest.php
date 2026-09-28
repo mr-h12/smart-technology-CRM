@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\Contracts\VirusScannerInterface;
 use App\Modules\Storage\Domain\Exceptions\ScannerUnavailable;
@@ -16,6 +17,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Feature\Storage\RemovesOnlyFilesItStored;
 use Tests\TestCase;
 
 /**
@@ -46,6 +48,7 @@ use Tests\TestCase;
 final class AttachSupplierQuotationDocumentTest extends TestCase
 {
     use RefreshDatabase;
+    use RemovesOnlyFilesItStored;
 
     /** @var list<string> */
     private array $scratch = [];
@@ -60,12 +63,18 @@ final class AttachSupplierQuotationDocumentTest extends TestCase
             }
         }
 
+        // It stores through the real service; until F-31 · 1.1 another test's
+        // parent-wide glob removed these files for it.
+        $this->removeFilesStoredSince(AttachmentParent::SupplierQuotation);
+
         parent::tearDown();
     }
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->rememberStoredFiles(AttachmentParent::SupplierQuotation);
 
         $this->actorId = (string) Str::uuid7();
     }

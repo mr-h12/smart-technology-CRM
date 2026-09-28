@@ -406,6 +406,67 @@ final class StorageServiceTest extends TestCase
         );
     }
 
+    // ---------------------------------------------------------------- bytes in (F-31 · 1.2)
+
+    /**
+     * Module 9's render job holds a PDF as bytes, not as a file, and may not
+     * write and unlink a temp file itself (the scan below). storeContents()
+     * takes the bytes under the same §17 rule store() follows.
+     */
+    public function test_stored_contents_can_be_read_back_byte_for_byte(): void
+    {
+        $service = $this->service();
+        $bytes = "%PDF-1.7\n\x00\xff\xfe binary, not text";
+
+        $path = $service->storeContents(AttachmentParent::Deal, self::PARENT_ID, AllowedFileType::Pdf, $bytes);
+
+        self::assertSame($bytes, $service->read($path));
+    }
+
+    public function test_stored_contents_follow_the_documented_path_shape(): void
+    {
+        $path = $this->service()->storeContents(
+            AttachmentParent::SupplierQuotation,
+            self::PARENT_ID,
+            AllowedFileType::Pdf,
+            self::SAMPLE,
+        );
+
+        self::assertMatchesRegularExpression(
+            '#^2026/08/supplier_quotation/'.self::PARENT_ID.'/[0-9a-f-]{36}\.pdf$#',
+            $path->value,
+            '§17: /{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext, as for store()'
+        );
+    }
+
+    public function test_stored_contents_refuse_a_parent_id_that_is_not_a_uuid(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->storeContents(AttachmentParent::Deal, '../../etc', AllowedFileType::Pdf, self::SAMPLE);
+    }
+
+    public function test_store_contents_has_no_argument_a_filename_could_arrive_through(): void
+    {
+        $method = new ReflectionMethod(StorageServiceInterface::class, 'storeContents');
+
+        $types = array_map(
+            static fn (ReflectionParameter $parameter): string => (string) $parameter->getType(),
+            $method->getParameters(),
+        );
+
+        self::assertSame(
+            [
+                AttachmentParent::class,
+                'string',
+                AllowedFileType::class,
+                'string',
+            ],
+            $types,
+            'storeContents() takes a parent, its id, the validated type, and the bytes — no filename.'
+        );
+    }
+
     // ---------------------------------------------------------------- the abstraction holds
 
     /**

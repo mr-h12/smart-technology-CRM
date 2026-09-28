@@ -47,6 +47,22 @@ interface StorageServiceInterface
         string $sourcePath,
     ): StoragePath;
 
+    /**
+     * {@see store()} for bytes already in memory, under the same §17 path rule
+     * (F-31 · 1.2). A caller that produced the file itself — a rendered PDF —
+     * would otherwise write and unlink a temp file, which only this module may
+     * do. Still no filename argument.
+     *
+     * @throws \InvalidArgumentException when a segment would not be safe on disk
+     * @throws \RuntimeException when the bytes cannot be written
+     */
+    public function storeContents(
+        AttachmentParent $parent,
+        string $parentId,
+        AllowedFileType $type,
+        string $contents,
+    ): StoragePath;
+
     /** @throws \RuntimeException when the file is missing or unreadable */
     public function read(StoragePath $path): string;
 

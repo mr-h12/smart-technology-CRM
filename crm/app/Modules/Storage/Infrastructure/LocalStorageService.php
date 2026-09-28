@@ -31,20 +31,7 @@ final readonly class LocalStorageService implements StorageServiceInterface
         AllowedFileType $type,
         string $sourcePath,
     ): StoragePath {
-        // UUIDv7 for the same reason D-61 uses it for a primary key: the name
-        // sorts by creation time, so a directory listing and a backup walk the
-        // files in the order they arrived instead of at random.
-        $path = StoragePath::for(
-            $parent,
-            $parentId,
-            Str::uuid7()->toString(),
-            $type->value,
-            // Through the Date facade rather than Carbon directly: Carbon\* sits
-            // in no deptrac layer, so importing it here reports as an uncovered
-            // dependency — and an uncovered dependency is a boundary nobody
-            // decided on. Illuminate\Support\Carbon is the Framework layer.
-            Date::now('UTC')->toDateTimeImmutable(),
-        );
+        $path = $this->newPath($parent, $parentId, $type);
 
         // Streamed, not read into a string: the ceiling is 30 MB per file
         // (D-71) and PHP's memory_limit is a per-process budget shared with
@@ -64,6 +51,38 @@ final readonly class LocalStorageService implements StorageServiceInterface
         }
 
         return $path;
+    }
+
+    public function storeContents(
+        AttachmentParent $parent,
+        string $parentId,
+        AllowedFileType $type,
+        string $contents,
+    ): StoragePath {
+        $path = $this->newPath($parent, $parentId, $type);
+
+        // The disk is configured to throw, so a failed write never returns false.
+        $this->disk->put($path->value, $contents);
+
+        return $path;
+    }
+
+    private function newPath(AttachmentParent $parent, string $parentId, AllowedFileType $type): StoragePath
+    {
+        // UUIDv7 for the same reason D-61 uses it for a primary key: the name
+        // sorts by creation time, so a directory listing and a backup walk the
+        // files in the order they arrived instead of at random.
+        return StoragePath::for(
+            $parent,
+            $parentId,
+            Str::uuid7()->toString(),
+            $type->value,
+            // Through the Date facade rather than Carbon directly: Carbon\* sits
+            // in no deptrac layer, so importing it here reports as an uncovered
+            // dependency — and an uncovered dependency is a boundary nobody
+            // decided on. Illuminate\Support\Carbon is the Framework layer.
+            Date::now('UTC')->toDateTimeImmutable(),
+        );
     }
 
     public function read(StoragePath $path): string

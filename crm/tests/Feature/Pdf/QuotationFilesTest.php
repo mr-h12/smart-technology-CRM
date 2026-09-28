@@ -98,12 +98,12 @@ final class QuotationFilesTest extends TestCase
         self::fail('The same file was attached to the same quotation twice.');
     }
 
-    public function test_that_the_permission_path_refuses_a_quotation_file_until_step_4(): void
+    public function test_that_the_permission_path_refuses_a_quotation_file_to_a_stranger(): void
     {
-        // D-38 checks a file through its parent. The quotation has no rule
-        // registered yet, so the composite refuses it — "a default that denies
-        // is a feature that does not work yet; a default that grants is a hole
-        // nobody notices". Step 4 registers §3.5's download rule.
+        // D-38 checks a file through its parent. Until Step 4 the composite
+        // refused every quotation file for want of a rule; Point 4.1 registered
+        // §3.5's export/download row, proven role by role in
+        // `QuotationPdfDownloadTest`. A caller who is nobody still gets nothing.
         $quotationId = $this->insertQuotation();
 
         self::assertFalse(

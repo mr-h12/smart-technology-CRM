@@ -1454,6 +1454,14 @@ would hide them behind `OD-03` indefinitely.
       `BODY`. The outcome is still announced (`role="status"`, `aria-live="polite"`). Owed: a focus
       target that survives the reload (the outcome line, `tabindex="-1"`), when the owner orders it
 
+- [ ] **A failed PDF render notifies nobody** — *created knowingly by Module 9 · 3.4 (2026-09-28,
+      #260), Q3's approved default.* The criterion is "automatic retry + notification to the
+      employee". The retry is the worker's `--tries=3`, and the failure is recorded on the
+      `pdf_generations` row (`failed`, `failure_reason`, `finished_at`), which the panel (5.1) shows
+      to whoever opens the quotation. Nothing is sent: §18.2's delivery belongs to no module yet
+      (`app/Modules/Notifications/` is `.gitkeep`), and Q3 ruled out a private notification inside
+      `Pdf`. It closes when Notifications exists; `RenderQuotationPdf::giveUp()` is where the send goes.
+
 ## Agent guide revisions — owner-directed
 
 Changes to `CLAUDE.md` and `AGENTS.md` themselves. They belong to no module, and they are recorded
@@ -4056,7 +4064,7 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       *(2026-09-27, #242 — beyond the listed columns: `locale` (Q15) and `finished_at`, with four more
       CHECKs tying the file, the reason and the end time to the status. No interface yet: its first
       caller is 4.2, so it arrives there rather than as dead code here.)*
-- [ ] **3.4** The job, on the `pdf` queue: render the view it was handed, `store()` it under
+- [x] **3.4** The job, on the `pdf` queue: render the view it was handed, `store()` it under
       `AttachmentParent::Quotation`, write the `files` row, the `quotation_files` pivot and the
       generation's `file_id` in one transaction, scan (Q13), mark `completed`. **Idempotent
       (§15.1):** an attempt that finds `file_id` set only re-scans, so no retry writes a second file.
@@ -4064,11 +4072,10 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       generation `failed` with its reason — Q3's failure record — and Q3's notification row goes on
       the debt register naming §18.2. *Verified by* a renderer that fails twice then succeeds leaving
       exactly one file, one that always fails ending `failed` with no file, and a scanner outage
-      retried to `completed`. **Blocked (found 2026-09-27)** until Module 0's owner adds a bytes-in
-      `store`: `store()` copies from a path and leaves the source in place (its docblock), so the job
-      would write and `unlink(` a temp file, which `StorageServiceTest`'s filesystem scan forbids
-      outside Storage. Requested: `storeContents(AttachmentParent $parent, string $parentId,
-      AllowedFileType $type, string $contents): StoragePath`.
+      retried to `completed`.
+
+      *(2026-09-28, #260 — `store()` is handed the bytes as a `data:` URL, so no Module 0 change and no
+      temp file (the storeContents request is withdrawn); a real Chromium render, 356 KB, round-tripped.)*
 - [ ] **3.5** `POST /api/v1/quotations/{quotation}/pdf`, in our own block of `routes/api.php`, under
       `permission:quotation.generate_pdf`. The scope is the deal owner's (owner ruling 2026-09-11),
       read through `DealFactsInterface` and resolved by `DealRowScope` — published in our own

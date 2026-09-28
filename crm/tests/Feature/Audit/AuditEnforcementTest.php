@@ -19,6 +19,7 @@ use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
+use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
@@ -393,6 +394,17 @@ final class AuditEnforcementTest extends TestCase
             DatabaseFileWriter::class => 'AUD-01 is satisfied one layer out: AttachDealDocument owns the transaction '
                     .'and records DEAL_DOCUMENT_ATTACHED with the file id and original name. This is a '
                     .'persistence adapter with no actor and no event vocabulary.',
+
+            // Module 9 Point 3.4, seen for `->update(` beside an imported
+            // ConnectionInterface. The job's progress on one generation —
+            // the attempt count, the stored file's id, `completed` or
+            // `failed` — is the system's own record of work it was asked to
+            // do, not an actor's decision; the asking is 3.5's
+            // QUOTATION_PDF_REQUESTED, with the caller as the actor. The same
+            // disposition as DatabaseFileRepository's scan result above.
+            DatabasePdfGenerations::class => 'AUD-01 does not cover these writes by decision: they are the render job\'s '
+                    .'own progress on a request already audited as QUOTATION_PDF_REQUESTED, not an actor decision, '
+                    .'and each row carries the requester in DB-02\'s created_by / updated_by.',
         ];
     }
 

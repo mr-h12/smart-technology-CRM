@@ -426,7 +426,8 @@ function applyServerErrors(error: unknown): void {
  */
 function items(): SupplierQuotationLineDraft[] {
     return lines.value.map((line) => (line.catalog_item_id === ''
-        ? { product_name: line.product_name.trim(), unit_price: line.unit_price, quantity: line.quantity }
+        // F-24 · 1.5: the name box wraps, so a pasted line break becomes a space.
+        ? { product_name: line.product_name.replace(/\s*[\r\n]\s*/g, ' ').trim(), unit_price: line.unit_price, quantity: line.quantity }
         : { catalog_item_id: line.catalog_item_id, unit_price: line.unit_price, quantity: line.quantity }));
 }
 
@@ -796,7 +797,9 @@ function discard(): void {
                     <!-- F-18 · 1.2 (`D-93`): searched on the server, the offer's
                          supplier's items first; its first option is `D-22`'s
                          «type a name instead». -->
-                    <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="lineTestId(index, 'product')">
+                    <!-- F-24 · 1.5: the product and a typed name each take the
+                         whole line; price, quantity and remove wrap below. -->
+                    <label class="flex basis-full flex-col gap-1.5" :for="lineTestId(index, 'product')">
                         <span>{{ t('supplierQuotations.form.lineProduct') }}</span>
                         <CatalogItemPicker
                             :id="lineTestId(index, 'product')"
@@ -807,23 +810,34 @@ function discard(): void {
                             :aria-invalid="lineProductError(index) !== null"
                             :test-id="lineTestId(index, 'product')"
                         />
+                        <!-- The field is one line, so a long name is cut there;
+                             its whole wraps here. The field already gives it to a
+                             screen reader. `label` is '' whenever no item is on the line. -->
+                        <span
+                            v-if="line.label !== ''"
+                            aria-hidden="true"
+                            class="text-sm break-words text-[var(--color-text-muted)]"
+                            :data-testid="lineTestId(index, 'product-full')"
+                        >{{ line.label }}</span>
                     </label>
 
                     <label
                         v-if="line.catalog_item_id === ''"
-                        class="flex min-w-40 flex-1 flex-col gap-1.5"
+                        class="flex basis-full flex-col gap-1.5"
                         :for="lineTestId(index, 'product-name')"
                     >
                         <span>{{ t('supplierQuotations.form.lineProductName') }}</span>
-                        <input
+                        <!-- Grows with its text instead of scrolling it away;
+                             Enter adds no line — a name is one line (`items()`). -->
+                        <textarea
                             :id="lineTestId(index, 'product-name')"
                             v-model="line.product_name"
-                            type="text"
                             maxlength="255"
                             autocomplete="off"
                             :disabled="saving"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field field-sizing-content min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                             :data-testid="lineTestId(index, 'product-name')"
+                            @keydown.enter.prevent
                         />
                     </label>
 

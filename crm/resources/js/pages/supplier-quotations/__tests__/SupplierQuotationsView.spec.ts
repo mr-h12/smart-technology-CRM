@@ -229,6 +229,13 @@ async function pickProduct(view: Awaited<ReturnType<typeof render>>, index: numb
     await view.get(`[data-testid="supplier-quotation-line-${index}-product-option"]`).trigger('mousedown');
 }
 
+/** `D-22`'s first option, «type a name instead»: it empties the line's item and brings the name box back. */
+async function chooseTypedName(view: Awaited<ReturnType<typeof render>>, index: number): Promise<void> {
+    await view.get(`[data-testid="supplier-quotation-line-${index}-product"]`).trigger('focus');
+    await flushPromises();
+    await view.get(`[data-testid="supplier-quotation-line-${index}-product-all"]`).trigger('mousedown');
+}
+
 /** F-24 · 1.4: the offer's supplier is picked in a server search — open it, take the row named. */
 async function pickSupplier(view: Awaited<ReturnType<typeof render>>, name = 'Alpha Supply'): Promise<void> {
     await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
@@ -907,9 +914,7 @@ describe('the supplier quotation line editor', () => {
         // An item first, then "type a name instead", which brings the box back.
         await pickProduct(view, 0);
         expect(view.find('[data-testid="supplier-quotation-line-0-product-name"]').exists()).toBe(false);
-        await view.get('[data-testid="supplier-quotation-line-0-product"]').trigger('focus');
-        await flushPromises();
-        await view.get('[data-testid="supplier-quotation-line-0-product-all"]').trigger('mousedown');
+        await chooseTypedName(view, 0);
         await view.get('[data-testid="supplier-quotation-line-0-product-name"]').setValue('Breaker 63A');
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('90');
         await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('12');
@@ -920,6 +925,112 @@ describe('the supplier quotation line editor', () => {
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
         expect(sent.items).toEqual([{ product_name: 'Breaker 63A', unit_price: '90', quantity: '12' }]);
+    });
+
+    /**
+     * F-24 · 1.5: beside price and quantity the product had 161 px of text at
+     * 1280 px, too little for "ATEN Enterprise Solutions" (173 px); on its own
+     * row it has 478 px. A fresh line holds no item, so its name box shows too.
+     */
+    it('gives a line’s product the whole line, and its typed name too, with price and quantity below them', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        expect(view.get('label[for="supplier-quotation-line-0-product"]').classes()).toContain('basis-full');
+        expect(view.get('label[for="supplier-quotation-line-0-product-name"]').classes()).toContain('basis-full');
+    });
+
+    /** F-24 · 1.5: a one-line input scrolls a long name out of view as it is typed. */
+    it('lets a typed product name wrap and grow as it is typed, instead of scrolling out of view', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        const name = view.get('[data-testid="supplier-quotation-line-0-product-name"]');
+
+        expect(name.element.tagName).toBe('TEXTAREA');
+        expect(name.classes()).toContain('field-sizing-content');
+    });
+
+    /**
+     * F-24 · 1.5: the box that wraps must not carry a line break into a product
+     * name — an `<input>` strips one; the server's `string|max:255` would keep it.
+     */
+    it('never sends a line break in a typed product name: Enter adds none, and a pasted one becomes a space', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        const name = view.get('[data-testid="supplier-quotation-line-0-product-name"]');
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+        name.element.dispatchEvent(enter);
+        expect(enter.defaultPrevented).toBe(true);
+
+        await name.setValue('ATEN Enterprise \r\n Solutions\nRack');
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('90');
+        await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('12');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'POST').items)
+            .toEqual([{ product_name: 'ATEN Enterprise Solutions Rack', unit_price: '90', quantity: '12' }]);
+    });
+
+    /**
+     * F-24 · 1.5, the owner's option C: the picked item's name stays one line in
+     * its field, so the whole of it wraps underneath. The field already holds the
+     * name for a screen reader, so the copy is hidden from one.
+     */
+    it('shows a picked product’s whole name under the field, and nothing once a name is typed instead', async () => {
+        // The longest active name in the dev catalog, 203 characters.
+        const long = 'Barcode Reader · Label Printers · Receipt Printers · All in one POS System · Touch Monitor · Cash Drawers · Mobile Computer · Customer Display · Accessories — Birch /Datalogic /SPRT /Epson/GSAN/ZEBRA/TSC';
+        const base = respond() as unknown as typeof globalThis.fetch;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => (String(input).includes('/catalog-items')
+            ? json(200, envelope([{ ...CATALOG_ITEM, name: long }], { pagination: { ...PAGINATION, per_page: 20 } }))
+            : base(input, init)));
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+
+        expect(view.find('[data-testid="supplier-quotation-line-0-product-full"]').exists()).toBe(false);
+
+        await pickProduct(view, 0);
+
+        const full = view.find('[data-testid="supplier-quotation-line-0-product-full"]');
+        expect(full.exists(), 'no whole-name line under the picked product').toBe(true);
+        expect(full.text()).toBe(long);
+        expect(full.attributes('aria-hidden')).toBe('true');
+
+        await chooseTypedName(view, 0);
+
+        expect(view.find('[data-testid="supplier-quotation-line-0-product-full"]').exists()).toBe(false);
+    });
+
+    /** F-24 · 1.5: the whole name follows the line's item, not the act of picking it. */
+    it('shows an edited line’s whole product name under its field too', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        const full = view.find('[data-testid="supplier-quotation-line-0-product-full"]');
+        expect(full.exists(), 'no whole-name line under the edited product').toBe(true);
+        expect(full.text()).toBe('Cable 2.5mm');
     });
 
     it('loads an offer’s existing lines on edit and sends them back', async () => {

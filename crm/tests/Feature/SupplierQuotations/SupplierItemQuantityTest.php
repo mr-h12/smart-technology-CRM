@@ -60,6 +60,21 @@ final class SupplierItemQuantityTest extends TestCase
         self::assertSame(1, DB::table('supplier_quotation_item_consumptions')->where('idempotency_key', 'key-1')->count());
     }
 
+    /**
+     * F-31 · 1.4 — `D-61`: the guard row's key is time-ordered, a UUID v7 like
+     * every other key the application generates, not a random v4.
+     */
+    public function test_that_the_guard_row_takes_a_time_ordered_id(): void
+    {
+        $this->writer()->consume($this->supplierLine('7'), '1', 'key-1');
+
+        $id = DB::table('supplier_quotation_item_consumptions')->where('idempotency_key', 'key-1')->value('id');
+
+        self::assertIsString($id);
+        self::assertTrue(Uuid::isValid($id));
+        self::assertSame(7, Uuid::fromString($id)->getVersion(), "got {$id}");
+    }
+
     public function test_that_two_keys_consume_twice(): void
     {
         $line = $this->supplierLine('7');

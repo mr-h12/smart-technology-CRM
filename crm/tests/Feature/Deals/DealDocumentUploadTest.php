@@ -7,12 +7,14 @@ namespace Tests\Feature\Deals;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Storage\Domain\AttachmentParent;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Feature\Storage\RemovesOnlyFilesItStored;
 use Tests\TestCase;
 
 /**
@@ -27,6 +29,7 @@ use Tests\TestCase;
 final class DealDocumentUploadTest extends TestCase
 {
     use RefreshDatabase;
+    use RemovesOnlyFilesItStored;
 
     private const DOCUMENTS_URL = '/api/v1/deals/%s/documents';
 
@@ -42,6 +45,8 @@ final class DealDocumentUploadTest extends TestCase
     {
         parent::setUp();
 
+        $this->rememberStoredFiles(AttachmentParent::Deal);
+
         $this->seed(RolePermissionSeeder::class);
     }
 
@@ -53,15 +58,7 @@ final class DealDocumentUploadTest extends TestCase
             }
         }
 
-        $root = config('filesystems.disks.secure_uploads.root');
-
-        if (is_string($root)) {
-            foreach (glob($root.'/*/*/deal/*/*') ?: [] as $file) {
-                if (is_file($file)) {
-                    unlink($file);
-                }
-            }
-        }
+        $this->removeFilesStoredSince(AttachmentParent::Deal);
 
         parent::tearDown();
     }

@@ -7,6 +7,7 @@ namespace Tests\Feature\Quotations;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Storage\Domain\AttachmentParent;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -15,6 +16,7 @@ use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use stdClass;
+use Tests\Feature\Storage\RemovesOnlyFilesItStored;
 use Tests\TestCase;
 
 /**
@@ -29,6 +31,7 @@ use Tests\TestCase;
 final class PurchaseOrderDocumentEndpointTest extends TestCase
 {
     use RefreshDatabase;
+    use RemovesOnlyFilesItStored;
 
     private const ENDPOINT = '/api/v1/purchase-orders';
 
@@ -55,6 +58,8 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
     {
         parent::setUp();
 
+        $this->rememberStoredFiles(AttachmentParent::PurchaseOrder);
+
         $this->seed(RolePermissionSeeder::class);
 
         $this->currency('EGP');
@@ -70,15 +75,7 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
             }
         }
 
-        $root = config('filesystems.disks.secure_uploads.root');
-
-        if (is_string($root)) {
-            foreach (glob($root.'/*/*/purchase_order/*/*') ?: [] as $file) {
-                if (is_file($file)) {
-                    unlink($file);
-                }
-            }
-        }
+        $this->removeFilesStoredSince(AttachmentParent::PurchaseOrder);
 
         parent::tearDown();
     }

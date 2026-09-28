@@ -1320,5 +1320,23 @@
         "returnNote": "Note to the seller (required)",
         "returnSend": "Return with note",
         "returnCancel": "Cancel"
+    },
+    "pdf": {
+        "panel": {
+            "title": "Customer PDF",
+            "loading": "Loading the PDF status…",
+            "none": "No PDF has been generated for this quotation yet.",
+            "queued": "Generating the PDF… This updates on its own.",
+            "ready": "The PDF is ready.",
+            "failed": "The last PDF could not be generated.",
+            "language": "Document language",
+            "generate": "Generate PDF",
+            "requesting": "Requesting…",
+            "download": "Download PDF",
+            "downloading": "Downloading…",
+            "generateForbidden": "You do not have permission to generate this quotation's PDF.",
+            "generateFailed": "The PDF could not be requested. Try again.",
+            "downloadFailed": "The PDF could not be downloaded. Try again."
+        }
     }
 }

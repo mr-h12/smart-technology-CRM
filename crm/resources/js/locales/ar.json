@@ -1320,5 +1320,23 @@
         "returnNote": "ملاحظة للبائع (إلزامية)",
         "returnSend": "إرجاع مع ملاحظة",
         "returnCancel": "إلغاء"
+    },
+    "pdf": {
+        "panel": {
+            "title": "ملف PDF للعميل",
+            "loading": "جارٍ تحميل حالة ملف PDF…",
+            "none": "لم يُنشأ ملف PDF لعرض السعر هذا بعد.",
+            "queued": "جارٍ إنشاء ملف PDF… تتحدّث هذه الحالة تلقائيًا.",
+            "ready": "ملف PDF جاهز.",
+            "failed": "تعذّر إنشاء آخر ملف PDF.",
+            "language": "لغة المستند",
+            "generate": "إنشاء ملف PDF",
+            "requesting": "جارٍ الطلب…",
+            "download": "تنزيل ملف PDF",
+            "downloading": "جارٍ التنزيل…",
+            "generateForbidden": "لا تملك صلاحية إنشاء ملف PDF لعرض السعر هذا.",
+            "generateFailed": "تعذّر طلب ملف PDF. حاول مرة أخرى.",
+            "downloadFailed": "تعذّر تنزيل ملف PDF. حاول مرة أخرى."
+        }
     }
 }

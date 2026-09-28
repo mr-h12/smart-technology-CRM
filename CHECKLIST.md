@@ -947,7 +947,8 @@ would hide them behind `OD-03` indefinitely.
       stylesheet too. **Module 10 · 3.3 (2026-09-23) adds a list shell:** `PurchaseOrdersView`
       copies `DealsView`'s `load()`/`goToPage()`, the prev/next `<nav>` and the scoped CSS (plus
       `.form-field/.row-action`), without sort (owner Q-C) — so it escapes the `sortIndicator` grep
-      above; count it when the extraction is done.
+      above; count it when the extraction is done. **Module 9 · 5.1 (2026-09-28) adds a panel copy:**
+      `QuotationPdfPanel` carries scoped `.primary-action/.row-action/.form-alert`, the house rules.
 - [ ] **Two file panels: `QuotationPurchaseOrder` repeats `DealDocumentsPanel`** — *created by Module
       10 Point 3.3, 2026-09-23, registered rather than extracted by the owner's rule for a fresh
       pair (the reason-dialog row below).* `grep -rln "scan_status === 'pending'" crm/resources/js/pages`
@@ -4087,11 +4088,15 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
 ### Step 5 — the screen *(published and approved with Step 3, #236)*
 
-- [ ] **5.1** `QuotationPdfPanel.vue` and `services/pdf.ts`: *Generate* under
+- [~] **5.1** `QuotationPdfPanel.vue` and `services/pdf.ts`: *Generate* under
       `quotation.generate_pdf`; a queued state that polls 4.2 until `completed` or `failed`; the
       failure's reason; *Download* under `quotation.export_pdf` through `services/files.ts`'s existing
       download. Both languages; empty, loading, error and refused states. *Verified by* Vitest,
       `rtl-ui-verifier`, and the browser at 375 px and on the desktop, in Arabic and English.
+
+      *(2026-09-28, #258 — built ahead of 3.5 on its contract, `POST …/pdf` with `{locale}` (Q15), so
+      Generate says "could not be requested" until 3.5 lands; checked in headless Chrome over CDP with
+      canned PDF answers. `[~]` until the Browser-MCP pass: the extension was not connected.)*
 - [ ] **5.2** The panel on the quotation page: one import and one element in
       `QuotationDetailView.vue`, beside `QuotationPurchaseOrder` (`:611`). **Requested from Module 7's
       owner, not written by us** (the per-module rule); until it lands, 5.1 stands on its own tests.

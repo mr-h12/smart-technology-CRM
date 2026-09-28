@@ -1325,7 +1325,7 @@ would hide them behind `OD-03` indefinitely.
       rows are not measured for off-list values. Owner's call when to order.
 - [x] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
       — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
-      reader.* *(Closed 2026-09-28 with F-31 · 1.4: `Str::uuid7()`; `Uncovered 0` in both configs.)* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
+      reader.* *(Closed 2026-09-28 with F-31 · 1.4, #263: `Str::uuid7()`; `Uncovered 0` in both configs.)* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
       too; it arrived with F-05 · 1.3 (`837c768`). The gates grep `Violations` (0), so an uncovered line
       never fails a build — the reason every other `App\Support` entry is named. The fix is one
       collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
@@ -3334,7 +3334,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.2** Names in tables isolated for direction (`dir="auto"` or `<bdi>`), the stored data
             unchanged (E5-6).
 
-- [ ] **F-31** Module 9's requests and findings. Requested by the second developer, 2026-09-28: a
+- [x] **F-31** Module 9's requests and findings. Requested by the second developer, 2026-09-28: a
       bytes-in `store` (their 3.4, then 3.5 and 5.1) and a `QuotationSent` event (their 3.6, Q14), plus
       two findings in our code. The owner filed it as **F-31** ahead of F-22 (2026-09-28), as F-14 was.
       The point list was published and approved 2026-09-28 in conversation. **Changed at 1.1 by the owner:** it
@@ -3357,7 +3357,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             is Module 9 · 3.6)*
       - [x] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`
             (`D-61`; deptrac's one uncovered dependency).
-            *(2026-09-28 — a test reads the guard row id's version digit; `Str::uuid()` and `orderedUuid()` both
+            *(2026-09-28, #263 — a test reads the guard row id's version digit; `Str::uuid()` and `orderedUuid()` both
             fail it; deptrac `Uncovered` 1 → 0 in both configs)*
 
 ## Shell revisions — owner-directed

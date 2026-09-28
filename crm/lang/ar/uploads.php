@@ -10,4 +10,8 @@ return [
         'unsupported_type' => 'نوع الملفّ غير مسموح به. الأنواع المسموحة: PDF و JPG و PNG و WEBP و DOCX و XLSX.',
         'corrupted' => 'يبدو أنّ الملفّ ناقص أو تالف.',
     ],
+    // F-22 · 1.2 — `D-97`: `App\Support\Csv\ImportFileRequest`'s refusal.
+    'import' => [
+        'not_csv' => 'يمكن استيراد ملفات CSV فقط. في Excel اختر حفظ باسم ← CSV UTF-8 ثم ارفع ذلك الملف.',
+    ],
 ];

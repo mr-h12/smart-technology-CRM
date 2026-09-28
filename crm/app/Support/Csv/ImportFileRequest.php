@@ -25,15 +25,17 @@ use RuntimeException;
  * `SettingReader::integer()` would fall through to a configured **0** and
  * refuse every file. Measured before it was used, not after.
  *
- * ── No MIME rule, and that is deliberate ──────────────────────────────────
+ * ── Its true MIME type, not `AllowedFileType` (F-22 · 1.2) ────────────────
  *
- * §17's true-MIME check exists for files this system **stores and serves back**
- * (`D-38`, `SEC-15`), and `AllowedFileType` is `D-40`'s six — PDF · JPG · PNG ·
- * WEBP · DOCX · XLSX — which does not include CSV at all. This file is parsed
- * and dropped: no import-batch table has a path column by Point 1.2's decision, so
- * nothing is stored, nothing is served, and there is nothing for a spoofed
- * extension to be spoofed *into*. A file that is not a CSV fails on its header
- * instead, with a message that says so.
+ * `D-97`: a file that is not CSV is refused with a `422` that names CSV and
+ * quotes nothing from the file. Before it, a fake `.xlsx` failed on its header
+ * and the message echoed its bytes (E2-4). `mimetypes:` reads the content
+ * through libmagic, not the extension. `AllowedFileType` stays `D-40`'s six for
+ * stored attachments; CSV is not among them, and this file is never stored.
+ * The three types were measured in this image (2026-09-28): a CSV is
+ * `text/csv`, but a one-column or `;`-separated one is `text/plain`, and a
+ * 0-byte file is `application/x-empty`, admitted so `CsvReader` still answers
+ * "this file is empty" (the owner's ruling, 2026-09-28).
  */
 final class ImportFileRequest extends FormRequest
 {
@@ -48,8 +50,16 @@ final class ImportFileRequest extends FormRequest
         return [
             // `max:` counts kilobytes. intdiv, so a ceiling below 1 KB refuses
             // everything rather than rounding up into permission nobody gave.
-            'file' => ['required', 'file', 'max:'.intdiv($bytes, 1024)],
+            'file' => ['required', 'file', 'max:'.intdiv($bytes, 1024), 'mimetypes:text/csv,text/plain,application/x-empty'],
         ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        // The default lists the MIME types; the owner's wording names CSV and
+        // says how to get one out of Excel.
+        return ['file.mimetypes' => (string) __('uploads.import.not_csv')];
     }
 
     public function upload(): UploadedFile

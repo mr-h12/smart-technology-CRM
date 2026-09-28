@@ -80,9 +80,11 @@ use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
+use App\Modules\Pdf\Domain\Contracts\PdfGenerationsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
+use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
 use App\Modules\Pdf\Infrastructure\FilePdfAssets;
 use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
@@ -581,6 +583,9 @@ class AppServiceProvider extends ServiceProvider
         // Module 9, Point 3.2 — what each quotation line is, in the catalog's
         // words, through SupplierQuotations' and Catalog's published contracts.
         $this->app->bind(LineDescriptionsInterface::class, CatalogLineDescriptions::class);
+
+        // Module 9, Point 4.2 — `pdf_generations` (3.3), read for a quotation's PDF state.
+        $this->app->bind(PdfGenerationsInterface::class, DatabasePdfGenerations::class);
     }
 
     /**

@@ -11,7 +11,8 @@ use Ramsey\Uuid\Uuid;
  * The rows a Module 9 test needs under a quotation, inserted directly: the
  * customer, deal, currency and quotation Yousef's modules own, and a `files`
  * row. Moved out of `QuotationFilesTest` (1.3) when 3.3 became the second
- * caller, so every Step 3–5 test builds the same quotation the same way.
+ * caller, so every Step 3–5 test builds the same quotation the same way; 4.2
+ * brought `insertGeneration` here from `PdfGenerationsTableTest` for the same reason.
  */
 trait InsertsQuotationRows
 {
@@ -87,6 +88,27 @@ trait InsertsQuotationRows
             'size_bytes' => 1024,
             'storage_path' => '2026/09/quotation/'.Uuid::uuid7()->toString().'/'.$id.'.pdf',
             'scan_status' => 'clean',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    /**
+     * One `pdf_generations` row (3.3), `queued` in English under a new
+     * quotation unless `$overrides` says otherwise.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function insertGeneration(array $overrides = []): string
+    {
+        $id = Uuid::uuid7()->toString();
+
+        DB::table('pdf_generations')->insert($overrides + [
+            'id' => $id,
+            'quotation_id' => $overrides['quotation_id'] ?? $this->insertQuotation(),
+            'locale' => 'en',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

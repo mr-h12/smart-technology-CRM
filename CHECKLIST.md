@@ -1035,7 +1035,8 @@ would hide them behind `OD-03` indefinitely.
 
 - [ ] **Three controllers carry a byte-identical `heldScopes()`; nine carry `actorId()`** — *created
       knowingly by Module 7 Point 3.4, 2026-09-12.* `grep -rl 'private static function heldScopes'
-      crm/app` → `CustomerController`, `DealController`, `QuotationController`; `actorId()` → nine.
+      crm/app` → `CustomerController`, `DealController`, `QuotationController`; `actorId()` → nine
+      (ten since Module 9 · 4.2's `QuotationPdfController`, 2026-09-28, copied for the same reason).
       Each `heldScopes()` is the same read of `PermissionDecision` off the request attribute with the
       same "the route lost its middleware" throw. Point 3.4 copied rather than extracted because a
       shared `app/Support/Http` helper is an edit to two other modules' controllers, outside a
@@ -4006,7 +4007,11 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       generation `failed` with its reason — Q3's failure record — and Q3's notification row goes on
       the debt register naming §18.2. *Verified by* a renderer that fails twice then succeeds leaving
       exactly one file, one that always fails ending `failed` with no file, and a scanner outage
-      retried to `completed`.
+      retried to `completed`. **Blocked (found 2026-09-27)** until Module 0's owner adds a bytes-in
+      `store`: `store()` copies from a path and leaves the source in place (its docblock), so the job
+      would write and `unlink(` a temp file, which `StorageServiceTest`'s filesystem scan forbids
+      outside Storage. Requested: `storeContents(AttachmentParent $parent, string $parentId,
+      AllowedFileType $type, string $contents): StoragePath`.
 - [ ] **3.5** `POST /api/v1/quotations/{quotation}/pdf`, in our own block of `routes/api.php`, under
       `permission:quotation.generate_pdf`. The scope is the deal owner's (owner ruling 2026-09-11),
       read through `DealFactsInterface` and resolved by `DealRowScope` — published in our own
@@ -4016,6 +4021,7 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       Supervisor `403` (no grant); Procurement (`Asgn`, Q2) and the Team Leader (`Team`, `D-a`) `403`
       by name; a quotation outside an `Own` caller's reach `404`, which does not confirm it exists; an
       indescribable one `422`. *Verified by* those tests and `permission-matrix-auditor` on the PR.
+      **Waits on 3.4**, whose job it dispatches.
 - [ ] **3.6** A send queues a generation (Q14). **Blocked** until Module 7's owner publishes
       `QuotationSent`. *Verified by* a send leaving one `queued` generation in the sender's name, and
       a failed render leaving the quotation `sent`.
@@ -4032,11 +4038,14 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
       *(2026-09-27, #255 — `DealRowScope::reaches()` published in our `DealsContract`; the tests store a real
       file through `store()` and remove only the paths they wrote, since tests share the dev volume.)*
-- [ ] **4.2** `GET /api/v1/quotations/{quotation}/pdf` — what `OpenAPI §4.3` leaves to "the module
+- [x] **4.2** `GET /api/v1/quotations/{quotation}/pdf` — what `OpenAPI §4.3` leaves to "the module
       contract": the latest generation (`job_id`, `status`, `requested_at`, `completed_at`,
       `failure_reason`) and the latest completed file's id, under `quotation.export_pdf` at its
       scope. One object, not a list: Q4 serves the most recent, and earlier snapshots stay stored
       (`DB-01`) with no screen of their own. *Verified by* each status read back, and 4.1's role cases.
+
+      *(2026-09-28, #256 — `completed_at` only for a completed render; a failed one leaves the previous
+      file as `latest_file_id`; `QuotationPdfAccess` is now the one reach behind 4.1 and 4.2.)*
 
 ### Step 5 — the screen *(published and approved with Step 3, #236)*
 

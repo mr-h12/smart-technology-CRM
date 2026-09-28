@@ -3216,6 +3216,19 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             reads only the first 100 suppliers").
       - [ ] **1.3** A non-blocking warning when the typed total differs from the sum of the lines
             (`D-93`).
+      *1.4 and 1.5 added by the owner, 2026-09-28, from the owner's own screenshots of the form, with
+      priority: they run next, right after the point in progress (F-21), before F-22. F-24's 1.1–1.3
+      keep their place.*
+      - [ ] **1.4** The offer form's supplier is chosen by searching, like the customer on the deal form:
+            typing filters the list from the server. Today it is a closed `<select>`
+            (`SupplierQuotationFormModal.vue:578`) fed by the list screen's `perPage: 100` load; the
+            shared `SearchCombobox` already drives `CustomerPicker` (single) and `SupplierPicker`
+            (many). Closes 1.2's cap for the form, not for the list filter.
+      - [ ] **1.5** A line's product shows its whole name, both when picked and when typed by hand.
+            Today the product control is `min-w-40 flex-1` in one wrapping row with price (`w-32`),
+            quantity (`w-28`) and remove, inside a `max-w-xl` modal, so a name like
+            "ATEN Enterprise Solutions…" is cut, and a hand-typed name scrolls out of view as it is
+            typed.
 - [ ] **F-25** The catalog (E2-7, E2-8, E2-9, E2-10; `D-96`).
       - [ ] **1.1** The catalog list stops answering a misleading `suppliers: []`.
       - [ ] **1.2** "Company" marked required in the form (debt row "`company` is required on the server

@@ -13,7 +13,9 @@ use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Status\QuotationStatusTransition;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
+use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -30,6 +32,7 @@ final readonly class SendQuotation
         private DealOutcomeInterface $deals,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private Dispatcher $events,
     ) {}
 
     /**
@@ -41,7 +44,7 @@ final readonly class SendQuotation
      */
     public function send(string $quotationId, ?string $ifMatch, array $heldScopes, string $actorId): QuotationDetail
     {
-        return $this->connection->transaction(function () use ($quotationId, $ifMatch, $heldScopes, $actorId): QuotationDetail {
+        $sent = $this->connection->transaction(function () use ($quotationId, $ifMatch, $heldScopes, $actorId): QuotationDetail {
             $before = $this->access->open($quotationId, $ifMatch, $heldScopes, $actorId);
 
             if (! QuotationStatusTransition::isAllowed($before->status, 'sent')) {
@@ -66,5 +69,11 @@ final readonly class SendQuotation
 
             return $after;
         });
+
+        // After the commit, as `AuthenticateUser` dispatches `AccountLocked`:
+        // a send the deal refused rolls back and must not queue a PDF.
+        $this->events->dispatch(new QuotationSent($quotationId, $actorId));
+
+        return $sent;
     }
 }

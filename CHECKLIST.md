@@ -1323,12 +1323,21 @@ would hide them behind `OD-03` indefinitely.
       F-10's import rejects a value that is not in the `units` / `service_types` managed list (owner's
       ruling Q4). So a hand-typed value the import would refuse can be saved through the form. Existing
       rows are not measured for off-list values. Owner's call when to order.
-- [ ] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
+- [x] **deptrac reports one uncovered dependency: `EloquentSupplierItemQuantity` → `Ramsey\Uuid\Uuid`**
       — *revealed by F-09 Point 1.3, 2026-09-21; not fixed there, because the point moved the CSV
-      reader.* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
+      reader.* *(Closed 2026-09-28 with F-31 · 1.4: `Str::uuid7()`; `Uncovered 0` in both configs.)* `deptrac analyse --config-file=deptrac.layers.yaml --report-uncovered` names it on `main`
       too; it arrived with F-05 · 1.3 (`837c768`). The gates grep `Violations` (0), so an uncovered line
       never fails a build — the reason every other `App\Support` entry is named. The fix is one
       collector for `Ramsey\Uuid` (or `Str::uuid7()`, which the other adapters use), when ordered.
+- [ ] **Three writers still mint row ids as UUID v4, not the time-ordered v7 `D-61` requires** — *revealed
+      by F-31 · 1.4's waste audit, 2026-09-28; not fixed there, because the approved line names one adapter.*
+      Laravel's `Str::uuid()` is `Uuid::uuid4()` (`Illuminate/Support/Str.php:2076`), and deptrac covers
+      `Str`, so none showed as uncovered: `supplier_quotation_items`
+      (`EloquentSupplierQuotationDirectory.php:285`), `quotation_items` and `quotation_additional_items`
+      (`EloquentQuotationDirectory.php:690`, `writeChildren`), and `idempotency_keys`
+      (`DatabaseIdempotencyStore.php:44` — whether `D-61`'s "business table" covers it is the owner's call).
+      The fix is `Str::uuid7()` on each line; existing rows keep their keys. `AddRequestId.php:59`'s
+      `Str::uuid()` is a request id, not a key. Owner's call when to order.
 - [x] **Nothing runs the scheduler, so no scheduled job fires in the stack** — *revealed by the Module
       10 point list, 2026-09-23.* *(Closed 2026-09-23 with Module 10 · 2.1, #214: the `scheduler` service runs
       `quotations:expire` once, then `schedule:work`; `schedule:list` shows `J-15`, `J-02` and `J-01`.)* `routes/console.php` registers `J-15` and `J-02`, but no service in
@@ -3346,8 +3355,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-09-28, #262 — dispatched after `transaction()` returns, as `AccountLocked` is; the 422 rollback
             announces nothing; a Pdf probe: 1 deptrac violation before the collector, 0 after. The listener
             is Module 9 · 3.6)*
-      - [ ] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`
+      - [x] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`
             (`D-61`; deptrac's one uncovered dependency).
+            *(2026-09-28 — a test reads the guard row id's version digit; `Str::uuid()` and `orderedUuid()` both
+            fail it; deptrac `Uncovered` 1 → 0 in both configs)*
 
 ## Shell revisions — owner-directed
 

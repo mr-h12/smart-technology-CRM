@@ -6,8 +6,8 @@ namespace App\Modules\SupplierQuotations\Infrastructure;
 
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemQuantityInterface;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Ramsey\Uuid\Uuid;
 use RuntimeException;
 
 /**
@@ -39,7 +39,7 @@ final readonly class EloquentSupplierItemQuantity implements SupplierItemQuantit
             $guarded = $this->connection->select(
                 'insert into supplier_quotation_item_consumptions (id, supplier_quotation_item_id, idempotency_key, quantity, created_at) '
                 .'values (?, ?, ?, ?, now()) on conflict (idempotency_key) do nothing returning id',
-                [Uuid::uuid4()->toString(), $supplierQuotationItemId, $idempotencyKey, $quantity],
+                [Str::uuid7()->toString(), $supplierQuotationItemId, $idempotencyKey, $quantity],
             );
 
             if ($guarded === []) {

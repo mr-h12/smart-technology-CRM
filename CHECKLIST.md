@@ -3234,11 +3234,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             shared `SearchCombobox` already drives `CustomerPicker` (single) and `SupplierPicker`
             (many). Closes 1.2's cap for the form, not for the list filter. *(2026-09-28, #253 — searched
             on the server; an edit reads the name; each option's detail isolated for bidi (owner))*
-      - [ ] **1.5** A line's product shows its whole name, both when picked and when typed by hand.
+      - [x] **1.5** A line's product shows its whole name, both when picked and when typed by hand.
             Today the product control is `min-w-40 flex-1` in one wrapping row with price (`w-32`),
             quantity (`w-28`) and remove, inside a `max-w-xl` modal, so a name like
             "ATEN Enterprise Solutions…" is cut, and a hand-typed name scrolls out of view as it is
-            typed.
+            typed. *(2026-09-28, #254 — option C (owner): product and typed name each a whole row; the
+            name box grows, no line break; a picked item's whole name wraps under its field)*
 - [ ] **F-25** The catalog (E2-7, E2-8, E2-9, E2-10; `D-96`).
       - [ ] **1.1** The catalog list stops answering a misleading `suppliers: []`.
       - [ ] **1.2** "Company" marked required in the form (debt row "`company` is required on the server

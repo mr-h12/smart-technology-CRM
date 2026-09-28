@@ -128,22 +128,4 @@ final class PdfGenerationsTableTest extends TestCase
         self::assertSame(0, Artisan::call('migrate'));
         self::assertTrue(Schema::hasTable('pdf_generations'), 'The table did not come back.');
     }
-
-    /**
-     * @param  array<string, mixed>  $overrides
-     */
-    private function insertGeneration(array $overrides): string
-    {
-        $id = Uuid::uuid7()->toString();
-
-        DB::table('pdf_generations')->insert($overrides + [
-            'id' => $id,
-            'quotation_id' => $this->insertQuotation(),
-            'locale' => 'en',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $id;
-    }
 }

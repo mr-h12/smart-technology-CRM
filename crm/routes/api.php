@@ -22,6 +22,7 @@ use App\Modules\Identity\Presentation\PermissionController;
 use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
+use App\Modules\Pdf\Presentation\QuotationPdfController;
 use App\Modules\Quotations\Presentation\QuotationController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use App\Modules\SupplierQuotations\Presentation\SupplierQuotationController;
@@ -829,3 +830,12 @@ Route::middleware(['auth', 'permission:quotation.create'])
 // without `quotation.approve` is answered `approvals: 0`, not `403`. Not in
 // `OpenAPI §7`: flagged on the point list (#131) as a new requirement.
 Route::middleware('auth')->get('badges', [QuotationController::class, 'badges']);
+
+// Module 9 · 4.2 — the job status `OpenAPI §4.3` leaves to "the module
+// contract": one quotation's newest PDF generation and newest completed file,
+// under §3.5's *export/download PDF* row. `ReadQuotationPdf` narrows the grant
+// to the deal's owner under `own` and refuses `Asgn` by name (Q2).
+Route::middleware('auth')->prefix('quotations')->group(function (): void {
+    Route::get('/{quotation}/pdf', [QuotationPdfController::class, 'show'])
+        ->middleware('permission:quotation.export_pdf');
+});

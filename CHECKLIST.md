@@ -3334,7 +3334,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             (`PurchaseOrderDocumentEndpointTest`, `DealDocumentUploadTest`,
             `SupplierQuotationDocumentUploadEndpointTest`) deleted every `$root/*/*/<parent>/*/*` in the
             development volume (`DB-01`); the teammate named the first.
-            *(2026-09-28 — trait `RemovesOnlyFilesItStored`: what appeared after `setUp`; a sentinel under
+            *(2026-09-28, #259 — trait `RemovesOnlyFilesItStored`: what appeared after `setUp`; a sentinel under
             each parent deleted before, surviving after)*
       - [ ] **1.2** `StorageServiceInterface::storeContents()`, the same path rule as `store()`.
       - [ ] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and

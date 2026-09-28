@@ -18,6 +18,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
+import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 
 defineOptions({ inheritAttrs: false });
 
@@ -29,23 +30,7 @@ const model = defineModel<Picked[]>({ required: true });
 
 const { t } = useI18n();
 
-const KEYS = {
-    more: 'suppliers.picker.more',
-    forbidden: 'suppliers.picker.forbidden',
-    failed: 'suppliers.picker.failed',
-    empty: 'suppliers.picker.empty',
-    noMatch: 'suppliers.picker.noMatch',
-    retry: 'state.retry',
-};
-
 const chosen = computed(() => new Set(model.value.map((picked) => picked.id)));
-
-/** Contact and phone when present, then the inactive word — what tells two same-named suppliers apart. */
-function detail(supplier: Supplier): string {
-    return [supplier.contact_person, supplier.phone, supplier.is_active ? null : t('suppliers.status.inactive')]
-        .filter((part): part is string => typeof part === 'string' && part !== '')
-        .join(t('suppliers.picker.detailSeparator'));
-}
 
 function toggle(supplier: Picked | null): void {
     if (supplier === null) return;
@@ -61,7 +46,7 @@ function toggle(supplier: Picked | null): void {
         v-bind="$attrs"
         :test-id="testId"
         :search="listSuppliers"
-        :keys="KEYS"
+        :keys="SUPPLIER_KEYS"
         :selected="(supplier: Supplier) => chosen.has(supplier.id)"
         :disabled="disabled"
         :placeholder="t('suppliers.picker.placeholder')"
@@ -95,10 +80,10 @@ function toggle(supplier: Picked | null): void {
             <span>
                 <span class="block">{{ item.name }}</span>
                 <span
-                    v-if="detail(item) !== ''"
+                    v-if="supplierDetail(item, t) !== ''"
                     class="block text-sm text-[var(--color-text-muted)]"
                     :data-testid="`${testId}-option-detail`"
-                >{{ detail(item) }}</span>
+                >{{ supplierDetail(item, t) }}</span>
             </span>
         </template>
     </SearchCombobox>

@@ -966,7 +966,6 @@ onMounted(load);
         <SupplierQuotationFormModal
             :open="offerFormOpen"
             :editing="null"
-            :suppliers="suppliers"
             @saved="onOfferSaved"
             @cancel="offerFormOpen = false"
         />

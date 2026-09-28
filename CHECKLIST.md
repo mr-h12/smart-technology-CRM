@@ -3957,6 +3957,13 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
   event once the send commits, published in `QuotationsContract`, for `Pdf` to listen to — **3.6 is
   blocked on that request**, the way 2.2 waited on #219. The alternative keeps generation manual and
   records in a `D-xx` that Flow 1 step 8 is a second click.
+- **Q15 · the document's language** — *found while building 3.3, not in the list as approved; its default
+  ships as the others' did, and the owner may overrule it.* `CustomerQuotationHtml::render()` takes a
+  locale and nothing chose it: customers carry no language, and the company's own offer form
+  (`D-89`) is English while the application's default locale is Arabic. **Default: the generation
+  request names `ar` or `en`, falling back to the request's own locale (`Accept-Language`, `OpenAPI
+  §2`), and `pdf_generations.locale` records it.** The alternative — always the request's locale —
+  would make an Arabic-screen employee switch the whole interface to print an English offer.
 
 - [x] **3.1** `tests/Feature/Pdf` (47 tests on `main`, 48 with #228) and `tests/Feature/Support` (12)
       join the shard matrix (`php-image.yml:263-279`), and a test fails when a directory under
@@ -3979,7 +3986,7 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
       *(2026-09-27, #241 — `CatalogLineDescriptions`; a probe leaking the price and one removing the
       binding each turned their test red.)*
-- [ ] **3.3** `pdf_generations`, Pdf's own table: `id` (the `job_id` of `OpenAPI §4.3`),
+- [x] **3.3** `pdf_generations`, Pdf's own table: `id` (the `job_id` of `OpenAPI §4.3`),
       `quotation_id`, `status` (`queued` · `completed` · `failed`, a CHECK), nullable `file_id`,
       `attempts`, `failure_reason`, the audit columns with `created_by` as the requester, and
       `deleted_at` (`DB-01`); every foreign key declared (`DB-04`) and an index for "the latest for one
@@ -3987,6 +3994,10 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       so `D-77`'s split is still not forced** (1.0). *Verified by* up and down inside the suite (never
       a `migrate:*` against `crm`), the CHECK refusing an unknown status, and each key refusing an
       orphan.
+
+      *(2026-09-27, #242 — beyond the listed columns: `locale` (Q15) and `finished_at`, with four more
+      CHECKs tying the file, the reason and the end time to the status. No interface yet: its first
+      caller is 4.2, so it arrives there rather than as dead code here.)*
 - [ ] **3.4** The job, on the `pdf` queue: render the view it was handed, `store()` it under
       `AttachmentParent::Quotation`, write the `files` row, the `quotation_files` pivot and the
       generation's `file_id` in one transaction, scan (Q13), mark `completed`. **Idempotent

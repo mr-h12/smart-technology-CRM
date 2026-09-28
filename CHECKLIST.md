@@ -3343,7 +3343,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             old glob had; a full run now leaves the volume empty)*
       - [x] **1.3** `QuotationSent` (quotation id, sender id), dispatched once the send commits and
             published in `QuotationsContract`.
-            *(2026-09-28 — dispatched after `transaction()` returns, as `AccountLocked` is; the 422 rollback
+            *(2026-09-28, #262 — dispatched after `transaction()` returns, as `AccountLocked` is; the 422 rollback
             announces nothing; a Pdf probe: 1 deptrac violation before the collector, 0 after. The listener
             is Module 9 · 3.6)*
       - [ ] **1.4** `EloquentSupplierItemQuantity` takes `Str::uuid7()`, not `Ramsey\Uuid\Uuid::uuid4()`

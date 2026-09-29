@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Pdf\Presentation;
 
+use App\Modules\Pdf\Application\Generation\RequestQuotationPdf;
 use App\Modules\Pdf\Application\ReadQuotationPdf;
 use App\Modules\Pdf\Domain\Generation\PdfGeneration;
 use App\Support\Http\ApiEnvelope;
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
 use RuntimeException;
 
 /**
- * Module 9's HTTP surface on a quotation: `GET …/pdf` (4.2).
+ * Module 9's HTTP surface on a quotation: `GET …/pdf` (4.2) and `POST …/pdf` (3.5).
  */
 final class QuotationPdfController
 {
@@ -24,6 +25,20 @@ final class QuotationPdfController
             'generation' => $state['generation'] === null ? null : self::generation($state['generation']),
             'latest_file_id' => $state['latestFileId'],
         ]);
+    }
+
+    /**
+     * `OpenAPI §4.3`: `202` with the `job_id`, `queued` — not the file. The job
+     * is dispatched once the request is committed, so it never runs ahead of
+     * the row it works on.
+     */
+    public function generate(GenerateQuotationPdfRequest $request, string $quotation, RequestQuotationPdf $requestPdf): JsonResponse
+    {
+        $requested = $requestPdf->request($quotation, $request->documentLocale(), self::actorId($request));
+
+        RenderQuotationPdfJob::dispatch($requested['generationId'], $requested['view']);
+
+        return ApiEnvelope::single($request, ['job_id' => $requested['generationId'], 'status' => 'queued'], 202);
     }
 
     /** @return array<string, string|null> */

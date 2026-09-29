@@ -838,4 +838,10 @@ Route::middleware('auth')->get('badges', [QuotationController::class, 'badges'])
 Route::middleware('auth')->prefix('quotations')->group(function (): void {
     Route::get('/{quotation}/pdf', [QuotationPdfController::class, 'show'])
         ->middleware('permission:quotation.export_pdf');
+
+    // Module 9 · 3.5 — §3.5's *generate PDF* row: `RequestQuotationPdf` narrows the
+    // grant to the deal's owner under `own` and refuses `Asgn` and the Team
+    // Leader's `Team` by name (Q2, `D-a`); the answer is `OpenAPI §4.3`'s `202`.
+    Route::post('/{quotation}/pdf', [QuotationPdfController::class, 'generate'])
+        ->middleware('permission:quotation.generate_pdf');
 });

@@ -4106,7 +4106,7 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
       *(2026-09-28, #260 — `store()` is handed the bytes as a `data:` URL, so no Module 0 change and no
       temp file (the storeContents request is withdrawn); a real Chromium render, 356 KB, round-tripped.)*
-- [ ] **3.5** `POST /api/v1/quotations/{quotation}/pdf`, in our own block of `routes/api.php`, under
+- [x] **3.5** `POST /api/v1/quotations/{quotation}/pdf`, in our own block of `routes/api.php`, under
       `permission:quotation.generate_pdf`. The scope is the deal owner's (owner ruling 2026-09-11),
       read through `DealFactsInterface` and resolved by `DealRowScope` — published in our own
       `DealsContract`, not copied. The view is mapped here (Q10); the answer is `202` with `job_id`
@@ -4115,7 +4115,9 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
       Supervisor `403` (no grant); Procurement (`Asgn`, Q2) and the Team Leader (`Team`, `D-a`) `403`
       by name; a quotation outside an `Own` caller's reach `404`, which does not confirm it exists; an
       indescribable one `422`. *Verified by* those tests and `permission-matrix-auditor` on the PR.
-      **Waits on 3.4**, whose job it dispatches.
+
+      *(2026-09-29, #265 — the view is mapped at the press, so an unprintable quotation is a 422 worded
+      by its missing fact, and the panel now shows those words; the job leaves after the commit.)*
 - [ ] **3.6** A send queues a generation (Q14). **Blocked** until Module 7's owner publishes
       `QuotationSent`. *Verified by* a send leaving one `queued` generation in the sender's name, and
       a failed render leaving the quotation `sent`.

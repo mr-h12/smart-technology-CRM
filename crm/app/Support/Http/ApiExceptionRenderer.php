@@ -22,6 +22,7 @@ use App\Modules\Identity\Domain\Authentication\SessionRevocationRefused;
 use App\Modules\Identity\Domain\Impersonation\ImpersonationRefused;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
+use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
@@ -638,6 +639,19 @@ final class ApiExceptionRenderer
         $message = (string) __('quotations.errors.deal_not_ready_to_send');
 
         return ApiEnvelope::error($request, 422, 'business_rule_blocked', $message, [['code' => 'deal_not_ready_to_send', 'message' => $message]]);
+    }
+
+    /**
+     * Module 9 · 3.5: a quotation the customer's PDF cannot be printed from yet —
+     * Q10 maps the view when the button is pressed, so this is the request's
+     * answer, not a failure in the queue. `OpenAPI §5.1`'s 422
+     * `business_rule_blocked`, worded by the fact that is missing.
+     */
+    public static function pdfViewIncomplete(CustomerViewIncomplete $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('pdf.errors.incomplete.'.$exception->fact, ['lines' => implode(', ', $exception->lineNumbers)]);
+
+        return ApiEnvelope::error($request, 422, 'business_rule_blocked', $message, [['code' => 'pdf_view_incomplete', 'message' => $message]]);
     }
 
     /**

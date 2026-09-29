@@ -255,6 +255,19 @@ describe('the customer PDF on its quotation (Module 9 · 5.1)', () => {
         expect(wrapper.get('[data-testid="pdf-status"]').text()).toBe(en.pdf.panel.none);
     });
 
+    it('shows the server’s own words when the quotation cannot be printed yet (3.5’s 422)', async () => {
+        const blocked = 'The customer PDF cannot be made yet: the company name is not set in the system settings.';
+        const wrapper = await render(server([state(NONE)], () => json(422, {
+            error: { code: 'business_rule_blocked', message: blocked, details: [{ code: 'pdf_view_incomplete', message: blocked }] },
+            meta: { request_id: 'r1' },
+        })));
+
+        await wrapper.get('[data-testid="pdf-generate"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="pdf-error"]').text()).toBe(blocked);
+    });
+
     it('says so when the render cannot be asked for at all', async () => {
         const wrapper = await render(server([state(NONE)], () => json(500, { error: { code: 'internal_error', message: 'x' } })));
 

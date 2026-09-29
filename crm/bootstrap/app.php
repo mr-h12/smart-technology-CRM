@@ -28,6 +28,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\RoleAdministration\RoleAdministrationRefused;
 use App\Modules\Identity\Presentation\AuthorizePermission;
 use App\Modules\Identity\Presentation\VerifyPermissionMatrixCommand;
+use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
@@ -265,6 +266,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->renderable(
             fn (DealNotReadyToSend $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::dealNotReadyToSend($request)
+                : null,
+        );
+
+        // Module 9 · 3.5 — a quotation whose customer PDF cannot be printed yet.
+        $exceptions->renderable(
+            fn (CustomerViewIncomplete $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::pdfViewIncomplete($e, $request)
                 : null,
         );
 

@@ -86,9 +86,11 @@ use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
 use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
 use App\Modules\Pdf\Infrastructure\FilePdfAssets;
+use App\Modules\Pdf\Presentation\QueuePdfWhenQuotationSent;
 use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
+use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
@@ -630,6 +632,13 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             PasswordChallengeIssued::class,
             fn (PasswordChallengeIssued $event): null => $this->app->make(SendPasswordChallenge::class)->handle($event),
+        );
+
+        // Module 9 · 3.6 — Q14: a send queues the quotation's PDF (`D-90`), inside
+        // the sender's request, once Module 7's transaction has committed.
+        Event::listen(
+            QuotationSent::class,
+            fn (QuotationSent $event): null => $this->app->make(QueuePdfWhenQuotationSent::class)->handle($event),
         );
     }
 

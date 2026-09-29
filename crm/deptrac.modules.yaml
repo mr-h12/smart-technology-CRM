@@ -413,6 +413,12 @@ parameters:
         # imports shared; the namespace is named because it holds only these.
         - type: classLike
           value: ^App\\Support\\Csv\\.*
+        # `App\Support\Queue\QueueName` — §15.1's four queues as a type, which its
+        # own docblock names as the way to say one at an `->onQueue(...)` call site.
+        # Module 9 · 3.4's job is the first module class to name one; the enum
+        # alone, not the namespace, so the queue plumbing beside it stays out.
+        - type: classLike
+          value: ^App\\Support\\Queue\\QueueName$
 
     - name: Framework
       collectors:

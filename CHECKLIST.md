@@ -4118,9 +4118,12 @@ below is now the decision** — Q11's stated risk and Q13's amendment of Q5 incl
 
       *(2026-09-29, #265 — the view is mapped at the press, so an unprintable quotation is a 422 worded
       by its missing fact, and the panel now shows those words; the job leaves after the commit.)*
-- [ ] **3.6** A send queues a generation (Q14). **Blocked** until Module 7's owner publishes
+- [x] **3.6** A send queues a generation (Q14). **Blocked** until Module 7's owner publishes
       `QuotationSent`. *Verified by* a send leaving one `queued` generation in the sender's name, and
       a failed render leaving the quotation `sent`.
+
+      *(2026-09-29, #266 — `QuotationSent` arrived with F-31 · 1.3; the listener reuses 3.5's
+      `RequestQuotationPdf`, and a refusal or an unprintable quotation leaves the committed send alone.)*
 
 ### Step 4 — reading and downloading *(published and approved with Step 3, #236)*
 

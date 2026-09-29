@@ -810,6 +810,9 @@ parameters:
       # SharedContracts, Point 4.2 — the first controller: `ApiEnvelope`, the
       # response envelope every endpoint answers in (`OpenAPI §4.1`).
       - SharedContracts
+      # AuditContract, Point 3.5 — `QUOTATION_PDF_REQUESTED` through
+      # `AuditRecorderInterface`, with the caller as the actor. The contract half only.
+      - AuditContract
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

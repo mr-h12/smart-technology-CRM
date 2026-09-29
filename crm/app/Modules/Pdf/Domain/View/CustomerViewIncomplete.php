@@ -18,19 +18,27 @@ use RuntimeException;
  */
 final class CustomerViewIncomplete extends RuntimeException
 {
-    private function __construct(public readonly string $quotationId, public readonly string $reason)
-    {
+    /**
+     * @param  'company_name'|'customer_name'|'line_descriptions'  $fact  the missing fact, by name — what the 422 is worded by (3.5)
+     * @param  list<int>  $lineNumbers  the lines with no description, for `line_descriptions`
+     */
+    private function __construct(
+        public readonly string $quotationId,
+        public readonly string $reason,
+        public readonly string $fact,
+        public readonly array $lineNumbers = [],
+    ) {
         parent::__construct("Quotation {$quotationId} cannot be rendered for the customer: {$reason}.");
     }
 
     public static function companyName(string $quotationId): self
     {
-        return new self($quotationId, 'the company name is not set (§13 screen 4)');
+        return new self($quotationId, 'the company name is not set (§13 screen 4)', 'company_name');
     }
 
     public static function customerName(string $quotationId, string $customerId): self
     {
-        return new self($quotationId, "customer {$customerId} has no name to print");
+        return new self($quotationId, "customer {$customerId} has no name to print", 'customer_name');
     }
 
     /**
@@ -38,6 +46,6 @@ final class CustomerViewIncomplete extends RuntimeException
      */
     public static function lineDescriptions(string $quotationId, array $lineNumbers): self
     {
-        return new self($quotationId, 'no description for line(s) '.implode(', ', $lineNumbers));
+        return new self($quotationId, 'no description for line(s) '.implode(', ', $lineNumbers), 'line_descriptions', $lineNumbers);
     }
 }

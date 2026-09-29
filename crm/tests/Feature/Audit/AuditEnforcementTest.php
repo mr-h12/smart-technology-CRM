@@ -395,16 +395,18 @@ final class AuditEnforcementTest extends TestCase
                     .'and records DEAL_DOCUMENT_ATTACHED with the file id and original name. This is a '
                     .'persistence adapter with no actor and no event vocabulary.',
 
-            // Module 9 Point 3.4, seen for `->update(` beside an imported
-            // ConnectionInterface. The job's progress on one generation —
-            // the attempt count, the stored file's id, `completed` or
-            // `failed` — is the system's own record of work it was asked to
-            // do, not an actor's decision; the asking is 3.5's
-            // QUOTATION_PDF_REQUESTED, with the caller as the actor. The same
+            // Module 9 Points 3.4 and 3.5, seen for `->update(` and `->insert(`
+            // beside an imported ConnectionInterface. AUD-01 is satisfied one
+            // layer out for the insert: RequestQuotationPdf owns the transaction
+            // and records QUOTATION_PDF_REQUESTED with the caller as the actor.
+            // The updates are the job's progress on that request — the attempt
+            // count, the stored file's id, `completed` or `failed` — the
+            // system's own record, not an actor's decision: the same
             // disposition as DatabaseFileRepository's scan result above.
-            DatabasePdfGenerations::class => 'AUD-01 does not cover these writes by decision: they are the render job\'s '
-                    .'own progress on a request already audited as QUOTATION_PDF_REQUESTED, not an actor decision, '
-                    .'and each row carries the requester in DB-02\'s created_by / updated_by.',
+            DatabasePdfGenerations::class => 'AUD-01 is satisfied one layer out: RequestQuotationPdf records '
+                    .'QUOTATION_PDF_REQUESTED in the transaction that inserts the row. The updates are the render '
+                    .'job\'s own progress on that request, not an actor decision, and each row carries the '
+                    .'requester in DB-02\'s created_by / updated_by.',
         ];
     }
 

@@ -54,4 +54,16 @@ return [
 
     'closing' => 'Please do not hesitate to contact us in case you have any questions.',
     'regards' => 'Best Regards,',
+
+    'attributes' => [
+        'locale' => 'document language',
+    ],
+
+    'errors' => [
+        'incomplete' => [
+            'company_name' => 'The customer PDF cannot be made yet: the company name is not set in the system settings.',
+            'customer_name' => 'The customer PDF cannot be made yet: the quotation\'s customer has no name to print.',
+            'line_descriptions' => 'The customer PDF cannot be made yet: line(s) :lines have no description to print.',
+        ],
+    ],
 ];

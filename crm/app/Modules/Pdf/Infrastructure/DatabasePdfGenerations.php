@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Str;
 use stdClass;
 use UnexpectedValueException;
 
@@ -34,6 +35,24 @@ final readonly class DatabasePdfGenerations implements PdfGenerationsInterface
             ->value('file_id');
 
         return is_string($fileId) ? $fileId : null;
+    }
+
+    public function queue(string $quotationId, string $locale, string $actorId): string
+    {
+        $id = Str::uuid7()->toString();
+
+        $this->connection->table('pdf_generations')->insert([
+            'id' => $id,
+            'quotation_id' => $quotationId,
+            'locale' => $locale,
+            'status' => PdfGenerationStatus::Queued->value,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
     }
 
     public function find(string $id): ?PdfGeneration

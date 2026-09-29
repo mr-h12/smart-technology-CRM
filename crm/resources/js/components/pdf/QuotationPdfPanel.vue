@@ -49,6 +49,8 @@ const failed = ref(false);
 const requesting = ref(false);
 const downloading = ref(false);
 const errorKey = ref<string | null>(null);
+// 3.5's 422 names what is missing, already in the screen's language.
+const errorText = ref<string | null>(null);
 
 // Q15: the screen's language, unless the person picks the other one.
 const documentLocale = ref<PdfLocale>(locale.value === 'ar' ? 'ar' : 'en');
@@ -114,12 +116,17 @@ async function load(): Promise<void> {
 
 async function generate(): Promise<void> {
     errorKey.value = null;
+    errorText.value = null;
     requesting.value = true;
 
     try {
         await requestQuotationPdf(props.quotationId, documentLocale.value);
     } catch (error) {
-        errorKey.value = error instanceof ApiError && error.status === 403 ? 'pdf.panel.generateForbidden' : 'pdf.panel.generateFailed';
+        if (error instanceof ApiError && error.status === 422) {
+            errorText.value = error.message;
+        } else {
+            errorKey.value = error instanceof ApiError && error.status === 403 ? 'pdf.panel.generateForbidden' : 'pdf.panel.generateFailed';
+        }
         requesting.value = false;
 
         return;
@@ -134,6 +141,7 @@ async function generate(): Promise<void> {
 
 async function download(fileId: string): Promise<void> {
     errorKey.value = null;
+    errorText.value = null;
     downloading.value = true;
 
     try {
@@ -205,7 +213,7 @@ onBeforeUnmount(() => {
                 data-testid="pdf-failure-reason"
             >{{ pdf.generation.failure_reason }}</p>
 
-            <p v-if="errorKey !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="pdf-error">{{ t(errorKey) }}</p>
+            <p v-if="errorKey !== null || errorText !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="pdf-error">{{ errorKey !== null ? t(errorKey) : errorText }}</p>
 
             <div class="flex flex-wrap items-end gap-3">
                 <fieldset v-if="canGenerate" class="flex flex-col gap-1.5" data-testid="pdf-language">

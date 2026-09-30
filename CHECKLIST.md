@@ -485,7 +485,19 @@ would hide them behind `OD-03` indefinitely.
       `meta.pagination` is asserted only through endpoint fixtures that happen to be one page.
       Module 6's copy has `SupplierQuotationPageTest`; the other four are one small file each and
       belong to their own modules
-- [ ] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
+- [x] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
+      **Stale since the day it was written; corrected 2026-09-30 by F-23 · 1.2.** The owner answered
+      `OD-08` the same day, 2026-08-30: `SystemSettingsSeeder::insertSimilarityThreshold()` seeds
+      **`0.60`** and `CustomerWriteEndpointTest::test_that_the_seeded_threshold_warns_on_a_duplicate_and_stays_silent_otherwise`
+      proves the warning on that value (`checklist/module-03.md:1031`). The QA's E1-2 saw no warning
+      while *typing* and never saved — the warning is the save's answer (`SaveCustomer.php:100,154`).
+      **Measured on the 177 real names:** no pair of the 15,576 reaches 0.60; the highest unrelated
+      pair is **0.48** (two organisations sharing «الإسكندرية»); typed variants of real names score
+      1.00 (ى/ي, ة/ه, hamza, case), 0.80–0.81 (a dropped letter, a plural, "Co"), 0.78 (a dropped
+      «ال»), 0.70 (an added suffix) — all warn — and 0.50 (a dropped leading word) and 0.45 (an added
+      country) — both missed, inside the band unrelated pairs occupy (0.40–0.48), where no threshold
+      can separate them. The original text follows.
+
       *owner decision, 2026-08-30.* §10.2 asks for a warning when similarity is *"above the
       threshold"* and `OD-08` gives the threshold no value, saying only *"Empirical — tuned after
       the first 100 customers"*. `SystemLimit::CustomerSimilarityThreshold` is therefore the enum's
@@ -517,6 +529,17 @@ would hide them behind `OD-03` indefinitely.
       never been configured" / «خمسة من الستّة لم تُضبَط بعد», but there are seven limits, and how many
       are configured is data that changes (the dev stack holds two). The sentence should drop the
       count; the wording is the owner's.
+- [ ] **Comments, test docblocks and one hint still say the similarity threshold is unset** — *found
+      during F-23 · 1.2 (2026-09-30), listed by `waste-auditor`.* `0.60` has been seeded since
+      2026-08-30, but these still describe it as unvalued: `SaveCustomer.php:209` ("while `OD-08` is
+      unanswered") and `:226` ("`OD-08` is open and the limit is unseeded" — the `null` branch it
+      guards is still right, the reason is not); `CustomerWriteResult.php:17`;
+      `CustomerWriteEndpointTest.php:39-42` and `:123`; `SystemLimitEndpointTest.php:182-184` ("the
+      six nobody has valued", beside a body that treats it as valued). And F-23 · 1.1's hint (#269)
+      ends "Blank means no warning" / «فارغ = لا تنبيه» — but `UpdateSystemLimitsRequest` makes every
+      limit `required` when present, so a seeded threshold can never be blank. Words only, no
+      behaviour; the hint's wording is the owner's. (Frozen `checklist/module-03.md:537,726` say the
+      same and stay as history.)
 - [ ] **`RequestIdTest` fails at random when the generated id happens to contain `abc`** — *found on
       `main`'s merge CI for #269 (2026-09-30, run 36772321723, attempt 1; green on the rerun).*
       `test_a_rejected_correlation_id_never_appears_in_the_response` trims the `'a trailing newline'`
@@ -3314,7 +3337,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `en.json` holds. *(2026-09-30, #269 — the spec's fixture had frozen at six limits, so no test
             saw the seventh; label, hint and the 422's attribute name now in both languages (owner's wording))*
       - [ ] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
-            owner enters it on the limits screen** — configuration, not code.
+            owner enters it on the limits screen** — configuration, not code. **Restated with the owner,
+            2026-09-30:** `0.60` has been seeded since 2026-08-30, so the point scores every pair of the
+            177 names with the warning's own fold and `similarity()`, read-only; the owner keeps `0.60` or
+            enters another value; the stale "unseeded" debt row and `SystemLimit`'s docblock are corrected.
+            **The owner kept `0.60` (2026-10-01)** — nothing to enter.
 - [ ] **F-24** The supplier offer (E1-3, E1-4).
       - [ ] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
             form's deal field still takes a raw UUID").

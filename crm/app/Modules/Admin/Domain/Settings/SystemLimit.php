@@ -21,11 +21,12 @@ namespace App\Modules\Admin\Domain\Settings;
  * listing §13's five and omitting this one would leave the only live limit in
  * the system uneditable through the screen built to edit limits.
  *
- * **Five of the six are declared and deliberately unvalued.** `D-17` says the
+ * **§13's five are declared and deliberately unvalued.** `D-17` says the
  * stale-deal threshold is *"configurable in settings"* and stops; §11.5 says
- * the daily deadline comes *"from settings"* and stops. Nothing is seeded here,
- * for the reason `SystemSettingsSeeder` records: a default nobody wrote would
- * arrive as configuration and be read as fact.
+ * the daily deadline comes *"from settings"* and stops. None of the five is
+ * seeded, for the reason `SystemSettingsSeeder` records: a default nobody wrote
+ * would arrive as configuration and be read as fact. The lockout (`D-75`) and
+ * the similarity threshold (`OD-08`) are the two it does seed.
  *
  * ⚠️ **Two of the key names carry an inference, and it is named rather than
  * hidden.** §13 gives labels, not keys. `weekly_review_window_hours` reads
@@ -65,13 +66,12 @@ enum SystemLimit: string
      * "tuned later" cannot be a code constant (`AP-08`, and `CLAUDE.md`'s
      * "limits are not code constants"). Owner's decision, 2026-08-30.
      *
-     * **Unseeded, like the five above it.** `SystemSettingsSeeder`'s rule
-     * holds — *"a default nobody wrote would arrive as configuration and be
-     * read as fact"* — and `OD-08` is precisely the open question that would
-     * be. The visible cost, recorded rather than hidden: until an
-     * administrator sets a value, `D-35`'s duplicate warning never fires, and
-     * §10.2's acceptance criterion cannot pass. Nothing breaks, because D-35
-     * is a warning and never a block.
+     * **Seeded at `0.60`, the owner's answer to `OD-08` (2026-08-30)** —
+     * `SystemSettingsSeeder::insertSimilarityThreshold()` records the scores
+     * it was chosen against. On the 177 real customer names (F-23 · 1.2,
+     * 2026-09-30) no pair reaches it and the highest unrelated pair is 0.48.
+     * `UpdateSystemLimitsRequest` requires a value, so once seeded it can be
+     * changed but not cleared.
      */
     case CustomerSimilarityThreshold = 'limits.customer_similarity_threshold';
 

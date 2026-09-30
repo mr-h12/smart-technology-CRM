@@ -8,13 +8,14 @@ import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
 /**
  * Module 2, Point 5.3 — §13 screen 6, *Limits & SLAs*.
  *
- * ── Six, and the sixth is `D-75`'s ─────────────────────────────────────────
+ * ── Seven: §13's five, `D-75`'s sixth, `OD-08`'s seventh ───────────────────
  *
  * §13 names five — stale-deal threshold · daily report deadline · quotation
  * approval SLA · weekly review window · maximum file size — and `SystemLimit`
  * adds `identity.lockout_minutes`, which is the **only limit the documentation
  * values** and the only one with a live reader. A screen that drew §13's five
- * and omitted it would leave the one working limit uneditable.
+ * and omitted it would leave the one working limit uneditable. The seventh
+ * is `OD-08`'s similarity threshold (Module 3 Point 3.3).
  *
  * ── The server owns the list, the order and the units ──────────────────────
  *
@@ -40,6 +41,9 @@ const LIMITS = {
     'limits.weekly_review_window_hours': { value: null, unit: 'hours', value_type: 'integer' },
     'limits.max_file_size_mb': { value: null, unit: 'megabytes', value_type: 'integer' },
     'identity.lockout_minutes': { value: '30', unit: 'minutes', value_type: 'integer' },
+    // `OD-08`'s seventh (Module 3 Point 3.3), the server's own order — missing
+    // here until F-23 · 1.1, which is how its untranslated label went unseen.
+    'limits.customer_similarity_threshold': { value: null, unit: null, value_type: 'decimal' },
 };
 
 function json(status: number, body: unknown): Response {
@@ -83,6 +87,7 @@ describe('SystemLimitsView', () => {
             'limits.weekly_review_window_hours',
             'limits.max_file_size_mb',
             'identity.lockout_minutes',
+            'limits.customer_similarity_threshold',
         ]);
     });
 
@@ -335,7 +340,7 @@ describe('SystemLimitsView', () => {
 
         const fields = view.findAll('[data-limit-key]');
 
-        expect(fields).toHaveLength(6);
+        expect(fields).toHaveLength(7);
 
         const hints: Record<string, string> = en.limits.hint;
 
@@ -348,6 +353,26 @@ describe('SystemLimitsView', () => {
             // a key that resolves to itself passes a prefix check.
             expect(hint.text()).toBe(hints[key.replace('.', '_')]);
             expect(field.get('input').attributes('aria-describedby')).toBe(`hint-${key}`);
+        }
+    });
+
+    /** F-23 · 1.1 — the label was the raw key `limits.field.limits_customer_similarity_threshold`. */
+    it('labels the similarity threshold in words in both locales', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        for (const [locale, words, messages] of [['en', 'Similar-name threshold', en], ['ar', 'حدّ تشابه الأسماء', ar]] as const) {
+            const view = render(locale);
+            await flushPromises();
+
+            const row = view.get('[data-limit-key="limits.customer_similarity_threshold"]');
+
+            expect(row.text()).toContain(words);
+            expect(row.text()).not.toContain('limits.');
+            // Exact, and in each locale's own words: a missing Arabic hint falls
+            // back to the English one, which a prefix check cannot tell apart.
+            expect(row.get('[data-testid="limit-hint"]').text())
+                .toBe(messages.limits.hint.limits_customer_similarity_threshold);
+            view.unmount();
         }
     });
 

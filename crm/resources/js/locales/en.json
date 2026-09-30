@@ -462,7 +462,8 @@
             "limits_quotation_approval_sla_hours": "Quotation approval SLA",
             "limits_weekly_review_window_hours": "Weekly review window",
             "limits_max_file_size_mb": "Maximum file size",
-            "identity_lockout_minutes": "Account lockout duration"
+            "identity_lockout_minutes": "Account lockout duration",
+            "limits_customer_similarity_threshold": "Similar-name threshold"
         },
         "unit": {
             "days": "days",
@@ -480,7 +481,8 @@
             "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it counts as overdue.",
             "limits_weekly_review_window_hours": "How many hours the weekly review stays open.",
             "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
-            "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again."
+            "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again.",
+            "limits_customer_similarity_threshold": "How alike a new customer's name must be to an existing one before saving warns about a possible duplicate: a number above 0, up to 1. Higher means the names must be closer. Blank means no warning."
         }
     },
     "lists": {

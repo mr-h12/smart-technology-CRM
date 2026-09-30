@@ -2,7 +2,7 @@
 /**
  * §13 screen 6 — *Limits & SLAs*.
  *
- * ── Six, and the sixth is `D-75`'s ─────────────────────────────────────────
+ * ── Seven: §13's five, `D-75`'s sixth, `OD-08`'s seventh ───────────────────
  *
  * §13 names five: stale-deal threshold · daily report deadline · quotation
  * approval SLA · weekly review window · maximum file size. `SystemLimit` adds
@@ -11,6 +11,9 @@
  * live reader (`AuthenticateUser`, on every failed login), and a screen that
  * drew §13's five without it would leave the one working limit in the system
  * uneditable through the screen built to edit limits.
+ *
+ * The seventh is `OD-08`'s customer-name similarity threshold (Module 3
+ * Point 3.3): a decimal with no unit, drawn here like the rest.
  *
  * ── The server owns the list, the order and the units ──────────────────────
  *

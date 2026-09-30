@@ -46,6 +46,7 @@ return [
             'limits_weekly_review_window_hours' => 'نافذة المراجعة الأسبوعيّة',
             'limits_max_file_size_mb' => 'الحدّ الأقصى لحجم الملفّ',
             'identity_lockout_minutes' => 'مدّة قفل الحساب',
+            'limits_customer_similarity_threshold' => 'حدّ تشابه الأسماء',
         ],
     ],
 

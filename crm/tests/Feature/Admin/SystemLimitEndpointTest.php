@@ -407,6 +407,33 @@ final class SystemLimitEndpointTest extends TestCase
         self::assertSame('limits.identity.lockout_minutes', $response->json('error.details.0.field'));
     }
 
+    /**
+     * F-23 · 1.1 — `OD-08`'s seventh limit had no attribute name in either
+     * lang file, so a refused value read *"The
+     * admin.limits.attributes.limits_customer_similarity_threshold field…"*.
+     * `1.5` is refused by `SystemLimit::rule()`: no score can reach it.
+     */
+    public function test_that_the_similarity_threshold_refusal_names_the_limit_in_words(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        foreach (['en' => 'similar-name threshold', 'ar' => 'حدّ تشابه الأسماء'] as $locale => $words) {
+            $response = $this->patchJson(
+                self::ENDPOINT,
+                ['limits' => ['limits.customer_similarity_threshold' => '1.5']],
+                $bearer + ['Accept-Language' => $locale],
+            )->assertStatus(422);
+
+            $message = $response->json('error.details.0.message');
+
+            self::assertIsString($message);
+            self::assertStringNotContainsString('admin.', $message, $locale);
+            self::assertStringNotContainsString('limits.', $message, $locale);
+            self::assertStringContainsString($words, $message, $locale);
+            self::assertSame('limits.limits.customer_similarity_threshold', $response->json('error.details.0.field'));
+        }
+    }
+
     /** §13 screen 6 is a form, not a resource collection — no create, no delete. */
     public function test_that_the_resource_carries_no_create_or_delete_verb(): void
     {

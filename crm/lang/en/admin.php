@@ -54,6 +54,7 @@ return [
             'limits_weekly_review_window_hours' => 'weekly review window',
             'limits_max_file_size_mb' => 'maximum file size',
             'identity_lockout_minutes' => 'account lockout duration',
+            'limits_customer_similarity_threshold' => 'similar-name threshold',
         ],
     ],
 

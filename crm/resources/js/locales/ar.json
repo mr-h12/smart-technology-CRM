@@ -462,7 +462,8 @@
             "limits_quotation_approval_sla_hours": "مهلة اعتماد عرض السعر",
             "limits_weekly_review_window_hours": "نافذة المراجعة الأسبوعيّة",
             "limits_max_file_size_mb": "الحدّ الأقصى لحجم الملفّ",
-            "identity_lockout_minutes": "مدّة قفل الحساب"
+            "identity_lockout_minutes": "مدّة قفل الحساب",
+            "limits_customer_similarity_threshold": "حدّ تشابه الأسماء"
         },
         "unit": {
             "days": "يوماً",
@@ -480,7 +481,8 @@
             "limits_quotation_approval_sla_hours": "كم ساعة يجوز أن ينتظر الاعتماد قبل أن يُعَدّ متأخّراً.",
             "limits_weekly_review_window_hours": "كم ساعة تبقى المراجعة الأسبوعيّة مفتوحة.",
             "limits_max_file_size_mb": "أكبر ملفّ يجوز لأيّ شخص إرفاقه، بالميغابايت. 10 تعني أنّ ملفّاً بحجم 10 ميغابايت مقبول وما زاد عنه يُرفض.",
-            "identity_lockout_minutes": "كم دقيقة يبقى الحساب مقفلاً بعد خمس كلمات مرور خاطئة متتالية، قبل أن يستطيع صاحبه المحاولة مرّة أخرى."
+            "identity_lockout_minutes": "كم دقيقة يبقى الحساب مقفلاً بعد خمس كلمات مرور خاطئة متتالية، قبل أن يستطيع صاحبه المحاولة مرّة أخرى.",
+            "limits_customer_similarity_threshold": "مدى التشابه الذي يجعل حفظ عميل يُنبّه إلى اسم مشابه موجود: رقم أكبر من 0 وحتى 1. كلّما ارتفع وجب أن يكون الاسمان أشدّ تشابهاً. فارغ = لا تنبيه."
         }
     },
     "lists": {

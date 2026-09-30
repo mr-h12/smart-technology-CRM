@@ -497,6 +497,26 @@ would hide them behind `OD-03` indefinitely.
       decides"*, so an absent warning is a save that goes through, which is what it does today
       anyway. Closing it is one row in `system_limits`; the measured gap the value sits in is
       **0.09 for two unrelated Arabic company names against 1.00 for a folded duplicate**
+- [ ] **The similarity threshold gets no number keypad on a phone** — *owner, 2026-09-30, during
+      F-23 · 1.1.* `SystemLimitsView.vue` sets `inputmode="numeric"` only for `value_type`
+      `integer`; `OD-08`'s threshold is `decimal`, so a phone opens the full keyboard for a value like
+      `0.4`. One line (`inputmode="decimal"`) and one assertion in the keypad test.
+- [ ] **§10.2 says "above the threshold"; the query matches at or above it** — *found during
+      F-23 · 1.1 (2026-09-30).* `EloquentCustomerDirectory` filters `similarity(…) >= ?`, so a score
+      equal to the threshold warns where §10.2's wording would not. Harmless for a warning-only rule
+      (`D-35`), but the two should agree before F-23 · 1.2 proposes a value; which one moves is the
+      owner's call.
+- [ ] **No test ties `SystemLimit::cases()` to its lang keys** — *found by `waste-auditor` during
+      F-23 · 1.1 (2026-09-30).* The seventh case shipped on 2026-08-30 with no label, hint or
+      attribute name in either language, and nothing failed: `SystemLimit::cases()` appears in no test,
+      and `SystemLimitsView.spec`'s fixture had frozen at six. One backend test looping the cases over
+      `admin.limits.attributes.*` and both SPA locales' `limits.field|hint.*` would make an eighth limit
+      fail in CI instead of in front of a person.
+- [ ] **The limits section's subtitle states a count that is no longer true** — *found by
+      `rtl-ui-verifier` during F-23 · 1.1 (2026-09-30).* `limits.subtitle` says "Five of the six have
+      never been configured" / «خمسة من الستّة لم تُضبَط بعد», but there are seven limits, and how many
+      are configured is data that changes (the dev stack holds two). The sentence should drop the
+      count; the wording is the owner's.
 - [ ] **The duplicate warning is row-scoped, so two callers with disjoint scopes can each create the
       same customer** — *decided in Point 3.3, and it is a trade, not an oversight.* §10.2 wants the
       warning to **list** the similar customers; `SEC-08` says a caller may not see a row outside

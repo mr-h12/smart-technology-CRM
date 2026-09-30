@@ -88,7 +88,7 @@ describe('the field explanations', () => {
     it.each([['en', en], ['ar', ar]] as const)('%s carries every hint this screen renders', (_name, bundle) => {
         // Assert the count, not merely that the loop ran: an empty scan passes
         // every assertion below it and proves nothing.
-        expect(hints(bundle)).toHaveLength(23);
+        expect(hints(bundle)).toHaveLength(24);
     });
 
     it.each([['en', en], ['ar', ar]] as const)('%s cites no decision or section number', (_name, bundle) => {

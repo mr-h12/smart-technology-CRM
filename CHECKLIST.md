@@ -3302,9 +3302,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             (`D-97`).
 - [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
       declared and unseeded, so `D-35`'s warning never fires").
-      - [ ] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds
+      - [x] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds
             `limits.field|hint.limits_customer_similarity_threshold`, which neither `ar.json` nor
-            `en.json` holds.
+            `en.json` holds. *(2026-09-30, #269 — the spec's fixture had frozen at six limits, so no test
+            saw the seventh; label, hint and the 422's attribute name now in both languages (owner's wording))*
       - [ ] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
             owner enters it on the limits screen** — configuration, not code.
 - [ ] **F-24** The supplier offer (E1-3, E1-4).

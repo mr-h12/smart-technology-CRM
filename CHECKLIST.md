@@ -486,7 +486,7 @@ would hide them behind `OD-03` indefinitely.
       Module 6's copy has `SupplierQuotationPageTest`; the other four are one small file each and
       belong to their own modules
 - [x] **`OD-08`'s similarity threshold is declared and unseeded, so `D-35`'s warning never fires** —
-      **Stale since the day it was written; corrected 2026-09-30 by F-23 · 1.2.** The owner answered
+      **Stale since the day it was written; corrected 2026-09-30 by F-23 · 1.2 (#271).** The owner answered
       `OD-08` the same day, 2026-08-30: `SystemSettingsSeeder::insertSimilarityThreshold()` seeds
       **`0.60`** and `CustomerWriteEndpointTest::test_that_the_seeded_threshold_warns_on_a_duplicate_and_stays_silent_otherwise`
       proves the warning on that value (`checklist/module-03.md:1031`). The QA's E1-2 saw no warning
@@ -3330,18 +3330,19 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             Arabic CSV measured `text/csv`; an empty file keeps its own message (owner))*
       - [~] **1.3** The three import screens accept `.xlsx`. — **withdrawn by the owner, 2026-09-27**
             (`D-97`).
-- [ ] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
+- [x] **F-23** The similar-name warning works (E1-2, E4-1; debt row "`OD-08`'s similarity threshold is
       declared and unseeded, so `D-35`'s warning never fires").
       - [x] **1.1** The threshold's field, hint and error translated: `SystemLimitsView.vue` builds
             `limits.field|hint.limits_customer_similarity_threshold`, which neither `ar.json` nor
             `en.json` holds. *(2026-09-30, #269 — the spec's fixture had frozen at six limits, so no test
             saw the seventh; label, hint and the 422's attribute name now in both languages (owner's wording))*
-      - [ ] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
+      - [x] **1.2** Similarity measured on the 177 real customer names and a threshold proposed; **the
             owner enters it on the limits screen** — configuration, not code. **Restated with the owner,
             2026-09-30:** `0.60` has been seeded since 2026-08-30, so the point scores every pair of the
             177 names with the warning's own fold and `similarity()`, read-only; the owner keeps `0.60` or
             enters another value; the stale "unseeded" debt row and `SystemLimit`'s docblock are corrected.
-            **The owner kept `0.60` (2026-10-01)** — nothing to enter.
+            **The owner kept `0.60` (2026-10-01)** — nothing to enter. *(2026-10-01, #271 — no pair of
+            15,576 reaches 0.60; the highest unrelated pair is 0.48; E1-2 typed and never saved)*
 - [ ] **F-24** The supplier offer (E1-3, E1-4).
       - [ ] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
             form's deal field still takes a raw UUID").

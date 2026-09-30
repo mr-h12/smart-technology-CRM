@@ -42,7 +42,8 @@
  * date for Accepted; Partial and Counter open the draft the server copied.
  * An Expired quotation is only rejected, "no response" offered (§10.5). The
  * order an acceptance wrote is drawn by `QuotationPurchaseOrder` (3.3), with
- * its files and their upload. Approve, return and PDF are Modules 8–9.
+ * its files and their upload; the customer PDF by Module 9's panel (5.2).
+ * Approve and return are Module 8.
  * The supplier behind a line is not named: the line carries
  * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
  * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
@@ -51,6 +52,7 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
+import QuotationPdfPanel from '@/components/pdf/QuotationPdfPanel.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -609,6 +611,9 @@ onMounted(refresh);
 
             <!-- §4.6: the order `accepted` wrote, keyed so a reload of another quotation re-reads its files. -->
             <QuotationPurchaseOrder v-if="quotation.purchase_order" :key="quotation.purchase_order.id" :order="quotation.purchase_order" />
+
+            <!-- Module 9 · 5.2: the customer PDF. Keyed on the status, because it reads on mount and a send queues one (Q14). -->
+            <QuotationPdfPanel :key="quotation.status" :quotation-id="quotation.id" :quotation-code="quotation.code" />
 
             <!-- §7.2: the lines, with the cost group only when the body carries it. -->
             <section class="flex flex-col gap-2" data-testid="quotation-lines">

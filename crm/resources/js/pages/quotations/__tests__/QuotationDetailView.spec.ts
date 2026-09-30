@@ -5,7 +5,11 @@ import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import { createAppRouter } from '@/router';
+import { downloadFile } from '@/services/files';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
+
+// The save gesture needs an object URL, which jsdom lacks; the name it is given is what matters.
+vi.mock('@/services/files', () => ({ downloadFile: vi.fn(async () => undefined) }));
 
 /**
  * Module 7, Point 6.5 — one quotation, as `GET /quotations/{id}` answers it.
@@ -108,6 +112,17 @@ const USER: AuthenticatedUser = {
 
 const READER: AuthenticatedUser = { ...USER, id: 'u2', permissions: ['quotation.view.all'] };
 
+/** `GET /quotations/{id}/pdf` (Module 9 · 4.2), as the panel reads it. */
+const NO_PDF = { generation: null, latest_file_id: null };
+const QUEUED_PDF = {
+    generation: { job_id: 'j1', status: 'queued', requested_at: '2026-09-13T10:00:00+00:00', completed_at: null, failure_reason: null },
+    latest_file_id: null,
+};
+const COMPLETED_PDF = {
+    generation: { ...QUEUED_PDF.generation, status: 'completed', completed_at: '2026-09-13T10:00:05+00:00' },
+    latest_file_id: 'f2',
+};
+
 function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
     return { data, meta: { request_id: 'r1', ...extra } };
 }
@@ -117,8 +132,10 @@ function respond(options: {
     status?: number;
     warnings?: unknown[];
     action?: (url: string, init?: RequestInit) => Response | null;
+    pdf?: unknown[];
 } = {}): ReturnType<typeof vi.fn> {
-    const { quotation = QUOTATION, status = 200, warnings = [], action } = options;
+    const { quotation = QUOTATION, status = 200, warnings = [], action, pdf = [NO_PDF] } = options;
+    let pdfServed = 0;
 
     return vi.fn(async (input: string, init?: RequestInit) => {
         const url = String(input);
@@ -134,6 +151,14 @@ function respond(options: {
 
         if (init?.method !== undefined && init.method !== 'GET') {
             return action?.(url, init) ?? json(500, { error: { code: 'unexpected' }, meta: { request_id: 'r1' } });
+        }
+
+        // Module 9 · 5.2's panel reads its quotation's PDF state on its own; the last answer repeats.
+        if (url.endsWith('/pdf')) {
+            const answer = pdf[Math.min(pdfServed, pdf.length - 1)];
+            pdfServed += 1;
+
+            return json(200, envelope(answer));
         }
 
         return status === 200
@@ -631,6 +656,63 @@ describe('the quotation detail view', () => {
             expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
 
             expect(writes(fetchMock)).toHaveLength(0);
+        });
+    });
+
+    // ─────────────────────────────── Module 9 · 5.2: the customer PDF on the page
+
+    describe('the customer PDF panel on the page (Module 9 · 5.2)', () => {
+        /** §3.5: the export row is what draws the panel; the sales roles hold it `Own`. */
+        const EXPORTER: AuthenticatedUser = { ...USER, id: 'u3', permissions: [...USER.permissions, 'quotation.export_pdf.own'] };
+
+        function pdfReads(fetchMock: ReturnType<typeof vi.fn>): number {
+            return fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/quotations/q1/pdf')).length;
+        }
+
+        beforeEach(() => {
+            vi.mocked(downloadFile).mockClear();
+        });
+
+        it('draws the panel for this quotation, and downloads under its code, when the caller holds quotation.export_pdf', async () => {
+            const fetchMock = respond({ pdf: [COMPLETED_PDF] });
+            const { wrapper } = await render(fetchMock, EXPORTER);
+
+            expect(wrapper.find('[data-testid="quotation-pdf-panel"]').exists()).toBe(true);
+            expect(pdfReads(fetchMock)).toBe(1);
+            expect(wrapper.get('[data-testid="pdf-status"]').text()).toBe(en.pdf.panel.ready);
+
+            await wrapper.get('[data-testid="pdf-download"]').trigger('click');
+            await flushPromises();
+            expect(downloadFile).toHaveBeenCalledWith('f2', 'QT-2026-0001.pdf');
+        });
+
+        it('draws no panel, and asks for no PDF state, without quotation.export_pdf (the Outdoor Supervisor)', async () => {
+            const fetchMock = respond();
+            const { wrapper } = await render(fetchMock, USER);
+
+            expect(wrapper.find('[data-testid="quotation-pdf-panel"]').exists()).toBe(false);
+            expect(pdfReads(fetchMock)).toBe(0);
+        });
+
+        it('reads the PDF state again after Send, so the render the send queued shows (Q14)', async () => {
+            const sender: AuthenticatedUser = { ...EXPORTER, permissions: [...EXPORTER.permissions, 'quotation.send_to_customer.own'] };
+            const fetchMock = respond({
+                quotation: { ...QUOTATION, status: 'approved' },
+                pdf: [NO_PDF, QUEUED_PDF],
+                action: (url, init) =>
+                    url.endsWith('/send') && init?.method === 'PATCH' ? json(200, envelope({ ...QUOTATION, status: 'sent', etag: '"v2"' })) : null,
+            });
+            const { wrapper } = await render(fetchMock, sender);
+            expect(wrapper.get('[data-testid="pdf-status"]').text()).toBe(en.pdf.panel.none);
+
+            await wrapper.get('[data-testid="quotation-action-send"]').trigger('click');
+            await flushPromises();
+
+            expect(pdfReads(fetchMock)).toBe(2);
+            expect(wrapper.get('[data-testid="pdf-status"]').text()).toBe(en.pdf.panel.queued);
+
+            // A queued render polls; unmounting stops it before the next test.
+            wrapper.unmount();
         });
     });
 });

@@ -517,6 +517,13 @@ would hide them behind `OD-03` indefinitely.
       never been configured" / «خمسة من الستّة لم تُضبَط بعد», but there are seven limits, and how many
       are configured is data that changes (the dev stack holds two). The sentence should drop the
       count; the wording is the owner's.
+- [ ] **`RequestIdTest` fails at random when the generated id happens to contain `abc`** — *found on
+      `main`'s merge CI for #269 (2026-09-30, run 36772321723, attempt 1; green on the rerun).*
+      `test_a_rejected_correlation_id_never_appears_in_the_response` trims the `'a trailing newline'`
+      row (`"abc\n"`) to `abc` and asserts it appears nowhere in the response — but the server's
+      replacement is a random UUID, and `a`, `b`, `c` are hex digits: `…-6fbf5f`**`abc`**`e07` failed
+      the `quotations-deals` shard and skipped `publish`. The server was right; the needle is one a UUID
+      can contain (≈0.7% of runs). **Fix, one line:** a value no UUID or body can hold, e.g. `"xyz\n"`.
 - [ ] **The duplicate warning is row-scoped, so two callers with disjoint scopes can each create the
       same customer** — *decided in Point 3.3, and it is a trade, not an oversight.* §10.2 wants the
       warning to **list** the similar customers; `SEC-08` says a caller may not see a row outside

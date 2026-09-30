@@ -98,7 +98,7 @@ from fighting over the same eleven files.
 | **6 — Supplier Quotations** | Yousef | **finished** — 31 of 32 boxes, archived in `checklist/module-06.md` |
 | **7 — Customer Quotations** | Yousef | **finished** — 57 of 57 boxes, closed 2026-09-14 (#129), archived in `checklist/module-07.md`. *Row added 2026-09-12; the module had been built since 2026-09-07 without one.* |
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
-| **9 — PDF Generation** | second developer | **finished** — 23 of 30 boxes (6 `[~]`; 5.2 open, Module 7's line), Steps 1–5 on #116–#266, closed 2026-09-29, archived in `checklist/module-09.md` |
+| **9 — PDF Generation** | second developer | **finished** — 24 of 30 boxes (6 `[~]`; 5.2, Module 7's line, on #268), Steps 1–5 on #116–#268, closed 2026-09-29, archived in `checklist/module-09.md` |
 | **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
@@ -3732,15 +3732,18 @@ etag-write flow ×3, `RequestIdTest` flake) live in the register above.
 
 ## Module 9 — PDF Generation
 
-**Closed 23 of 30 boxes** (6 at `[~]`, 1 open) · full point history: [checklist/module-09.md](checklist/module-09.md) ·
+**Closed 24 of 30 boxes** (6 at `[~]`) · full point history: [checklist/module-09.md](checklist/module-09.md) ·
 Arabic manual test list handed over 2026-09-29 (#267), without the owner's prior approval — the owner's
 instruction was to close now.
 
-Still open — the live copies of the seven boxes not yet `[x]`:
+Still open — the live copies of the six boxes not yet `[x]`; 5.2 is ticked in place:
 
-- [ ] **5.2** The panel on the quotation page: one import and one element in `QuotationDetailView.vue`,
+- [x] **5.2** The panel on the quotation page: one import and one element in `QuotationDetailView.vue`,
       beside `QuotationPurchaseOrder` (`:611`). **Module 7's owner's line** (the per-module rule); 3.5 has
       landed, so it can go in now.
+
+      *(2026-09-30, #268 — keyed on the status, so the PDF a Send queues shows without a reload; items 7, 9
+      and 15 of the manual list seen on the dev stack.)*
 - [~] **5.1** The panel's Browser-MCP pass — the extension was not connected; the check ran in headless
       Chrome over the DevTools protocol instead (#258, #265).
 - [~] **2.5** Live page numbering — until an eye has read the samples (2.7).

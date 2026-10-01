@@ -1231,7 +1231,7 @@ would hide them behind `OD-03` indefinitely.
       puts them on it; the row names still need the supplier names port.
       *F-24 · 1.4 (2026-09-28, #253) put the form's picker on it:* the form searches the server and no
       longer takes this list. Two of the three remain: the filter (`:263`, F-24 · 1.2) and the row names.
-      *F-24 · 1.2 (2026-10-01) put the filter on it:* the filter searches the server, «كل المورّدين»
+      *F-24 · 1.2 (2026-10-01, #273) put the filter on it:* the filter searches the server, «كل المورّدين»
       first. One of the three remains: the row names, F-24 · 1.6 (the owner's ruling, 2026-10-01).
 - [ ] **`CustomerPicker`'s option detail can draw its parts in the wrong order on the English screen** —
       *revealed by F-24 · 1.4, 2026-09-28; registered, not fixed, by the owner's ruling.*
@@ -1247,7 +1247,7 @@ would hide them behind `OD-03` indefinitely.
       without the isolates). One `isolatedDetail(parts, separator)` beside `SearchCombobox` is the fix,
       best taken with the row above; it could also retire the three `*.picker.detailSeparator` keys,
       `" · "` in both languages for customers, suppliers and deals.
-      *F-24 · 1.2 (2026-10-01) wrote the supplier option's markup a third time:* the name and the muted
+      *F-24 · 1.2 (2026-10-01, #273) wrote the supplier option's markup a third time:* the name and the muted
       detail line, at `SupplierPicker.vue:79-88`, `SupplierQuotationFormModal.vue:663-670` and
       `SupplierQuotationsView.vue:283-286`, the owner's choice of an inline filter over a
       single-supplier picker. One supplier option beside `supplierOptions.ts` would hold all three.
@@ -3384,9 +3384,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
             form's deal field still takes a raw UUID"). *(2026-10-01, #272 — the owner chose the picker
             (A): `GET /deals` searched by code or title, the code shown, `deal_id` sent, «بدون صفقة» unlinks)*
-      - [ ] **1.2** The suppliers list, filter and picker without the 100 cap
+      - [x] **1.2** The suppliers list, filter and picker without the 100 cap
             (`SupplierQuotationsView.vue` reads `perPage: 100`; debt row "The supplier-quotations screen
-            reads only the first 100 suppliers").
+            reads only the first 100 suppliers"). *(2026-10-01, #273 — the filter alone (owner): searched
+            on the server, «كل المورّدين» first, a pick goes back to page 1; the row names are 1.6)*
       - [ ] **1.3** A non-blocking warning when the typed total differs from the sum of the lines
             (`D-93`).
       *1.4 and 1.5 added by the owner, 2026-09-28, from the owner's own screenshots of the form, with

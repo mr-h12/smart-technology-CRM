@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Pdf\Application;
 
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
 use App\Modules\Pdf\Domain\View\CustomerQuotationView;
 use Illuminate\Contracts\Translation\Translator;
@@ -25,9 +26,10 @@ use InvalidArgumentException;
  *
  * ── The template receives nothing it could misuse ─────────────────────────
  *
- * It gets the view, the two `data:` URIs, the font CSS and `$t`. It is handed
- * no repository, no request and no quotation of Module 7's, so a template
- * cannot reach past the model 1.1 built to be safe.
+ * It gets the view, the `data:` URIs, the font CSS, `$t` and the three
+ * display formatters (`ltr`, `money`, `plain`). It is handed no repository,
+ * no request and no quotation of Module 7's, so a template cannot reach past
+ * the model 1.1 built to be safe.
  */
 final readonly class CustomerQuotationHtml
 {
@@ -112,6 +114,15 @@ final readonly class CustomerQuotationHtml
             // invisible text rather than markup, so Blade still escapes the
             // value itself.
             'ltr' => static fn (?string $value): string => $value === null ? '' : "\u{2066}{$value}\u{2069}",
+            // D-99. The view carries each figure at the scale D-68 stores it
+            // (`110.000000`, `1.0000`, `14.000`). Money prints at two places,
+            // rounded half away from zero (`bcround`'s default mode) by BCMath
+            // on the checked string — display only, never a float (DB-07) and
+            // never fed back into a total (D-06). Quantities and percentages
+            // lose the zeros after their point, and the point with them; a
+            // value without one is left alone, so `20` stays `20`.
+            'money' => static fn (string $value): string => bcround(Decimal::of($value, 'a PDF money figure'), 2),
+            'plain' => static fn (string $value): string => str_contains($value, '.') ? rtrim(rtrim($value, '0'), '.') : $value,
         ])->render();
     }
 }

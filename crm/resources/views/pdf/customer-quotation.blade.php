@@ -115,9 +115,9 @@
         <tr>
             <td class="num">{{ $line->lineNo }}</td>
             <td>{{ $line->description }}</td>
-            <td class="money">{{ $line->unitPrice }}</td>
-            <td class="num">{{ $line->quantity }}</td>
-            <td class="money">{{ $line->lineTotal }}</td>
+            <td class="money">{{ $money($line->unitPrice) }}</td>
+            <td class="num">{{ $plain($line->quantity) }}</td>
+            <td class="money">{{ $money($line->lineTotal) }}</td>
         </tr>
     @endforeach
     </tbody>
@@ -126,34 +126,35 @@
 <table class="totals">
     <tr>
         <td>{{ $t('totals.subtotal') }}</td>
-        <td class="money">{{ $view->subtotal }}</td>
+        <td class="money">{{ $money($view->subtotal) }}</td>
     </tr>
     @foreach ($view->additionalItems as $additional)
         <tr>
             <td>{{ $additional->description }}</td>
-            <td class="money">{{ $additional->amount }}</td>
+            <td class="money">{{ $money($additional->amount) }}</td>
         </tr>
     @endforeach
     <tr>
-        <td>{{ $t('totals.discount', ['percent' => $view->discountPercent]) }}</td>
-        <td class="money">{{ $view->discountAmount }}</td>
+        <td>{{ $t('totals.discount', ['percent' => $plain($view->discountPercent)]) }}</td>
+        <td class="money">{{ $money($view->discountAmount) }}</td>
     </tr>
     {{-- D-63: an exempt quotation renders no tax line at all, not a zero one. --}}
     @if ($view->taxPercent !== null && $view->taxAmount !== null)
         <tr id="tax-row">
-            <td>{{ $t('totals.tax', ['percent' => $view->taxPercent]) }}</td>
-            <td class="money">{{ $view->taxAmount }}</td>
+            <td>{{ $t('totals.tax', ['percent' => $plain($view->taxPercent)]) }}</td>
+            <td class="money">{{ $money($view->taxAmount) }}</td>
         </tr>
     @endif
-    @if ($view->roundingDiff !== '0.00')
+    {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. --}}
+    @if ($money($view->roundingDiff) !== '0.00')
         <tr id="rounding-row">
             <td>{{ $t('totals.rounding') }}</td>
-            <td class="money">{{ $view->roundingDiff }}</td>
+            <td class="money">{{ $money($view->roundingDiff) }}</td>
         </tr>
     @endif
     <tr class="final">
         <td>{{ $t('totals.final') }}</td>
-        <td class="money">{{ $view->finalTotal }} {{ $view->currencyCode }}</td>
+        <td class="money">{{ $money($view->finalTotal) }} {{ $view->currencyCode }}</td>
     </tr>
 </table>
 

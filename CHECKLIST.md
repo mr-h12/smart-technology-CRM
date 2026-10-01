@@ -3541,11 +3541,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       without trailing zeros. The point list was published and approved 2026-10-01 in conversation.
       - [x] **1.1** `D-99` in §2 (proposed) + this list. Docs only. *(2026-10-01, #275 — the PDF's
             places were never recorded: `D-82` deferred them and #224 printed the stored strings)*
-      - [ ] **1.2** Failing test first in `CustomerQuotationHtmlTest` (stored-scale fixtures: `110.000000`,
+      - [x] **1.2** Failing test first in `CustomerQuotationHtmlTest` (stored-scale fixtures: `110.000000`,
             `100.125000`, `-0.400000`, `1.0000`, `14.000`, a `0.000000` rounding difference), then
             `money` (`bcround(…, 2)`) and `plain` (trailing zeros, only after a point) beside `ltr` in
             `CustomerQuotationHtml::render()`, applied in `customer-quotation.blade.php`; the rounding
             row keyed on the two-place figure. A real PDF generated and read in both languages.
+            *(2026-10-01, #276 — `bcround(Decimal::of(…), 2)`, half away from zero, `-0.125` → `-0.13`;
+            a figure that is not a plain decimal is refused; QT-2026-0003 read in ar and en)*
       - [ ] **1.3** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

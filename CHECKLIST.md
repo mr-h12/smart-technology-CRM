@@ -3556,7 +3556,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       header prints the company's name, address and phones from Settings — no e-mail line, because no
       setting holds one — and the footer band and the watermark are removed. The point list was
       published and approved 2026-10-02 in conversation.
-      - [ ] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
+      - [x] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
+            *(2026-10-02, #277 — today's template prints no company name, address or phones; 1.2
+            prints all three)*
       - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
             phones in the header — today's template prints none of them — the address and phones absent
             when unset; one image on the page; every new label in both locales; black text, a `#f2f2f2`

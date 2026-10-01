@@ -58,6 +58,7 @@ import {
     type SupplierQuotationLineDraft,
 } from '@/services/supplier-quotations';
 import { listSuppliers, readSupplier, type Supplier } from '@/services/suppliers';
+import { listDeals, type DealListQuery, type DealRow } from '@/services/deals';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 import { displayDecimals } from '@/domain/displayDecimals';
@@ -267,6 +268,45 @@ async function loadSupplierName(id: string): Promise<void> {
     }
 }
 
+/**
+ * F-24 · 1.1: the deal is searched by its `DL-…` code — `D-88` put `code` in
+ * the deals index — and `deal_id` stays what the server is sent.
+ * `SearchCombobox` writes a pick's `name` into the box, so the code is the
+ * name. An edit shows the offer's own `deal_code` (`D-88`), or the id when the
+ * deal is gone (D-83's fallback).
+ */
+type DealOption = DealRow & { name: string };
+
+const DEAL_KEYS = {
+    more: 'deals.picker.more',
+    forbidden: 'deals.picker.forbidden',
+    failed: 'deals.picker.failed',
+    empty: 'deals.picker.emptyScope',
+    noMatch: 'deals.picker.noMatch',
+    retry: 'state.retry',
+};
+
+const dealCode = ref('');
+
+async function searchDeals(query: DealListQuery) {
+    const page = await listDeals(query);
+
+    return { ...page, items: page.items.map((deal): DealOption => ({ ...deal, name: deal.code })) };
+}
+
+function pickDeal(deal: DealOption | null): void {
+    values.value.deal_id = deal?.id ?? '';
+    dealCode.value = deal?.code ?? '';
+}
+
+/** Title and customer, each in its own isolate — `supplierDetail`'s lesson (UAX #9). */
+function dealDetail(deal: DealOption): string {
+    return [deal.title, deal.customer_name]
+        .filter((part): part is string => typeof part === 'string' && part !== '')
+        .map((part) => `\u2068${part}\u2069`)
+        .join(t('deals.picker.detailSeparator'));
+}
+
 watch(() => [props.open, props.editing] as const, ([open]) => {
     if (!open) {
         return;
@@ -301,6 +341,7 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     downloadingId.value = null;
 
     supplierName.value = '';
+    dealCode.value = record?.deal_code ?? record?.deal_id ?? '';
 
     if (record !== null) {
         void loadSupplierName(record.supplier_id);
@@ -444,12 +485,11 @@ function items(): SupplierQuotationLineDraft[] {
 function draft(): SupplierQuotationDraft {
     const current = values.value;
     const notes = current.notes.trim();
-    const deal = current.deal_id.trim();
     const total = current.total_price.trim();
 
     const header: SupplierQuotationDraft = {
         supplier_id: current.supplier_id,
-        deal_id: deal === '' ? null : deal,
+        deal_id: current.deal_id === '' ? null : current.deal_id,
         offer_date: current.offer_date === '' ? null : current.offer_date,
         valid_until: current.valid_until === '' ? null : current.valid_until,
         notes: notes === '' ? null : notes,
@@ -638,23 +678,33 @@ function discard(): void {
                 </span>
             </label>
 
-            <!-- ⚠️ A raw identifier, and the same stated ceiling the filter
-                 carries: there is no deals screen in this application yet, so
-                 there is no list to choose from. Module 5 replaces this with a
-                 picker. `D-51` makes the link optional either way. -->
+            <!-- F-24 · 1.1: picked by its `DL-…` code. `D-51` makes the link
+                 optional, so «بدون صفقة» leads the list and takes it away. In
+                 the dialog's flow, as the supplier's list above. -->
             <label class="flex flex-col gap-1.5" :for="fieldId('deal_id')">
                 <span>{{ t('supplierQuotations.column.deal') }}</span>
-                <input
+                <SearchCombobox
                     :id="fieldId('deal_id')"
-                    v-model="values.deal_id"
-                    type="text"
-                    autocomplete="off"
+                    :test-id="testId('deal_id')"
+                    :search="searchDeals"
+                    :keys="DEAL_KEYS"
+                    :selected="(deal: DealOption) => deal.id === values.deal_id"
+                    :leading="{ label: t('deals.picker.none'), selected: values.deal_id === '' }"
+                    :display="dealCode"
+                    :placeholder="t('deals.picker.placeholder')"
                     :disabled="saving"
                     :aria-invalid="errorFor('deal_id') !== null"
-                    :placeholder="t('supplierQuotations.filter.dealPlaceholder')"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                    :data-testid="testId('deal_id')"
-                />
+                    @pick="pickDeal"
+                >
+                    <template #option="{ item }">
+                        <span class="block">{{ item.code }}</span>
+                        <span
+                            v-if="dealDetail(item) !== ''"
+                            class="block text-sm text-[var(--color-text-muted)]"
+                            :data-testid="`${testId('deal_id')}-option-detail`"
+                        >{{ dealDetail(item) }}</span>
+                    </template>
+                </SearchCombobox>
                 <span
                     v-if="errorFor('deal_id') !== null"
                     class="text-[var(--color-danger)]"

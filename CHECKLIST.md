@@ -1238,6 +1238,21 @@ would hide them behind `OD-03` indefinitely.
       the phone draws before the name. 1.4 fixed the same join for suppliers by isolating each part
       (U+2068 … U+2069, `components/suppliers/supplierOptions.ts`); the customer copy is the same fix.
       Owner's call when to order.
+- [ ] **A picker option's detail line is joined three times** — *revealed by F-24 · 1.1, 2026-10-01;
+      registered, not fixed, because a shared helper edits the two other pickers.* Filter the empty parts,
+      isolate each (U+2068 … U+2069), join with a separator: `supplierDetail()` (`supplierOptions.ts`),
+      the offer form's `dealDetail()` (F-24 · 1.1), and `CustomerPicker.vue`'s bare copy (the row above,
+      without the isolates). One `isolatedDetail(parts, separator)` beside `SearchCombobox` is the fix,
+      best taken with the row above; it could also retire the three `*.picker.detailSeparator` keys,
+      `" · "` in both languages for customers, suppliers and deals.
+- [ ] **`services/deals.ts`'s header says the deals index holds `title` only** — *revealed by
+      F-24 · 1.1, 2026-10-01.* `deals.ts:19-21`: "`SearchIndex::Deals` indexes `title`". `D-88` added
+      `code` (`SearchIndex.php:82`), which is what lets the offer form's picker find a deal by its code.
+      A stale comment; one line.
+- [ ] **The quotation builder opens the offer form with no deal** — *revealed by F-24 · 1.1,
+      2026-10-01; not asked for.* `QuotationBuilderView.vue:966-971` opens `SupplierQuotationFormModal`
+      with `:editing="null"` from inside a deal's quotation, so a person picks the same deal again in the
+      new picker. Presetting it is a new prop. Nobody has reported it. Owner's call.
 - [ ] **The quotation builder's additional-item description is one line in a narrow column** —
       *revealed by F-24 · 1.5's waste audit, 2026-09-28; registered, not fixed, by the owner's ruling.*
       `QuotationBuilderView.vue:880-890` is an `<input type="text" maxlength="255">` in a
@@ -1275,11 +1290,14 @@ would hide them behind `OD-03` indefinitely.
       this screen. Its `:202` also spells §7.3's label rule (`name ?? service_type ?? id`) a second time
       beside `CatalogItemPicker.vue` (F-18 · 1.2, which moved the offer form's copy there). Owed: a names
       port for suppliers and catalog items, as `D-83` gave customers, when the owner orders it
-- [ ] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
+- [x] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
       the search box and the deal column move to the deal's code, the form does not.* `SupplierQuotationFormModal.vue:625-636`
       is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
       attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
       describes), or a code resolved server-side on save, when ordered.
+      *F-24 · 1.1 (2026-10-01) fixed it with the picker (the owner's choice A):* the form searches
+      `GET /deals` by code or title in the caller's own deal scope, shows the `DL-…` code, sends `deal_id`,
+      and «بدون صفقة» unlinks (`D-51`). No server change.
 - [x] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
       (2026-09-22), whose `SupplierPicker` had the same defect and fixed it; not fixed here, because
       `CustomerPicker` belongs to F-08's screens.* `CustomerPicker.vue`'s Escape branch calls

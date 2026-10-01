@@ -1251,11 +1251,13 @@ would hide them behind `OD-03` indefinitely.
       detail line, at `SupplierPicker.vue:79-88`, `SupplierQuotationFormModal.vue:663-670` and
       `SupplierQuotationsView.vue:283-286`, the owner's choice of an inline filter over a
       single-supplier picker. One supplier option beside `supplierOptions.ts` would hold all three.
-- [ ] **The type-and-wait test sequence is written six times** — *revealed by F-24 · 1.2's waste audit,
+- [ ] **The type-and-wait test sequence is written seven times** — *revealed by F-24 · 1.2's waste audit,
       2026-10-01; registered, not fixed, because a shared helper edits four spec files.* Fake the timers,
       type, advance 300 ms, restore them, flush: `CatalogItemPicker.spec.ts`, `CustomerPicker.spec.ts` and
       `SupplierPicker.spec.ts` once each, `SupplierQuotationsView.spec.ts` three times (1.2 wrote the
-      third). No shared frontend test helper exists under `crm/resources/js` yet.
+      third). No shared frontend test helper exists under `crm/resources/js` yet. *F-32 · 1.1
+      (2026-10-01) wrote the seventh, `typeInto` in `QuotationBuilderView.spec.ts`, and a fourth copy of
+      the three-line `open` (focus, flush) the three picker specs each carry.*
 - [ ] **A picker's one-line option is 38 px tall, under the Design System's 44 × 44 px** — *revealed by
       F-24 · 1.1's `rtl-ui-verifier`, 2026-10-01; registered, not fixed, by the owner's ruling
       (2026-10-01).* `SearchCombobox.vue:214` gives every option `cursor-pointer px-3 py-2` and no
@@ -1264,17 +1266,39 @@ would hide them behind `OD-03` indefinitely.
       actions". Every picker has one: «بدون صفقة» (the offer form's deal, F-24 · 1.1), «كل العملاء»
       (`CustomerPicker`), «type a name instead» (`CatalogItemPicker`), and «كل المورّدين» (the offers
       list's supplier filter, F-24 · 1.2). The fix is `min-h-11` on that `<li>`, one class, when ordered.
+      F-32 · 1.1 (2026-10-01) adds a fifth list on that `<li>`: the builder's delivery terms.
+- [ ] **No spec compares the Arabic and English locale files** — *revealed by F-32 · 1.1's waste audit,
+      2026-10-01; registered, not fixed.* `i18n.ts:49` sets `fallbackLocale: 'en'`, so a key missing from
+      `ar.json` shows its English sentence in an Arabic session, silently; only a browser pass sees it.
+      A search of the specs for `parity`, `Object.keys(en)` and `Object.keys(ar)` finds nothing. F-32 · 1.1
+      pins its own two keys by asserting the Arabic sentence, and both files were compared by hand; one
+      spec walking both files' key lists would guard every later key.
+- [ ] **`SearchCombobox` has no spec of its own** — *revealed by F-32 · 1.1, 2026-10-01; registered, not
+      fixed.* It is pinned through its callers' specs only (`CustomerPicker`, `SupplierPicker`,
+      `CatalogItemPicker`, and the builder's delivery-terms tests), so F-32's new `typed` event is
+      pinned by the builder spec alone, and a change to the keyboard or to when the list opens and
+      closes is caught only where a caller happens to exercise it.
+- [ ] **The builder spec writes "fill the header, pick a line, submit, flush" inline four more times** —
+      *revealed by F-32 · 1.1's waste audit, 2026-10-01; registered, not fixed.* The new `save` helper in
+      the delivery-terms describe is the first extraction (three callers, scoped to that describe); four
+      older create tests still carry the same four consecutive statements.
+- [ ] **The "whole value wraps under a one-line field" span is written twice** — *created by F-32 · 1.1
+      on the owner's ruling (F-24 · 1.5's option C), 2026-10-01; registered, not extracted.*
+      `QuotationBuilderView.vue:1010-1015` and `SupplierQuotationFormModal.vue:866-871` share the class
+      string and `aria-hidden`; the condition, the text and the testid differ. A shared component would
+      be the size of the copy and touch the offer form and its spec, outside F-32's list. Ceiling:
+      extract on a third copy.
 - [ ] **`services/deals.ts`'s header says the deals index holds `title` only** — *revealed by
       F-24 · 1.1, 2026-10-01.* `deals.ts:19-21`: "`SearchIndex::Deals` indexes `title`". `D-88` added
       `code` (`SearchIndex.php:82`), which is what lets the offer form's picker find a deal by its code.
       A stale comment; one line.
 - [ ] **The quotation builder opens the offer form with no deal** — *revealed by F-24 · 1.1,
-      2026-10-01; not asked for.* `QuotationBuilderView.vue:966-971` opens `SupplierQuotationFormModal`
+      2026-10-01; not asked for.* `QuotationBuilderView.vue:1056-1061` opens `SupplierQuotationFormModal`
       with `:editing="null"` from inside a deal's quotation, so a person picks the same deal again in the
       new picker. Presetting it is a new prop. Nobody has reported it. Owner's call.
 - [ ] **The quotation builder's additional-item description is one line in a narrow column** —
       *revealed by F-24 · 1.5's waste audit, 2026-09-28; registered, not fixed, by the owner's ruling.*
-      `QuotationBuilderView.vue:880-890` is an `<input type="text" maxlength="255">` in a
+      `QuotationBuilderView.vue:936-946` is an `<input type="text" maxlength="255">` in a
       `minmax(10rem, 2fr)` grid column: the shape that cut the offer form's product names before
       F-24 · 1.5 gave them a row of their own. Nobody has reported it. Owner's call when to order.
 - [ ] **The context bar's title never truncates** — *revealed by F-21 · 1.1, 2026-09-28; registered,
@@ -1302,11 +1326,11 @@ would hide them behind `OD-03` indefinitely.
       unlike its siblings. Owner's call.
 - [ ] **The quotation builder names suppliers and catalog items from the first 100 of each** —
       *revealed by F-18 · 1.1, 2026-09-24; not fixed there, because the approved line is the shared
-      picker only.* `QuotationBuilderView.vue:344` and `:348` read `listSuppliers({ perPage: 100 })` and
+      picker only.* `QuotationBuilderView.vue:398` and `:402` read `listSuppliers({ perPage: 100 })` and
       `listCatalogItems({ perPage: 100, isActive: true })` once, best-effort, only to look names up
-      (`supplierName()` `:194`, the item lookup `:200`); past the 100th, an offer line shows an identifier
+      (`supplierName()` `:248`, the item lookup `:254`); past the 100th, an offer line shows an identifier
       instead of a name — the client-side join `D-83` removed for customers. Neither F-18 nor F-24 names
-      this screen. Its `:202` also spells §7.3's label rule (`name ?? service_type ?? id`) a second time
+      this screen. Its `:256` also spells §7.3's label rule (`name ?? service_type ?? id`) a second time
       beside `CatalogItemPicker.vue` (F-18 · 1.2, which moved the offer form's copy there). Owed: a names
       port for suppliers and catalog items, as `D-83` gave customers, when the owner orders it
 - [x] **The supplier-offer form's deal field still takes a raw UUID** — *owner's F-13 ruling, 2026-09-22:
@@ -1524,7 +1548,7 @@ would hide them behind `OD-03` indefinitely.
       in the old language** — *revealed by F-19 · 1.1, 2026-09-27 (`rtl-ui-verifier`), which fixed its
       own copy with a flag the template translates; not fixed there, because the approved line is the
       customer page's assign section.* `CustomersView.vue:370` and `:396`, `DealDocumentsPanel.vue:125`,
-      `DealApprovalControls.vue:99`, `DealStatusControl.vue:101` and `QuotationBuilderView.vue:500`
+      `DealApprovalControls.vue:99`, `DealStatusControl.vue:101` and `QuotationBuilderView.vue:556`
       assign `t('…')` to a ref, so switching AR↔EN redraws every other label and leaves these until the
       next attempt. 18 other places keep a key and translate it when drawn. Owed: the key-or-flag shape
       at the six, when the owner orders it
@@ -3484,6 +3508,28 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             (`D-61`; deptrac's one uncovered dependency).
             *(2026-09-28, #263 — a test reads the guard row id's version digit; `Str::uuid()` and `orderedUuid()` both
             fail it; deptrac `Uncovered` 1 → 0 in both configs)*
+
+- [ ] **F-32** The quotation builder's delivery-terms field reads the `delivery_terms` managed list
+      (`DB-05`). Asked for by the owner, 2026-10-01: the field itself becomes a dropdown you can type in
+      to search, and the caller's recent terms stay under it as today. The point list was published and
+      approved 2026-10-01 in conversation. Free text stays (`§6.2`, `Design System §6.3`): a typed term
+      that matches nothing is saved as typed, so the stored value is still the text
+      `quotations.delivery_terms` holds and the API, the PDF and the history do not change. With no
+      entries, or the list refused, the field is today's text area.
+      - [ ] **1.1** The delivery field is an editable combobox over `GET /managed-lists/delivery_terms`
+            (page 1, the Catalog's ceiling of 25): it opens on focus, shows each label in the session's
+            language, typing narrows it, picking fills it. Built on `SearchCombobox` with one new `typed`
+            event. The browser check (2026-10-01) found the one-line field cut 6 of 8 dev terms at 375 px
+            in English and the English hint by 3.6 px; the owner's rulings: the whole term wraps under
+            the field, `aria-hidden` (F-24 · 1.5's option C), a shorter English hint, and Enter in the
+            field submits nothing unless it takes a highlighted term. Ceilings: a one-line field — a
+            line break can no longer be typed, and an old term typed
+            on several lines shows each break as a space (a one-line box glues the words, measured in
+            Chrome 152; the PDF template sets no line-break style, so it prints a space too) while the
+            stored text stays as it was until somebody edits it; no Arabic letter-variant folding in the
+            local filter (`SearchService` folds on the server only, and `GET /managed-lists/{list}` takes
+            `page` and `per_page` alone, so a server search is a backend point); a 26th term is
+            unreachable.
 
 ## Shell revisions — owner-directed
 

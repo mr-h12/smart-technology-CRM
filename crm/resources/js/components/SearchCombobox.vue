@@ -15,6 +15,10 @@
  * the dialog around it (the owner's ruling, 2026-09-24); a closed list lets
  * the next Escape through.
  *
+ * `typed` hands a caller the text on every keystroke, for a value that *is* the
+ * text and not a pick from the list (F-32's delivery terms — free text, the
+ * list its suggestions). A picker listens to `pick` alone and never needs it.
+ *
  * What differs stays with the caller: which list `search` reads, the lang
  * `keys` its states speak, which rows are `selected`, `multiple` (a pick
  * toggles and the list stays open), `floating` (the list over the page rather
@@ -40,7 +44,7 @@ const props = defineProps<{
     display?: string;
 }>();
 
-const emit = defineEmits<{ pick: [item: T | null] }>();
+const emit = defineEmits<{ pick: [item: T | null]; typed: [text: string] }>();
 
 const { t } = useI18n();
 
@@ -98,6 +102,7 @@ function show(): void {
 function typed(): void {
     open.value = true;
     active.value = -1;
+    emit('typed', text.value);
     clearTimeout(pause);
     pause = setTimeout(() => {
         searched.value = text.value.trim();

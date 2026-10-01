@@ -1262,6 +1262,8 @@
             "warranty": "الضمان",
             "delivery_terms": "شروط التسليم",
             "recentTerms": "شروط استُخدمت مؤخرًا",
+            "deliveryTermPlaceholder": "اختر شرطًا مسجَّلًا أو اكتب شرطك",
+            "deliveryTermNoMatch": "لا يوجد شرط مسجَّل يطابق «{query}» — سيُحفظ نصّك كما كتبته",
             "showDeliveryTerms": "إظهار شروط التسليم في ملف PDF",
             "save": "حفظ المسوّدة",
             "saving": "جارٍ الحفظ…",

@@ -1262,6 +1262,8 @@
             "warranty": "Warranty",
             "delivery_terms": "Delivery terms",
             "recentTerms": "Recent terms",
+            "deliveryTermPlaceholder": "Pick a term or type your own",
+            "deliveryTermNoMatch": "No registered term matches “{query}” — your text is kept as typed",
             "showDeliveryTerms": "Show delivery terms on the PDF",
             "save": "Save draft",
             "saving": "Saving…",

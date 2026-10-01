@@ -55,14 +55,24 @@
  * number, product name (F-16 · 1.1), cost, quantity, margin, remove — and new
  * lines still come through a supplier block.
  *
+ * ── Delivery terms (F-32) ──────────────────────────────────────────────────
+ * Free text with suggestions like the other two terms (`§6.2`, `Design System
+ * §6.3`). When the `delivery_terms` managed list has entries the field is an
+ * editable combobox over them: focus opens the list, typing narrows it, a pick
+ * fills the box, and text that matches nothing is kept and saved as typed. The
+ * stored value is the text either way, so the API and the PDF never learn there
+ * is a list. With no entries, or the list refused, it is the text area it was.
+ *
  * Stated ceilings, all Module 6's: suppliers, catalog items and supplier
- * quotations are each read as one page of 100.
+ * quotations are each read as one page of 100. The delivery terms are one page
+ * of 25, as the catalog's lists are.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router';
-import { ApiError } from '@/api';
-import { listCurrencies, type Currency } from '@/services/admin';
+import { ApiError, collection, type Page } from '@/api';
+import { entryLabel, listCurrencies, listEntries, type Currency, type ListEntry } from '@/services/admin';
+import SearchCombobox from '@/components/SearchCombobox.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -151,6 +161,50 @@ const showDeliveryTerms = ref(true);
 /** Point 6.8 — the caller's own recent terms, one list per field; a chip copies one into the textarea. */
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 const suggestions = ref<Record<TermField, string[]>>({ payment_terms: [], warranty: [], delivery_terms: [] });
+
+/** F-32 — the registered delivery terms (`DB-05`); empty when none exist or the list could not be read. */
+const termEntries = ref<ListEntry[]>([]);
+
+interface TermOption {
+    id: string;
+    name: string;
+}
+
+const termOptions = computed<TermOption[]>(() => termEntries.value.map((entry) => ({ id: entry.code, name: entryLabel(entry, locale.value) })));
+
+/**
+ * The list is already here, so the combobox's "search" is a filter over it: a
+ * substring of the label, case ignored.
+ *
+ * ponytail: no Arabic letter-variant folding — `SearchService` folds on the
+ * server only, so «اداره» will not find «إدارة». Fold here when a list outgrows
+ * its first page and the search moves to the server.
+ */
+function searchTerms({ q }: { q: string | null }): Promise<Page<TermOption>> {
+    const needle = (q ?? '').toLocaleLowerCase();
+    const found = termOptions.value.filter((term) => term.name.toLocaleLowerCase().includes(needle));
+
+    return Promise.resolve(collection<TermOption>({ data: found, requestId: null, meta: {} }));
+}
+
+/** Only the delivery field has a list, and only while the list has something in it. */
+function offersList(field: TermField): boolean {
+    return field === 'delivery_terms' && termOptions.value.length > 0;
+}
+
+/**
+ * A one-line box strips line breaks and glues the words ("Ex works⏎before noon"
+ * → "Ex worksbefore noon"), so an old term typed on several lines shows each break
+ * as a space — the PDF template sets no line-break style, so it prints one too.
+ * Only what the box shows: the stored text is untouched until somebody types.
+ */
+function oneLine(text: string): string {
+    return text.replace(/\s*[\r\n]+\s*/g, ' ');
+}
+
+/** The list is local, so only "no match" can ever show: its sentence stands in for the states a server-searched picker adds. */
+const TERM_NO_MATCH = 'quotations.builder.deliveryTermNoMatch';
+const TERM_KEYS = { more: TERM_NO_MATCH, forbidden: TERM_NO_MATCH, failed: TERM_NO_MATCH, empty: TERM_NO_MATCH, noMatch: TERM_NO_MATCH, retry: 'state.retry' };
 const existing = ref<ExistingLine[]>([]);
 const blocks = ref<Block[]>([]);
 const items = ref<Array<{ description: string; amount: string }>>([]);
@@ -348,6 +402,8 @@ async function load(): Promise<void> {
         listCatalogItems({ perPage: 100, isActive: true }).then((page) => { catalog.value = page.items; }, () => {}),
         loadOffers(),
         ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
+        // F-32: best-effort too — without the list the delivery field is the text area it was.
+        listEntries('delivery_terms', 1).then((page) => { termEntries.value = page.items; }, () => {}),
     ]);
 
     opened.value = snapshot();
@@ -914,15 +970,49 @@ onMounted(load);
                 <!-- Terms (6.8, SmartTermInput): a textarea, and under it the caller's
                      recent terms as chips — a suggestion, never a structure (Design System §6.3). -->
                 <div class="detail-grid rounded-xl p-4">
-                    <label v-for="field in TERM_FIELDS" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
+                    <!-- F-32: a single-line box in one 12rem grid cell cut a whole term
+                         (F-24 · 1.5's finding), so the combobox takes the row. -->
+                    <label
+                        v-for="field in TERM_FIELDS"
+                        :key="field"
+                        class="flex flex-col gap-1.5"
+                        :class="{ 'col-span-full': offersList(field) }"
+                        :for="fieldId(field)"
+                    >
                         <span>{{ t(`quotations.builder.${field}`) }}</span>
+                        <SearchCombobox
+                            v-if="offersList(field)"
+                            :id="fieldId(field)"
+                            :test-id="fieldId(field)"
+                            :search="searchTerms"
+                            :keys="TERM_KEYS"
+                            :selected="(term: TermOption) => term.name === header.delivery_terms"
+                            :display="oneLine(header.delivery_terms)"
+                            :placeholder="t('quotations.builder.deliveryTermPlaceholder')"
+                            floating
+                            @typed="header.delivery_terms = $event"
+                            @pick="header.delivery_terms = $event?.name ?? ''"
+                            @keydown.enter.prevent
+                        >
+                            <template #option="{ item }">{{ item.name }}</template>
+                        </SearchCombobox>
                         <textarea
+                            v-else
                             :id="fieldId(field)"
                             v-model="header[field]"
                             rows="3"
                             class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                             :data-testid="fieldId(field)"
                         ></textarea>
+                        <!-- F-32: the combobox is one line, so a long term is cut there at
+                             375 px; its whole wraps here (F-24 · 1.5's option C). The field
+                             already gives it to a screen reader. -->
+                        <span
+                            v-if="offersList(field) && header[field] !== ''"
+                            aria-hidden="true"
+                            class="text-sm break-words text-[var(--color-text-muted)]"
+                            :data-testid="fieldId(`${field}-full`)"
+                        >{{ header[field] }}</span>
                         <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
                         </span>

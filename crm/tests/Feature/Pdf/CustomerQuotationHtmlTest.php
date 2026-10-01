@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Pdf;
 
 use App\Modules\Pdf\Application\CustomerQuotationHtml;
+use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
+use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use Illuminate\Support\Facades\Lang;
 use Tests\Fixtures\CustomerQuotationViewFixture;
 use Tests\TestCase;
@@ -234,6 +236,105 @@ final class CustomerQuotationHtmlTest extends TestCase
         // The English page carries the same isolates: one template, one rule,
         // and nothing to forget when a third language is added.
         self::assertStringContainsString("\u{2066}2026-07-14\u{2069}", $this->html(locale: 'en'));
+    }
+
+    public function test_that_money_prints_at_two_places_rounded_half_up(): void
+    {
+        // F-33 · 1.2, D-99. The figures arrive at the scale D-68 stores them —
+        // NUMERIC(18,6) — and the page printed them so: `110.000000`. The
+        // fixture's hand-typed `5219.30` is why no test saw it, so every value
+        // here is at stored scale, and every cell is matched whole: a substring
+        // check finds `110.00` inside `110.000000` and passes the defect.
+        // `100.125000` and `1000.005000` sit on the half: truncation and
+        // half-even would both print `.12` / `.00`, half-up prints `.13` / `.01`.
+        // `-0.125000` is the negative half — a real rounding difference when
+        // an EGP total of `1234.125` rounds to the unit 1: half away from zero
+        // prints `-0.13`, and a half-up toward +∞ would print `-0.12`.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(
+                locale: $locale,
+                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000')],
+                additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.000000')],
+                subtotal: '1000.005000',
+                discountAmount: '50.000500',
+                taxAmount: '133.994999',
+                roundingDiff: '-0.125000',
+                finalTotal: '695.000000',
+            );
+
+            foreach ([
+                'unit price' => '<td class="money">110.00</td>',
+                'line total' => '<td class="money">100.13</td>',
+                'subtotal' => '<td class="money">1000.01</td>',
+                'additional item' => '<td class="money">250.00</td>',
+                'discount' => '<td class="money">50.00</td>',
+                'tax' => '<td class="money">133.99</td>',
+                'rounding difference' => '<td class="money">-0.13</td>',
+                'final total' => '<td class="money">695.00 EGP</td>',
+            ] as $figure => $cell) {
+                self::assertStringContainsString($cell, $html, "The {$figure} on the {$locale} page is not at two places, half-up (D-99).");
+            }
+        }
+    }
+
+    public function test_that_quantities_and_percentages_drop_their_trailing_zeros(): void
+    {
+        // D-99: `1.0000` → `1`, `2.5000` → `2.5`, `14.000` → `14`. Only zeros
+        // after a point go: `10.0000` keeps its `10`, and a value with no point
+        // is left alone — `20` is not `2`. The line numbers start at 6 so no
+        // serial cell can pass for a quantity cell.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(
+                locale: $locale,
+                lines: [
+                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000'),
+                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000'),
+                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000'),
+                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000'),
+                ],
+                discountPercent: '7.500',
+                taxPercent: '14.000',
+            );
+
+            foreach (['1', '2.5', '10', '20'] as $quantity) {
+                self::assertStringContainsString('<td class="num">'.$quantity.'</td>', $html, "The quantity {$quantity} on the {$locale} page kept its trailing zeros or lost a digit.");
+            }
+
+            self::assertStringContainsString('<td>'.e((string) Lang::get('pdf.totals.discount', ['percent' => '7.5'], $locale)).'</td>', $html, "The {$locale} discount percentage kept its trailing zeros.");
+            self::assertStringContainsString('<td>'.e((string) Lang::get('pdf.totals.tax', ['percent' => '14'], $locale)).'</td>', $html, "The {$locale} tax percentage kept its trailing zeros.");
+        }
+    }
+
+    public function test_that_a_zero_rounding_difference_at_stored_scale_prints_no_rounding_row(): void
+    {
+        // D-65: with rounding off, rounding_diff is 0 — stored as `0.000000`,
+        // which the template's `!== '0.00'` never matched, so every quotation
+        // printed a zero rounding line. D-99 keys the row on the two-place
+        // figure, so a difference too small to show is no row either, and
+        // `-0.004000` must not come out as a `-0.00` row.
+        foreach (['0.000000', '0.004000', '-0.004000'] as $zero) {
+            foreach (['ar', 'en'] as $locale) {
+                self::assertStringNotContainsString(
+                    'id="rounding-row"',
+                    $this->html(locale: $locale, roundingDiff: $zero),
+                    "A rounding difference of {$zero} printed a rounding row on the {$locale} page.",
+                );
+            }
+        }
+
+        self::assertStringContainsString('id="rounding-row"', $this->html(roundingDiff: '-0.400000'), 'A real rounding difference must still show its row.');
+    }
+
+    public function test_that_a_money_figure_that_is_not_a_plain_decimal_is_refused_not_printed(): void
+    {
+        // DB-07 through `Decimal::of`: `1e5` is numeric to PHP but not a
+        // decimal string, and a customer document refuses it rather than
+        // printing whatever BCMath would make of it. The reason is asserted,
+        // not the type: Blade wraps whatever a render throws in a
+        // `ViewException` that keeps the message.
+        $this->expectExceptionMessage('DB-07');
+
+        $this->html(subtotal: '1e5');
     }
 
     private function html(

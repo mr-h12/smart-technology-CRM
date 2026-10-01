@@ -3568,6 +3568,22 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             their two images. The footer-band debt row closed. A real PDF generated in both languages
             and compared with the prototype.
       - [ ] **1.3** The Arabic manual test list.
+- [ ] **F-35** The Arabic customer PDF sets Arabic text in Noto Naskh Arabic (`D-101`). Requested by the
+      owner, 2026-10-02: a more formal Arabic face across the Arabic PDF. Chosen from QT-2026-0003
+      rendered in Noto Sans Arabic, Noto Naskh Arabic and Noto Kufi Arabic; Inter stays for numbers and
+      English. The point list was published and approved 2026-10-02 in conversation, with a yes to the
+      shell write of `D-101` and to downloading the two faces and their licence.
+      - [x] **1.1** `D-101` in §2 (proposed), `D-100` pointed to it, + this list. Docs only.
+            *(2026-10-02, #278 — today's Arabic subset holds no digits or Latin: `pdffonts` shows Inter
+            drawing `0-9`, `.`, `,` and `ATEN`, which is what keeps them Inter under Naskh)*
+      - [ ] **1.2** Failing tests first (`CustomerQuotationPdfTest`: the Arabic PDF embeds Noto Naskh
+            Arabic and Inter and not Noto Sans Arabic; `PdfAssetsTest`: the Naskh licence ships; the
+            footer lists Inter first, then Noto Naskh Arabic), then the Arabic-script subset of Noto Naskh
+            Arabic 400 and 700 (`@fontsource/noto-naskh-arabic`) and its OFL licence added,
+            `FilePdfAssets` pointed to them, the footer's families changed, and the Noto Sans Arabic files
+            and licence removed. A real PDF generated in both languages and read with `pdffonts`.
+      - The Arabic manual test list is merged into F-34 · 1.3 (owner, 2026-10-02): one list for the final
+        page, layout and face together.
 
 ## Shell revisions — owner-directed
 

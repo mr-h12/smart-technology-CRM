@@ -1231,6 +1231,8 @@ would hide them behind `OD-03` indefinitely.
       puts them on it; the row names still need the supplier names port.
       *F-24 · 1.4 (2026-09-28, #253) put the form's picker on it:* the form searches the server and no
       longer takes this list. Two of the three remain: the filter (`:263`, F-24 · 1.2) and the row names.
+      *F-24 · 1.2 (2026-10-01) put the filter on it:* the filter searches the server, «كل المورّدين»
+      first. One of the three remains: the row names, F-24 · 1.6 (the owner's ruling, 2026-10-01).
 - [ ] **`CustomerPicker`'s option detail can draw its parts in the wrong order on the English screen** —
       *revealed by F-24 · 1.4, 2026-09-28; registered, not fixed, by the owner's ruling.*
       `CustomerPicker.vue:59-63` joins region · contact · phone bare. An Arabic part followed by digits
@@ -1245,6 +1247,23 @@ would hide them behind `OD-03` indefinitely.
       without the isolates). One `isolatedDetail(parts, separator)` beside `SearchCombobox` is the fix,
       best taken with the row above; it could also retire the three `*.picker.detailSeparator` keys,
       `" · "` in both languages for customers, suppliers and deals.
+      *F-24 · 1.2 (2026-10-01) wrote the supplier option's markup a third time:* the name and the muted
+      detail line, at `SupplierPicker.vue:79-88`, `SupplierQuotationFormModal.vue:663-670` and
+      `SupplierQuotationsView.vue:283-286`, the owner's choice of an inline filter over a
+      single-supplier picker. One supplier option beside `supplierOptions.ts` would hold all three.
+- [ ] **The type-and-wait test sequence is written six times** — *revealed by F-24 · 1.2's waste audit,
+      2026-10-01; registered, not fixed, because a shared helper edits four spec files.* Fake the timers,
+      type, advance 300 ms, restore them, flush: `CatalogItemPicker.spec.ts`, `CustomerPicker.spec.ts` and
+      `SupplierPicker.spec.ts` once each, `SupplierQuotationsView.spec.ts` three times (1.2 wrote the
+      third). No shared frontend test helper exists under `crm/resources/js` yet.
+- [ ] **A picker's one-line option is 38 px tall, under the Design System's 44 × 44 px** — *revealed by
+      F-24 · 1.1's `rtl-ui-verifier`, 2026-10-01; registered, not fixed, by the owner's ruling
+      (2026-10-01).* `SearchCombobox.vue:214` gives every option `cursor-pointer px-3 py-2` and no
+      minimum height, so a row with one line of text — a first «كل …» row, a name with no detail —
+      measures 38 px, where Design System `:270` asks for "at least `44 × 44px` for primary mobile
+      actions". Every picker has one: «بدون صفقة» (the offer form's deal, F-24 · 1.1), «كل العملاء»
+      (`CustomerPicker`), «type a name instead» (`CatalogItemPicker`), and «كل المورّدين» (the offers
+      list's supplier filter, F-24 · 1.2). The fix is `min-h-11` on that `<li>`, one class, when ordered.
 - [ ] **`services/deals.ts`'s header says the deals index holds `title` only** — *revealed by
       F-24 · 1.1, 2026-10-01.* `deals.ts:19-21`: "`SearchIndex::Deals` indexes `title`". `D-88` added
       `code` (`SearchIndex.php:82`), which is what lets the offer form's picker find a deal by its code.
@@ -3385,6 +3404,15 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             "ATEN Enterprise Solutions…" is cut, and a hand-typed name scrolls out of view as it is
             typed. *(2026-09-28, #254 — option C (owner): product and typed name each a whole row; the
             name box grows, no line break; a picked item's whole name wraps under its field)*
+      *1.6 added by the owner, 2026-10-01, when 1.2 was scoped: 1.2 is the filter alone, and the row
+      names follow it, before 1.3.*
+      - [ ] **1.6** Each offer row carries its supplier's name (`supplier_name`): one
+            `SupplierLookupInterface::namesFor()` call per page, in the `$dealCodes` shape
+            (`SupplierQuotationPage.php:19-31`), with the `SuppliersContract` edge for SupplierQuotations
+            in `deptrac.modules.yaml`. The screen's `listSuppliers({ perPage: 100 })` and its client-side
+            join go, and the debt row "The supplier-quotations screen reads only the first 100 suppliers"
+            closes. Whether it needs a `D-xx` is decided when it opens (F-16 closed a recorded gap
+            without one; `D-83` and `D-88` each had one).
 - [ ] **F-25** The catalog (E2-7, E2-8, E2-9, E2-10; `D-96`).
       - [ ] **1.1** The catalog list stops answering a misleading `suppliers: []`.
       - [ ] **1.2** "Company" marked required in the form (debt row "`company` is required on the server

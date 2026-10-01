@@ -1,9 +1,10 @@
 import type { Supplier } from '@/services/suppliers';
 
 /**
- * What the two supplier comboboxes share (F-24 · 1.4): `SupplierPicker`'s many
- * suppliers on a catalog item, and the offer form's one. Both speak the same
- * `suppliers.picker.*` sentences and describe an option the same way.
+ * What the three supplier comboboxes share (F-24 · 1.4, 1.2): `SupplierPicker`'s
+ * many suppliers on a catalog item, the offer form's one, and the offers list's
+ * filter. All speak the same `suppliers.picker.*` sentences and describe an
+ * option the same way.
  */
 export const SUPPLIER_KEYS = {
     more: 'suppliers.picker.more',

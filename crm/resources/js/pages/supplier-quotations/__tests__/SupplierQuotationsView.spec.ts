@@ -236,12 +236,19 @@ async function chooseTypedName(view: Awaited<ReturnType<typeof render>>, index: 
     await view.get(`[data-testid="supplier-quotation-line-${index}-product-all"]`).trigger('mousedown');
 }
 
-/** F-24 · 1.4: the offer's supplier is picked in a server search — open it, take the row named. */
-async function pickSupplier(view: Awaited<ReturnType<typeof render>>, name = 'Alpha Supply'): Promise<void> {
-    await view.get('[data-testid="supplier-quotation-form-supplier-id"]').trigger('focus');
+/**
+ * F-24 · 1.4 and 1.2: a supplier is picked in a server search — open the box,
+ * take the row named. The form's box by default; the list's filter by its id.
+ */
+async function pickSupplier(
+    view: Awaited<ReturnType<typeof render>>,
+    name = 'Alpha Supply',
+    box = 'supplier-quotation-form-supplier-id',
+): Promise<void> {
+    await view.get(`[data-testid="${box}"]`).trigger('focus');
     await flushPromises();
 
-    const option = view.findAll('[data-testid="supplier-quotation-form-supplier-id-option"]').find((row) => row.text().includes(name));
+    const option = view.findAll(`[data-testid="${box}-option"]`).find((row) => row.text().includes(name));
 
     expect(option, `no «${name}» option`).toBeDefined();
     await option!.trigger('mousedown');
@@ -251,9 +258,10 @@ async function pickSupplier(view: Awaited<ReturnType<typeof render>>, name = 'Al
 const BETA = { ...SUPPLIER, id: 's2', name: 'Beta Trading', contact_person: 'Mona', phone: '0100', is_active: false };
 
 /**
- * Over `respond()`: the picker's own search (`per_page=20`, `SearchCombobox`'s
- * page) answers Alpha and Beta, while the list screen's `per_page=100` load
- * still answers Alpha alone. `readStatus` fails the edit dialog's supplier read.
+ * Over `respond()`: a supplier box's own search (`per_page=20`, `SearchCombobox`'s
+ * page — the form's picker, and since F-24 · 1.2 the list's filter) answers Alpha
+ * and Beta, while the list screen's `per_page=100` load for the row names still
+ * answers Alpha alone. `readStatus` fails the edit dialog's supplier read.
  */
 function withSupplierSearch(readStatus = 200): ReturnType<typeof vi.fn> {
     const base = respond() as unknown as typeof globalThis.fetch;
@@ -273,7 +281,7 @@ function withSupplierSearch(readStatus = 200): ReturnType<typeof vi.fn> {
     });
 }
 
-/** The picker's searches — not the list screen's 100. */
+/** The supplier boxes' searches — not the list screen's 100. */
 function supplierSearches(fetchMock: ReturnType<typeof vi.fn>): URL[] {
     return fetchMock.mock.calls
         .map((call) => new URL(String(call[0]), 'http://localhost'))
@@ -394,14 +402,113 @@ describe('the supplier quotations screen', () => {
         expect(cell.text()).not.toBe(SUPPLIER.id);
     });
 
-    it('sends the supplier filter as the server declares it', async () => {
-        const fetchMock = respond();
-        const wrapper = await render(fetchMock);
+    // ── F-24 · 1.2: the supplier filter searches the server, not the screen's
+    // first 100 (debt row "The supplier-quotations screen reads only the first
+    // 100 suppliers"; Design System §6.3; the shape `D-84` gave the customer filter).
 
-        await wrapper.find('[data-testid="supplier-quotations-filter-supplier"]').setValue('s1');
+    it('searches the server for the supplier filter as the user types', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        const box = view.get('[data-testid="supplier-quotations-filter-supplier"]');
+        await box.trigger('focus');
         await flushPromises();
 
-        expect(offersUrl(fetchMock)).toContain('filter%5Bsupplier_id%5D=s1');
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await box.setValue('Bet');
+        vi.advanceTimersByTime(300);
+        vi.useRealTimers();
+        await flushPromises();
+
+        expect(supplierSearches(fetchMock).at(-1)?.searchParams.get('q')).toBe('Bet');
+        // Deactivated suppliers are offered, so no is_active filter (as `SupplierPicker.spec.ts` asserts).
+        expect(supplierSearches(fetchMock).at(-1)?.searchParams.has('filter[is_active]')).toBe(false);
+
+        // Design System §6.3: a deactivated supplier is offered with the word that says so.
+        const beta = view.findAll('[data-testid="supplier-quotations-filter-supplier-option"]').find((row) => row.text().includes('Beta Trading'));
+        expect(beta?.text()).toContain(en.suppliers.status.inactive);
+    });
+
+    /** Beta is past the screen's own `per_page=100` load; the filter finds it on the server. */
+    it('filters by a supplier the list screen never loaded', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        await pickSupplier(view, 'Beta Trading', 'supplier-quotations-filter-supplier');
+        await flushPromises();
+
+        expect(offersUrl(fetchMock)).toContain('filter%5Bsupplier_id%5D=s2');
+
+        // The box keeps the chosen supplier's name — also after typing over it and leaving.
+        const box = view.get('[data-testid="supplier-quotations-filter-supplier"]');
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await box.setValue('zz');
+        await box.trigger('focusout');
+        vi.useRealTimers();
+
+        expect((box.element as HTMLInputElement).value).toBe('Beta Trading');
+    });
+
+    /** A changed question invalidates the page number: page 2 of every supplier is not page 2 of Beta's. */
+    it('goes back to the first page when a supplier is picked', async () => {
+        const search = withSupplierSearch() as unknown as typeof globalThis.fetch;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) =>
+            new URL(String(input), 'http://localhost').pathname.endsWith('/supplier-quotations') && (init?.method ?? 'GET') === 'GET'
+                ? json(200, envelope([OFFER], { pagination: { ...PAGINATION, total: 30, total_pages: 2, has_next_page: true } }))
+                : search(input, init));
+        const view = await render(fetchMock);
+
+        await view.get('[data-testid="supplier-quotations-next"]').trigger('click');
+        await flushPromises();
+        expect(new URL(offersUrl(fetchMock), 'http://localhost').searchParams.get('page')).toBe('2');
+
+        await pickSupplier(view, 'Beta Trading', 'supplier-quotations-filter-supplier');
+        await flushPromises();
+
+        expect(new URL(offersUrl(fetchMock), 'http://localhost').searchParams.get('page')).toBe('1');
+    });
+
+    it('empties the supplier filter from its first row', async () => {
+        const fetchMock = withSupplierSearch();
+        const view = await render(fetchMock);
+
+        await pickSupplier(view, 'Beta Trading', 'supplier-quotations-filter-supplier');
+        await flushPromises();
+
+        const box = view.get('[data-testid="supplier-quotations-filter-supplier"]');
+        await box.trigger('focus');
+        await flushPromises();
+
+        const all = view.get('[data-testid="supplier-quotations-filter-supplier-all"]');
+        expect(all.text()).toBe(en.supplierQuotations.filter.supplierAll);
+
+        // The chosen supplier is the selected row, not «كل المورّدين» (`aria-selected`).
+        const chosen = view.findAll('[data-testid="supplier-quotations-filter-supplier-option"]').find((row) => row.text().includes('Beta Trading'));
+        expect(chosen?.attributes('aria-selected')).toBe('true');
+        expect(all.attributes('aria-selected')).toBe('false');
+
+        await all.trigger('mousedown');
+        await flushPromises();
+
+        expect(offersUrl(fetchMock)).not.toContain('supplier_id');
+        expect((box.element as HTMLInputElement).value).toBe('');
+        expect(box.attributes('placeholder')).toBe(en.supplierQuotations.filter.supplierAll);
+    });
+
+    /** §3.7: `catalog.view` gates every supplier read, so a revoked grant refuses the filter and the names alike. */
+    it('says the filter\'s suppliers are refused, and keeps the rows', async () => {
+        const base = respond() as unknown as typeof globalThis.fetch;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) =>
+            new URL(String(input), 'http://localhost').pathname.endsWith('/suppliers')
+                ? json(403, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } })
+                : base(input, init));
+        const view = await render(fetchMock);
+
+        await view.get('[data-testid="supplier-quotations-filter-supplier"]').trigger('focus');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotations-filter-supplier-state"]').text()).toBe(en.suppliers.picker.forbidden);
+        expect(view.findAll('[data-testid="supplier-quotations-row"]')).toHaveLength(1);
     });
 
     /** `D-88`: the box is a deal-code fragment, not the deal's UUID. */
@@ -728,9 +835,6 @@ describe('the supplier quotation form', () => {
     it('offers and saves a supplier the list screen never loaded', async () => {
         const fetchMock = withSupplierSearch();
         const view = await render(fetchMock);
-
-        // The list screen's own load holds Alpha alone.
-        expect(view.get('[data-testid="supplier-quotations-filter-supplier"]').text()).not.toContain('Beta Trading');
 
         await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
         await flushPromises();

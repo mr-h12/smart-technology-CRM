@@ -1295,7 +1295,7 @@ would hide them behind `OD-03` indefinitely.
       is a free-text input whose value goes out as `deal_id`; a person has to paste an internal identifier to
       attach an offer to a deal. The fix is a deal picker (the shared combobox the `CustomerPicker` entry above
       describes), or a code resolved server-side on save, when ordered.
-      *F-24 · 1.1 (2026-10-01) fixed it with the picker (the owner's choice A):* the form searches
+      *F-24 · 1.1 (2026-10-01, #272) fixed it with the picker (the owner's choice A):* the form searches
       `GET /deals` by code or title in the caller's own deal scope, shows the `DL-…` code, sends `deal_id`,
       and «بدون صفقة» unlinks (`D-51`). No server change.
 - [x] **Escape on `CustomerPicker`'s open list also closes the deal form** — *revealed by F-10 · 1.8
@@ -3362,8 +3362,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             **The owner kept `0.60` (2026-10-01)** — nothing to enter. *(2026-10-01, #271 — no pair of
             15,576 reaches 0.60; the highest unrelated pair is 0.48; E1-2 typed and never saved)*
 - [ ] **F-24** The supplier offer (E1-3, E1-4).
-      - [ ] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
-            form's deal field still takes a raw UUID").
+      - [x] **1.1** The deal field picks by its `DL-…` code, not an id (debt row "The supplier-offer
+            form's deal field still takes a raw UUID"). *(2026-10-01, #272 — the owner chose the picker
+            (A): `GET /deals` searched by code or title, the code shown, `deal_id` sent, «بدون صفقة» unlinks)*
       - [ ] **1.2** The suppliers list, filter and picker without the 100 cap
             (`SupplierQuotationsView.vue` reads `perPage: 100`; debt row "The supplier-quotations screen
             reads only the first 100 suppliers").

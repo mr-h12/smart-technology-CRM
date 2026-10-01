@@ -3557,11 +3557,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       setting holds one — and the footer band and the watermark are removed. The point list was
       published and approved 2026-10-02 in conversation.
       - [ ] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
-      - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's address and phones
-            in the header and absent when unset; one image on the page; every new label in both
-            locales; black text, a `#f2f2f2` title row and a `#d9d9d9` grid), then
-            `customer-quotation.blade.php` rewritten after the prototype, `lang/{ar,en}/pdf.php`, the
-            renderer's margins (22 / 25 / 20 / 25 mm), and `footerBand()` / `watermark()` removed with
+      - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
+            phones in the header — today's template prints none of them — the address and phones absent
+            when unset; one image on the page; every new label in both locales; black text, a `#f2f2f2`
+            title row and a `#d9d9d9` grid), then `customer-quotation.blade.php` rewritten after the
+            prototype, `lang/{ar,en}/pdf.php`, the renderer's margins (22 mm top, 25 mm sides, 20 mm
+            bottom), and `footerBand()` / `watermark()` removed with
             their two images. The footer-band debt row closed. A real PDF generated in both languages
             and compared with the prototype.
       - [ ] **1.3** The Arabic manual test list.

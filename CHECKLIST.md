@@ -3581,7 +3581,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
             *(2026-10-02, #277 — today's template prints no company name, address or phones; 1.2
             prints all three)*
-      - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
+      - [x] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
             phones in the header — today's template prints none of them — the address and phones absent
             when unset; one image on the page; every new label in both locales; black text, a `#f2f2f2`
             title row and a `#d9d9d9` grid), then `customer-quotation.blade.php` rewritten after the
@@ -3589,6 +3589,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             bottom), and `footerBand()` / `watermark()` removed with
             their two images. The footer-band debt row closed. A real PDF generated in both languages
             and compared with the prototype.
+            *(2026-10-02, #279 — Chrome clipped the table's right border at the renderer's side margins;
+            the 25 mm sides are now `body` padding, the renderer keeps only top and bottom)*
       - [ ] **1.3** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

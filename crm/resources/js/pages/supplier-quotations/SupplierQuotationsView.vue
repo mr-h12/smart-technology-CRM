@@ -39,11 +39,14 @@
  *
  * The payload carries `supplier_id`, never a name: `CLAUDE.md` forbids Module 6
  * reading Module 4's tables, so the join belongs on this side of the wire
- * (`D-67`). One `listSuppliers` call fills both the name column and the filter.
+ * (`D-67`). One `listSuppliers` call fills the name column. The filter asks the
+ * server itself as the user types (F-24 · 1.2, `D-84`'s search), so any
+ * supplier can be chosen there; «كل المورّدين», its first row, clears it — there
+ * is no clear button beside it, unlike the customer filter (the owner's choice).
  *
  * ⚠️ **Two stated ceilings, neither invented here.**
- * 1. That call takes the first 100 suppliers (`SupplierListCriteria::MAX_PER_PAGE`).
- *    A supplier past the hundredth shows as their identifier rather than a name.
+ * 1. The name column's call takes the first 100 suppliers (`SupplierListCriteria::MAX_PER_PAGE`).
+ *    A supplier past the hundredth shows as their identifier rather than a name (F-24 · 1.6).
  * 2. **The currency is not shown in the list.** The dialog can read it since
  *    D-80 (`GET /currencies` carries `id`, readable by `currency.view`); the
  *    column is a later item if the owner wants it — a bare figure here is
@@ -56,6 +59,8 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import SearchCombobox from '@/components/SearchCombobox.vue';
+import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuotationFormModal.vue';
 import { listSupplierQuotations, type Pagination, type SupplierQuotation } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
@@ -85,6 +90,8 @@ const denied = ref(false);
 
 const page = ref(1);
 const supplierFilter = ref('');
+/** The name of the row picked in the filter — what its box shows while nobody types. */
+const supplierFilterName = ref('');
 const dealFilter = ref('');
 
 const sortField = ref<'offer_date' | 'created_at'>('offer_date');
@@ -153,6 +160,13 @@ async function loadSuppliers(): Promise<void> {
 async function applyFilters(): Promise<void> {
     page.value = 1;
     await load();
+}
+
+/** A pick narrows the list at once; «كل المورّدين» is `null` and clears it. */
+function filterBySupplier(supplier: Supplier | null): void {
+    supplierFilter.value = supplier?.id ?? '';
+    supplierFilterName.value = supplier?.name ?? '';
+    void applyFilters();
 }
 
 async function sortBy(field: 'offer_date' | 'created_at'): Promise<void> {
@@ -251,17 +265,29 @@ onMounted(async () => {
         </header>
 
         <form class="flex flex-wrap items-end gap-3" data-testid="supplier-quotations-filters" @submit.prevent="applyFilters">
-            <label class="flex flex-col gap-1">
+            <!-- A text box does not grow to the chosen name, and the floating list is
+                 as wide as the box: at its natural 185 px a long name was clipped and
+                 every option wrapped (`rtl-ui-verifier`, F-24 · 1.2). -->
+            <label class="flex min-w-[16rem] flex-col gap-1">
                 <span>{{ t('supplierQuotations.filter.supplier') }}</span>
-                <select
-                    v-model="supplierFilter"
-                    class="form-field min-h-11 rounded-lg px-3"
-                    data-testid="supplier-quotations-filter-supplier"
-                    @change="applyFilters"
+                <!-- ponytail: the supplier option's markup a third time (SupplierPicker, the offer
+                     form); one shared option when ordered (CHECKLIST, "joined three times"). -->
+                <SearchCombobox
+                    test-id="supplier-quotations-filter-supplier"
+                    :search="listSuppliers"
+                    :keys="SUPPLIER_KEYS"
+                    :selected="(supplier: Supplier) => supplier.id === supplierFilter"
+                    :leading="{ label: t('supplierQuotations.filter.supplierAll'), selected: supplierFilter === '' }"
+                    :display="supplierFilterName"
+                    :placeholder="t('supplierQuotations.filter.supplierAll')"
+                    floating
+                    @pick="filterBySupplier"
                 >
-                    <option value="">{{ t('supplierQuotations.filter.supplierAll') }}</option>
-                    <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
-                </select>
+                    <template #option="{ item }">
+                        <span class="block">{{ item.name }}</span>
+                        <span v-if="supplierDetail(item, t) !== ''" class="block text-sm text-[var(--color-text-muted)]">{{ supplierDetail(item, t) }}</span>
+                    </template>
+                </SearchCombobox>
             </label>
 
             <!-- `D-88`: a fragment of the deal's code, matched by the server.

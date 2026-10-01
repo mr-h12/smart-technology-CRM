@@ -3509,14 +3509,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-09-28, #263 — a test reads the guard row id's version digit; `Str::uuid()` and `orderedUuid()` both
             fail it; deptrac `Uncovered` 1 → 0 in both configs)*
 
-- [ ] **F-32** The quotation builder's delivery-terms field reads the `delivery_terms` managed list
+- [x] **F-32** The quotation builder's delivery-terms field reads the `delivery_terms` managed list
       (`DB-05`). Asked for by the owner, 2026-10-01: the field itself becomes a dropdown you can type in
       to search, and the caller's recent terms stay under it as today. The point list was published and
       approved 2026-10-01 in conversation. Free text stays (`§6.2`, `Design System §6.3`): a typed term
       that matches nothing is saved as typed, so the stored value is still the text
       `quotations.delivery_terms` holds and the API, the PDF and the history do not change. With no
       entries, or the list refused, the field is today's text area.
-      - [ ] **1.1** The delivery field is an editable combobox over `GET /managed-lists/delivery_terms`
+      - [x] **1.1** The delivery field is an editable combobox over `GET /managed-lists/delivery_terms`
             (page 1, the Catalog's ceiling of 25): it opens on focus, shows each label in the session's
             language, typing narrows it, picking fills it. Built on `SearchCombobox` with one new `typed`
             event. The browser check (2026-10-01) found the one-line field cut 6 of 8 dev terms at 375 px
@@ -3529,7 +3529,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             stored text stays as it was until somebody edits it; no Arabic letter-variant folding in the
             local filter (`SearchService` folds on the server only, and `GET /managed-lists/{list}` takes
             `page` and `per_page` alone, so a server search is a backend point); a 26th term is
-            unreachable.
+            unreachable. *(2026-10-01, #274 — picked or typed; the whole term wraps under the field and
+            Enter submits nothing (owner); browser 4 cells clean, 0 submits on a guarded Enter)*
 
 ## Shell revisions — owner-directed
 

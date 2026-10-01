@@ -883,7 +883,6 @@
             "supplierAll": "كل المورّدين",
             "deal": "رمز الصفقة",
             "dealCodePlaceholder": "DL-2026-0003",
-            "dealPlaceholder": "معرّف الصفقة",
             "apply": "تطبيق"
         },
         "form": {
@@ -951,6 +950,16 @@
         }
     },
     "deals": {
+        "picker": {
+            "placeholder": "ابحث عن صفقة بالكود أو العنوان…",
+            "none": "بدون صفقة",
+            "more": "يوجد المزيد — اكتب حروفًا أكثر",
+            "forbidden": "لا تملك صلاحية عرض الصفقات",
+            "failed": "تعذّر تحميل الصفقات",
+            "emptyScope": "لا توجد صفقات ضمن نطاقك",
+            "noMatch": "لا نتائج لـ «{query}»",
+            "detailSeparator": " · "
+        },
         "title": "الطلبات / الصفقات",
         "loading": "جارٍ تحميل الصفقات…",
         "total": "{count} صفقة",

@@ -280,6 +280,62 @@ function supplierSearches(fetchMock: ReturnType<typeof vi.fn>): URL[] {
         .filter((url) => url.pathname.endsWith('/suppliers') && url.searchParams.get('per_page') === '20');
 }
 
+/**
+ * F-24 · 1.1: two `DealRow`s as `GET /deals` lists them — one with no title,
+ * one whose title and customer are Arabic.
+ */
+const DEAL = {
+    id: 'd3',
+    code: 'DL-2026-0003',
+    customer_id: 'cu1',
+    title: null,
+    source: null,
+    service_type: null,
+    status: 'lead',
+    owner_id: null,
+    approval_status: null,
+    rejection_reason: null,
+    lost_reason: null,
+    last_activity_at: '2026-09-01T00:00:00+00:00',
+    created_at: '2026-09-01T00:00:00+00:00',
+    updated_at: '2026-09-01T00:00:00+00:00',
+    customer_name: 'Nile Hotels',
+};
+const DEAL_7 = { ...DEAL, id: 'd7', code: 'DL-2026-0007', title: 'تمديد كابلات', customer_name: 'فندق النيل' };
+
+/** An offer on `DEAL`, as the list publishes it (`D-88`: the code beside the id). */
+const LINKED = { ...OFFER, deal_id: 'd3', deal_code: 'DL-2026-0003' };
+
+/** Over `respond()`, with `offer` as the list's one row: the deal picker's search answers both deals. */
+function withDealSearch(offer: Record<string, unknown> = OFFER): ReturnType<typeof vi.fn> {
+    const base = respond([offer], 200, { ...offer, items: OFFER_DETAIL_LINES }) as unknown as typeof globalThis.fetch;
+
+    return vi.fn(async (input: string, init?: RequestInit) => {
+        if (new URL(String(input), 'http://localhost').pathname.endsWith('/deals')) {
+            return json(200, envelope([DEAL, DEAL_7], { pagination: { ...PAGINATION, total: 2, per_page: 20 } }));
+        }
+
+        return base(input, init);
+    });
+}
+
+function dealSearches(fetchMock: ReturnType<typeof vi.fn>): URL[] {
+    return fetchMock.mock.calls
+        .map((call) => new URL(String(call[0]), 'http://localhost'))
+        .filter((url) => url.pathname.endsWith('/deals'));
+}
+
+/** F-24 · 1.1: the offer's deal is picked in a server search — open it, take the row with this code. */
+async function pickDeal(view: Awaited<ReturnType<typeof render>>, code: string): Promise<void> {
+    await view.get('[data-testid="supplier-quotation-form-deal-id"]').trigger('focus');
+    await flushPromises();
+
+    const option = view.findAll('[data-testid="supplier-quotation-form-deal-id-option"]').find((row) => row.text().includes(code));
+
+    expect(option, `no «${code}» option`).toBeDefined();
+    await option!.trigger('mousedown');
+}
+
 /** The body of the first call with this method. */
 function sentBody(fetchMock: ReturnType<typeof vi.fn>, method: 'POST' | 'PATCH'): Record<string, unknown> {
     const call = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === method);
@@ -355,7 +411,7 @@ describe('the supplier quotations screen', () => {
 
         const box = wrapper.find('[data-testid="supplier-quotations-filter-deal"]');
 
-        // Its own key: the form modal's UUID field shares `filter.dealPlaceholder`.
+        // Its own key: a code fragment's example, not the form's deal picker (F-24 · 1.1).
         expect(box.attributes('placeholder')).toBe(en.supplierQuotations.filter.dealCodePlaceholder);
 
         await box.setValue('0003');
@@ -800,6 +856,136 @@ describe('the supplier quotation form', () => {
 
         expect(beta!.get('[data-testid="supplier-quotation-form-supplier-id-option-detail"]').text())
             .toBe('\u2068Mona\u2069 · \u20680100\u2069 · \u2068Inactive\u2069');
+    });
+
+    // ── F-24 · 1.1: the deal is picked by its `DL-…` code, not pasted as a
+    // UUID (debt row "The supplier-offer form's deal field still takes a raw
+    // UUID"; D-88 left the picker out). The wire still carries `deal_id`.
+
+    it('searches the server for the offer\'s deal as the user types', async () => {
+        const fetchMock = withDealSearch();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        const field = view.get('[data-testid="supplier-quotation-form-deal-id"]');
+        await field.trigger('focus');
+        await flushPromises();
+
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await field.setValue('0007');
+        vi.advanceTimersByTime(300);
+        vi.useRealTimers();
+        await flushPromises();
+
+        expect(dealSearches(fetchMock).at(-1)?.searchParams.get('q')).toBe('0007');
+    });
+
+    it('saves the picked deal\'s id and shows its code', async () => {
+        const fetchMock = withDealSearch();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await pickDeal(view, 'DL-2026-0007');
+
+        expect((view.get('[data-testid="supplier-quotation-form-deal-id"]').element as HTMLInputElement).value).toBe('DL-2026-0007');
+
+        // Picked again: the shown code did not change, so the box keeps the
+        // pick's own text — which must be the code too, not the id.
+        await pickDeal(view, 'DL-2026-0007');
+
+        expect((view.get('[data-testid="supplier-quotation-form-deal-id"]').element as HTMLInputElement).value).toBe('DL-2026-0007');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        // The id, never the code: `SaveSupplierQuotationRequest` wants a uuid.
+        expect(sentBody(fetchMock, 'POST').deal_id).toBe('d7');
+    });
+
+    /** D-88: the offer already carries its deal's code, so opening the edit asks for nothing more. */
+    it('shows an edited offer\'s deal by its code and keeps it', async () => {
+        const fetchMock = withDealSearch(LINKED);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-deal-id"]').element as HTMLInputElement).value).toBe('DL-2026-0003');
+        expect(dealSearches(fetchMock)).toHaveLength(0);
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').deal_id).toBe('d3');
+    });
+
+    /** D-51: the link is optional, so the picker must be able to take it away. */
+    it('unlinks the deal with No deal', async () => {
+        const fetchMock = withDealSearch(LINKED);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-deal-id"]').trigger('focus');
+        await flushPromises();
+
+        const none = view.get('[data-testid="supplier-quotation-form-deal-id-all"]');
+
+        expect(none.text()).toBe(en.deals.picker.none);
+        await none.trigger('mousedown');
+
+        expect((view.get('[data-testid="supplier-quotation-form-deal-id"]').element as HTMLInputElement).value).toBe('');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').deal_id).toBeNull();
+    });
+
+    /** A code alone tells nobody which deal it is; each part isolated, as the supplier's detail (2026-09-28). */
+    it('describes each deal option by its title and customer', async () => {
+        const view = await render(withDealSearch());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-deal-id"]').trigger('focus');
+        await flushPromises();
+
+        const detail = (code: string): string => {
+            const row = view.findAll('[data-testid="supplier-quotation-form-deal-id-option"]').find((option) => option.text().includes(code));
+
+            expect(row, `no «${code}» option`).toBeDefined();
+
+            return row!.get('[data-testid="supplier-quotation-form-deal-id-option-detail"]').text();
+        };
+
+        expect(detail('DL-2026-0007')).toBe('⁨تمديد كابلات⁩ · ⁨فندق النيل⁩');
+        // No title: the customer alone, no stray separator.
+        expect(detail('DL-2026-0003')).toBe('⁨Nile Hotels⁩');
+    });
+
+    /**
+     * D-88: `deal_code` is null when the offer's deal was soft-deleted. The id
+     * shows — D-83's fallback — and an untouched field saves it unchanged.
+     * A guard: the free-text box already behaves so; the picker must not lose it.
+     */
+    it('falls back to the id when the offer\'s deal has no code, and still saves', async () => {
+        const fetchMock = withDealSearch({ ...OFFER, deal_id: 'd9', deal_code: null });
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-deal-id"]').element as HTMLInputElement).value).toBe('d9');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').deal_id).toBe('d9');
     });
 
     /** §5.2, §6.5: a saved offer may not belong on the page in view, so the list is asked again. */

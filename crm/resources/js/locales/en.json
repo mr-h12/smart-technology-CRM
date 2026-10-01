@@ -883,7 +883,6 @@
             "supplierAll": "All suppliers",
             "deal": "Deal code",
             "dealCodePlaceholder": "DL-2026-0003",
-            "dealPlaceholder": "Deal identifier",
             "apply": "Apply"
         },
         "form": {
@@ -951,6 +950,16 @@
         }
     },
     "deals": {
+        "picker": {
+            "placeholder": "Search deals by code or title…",
+            "none": "No deal",
+            "more": "More deals match — type more letters",
+            "forbidden": "You do not have permission to view deals",
+            "failed": "Deals could not be loaded",
+            "emptyScope": "No deals in your scope",
+            "noMatch": "No results for “{query}”",
+            "detailSeparator": " · "
+        },
         "title": "Requests / Deals",
         "loading": "Loading deals…",
         "total": "{count} deals",

@@ -3549,6 +3549,25 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-01, #276 — `bcround(Decimal::of(…), 2)`, half away from zero, `-0.125` → `-0.13`;
             a figure that is not a plain decimal is refused; QT-2026-0003 read in ar and en)*
       - [ ] **1.3** The Arabic manual test list.
+- [ ] **F-34** The customer quotation PDF takes the Conta-style design (`D-100`). Requested by the owner,
+      2026-10-02, from a throwaway prototype (`prototypes/quotation-conta-style/`, local, not in git):
+      Conta's quote layout with all text black, a light-grey column-title row, light-grey table lines a
+      little darker, no signature or acceptance box, and Inter. The owner's rulings, 2026-10-02: the
+      header prints the company's name, address and phones from Settings — no e-mail line, because no
+      setting holds one — and the footer band and the watermark are removed. The point list was
+      published and approved 2026-10-02 in conversation.
+      - [x] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
+            *(2026-10-02, #277 — today's template prints no company name, address or phones; 1.2
+            prints all three)*
+      - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
+            phones in the header — today's template prints none of them — the address and phones absent
+            when unset; one image on the page; every new label in both locales; black text, a `#f2f2f2`
+            title row and a `#d9d9d9` grid), then `customer-quotation.blade.php` rewritten after the
+            prototype, `lang/{ar,en}/pdf.php`, the renderer's margins (22 mm top, 25 mm sides, 20 mm
+            bottom), and `footerBand()` / `watermark()` removed with
+            their two images. The footer-band debt row closed. A real PDF generated in both languages
+            and compared with the prototype.
+      - [ ] **1.3** The Arabic manual test list.
 
 ## Shell revisions — owner-directed
 

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 
 /**
  * `CustomerQuotationView` → the HTML `PdfRendererInterface` turns into a PDF —
- * Module 9, Point 2.4, and `D-89`'s layout.
+ * Module 9, Point 2.4, laid out as `D-100` (F-34 · 1.2).
  *
  * ── The locale is passed, never taken from the request ────────────────────
  *
@@ -26,8 +26,8 @@ use InvalidArgumentException;
  *
  * ── The template receives nothing it could misuse ─────────────────────────
  *
- * It gets the view, the `data:` URIs, the font CSS, `$t` and the three
- * display formatters (`ltr`, `money`, `plain`). It is handed no repository,
+ * It gets the view, the logo's `data:` URI, the font CSS, `$t` and the four
+ * display formatters (`ltr`, `isolate`, `money`, `plain`). It is handed no repository,
  * no request and no quotation of Module 7's, so a template cannot reach past
  * the model 1.1 built to be safe.
  */
@@ -77,7 +77,7 @@ final readonly class CustomerQuotationHtml
         $family = $direction === 'rtl' ? "'Noto Sans Arabic', 'Inter'" : "'Inter', 'Noto Sans Arabic'";
 
         return "<div dir=\"{$direction}\" style=\"width:100%;margin:0 12mm;font-size:8pt;text-align:center;"
-            ."color:#4a4a52;font-family:{$family},sans-serif\">"
+            ."color:#000;font-family:{$family},sans-serif\">"
             .$label
             .'</div>';
     }
@@ -99,8 +99,6 @@ final readonly class CustomerQuotationHtml
             'direction' => $direction,
             'fontFaceCss' => $this->assets->fontFaceCss(),
             'logo' => $this->assets->logo(),
-            'footerBand' => $this->assets->footerBand(),
-            'watermark' => $this->assets->watermark(),
             't' => fn (string $key, array $replace = []): string => (string) $this->translator->get(
                 'pdf.'.$key,
                 $replace,
@@ -114,6 +112,14 @@ final readonly class CustomerQuotationHtml
             // invisible text rather than markup, so Blade still escapes the
             // value itself.
             'ltr' => static fn (?string $value): string => $value === null ? '' : "\u{2066}{$value}\u{2069}",
+            // F-34 · 1.2. The company's address and phones are typed in
+            // Settings in either script, so they are isolated without a forced
+            // direction (U+2068 FSI): the first letter decides, and a line of
+            // digits has none and reads left to right. On the Arabic page,
+            // `5-El-Fath St, …` was printing as `… Egypt-5` and the two phone
+            // numbers swapped places. Dates keep `ltr`: a forced direction is
+            // what 2.7 fixed, and their format is still the owner's open question.
+            'isolate' => static fn (?string $value): string => $value === null ? '' : "\u{2068}{$value}\u{2069}",
             // D-99. The view carries each figure at the scale D-68 stores it
             // (`110.000000`, `1.0000`, `14.000`). Money prints at two places,
             // rounded half away from zero (`bcround`'s default mode) by BCMath

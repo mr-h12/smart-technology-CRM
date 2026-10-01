@@ -12,8 +12,8 @@ use Tests\Fixtures\CustomerQuotationViewFixture;
 use Tests\TestCase;
 
 /**
- * Module 9, Point 2.4 — `D-89`'s layout, rendered from one template in both
- * languages.
+ * Module 9, Point 2.4 — the customer quotation, laid out as `D-100` since
+ * F-34 · 1.2, rendered from one template in both languages.
  *
  * The HTML is checked here rather than the PDF: what a person must eventually
  * look at is 2.7's job, but every rule with a citation behind it — the labels
@@ -125,15 +125,143 @@ final class CustomerQuotationHtmlTest extends TestCase
             deliveryTerms: null,
             warranty: null,
             paymentTerms: null,
+            companyAddress: null,
+            companyPhones: null,
+            quotationDate: null,
+            validUntil: null,
         );
 
-        foreach (['subject-line', 'signatory', 'contact-line', 'delivery-terms', 'warranty', 'payment-terms'] as $id) {
+        $optional = ['subject-line', 'signatory', 'contact-line', 'delivery-terms', 'warranty', 'payment-terms',
+            'company-address', 'company-phones', 'issue-date', 'valid-until-line'];
+
+        foreach ($optional as $id) {
             self::assertStringNotContainsString('id="'.$id.'"', $bare, "{$id} was rendered with nothing in it.");
         }
 
         $full = $this->html();
-        foreach (['subject-line', 'signatory', 'contact-line', 'delivery-terms', 'warranty', 'payment-terms'] as $id) {
+        foreach ($optional as $id) {
             self::assertStringContainsString('id="'.$id.'"', $full);
+        }
+    }
+
+    public function test_that_the_header_prints_the_company_from_the_settings(): void
+    {
+        // D-100's first ruling and §14.6's "company logo and details from
+        // settings": the name, the address and the phones are text from
+        // Settings, the phones as typed. The template before D-100 printed none
+        // of the three — the footer band carried them as pixels. There is no
+        // e-mail line because no setting holds one.
+        //
+        // Each line is wrapped in a first-strong isolate (U+2068 … U+2069),
+        // found on the first real Arabic PDF: inside the RTL page, bidi printed
+        // `5-El-Fath St, …` as `El-Fath St, … Egypt-5` and swapped the two
+        // phone numbers. The isolate takes its direction from the text itself —
+        // a Latin address reads left to right, an Arabic one right to left, and
+        // a line of digits, having no letter, left to right.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale);
+
+            self::assertStringContainsString(e('Smart Technology for Integrated Systems'), $html, "The {$locale} header has no company name.");
+            self::assertMatchesRegularExpression('/id="company-address"[^>]*>\s*\x{2068}'.preg_quote(e('5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt'), '/').'\x{2069}\s*</u', $html, "The {$locale} address is missing or not isolated.");
+            self::assertMatchesRegularExpression('/id="company-phones"[^>]*>\s*\x{2068}'.preg_quote(e('035829952 · 01070764779'), '/').'\x{2069}\s*</u', $html, "The {$locale} phones are missing or not isolated.");
+        }
+    }
+
+    public function test_that_the_side_margins_are_inside_the_page_where_chrome_does_not_clip(): void
+    {
+        // Reported by the owner on the first PDFs of D-100's layout: the item
+        // table's right border was missing, in both languages. Chrome clips the
+        // page at the margins the renderer sets, and a full-width table with
+        // collapsed borders draws half of its outer border outside its own box,
+        // so the right half was cut. The layout before D-100 lost it too, under
+        // a darker border (measured on a PDF from main). So the side margins are
+        // padding inside the page, and the renderer's left and right margins are
+        // 0. Measured after the change, at 300 dpi: both borders drawn, the
+        // table at 294..2186 px like the prototype. No rasteriser ships in the
+        // image, so this test pins the arrangement rather than the pixels.
+        $template = (string) file_get_contents(base_path(self::TEMPLATE));
+        self::assertMatchesRegularExpression('/\bbody\s*\{[^}]*padding:\s*0 25mm/', $template, 'The side margins are not padding inside the page.');
+
+        $renderer = (string) file_get_contents(base_path('app/Modules/Pdf/Infrastructure/BrowsershotPdfRenderer.php'));
+        self::assertStringContainsString('->margins(22, 0, 20, 0)', $renderer, 'The renderer still sets side margins, where Chrome clips.');
+    }
+
+    public function test_that_the_page_renders_in_standards_mode(): void
+    {
+        // Found on the first real PDF: without a doctype Chrome renders the
+        // page in quirks mode, where a table does not inherit the body's font
+        // size — the item table printed at 12pt against the prototype's 9pt.
+        foreach (['ar', 'en'] as $locale) {
+            self::assertStringStartsWith('<!doctype html>', strtolower(ltrim($this->html(locale: $locale))), "The {$locale} page has no doctype.");
+        }
+    }
+
+    public function test_that_the_logo_is_the_only_picture_on_the_page(): void
+    {
+        // D-100's second ruling: the footer band and the faded S.T.I.S mark are
+        // gone, so the logo — a PNG — is the one image left.
+        $html = $this->html();
+
+        self::assertSame(1, substr_count($html, '<img'), 'Something besides the logo is drawn on the page.');
+        self::assertStringNotContainsString('data:image/jpeg', $html, 'The footer band or the watermark is still embedded.');
+    }
+
+    public function test_that_the_layout_reads_its_labels_from_the_lang_file_in_both_languages(): void
+    {
+        // D-100's layout: the heading, the parties block and the terms heading
+        // are new labels, and the column titles are the owner's own words.
+        self::assertSame(
+            ['serial' => '#', 'item' => 'Description', 'unit_price' => 'Unit Price', 'quantity' => 'Qty', 'line_total' => 'Total'],
+            Lang::get('pdf.table', [], 'en'),
+            'The column titles are not the ones D-100 names.',
+        );
+
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale);
+            // The page, not the <title>: "Quotation QT-2026-0001" there would
+            // pass for a missing heading (found by removing it on purpose).
+            $body = (string) strstr($html, '<body');
+
+            foreach (['heading', 'parties.prepared_for', 'parties.issue_date', 'parties.valid_until', 'terms.heading', 'header.attention', 'header.subject'] as $key) {
+                $label = (string) Lang::get('pdf.'.$key, [], $locale);
+                self::assertNotSame('pdf.'.$key, $label, "pdf.{$key} is missing from the {$locale} lang file.");
+                self::assertStringContainsString(e($label), $body, "The {$locale} page does not show pdf.{$key}.");
+            }
+
+            // The five titles, in the order the table prints them.
+            $titles = array_map(
+                static fn (string $key): string => '<th[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.table.'.$key, [], $locale)), '/').'\s*<\/th>',
+                ['serial', 'item', 'unit_price', 'quantity', 'line_total'],
+            );
+            self::assertMatchesRegularExpression('/'.implode('\s*', $titles).'/u', $html, "The {$locale} column titles are missing or out of order.");
+
+            // The terms are plain lines in the prototype, not a bulleted list.
+            self::assertStringNotContainsString('<li', $html, "The {$locale} terms are still bullets.");
+        }
+    }
+
+    public function test_that_the_text_is_black_and_the_table_lines_grey(): void
+    {
+        // The owner's changes to the Conta layout (D-100): every word black, the
+        // column-title row #f2f2f2, the table lines #d9d9d9 — a little darker.
+        // Read from the template's own CSS: a colour is a declaration, and the
+        // rendered markup carries the same text.
+        $source = (string) file_get_contents(base_path(self::TEMPLATE));
+
+        preg_match_all('/(?<![\w-])color\s*:\s*([^;}\s]+)/i', $source, $colours);
+        self::assertNotSame([], $colours[1], 'The template sets no text colour at all.');
+        foreach ($colours[1] as $colour) {
+            self::assertSame('#000', strtolower($colour), "A text colour of {$colour} is not black.");
+        }
+
+        self::assertMatchesRegularExpression('/\bth\b[^{}]*\{[^}]*background(-color)?\s*:\s*#f2f2f2/i', $source, 'The column-title row is not light grey.');
+        self::assertMatchesRegularExpression('/\btd\b[^{}]*\{[^}]*border\s*:[^;]*#d9d9d9/i', $source, 'The table lines are not the darker grey.');
+
+        // The page number is text on the page too.
+        $html = $this->app->make(CustomerQuotationHtml::class);
+        foreach (['ar', 'en'] as $locale) {
+            preg_match_all('/(?<![\w-])color\s*:\s*([^;"]+)/i', $html->footer($locale), $footerColours);
+            self::assertSame(['#000'], $footerColours[1], "The {$locale} page number is not black.");
         }
     }
 

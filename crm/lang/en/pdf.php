@@ -12,21 +12,32 @@ declare(strict_types=1);
 return [
     'title' => 'Quotation :code',
 
+    // D-100: the heading over the company's name, and the parties block.
+    'heading' => 'Quotation',
+
     'header' => [
-        'date' => 'Date',
-        'to' => 'To',
         'attention' => 'Att',
         'subject' => 'Subject',
+    ],
+
+    'parties' => [
+        'prepared_for' => 'Prepared for',
+        'issue_date' => 'Issue date',
+        'valid_until' => 'Valid until',
     ],
 
     'intro' => 'We have the pleasure to provide you with the following offer:',
 
     'table' => [
-        'serial' => 'S',
-        'item' => 'Item',
+        'serial' => '#',
+        'item' => 'Description',
         'unit_price' => 'Unit Price',
-        'quantity' => 'Qty.',
-        'line_total' => 'Total price',
+        'quantity' => 'Qty',
+        'line_total' => 'Total',
+    ],
+
+    'terms' => [
+        'heading' => 'Terms and Conditions',
     ],
 
     'totals' => [

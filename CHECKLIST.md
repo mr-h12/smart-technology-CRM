@@ -3531,6 +3531,21 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `page` and `per_page` alone, so a server search is a backend point); a 26th term is
             unreachable. *(2026-10-01, #274 — picked or typed; the whole term wraps under the field and
             Enter submits nothing (owner); browser 4 cells clean, 0 submits on a guarded Enter)*
+- [ ] **F-33** The customer PDF prints its figures in `D-99`'s form. Reported by the owner, 2026-10-01:
+      the PDF shows six zeros where it showed two. Nothing regressed — the template has printed each
+      stored string as it is since Module 9 · 2.4 (#224); two places existed only in P-01's sample data
+      and the template tests' fixtures, and real quotations reached the PDF from 3.4 (#260) on. Measured
+      on a PDF generated 2026-10-01: `110.000000`, `1.0000`, `VAT (14.000%)`, `695.000000 EGP`, and a
+      zero rounding line on a quotation with rounding off (the template compares to `'0.00'`). The
+      owner's rulings, 2026-10-01: money at two places rounded half-up; quantities and percentages
+      without trailing zeros. The point list was published and approved 2026-10-01 in conversation.
+      - [ ] **1.1** `D-99` in §2 (proposed) + this list. Docs only.
+      - [ ] **1.2** Failing test first in `CustomerQuotationHtmlTest` (stored-scale fixtures: `110.000000`,
+            `100.125000`, `-0.400000`, `1.0000`, `14.000`, a `0.000000` rounding difference), then
+            `money` (`bcround(…, 2)`) and `plain` (trailing zeros, only after a point) beside `ltr` in
+            `CustomerQuotationHtml::render()`, applied in `customer-quotation.blade.php`; the rounding
+            row keyed on the two-place figure. A real PDF generated and read in both languages.
+      - [ ] **1.3** The Arabic manual test list.
 
 ## Shell revisions — owner-directed
 

@@ -3573,7 +3573,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       rendered in Noto Sans Arabic, Noto Naskh Arabic and Noto Kufi Arabic; Inter stays for numbers and
       English. The point list was published and approved 2026-10-02 in conversation, with a yes to the
       shell write of `D-101` and to downloading the two faces and their licence.
-      - [ ] **1.1** `D-101` in §2 (proposed), `D-100` pointed to it, + this list. Docs only.
+      - [x] **1.1** `D-101` in §2 (proposed), `D-100` pointed to it, + this list. Docs only.
+            *(2026-10-02, #278 — today's Arabic subset holds no digits or Latin: `pdffonts` shows Inter
+            drawing `0-9`, `.`, `,` and `ATEN`, which is what keeps them Inter under Naskh)*
       - [ ] **1.2** Failing tests first (`CustomerQuotationPdfTest`: the Arabic PDF embeds Noto Naskh
             Arabic and Inter and not Noto Sans Arabic; `PdfAssetsTest`: the Naskh licence ships; the
             footer lists Inter first, then Noto Naskh Arabic), then the Arabic-script subset of Noto Naskh

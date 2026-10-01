@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
@@ -45,6 +45,13 @@ const SQ_DETAIL = {
         { id: 'sqi2', catalog_item_id: 'ci2', unit_price: '250.000000', quantity: '1.000', consumed_quantity: '0.0000', available_quantity: '1.000' },
     ],
 };
+
+/** `GET /managed-lists/delivery_terms` as `ManagedListController::payload()` builds it: both labels, the server's order (F-32). */
+const TERMS = [
+    { code: 'within_1_2_weeks', label_en: 'Within 1–2 weeks from receipt of the purchase order', label_ar: 'خلال أسبوع إلى أسبوعين من استلام أمر الشراء', position: 1 },
+    { code: 'within_4_6_weeks', label_en: 'Within 4–6 weeks from receipt of the purchase order', label_ar: 'خلال 4 إلى 6 أسابيع من استلام أمر الشراء', position: 2 },
+    { code: 'at_customer_site', label_en: 'Delivered to the customer’s site', label_ar: 'التسليم في موقع العميل', position: 3 },
+];
 
 /** What `POST /quotations` really answers — `QuotationPayload::of()`: no etag, no detail (F-03 found the SPA assuming one). */
 const CREATED = { id: 'q9', code: 'QT-2026-0009' };
@@ -109,8 +116,11 @@ function respond(options: {
     suggestions?: Partial<Record<'payment_terms' | 'warranty' | 'delivery_terms', string[]>>;
     /** `GET /currencies` (D-80); anything but 200 is the refusal the fallback input answers. */
     currenciesStatus?: number;
+    /** `GET /managed-lists/delivery_terms` (F-32); none, or anything but 200, is what the plain text area answers. */
+    terms?: typeof TERMS;
+    termsStatus?: number;
 } = {}): ReturnType<typeof vi.fn> {
-    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {}, currenciesStatus = 200 } = options;
+    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {}, currenciesStatus = 200, terms = [], termsStatus = 200 } = options;
     let saved = 0;
     let read = 0;
     let updated = 0;
@@ -174,6 +184,10 @@ function respond(options: {
 
         if (url.includes('/supplier-quotations')) {
             return json(200, envelope(url.includes('filter%5Bdeal_id%5D=d1') ? [SQ_DEAL] : [SQ_DEAL, SQ_OTHER]));
+        }
+
+        if (url.includes('/managed-lists/delivery_terms')) {
+            return termsStatus === 200 ? json(200, envelope(terms)) : refusal(termsStatus, 'forbidden');
         }
 
         const field = /\/user-term-suggestions\?field=(\w+)$/.exec(url)?.[1] as keyof typeof suggestions | undefined;
@@ -853,5 +867,282 @@ describe('the builder\'s currency control', () => {
         await flushPromises();
 
         expect(saves(fetchMock)[0]?.body).toMatchObject({ currency: 'EGP' });
+    });
+});
+
+/**
+ * F-32 · 1.1 — the delivery field over the `delivery_terms` managed list
+ * (`DB-05`). An editable combobox: focus opens the list, typing narrows it, a
+ * pick fills the field — and text that matches nothing is still the value
+ * (`§6.2`, `Design System §6.3`: free text with suggestions). With no entries,
+ * or the list refused, the field stays the text area it was.
+ */
+describe('the builder\'s delivery-terms control', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+        // The combobox waits 300 ms after the last key before it narrows the list.
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    type Rendered = Awaited<ReturnType<typeof render>>['wrapper'];
+
+    const field = (wrapper: Rendered) => wrapper.find(id('delivery_terms'));
+    const optionTexts = (wrapper: Rendered): string[] => wrapper.findAll(id('delivery_terms-option')).map((option) => option.text());
+
+    async function open(wrapper: Rendered): Promise<void> {
+        await field(wrapper).trigger('focus');
+        await flushPromises();
+    }
+
+    async function typeInto(wrapper: Rendered, text: string): Promise<void> {
+        await field(wrapper).setValue(text);
+        vi.advanceTimersByTime(300);
+        await flushPromises();
+    }
+
+    async function save(wrapper: Rendered): Promise<void> {
+        await fillHeader(wrapper);
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+    }
+
+    it('reads the list once, page 1, when the builder opens', async () => {
+        const fetchMock = respond({ terms: TERMS });
+
+        await render(fetchMock);
+
+        const asked = fetchMock.mock.calls.map((call) => String(call[0]).replace(/^.*\/api\/v1/, '')).filter((path) => path.startsWith('/managed-lists/'));
+
+        expect(asked).toEqual(['/managed-lists/delivery_terms?page=1']);
+    });
+
+    it('makes the delivery field a combobox and leaves payment terms and warranty as text areas', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        expect(field(wrapper).attributes('role')).toBe('combobox');
+        expect(wrapper.find(id('payment_terms')).element.tagName).toBe('TEXTAREA');
+        expect(wrapper.find(id('warranty')).element.tagName).toBe('TEXTAREA');
+    });
+
+    it('opens on focus with one option per term, in the session’s language and the server’s order', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await open(wrapper);
+
+        expect(optionTexts(wrapper)).toEqual([
+            'Within 1–2 weeks from receipt of the purchase order',
+            'Within 4–6 weeks from receipt of the purchase order',
+            'Delivered to the customer’s site',
+        ]);
+    });
+
+    it('shows the Arabic labels in an Arabic session', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', 'ar');
+
+        await open(wrapper);
+
+        expect(optionTexts(wrapper)).toEqual([
+            'خلال أسبوع إلى أسبوعين من استلام أمر الشراء',
+            'خلال 4 إلى 6 أسابيع من استلام أمر الشراء',
+            'التسليم في موقع العميل',
+        ]);
+    });
+
+    it('narrows the list as you type, ignoring case', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await typeInto(wrapper, 'WEEKS');
+
+        expect(optionTexts(wrapper)).toEqual([
+            'Within 1–2 weeks from receipt of the purchase order',
+            'Within 4–6 weeks from receipt of the purchase order',
+        ]);
+    });
+
+    it('narrows the Arabic labels by Arabic text', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', 'ar');
+
+        await typeInto(wrapper, 'أسابيع');
+
+        expect(optionTexts(wrapper)).toEqual(['خلال 4 إلى 6 أسابيع من استلام أمر الشراء']);
+    });
+
+    it.each([
+        { locale: 'en' as const, messages: en },
+        { locale: 'ar' as const, messages: ar },
+    ])('speaks the $locale session’s language in its placeholder and its no-match sentence', async ({ locale, messages }) => {
+        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', locale);
+
+        expect(field(wrapper).attributes('placeholder')).toBe(messages.quotations.builder.deliveryTermPlaceholder);
+
+        await typeInto(wrapper, 'zzz');
+
+        expect(wrapper.find(id('delivery_terms-state')).text()).toBe(messages.quotations.builder.deliveryTermNoMatch.replace('{query}', 'zzz'));
+    });
+
+    it('fills the field with the picked term, and the save sends that text', async () => {
+        const fetchMock = respond({ terms: TERMS });
+        const { wrapper } = await render(fetchMock);
+
+        await open(wrapper);
+        await wrapper.findAll(id('delivery_terms-option'))[2]?.trigger('mousedown');
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Delivered to the customer’s site');
+
+        await save(wrapper);
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Delivered to the customer’s site' });
+    });
+
+    it('marks the term the field already holds as the selected option when the list opens again', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await open(wrapper);
+        await wrapper.findAll(id('delivery_terms-option'))[2]?.trigger('mousedown');
+        await open(wrapper);
+
+        expect(wrapper.findAll(id('delivery_terms-option')).map((option) => option.attributes('aria-selected'))).toEqual(['false', 'false', 'true']);
+    });
+
+    it('picks from the keyboard: ArrowDown to the first term, Enter to take it', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await open(wrapper);
+        await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
+        await field(wrapper).trigger('keydown', { key: 'Enter' });
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Within 1–2 weeks from receipt of the purchase order');
+    });
+
+    // The owner, 2026-10-01: Enter only takes a highlighted term. A one-line field inside the
+    // builder's <form> otherwise submits it (implicit submission), where the old text area took a line.
+    it.each([
+        { why: 'the typed text matches no term', text: 'Within ten days' },
+        { why: 'terms are listed but none is highlighted', text: 'Within' },
+    ])('blocks the form’s submit on Enter when $why', async ({ text }) => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await typeInto(wrapper, text);
+
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+        field(wrapper).element.dispatchEvent(enter);
+
+        expect(enter.defaultPrevented).toBe(true);
+        expect((field(wrapper).element as HTMLInputElement).value).toBe(text);
+
+        // Enter alone: any other key still types.
+        const letter = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true });
+
+        field(wrapper).element.dispatchEvent(letter);
+
+        expect(letter.defaultPrevented).toBe(false);
+    });
+
+    it('keeps text that matches no term, says so, and saves it as typed', async () => {
+        const fetchMock = respond({ terms: TERMS });
+        const { wrapper } = await render(fetchMock);
+
+        await typeInto(wrapper, 'Within ten days');
+
+        expect(optionTexts(wrapper)).toEqual([]);
+        expect(wrapper.find(id('delivery_terms-state')).exists()).toBe(true);
+        expect(wrapper.find(id('delivery_terms-state')).text()).toContain('Within ten days');
+
+        await field(wrapper).trigger('focusout');
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Within ten days');
+
+        await save(wrapper);
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Within ten days' });
+    });
+
+    it('still copies a recent term into the field when its chip is clicked', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS, suggestions: { delivery_terms: ['Ex works'] } }));
+
+        expect(field(wrapper).attributes('role')).toBe('combobox');
+
+        await wrapper.findAll(id('delivery_terms-suggestion'))[0]?.trigger('click');
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
+    });
+
+    it('shows an opened quotation’s stored term in the field', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/q1/edit');
+
+        expect(field(wrapper).attributes('role')).toBe('combobox');
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
+    });
+
+    // A one-line box strips line breaks and glues the words (Chrome: "a\nb" → "ab"); the PDF
+    // template sets no line-break style, so it prints a break as a space.
+    it('shows an old term typed on several lines on one line, each break as a space', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS, quotations: [{ ...QUOTATION, delivery_terms: 'Ex works\r\nbefore noon' }] }), '/quotations/q1/edit');
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works before noon');
+    });
+
+    // The owner, 2026-10-01 (F-24 · 1.5's option C): at 375 px the one-line field cut 6 of 8 dev
+    // terms, so the whole term also wraps under it, hidden from a screen reader that reads the field.
+    it.each([
+        {
+            how: 'picked',
+            act: async (wrapper: Rendered) => {
+                await open(wrapper);
+                await wrapper.findAll(id('delivery_terms-option'))[0]?.trigger('mousedown');
+            },
+            whole: 'Within 1–2 weeks from receipt of the purchase order',
+        },
+        { how: 'typed', act: (wrapper: Rendered) => typeInto(wrapper, 'Within ten days'), whole: 'Within ten days' },
+    ])('wraps the whole $how term under the one-line field, hidden from screen readers', async ({ act, whole }) => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        expect(wrapper.find(id('delivery_terms-full')).exists()).toBe(false);
+
+        await act(wrapper);
+
+        const full = wrapper.find(id('delivery_terms-full'));
+
+        expect(full.exists()).toBe(true);
+        expect(full.text()).toBe(whole);
+        expect(full.attributes('aria-hidden')).toBe('true');
+    });
+
+    it('saves an old multi-line term exactly as stored until somebody edits it', async () => {
+        const fetchMock = respond({ terms: TERMS, quotations: [{ ...QUOTATION, delivery_terms: 'Ex works\nbefore noon' }] });
+        const { wrapper } = await render(fetchMock, '/quotations/q1/edit');
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Ex works\nbefore noon' });
+    });
+
+    it.each([
+        { why: 'has no entries', options: { terms: [] } },
+        { why: 'is refused', options: { termsStatus: 403 } },
+    ])('keeps the plain text area, still saving what is typed, when the list $why', async ({ options }) => {
+        const fetchMock = respond(options);
+        const { wrapper } = await render(fetchMock);
+
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/managed-lists/delivery_terms'))).toBe(true);
+        expect(field(wrapper).element.tagName).toBe('TEXTAREA');
+
+        await field(wrapper).setValue('Ex works');
+
+        // A text area wraps by itself: nothing is repeated under it.
+        expect(wrapper.find(id('delivery_terms-full')).exists()).toBe(false);
+
+        await save(wrapper);
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Ex works' });
     });
 });

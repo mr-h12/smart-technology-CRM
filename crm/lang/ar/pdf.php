@@ -12,21 +12,32 @@ declare(strict_types=1);
 return [
     'title' => 'عرض سعر :code',
 
+    // D-100: the heading over the company's name, and the parties block.
+    'heading' => 'عرض سعر',
+
     'header' => [
-        'date' => 'التاريخ',
-        'to' => 'إلى',
         'attention' => 'عناية',
         'subject' => 'الموضوع',
+    ],
+
+    'parties' => [
+        'prepared_for' => 'مقدم إلى',
+        'issue_date' => 'تاريخ الإصدار',
+        'valid_until' => 'صالح حتى',
     ],
 
     'intro' => 'يسرّنا أن نتقدم إليكم بعرض الأسعار التالي:',
 
     'table' => [
-        'serial' => 'م',
-        'item' => 'الصنف',
+        'serial' => '#',
+        'item' => 'الوصف',
         'unit_price' => 'سعر الوحدة',
         'quantity' => 'الكمية',
         'line_total' => 'الإجمالي',
+    ],
+
+    'terms' => [
+        'heading' => 'الشروط والأحكام',
     ],
 
     'totals' => [

@@ -47,9 +47,12 @@ final readonly class BrowsershotPdfRenderer implements PdfRendererInterface
                 ->format('A4')
                 // The page box, set here rather than in the template's CSS:
                 // Chrome draws the footer inside the bottom margin, so the
-                // margin and the footer are one decision. 20mm leaves room for
-                // the letterhead band and the page number beneath it.
-                ->margins(14, 12, 20, 12)
+                // margin and the footer are one decision. Top and bottom only
+                // (D-100: 22mm, and 20mm that holds the page number). The 25mm
+                // sides are padding in the template: Chrome clips at these
+                // margins, and the item table's collapsed right border spilled
+                // past them and was cut (F-34 · 1.2, reported by the owner).
+                ->margins(22, 0, 20, 0)
                 ->showBackground()
                 ->timeout($this->timeoutSeconds);
 

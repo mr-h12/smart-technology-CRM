@@ -53,16 +53,6 @@ final class FilePdfAssets implements PdfAssetsInterface
         return $this->dataUri('letterhead/logo.png', 'image/png');
     }
 
-    public function footerBand(): string
-    {
-        return $this->dataUri('letterhead/footer-band.jpg', 'image/jpeg');
-    }
-
-    public function watermark(): string
-    {
-        return $this->dataUri('letterhead/watermark.jpg', 'image/jpeg');
-    }
-
     private function dataUri(string $relativePath, string $mimeType): string
     {
         return $this->cache[$relativePath] ??= sprintf(

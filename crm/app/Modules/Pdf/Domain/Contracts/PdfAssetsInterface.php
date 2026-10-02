@@ -7,7 +7,7 @@ namespace App\Modules\Pdf\Domain\Contracts;
 use RuntimeException;
 
 /**
- * The faces and the letterhead the customer PDF is built from — Module 9,
+ * The faces and the logo the customer PDF is built from — Module 9,
  * Point 2.2 — each as a `data:` URI, so a render fetches nothing.
  *
  * `D-79` embedded the faces "with zero OS fallback" and `D-89` carries that
@@ -27,12 +27,6 @@ interface PdfAssetsInterface
      */
     public function fontFaceCss(): string;
 
-    /** The letterhead lockup (`D-89`'s header). */
+    /** The letterhead lockup (`D-100`'s header). */
     public function logo(): string;
-
-    /** The footer band carrying address, phones and e-mails. */
-    public function footerBand(): string;
-
-    /** The faded S.T.I.S mark behind the page. */
-    public function watermark(): string;
 }

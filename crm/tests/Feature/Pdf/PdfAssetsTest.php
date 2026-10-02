@@ -62,17 +62,12 @@ final class PdfAssetsTest extends TestCase
         self::assertStringNotContainsStringIgnoringCase('http', $css);
     }
 
-    public function test_that_the_letterhead_images_are_embedded_too(): void
+    public function test_that_the_logo_is_embedded_too(): void
     {
-        $assets = $this->assets();
+        $logo = $this->assets()->logo();
 
-        self::assertStringStartsWith('data:image/png;base64,', $assets->logo());
-        self::assertStringStartsWith('data:image/jpeg;base64,', $assets->footerBand());
-        self::assertStringStartsWith('data:image/jpeg;base64,', $assets->watermark());
-
-        foreach ([$assets->logo(), $assets->footerBand(), $assets->watermark()] as $uri) {
-            self::assertGreaterThan(10_000, strlen($uri), 'An image this small is not the letterhead.');
-        }
+        self::assertStringStartsWith('data:image/png;base64,', $logo);
+        self::assertGreaterThan(10_000, strlen($logo), 'An image this small is not the letterhead logo.');
     }
 
     public function test_that_every_face_ships_with_its_licence(): void

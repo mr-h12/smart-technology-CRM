@@ -277,7 +277,7 @@ would hide them behind `OD-03` indefinitely.
       re-seen: `/quotations` lists 0 quotations for `manager@example.test`. The table's own 20 px (539 vs
       519) is untested.
 
-- [ ] **The customer PDF's footer prints a picture of the company's contact details, not the
+- [x] **The customer PDF's footer prints a picture of the company's contact details, not the
       settings** — *found while building Point 2.4 (2026-09-23), by the localisation guard flagging
       the image's `alt` text.* `§14.6` requires "company logo and details from settings", and the
       header meets it: the company name comes from `SystemSetting::CompanyName`. The **footer** does
@@ -291,6 +291,22 @@ would hide them behind `OD-03` indefinitely.
       **The fix, when it is decided:** either redraw the band as a plain stripe and render the
       contact block as text from Settings, or accept the baked image and say so in `D-89`. Owner's
       call at Point 2.7's visual sign-off.
+      *(Closed 2026-10-02 by F-34 · 1.2 under `D-100`: the band and the watermark are removed, and the
+      header prints the company's name, address and phones from Settings. The header did not in fact
+      print the name before this — `grep -c companyName` on the old template was 0.)*
+
+- [ ] **The Arabic customer PDF prints a negative figure with its minus on the right, and the
+      final total's currency before the figure** — *revealed by F-34 · 1.2's real Arabic PDF
+      (QT-2026-0003, 2026-10-02); not created there: the money cells' markup is unchanged from
+      `main`, so they render the same there.* Inside the RTL page, bidi places a leading `-` after
+      the digits — the rounding row reads `0.40-` for `-0.40` — and orders the final cell
+      `695.00 EGP` as `EGP 695.00`. Dates were isolated for the same reason at Module 9 · 2.7, and
+      F-34 · 1.2 isolated the company's address and phones; the money cells never were. **The
+      cost, stated:** the figures are right but read differently from the English page, and a
+      reader may take `0.40-` for a positive figure. **The fix, when it is decided:** pass each
+      money cell through `$ltr` in `customer-quotation.blade.php`, plus a test — if the owner wants
+      the English order on the Arabic page, which is the owner's call (Module 9 · 2.7's Q8 asks
+      about the Arabic page's conventions too).
 
 - [ ] **The customer PDF's template is a file in the repository, not a screen** — *owner ruling,
       2026-09-23 ("option A"): build Step 2 as approved and register the gap rather than redesign
@@ -1273,6 +1289,12 @@ would hide them behind `OD-03` indefinitely.
       A search of the specs for `parity`, `Object.keys(en)` and `Object.keys(ar)` finds nothing. F-32 · 1.1
       pins its own two keys by asserting the Arabic sentence, and both files were compared by hand; one
       spec walking both files' key lists would guard every later key.
+- [ ] **Three customer-PDF labels nothing prints** — *revealed by F-34 · 1.2's waste audit, 2026-10-02;
+      registered, not fixed.* `pdf.totals.additional`, `pdf.totals.tax_base` and `pdf.totals.net` exist in
+      both `lang/en/pdf.php` and `lang/ar/pdf.php`, and no template, class or test reads them: the template
+      prints each additional item under its own description, and never prints the tax base or the net
+      amount (`git grep` over `app/Modules/Pdf`, `resources/views` and `tests/Feature/Pdf`). They predate
+      F-34. Deleting them is a two-file edit, unless the owner wants those rows on the page.
 - [ ] **`SearchCombobox` has no spec of its own** — *revealed by F-32 · 1.1, 2026-10-01; registered, not
       fixed.* It is pinned through its callers' specs only (`CustomerPicker`, `SupplierPicker`,
       `CatalogItemPicker`, and the builder's delivery-terms tests), so F-32's new `typed` event is
@@ -3559,7 +3581,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** `D-100` in §2 (proposed), `D-89` and `OD-02` pointed to it, + this list. Docs only.
             *(2026-10-02, #277 — today's template prints no company name, address or phones; 1.2
             prints all three)*
-      - [ ] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
+      - [x] **1.2** Failing tests first in `CustomerQuotationHtmlTest` (the company's name, address and
             phones in the header — today's template prints none of them — the address and phones absent
             when unset; one image on the page; every new label in both locales; black text, a `#f2f2f2`
             title row and a `#d9d9d9` grid), then `customer-quotation.blade.php` rewritten after the
@@ -3567,6 +3589,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             bottom), and `footerBand()` / `watermark()` removed with
             their two images. The footer-band debt row closed. A real PDF generated in both languages
             and compared with the prototype.
+            *(2026-10-02, #279 — Chrome clipped the table's right border at the renderer's side margins;
+            the 25 mm sides are now `body` padding, the renderer keeps only top and bottom)*
       - [ ] **1.3** The Arabic manual test list.
 - [ ] **F-35** The Arabic customer PDF sets Arabic text in Noto Naskh Arabic (`D-101`). Requested by the
       owner, 2026-10-02: a more formal Arabic face across the Arabic PDF. Chosen from QT-2026-0003
@@ -3952,14 +3976,15 @@ Still open — the live copies of the six boxes not yet `[x]`; 5.2 is ticked in 
       Chrome over the DevTools protocol instead (#258, #265).
 - [~] **2.5** Live page numbering — until an eye has read the samples (2.7).
 - [~] **2.7** The owner's visual sign-off, and the five questions: Q8's Arabic prose, `٪` vs `(%5)`,
-      thousands separators, the date format, the footer band as a picture or Settings text.
+      thousands separators, the date format, the footer band as a picture or Settings text (the last
+      answered by `D-100`: Settings text, F-34 · 1.2).
 - [~] Criterion: generation failure → retry + **notification** — the notification is the debt row naming
       §18.2 (Q3).
 - [~] Criterion: Arabic renders correctly — until the owner confirms Q8's prose.
 - [~] Criterion: page numbering is dynamic — with 2.5.
 
-Not boxes: "visible in Queue Monitor" (`§15.1`, Horizon not installed); §14.6's editable template and the
-footer band; `D-89`'s Att, per-line delivery time, Settings texts and job title, each waiting on its owner.
+Not boxes: "visible in Queue Monitor" (`§15.1`, Horizon not installed); §14.6's editable template;
+`D-89`'s Att, per-line delivery time, Settings texts and job title, each waiting on its owner.
 
 ---
 

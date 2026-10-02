@@ -74,10 +74,8 @@ final readonly class CustomerQuotationHtml
             'total' => '<span class="totalPages"></span>',
         ], $locale);
 
-        $family = $direction === 'rtl' ? "'Noto Sans Arabic', 'Inter'" : "'Inter', 'Noto Sans Arabic'";
-
         return "<div dir=\"{$direction}\" style=\"width:100%;margin:0 12mm;font-size:8pt;text-align:center;"
-            ."color:#000;font-family:{$family},sans-serif\">"
+            ."color:#000;font-family:'Inter', 'Noto Naskh Arabic',sans-serif\">"
             .$label
             .'</div>';
     }

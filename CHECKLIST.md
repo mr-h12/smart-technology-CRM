@@ -1295,6 +1295,16 @@ would hide them behind `OD-03` indefinitely.
       prints each additional item under its own description, and never prints the tax base or the net
       amount (`git grep` over `app/Modules/Pdf`, `resources/views` and `tests/Feature/Pdf`). They predate
       F-34. Deleting them is a two-file edit, unless the owner wants those rows on the page.
+- [ ] **The English customer PDF draws Arabic text typed into a quotation in a system face** — *revealed
+      by F-35 · 1.2's real PDF, 2026-10-02; registered, not fixed.* QT-2026-0003 in English embeds
+      `DejaVuSans` beside Inter: its terms hold Arabic text (`pdftotext` lists 22 Arabic letters on the
+      English page), and the English page's stack is `'CRM Sans', 'CRM Sans'` with no Arabic face
+      (`customer-quotation.blade.php:46`, since `915bd16`, Module 9 · 2.4), so Chrome falls back to the
+      image's fonts — the OS fallback `D-79` embeds faces to prevent. The footer is not the cause: both
+      the old and the new footer stack render Inter only. `CustomerQuotationPdfTest`'s English fixture
+      holds no Arabic, which is why it never failed. The likely fix is `'CRM Sans', 'CRM Sans Arabic'`
+      on the English page, which changes the English PDF and so needs the owner's call (`D-101` keeps it
+      unchanged).
 - [ ] **`SearchCombobox` has no spec of its own** — *revealed by F-32 · 1.1, 2026-10-01; registered, not
       fixed.* It is pinned through its callers' specs only (`CustomerPicker`, `SupplierPicker`,
       `CatalogItemPicker`, and the builder's delivery-terms tests), so F-32's new `typed` event is

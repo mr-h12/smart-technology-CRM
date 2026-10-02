@@ -74,7 +74,7 @@ final class PdfAssetsTest extends TestCase
     {
         // The OFL requires the licence to travel with the font. These files are
         // in the repository next to the faces, not a link in a comment.
-        foreach (['LICENSE-Inter-OFL.txt', 'LICENSE-NotoSansArabic-OFL.txt'] as $licence) {
+        foreach (['LICENSE-Inter-OFL.txt', 'LICENSE-NotoNaskhArabic-OFL.txt'] as $licence) {
             $path = resource_path('pdf/fonts/'.$licence);
 
             self::assertFileExists($path);

@@ -3610,12 +3610,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** `D-101` in §2 (proposed), `D-100` pointed to it, + this list. Docs only.
             *(2026-10-02, #278 — today's Arabic subset holds no digits or Latin: `pdffonts` shows Inter
             drawing `0-9`, `.`, `,` and `ATEN`, which is what keeps them Inter under Naskh)*
-      - [ ] **1.2** Failing tests first (`CustomerQuotationPdfTest`: the Arabic PDF embeds Noto Naskh
+      - [x] **1.2** Failing tests first (`CustomerQuotationPdfTest`: the Arabic PDF embeds Noto Naskh
             Arabic and Inter and not Noto Sans Arabic; `PdfAssetsTest`: the Naskh licence ships; the
             footer lists Inter first, then Noto Naskh Arabic), then the Arabic-script subset of Noto Naskh
             Arabic 400 and 700 (`@fontsource/noto-naskh-arabic`) and its OFL licence added,
             `FilePdfAssets` pointed to them, the footer's families changed, and the Noto Sans Arabic files
             and licence removed. A real PDF generated in both languages and read with `pdffonts`.
+            *(2026-10-02, #280 — fontsource's Arabic subset holds no 0-9 or Latin, so Inter draws them;
+            a full Naskh file in its place fails the guard test)*
       - The Arabic manual test list is merged into F-34 · 1.3 (owner, 2026-10-02): one list for the final
         page, layout and face together.
 

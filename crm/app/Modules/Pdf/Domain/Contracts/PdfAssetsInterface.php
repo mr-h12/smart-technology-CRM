@@ -14,7 +14,8 @@ use RuntimeException;
  * forward: §14.6's document must look the same on the on-premise Linux server
  * as it does in development, and an unembedded face does not. The families are
  * `CRM Sans` (Inter, Latin and digits — `Design_System_EN.md` §4.1) and
- * `CRM Sans Arabic` (Noto Sans Arabic), names no operating system ships, so a
+ * `CRM Sans Arabic` (Noto Naskh Arabic's Arabic-script subset, `D-101`, so digits
+ * and Latin fall through to Inter), names no operating system ships, so a
  * broken declaration shows up as a wrong-looking page rather than being masked
  * by a system font of the same name.
  */

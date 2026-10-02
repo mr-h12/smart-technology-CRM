@@ -317,7 +317,9 @@ final class CustomerQuotationHtmlTest extends TestCase
             // makes the command too long for the OS. The families are the ones
             // the rendering image installs.
             self::assertStringNotContainsString('data:font/woff2;base64,', $footer);
-            self::assertMatchesRegularExpression('/font-family:[^"]*(Inter|Noto Sans Arabic)/', $footer);
+            // D-101: Inter first in both languages, so the page numbers are
+            // Inter; Arabic words fall through to Naskh, the page's own face.
+            self::assertStringContainsString("font-family:'Inter', 'Noto Naskh Arabic',sans-serif", $footer);
             self::assertLessThan(2000, strlen($footer), 'A footer this large risks Chrome\'s command-line limit.');
         }
 

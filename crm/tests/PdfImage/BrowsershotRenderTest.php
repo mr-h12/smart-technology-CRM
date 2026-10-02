@@ -48,8 +48,8 @@ final class BrowsershotRenderTest extends TestCase
         // bytes: searching the file for "Inter" passed even with the faces
         // deliberately broken, because this image also installs Inter as a
         // system font. Measured instead — with the @font-face rules Chromium
-        // embeds `Inter-Regular` and `NotoSansArabic-Regular`; without them it
-        // falls back to `DejaVuSans` for both scripts.
+        // embeds `Inter-Regular` and `NotoNaskhArabic-Regular` (D-101); without
+        // them it falls back to `DejaVuSans` for both scripts.
         $assets = $this->app->make(PdfAssetsInterface::class);
 
         $pdf = $this->app->make(PdfRendererInterface::class)->render(
@@ -61,17 +61,18 @@ final class BrowsershotRenderTest extends TestCase
         $faces = self::baseFontsOf($pdf);
 
         self::assertContains('Inter-Regular', $faces, 'The embedded Latin face is not the one the PDF carries (D-79, D-89).');
-        self::assertContains('NotoSansArabic-Regular', $faces, 'The embedded Arabic face is not the one the PDF carries.');
+        self::assertContains('NotoNaskhArabic-Regular', $faces, 'The embedded Arabic face is not the one the PDF carries (D-101).');
         self::assertSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, 'DejaVu')),
             'A system face reached the document — the OS fallback D-79 embeds faces to prevent.');
     }
 
     /**
      * The face names a PDF actually carries, each stripped of its subset tag.
+     * Shared with `CustomerQuotationPdfTest`.
      *
      * @return list<string>
      */
-    private static function baseFontsOf(string $pdf): array
+    public static function baseFontsOf(string $pdf): array
     {
         preg_match_all('#/BaseFont\s*/(?:[A-Z]{6}\+)?([A-Za-z0-9,\-_.]+)#', $pdf, $matches);
 

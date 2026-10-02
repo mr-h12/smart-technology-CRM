@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\PdfImage;
 
 use App\Modules\Pdf\Application\CustomerQuotationHtml;
+use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use Tests\Fixtures\CustomerQuotationViewFixture;
@@ -30,14 +31,39 @@ final class CustomerQuotationPdfTest extends TestCase
             self::assertStringStartsWith('%PDF-', $pdf, "The {$locale} quotation did not render.");
             self::assertSame(1, preg_match_all('#/Type\s*/Page(?!s)#', $pdf), "The {$locale} quotation spilled onto a second page (D-79's one-page guard).");
 
-            preg_match_all('#/BaseFont\s*/(?:[A-Z]{6}\+)?([A-Za-z0-9,\-_.]+)#', $pdf, $matches);
-            $faces = array_values(array_unique($matches[1]));
+            $faces = BrowsershotRenderTest::baseFontsOf($pdf);
 
             self::assertSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, 'DejaVu')),
                 "A system face reached the {$locale} document.");
-            self::assertNotSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, $locale === 'ar' ? 'NotoSansArabic' : 'Inter')),
+            self::assertNotSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, $locale === 'ar' ? 'NotoNaskhArabic' : 'Inter')),
                 "The {$locale} document does not carry its embedded face.");
         }
+    }
+
+    public function test_that_the_arabic_page_sets_arabic_in_naskh_and_nowhere_in_noto_sans(): void
+    {
+        // D-101: Noto Naskh Arabic replaces Noto Sans Arabic on the whole page,
+        // the live page-number footer included — which is why this renders
+        // with the footer, unlike the test above.
+        $faces = BrowsershotRenderTest::baseFontsOf($this->render(CustomerQuotationViewFixture::arabic(), 'ar'));
+
+        self::assertNotSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, 'NotoNaskhArabic')), 'The Arabic page is not in Naskh.');
+        self::assertSame([], array_filter($faces, static fn (string $f): bool => str_contains($f, 'NotoSansArabic')), 'Noto Sans Arabic still reaches the Arabic page.');
+    }
+
+    public function test_that_digits_and_latin_on_the_arabic_page_stay_inter(): void
+    {
+        // D-101 keeps Inter for numbers and English (D-70). That holds only
+        // while the embedded Arabic face is the Arabic-script subset: a full
+        // Naskh file carries 0-9 and Latin of its own, and Chrome would take
+        // them before falling through to Inter. Same stack as the template.
+        $css = $this->app->make(PdfAssetsInterface::class)->fontFaceCss();
+        $pdf = $this->app->make(PdfRendererInterface::class)->render(
+            "<!doctype html><html lang=\"ar\" dir=\"rtl\"><head><style>{$css} body { font-family: 'CRM Sans Arabic', 'CRM Sans'; }</style></head>"
+            .'<body>0123456789.,ATEN</body></html>'
+        );
+
+        self::assertSame(['Inter-Regular'], BrowsershotRenderTest::baseFontsOf($pdf), 'A face other than Inter drew the digits or the Latin text.');
     }
 
     public function test_that_a_long_quotation_runs_onto_more_pages_and_a_short_one_does_not(): void

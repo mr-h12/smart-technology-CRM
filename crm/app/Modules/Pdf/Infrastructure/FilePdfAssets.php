@@ -29,8 +29,8 @@ final class FilePdfAssets implements PdfAssetsInterface
         $faces = [
             ['CRM Sans', 400, 'fonts/inter-400.woff2'],
             ['CRM Sans', 700, 'fonts/inter-700.woff2'],
-            ['CRM Sans Arabic', 400, 'fonts/noto-sans-arabic-400.woff2'],
-            ['CRM Sans Arabic', 700, 'fonts/noto-sans-arabic-700.woff2'],
+            ['CRM Sans Arabic', 400, 'fonts/noto-naskh-arabic-400.woff2'],
+            ['CRM Sans Arabic', 700, 'fonts/noto-naskh-arabic-700.woff2'],
         ];
 
         $css = '';

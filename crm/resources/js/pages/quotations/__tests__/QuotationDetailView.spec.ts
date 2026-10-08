@@ -52,10 +52,12 @@ const QUOTATION = {
     net_amount: '1026.000000',
     total_before_round: '1126.000000',
     rounding_diff: '24.000000',
-    payment_terms: '50% advance. Balance on delivery.',
-    warranty: null,
-    delivery_terms: 'Ex works. Cairo warehouse.',
-    show_delivery_terms: true,
+    // D-103: a ready term left unnamed, one left empty, and one the employee added.
+    terms: [
+        { key: 'payment_terms', title: null, body: '50% advance. Balance on delivery.' },
+        { key: 'warranty', title: null, body: null },
+        { key: null, title: 'Shipping', body: 'Ex works. Cairo warehouse.' },
+    ],
     rejection_reason: null,
     sent_at: null,
     return_note: null,
@@ -231,9 +233,28 @@ describe('the quotation detail view', () => {
         expect(wrapper.find('[data-testid="quotation-detail-deal"]').attributes('href')).toBe('/deals/d1');
         // D-82 cuts money and quantities only: free text a salesperson typed renders whole,
         // periods and all — it never goes near the formatter.
-        expect(wrapper.find('[data-testid="quotation-detail-payment_terms"]').text()).toBe('50% advance. Balance on delivery.');
-        expect(wrapper.find('[data-testid="quotation-detail-delivery_terms"]').text()).toBe('Ex works. Cairo warehouse.');
-        expect(wrapper.find('[data-testid="quotation-detail-warranty"]').text()).toBe('—');
+        // D-103: the terms numbered as the PDF prints them — an empty one left out, an unnamed
+        // ready term under the PDF's own label.
+        const terms = wrapper.find('[data-testid="quotation-detail-terms"]');
+        expect(terms.element.tagName).toBe('OL');
+        expect(terms.findAll('[data-testid="quotation-detail-term"]').map((term) => term.text())).toEqual([
+            'Payment: 50% advance. Balance on delivery.',
+            'Shipping: Ex works. Cairo warehouse.',
+        ]);
+        expect(wrapper.find('[data-testid="quotation-detail-payment_terms"]').exists()).toBe(false);
+    });
+
+    it('names an unnamed ready term with the Arabic label in an Arabic session', async () => {
+        const { wrapper } = await render(respond(), USER, 'ar');
+
+        expect(wrapper.findAll('[data-testid="quotation-detail-term"]').map((term) => term.text())[0]).toBe('الدفع: 50% advance. Balance on delivery.');
+    });
+
+    it('says there are no terms when none has a body', async () => {
+        const { wrapper } = await render(respond({ quotation: { ...QUOTATION, terms: [{ key: 'warranty', title: null, body: null }] } }));
+
+        expect(wrapper.find('[data-testid="quotation-detail-terms"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="quotation-detail-terms-none"]').text()).toBe('—');
     });
 
     it('draws the totals in §7.2’s groups, every figure the server’s string', async () => {

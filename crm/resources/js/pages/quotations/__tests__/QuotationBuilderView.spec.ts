@@ -64,7 +64,8 @@ const QUOTATION = {
     default_margin: '25.00', discount_percent: '10.00', tax_percent: '14.00', rounding_unit: '1.000000', rounding_enabled: true,
     subtotal: '1000.000000', additional_total: '100.000000', discount_amount: '100.000000', tax_base: '900.000000', tax_amount: '126.000000',
     net_amount: '1026.000000', total_before_round: '1126.000000', rounding_diff: '24.000000',
-    payment_terms: '50% advance', warranty: null, delivery_terms: 'Ex works', show_delivery_terms: false,
+    // D-103: the quotation's own terms, in their order; this one deleted its ready warranty.
+    terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
     rejection_reason: null, sent_at: null, is_self_approved: false, etag: '"v1"',
     items: [
         { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.00' },
@@ -364,7 +365,7 @@ describe('the quotation builder (create)', () => {
         await wrapper.find(id('tax_percent')).setValue('14');
         await wrapper.find(id('quotation_date')).setValue('2026-09-14');
         await wrapper.find(id('valid_until')).setValue('2026-10-14');
-        await wrapper.find(id('payment_terms')).setValue('50% advance');
+        await wrapper.find(id('term-0-body')).setValue('50% advance');
         await pickFirstLine(wrapper, '2.5');
         await wrapper.find(id('line-0-0-margin_percent')).setValue('30');
         await wrapper.find(id('add-item')).trigger('click');
@@ -385,10 +386,12 @@ describe('the quotation builder (create)', () => {
             tax_percent: '14',
             quotation_date: '2026-09-14',
             valid_until: '2026-10-14',
-            payment_terms: '50% advance',
-            warranty: null,
-            delivery_terms: null,
-            show_delivery_terms: true,
+            // D-103: the three ready terms, unnamed; an empty one is kept, its body null (the owner, 2026-10-08).
+            terms: [
+                { key: 'payment_terms', title: null, body: '50% advance' },
+                { key: 'warranty', title: null, body: null },
+                { key: 'delivery_terms', title: null, body: null },
+            ],
             lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.5', margin_percent: '30' }],
             additional_items: [{ description: 'Delivery', amount: '100' }],
         });
@@ -571,16 +574,16 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
         window.localStorage.clear();
     });
 
-    it('offers the caller’s recent terms under each field, newest first, and a click copies one in', async () => {
+    it('offers the caller’s recent terms under each ready term, newest first, and a click copies one in', async () => {
         const { wrapper } = await render(respond({ suggestions: { warranty: ['Two years', 'One year'], payment_terms: ['50% advance'] } }));
 
-        expect(wrapper.findAll(id('warranty-suggestion')).map((chip) => chip.text())).toEqual(['Two years', 'One year']);
-        expect(wrapper.findAll(id('payment_terms-suggestion')).map((chip) => chip.text())).toEqual(['50% advance']);
-        expect(wrapper.find(id('delivery_terms-suggestions')).exists()).toBe(false);
+        expect(wrapper.findAll(id('term-1-suggestion')).map((chip) => chip.text())).toEqual(['Two years', 'One year']);
+        expect(wrapper.findAll(id('term-0-suggestion')).map((chip) => chip.text())).toEqual(['50% advance']);
+        expect(wrapper.find(id('term-2-suggestions')).exists()).toBe(false);
 
-        await wrapper.findAll(id('warranty-suggestion'))[1]?.trigger('click');
+        await wrapper.findAll(id('term-1-suggestion'))[1]?.trigger('click');
 
-        expect((wrapper.find(id('warranty')).element as HTMLTextAreaElement).value).toBe('One year');
+        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('One year');
     });
 
     it('asks for the three fields on an edit too, and a refused lookup leaves the form usable', async () => {
@@ -590,9 +593,24 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
         const asked = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/user-term-suggestions'));
 
         expect(asked.map((url) => url.split('field=')[1])).toEqual(['payment_terms', 'warranty', 'delivery_terms']);
-        expect(wrapper.findAll(id('delivery_terms-suggestion')).map((chip) => chip.text())).toEqual(['Ex works']);
-        expect(wrapper.find(id('warranty-suggestions')).exists()).toBe(false);
+        expect(wrapper.findAll(id('term-1-suggestion')).map((chip) => chip.text())).toEqual(['Ex works']);
+        expect(wrapper.find(id('term-0-suggestions')).exists()).toBe(false);
         expect(wrapper.find(id('save')).exists()).toBe(true);
+    });
+
+    it('keeps a ready term’s chips when it is renamed or moves up, and gives an added term none (D-103 ruling 2)', async () => {
+        const { wrapper } = await render(respond({ suggestions: { warranty: ['One year'], payment_terms: ['50% advance'] } }));
+
+        await wrapper.find(id('term-1-title')).setValue('Guarantee');
+        await wrapper.find(id('term-0-remove')).trigger('click');
+
+        expect((wrapper.find(id('term-0-title')).element as HTMLInputElement).value).toBe('Guarantee');
+        expect(wrapper.findAll(id('term-0-suggestion')).map((chip) => chip.text())).toEqual(['One year']);
+
+        await wrapper.find(id('add-term')).trigger('click');
+
+        expect(wrapper.find(id('term-2-body')).exists()).toBe(true);
+        expect(wrapper.find(id('term-2-suggestions')).exists()).toBe(false);
     });
 });
 
@@ -615,9 +633,10 @@ describe('the quotation builder (edit)', () => {
         expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10.00');
         expect((wrapper.find(id('tax_percent')).element as HTMLInputElement).value).toBe('14.00');
         expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
-        expect((wrapper.find(id('payment_terms')).element as HTMLTextAreaElement).value).toBe('50% advance');
-        expect((wrapper.find(id('warranty')).element as HTMLTextAreaElement).value).toBe('');
-        expect((wrapper.find(id('show_delivery_terms')).element as HTMLInputElement).checked).toBe(false);
+        // D-103: the quotation's own terms in their order — the deleted warranty stays deleted.
+        expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
+        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Ex works');
+        expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
         expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
         expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25.00');
         expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.000');
@@ -657,10 +676,7 @@ describe('the quotation builder (edit)', () => {
             tax_percent: '14.00',
             quotation_date: '2026-09-13',
             valid_until: '2026-10-13',
-            payment_terms: '50% advance',
-            warranty: null,
-            delivery_terms: 'Ex works',
-            show_delivery_terms: false,
+            terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
             lines: [
                 { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25.00' },
                 { supplier_quotation_item_id: 'sqi1', quantity: '4' },
@@ -892,8 +908,11 @@ describe('the builder\'s delivery-terms control', () => {
 
     type Rendered = Awaited<ReturnType<typeof render>>['wrapper'];
 
-    const field = (wrapper: Rendered) => wrapper.find(id('delivery_terms'));
-    const optionTexts = (wrapper: Rendered): string[] => wrapper.findAll(id('delivery_terms-option')).map((option) => option.text());
+    // D-103: the combobox sits on the delivery-keyed term — the third ready row of a new quotation.
+    const field = (wrapper: Rendered, row = 2) => wrapper.find(id(`term-${row}-body`));
+    const optionTexts = (wrapper: Rendered): string[] => wrapper.findAll(id('term-2-body-option')).map((option) => option.text());
+    /** What a new quotation sends with only the delivery term filled. */
+    const deliverySaved = (body: string) => ({ terms: [{ key: 'payment_terms' }, { key: 'warranty' }, { key: 'delivery_terms', title: null, body }] });
 
     async function open(wrapper: Rendered): Promise<void> {
         await field(wrapper).trigger('focus');
@@ -927,8 +946,21 @@ describe('the builder\'s delivery-terms control', () => {
         const { wrapper } = await render(respond({ terms: TERMS }));
 
         expect(field(wrapper).attributes('role')).toBe('combobox');
-        expect(wrapper.find(id('payment_terms')).element.tagName).toBe('TEXTAREA');
-        expect(wrapper.find(id('warranty')).element.tagName).toBe('TEXTAREA');
+        expect(wrapper.find(id('term-0-body')).element.tagName).toBe('TEXTAREA');
+        expect(wrapper.find(id('term-1-body')).element.tagName).toBe('TEXTAREA');
+    });
+
+    it('keeps the combobox on the delivery term when it is renamed or moves up, and an added term is a text area', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS }));
+
+        await wrapper.find(id('term-0-remove')).trigger('click');
+        await wrapper.find(id('term-1-title')).setValue('Shipping');
+
+        expect(field(wrapper, 1).attributes('role')).toBe('combobox');
+
+        await wrapper.find(id('add-term')).trigger('click');
+
+        expect(field(wrapper, 2).element.tagName).toBe('TEXTAREA');
     });
 
     it('opens on focus with one option per term, in the session’s language and the server’s order', async () => {
@@ -984,7 +1016,7 @@ describe('the builder\'s delivery-terms control', () => {
 
         await typeInto(wrapper, 'zzz');
 
-        expect(wrapper.find(id('delivery_terms-state')).text()).toBe(messages.quotations.builder.deliveryTermNoMatch.replace('{query}', 'zzz'));
+        expect(wrapper.find(id('term-2-body-state')).text()).toBe(messages.quotations.builder.deliveryTermNoMatch.replace('{query}', 'zzz'));
     });
 
     it('fills the field with the picked term, and the save sends that text', async () => {
@@ -992,23 +1024,23 @@ describe('the builder\'s delivery-terms control', () => {
         const { wrapper } = await render(fetchMock);
 
         await open(wrapper);
-        await wrapper.findAll(id('delivery_terms-option'))[2]?.trigger('mousedown');
+        await wrapper.findAll(id('term-2-body-option'))[2]?.trigger('mousedown');
 
         expect((field(wrapper).element as HTMLInputElement).value).toBe('Delivered to the customer’s site');
 
         await save(wrapper);
 
-        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Delivered to the customer’s site' });
+        expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Delivered to the customer’s site'));
     });
 
     it('marks the term the field already holds as the selected option when the list opens again', async () => {
         const { wrapper } = await render(respond({ terms: TERMS }));
 
         await open(wrapper);
-        await wrapper.findAll(id('delivery_terms-option'))[2]?.trigger('mousedown');
+        await wrapper.findAll(id('term-2-body-option'))[2]?.trigger('mousedown');
         await open(wrapper);
 
-        expect(wrapper.findAll(id('delivery_terms-option')).map((option) => option.attributes('aria-selected'))).toEqual(['false', 'false', 'true']);
+        expect(wrapper.findAll(id('term-2-body-option')).map((option) => option.attributes('aria-selected'))).toEqual(['false', 'false', 'true']);
     });
 
     it('picks from the keyboard: ArrowDown to the first term, Enter to take it', async () => {
@@ -1053,8 +1085,8 @@ describe('the builder\'s delivery-terms control', () => {
         await typeInto(wrapper, 'Within ten days');
 
         expect(optionTexts(wrapper)).toEqual([]);
-        expect(wrapper.find(id('delivery_terms-state')).exists()).toBe(true);
-        expect(wrapper.find(id('delivery_terms-state')).text()).toContain('Within ten days');
+        expect(wrapper.find(id('term-2-body-state')).exists()).toBe(true);
+        expect(wrapper.find(id('term-2-body-state')).text()).toContain('Within ten days');
 
         await field(wrapper).trigger('focusout');
 
@@ -1062,7 +1094,7 @@ describe('the builder\'s delivery-terms control', () => {
 
         await save(wrapper);
 
-        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Within ten days' });
+        expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Within ten days'));
     });
 
     it('still copies a recent term into the field when its chip is clicked', async () => {
@@ -1070,7 +1102,7 @@ describe('the builder\'s delivery-terms control', () => {
 
         expect(field(wrapper).attributes('role')).toBe('combobox');
 
-        await wrapper.findAll(id('delivery_terms-suggestion'))[0]?.trigger('click');
+        await wrapper.findAll(id('term-2-suggestion'))[0]?.trigger('click');
 
         expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
     });
@@ -1078,16 +1110,16 @@ describe('the builder\'s delivery-terms control', () => {
     it('shows an opened quotation’s stored term in the field', async () => {
         const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/q1/edit');
 
-        expect(field(wrapper).attributes('role')).toBe('combobox');
-        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
+        expect(field(wrapper, 1).attributes('role')).toBe('combobox');
+        expect((field(wrapper, 1).element as HTMLInputElement).value).toBe('Ex works');
     });
 
     // A one-line box strips line breaks and glues the words (Chrome: "a\nb" → "ab"); the PDF
     // template sets no line-break style, so it prints a break as a space.
     it('shows an old term typed on several lines on one line, each break as a space', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS, quotations: [{ ...QUOTATION, delivery_terms: 'Ex works\r\nbefore noon' }] }), '/quotations/q1/edit');
+        const { wrapper } = await render(respond({ terms: TERMS, quotations: [{ ...QUOTATION, terms: [{ key: 'delivery_terms', title: null, body: 'Ex works\r\nbefore noon' }] }] }), '/quotations/q1/edit');
 
-        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works before noon');
+        expect((field(wrapper, 0).element as HTMLInputElement).value).toBe('Ex works before noon');
     });
 
     // The owner, 2026-10-01 (F-24 · 1.5's option C): at 375 px the one-line field cut 6 of 8 dev
@@ -1097,7 +1129,7 @@ describe('the builder\'s delivery-terms control', () => {
             how: 'picked',
             act: async (wrapper: Rendered) => {
                 await open(wrapper);
-                await wrapper.findAll(id('delivery_terms-option'))[0]?.trigger('mousedown');
+                await wrapper.findAll(id('term-2-body-option'))[0]?.trigger('mousedown');
             },
             whole: 'Within 1–2 weeks from receipt of the purchase order',
         },
@@ -1105,11 +1137,11 @@ describe('the builder\'s delivery-terms control', () => {
     ])('wraps the whole $how term under the one-line field, hidden from screen readers', async ({ act, whole }) => {
         const { wrapper } = await render(respond({ terms: TERMS }));
 
-        expect(wrapper.find(id('delivery_terms-full')).exists()).toBe(false);
+        expect(wrapper.find(id('term-2-full')).exists()).toBe(false);
 
         await act(wrapper);
 
-        const full = wrapper.find(id('delivery_terms-full'));
+        const full = wrapper.find(id('term-2-full'));
 
         expect(full.exists()).toBe(true);
         expect(full.text()).toBe(whole);
@@ -1117,13 +1149,13 @@ describe('the builder\'s delivery-terms control', () => {
     });
 
     it('saves an old multi-line term exactly as stored until somebody edits it', async () => {
-        const fetchMock = respond({ terms: TERMS, quotations: [{ ...QUOTATION, delivery_terms: 'Ex works\nbefore noon' }] });
+        const fetchMock = respond({ terms: TERMS, quotations: [{ ...QUOTATION, terms: [{ key: 'delivery_terms', title: null, body: 'Ex works\nbefore noon' }] }] });
         const { wrapper } = await render(fetchMock, '/quotations/q1/edit');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
-        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Ex works\nbefore noon' });
+        expect(saves(fetchMock)[0]?.body).toMatchObject({ terms: [{ key: 'delivery_terms', title: null, body: 'Ex works\nbefore noon' }] });
     });
 
     it.each([
@@ -1139,10 +1171,148 @@ describe('the builder\'s delivery-terms control', () => {
         await field(wrapper).setValue('Ex works');
 
         // A text area wraps by itself: nothing is repeated under it.
-        expect(wrapper.find(id('delivery_terms-full')).exists()).toBe(false);
+        expect(wrapper.find(id('term-2-full')).exists()).toBe(false);
 
         await save(wrapper);
 
-        expect(saves(fetchMock)[0]?.body).toMatchObject({ delivery_terms: 'Ex works' });
+        expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Ex works'));
+    });
+});
+
+/**
+ * F-37 · 1.4 — `D-103`: the terms are a list built like the additional items.
+ * A new quotation opens with three ready terms whose name starts empty, the
+ * default name shown as the placeholder — the label the PDF prints for an
+ * empty name; up to 15; every row renamable and removable; no checkbox.
+ */
+describe('the builder\'s terms list (F-37, D-103)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const titles = '[data-testid^="quotation-builder-term-"][data-testid$="-title"]';
+
+    it.each([
+        { locale: 'en' as const, labels: ['Payment', 'Warranty', 'Delivery'] },
+        { locale: 'ar' as const, labels: ['الدفع', 'الضمان', 'التسليم'] },
+    ])('opens a new quotation on three ready, unnamed terms, the $locale default name as each placeholder', async ({ locale, labels }) => {
+        const { wrapper } = await render(respond(), '/quotations/new?deal=d1', locale);
+
+        const ready = [0, 1, 2].map((row) => wrapper.find(id(`term-${row}-title`)));
+
+        expect(wrapper.findAll(titles)).toHaveLength(3);
+        expect(ready.map((title) => (title.element as HTMLInputElement).value)).toEqual(['', '', '']);
+        expect(ready.map((title) => title.attributes('placeholder'))).toEqual(labels);
+        // Ruling 3: no checkbox — an empty body or a deleted row keeps a term off the PDF.
+        expect(wrapper.find(id('show_delivery_terms')).exists()).toBe(false);
+    });
+
+    it('adds terms up to fifteen, then disables the button until one is removed', async () => {
+        const { wrapper } = await render(respond());
+
+        for (let index = 0; index < 12; index += 1) {
+            await wrapper.find(id('add-term')).trigger('click');
+        }
+
+        expect(wrapper.findAll(titles)).toHaveLength(15);
+        expect(wrapper.find(id('add-term')).attributes('disabled')).toBeDefined();
+
+        await wrapper.find(id('add-term')).trigger('click');
+
+        expect(wrapper.findAll(titles)).toHaveLength(15);
+
+        await wrapper.find(id('term-13-title')).setValue('Kept');
+        await wrapper.find(id('term-14-remove')).trigger('click');
+
+        // The clicked row goes, not another one.
+        expect((wrapper.find(id('term-13-title')).element as HTMLInputElement).value).toBe('Kept');
+        expect(wrapper.find(id('add-term')).attributes('disabled')).toBeUndefined();
+    });
+
+    it('saves a renamed, a removed and an added term in row order, and none of the old fields', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock);
+
+        await fillHeader(wrapper);
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('term-0-remove')).trigger('click');
+        await wrapper.find(id('term-0-title')).setValue('Guarantee');
+        await wrapper.find(id('term-0-body')).setValue('Two years');
+        await wrapper.find(id('add-term')).trigger('click');
+        await wrapper.find(id('term-2-title')).setValue('Spare parts');
+        await wrapper.find(id('term-2-body')).setValue('Six months');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const body = saves(fetchMock)[0]?.body as Record<string, unknown>;
+
+        expect(body.terms).toEqual([
+            { key: 'warranty', title: 'Guarantee', body: 'Two years' },
+            { key: 'delivery_terms', title: null, body: null },
+            { key: null, title: 'Spare parts', body: 'Six months' },
+        ]);
+
+        for (const old of ['payment_terms', 'warranty', 'delivery_terms', 'show_delivery_terms']) {
+            expect(body).not.toHaveProperty(old);
+        }
+    });
+
+    it('refills a stored name and an added term on an edit, and sends them back as stored', async () => {
+        const stored = [
+            { key: 'warranty', title: 'Guarantee', body: 'Two years' },
+            { key: null, title: 'Spare parts', body: 'Six months' },
+        ];
+        const fetchMock = respond({ quotations: [{ ...QUOTATION, terms: stored }] });
+        const { wrapper } = await render(fetchMock, '/quotations/q1/edit');
+
+        expect((wrapper.find(id('term-0-title')).element as HTMLInputElement).value).toBe('Guarantee');
+        expect((wrapper.find(id('term-1-title')).element as HTMLInputElement).value).toBe('Spare parts');
+        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Six months');
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect((saves(fetchMock)[0]?.body as { terms: unknown }).terms).toEqual(stored);
+    });
+
+    it('opens a quotation with no terms on no rows, and the button still adds one', async () => {
+        const { wrapper } = await render(respond({ quotations: [{ ...QUOTATION, terms: [] }] }), '/quotations/q1/edit');
+
+        expect(wrapper.findAll(titles)).toHaveLength(0);
+
+        await wrapper.find(id('add-term')).trigger('click');
+
+        expect(wrapper.findAll(titles)).toHaveLength(1);
+    });
+
+    it('lands a 422 on terms.N.title under that row', async () => {
+        const fetchMock = respond({
+            saves: [refusal(422, 'validation_failed', [{ field: 'terms.3.title', code: 'invalid', message: 'An added term needs a name.' }])],
+        });
+        const { wrapper } = await render(fetchMock);
+
+        await fillHeader(wrapper);
+        await pickFirstLine(wrapper);
+        await wrapper.find(id('add-term')).trigger('click');
+        await wrapper.find(id('term-3-body')).setValue('Six months');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find(id('term-3-error')).text()).toBe('An added term needs a name.');
+        expect(wrapper.find(id('term-0-error')).exists()).toBe(false);
+    });
+
+    it('counts a changed term as an unsaved change', async () => {
+        const confirm = vi.fn().mockReturnValue(false);
+        vi.stubGlobal('confirm', confirm);
+
+        const { wrapper, router } = await render(respond(), '/quotations/q1/edit');
+
+        await wrapper.find(id('term-1-title')).setValue('Shipping');
+        await router.push('/quotations/q1');
+
+        expect(confirm).toHaveBeenCalledTimes(1);
     });
 });

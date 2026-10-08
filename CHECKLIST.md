@@ -1615,6 +1615,11 @@ would hide them behind `OD-03` indefinitely.
       in the browser, a focused Assign button ticked-then-unticked leaves `document.activeElement` =
       `BODY`. The outcome is still announced (`role="status"`, `aria-live="polite"`). Owed: a focus
       target that survives the reload (the outcome line, `tabindex="-1"`), when the owner orders it
+- [ ] **`orNull` is written twice in the SPA** — *revealed by F-37 · 1.4, 2026-10-08
+      (`waste-auditor`); not fixed there, because the approved line is the builder's terms list.*
+      `QuotationBuilderView.vue` and `DealFormModal.vue:153` each define `function orNull`, and they
+      differ: the builder's sends blank-only text as null (`trim()`), the deal form's only `''`. Both
+      predate F-37. Owed: one helper with one rule, the owner's choice, when the owner orders it
 
 - [ ] **A failed PDF render notifies nobody** — *created knowingly by Module 9 · 3.4 (2026-09-28,
       #260), Q3's approved default.* The criterion is "automatic retry + notification to the
@@ -3654,11 +3659,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             languages and read with `pdftotext`.
             *(2026-10-08, #283 — Latin digits in both languages, the number bare so the Arabic page reads
             `.1` like Word (the owner, 2026-10-08))*
-      - [ ] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
+      - [x] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
             quotation; add up to 15, the button disabled at 15; rename and remove; the chips only on the
             three; the payload shape; no checkbox), then the builder's terms list after the additional
             items' pattern, the detail view's numbered terms, the types and both locales.
             `rtl-ui-verifier` at ar/en × 1280/375.
+            *(2026-10-08, #284 — the detail view lists only terms with text, «—» when none (the owner,
+            2026-10-08))*
       - [ ] **1.5** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

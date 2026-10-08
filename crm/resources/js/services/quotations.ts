@@ -93,10 +93,8 @@ export interface QuotationDetail extends QuotationSummary {
     net_amount: string;
     total_before_round: string;
     rounding_diff: string;
-    payment_terms: string | null;
-    warranty: string | null;
-    delivery_terms: string | null;
-    show_delivery_terms: boolean;
+    /** `D-103`: up to 15 terms in their printed order. */
+    terms: QuotationTerm[];
     rejection_reason: string | null;
     sent_at: string | null;
     /** Module 8 · 1.2's note, set by a return and cleared by the next submit; `returned_at` is on the wire too but nothing reads it yet. */
@@ -188,10 +186,8 @@ export interface QuotationDraft {
     tax_percent: string | null;
     quotation_date?: string | null;
     valid_until?: string | null;
-    payment_terms?: string | null;
-    warranty?: string | null;
-    delivery_terms?: string | null;
-    show_delivery_terms?: boolean | null;
+    /** `SaveQuotationRequest`'s `sometimes`: an omitted list is not sent, as the old term fields were. */
+    terms?: QuotationTerm[];
     lines: QuotationLineDraft[];
     additional_items: QuotationAdditionalItemDraft[];
 }
@@ -300,6 +296,17 @@ export async function listQuotationGroups(groupBy: string, query: QuotationListQ
 }
 
 export type TermField = 'payment_terms' | 'warranty' | 'delivery_terms';
+
+/**
+ * `D-103`: one numbered term. `key` marks one of the three ready terms (its
+ * empty name prints the language's label, and its chips follow it); an added
+ * term has none and needs a name. An empty body keeps the term off the PDF.
+ */
+export interface QuotationTerm {
+    key: TermField | null;
+    title: string | null;
+    body: string | null;
+}
 
 /** Point 6.8 — the caller's own recent terms for one field, newest first, at most twenty. */
 export async function listTermSuggestions(field: TermField): Promise<string[]> {

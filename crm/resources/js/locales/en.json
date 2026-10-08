@@ -1192,10 +1192,6 @@
             "parent": "Previous version",
             "rejectionReason": "Rejection reason",
             "returnNote": "Return note",
-            "paymentTerms": "Payment terms",
-            "warranty": "Warranty",
-            "deliveryTerms": "Delivery terms",
-            "notOnPdf": "(not shown on the PDF)",
             "selfApproved": "Self-approved",
             "conflict": "This quotation was changed by someone else. Reload to see their version before acting again.",
             "reload": "Reload",
@@ -1258,13 +1254,9 @@
             "lineMargin": "Line margin % (optional)",
             "addItem": "Add item",
             "removeItem": "Remove",
-            "payment_terms": "Payment terms",
-            "warranty": "Warranty",
-            "delivery_terms": "Delivery terms",
             "recentTerms": "Recent terms",
             "deliveryTermPlaceholder": "Pick a term or type your own",
             "deliveryTermNoMatch": "No registered term matches “{query}” — your text is kept as typed",
-            "showDeliveryTerms": "Show delivery terms on the PDF",
             "save": "Save draft",
             "saving": "Saving…",
             "cancel": "Back to the deal",
@@ -1279,6 +1271,18 @@
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
             "unsaved": "You have unsaved changes. Leave without saving?",
             "currencyNone": "Choose a currency"
+        },
+        "terms": {
+            "heading": "Terms and conditions",
+            "add": "Add term",
+            "name": "Name",
+            "body": "Text",
+            "line": "{name}: {body}",
+            "labels": {
+                "payment_terms": "Payment",
+                "warranty": "Warranty",
+                "delivery_terms": "Delivery"
+            }
         }
     },
     "purchaseOrders": {

@@ -3636,7 +3636,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             criterion pointed to it, + this list. Docs only.
             *(2026-10-08, #281 — the Arabic reading copies still carry the old rule; they already lagged
             on `D-100`/`D-101`)*
-      - [ ] **1.2** Failing tests first, then a `jsonb` `terms` column on `quotations` (`{key, title,
+      - [x] **1.2** Failing tests first, then a `jsonb` `terms` column on `quotations` (`{key, title,
             body}`), backfilled from the three term columns — delivery only where `show_delivery_terms`
             was true — with a working `down()`; `SaveQuotationRequest` takes `terms` (at most 15, a key
             from the three or none, a term with a body and no key needs a name) in place of the three
@@ -3645,6 +3645,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             16 → `422`, an unnamed added term → `422`, a new version and a Partial/Counter copy carry the
             terms, the backfill, rollback and re-migrate, the chips. The old columns stay, unwritten — a
             debt row to drop them.
+            *(2026-10-08, #282 — `Rule::forEach` hands its closure flattened `terms.N.body` keys, so the
+            name rule reads the term from the request)*
       - [ ] **1.3** Failing tests first in `CustomerQuotationHtmlTest`, `CustomerQuotationViewMapperTest`
             and `CustomerQuotationViewTest` (currency 1, the terms in order, validity last; an empty name
             prints the language's label in both locales; an empty body omitted; still no `<li>`), then the

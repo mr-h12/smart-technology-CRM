@@ -247,7 +247,7 @@ GET   /api/v1/quotations?group_by=employee|customer
 - Given a quotation with 3 suppliers → Then **no supplier name or price appears anywhere in the PDF**
 - Given PDF generation → Then async on the `pdf` queue + stored against the quotation + a fixed snapshot
 - Given generation failure → Then automatic retry + notification to the employee
-- Given `show_delivery_terms = false` → Then that section is omitted
+- Given a term with an empty body, or a term deleted from the list → Then it is omitted; the terms that print are numbered (`D-103`, which retires `show_delivery_terms`)
 - Given the CEO → Then they can **download** the existing PDF but not generate a new one
 
 ---

@@ -55,9 +55,17 @@
  * number, product name (F-16 · 1.1), cost, quantity, margin, remove — and new
  * lines still come through a supplier block.
  *
+ * ── Terms (D-103) ──────────────────────────────────────────────────────────
+ * A list built like the additional items, up to 15, sent as `terms` in row
+ * order. A new quotation opens on three ready terms keyed `payment_terms`,
+ * `warranty` and `delivery_terms`; the key, not the row, carries the default
+ * name, the chips and the combobox, so they follow a renamed or moved term. An
+ * added term has no key. An empty name or text is sent as null, and an empty
+ * ready term is kept (the owner, 2026-10-08).
+ *
  * ── Delivery terms (F-32) ──────────────────────────────────────────────────
- * Free text with suggestions like the other two terms (`§6.2`, `Design System
- * §6.3`). When the `delivery_terms` managed list has entries the field is an
+ * The delivery-keyed term's text, with suggestions like the other ready terms
+ * (`§6.2`, `Design System §6.3`). When the `delivery_terms` managed list has entries it is an
  * editable combobox over them: focus opens the list, typing narrows it, a pick
  * fills the box, and text that matches nothing is kept and saved as typed. The
  * stored value is the text either way, so the API and the PDF never learn there
@@ -110,7 +118,7 @@ const { hasPermission } = useAuth();
 /** §6.2's cap. */
 const MAX_SUPPLIERS = 10;
 
-const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'tax_percent', 'quotation_date', 'valid_until', 'payment_terms', 'warranty', 'delivery_terms'] as const;
+const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'tax_percent', 'quotation_date', 'valid_until'] as const;
 
 type HeaderField = (typeof HEADER_FIELDS)[number];
 
@@ -155,11 +163,14 @@ const missing = ref(false);
 
 const header = ref<Record<HeaderField, string>>({
     currency: '', default_margin: '', discount_percent: '0', tax_percent: '',
-    quotation_date: '', valid_until: '', payment_terms: '', warranty: '', delivery_terms: '',
+    quotation_date: '', valid_until: '',
 });
-const showDeliveryTerms = ref(true);
-/** Point 6.8 — the caller's own recent terms, one list per field; a chip copies one into the textarea. */
+/** The three ready terms' keys; Point 6.8's recent terms are read per key, and a chip copies one into that term's text. */
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
+/** `D-103`'s cap. */
+const MAX_TERMS = 15;
+/** `D-103`: the terms as typed, in their printed order; a new quotation opens on the three ready ones. */
+const terms = ref<Array<{ key: TermField | null; title: string; body: string }>>(TERM_FIELDS.map((key) => ({ key, title: '', body: '' })));
 const suggestions = ref<Record<TermField, string[]>>({ payment_terms: [], warranty: [], delivery_terms: [] });
 
 /** F-32 — the registered delivery terms (`DB-05`); empty when none exist or the list could not be read. */
@@ -187,9 +198,9 @@ function searchTerms({ q }: { q: string | null }): Promise<Page<TermOption>> {
     return Promise.resolve(collection<TermOption>({ data: found, requestId: null, meta: {} }));
 }
 
-/** Only the delivery field has a list, and only while the list has something in it. */
-function offersList(field: TermField): boolean {
-    return field === 'delivery_terms' && termOptions.value.length > 0;
+/** Only the delivery term has a list, and only while the list has something in it. */
+function offersList(key: TermField | null): boolean {
+    return key === 'delivery_terms' && termOptions.value.length > 0;
 }
 
 /**
@@ -295,7 +306,7 @@ function lineWarning(key: string): string | null {
 function snapshot(): string {
     return JSON.stringify({
         header: header.value,
-        showDeliveryTerms: showDeliveryTerms.value,
+        terms: terms.value,
         existing: existing.value,
         blocks: blocks.value.map((block) => [block.supplierQuotationId, block.quantities, block.margins]),
         items: items.value,
@@ -314,11 +325,8 @@ function applyDetail(quotation: QuotationDetail): void {
         tax_percent: quotation.tax_percent ?? '',
         quotation_date: quotation.quotation_date ?? '',
         valid_until: quotation.valid_until ?? '',
-        payment_terms: quotation.payment_terms ?? '',
-        warranty: quotation.warranty ?? '',
-        delivery_terms: quotation.delivery_terms ?? '',
     };
-    showDeliveryTerms.value = quotation.show_delivery_terms;
+    terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
     existing.value = quotation.items.map((line) => ({
         supplier_quotation_item_id: line.supplier_quotation_item_id,
         line_no: line.line_no,
@@ -491,6 +499,13 @@ function removeItem(index: number): void {
     items.value.splice(index, 1);
 }
 
+function termError(index: number): string | null {
+    return fieldErrors.value.get(`terms.${index}.title`)
+        ?? fieldErrors.value.get(`terms.${index}.body`)
+        ?? fieldErrors.value.get(`terms.${index}.key`)
+        ?? null;
+}
+
 function orNull(value: string): string | null {
     return value.trim() === '' ? null : value;
 }
@@ -539,10 +554,8 @@ function draft(): QuotationDraft {
         tax_percent: orNull(header.value.tax_percent),
         quotation_date: orNull(header.value.quotation_date),
         valid_until: orNull(header.value.valid_until),
-        payment_terms: orNull(header.value.payment_terms),
-        warranty: orNull(header.value.warranty),
-        delivery_terms: orNull(header.value.delivery_terms),
-        show_delivery_terms: showDeliveryTerms.value,
+        // The owner, 2026-10-08: an empty ready term is kept, its body null.
+        terms: terms.value.map((term) => ({ key: term.key, title: orNull(term.title), body: orNull(term.body) })),
         lines,
         additional_items: items.value.map((item) => ({ description: item.description, amount: item.amount })),
     };
@@ -967,72 +980,97 @@ onMounted(load);
                     </div>
                 </section>
 
-                <!-- Terms (6.8, SmartTermInput): a textarea, and under it the caller's
-                     recent terms as chips — a suggestion, never a structure (Design System §6.3). -->
-                <div class="detail-grid rounded-xl p-4">
-                    <!-- F-32: a single-line box in one 12rem grid cell cut a whole term
-                         (F-24 · 1.5's finding), so the combobox takes the row. -->
-                    <label
-                        v-for="field in TERM_FIELDS"
-                        :key="field"
-                        class="flex flex-col gap-1.5"
-                        :class="{ 'col-span-full': offersList(field) }"
-                        :for="fieldId(field)"
-                    >
-                        <span>{{ t(`quotations.builder.${field}`) }}</span>
-                        <SearchCombobox
-                            v-if="offersList(field)"
-                            :id="fieldId(field)"
-                            :test-id="fieldId(field)"
-                            :search="searchTerms"
-                            :keys="TERM_KEYS"
-                            :selected="(term: TermOption) => term.name === header.delivery_terms"
-                            :display="oneLine(header.delivery_terms)"
-                            :placeholder="t('quotations.builder.deliveryTermPlaceholder')"
-                            floating
-                            @typed="header.delivery_terms = $event"
-                            @pick="header.delivery_terms = $event?.name ?? ''"
-                            @keydown.enter.prevent
+                <!-- Terms (D-103): a list built like the additional items, up to 15, printed
+                     numbered. A ready term (keyed) keeps its default name as the placeholder and,
+                     under its text, the caller's recent terms as chips (6.8, Design System §6.3). -->
+                <section class="flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-card-title">{{ t('quotations.terms.heading') }}</h2>
+                        <button
+                            type="button"
+                            class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="terms.length >= MAX_TERMS"
+                            :data-testid="fieldId('add-term')"
+                            @click="terms.push({ key: null, title: '', body: '' })"
                         >
-                            <template #option="{ item }">{{ item.name }}</template>
-                        </SearchCombobox>
-                        <textarea
-                            v-else
-                            :id="fieldId(field)"
-                            v-model="header[field]"
-                            rows="3"
-                            class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                            :data-testid="fieldId(field)"
-                        ></textarea>
+                            + {{ t('quotations.terms.add') }}
+                        </button>
+                    </div>
+
+                    <div v-for="(term, i) in terms" :key="i" class="line-row flex flex-col gap-3 rounded-lg p-3">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId(`term-${i}-title`)">
+                                <span>{{ t('quotations.terms.name') }}</span>
+                                <input
+                                    :id="fieldId(`term-${i}-title`)"
+                                    v-model="term.title"
+                                    type="text"
+                                    maxlength="255"
+                                    autocomplete="off"
+                                    :placeholder="term.key === null ? '' : t(`quotations.terms.labels.${term.key}`)"
+                                    :aria-invalid="fieldErrors.has(`terms.${i}.title`)"
+                                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    :data-testid="fieldId(`term-${i}-title`)"
+                                />
+                            </label>
+                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :data-testid="fieldId(`term-${i}-remove`)" @click="terms.splice(i, 1)">
+                                {{ t('quotations.builder.removeItem') }}
+                            </button>
+                        </div>
+                        <label class="flex flex-col gap-1.5" :for="fieldId(`term-${i}-body`)">
+                            <span>{{ t('quotations.terms.body') }}</span>
+                            <!-- F-32: the delivery term is a combobox over the managed list. -->
+                            <SearchCombobox
+                                v-if="offersList(term.key)"
+                                :id="fieldId(`term-${i}-body`)"
+                                :test-id="fieldId(`term-${i}-body`)"
+                                :search="searchTerms"
+                                :keys="TERM_KEYS"
+                                :selected="(option: TermOption) => option.name === term.body"
+                                :display="oneLine(term.body)"
+                                :placeholder="t('quotations.builder.deliveryTermPlaceholder')"
+                                floating
+                                @typed="term.body = $event"
+                                @pick="term.body = $event?.name ?? ''"
+                                @keydown.enter.prevent
+                            >
+                                <template #option="{ item }">{{ item.name }}</template>
+                            </SearchCombobox>
+                            <textarea
+                                v-else
+                                :id="fieldId(`term-${i}-body`)"
+                                v-model="term.body"
+                                rows="3"
+                                :aria-invalid="fieldErrors.has(`terms.${i}.body`)"
+                                class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                :data-testid="fieldId(`term-${i}-body`)"
+                            ></textarea>
+                        </label>
                         <!-- F-32: the combobox is one line, so a long term is cut there at
                              375 px; its whole wraps here (F-24 · 1.5's option C). The field
                              already gives it to a screen reader. -->
                         <span
-                            v-if="offersList(field) && header[field] !== ''"
+                            v-if="offersList(term.key) && term.body !== ''"
                             aria-hidden="true"
                             class="text-sm break-words text-[var(--color-text-muted)]"
-                            :data-testid="fieldId(`${field}-full`)"
-                        >{{ header[field] }}</span>
-                        <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
-                            {{ fieldErrors.get(field) }}
-                        </span>
-                        <span v-if="suggestions[field].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId(`${field}-suggestions`)">
+                            :data-testid="fieldId(`term-${i}-full`)"
+                        >{{ term.body }}</span>
+                        <p v-if="termError(i) !== null" class="text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`term-${i}-error`)">
+                            {{ termError(i) }}
+                        </p>
+                        <span v-if="term.key !== null && suggestions[term.key].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId(`term-${i}-suggestions`)">
                             <span class="sr-only">{{ t('quotations.builder.recentTerms') }}</span>
                             <button
-                                v-for="term in suggestions[field]"
-                                :key="term"
+                                v-for="recent in suggestions[term.key]"
+                                :key="recent"
                                 type="button"
                                 class="row-action min-h-11 rounded-full px-3 text-sm"
-                                :data-testid="fieldId(`${field}-suggestion`)"
-                                @click="header[field] = term"
-                            >{{ term }}</button>
+                                :data-testid="fieldId(`term-${i}-suggestion`)"
+                                @click="term.body = recent"
+                            >{{ recent }}</button>
                         </span>
-                    </label>
-                    <label class="flex items-center gap-2 self-end" :for="fieldId('show_delivery_terms')">
-                        <input :id="fieldId('show_delivery_terms')" v-model="showDeliveryTerms" type="checkbox" class="size-5" :data-testid="fieldId('show_delivery_terms')" />
-                        <span>{{ t('quotations.builder.showDeliveryTerms') }}</span>
-                    </label>
-                </div>
+                    </div>
+                </section>
 
                 <div v-if="!frozen" class="flex flex-wrap gap-2">
                     <button

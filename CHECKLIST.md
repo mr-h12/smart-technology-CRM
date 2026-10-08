@@ -1615,6 +1615,11 @@ would hide them behind `OD-03` indefinitely.
       in the browser, a focused Assign button ticked-then-unticked leaves `document.activeElement` =
       `BODY`. The outcome is still announced (`role="status"`, `aria-live="polite"`). Owed: a focus
       target that survives the reload (the outcome line, `tabindex="-1"`), when the owner orders it
+- [ ] **`orNull` is written twice in the SPA** — *revealed by F-37 · 1.4, 2026-10-08
+      (`waste-auditor`); not fixed there, because the approved line is the builder's terms list.*
+      `QuotationBuilderView.vue` and `DealFormModal.vue:153` each define `function orNull`, and they
+      differ: the builder's sends blank-only text as null (`trim()`), the deal form's only `''`. Both
+      predate F-37. Owed: one helper with one rule, the owner's choice, when the owner orders it
 
 - [ ] **A failed PDF render notifies nobody** — *created knowingly by Module 9 · 3.4 (2026-09-28,
       #260), Q3's approved default.* The criterion is "automatic retry + notification to the

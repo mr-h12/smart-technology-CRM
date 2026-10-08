@@ -120,6 +120,9 @@ const hasActions = computed(
     () => canEdit.value || canSubmit.value || canDelete.value || canVersion.value || canSend.value || canRespond.value,
 );
 
+/** `D-103`: what the PDF prints — a term with no text is left out (the owner, 2026-10-08). */
+const printedTerms = computed(() => (quotation.value?.terms ?? []).filter((term) => (term.body ?? '') !== ''));
+
 /** `QuotationStatusTransition`: `sent` takes four answers, `expired` only a rejection (Q8). */
 const outcomes = computed<Array<CustomerResponse['response']>>(() =>
     quotation.value?.status === 'expired' ? ['rejected'] : ['accepted', 'partial', 'counter', 'rejected'],
@@ -433,20 +436,18 @@ onMounted(refresh);
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.rejectionReason') }}</dt>
                     <dd data-testid="quotation-detail-rejection_reason">{{ quotation.rejection_reason }}</dd>
                 </div>
-                <div class="flex flex-col gap-1">
-                    <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.paymentTerms') }}</dt>
-                    <dd data-testid="quotation-detail-payment_terms">{{ text(quotation.payment_terms) }}</dd>
-                </div>
-                <div class="flex flex-col gap-1">
-                    <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.warranty') }}</dt>
-                    <dd data-testid="quotation-detail-warranty">{{ text(quotation.warranty) }}</dd>
-                </div>
-                <div class="flex flex-col gap-1">
-                    <dt class="text-[var(--color-text-muted)]">
-                        {{ t('quotations.detail.deliveryTerms') }}
-                        <span v-if="!quotation.show_delivery_terms">{{ t('quotations.detail.notOnPdf') }}</span>
-                    </dt>
-                    <dd data-testid="quotation-detail-delivery_terms">{{ text(quotation.delivery_terms) }}</dd>
+                <!-- D-103: the terms numbered as the PDF prints them — an empty one left out,
+                     an unnamed ready term under the PDF's own label. -->
+                <div class="col-span-full flex flex-col gap-1">
+                    <dt class="text-[var(--color-text-muted)]">{{ t('quotations.terms.heading') }}</dt>
+                    <dd>
+                        <ol v-if="printedTerms.length > 0" class="list-decimal ps-5" data-testid="quotation-detail-terms">
+                            <li v-for="(term, i) in printedTerms" :key="i" data-testid="quotation-detail-term">
+                                {{ t('quotations.terms.line', { name: term.title ?? t(`quotations.terms.labels.${term.key}`), body: term.body }) }}
+                            </li>
+                        </ol>
+                        <span v-else data-testid="quotation-detail-terms-none">—</span>
+                    </dd>
                 </div>
             </dl>
 

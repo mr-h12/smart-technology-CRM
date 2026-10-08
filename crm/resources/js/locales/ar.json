@@ -1192,10 +1192,6 @@
             "parent": "النسخة السابقة",
             "rejectionReason": "سبب الرفض",
             "returnNote": "ملاحظة الإرجاع",
-            "paymentTerms": "شروط الدفع",
-            "warranty": "الضمان",
-            "deliveryTerms": "شروط التسليم",
-            "notOnPdf": "(لا تظهر في ملف PDF)",
             "selfApproved": "اعتماد ذاتي",
             "conflict": "عدّل شخص آخر عرض السعر هذا. أعد التحميل لترى نسخته قبل أي إجراء آخر.",
             "reload": "إعادة التحميل",
@@ -1258,13 +1254,9 @@
             "lineMargin": "هامش البند % (اختياري)",
             "addItem": "إضافة بند",
             "removeItem": "إزالة",
-            "payment_terms": "شروط الدفع",
-            "warranty": "الضمان",
-            "delivery_terms": "شروط التسليم",
             "recentTerms": "شروط استُخدمت مؤخرًا",
             "deliveryTermPlaceholder": "اختر شرطًا مسجَّلًا أو اكتب شرطك",
             "deliveryTermNoMatch": "لا يوجد شرط مسجَّل يطابق «{query}» — سيُحفظ نصّك كما كتبته",
-            "showDeliveryTerms": "إظهار شروط التسليم في ملف PDF",
             "save": "حفظ المسوّدة",
             "saving": "جارٍ الحفظ…",
             "cancel": "العودة إلى الصفقة",
@@ -1279,6 +1271,18 @@
             "conflict": "عدّل شخص آخر عرض السعر هذا — إجمالي نسخته {total} {currency} ({at}). أعد التحميل لتعديل تلك النسخة؛ تعديلاتك هنا تُهمل.",
             "unsaved": "لديك تعديلات غير محفوظة. المغادرة دون حفظ؟",
             "currencyNone": "اختر العملة"
+        },
+        "terms": {
+            "heading": "الشروط والأحكام",
+            "add": "إضافة شرط",
+            "name": "الاسم",
+            "body": "النص",
+            "line": "{name}: {body}",
+            "labels": {
+                "payment_terms": "الدفع",
+                "warranty": "الضمان",
+                "delivery_terms": "التسليم"
+            }
         }
     },
     "purchaseOrders": {

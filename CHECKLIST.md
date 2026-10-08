@@ -3680,6 +3680,31 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-08, #285 — «حقل terms.0.title مطلوب.» becomes «حقل اسم الشرط مطلوب.»)*
       - [ ] **1.5** The Arabic manual test list.
 
+- [ ] **F-38** A customer's contact person is named «الشخص المتواصل معه» / *Contact person* and gains an
+      optional title before the name (`D-104`). A customer's request relayed by the owner, 2026-10-08:
+      «جهة الاتصال» did not say it is the person at the company the employee speaks to, the owner of
+      the phone number. The owner's rulings and this point list were approved 2026-10-08 in
+      conversation: customers only (a supplier's contact is unchanged); titles `mr` / `mrs` from a new
+      managed list `contact_titles`, *Mr.* / *Mrs.* in English and «أ.» for both in Arabic; optional;
+      shown before the name in the customer list and the detail page, not in the customer picker.
+      Taken before F-37 · 1.5: the customer's edits come first.
+      - [x] **1.1** `D-104` in §2 (proposed) and §4.2's `contact_person` row pointed to it, + this
+            list. Docs only.
+      - [ ] **1.2** Failing tests first, then one migration with a working `down()`: `contact_titles`
+            joins `enum_lists_known_list`, two rows `mr` (Mr. / أ.) and `mrs` (Mrs. / أ.), and a nullable
+            `customers.contact_title` (`string(64)`); `ManagedList::ContactTitles`; `SaveCustomerRequest`
+            takes `contact_title`, and `SaveCustomer` refuses a code outside the live list with a `422`
+            through `ManagedListRepositoryInterface` (Catalog's pattern); the read model, the resource
+            and the audit snapshot carry it. Tests: save, edit and read with and without a title, an
+            unknown code → `422`, `null` clears it, rollback and re-migrate, the audit entry. The CSV
+            import is unchanged; an imported customer has no title.
+      - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
+            *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
+            the wide name field on one row; the list column and the detail view print «title name» (the
+            title in the screen's language; no title → the name alone; no name → «—»); the types.
+            `rtl-ui-verifier` at ar/en × 1280/375.
+      - [ ] **1.4** The Arabic manual test list.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

@@ -1620,6 +1620,12 @@ would hide them behind `OD-03` indefinitely.
       `QuotationBuilderView.vue` and `DealFormModal.vue:153` each define `function orNull`, and they
       differ: the builder's sends blank-only text as null (`trim()`), the deal form's only `''`. Both
       predate F-37. Owed: one helper with one rule, the owner's choice, when the owner orders it
+- [ ] **Other row-level 422s still name the request path** — *revealed by F-37 · 1.4b, 2026-10-08;
+      not fixed there, because the owner's choice was the terms and the additional items.*
+      `lines.*` (`SaveQuotationRequest.php:87-89`) and the supplier quotation's `items.*`
+      (`SaveSupplierQuotationRequest.php:106-127`) have no name in an `attributes()`, so a
+      refusal reads «حقل lines.0.quantity …». Owed: a wildcard name per field, as 1.4b did, when the
+      owner orders it
 
 - [ ] **A failed PDF render notifies nobody** — *created knowingly by Module 9 · 3.4 (2026-09-28,
       #260), Q3's approved default.* The criterion is "automatic retry + notification to the
@@ -3666,6 +3672,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `rtl-ui-verifier` at ar/en × 1280/375.
             *(2026-10-08, #284 — the detail view lists only terms with text, «—» when none (the owner,
             2026-10-08))*
+      - [x] **1.4b** A 422 under a term or an additional item names the field the employee sees, in
+            both languages, not the request path: `SaveQuotationRequest::attributes()` names
+            `terms.*.title`, `additional_items.*.description` and `.amount` from
+            `quotations.attributes.*`. Failing test first. Revealed while preparing 1.5; added by the
+            owner, 2026-10-08.
+            *(2026-10-08 — «حقل terms.0.title مطلوب.» becomes «حقل اسم الشرط مطلوب.»)*
       - [ ] **1.5** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

@@ -42,7 +42,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
-import type { ListEntry } from '@/services/admin';
+import { entryLabel, type ListEntry } from '@/services/admin';
 import { createCustomer, updateCustomer, type Customer, type CustomerDraft } from '@/services/customers';
 
 const props = defineProps<{
@@ -51,6 +51,8 @@ const props = defineProps<{
     editing: Customer | null;
     /** §4.2's reference list, already loaded by the list screen — not fetched twice. */
     sectors: readonly ListEntry[];
+    /** `D-104`'s titles, loaded beside the sectors by the screen that opens the form. */
+    titles: readonly ListEntry[];
 }>();
 
 /**
@@ -68,7 +70,7 @@ const { t, locale } = useI18n();
  * check or the payload.
  */
 const FIELDS = [
-    'name', 'sector', 'region', 'contact_person',
+    'name', 'sector', 'region', 'contact_title', 'contact_person',
     'phone', 'phone2', 'whatsapp', 'email', 'start_date', 'notes',
 ] as const;
 
@@ -76,7 +78,7 @@ type Field = (typeof FIELDS)[number];
 
 function blank(): Record<Field, string> {
     return {
-        name: '', sector: '', region: '', contact_person: '',
+        name: '', sector: '', region: '', contact_title: '', contact_person: '',
         phone: '', phone2: '', whatsapp: '', email: '', start_date: '', notes: '',
     };
 }
@@ -415,19 +417,36 @@ function discard(): void {
             <fieldset class="flex flex-col gap-3">
                 <legend class="mb-2 font-medium">{{ t('customers.form.sectionContact') }}</legend>
 
-                <!-- `D-18`: a single contact person, not a collection. -->
-                <label class="flex flex-col gap-1.5" :for="fieldId('contact_person')">
-                    <span>{{ t('customers.column.contact') }}</span>
-                    <input
-                        :id="fieldId('contact_person')"
-                        v-model="values.contact_person"
-                        type="text"
-                        maxlength="255"
-                        :disabled="saving"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                        :data-testid="testId('contact_person')"
-                    />
-                </label>
+                <!-- `D-18`: a single contact person, not a collection; `D-104`: an optional title before the name. -->
+                <div class="flex flex-col gap-1.5">
+                    <label :for="fieldId('contact_person')">{{ t('customers.column.contact') }}</label>
+                    <div class="flex gap-2">
+                        <select
+                            :id="fieldId('contact_title')"
+                            v-model="values.contact_title"
+                            :aria-label="t('customers.form.contactTitle')"
+                            :aria-invalid="errorFor('contact_title') !== null"
+                            :disabled="saving"
+                            class="form-field min-h-11 w-20 shrink-0 rounded-lg px-2 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="testId('contact_title')"
+                        >
+                            <option value=""></option>
+                            <option v-for="entry in titles" :key="entry.code" :value="entry.code">{{ entryLabel(entry, locale) }}</option>
+                        </select>
+                        <input
+                            :id="fieldId('contact_person')"
+                            v-model="values.contact_person"
+                            type="text"
+                            maxlength="255"
+                            :disabled="saving"
+                            class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            :data-testid="testId('contact_person')"
+                        />
+                    </div>
+                    <span v-if="errorFor('contact_title') !== null" class="text-[var(--color-danger)]">
+                        {{ errorFor('contact_title') }}
+                    </span>
+                </div>
 
                 <label class="flex flex-col gap-1.5" :for="fieldId('phone')">
                     <span>{{ t('customers.column.phone') }}</span>

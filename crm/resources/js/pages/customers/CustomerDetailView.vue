@@ -48,7 +48,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { assignCustomer, readCustomer, type CustomerDetail } from '@/services/customers';
+import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
@@ -63,6 +63,7 @@ const failed = ref(false);
 const denied = ref(false);
 const missing = ref(false);
 const sectors = ref<ListEntry[]>([]);
+const titles = ref<ListEntry[]>([]);
 const formOpen = ref(false);
 const ownerId = ref('');
 const assignDone = ref(false);
@@ -81,9 +82,9 @@ const id = computed(() => String(route.params.id ?? ''));
 /**
  * §4.2's contact fields, as label/value pairs. A list rather than markup per
  * field, so a field cannot be added to §4.2 and drawn in one place only.
+ * The contact person is drawn above them: `D-104` prints it with its title.
  */
 const CONTACT_FIELDS = [
-    { key: 'contact_person', label: 'customers.column.contact' },
     { key: 'phone', label: 'customers.column.phone' },
     { key: 'phone2', label: 'customers.form.phone2' },
     { key: 'whatsapp', label: 'customers.form.whatsapp' },
@@ -115,6 +116,15 @@ async function loadSectors(): Promise<void> {
         sectors.value = (await listEntries('sectors', 1)).items;
     } catch {
         sectors.value = [];
+    }
+}
+
+/** `D-104`'s titles: the form's box and «title name». A failure prints the name alone. */
+async function loadTitles(): Promise<void> {
+    try {
+        titles.value = (await listEntries('contact_titles', 1)).items;
+    } catch {
+        titles.value = [];
     }
 }
 
@@ -192,7 +202,7 @@ async function submitAssign(): Promise<void> {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadSectors()]);
+    await Promise.all([load(), loadSectors(), loadTitles()]);
 });
 </script>
 
@@ -278,6 +288,10 @@ onMounted(async () => {
                         <dt class="text-[var(--color-text-muted)]">{{ t('customers.form.region') }}</dt>
                         <dd>{{ orDash(customer.region) }}</dd>
                     </div>
+                    <div class="flex flex-col" data-testid="customer-contact-person">
+                        <dt class="text-[var(--color-text-muted)]">{{ t('customers.column.contact') }}</dt>
+                        <dd>{{ contactLine(customer, titles, locale) }}</dd>
+                    </div>
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
                         <dd class="tabular-nums">{{ orDash(customer[field.key]) }}</dd>
@@ -354,6 +368,7 @@ onMounted(async () => {
                 :open="formOpen"
                 :editing="customer"
                 :sectors="sectors"
+                :titles="titles"
                 @saved="onSaved"
                 @cancel="formOpen = false"
             />

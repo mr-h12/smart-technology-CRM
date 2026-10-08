@@ -232,7 +232,7 @@ export async function updateLimits(values: Record<string, string>): Promise<Syst
  * why), so this really is the closed set and the screen may draw a control per
  * entry. The strings are the URL segments the API routes on.
  */
-export const MANAGED_LISTS = ['sectors', 'units', 'service_types', 'delivery_terms', 'companies'] as const;
+export const MANAGED_LISTS = ['sectors', 'units', 'service_types', 'delivery_terms', 'companies', 'contact_titles'] as const;
 
 export type ManagedListName = (typeof MANAGED_LISTS)[number];
 

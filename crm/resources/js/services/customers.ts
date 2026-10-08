@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
+import { entryLabel, type ListEntry } from '@/services/admin';
 
 /**
  * Module 3's eight endpoints, and nothing else.
@@ -27,6 +28,8 @@ export interface Customer {
     sector: string | null;
     region: string | null;
     contact_person: string | null;
+    /** `D-104`: a code on the managed list `contact_titles`. */
+    contact_title: string | null;
     phone: string | null;
     phone2: string | null;
     whatsapp: string | null;
@@ -38,6 +41,23 @@ export interface Customer {
     is_incomplete: boolean;
     created_at: string;
     updated_at: string;
+}
+
+/**
+ * `D-104`: the contact person as «title name», the title in the reader's
+ * language. No title — or one no longer on the list — prints the name alone;
+ * no name prints «—», whatever the title.
+ */
+export function contactLine(customer: Pick<Customer, 'contact_person' | 'contact_title'>, titles: readonly ListEntry[], locale: string): string {
+    const name = customer.contact_person?.trim() ?? '';
+
+    if (name === '') {
+        return '—';
+    }
+
+    const title = titles.find((entry) => entry.code === customer.contact_title);
+
+    return title === undefined ? name : `${entryLabel(title, locale)} ${name}`;
 }
 
 /** The customer's page (`CustomerPayload::detail`): the owner's name, resolved by the server (F-19 · 1.1a, `D-83`). */
@@ -69,6 +89,7 @@ export interface CustomerDraft {
     sector?: string | null;
     region?: string | null;
     contact_person?: string | null;
+    contact_title?: string | null;
     phone?: string | null;
     phone2?: string | null;
     whatsapp?: string | null;

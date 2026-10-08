@@ -688,6 +688,12 @@ would hide them behind `OD-03` indefinitely.
       from `services/admin.ts`, which is now the shared one. Owed: three one-line swaps to the
       import. Not done in 6.4 — the files are outside its approved list and a cleanup buried in an
       unrelated point is unreviewable
+- [ ] **The managed-list loader is written four times under `pages/customers/`** — *revealed by
+      F-38 · 1.3, 2026-10-08 (`waste-auditor`).* `CustomersView.vue` and `CustomerDetailView.vue`
+      each hold `loadSectors()` and, since 1.3, `loadTitles()`: the same five-line try/catch around
+      `listEntries(list, 1)` that empties the ref on failure. 1.3 mirrored the existing pair rather
+      than refactor untouched code. Owed: one `loadList(name, ref)` beside `listEntries`, when the
+      owner orders it
 - [ ] **`company` is required on the server but is not in the catalog form's `REQUIRED` mirror** —
       recorded 2026-08-31 with Point 6.4. `SaveCatalogItemRequest` has made it `required` on POST
       and `sometimes|required` on PATCH since Point 5.2, but `CatalogItemFormModal`'s `REQUIRED` map

@@ -100,6 +100,21 @@ final class SaveQuotationRequest extends FormRequest
     }
 
     /**
+     * F-37 · 1.4b: a `422` under a row names the field the employee sees, not
+     * the request path (`terms.0.title`).
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'terms.*.title' => (string) __('quotations.attributes.term_name'),
+            'additional_items.*.description' => (string) __('quotations.attributes.additional_item_description'),
+            'additional_items.*.amount' => (string) __('quotations.attributes.additional_item_amount'),
+        ];
+    }
+
+    /**
      * `D-103` (4): a term the employee added has no label of its own to fall
      * back on, so once it has a body it needs a name. `$attribute` is the
      * expanded `terms.N.title`; the term is read from the request, because

@@ -7,6 +7,9 @@ return [
     'not_found' => 'This quotation was not found.',
     'attributes' => [
         'document' => 'purchase order document',
+        'term_name' => 'term name',
+        'additional_item_description' => 'additional item description',
+        'additional_item_amount' => 'additional item amount',
     ],
     'purchase_order_not_found' => 'This purchase order was not found.',
 

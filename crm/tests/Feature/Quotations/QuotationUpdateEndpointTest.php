@@ -379,6 +379,47 @@ final class QuotationUpdateEndpointTest extends TestCase
             ->assertJsonFragment(['field' => 'terms.0.title']);
     }
 
+    /**
+     * F-37 · 1.4b: the 422 under a row names the field the employee sees, in
+     * the request's language — never the request path (`terms.0.title`).
+     */
+    public function test_that_a_row_refusal_names_the_field_in_the_request_language(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        $body = $this->payload([
+            'terms' => [['key' => null, 'title' => null, 'body' => 'Text']],
+            'additional_items' => [['description' => '', 'amount' => '']],
+        ]);
+        $expected = [
+            'ar' => [
+                'terms.0.title' => 'حقل اسم الشرط مطلوب.',
+                'additional_items.0.description' => 'حقل وصف البند الإضافي مطلوب.',
+                'additional_items.0.amount' => 'حقل مبلغ البند الإضافي مطلوب.',
+            ],
+            'en' => [
+                'terms.0.title' => 'The term name field is required.',
+                'additional_items.0.description' => 'The additional item description field is required.',
+                'additional_items.0.amount' => 'The additional item amount field is required.',
+            ],
+        ];
+
+        foreach ($expected as $locale => $messages) {
+            $details = $this->withHeader('Accept-Language', $locale)
+                ->edit($id, $etag, $body, RoleName::Manager)
+                ->assertStatus(422)
+                ->json('error.details');
+            self::assertIsArray($details);
+
+            foreach ($messages as $field => $message) {
+                self::assertContains(
+                    ['field' => $field, 'code' => 'invalid', 'message' => $message],
+                    $details,
+                    $locale.': '.json_encode($details, JSON_UNESCAPED_UNICODE),
+                );
+            }
+        }
+    }
+
     public function test_that_a_key_other_than_the_three_is_refused(): void
     {
         [$id, $etag] = $this->quotation($this->deal(null));

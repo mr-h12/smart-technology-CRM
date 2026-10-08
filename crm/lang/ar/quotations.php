@@ -7,6 +7,9 @@ return [
     'not_found' => 'لم يُعثر على عرض السعر هذا.',
     'attributes' => [
         'document' => 'مستند أمر الشراء',
+        'term_name' => 'اسم الشرط',
+        'additional_item_description' => 'وصف البند الإضافي',
+        'additional_item_amount' => 'مبلغ البند الإضافي',
     ],
     'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 

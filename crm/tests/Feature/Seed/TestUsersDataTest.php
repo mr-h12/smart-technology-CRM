@@ -199,7 +199,8 @@ final class TestUsersDataTest extends TestCase
         // bare checkmark (2026-09-21): → 218.
         self::assertSame(218, DB::table('seed_probe_permissions')->count());
         self::assertSame(3, DB::table('seed_probe_currencies')->count());
-        self::assertSame(13, DB::table('seed_probe_lists')->count());
+        // 13, then D-104's two contact titles (2026-10-08): → 15.
+        self::assertSame(15, DB::table('seed_probe_lists')->count());
         self::assertSame(8, DB::table('seed_probe_users')->count());
 
         // Spot the far end of each chain, not just the count.

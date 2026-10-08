@@ -27,6 +27,7 @@ final readonly class CustomerSummary
         public ?string $sector,
         public ?string $region,
         public ?string $contactPerson,
+        public ?string $contactTitle,
         public ?string $phone,
         public ?string $phone2,
         public ?string $whatsapp,

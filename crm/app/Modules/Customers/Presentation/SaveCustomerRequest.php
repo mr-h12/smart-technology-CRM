@@ -58,6 +58,8 @@ final class SaveCustomerRequest extends FormRequest
             'sector' => ['nullable', 'string', 'max:64'],
             'region' => ['nullable', 'string', 'max:128'],
             'contact_person' => ['nullable', 'string', 'max:255'],
+            // A code; `SaveCustomer` checks it is on the live list (`D-104`).
+            'contact_title' => ['nullable', 'string', 'max:64'],
             'phone' => ['nullable', 'string', 'max:32'],
             'phone2' => ['nullable', 'string', 'max:32'],
             'whatsapp' => ['nullable', 'string', 'max:32'],

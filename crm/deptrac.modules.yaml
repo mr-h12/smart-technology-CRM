@@ -478,6 +478,11 @@ parameters:
       - IdentityContract
       - AuditContract
       - StorageContract
+      # AdminContract, added 2026-10-08 with F-38 · 1.2: `D-104`'s contact
+      # title is a code on the managed list `contact_titles` (`DB-05`), and
+      # `SaveCustomer` asks `ManagedListRepositoryInterface` whether it is live —
+      # Catalog's crossing of 2026-08-31, for the same reason.
+      - AdminContract
     CustomersDriver:
       - CustomersContract
       - Framework

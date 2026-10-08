@@ -60,7 +60,7 @@ final class ManagedListsDataTest extends TestCase
     public function test_the_lists_this_system_keeps_are_defined(): void
     {
         self::assertSame(
-            ['sectors', 'units', 'service_types', 'delivery_terms', 'companies'],
+            ['sectors', 'units', 'service_types', 'delivery_terms', 'companies', 'contact_titles'],
             array_map(static fn (ManagedList $l): string => $l->value, ManagedList::cases()),
         );
     }
@@ -79,6 +79,8 @@ final class ManagedListsDataTest extends TestCase
             'no delivery terms' => [ManagedList::DeliveryTerms, 0],
             // Owner's ruling of 2026-08-31; no document names a single company.
             'no companies' => [ManagedList::Companies, 0],
+            // D-104: Mr. · Mrs.
+            'two contact titles' => [ManagedList::ContactTitles, 2],
         ];
     }
 
@@ -141,6 +143,10 @@ final class ManagedListsDataTest extends TestCase
                 ManagedList::ServiceTypes,
                 ['installation', 'repair', 'maintenance', 'setup'],
             ],
+            'contact titles, D-104 in order' => [
+                ManagedList::ContactTitles,
+                ['mr', 'mrs'],
+            ],
         ];
     }
 
@@ -170,7 +176,7 @@ final class ManagedListsDataTest extends TestCase
             }
         }
 
-        self::assertSame(13, $checked, 'The registry is not the size the documents describe.');
+        self::assertSame(15, $checked, 'The registry is not the size the documents describe.');
     }
 
     public function test_every_entry_carries_both_languages(): void
@@ -220,6 +226,8 @@ final class ManagedListsDataTest extends TestCase
             'repair' => ['repair', 'Repair', 'إصلاح'],
             'maintenance' => ['maintenance', 'Maintenance', 'صيانة'],
             'setup' => ['setup', 'Setup', 'تجهيز'],
+            'mr' => ['mr', 'Mr.', 'أ.'],
+            'mrs' => ['mrs', 'Mrs.', 'أ.'],
         ];
     }
 

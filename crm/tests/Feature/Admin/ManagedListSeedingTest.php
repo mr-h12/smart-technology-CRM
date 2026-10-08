@@ -170,7 +170,8 @@ final class ManagedListSeedingTest extends TestCase
         $second = DB::table('enum_lists')->orderBy('id')->get(['id', 'created_at'])->toArray();
 
         self::assertEquals($first, $second, 'The second run re-created rows rather than leaving them alone.');
-        self::assertSame(13, DB::table('enum_lists')->count());
+        // 13, then D-104's two contact titles (2026-10-08): → 15.
+        self::assertSame(15, DB::table('enum_lists')->count());
     }
 
     /** `IdempotentSeeder`: a second run may not overwrite a deliberate edit. */

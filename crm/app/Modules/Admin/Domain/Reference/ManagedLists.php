@@ -83,6 +83,12 @@ final class ManagedLists
             // Admin adds a company here.** That is a setup step, not a defect,
             // and it is written into the module's manual test list.
             ManagedList::Companies => [],
+
+            // `D-104`: «أ.» for both in Arabic, the owner's ruling of 2026-10-08.
+            ManagedList::ContactTitles => [
+                new ListEntry('mr', 'Mr.', 'أ.', 1),
+                new ListEntry('mrs', 'Mrs.', 'أ.', 2),
+            ],
         };
     }
 

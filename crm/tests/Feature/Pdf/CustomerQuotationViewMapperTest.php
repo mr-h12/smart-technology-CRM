@@ -489,6 +489,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             warranty: 'One year.',
             deliveryTerms: $deliveryTerms,
             showDeliveryTerms: $showDeliveryTerms,
+            terms: [],
             version: 1,
             parentId: null,
             rejectionReason: null,

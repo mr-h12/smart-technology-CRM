@@ -84,6 +84,12 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame($id, $copy->parent_id);
         self::assertSame($copy->code, $response->json('data.new_version.code'));
         self::assertSame(1, DB::table('quotation_items')->where('quotation_id', $copyId)->count());
+        self::assertIsString($copy->terms);
+        self::assertEquals(
+            [['key' => null, 'title' => 'Installation', 'body' => 'On site, two days']],
+            json_decode($copy->terms, true),
+            'D-103: a Partial copy carries the terms with the rest of the document.',
+        );
 
         self::assertSame('partial', $this->statusOf('quotations', $id));
         self::assertNull(DB::table('quotations')->where('id', $id)->value('rejection_reason'));
@@ -697,6 +703,7 @@ final class QuotationRespondEndpointTest extends TestCase
             'default_margin' => '20',
             'discount_percent' => '0',
             'lines' => $lines,
+            'terms' => [['key' => null, 'title' => 'Installation', 'body' => 'On site, two days']],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
         self::assertIsString($id);
 

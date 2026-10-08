@@ -54,6 +54,8 @@ final readonly class QuotationDetail
         public ?string $warranty,
         public ?string $deliveryTerms,
         public bool $showDeliveryTerms,
+        /** @var list<array{key: string|null, title: string|null, body: string|null}> D-103, in their order */
+        public array $terms,
         public int $version,
         public ?string $parentId,
         public ?string $rejectionReason,

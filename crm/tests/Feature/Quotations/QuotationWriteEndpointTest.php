@@ -217,6 +217,39 @@ final class QuotationWriteEndpointTest extends TestCase
         self::assertSame($this->userWith(RoleName::Manager)->getKey(), $row->user_id);
     }
 
+    /** `D-103`: the terms a quotation is created with come back as sent, in order. */
+    public function test_that_a_quotation_is_created_with_its_terms(): void
+    {
+        $terms = [
+            ['key' => 'payment_terms', 'title' => null, 'body' => '50% advance'],
+            ['key' => 'warranty', 'title' => 'Guarantee', 'body' => 'One year'],
+            ['key' => null, 'title' => 'Installation', 'body' => 'On site, two days'],
+        ];
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['terms' => $terms]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        self::assertEquals($terms, $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.terms'));
+    }
+
+    /** A quotation created without terms has an empty list, never `null`. */
+    public function test_that_a_quotation_created_without_terms_has_an_empty_list(): void
+    {
+        $id = $this->postJson(self::ENDPOINT, $this->payload(), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        self::assertSame([], $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.terms'));
+    }
+
+    public function test_that_sixteen_terms_are_refused_on_create(): void
+    {
+        $this->post422(['terms' => array_fill(0, 16, ['key' => null, 'title' => 'Note', 'body' => 'Text'])], 'terms');
+    }
+
     // ─────────────────────────────────── §5.6 blocks → 422 business_rule_blocked
 
     public function test_that_a_line_without_a_usable_price_is_blocked_by_code_and_line(): void

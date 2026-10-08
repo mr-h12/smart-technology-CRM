@@ -33,7 +33,7 @@ final readonly class CustomerDraft
 {
     /** §4.2's user-entered fields. */
     public const WRITABLE = [
-        'name', 'sector', 'region', 'contact_person',
+        'name', 'sector', 'region', 'contact_person', 'contact_title',
         'phone', 'phone2', 'whatsapp', 'email', 'start_date', 'notes',
     ];
 

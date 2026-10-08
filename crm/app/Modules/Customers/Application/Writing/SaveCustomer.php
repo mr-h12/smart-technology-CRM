@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Customers\Application\Writing;
 
+use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Customers\Domain\Access\CustomerRowScope;
@@ -66,6 +68,7 @@ final readonly class SaveCustomer
         private SettingReader $settings,
         private UserDirectoryInterface $users,
         private ConnectionInterface $connection,
+        private ManagedListRepositoryInterface $lists,
     ) {}
 
     /**
@@ -75,6 +78,7 @@ final readonly class SaveCustomer
     public function create(array $validated, array $heldScopes, string $actorId): CustomerWriteResult
     {
         $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $this->assertListedTitle($validated);
 
         $draft = CustomerDraft::forCreate(
             $this->ownedWithinScope($validated, $scope, $actorId),
@@ -110,6 +114,7 @@ final readonly class SaveCustomer
     public function update(string $customerId, array $validated, array $heldScopes, ?string $actorId): CustomerWriteResult
     {
         $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $this->assertListedTitle($validated);
         $draft = CustomerDraft::forUpdate($validated);
 
         $customer = $this->connection->transaction(function () use ($customerId, $draft, $scope, $actorId): CustomerSummary {
@@ -152,6 +157,32 @@ final readonly class SaveCustomer
         });
 
         return new CustomerWriteResult($customer, $this->similarTo($draft, $scope, $customer));
+    }
+
+    /**
+     * `D-104` ruling 4: a title is a code on the live `contact_titles` list —
+     * an unknown or archived one is a `422`. Asked of Admin's contract, as
+     * Catalog asks it of a company (`DB-05`); absent or `null` asks nothing.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function assertListedTitle(array $validated): void
+    {
+        $title = $validated['contact_title'] ?? null;
+
+        if ($title === null) {
+            return;
+        }
+
+        foreach ($this->lists->entriesFor(ManagedList::ContactTitles) as $entry) {
+            if ($entry->code() === $title) {
+                return;
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'contact_title' => [(string) __('customers.validation.unknown_contact_title')],
+        ]);
     }
 
     /**
@@ -246,6 +277,7 @@ final readonly class SaveCustomer
             'sector' => $before->sector,
             'region' => $before->region,
             'contact_person' => $before->contactPerson,
+            'contact_title' => $before->contactTitle,
             'phone' => $before->phone,
             'phone2' => $before->phone2,
             'whatsapp' => $before->whatsapp,

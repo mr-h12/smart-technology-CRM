@@ -318,7 +318,8 @@ final class CatalogItemSchemaMigrationTest extends TestCase
     /** `DB-05` names both lists, so the columns must still be reading from them. */
     public function test_that_db_05_still_names_the_two_lists_these_columns_read(): void
     {
-        $rule = self::documentationLineContaining('DB-05');
+        // The rule's own row: `D-104` also cites DB-05, and comes first.
+        $rule = self::documentationLineContaining('| DB-05 |');
 
         foreach (['units', 'service types'] as $list) {
             self::assertStringContainsString($list, $rule, "DB-05 no longer names {$list}.");

@@ -35,6 +35,7 @@ final class CustomerPayload
             'sector' => $customer->sector,
             'region' => $customer->region,
             'contact_person' => $customer->contactPerson,
+            'contact_title' => $customer->contactTitle,
             'phone' => $customer->phone,
             'phone2' => $customer->phone2,
             'whatsapp' => $customer->whatsapp,

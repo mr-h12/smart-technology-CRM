@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $sector
  * @property string|null $region
  * @property string|null $contact_person
+ * @property string|null $contact_title
  * @property string|null $phone
  * @property string|null $phone2
  * @property string|null $whatsapp
@@ -43,7 +44,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Illuminate\Support\Carbon|null $deleted_at
  */
 #[Fillable([
-    'name', 'sector', 'region', 'contact_person', 'phone', 'phone2',
+    'name', 'sector', 'region', 'contact_person', 'contact_title', 'phone', 'phone2',
     'whatsapp', 'email', 'sales_owner_id', 'start_date', 'notes',
     'is_archived', 'is_incomplete',
 ])]

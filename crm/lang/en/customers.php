@@ -26,6 +26,7 @@ return [
     'validation' => [
         'name_not_blank' => 'A customer name cannot be only spaces.',
         'unknown_owner' => 'That sales owner is not a user of this system.',
+        'unknown_contact_title' => 'The selected title is not on the list.',
         'status_is_derived' => 'Customer status is set by the system from the customer\'s deals, and cannot be edited here.',
         'archive_has_its_own_action' => 'Archiving a customer is a separate action, not a field on this form.',
         'assign_has_its_own_action' => 'Transferring a customer to another owner is a separate action, not a field on this form.',
@@ -46,6 +47,7 @@ return [
         'sector' => 'sector',
         'region' => 'region',
         'contact_person' => 'contact person',
+        'contact_title' => "contact person's title",
         'phone' => 'phone',
         'phone2' => 'second phone',
         'whatsapp' => 'WhatsApp number',

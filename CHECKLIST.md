@@ -1626,6 +1626,13 @@ would hide them behind `OD-03` indefinitely.
       (`SaveSupplierQuotationRequest.php:106-127`) have no name in an `attributes()`, so a
       refusal reads «حقل lines.0.quantity …». Owed: a wildcard name per field, as 1.4b did, when the
       owner orders it
+- [ ] **"Is this code on the live list" is written three times** — *revealed by F-38 · 1.2,
+      2026-10-08 (`waste-auditor`); not fixed there, because the approved line is the contact title.*
+      `SaveCustomer::assertListedTitle`, `SaveCatalogItem::withListedCompany` (`:299-304`) and
+      `ArchiveListEntry` (`:94`) each loop `entriesFor()` comparing `code()`. They differ around the
+      loop (refuse / add the company / archive), so only the four-line membership test repeats.
+      Owed: one `isListed(ManagedList, code)` on `ManagedListRepositoryInterface`, when the owner
+      orders it
 
 - [ ] **A failed PDF render notifies nobody** — *created knowingly by Module 9 · 3.4 (2026-09-28,
       #260), Q3's approved default.* The criterion is "automatic retry + notification to the
@@ -3690,7 +3697,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       Taken before F-37 · 1.5: the customer's edits come first.
       - [x] **1.1** `D-104` in §2 (proposed) and §4.2's `contact_person` row pointed to it, + this
             list. Docs only. *(2026-10-08, #286 — `D-104` recorded; the proposed text accepted unchanged)*
-      - [ ] **1.2** Failing tests first, then one migration with a working `down()`: `contact_titles`
+      - [x] **1.2** Failing tests first, then one migration with a working `down()`: `contact_titles`
             joins `enum_lists_known_list`, two rows `mr` (Mr. / أ.) and `mrs` (Mrs. / أ.), and a nullable
             `customers.contact_title` (`string(64)`); `ManagedList::ContactTitles`; `SaveCustomerRequest`
             takes `contact_title`, and `SaveCustomer` refuses a code outside the live list with a `422`
@@ -3698,6 +3705,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and the audit snapshot carry it. Tests: save, edit and read with and without a title, an
             unknown code → `422`, `null` clears it, rollback and re-migrate, the audit entry. The CSV
             import is unchanged; an imported customer has no title.
+            *(2026-10-08, #287 — an unknown or archived title is a 422; Customers → AdminContract)*
       - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
             *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
             the wide name field on one row; the list column and the detail view print «title name» (the

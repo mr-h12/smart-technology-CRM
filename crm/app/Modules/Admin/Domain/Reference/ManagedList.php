@@ -56,4 +56,7 @@ enum ManagedList: string
      * `DeliveryTerms`' reason — only the business knows its own companies.
      */
     case Companies = 'companies';
+
+    /** `D-104`: the title before a customer's contact person, *Mr.* / *Mrs.* (F-38). */
+    case ContactTitles = 'contact_titles';
 }

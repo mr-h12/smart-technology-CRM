@@ -113,7 +113,8 @@ final class ManagedListSchemaMigrationTest extends TestCase
     {
         $this->insertEntry($list, 'first');
 
-        self::assertSame(1, DB::table(self::TABLE)->where('list', $list)->count());
+        // By code: `contact_titles` arrives with its two rows (`D-104`).
+        self::assertSame(1, DB::table(self::TABLE)->where('list', $list)->where('code', 'first')->count());
     }
 
     public function test_that_a_list_the_domain_does_not_declare_is_refused(): void
@@ -127,7 +128,8 @@ final class ManagedListSchemaMigrationTest extends TestCase
 
         $rule = null;
         foreach (file(self::MASTER_DOCUMENTATION) ?: [] as $line) {
-            if (str_contains($line, 'DB-05')) {
+            // The rule's own row: `D-104` also cites DB-05, and comes first.
+            if (str_starts_with($line, '| DB-05 |')) {
                 $rule = $line;
                 break;
             }
@@ -153,7 +155,7 @@ final class ManagedListSchemaMigrationTest extends TestCase
         }
 
         self::assertSame(
-            ['companies'],
+            ['companies', 'contact_titles'],
             array_values(array_diff($cases, ['sectors', 'units', 'service_types', 'delivery_terms'])),
             'A list outside DB-05 was added without being named here.',
         );

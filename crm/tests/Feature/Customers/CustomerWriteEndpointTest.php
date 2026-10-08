@@ -565,6 +565,83 @@ final class CustomerWriteEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'region' => null, 'is_incomplete' => false]);
     }
 
+    // ─────────────────────────────── D-104 (F-38) — the contact person's title
+
+    /** Ruling 2: optional — a customer saves with a title and without one. */
+    public function test_that_a_customer_saves_and_reads_a_contact_title(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $id = $this->postJson(self::ENDPOINT, ['name' => 'Alpha Trading', 'contact_person' => 'Sara', 'contact_title' => 'mrs'], $bearer)
+            ->assertStatus(201)
+            ->assertJsonPath('data.contact_title', 'mrs')
+            ->json('data.id');
+        self::assertIsString($id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $bearer)->assertStatus(200)->assertJsonPath('data.contact_title', 'mrs');
+        $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200)->assertJsonPath('data.0.contact_title', 'mrs');
+        $this->assertDatabaseHas('customers', ['id' => $id, 'contact_title' => 'mrs']);
+
+        $created = DB::table('audit_log')->where('event', 'CUSTOMER_CREATED')->where('entity_id', $id)->value('new_values');
+        self::assertIsString($created);
+        $values = json_decode($created, true);
+        self::assertIsArray($values);
+        self::assertSame('mrs', $values['contact_title'] ?? null);
+
+        $this->postJson(self::ENDPOINT, ['name' => 'Beta Trading'], $bearer)
+            ->assertStatus(201)
+            ->assertJsonPath('data.contact_title', null);
+    }
+
+    /** `AUD-02`: the old title beside the new one; `null` clears it. */
+    public function test_that_an_edit_changes_and_null_clears_the_contact_title(): void
+    {
+        $id = $this->customer('Alpha Trading');
+        DB::table('customers')->where('id', $id)->update(['contact_title' => 'mr']);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['contact_title' => 'mrs'], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.contact_title', 'mrs');
+
+        $row = DB::table('audit_log')->where('event', 'CUSTOMER_UPDATED')->where('entity_id', $id)->first();
+        self::assertNotNull($row);
+        self::assertIsString($row->old_values);
+        self::assertIsString($row->new_values);
+        self::assertSame(['contact_title' => 'mr'], json_decode($row->old_values, true));
+        self::assertSame(['contact_title' => 'mrs'], json_decode($row->new_values, true));
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['contact_title' => null], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.contact_title', null);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'contact_title' => null]);
+    }
+
+    /** Ruling 4: a code outside the live list — unknown or archived — is a 422, and nothing is saved. */
+    public function test_that_a_contact_title_outside_the_live_list_is_422(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+        DB::table('enum_lists')->where('list', 'contact_titles')->where('code', 'mr')->update(['deleted_at' => now()]);
+
+        foreach (['dr', 'mr'] as $code) {
+            $this->postJson(self::ENDPOINT, ['name' => 'Alpha Trading', 'contact_title' => $code], $bearer)
+                ->assertStatus(422)
+                ->assertJsonPath('error.code', 'validation_failed')
+                ->assertJsonPath('error.details.0.field', 'contact_title');
+        }
+
+        $this->assertDatabaseMissing('customers', ['name' => 'Alpha Trading']);
+
+        $id = $this->customer('Beta Trading');
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['contact_title' => 'dr'], $bearer)
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'contact_title');
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'contact_title' => null]);
+    }
+
     /**
      * A customer as the importer leaves it. The API prohibits `is_incomplete`
      * (`D-31`), so the flag is written where the importer writes it: the row.

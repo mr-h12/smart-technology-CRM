@@ -325,6 +325,7 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
             sector: $row->sector,
             region: $row->region,
             contactPerson: $row->contact_person,
+            contactTitle: $row->contact_title,
             phone: $row->phone,
             phone2: $row->phone2,
             whatsapp: $row->whatsapp,

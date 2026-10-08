@@ -164,6 +164,10 @@ final class QuotationNewVersionEndpointTest extends TestCase
         self::assertNull($copy['submitted_at']);
         self::assertNull($copy['sent_at']);
 
+        // `D-103`: the terms are part of the document a new version copies.
+        self::assertCount(2, (array) ($parent['terms'] ?? []), 'the parent was created with two terms.');
+        self::assertEquals($parent['terms'], $copy['terms'] ?? null);
+
         // Every header field — the customer's document — byte for byte.
         self::assertSame(
             array_diff_key($parent, array_flip(self::NOT_COPIED)),
@@ -372,7 +376,7 @@ final class QuotationNewVersionEndpointTest extends TestCase
         ]);
     }
 
-    /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus 5 delivery. */
+    /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus 5 delivery, and two terms (`D-103`). */
     private function quotation(string $dealId): string
     {
         $id = $this->postJson(self::ENDPOINT, [
@@ -383,6 +387,10 @@ final class QuotationNewVersionEndpointTest extends TestCase
             'discount_percent' => '0',
             'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
+            'terms' => [
+                ['key' => 'payment_terms', 'title' => null, 'body' => '50% advance'],
+                ['key' => null, 'title' => 'Installation', 'body' => 'On site, two days'],
+            ],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);

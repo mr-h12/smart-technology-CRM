@@ -181,10 +181,7 @@ final readonly class UpdateQuotation
             'total_before_round' => $before->totalBeforeRound,
             'final_total' => $before->finalTotal,
             'rounding_diff' => $before->roundingDiff,
-            'payment_terms' => $before->paymentTerms,
-            'warranty' => $before->warranty,
-            'delivery_terms' => $before->deliveryTerms,
-            'show_delivery_terms' => $before->showDeliveryTerms,
+            'terms' => $before->terms,
             'items' => array_map(static fn (QuotationLine $line): array => $line->asRow(), $before->items),
             'additional_items' => array_map(static fn (QuotationAdditionalLine $line): array => [
                 'description' => $line->description,

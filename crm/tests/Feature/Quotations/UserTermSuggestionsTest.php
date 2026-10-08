@@ -88,13 +88,18 @@ final class UserTermSuggestionsTest extends TestCase
 
     // ────────────────────────────────────────────────────────────── the write
 
+    /**
+     * `D-103` (2): the chips belong to the three ready terms, renamed or not —
+     * a term the employee added has none.
+     */
     public function test_that_saving_a_quotation_remembers_its_terms_for_the_actor(): void
     {
-        $this->postJson(self::QUOTATIONS, $this->payload([
-            'payment_terms' => '50% advance',
-            'warranty' => 'One year',
-            'delivery_terms' => '',
-        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
+        $this->postJson(self::QUOTATIONS, $this->payload(['terms' => [
+            ['key' => 'payment_terms', 'title' => null, 'body' => '50% advance'],
+            ['key' => 'warranty', 'title' => 'Guarantee', 'body' => 'One year'],
+            ['key' => 'delivery_terms', 'title' => null, 'body' => ''],
+            ['key' => null, 'title' => 'Installation', 'body' => 'On site, two days'],
+        ]]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
 
         $userId = $this->userWith(RoleName::Manager)->getKey();
 
@@ -103,20 +108,20 @@ final class UserTermSuggestionsTest extends TestCase
         self::assertSame(
             [['field' => 'payment_terms', 'term' => '50% advance'], ['field' => 'warranty', 'term' => 'One year']],
             $rows->map(fn ($row): array => (array) $row)->all(),
-            'an empty term is not a suggestion.',
+            'an empty term is not a suggestion, and an added term has no chips.',
         );
     }
 
     public function test_that_a_repeated_term_moves_last_used_at_and_adds_no_row(): void
     {
-        $this->postJson(self::QUOTATIONS, $this->payload(['warranty' => 'One year']), $this->bearerFor(RoleName::Manager))->assertStatus(201);
+        $this->postJson(self::QUOTATIONS, $this->payload(['terms' => [['key' => 'warranty', 'title' => null, 'body' => 'One year']]]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
 
         $first = DB::table('user_term_suggestions')->where('term', 'One year')->value('last_used_at');
         self::assertIsString($first);
 
         $this->travel(1)->minutes();
 
-        $this->postJson(self::QUOTATIONS, $this->payload(['warranty' => 'One year']), $this->bearerFor(RoleName::Manager))->assertStatus(201);
+        $this->postJson(self::QUOTATIONS, $this->payload(['terms' => [['key' => 'warranty', 'title' => null, 'body' => 'One year']]]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
 
         self::assertSame(1, DB::table('user_term_suggestions')->where('term', 'One year')->count());
         self::assertGreaterThan($first, DB::table('user_term_suggestions')->where('term', 'One year')->value('last_used_at'));
@@ -125,7 +130,7 @@ final class UserTermSuggestionsTest extends TestCase
     /** The column is 500 characters; a term past it is skipped, never a failed save. */
     public function test_that_a_term_too_long_to_be_a_suggestion_is_skipped(): void
     {
-        $this->postJson(self::QUOTATIONS, $this->payload(['warranty' => str_repeat('x', 501)]), $this->bearerFor(RoleName::Manager))
+        $this->postJson(self::QUOTATIONS, $this->payload(['terms' => [['key' => 'warranty', 'title' => null, 'body' => str_repeat('x', 501)]]]), $this->bearerFor(RoleName::Manager))
             ->assertStatus(201);
 
         self::assertSame(0, DB::table('user_term_suggestions')->count());
@@ -139,7 +144,7 @@ final class UserTermSuggestionsTest extends TestCase
         self::assertIsString($etag);
 
         // `deal_id` and `customer_id` are `prohibited` on an edit.
-        $body = array_diff_key($this->payload(['delivery_terms' => 'Ex works']), ['deal_id' => 0, 'customer_id' => 0]);
+        $body = array_diff_key($this->payload(['terms' => [['key' => 'delivery_terms', 'title' => null, 'body' => 'Ex works']]]), ['deal_id' => 0, 'customer_id' => 0]);
 
         $this->patchJson(self::QUOTATIONS.'/'.$id, $body, [...$this->bearerFor(RoleName::Manager), 'If-Match' => $etag])
             ->assertStatus(200);

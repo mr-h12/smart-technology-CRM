@@ -132,6 +132,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             warranty: $row->warranty,
             deliveryTerms: $row->delivery_terms,
             showDeliveryTerms: $row->show_delivery_terms,
+            terms: $row->terms,
             version: $row->version,
             parentId: $row->parent_id,
             rejectionReason: $row->rejection_reason,
@@ -157,9 +158,16 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         // both read token 3 cannot both pass: the row-level lock PostgreSQL
         // takes for the first UPDATE makes the second re-evaluate `WHERE`
         // against the committed token 4 and match nothing.
+        $attributes = $draft->attributes;
+
+        // A builder `update()` applies no cast, so the list is encoded here.
+        if (array_key_exists('terms', $attributes)) {
+            $attributes['terms'] = json_encode($attributes['terms'], JSON_THROW_ON_ERROR);
+        }
+
         $matched = $this->lockedRow($quotationId, $expectedToken)
             ->update([
-                ...$draft->attributes,
+                ...$attributes,
                 'version_token' => $this->connection->raw('version_token + 1'),
                 'updated_by' => $actorId,
             ]);

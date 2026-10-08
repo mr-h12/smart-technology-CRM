@@ -1623,6 +1623,12 @@ would hide them behind `OD-03` indefinitely.
       to whoever opens the quotation. Nothing is sent: §18.2's delivery belongs to no module yet
       (`app/Modules/Notifications/` is `.gitkeep`), and Q3 ruled out a private notification inside
       `Pdf`. It closes when Notifications exists; `RenderQuotationPdf::giveUp()` is where the send goes.
+- [ ] **`quotations` still carries the three term columns and `show_delivery_terms`, unwritten** —
+      *created knowingly by F-37 · 1.2 (2026-10-08), `D-103`.* `terms` (jsonb) replaced them; the
+      migration copied each quotation's old terms into it, and nothing writes the old columns since.
+      They stay so nothing is deleted and the rollback is a column drop. Until F-37 · 1.3 the PDF
+      still reads them through `QuotationDetail`. Owed: a migration that drops the four columns and
+      their `@property` lines, once 1.3 and 1.4 are merged and the owner orders it.
 
 ## Agent guide revisions — owner-directed
 

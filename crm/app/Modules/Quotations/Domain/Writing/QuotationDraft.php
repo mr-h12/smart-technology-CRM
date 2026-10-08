@@ -71,10 +71,8 @@ final readonly class QuotationDraft
         'total_before_round',
         'final_total',
         'rounding_diff',
-        'payment_terms',
-        'warranty',
-        'delivery_terms',
-        'show_delivery_terms',
+        // D-103: one list; the three term columns and their flag are no longer written.
+        'terms',
     ];
 
     /**

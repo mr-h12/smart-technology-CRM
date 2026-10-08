@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -50,7 +52,7 @@ final class SaveQuotationRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, list<mixed>> */
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
@@ -66,10 +68,15 @@ final class SaveQuotationRequest extends FormRequest
             'tax_percent' => self::decimal('nullable', 'gt:0'),
             'quotation_date' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date', 'after_or_equal:quotation_date'],
-            'payment_terms' => ['nullable', 'string'],
-            'warranty' => ['nullable', 'string'],
-            'delivery_terms' => ['nullable', 'string'],
-            'show_delivery_terms' => ['nullable', 'boolean'],
+            // D-103: at most 15 terms, each `{key, title, body}`; `key` marks
+            // one of the three ready terms, whose empty name the PDF fills in.
+            'terms' => ['sometimes', 'array', 'max:15'],
+            'terms.*' => ['array:key,title,body'],
+            'terms.*.key' => ['nullable', Rule::in(TermSuggestions::FIELDS)],
+            'terms.*.title' => Rule::forEach(fn (mixed $title, string $attribute): array => [
+                $this->needsName($attribute) ? 'required' : 'nullable', 'string', 'max:255',
+            ]),
+            'terms.*.body' => ['nullable', 'string'],
 
             // An edit replaces every editable field (Point 3.6): a body that
             // omits the lines has not said "keep them" — it has said nothing,
@@ -90,6 +97,22 @@ final class SaveQuotationRequest extends FormRequest
             'code' => ['prohibited'],
             'status' => ['prohibited'],
         ];
+    }
+
+    /**
+     * `D-103` (4): a term the employee added has no label of its own to fall
+     * back on, so once it has a body it needs a name. `$attribute` is the
+     * expanded `terms.N.title`; the term is read from the request, because
+     * the data `forEach` passes is flattened to `terms.N.body` keys.
+     */
+    private function needsName(string $attribute): bool
+    {
+        $term = $this->input(Str::beforeLast($attribute, '.'));
+
+        return is_array($term)
+            && ($term['key'] ?? null) === null
+            && is_string($term['body'] ?? null)
+            && trim($term['body']) !== '';
     }
 
     /**

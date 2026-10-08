@@ -26,7 +26,8 @@ use Illuminate\Support\Str;
  */
 final readonly class TermSuggestions
 {
-    private const FIELDS = ['payment_terms', 'warranty', 'delivery_terms'];
+    /** D-103: the keys of the three ready terms, the only ones with chips. */
+    public const FIELDS = ['payment_terms', 'warranty', 'delivery_terms'];
 
     /** Matches the column; a longer term is not a suggestion and is skipped. */
     private const MAX_LENGTH = 500;
@@ -41,14 +42,18 @@ final readonly class TermSuggestions
         $now = now();
         $rows = [];
 
-        foreach (self::FIELDS as $field) {
-            $term = $validated[$field] ?? null;
+        $terms = $validated['terms'] ?? [];
 
-            if (! is_string($term) || trim($term) === '' || mb_strlen($term) > self::MAX_LENGTH) {
+        foreach (is_array($terms) ? $terms : [] as $entry) {
+            $field = is_array($entry) ? ($entry['key'] ?? null) : null;
+            $term = is_array($entry) ? ($entry['body'] ?? null) : null;
+
+            if (! in_array($field, self::FIELDS, true) || ! is_string($term) || trim($term) === '' || mb_strlen($term) > self::MAX_LENGTH) {
                 continue;
             }
 
-            $rows[] = [
+            // Keyed so a term sent twice is one row: an upsert may not touch a row twice.
+            $rows[$field."\n".$term] = [
                 'id' => Str::uuid7()->toString(),
                 'user_id' => $actorId,
                 'field' => $field,
@@ -66,7 +71,7 @@ final readonly class TermSuggestions
         }
 
         $this->connection->table('user_term_suggestions')
-            ->upsert($rows, ['user_id', 'field', 'term'], ['last_used_at', 'updated_by', 'updated_at']);
+            ->upsert(array_values($rows), ['user_id', 'field', 'term'], ['last_used_at', 'updated_by', 'updated_at']);
     }
 
     /**

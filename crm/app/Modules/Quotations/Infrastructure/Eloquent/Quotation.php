@@ -75,6 +75,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $warranty
  * @property string|null $delivery_terms
  * @property bool $show_delivery_terms
+ * @property list<array{key: string|null, title: string|null, body: string|null}> $terms
  * @property int $version
  * @property string|null $parent_id
  * @property string|null $rejection_reason
@@ -110,10 +111,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'total_before_round',
     'final_total',
     'rounding_diff',
-    'payment_terms',
-    'warranty',
-    'delivery_terms',
-    'show_delivery_terms',
+    'terms',
 ])]
 class Quotation extends Model
 {
@@ -138,6 +136,7 @@ class Quotation extends Model
             'total_before_round' => Precision::CAST_MONEY,
             'final_total' => Precision::CAST_MONEY,
             'rounding_diff' => Precision::CAST_MONEY,
+            'terms' => 'array',
             // Point 4.2 gives it a writer, so it gets its cast (see `sent_at` above).
             'submitted_at' => 'datetime',
             // Module 8 Point 1.2's writer, the same reason.

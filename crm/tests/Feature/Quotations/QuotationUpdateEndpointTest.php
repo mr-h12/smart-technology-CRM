@@ -34,6 +34,12 @@ final class QuotationUpdateEndpointTest extends TestCase
 
     private const PASSWORD = 'Passw0rd123';
 
+    /** One ready term with no name of its own, and one the employee added (`D-103`). */
+    private const TERMS = [
+        ['key' => 'payment_terms', 'title' => null, 'body' => '50% advance'],
+        ['key' => null, 'title' => 'Installation', 'body' => 'On site, two days'],
+    ];
+
     /** @var array<string, User> */
     private array $users = [];
 
@@ -158,7 +164,7 @@ final class QuotationUpdateEndpointTest extends TestCase
         [$id, $etag] = $this->quotation($this->deal(null));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
-        $this->edit($id, $etag, $this->payload(['payment_terms' => '30 days']), RoleName::Manager)->assertStatus(200);
+        $this->edit($id, $etag, $this->payload(['terms' => [['key' => 'payment_terms', 'title' => null, 'body' => '30 days']]]), RoleName::Manager)->assertStatus(200);
     }
 
     /** §3.5 `edit tax`, the same way. */
@@ -249,7 +255,7 @@ final class QuotationUpdateEndpointTest extends TestCase
             'tax_percent' => '14',
             'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '3']],
             'additional_items' => [['description' => 'Installation', 'amount' => '7']],
-            'payment_terms' => '30 days',
+            'terms' => [['key' => 'payment_terms', 'title' => null, 'body' => '30 days']],
         ]), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.id', $id)
@@ -260,7 +266,7 @@ final class QuotationUpdateEndpointTest extends TestCase
             ->assertJsonPath('data.tax_amount', '4.725000')
             ->assertJsonPath('data.additional_total', '7.000000')
             ->assertJsonPath('data.final_total', '45.475000')
-            ->assertJsonPath('data.payment_terms', '30 days')
+            ->assertJsonPath('data.terms.0.body', '30 days')
             ->assertJsonPath('data.items.0.quantity', '3.0000')
             ->assertJsonPath('data.items.0.unit_price', '12.500000')
             ->assertJsonPath('data.additional_items.0.description', 'Installation')
@@ -314,6 +320,91 @@ final class QuotationUpdateEndpointTest extends TestCase
         self::assertIsArray($new);
         self::assertSame('20.000', $old['default_margin'] ?? null);
         self::assertSame('25', $new['default_margin'] ?? null);
+    }
+
+    // ──────────────────────────────────────────────────────────── D-103 terms
+
+    /** `D-103`: the terms are one list of `{key, title, body}`, answered in the order they were sent. */
+    public function test_that_the_terms_are_saved_and_answered_in_order(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload(['terms' => self::TERMS]), RoleName::Manager)->assertStatus(200);
+
+        $data = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200)->json('data');
+        self::assertIsArray($data);
+        self::assertEquals(self::TERMS, $data['terms'] ?? null);
+        self::assertArrayNotHasKey('payment_terms', $data, 'D-103 retires the three fields from the API.');
+        self::assertArrayNotHasKey('show_delivery_terms', $data, 'D-103 retires the flag from the API.');
+    }
+
+    /**
+     * `terms` is a header field, so it follows `QuotationDraft::forCreate()`'s
+     * rule for them: left out, it is left alone; sent as `[]`, it is emptied.
+     */
+    public function test_that_an_edit_without_terms_keeps_them_and_an_empty_list_clears_them(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        $etag = $this->edit($id, $etag, $this->payload(['terms' => self::TERMS]), RoleName::Manager)->assertStatus(200)->json('data.etag');
+        self::assertIsString($etag);
+
+        $etag = $this->edit($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200)->json('data.etag');
+        self::assertIsString($etag);
+        self::assertEquals(self::TERMS, $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.terms'));
+
+        $this->edit($id, $etag, $this->payload(['terms' => []]), RoleName::Manager)->assertStatus(200);
+        self::assertSame([], $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.terms'));
+    }
+
+    /** `D-103`: 15 is the maximum, refused by the API and not only by the button. */
+    public function test_that_fifteen_terms_are_accepted_and_sixteen_refused(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        $term = ['key' => null, 'title' => 'Note', 'body' => 'Text'];
+
+        $this->edit($id, $etag, $this->payload(['terms' => array_fill(0, 16, $term)]), RoleName::Manager)
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'terms']);
+
+        $this->edit($id, $etag, $this->payload(['terms' => array_fill(0, 15, $term)]), RoleName::Manager)->assertStatus(200);
+    }
+
+    /** `D-103` (4): only the three ready terms have a label to fall back on; an added one needs its name. */
+    public function test_that_an_added_term_with_a_body_needs_a_name(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload(['terms' => [['key' => null, 'title' => null, 'body' => 'Text']]]), RoleName::Manager)
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'terms.0.title']);
+    }
+
+    public function test_that_a_key_other_than_the_three_is_refused(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload(['terms' => [['key' => 'installation', 'title' => 'Installation', 'body' => 'Text']]]), RoleName::Manager)
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'terms.0.key']);
+    }
+
+    /** §6.4 + `AUD-02`: a change of terms is an edit like any other, with its old and new values. */
+    public function test_that_a_change_of_terms_is_audited_with_its_old_and_new_values(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload(['terms' => self::TERMS]), RoleName::Manager)->assertStatus(200);
+
+        $row = DB::table('audit_log')->where('entity_type', 'quotation')->where('entity_id', $id)->where('event', 'QUOTATION_UPDATED')->first();
+        self::assertInstanceOf(stdClass::class, $row);
+        self::assertIsString($row->old_values);
+        self::assertIsString($row->new_values);
+        $old = json_decode($row->old_values, true);
+        $new = json_decode($row->new_values, true);
+        self::assertIsArray($old);
+        self::assertIsArray($new);
+        self::assertSame([], $old['terms'] ?? null);
+        self::assertEquals(self::TERMS, $new['terms'] ?? null);
     }
 
     /** The deal and the customer are the quotation's identity, not fields of an edit. */

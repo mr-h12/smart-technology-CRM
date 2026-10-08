@@ -3677,7 +3677,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `terms.*.title`, `additional_items.*.description` and `.amount` from
             `quotations.attributes.*`. Failing test first. Revealed while preparing 1.5; added by the
             owner, 2026-10-08.
-            *(2026-10-08 — «حقل terms.0.title مطلوب.» becomes «حقل اسم الشرط مطلوب.»)*
+            *(2026-10-08, #285 — «حقل terms.0.title مطلوب.» becomes «حقل اسم الشرط مطلوب.»)*
       - [ ] **1.5** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

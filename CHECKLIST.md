@@ -3620,6 +3620,36 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             a full Naskh file in its place fails the guard test)*
       - The Arabic manual test list is merged into F-34 · 1.3 (owner, 2026-10-02): one list for the final
         page, layout and face together.
+- [ ] **F-37** A quotation's terms become a numbered list of up to 15 named terms (`D-103`). A customer's
+      request relayed by the owner, 2026-10-08, marked urgent: terms added like line items, each a name
+      and a body, printed numbered under Terms and Conditions. The owner's rulings and the point list
+      were approved 2026-10-08 in conversation, with a yes to the shell write of `D-103`. **The client's
+      PC is not updated from `main` between 1.2 and 1.4**: from 1.2 the API takes `terms` only, and the
+      builder sends the old fields until 1.4.
+      - [x] **1.1** `D-103` in §2 (proposed), `D-89`, `D-100`, §6.2 and the MVP plan's Module 9
+            criterion pointed to it, + this list. Docs only.
+            *(2026-10-08, #281 — the Arabic reading copies still carry the old rule; they already lagged
+            on `D-100`/`D-101`)*
+      - [ ] **1.2** Failing tests first, then a `jsonb` `terms` column on `quotations` (`{key, title,
+            body}`), backfilled from the three term columns — delivery only where `show_delivery_terms`
+            was true — with a working `down()`; `SaveQuotationRequest` takes `terms` (at most 15, a key
+            from the three or none, a term with a body and no key needs a name) in place of the three
+            fields and the flag; the draft, the read model, the payload and the audit snapshot carry it;
+            the chips are remembered from the keyed terms' bodies. Tests: create and edit round-trip,
+            16 → `422`, an unnamed added term → `422`, a new version and a Partial/Counter copy carry the
+            terms, the backfill, rollback and re-migrate, the chips. The old columns stay, unwritten — a
+            debt row to drop them.
+      - [ ] **1.3** Failing tests first in `CustomerQuotationHtmlTest`, `CustomerQuotationViewMapperTest`
+            and `CustomerQuotationViewTest` (currency 1, the terms in order, validity last; an empty name
+            prints the language's label in both locales; an empty body omitted; still no `<li>`), then the
+            view, the mapper, the template and `lang/{ar,en}/pdf.php`. A real PDF generated in both
+            languages and read with `pdftotext`.
+      - [ ] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
+            quotation; add up to 15, the button disabled at 15; rename and remove; the chips only on the
+            three; the payload shape; no checkbox), then the builder's terms list after the additional
+            items' pattern, the detail view's numbered terms, the types and both locales.
+            `rtl-ui-verifier` at ar/en × 1280/375.
+      - [ ] **1.5** The Arabic manual test list.
 
 ## Shell revisions — owner-directed
 

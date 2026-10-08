@@ -3689,7 +3689,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       shown before the name in the customer list and the detail page, not in the customer picker.
       Taken before F-37 · 1.5: the customer's edits come first.
       - [x] **1.1** `D-104` in §2 (proposed) and §4.2's `contact_person` row pointed to it, + this
-            list. Docs only.
+            list. Docs only. *(2026-10-08, #286 — `D-104` recorded; the proposed text accepted unchanged)*
       - [ ] **1.2** Failing tests first, then one migration with a working `down()`: `contact_titles`
             joins `enum_lists_known_list`, two rows `mr` (Mr. / أ.) and `mrs` (Mrs. / أ.), and a nullable
             `customers.contact_title` (`string(64)`); `ManagedList::ContactTitles`; `SaveCustomerRequest`

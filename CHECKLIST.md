@@ -3626,8 +3626,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       were approved 2026-10-08 in conversation, with a yes to the shell write of `D-103`. **The client's
       PC is not updated from `main` between 1.2 and 1.4**: from 1.2 the API takes `terms` only, and the
       builder sends the old fields until 1.4.
-      - [ ] **1.1** `D-103` in §2 (proposed), `D-89`, `D-100`, §6.2 and the MVP plan's Module 9
+      - [x] **1.1** `D-103` in §2 (proposed), `D-89`, `D-100`, §6.2 and the MVP plan's Module 9
             criterion pointed to it, + this list. Docs only.
+            *(2026-10-08, #281 — the Arabic reading copies still carry the old rule; they already lagged
+            on `D-100`/`D-101`)*
       - [ ] **1.2** Failing tests first, then a `jsonb` `terms` column on `quotations` (`{key, title,
             body}`), backfilled from the three term columns — delivery only where `show_delivery_terms`
             was true — with a working `down()`; `SaveQuotationRequest` takes `terms` (at most 15, a key

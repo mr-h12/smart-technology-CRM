@@ -7,6 +7,7 @@ namespace Tests\Fixtures;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationView;
+use App\Modules\Pdf\Domain\View\CustomerTerm;
 
 /**
  * One customer view, built once — Module 9, Point 2.4.
@@ -50,9 +51,11 @@ final class CustomerQuotationViewFixture
             'netAmount' => '37746.98',
             'finalTotal' => '37996.98',
             'roundingDiff' => '0.00',
-            'paymentTerms' => '50% advance, balance upon delivery.',
-            'warranty' => 'One year.',
-            'deliveryTerms' => 'Within two weeks.',
+            'terms' => [
+                new CustomerTerm('payment_terms', null, '50% advance, balance upon delivery.'),
+                new CustomerTerm('warranty', null, 'One year.'),
+                new CustomerTerm('delivery_terms', null, 'Within two weeks.'),
+            ],
         ];
 
         /** @var array<string, mixed> $arguments */
@@ -78,9 +81,11 @@ final class CustomerQuotationViewFixture
                 new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'التوصيل والتركيب', '250.00')],
-            'paymentTerms' => '٥٠٪ مقدمًا والباقي عند التسليم.',
-            'warranty' => 'سنة واحدة.',
-            'deliveryTerms' => 'خلال أسبوعين من تاريخ الطلب.',
+            'terms' => [
+                new CustomerTerm('payment_terms', null, '٥٠٪ مقدمًا والباقي عند التسليم.'),
+                new CustomerTerm('warranty', null, 'سنة واحدة.'),
+                new CustomerTerm('delivery_terms', null, 'خلال أسبوعين من تاريخ الطلب.'),
+            ],
         ]);
     }
 }

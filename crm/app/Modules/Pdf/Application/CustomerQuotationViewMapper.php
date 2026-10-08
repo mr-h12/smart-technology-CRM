@@ -13,6 +13,7 @@ use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationView;
+use App\Modules\Pdf\Domain\View\CustomerTerm;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
@@ -55,9 +56,11 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
  * ── Blank is absent ───────────────────────────────────────────────────────
  *
  * 1.1's view refuses present-but-blank prose so a template cannot print a
- * heading over nothing. This is where blank becomes absent: whitespace-only
- * terms, warranty, address or phones map to `null`, and delivery terms map to
- * `null` whenever `show_delivery_terms` is false, whatever they contain.
+ * heading over nothing. This is where blank becomes absent: a whitespace-only
+ * address or phones map to `null`, a term whose body is empty is left out of
+ * the list, and a term whose name is empty keeps a `null` title so the PDF
+ * prints its own label (`D-103`, rulings 3 and 4). `show_delivery_terms`
+ * decides nothing any more.
  *
  * ── Refused, not guessed ──────────────────────────────────────────────────
  *
@@ -137,10 +140,26 @@ final readonly class CustomerQuotationViewMapper
             netAmount: $quotation->netAmount,
             finalTotal: $quotation->finalTotal,
             roundingDiff: $quotation->roundingDiff,
-            paymentTerms: self::present($quotation->paymentTerms),
-            warranty: self::present($quotation->warranty),
-            deliveryTerms: $quotation->showDeliveryTerms ? self::present($quotation->deliveryTerms) : null,
+            terms: self::terms($quotation),
         );
+    }
+
+    /**
+     * @return list<CustomerTerm>
+     */
+    private static function terms(QuotationDetail $quotation): array
+    {
+        $terms = [];
+
+        foreach ($quotation->terms as $term) {
+            $body = self::present($term['body']);
+
+            if ($body !== null) {
+                $terms[] = new CustomerTerm($term['key'], self::present($term['title']), $body);
+            }
+        }
+
+        return $terms;
     }
 
     /**

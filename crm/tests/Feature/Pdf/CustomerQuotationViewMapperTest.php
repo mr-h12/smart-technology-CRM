@@ -12,6 +12,7 @@ use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
+use App\Modules\Pdf\Domain\View\CustomerTerm;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
@@ -204,16 +205,24 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertSame([array_keys(self::SUPPLIER_ITEMS)], $asked->getArrayCopy());
     }
 
-    public function test_that_delivery_terms_follow_the_flag_not_the_text(): void
+    public function test_that_the_terms_cross_in_order_and_an_empty_body_is_left_out(): void
     {
-        $mapper = $this->mapper();
+        // D-103: the employee's terms in their order; ruling 3, a term with
+        // an empty body does not print; ruling 4, an empty name is null so
+        // the PDF prints its own label.
+        $view = $this->mapper()->map(self::quotation(terms: [
+            ['key' => 'warranty', 'title' => null, 'body' => 'One year.'],
+            ['key' => null, 'title' => 'Spare parts', 'body' => 'Six months.'],
+            ['key' => 'delivery_terms', 'title' => 'Delivery', 'body' => '   '],
+            ['key' => 'payment_terms', 'title' => '  ', 'body' => 'Net 30.'],
+            ['key' => null, 'title' => 'Installation', 'body' => null],
+        ]));
 
-        self::assertNull($mapper->map(self::quotation(showDeliveryTerms: false))->deliveryTerms);
-        self::assertSame('Within two weeks.', $mapper->map(self::quotation(showDeliveryTerms: true))->deliveryTerms);
-        self::assertNull(
-            $mapper->map(self::quotation(showDeliveryTerms: true, deliveryTerms: '  '))->deliveryTerms,
-            'A shown section with nothing in it is omitted rather than printed empty.',
-        );
+        self::assertEquals([
+            new CustomerTerm('warranty', null, 'One year.'),
+            new CustomerTerm(null, 'Spare parts', 'Six months.'),
+            new CustomerTerm('payment_terms', null, 'Net 30.'),
+        ], $view->terms);
     }
 
     public function test_that_the_money_chain_and_its_percentages_cross_unchanged(): void
@@ -426,11 +435,13 @@ final class CustomerQuotationViewMapperTest extends TestCase
         return array_combine(array_keys(self::SUPPLIER_ITEMS), ['Formatter M428dw', 'Toner CF259A', 'Fuser RM2-5399']);
     }
 
+    /**
+     * @param  list<array{key: string|null, title: string|null, body: string|null}>  $terms
+     */
     private static function quotation(
-        bool $showDeliveryTerms = true,
-        ?string $deliveryTerms = 'Within two weeks.',
         bool $repeatFirstItem = false,
         ?string $createdBy = self::CREATOR_ID,
+        array $terms = [],
     ): QuotationDetail {
         // Quantity, unit price and line total per supplier item — the customer's figures.
         $priced = [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
@@ -485,11 +496,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             totalBeforeRound: '37996.98',
             finalTotal: '37996.98',
             roundingDiff: '0.00',
-            paymentTerms: '50% advance, balance upon delivery.',
-            warranty: 'One year.',
-            deliveryTerms: $deliveryTerms,
-            showDeliveryTerms: $showDeliveryTerms,
-            terms: [],
+            terms: $terms,
             version: 1,
             parentId: null,
             rejectionReason: null,

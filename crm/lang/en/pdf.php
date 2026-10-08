@@ -38,6 +38,12 @@ return [
 
     'terms' => [
         'heading' => 'Terms and Conditions',
+        // D-103: printed for a ready term the employee left unnamed.
+        'labels' => [
+            'payment_terms' => 'Payment',
+            'warranty' => 'Warranty',
+            'delivery_terms' => 'Delivery',
+        ],
     ],
 
     'totals' => [
@@ -53,9 +59,7 @@ return [
 
     'conditions' => [
         'currency' => 'Offer currency: :currency.',
-        'payment' => 'Payment: :terms',
-        'warranty' => 'Warranty: :terms',
-        'delivery' => 'Delivery: :terms',
+        'term' => ':name: :body',
         'validity' => 'Offer validity: valid until :date.',
     ],
 

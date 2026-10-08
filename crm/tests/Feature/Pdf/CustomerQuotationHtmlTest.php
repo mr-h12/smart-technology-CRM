@@ -7,6 +7,7 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Pdf\Application\CustomerQuotationHtml;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
+use App\Modules\Pdf\Domain\View\CustomerTerm;
 use Illuminate\Support\Facades\Lang;
 use Tests\Fixtures\CustomerQuotationViewFixture;
 use Tests\TestCase;
@@ -122,16 +123,14 @@ final class CustomerQuotationHtmlTest extends TestCase
             subject: null,
             signatoryName: null,
             customerContact: null,
-            deliveryTerms: null,
-            warranty: null,
-            paymentTerms: null,
+            terms: [],
             companyAddress: null,
             companyPhones: null,
             quotationDate: null,
             validUntil: null,
         );
 
-        $optional = ['subject-line', 'signatory', 'contact-line', 'delivery-terms', 'warranty', 'payment-terms',
+        $optional = ['subject-line', 'signatory', 'contact-line',
             'company-address', 'company-phones', 'issue-date', 'valid-until-line'];
 
         foreach ($optional as $id) {
@@ -142,6 +141,91 @@ final class CustomerQuotationHtmlTest extends TestCase
         foreach ($optional as $id) {
             self::assertStringContainsString('id="'.$id.'"', $full);
         }
+    }
+
+    public function test_that_the_terms_are_numbered_lines_currency_first_and_validity_last(): void
+    {
+        // D-103's ruling 5: 1. the offer currency, then the employee's terms
+        // in their order as "Name: body", the offer validity last. Ruling 4:
+        // a ready term with no name prints the PDF's own label in the PDF's
+        // language, and a typed name prints exactly as typed — the ready
+        // payment term renamed here included.
+        $terms = [
+            new CustomerTerm('warranty', null, 'One year.'),
+            new CustomerTerm(null, 'Spare parts', 'Six months.'),
+            new CustomerTerm('payment_terms', 'Payment schedule', 'Net 30.'),
+            new CustomerTerm('delivery_terms', null, 'Within two weeks.'),
+        ];
+        $labels = ['en' => ['Warranty', 'Delivery'], 'ar' => ['الضمان', 'التسليم']];
+
+        foreach (['ar', 'en'] as $locale) {
+            self::assertSame([
+                '1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
+                '2. '.$labels[$locale][0].': One year.',
+                '3. Spare parts: Six months.',
+                '4. Payment schedule: Net 30.',
+                '5. '.$labels[$locale][1].': Within two weeks.',
+                '6. '.Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
+            ], self::termLines($this->html(locale: $locale, terms: $terms)), "The {$locale} terms are not numbered in D-103's order.");
+        }
+
+        // The owner's ruling, 2026-10-08: Latin digits in both languages, and
+        // on the Arabic page the number takes the line's own direction, so
+        // the dot sits between the number and the text (".1" read from the
+        // left), the way Word numbers an Arabic list. A direction isolate
+        // around the number would turn it into "1." — so the line opens with
+        // the bare number, nothing before it.
+        $ar = $this->html(locale: 'ar', terms: $terms);
+        foreach (range(1, 6) as $n) {
+            self::assertMatchesRegularExpression('/<p\b[^>]*>\s*'.$n.'\. /u', $ar, "Arabic term {$n} does not open with its bare number.");
+        }
+    }
+
+    public function test_that_the_payment_label_is_the_pdfs_own_in_each_language(): void
+    {
+        $terms = [new CustomerTerm('payment_terms', null, 'Net 30.')];
+
+        self::assertSame('2. Payment: Net 30.', self::termLines($this->html(locale: 'en', terms: $terms))[1]);
+        self::assertSame('2. الدفع: Net 30.', self::termLines($this->html(locale: 'ar', terms: $terms))[1]);
+    }
+
+    public function test_that_no_terms_leave_only_the_currency_and_the_validity(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            self::assertSame([
+                '1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
+                '2. '.Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
+            ], self::termLines($this->html(locale: $locale, terms: [])));
+
+            self::assertSame(
+                ['1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale)],
+                self::termLines($this->html(locale: $locale, terms: [], validUntil: null)),
+                'With no validity date, the currency is the only line.',
+            );
+        }
+    }
+
+    /**
+     * The terms block's lines as a reader sees them: tags, entities and the
+     * direction isolates gone.
+     *
+     * @return list<string>
+     */
+    private static function termLines(string $html): array
+    {
+        $block = (string) strstr((string) strstr($html, 'class="terms"'), 'class="totals"', true);
+        self::assertNotSame('', $block, 'The page has no terms block before the totals.');
+
+        preg_match_all('/<p\b[^>]*>(.*?)<\/p>/su', $block, $matches);
+
+        return array_map(
+            static fn (string $line): string => trim((string) preg_replace(
+                ['/[\x{2066}-\x{2069}]/u', '/\s+/u'],
+                ['', ' '],
+                html_entity_decode(strip_tags($line), ENT_QUOTES | ENT_HTML5),
+            )),
+            $matches[1],
+        );
     }
 
     public function test_that_the_header_prints_the_company_from_the_settings(): void

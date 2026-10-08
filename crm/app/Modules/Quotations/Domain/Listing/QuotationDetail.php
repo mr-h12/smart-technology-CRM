@@ -50,10 +50,6 @@ final readonly class QuotationDetail
         public string $totalBeforeRound,
         public string $finalTotal,
         public string $roundingDiff,
-        public ?string $paymentTerms,
-        public ?string $warranty,
-        public ?string $deliveryTerms,
-        public bool $showDeliveryTerms,
         /** @var list<array{key: string|null, title: string|null, body: string|null}> D-103, in their order */
         public array $terms,
         public int $version,

@@ -38,15 +38,14 @@ use InvalidArgumentException;
  * whose rates are per-quotation and configurable, and against Module 0's rule
  * that no user-facing string is hard-coded. Step 2 interpolates these instead.
  *
- * ── Why `deliveryTerms` is absent rather than blank ───────────────────────
+ * ── Why optional prose is absent rather than blank ────────────────────────
  *
- * §6.2 gives a quotation a "show delivery terms in PDF (yes/no)" flag, and the
- * criterion is that a `false` omits **the section**. A nullable field whose
- * empty case is `''` would let a template render a heading over an empty block
- * and still satisfy every test. So the mapper passes `null` when the flag is
- * off, and this constructor refuses a string that is present but blank: the
+ * A nullable field whose empty case is `''` would let a template render a
+ * heading over nothing and still satisfy every test. So the mapper passes
+ * `null`, and this constructor refuses a string that is present but blank: the
  * field is either genuinely there or genuinely absent, with no third state for
- * a template to get wrong.
+ * a template to get wrong. The terms keep the same rule one level down — a
+ * term with no body is not in the list (`D-103`, {@see CustomerTerm}).
  *
  * ── Why `companyPhones` is one string ─────────────────────────────────────
  *
@@ -76,6 +75,7 @@ final readonly class CustomerQuotationView
     /**
      * @param  list<CustomerQuotationLine>  $lines
      * @param  list<CustomerAdditionalLine>  $additionalItems
+     * @param  list<CustomerTerm>  $terms  D-103, in the employee's order
      */
     public function __construct(
         public string $code,
@@ -101,18 +101,10 @@ final readonly class CustomerQuotationView
         public string $netAmount,
         public string $finalTotal,
         public string $roundingDiff,
-        public ?string $paymentTerms,
-        public ?string $warranty,
-        public ?string $deliveryTerms,
+        public array $terms,
     ) {
-        // Present-but-blank is the state the `show_delivery_terms` criterion
-        // cannot survive, so it is refused here rather than left for a
-        // template to handle. The same applies to the other optional prose:
-        // a section with a heading and no body is a rendering defect whether
-        // the flag caused it or a mapper did.
-        self::refuseBlank('deliveryTerms', $deliveryTerms);
-        self::refuseBlank('paymentTerms', $paymentTerms);
-        self::refuseBlank('warranty', $warranty);
+        // A line with a label and nothing after it is a rendering defect, so
+        // present-but-blank is refused here rather than left to the template.
         self::refuseBlank('customerContact', $customerContact);
         self::refuseBlank('companyAddress', $companyAddress);
         self::refuseBlank('companyPhones', $companyPhones);

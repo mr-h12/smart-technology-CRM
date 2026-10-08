@@ -3647,11 +3647,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             debt row to drop them.
             *(2026-10-08, #282 — `Rule::forEach` hands its closure flattened `terms.N.body` keys, so the
             name rule reads the term from the request)*
-      - [ ] **1.3** Failing tests first in `CustomerQuotationHtmlTest`, `CustomerQuotationViewMapperTest`
+      - [x] **1.3** Failing tests first in `CustomerQuotationHtmlTest`, `CustomerQuotationViewMapperTest`
             and `CustomerQuotationViewTest` (currency 1, the terms in order, validity last; an empty name
             prints the language's label in both locales; an empty body omitted; still no `<li>`), then the
             view, the mapper, the template and `lang/{ar,en}/pdf.php`. A real PDF generated in both
             languages and read with `pdftotext`.
+            *(2026-10-08, #283 — Latin digits in both languages, the number bare so the Arabic page reads
+            `.1` like Word (the owner, 2026-10-08))*
       - [ ] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
             quotation; add up to 15, the button disabled at 15; rename and remove; the chips only on the
             three; the payload shape; no checkbox), then the builder's terms list after the additional

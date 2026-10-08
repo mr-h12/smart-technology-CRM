@@ -3706,6 +3706,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             unknown code → `422`, `null` clears it, rollback and re-migrate, the audit entry. The CSV
             import is unchanged; an imported customer has no title.
             *(2026-10-08, #287 — an unknown or archived title is a 422; Customers → AdminContract)*
+      - [x] **1.1b** `D-104` amended: the list's Arabic labels are «أستاذ» / «أستاذة», and the list and
+            detail page print «أ.» for either once chosen. The owner's correction after 1.3's browser
+            check, 2026-10-08 (the two «أ.» options could not be told apart); this sub-list approved in
+            conversation the same day. Docs only.
+      - [ ] **1.2b** Failing tests first, then a new migration (working `down()` back to «أ.») that sets
+            `mr` → «أستاذ» and `mrs` → «أستاذة» as the Arabic labels, and `ManagedLists` with them.
+            1.2's migration is applied and is not edited.
       - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
             *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
             the wide name field on one row; the list column and the detail view print «title name» (the

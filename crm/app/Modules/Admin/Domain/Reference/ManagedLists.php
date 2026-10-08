@@ -84,10 +84,11 @@ final class ManagedLists
             // and it is written into the module's manual test list.
             ManagedList::Companies => [],
 
-            // `D-104`: «أ.» for both in Arabic, the owner's ruling of 2026-10-08.
+            // `D-104` as amended 2026-10-08: the full words to choose from; the
+            // screens print «أ.» once chosen, a fixed text, not this label.
             ManagedList::ContactTitles => [
-                new ListEntry('mr', 'Mr.', 'أ.', 1),
-                new ListEntry('mrs', 'Mrs.', 'أ.', 2),
+                new ListEntry('mr', 'Mr.', 'أستاذ', 1),
+                new ListEntry('mrs', 'Mrs.', 'أستاذة', 2),
             ],
         };
     }

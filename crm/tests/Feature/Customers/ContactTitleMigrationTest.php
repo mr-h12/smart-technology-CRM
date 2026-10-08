@@ -23,7 +23,7 @@ final class ContactTitleMigrationTest extends TestCase
 
     private const MIGRATION = 'database/migrations/2026_10_08_100000_add_contact_title_to_customers.php';
 
-    /** The owner's ruling: *Mr.* / *Mrs.* in English, «أ.» for both in Arabic. */
+    /** `D-104` as amended (F-38 · 1.2b): *Mr.* / *Mrs.* in English, «أستاذ» / «أستاذة» in Arabic. */
     public function test_that_the_two_titles_are_listed(): void
     {
         $rows = DB::table('enum_lists')
@@ -35,8 +35,8 @@ final class ContactTitleMigrationTest extends TestCase
             ->all();
 
         self::assertSame([
-            ['code' => 'mr', 'label_en' => 'Mr.', 'label_ar' => 'أ.'],
-            ['code' => 'mrs', 'label_en' => 'Mrs.', 'label_ar' => 'أ.'],
+            ['code' => 'mr', 'label_en' => 'Mr.', 'label_ar' => 'أستاذ'],
+            ['code' => 'mrs', 'label_en' => 'Mrs.', 'label_ar' => 'أستاذة'],
         ], $rows);
     }
 

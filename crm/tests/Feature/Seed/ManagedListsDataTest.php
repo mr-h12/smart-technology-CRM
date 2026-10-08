@@ -226,8 +226,8 @@ final class ManagedListsDataTest extends TestCase
             'repair' => ['repair', 'Repair', 'إصلاح'],
             'maintenance' => ['maintenance', 'Maintenance', 'صيانة'],
             'setup' => ['setup', 'Setup', 'تجهيز'],
-            'mr' => ['mr', 'Mr.', 'أ.'],
-            'mrs' => ['mrs', 'Mrs.', 'أ.'],
+            'mr' => ['mr', 'Mr.', 'أستاذ'],
+            'mrs' => ['mrs', 'Mrs.', 'أستاذة'],
         ];
     }
 

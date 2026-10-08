@@ -7,6 +7,7 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationView;
+use App\Modules\Pdf\Domain\View\CustomerTerm;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
@@ -27,7 +28,7 @@ use ReflectionNamedType;
 final class CustomerQuotationViewTest extends TestCase
 {
     /**
-     * The three classes that together are everything the PDF may show.
+     * The classes that together are everything the PDF may show.
      *
      * @var list<class-string>
      */
@@ -35,6 +36,7 @@ final class CustomerQuotationViewTest extends TestCase
         CustomerQuotationView::class,
         CustomerQuotationLine::class,
         CustomerAdditionalLine::class,
+        CustomerTerm::class,
     ];
 
     /**
@@ -118,21 +120,47 @@ final class CustomerQuotationViewTest extends TestCase
         }
     }
 
-    public function test_that_optional_prose_is_absent_rather_than_blank(): void
+    public function test_that_the_terms_are_carried_in_their_order(): void
     {
-        // §6.2's "show delivery terms in PDF (yes/no)": a false must omit the
-        // section. A blank string would let a template print a heading with
-        // nothing under it and still pass every other check.
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/deliveryTerms must be absent/');
+        // D-103: the employee's terms, in the order the employee put them.
+        $terms = [
+            new CustomerTerm('warranty', null, 'One year.'),
+            new CustomerTerm(null, 'Spare parts', 'Six months.'),
+        ];
 
-        self::view(deliveryTerms: '   ');
+        self::assertSame($terms, self::view(terms: $terms)->terms);
+        self::assertSame([], self::view(terms: [])->terms);
     }
 
-    public function test_that_delivery_terms_may_be_absent_or_present(): void
+    public function test_that_a_term_with_a_blank_body_is_refused(): void
     {
-        self::assertNull(self::view(deliveryTerms: null)->deliveryTerms);
-        self::assertSame('Within two weeks.', self::view(deliveryTerms: 'Within two weeks.')->deliveryTerms);
+        // D-103's ruling 3: a term with an empty body does not print. The
+        // mapper leaves it out; a blank one reaching the view would print
+        // "Warranty: " over nothing.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/body/');
+
+        new CustomerTerm('warranty', null, '   ');
+    }
+
+    public function test_that_a_blank_term_name_is_refused_rather_than_printed(): void
+    {
+        // D-103's ruling 4: an empty name prints the PDF's own label, so an
+        // empty name must arrive as null. A blank one would print ": body".
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/title/');
+
+        new CustomerTerm('warranty', '  ', 'One year.');
+    }
+
+    public function test_that_a_term_with_neither_a_name_nor_a_ready_key_is_refused(): void
+    {
+        // An added term needs a name (F-37 · 1.2's 422); only the three ready
+        // terms have a label to fall back on.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/title/');
+
+        new CustomerTerm(null, null, 'Six months.');
     }
 
     public function test_that_the_percentages_the_labels_need_are_carried(): void
@@ -197,7 +225,10 @@ final class CustomerQuotationViewTest extends TestCase
         self::assertNull($view->signatoryName);
     }
 
-    private static function view(?string $deliveryTerms = null, ?string $subject = 'IT Offer', ?string $signatoryName = 'Ahmed Essam'): CustomerQuotationView
+    /**
+     * @param  list<CustomerTerm>  $terms
+     */
+    private static function view(array $terms = [], ?string $subject = 'IT Offer', ?string $signatoryName = 'Ahmed Essam'): CustomerQuotationView
     {
         return new CustomerQuotationView(
             code: 'QT-2026-0001',
@@ -223,9 +254,7 @@ final class CustomerQuotationViewTest extends TestCase
             netAmount: '5652.50',
             finalTotal: '5902.50',
             roundingDiff: '0.00',
-            paymentTerms: '50% advance, balance upon delivery.',
-            warranty: 'One year.',
-            deliveryTerms: $deliveryTerms,
+            terms: $terms,
         );
     }
 }

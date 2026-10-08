@@ -155,18 +155,15 @@
 <div class="below">
     <div class="terms">
         <div class="label">{{ $t('terms.heading') }}</div>
-        <p>{{ $t('conditions.currency', ['currency' => $view->currencyCode]) }}</p>
-        @if ($view->paymentTerms !== null)
-            <p id="payment-terms">{{ $t('conditions.payment', ['terms' => $view->paymentTerms]) }}</p>
-        @endif
-        @if ($view->warranty !== null)
-            <p id="warranty">{{ $t('conditions.warranty', ['terms' => $view->warranty]) }}</p>
-        @endif
-        @if ($view->deliveryTerms !== null)
-            <p id="delivery-terms">{{ $t('conditions.delivery', ['terms' => $view->deliveryTerms]) }}</p>
-        @endif
+        {{-- D-103: numbered plain lines, never <li> (D-100). Latin digits in both
+             languages, the number bare so it takes the line's direction (the
+             owner, 2026-10-08). A term with no name prints the PDF's label. --}}
+        <p>1. {{ $t('conditions.currency', ['currency' => $view->currencyCode]) }}</p>
+        @foreach ($view->terms as $term)
+            <p>{{ $loop->iteration + 1 }}. {{ $t('conditions.term', ['name' => $term->title ?? $t('terms.labels.'.$term->key), 'body' => $term->body]) }}</p>
+        @endforeach
         @if ($view->validUntil !== null)
-            <p id="validity">{{ $t('conditions.validity', ['date' => $ltr($view->validUntil)]) }}</p>
+            <p id="validity">{{ count($view->terms) + 2 }}. {{ $t('conditions.validity', ['date' => $ltr($view->validUntil)]) }}</p>
         @endif
     </div>
 

@@ -38,6 +38,12 @@ return [
 
     'terms' => [
         'heading' => 'الشروط والأحكام',
+        // D-103: printed for a ready term the employee left unnamed.
+        'labels' => [
+            'payment_terms' => 'الدفع',
+            'warranty' => 'الضمان',
+            'delivery_terms' => 'التسليم',
+        ],
     ],
 
     'totals' => [
@@ -53,9 +59,7 @@ return [
 
     'conditions' => [
         'currency' => 'عملة العرض: :currency.',
-        'payment' => 'الدفع: :terms',
-        'warranty' => 'الضمان: :terms',
-        'delivery' => 'التسليم: :terms',
+        'term' => ':name: :body',
         'validity' => 'صلاحية العرض: حتى تاريخ :date.',
     ],
 

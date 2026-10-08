@@ -1626,8 +1626,8 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **`quotations` still carries the three term columns and `show_delivery_terms`, unwritten** —
       *created knowingly by F-37 · 1.2 (2026-10-08), `D-103`.* `terms` (jsonb) replaced them; the
       migration copied each quotation's old terms into it, and nothing writes the old columns since.
-      They stay so nothing is deleted and the rollback is a column drop. Until F-37 · 1.3 the PDF
-      still reads them through `QuotationDetail`. Owed: a migration that drops the four columns and
+      They stay so nothing is deleted and the rollback is a column drop. Since F-37 · 1.3 nothing
+      reads them either: `QuotationDetail` dropped them and the PDF prints `terms`. Owed: a migration that drops the four columns and
       their `@property` lines, once 1.3 and 1.4 are merged and the owner orders it.
 
 ## Agent guide revisions — owner-directed

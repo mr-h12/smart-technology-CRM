@@ -3659,11 +3659,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             languages and read with `pdftotext`.
             *(2026-10-08, #283 — Latin digits in both languages, the number bare so the Arabic page reads
             `.1` like Word (the owner, 2026-10-08))*
-      - [ ] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
+      - [x] **1.4** Failing specs first in `QuotationBuilderView.spec.ts` (three ready terms on a new
             quotation; add up to 15, the button disabled at 15; rename and remove; the chips only on the
             three; the payload shape; no checkbox), then the builder's terms list after the additional
             items' pattern, the detail view's numbered terms, the types and both locales.
             `rtl-ui-verifier` at ar/en × 1280/375.
+            *(2026-10-08, #284 — the detail view lists only terms with text, «—» when none (the owner,
+            2026-10-08))*
       - [ ] **1.5** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

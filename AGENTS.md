@@ -105,7 +105,7 @@ Any change to a screen, component, or stylesheet must be verified in a real brow
 - A deal is standalone; a customer may have multiple independent concurrent deals. A request is a deal, never a separate entity.
 - Customer status is derived, never manually edited. Once any deal reaches `Won` or later, the customer is permanently `Customer`.
 - Supplier quotations are standalone entities with nullable `deal_id`; supplier prices live there, while the catalog is descriptive only.
-- All price calculations happen in the backend. Selling price = converted supplier unit cost × `(1 + margin / 100)`; line margin overrides quotation margin.
+- All price calculations happen in the backend. Selling price = converted supplier unit cost × `(1 + margin / 100)`; a line margin is added to the quotation margin (`D-106`).
 - Discount applies to subtotal only and is subtracted **before** tax, reducing the tax base (`D-64`). Additional items are never taxed (`D-62`).
 - Tax is optional and its percentage is per quotation, defaulting from the customer (`D-63`). An exempt quotation renders no tax line at all, not a zero line.
 - Rounding is optional per currency (`D-65`). When enabled, round the final total only by that currency's configured unit; store `rounding_diff`, which is `0` when rounding is off.

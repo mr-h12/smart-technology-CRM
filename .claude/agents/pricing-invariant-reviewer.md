@@ -18,7 +18,7 @@ You verify money code against the documented calculation rules. `docs/CRM_Docume
 ```
 unit_cost           = supplier unit price, in supplier currency
 unit_cost_base      = unit_cost × fx_rate_at_time
-margin_percent      = line margin; inherits quotation margin when empty   (D-03)
+margin_percent      = quotation margin + line margin; empty line = 0      (D-03, D-106)
 unit_price          = unit_cost_base × (1 + margin_percent / 100)         (D-04)
 line_total          = unit_price × quantity
 line_cost           = unit_cost_base × quantity
@@ -73,7 +73,7 @@ Code that always rounds, or treats the unit as a constant, is a defect.
 Coding_Standards §6 requires focused unit tests for every pricing formula, rounding boundary, currency conversion, discount, tax, additional item, and procurement saving rule. Verify these documented cases exist:
 
 - cost `1000`, margin `20%` → `1200`
-- quotation margin `20%`, line margin `30%` → line uses `30%`
+- quotation margin `20%`, line margin `10%` → line uses `30%` (summed, `D-106`)
 - rounding on, `1234.67 EGP` → final `1235`, `rounding_diff` `0.33`
 - rounding off for the currency → final keeps full precision, `rounding_diff` `0` (D-65)
 - **Discount-before-tax regression** — `subtotal 7368.42`, discount `1%` → `73.6842`, tax base `7294.7358`, tax `14%` → `1021.2630`, `total_before_round 8315.9988` (D-64). The company's PO #226 prints `8326.32` because it taxes the pre-discount amount; that `10.32` difference is accepted and **PO #226 is no longer a reconciliation target for tax ordering**

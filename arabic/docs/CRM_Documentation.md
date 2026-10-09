@@ -456,7 +456,7 @@ Lead → Contacted → Waiting Customer Request → Supplier RFQ
 ```
 unit_cost         = سعر وحدة المورد (بعملة المورد)
 unit_cost_base    = unit_cost × fx_rate_at_time      ← تحويل لعملة العرض (D-09)
-margin_percent    = هامش السطر؛ لو فاضي بيرث هامش العرض (D-03)
+margin_percent    = هامش العرض + هامش السطر؛ السطر الفاضي = 0 (D-03, D-106)
 unit_price        = unit_cost_base × (1 + margin_percent / 100)   ← (D-04)
 line_total        = unit_price × quantity
 line_cost         = unit_cost_base × quantity

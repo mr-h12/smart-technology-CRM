@@ -3821,10 +3821,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       `defaults.tax_percent` (seeded 14), captured on the offer; one flag for the whole offer, the
       header `total_price` included; the edit form shows the entered amount and the net; a line
       margin is summed with the quotation margin (20 + 10 on 100 → 130). Taken before F-37 · 1.5.
-      - [ ] **1.1** `D-105` and `D-106` in §2 (proposed); `D-62`, `D-03`, §5.1 and §7.2 pointed to
+      - [x] **1.1** `D-105` and `D-106` in §2 (proposed); `D-62`, `D-03`, §5.1 and §7.2 pointed to
             them; the Arabic copy's §5.1 line; + this list. Widened by the owner 2026-10-09 after the
             waste audit: the rule restated in `CLAUDE.md`/`AGENTS.md`, MVP Build Plan's acceptance case,
             `pricing-invariant-reviewer` and their Arabic twins. Docs only.
+            *(2026-10-09, #292 — `D-105`/`D-106` recorded; nine restatements of the old rule corrected)*
       - [ ] **1.2** Failing tests first, then `PricedLine` sums the line margin with the quotation
             margin (an empty line margin counts as `0`). Tests: 20 + 10 on 100 → 130; no line margin →
             the quotation margin; a line margin of `0` → the quotation margin.

@@ -131,10 +131,10 @@ const LANGUAGES = [
  * Suggestions, not rules. Owner decision of 2026-08-29: *suggest, and keep it
  * typeable*.
  *
- * `defaults.tax_percent` offers `14` because that is the **only** tax figure
- * anywhere in the documentation — §5.2's worked example — and `0` because an
- * exempt default is the other end of it (`D-63`). Neither is a documented
- * default, which is why neither is seeded and why the field starts empty.
+ * `defaults.tax_percent` offers `14` because `D-105` makes it the documented
+ * default — seeded since F-39 · 1.3, the rate a tax-inclusive supplier offer
+ * is stripped at — and `0` because an exempt default is the other end of it
+ * (`D-63`).
  *
  * `locale.date_format` offers three PHP format strings. No document names one;
  * these are spellings, not business values, and the field accepts any string.

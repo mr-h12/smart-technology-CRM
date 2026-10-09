@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
@@ -206,7 +209,91 @@ final class UpdateSupplierQuotationTest extends TestCase
             ->count(), 'DB-11: the original line was removed by an edit that failed.');
     }
 
+    // ─────────────────────────────────────── D-105: an offer entered tax-inclusive
+
+    /**
+     * D-105: "a later change to the setting never alters a saved offer", and
+     * the edit sends the amounts as entered, so it never strips twice.
+     */
+    public function test_that_an_edit_strips_with_the_captured_rate_not_the_current_setting(): void
+    {
+        $settings = app(SettingsRepositoryInterface::class);
+        $settings->put(SystemSetting::DefaultTaxPercent, '14');
+        $offer = $this->create($this->taxInclusive());
+
+        // `put()` writes underneath `PRF-08`'s cache; the Admin use case that
+        // backs the settings screen is what forgets it, so this test does too.
+        $settings->put(SystemSetting::DefaultTaxPercent, '15');
+        app(SettingsCacheInterface::class)->forgetSettings();
+        $this->update($offer->id, $this->taxInclusive());
+
+        $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
+
+        self::assertNotNull($header);
+        self::assertSame('14.000', $header->included_tax_percent, 'D-105: the captured rate moved with the setting.');
+        self::assertSame('1000.000000', $header->total_price, 'D-105: stripped twice, or with the new rate.');
+        self::assertSame('100.000000', $this->liveLine($offer->id)->unit_price);
+    }
+
+    /** An offer flagged on an edit captures the rate in force at that save. */
+    public function test_that_flagging_an_offer_on_edit_captures_the_current_rate(): void
+    {
+        $offer = $this->create();
+
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+        $this->update($offer->id, $this->taxInclusive());
+
+        self::assertSame('14.000', DB::table('supplier_quotations')->where('id', $offer->id)->value('included_tax_percent'));
+        self::assertSame('100.000000', $this->liveLine($offer->id)->unit_price);
+    }
+
+    /** Unflagging returns the offer to D-62: taken as recorded, no rate and no entered amounts. */
+    public function test_that_unflagging_an_offer_on_edit_takes_it_as_recorded(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+        $offer = $this->create($this->taxInclusive());
+
+        $this->update($offer->id, array_merge($this->taxInclusive(), ['prices_include_tax' => false]));
+
+        $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
+        $line = $this->liveLine($offer->id);
+
+        self::assertNotNull($header);
+        self::assertFalse($header->prices_include_tax);
+        self::assertNull($header->included_tax_percent);
+        self::assertNull($header->entered_total_price);
+        self::assertSame('1140.000000', $header->total_price);
+        self::assertSame('114.000000', $line->unit_price);
+        self::assertNull($line->entered_unit_price);
+    }
+
     // ───────────────────────────────────────────────────────────────── helpers
+
+    /** @return array<string, mixed> 114 a unit, 1140 in all, entered tax-inclusive. */
+    private function taxInclusive(): array
+    {
+        return [
+            'supplier_id' => $this->supplierId,
+            'prices_include_tax' => true,
+            'total_price' => '1140',
+            'currency_id' => $this->currencyId,
+            'items' => [
+                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
+            ],
+        ];
+    }
+
+    private function liveLine(string $quotationId): stdClass
+    {
+        $line = DB::table('supplier_quotation_items')
+            ->where('supplier_quotation_id', $quotationId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        self::assertInstanceOf(stdClass::class, $line);
+
+        return $line;
+    }
 
     /** @param array<string, mixed> $overrides */
     private function create(array $overrides = []): SupplierQuotationSummary

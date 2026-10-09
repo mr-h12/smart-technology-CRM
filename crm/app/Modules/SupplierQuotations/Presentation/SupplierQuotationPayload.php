@@ -43,6 +43,11 @@ final class SupplierQuotationPayload
             'offer_date' => $quotation->offerDate,
             'valid_until' => $quotation->validUntil,
             'notes' => $quotation->notes,
+            // `D-105`: `total_price` is the net; the amount as entered and the
+            // rate captured on the offer beside it, `null` when taken as recorded.
+            'prices_include_tax' => $quotation->pricesIncludeTax,
+            'included_tax_percent' => $quotation->includedTaxPercent,
+            'entered_total_price' => $quotation->enteredTotalPrice,
         ];
     }
 
@@ -71,6 +76,7 @@ final class SupplierQuotationPayload
                     'catalog_item_id' => $line->catalogItemId,
                     'product_name' => $productNames[$line->catalogItemId] ?? null,
                     'unit_price' => $line->unitPrice,
+                    'entered_unit_price' => $line->enteredUnitPrice,
                     'quantity' => $line->quantity,
                     'consumed_quantity' => $line->consumedQuantity,
                     'available_quantity' => $line->availableQuantity,

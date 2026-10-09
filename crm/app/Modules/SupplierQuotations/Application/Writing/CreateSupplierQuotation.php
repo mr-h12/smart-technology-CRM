@@ -60,6 +60,7 @@ final readonly class CreateSupplierQuotation
         private ResolveLineProducts $products,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private IncludedTaxRate $taxRate,
     ) {}
 
     /** @param  array<string, mixed>  $validated  already validated at the boundary */
@@ -67,8 +68,15 @@ final readonly class CreateSupplierQuotation
     {
         $draft = SupplierQuotationDraft::forCreate($validated);
 
-        return $this->connection->transaction(function () use ($draft, $actorId): SupplierQuotationSummary {
-            $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId));
+        // `D-105`: read before the transaction — an empty setting is a 422 with nothing to roll back.
+        $rate = filter_var($validated['prices_include_tax'] ?? false, FILTER_VALIDATE_BOOLEAN) ? $this->taxRate->current() : null;
+
+        if ($rate !== null) {
+            IncludedTaxRate::checkEntered($draft);
+        }
+
+        return $this->connection->transaction(function () use ($draft, $rate, $actorId): SupplierQuotationSummary {
+            $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId))->withIncludedTax($rate);
 
             // §5.6, before the write: nothing to roll back for a refusal the
             // merged draft already shows.

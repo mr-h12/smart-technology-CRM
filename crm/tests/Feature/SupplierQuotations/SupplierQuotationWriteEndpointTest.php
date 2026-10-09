@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -389,6 +392,62 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
             $product->id,
             DB::table('supplier_quotation_items')->where('supplier_quotation_id', $id)->value('catalog_item_id'),
         );
+    }
+
+    // ─────────────────────────────────────── D-105: an offer entered tax-inclusive
+
+    /** D-105: "Saving with the flag on while the setting is empty is refused with a validation error." */
+    public function test_that_the_flag_with_no_tax_setting_is_refused(): void
+    {
+        $this->post422(['prices_include_tax' => true], 'prices_include_tax');
+
+        self::assertSame(0, DB::table('supplier_quotations')->count(), 'A refused offer was written.');
+    }
+
+    /** A rate that cannot be divided by — negative, exponent, beyond NUMERIC(6,3) — is no rate: 422, not 500. */
+    public function test_that_a_tax_setting_that_is_not_a_percent_is_refused(): void
+    {
+        foreach (['-100', '1e2', '1000'] as $rate) {
+            app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, $rate);
+            app(SettingsCacheInterface::class)->forgetSettings();
+
+            $this->post422(['prices_include_tax' => true], 'prices_include_tax');
+        }
+    }
+
+    /** DB-07: a flagged price is divided, so it must arrive as decimal text — a JSON float or `1e3` is a 422, not a 500. */
+    public function test_that_a_flagged_price_that_is_not_decimal_text_is_refused(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $line = ['catalog_item_id' => $this->catalogItemId, 'quantity' => '1'];
+
+        $this->post422(['prices_include_tax' => true, 'items' => [[...$line, 'unit_price' => 114.5]]], 'items.0.unit_price');
+        $this->post422(['prices_include_tax' => true, 'items' => [[...$line, 'unit_price' => '1e3']]], 'items.0.unit_price');
+        $this->post422(['prices_include_tax' => true, 'total_price' => 1140.5], 'total_price');
+    }
+
+    public function test_that_a_flag_that_is_not_a_boolean_is_refused(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $this->post422(['prices_include_tax' => 'perhaps'], 'prices_include_tax');
+    }
+
+    /** The 201 answers with the flag, the captured rate, and the total both ways (strings, DB-07). */
+    public function test_that_a_tax_inclusive_offer_answers_with_the_net_and_what_was_entered(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $this->postJson(self::ENDPOINT, $this->payload([
+            'prices_include_tax' => true,
+            'total_price' => '1140',
+        ]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->assertJsonPath('data.prices_include_tax', true)
+            ->assertJsonPath('data.included_tax_percent', '14.000')
+            ->assertJsonPath('data.entered_total_price', '1140.000000')
+            ->assertJsonPath('data.total_price', '1000.000000');
     }
 
     // ───────────────────────────────────────────────────────────────── helpers

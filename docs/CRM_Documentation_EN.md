@@ -679,6 +679,7 @@ The colour appears as a chip beside the supplier name on **every** screen.
 | supplier_id | Colour shown alongside |
 | deal_id | **Optional** (D-51) |
 | total_price · currency | Net of tax when the offer is flagged tax-inclusive (`D-105`) |
+| prices_include_tax · included_tax_percent | Off by default; when on, prices were entered tax-inclusive and the rate used is captured (`D-105`) |
 | offer_date · valid_until | |
 | pdf_file | Scan or PDF of the offer |
 | Line items | Product · **price** · quantity (+ to add more) |

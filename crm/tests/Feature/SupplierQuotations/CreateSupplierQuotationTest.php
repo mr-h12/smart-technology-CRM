@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
@@ -305,6 +307,97 @@ final class CreateSupplierQuotationTest extends TestCase
         self::assertIsString($row->new_values);
         self::assertStringContainsString($product, $row->new_values, 'The audit did not record the resolved product.');
         self::assertStringNotContainsString('product_name', $row->new_values, 'The audit recorded the unresolved name.');
+    }
+
+    // ─────────────────────────────────────── D-105: an offer entered tax-inclusive
+
+    /** D-105: 114 at 14% → 100, on every line and on the header total. */
+    public function test_that_a_tax_inclusive_offer_stores_the_net_and_what_was_entered(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $summary = $this->create([
+            'prices_include_tax' => true,
+            'total_price' => '1140',
+            'items' => [
+                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
+            ],
+        ]);
+
+        $header = DB::table('supplier_quotations')->where('id', $summary->id)->first();
+        $line = DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->first();
+
+        self::assertNotNull($header);
+        self::assertNotNull($line);
+        self::assertTrue($header->prices_include_tax);
+        self::assertSame('14.000', $header->included_tax_percent, 'D-105: the rate is captured on the offer.');
+        self::assertSame('1000.000000', $header->total_price, 'D-105: the header total is stored net.');
+        self::assertSame('1140.000000', $header->entered_total_price);
+        self::assertSame('100.000000', $line->unit_price, 'D-105: the line price is stored net.');
+        self::assertSame('114.000000', $line->entered_unit_price);
+    }
+
+    /**
+     * D-68: BCMath at money scale, truncated as `PricedLine` truncates —
+     * 1 ÷ 1.14 = 0.8771929…, so truncation gives 0.877192 where rounding
+     * would give 0.877193.
+     */
+    public function test_that_the_net_is_truncated_at_money_scale(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $summary = $this->create([
+            'prices_include_tax' => true,
+            'total_price' => '1',
+            'items' => [
+                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1', 'quantity' => '1'],
+            ],
+        ]);
+
+        self::assertSame('0.877192', DB::table('supplier_quotations')->where('id', $summary->id)->value('total_price'));
+        self::assertSame('0.877192', DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->value('unit_price'));
+    }
+
+    /** D-62 stands for an offer without the flag: taken exactly as recorded, nothing beside it. */
+    public function test_that_an_offer_without_the_flag_is_taken_as_recorded(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $summary = $this->create();
+
+        $header = DB::table('supplier_quotations')->where('id', $summary->id)->first();
+
+        self::assertNotNull($header);
+        self::assertFalse($header->prices_include_tax);
+        self::assertNull($header->included_tax_percent);
+        self::assertNull($header->entered_total_price);
+        self::assertSame('4500.000000', $header->total_price);
+        self::assertNull(DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->value('entered_unit_price'));
+    }
+
+    /** AUD-01: the snapshot carries the flag, the rate, the entered and the net amounts. */
+    public function test_that_the_audit_carries_the_flag_the_rate_and_both_amounts(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $summary = $this->create([
+            'prices_include_tax' => true,
+            'total_price' => '1140',
+            'items' => [
+                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
+            ],
+        ]);
+
+        $values = DB::table('audit_log')
+            ->where('event', 'SUPPLIER_QUOTATION_CREATED')
+            ->where('entity_id', $summary->id)
+            ->value('new_values');
+
+        self::assertIsString($values);
+
+        foreach (['prices_include_tax', 'included_tax_percent', 'entered_total_price', 'entered_unit_price'] as $key) {
+            self::assertStringContainsString('"'.$key.'"', $values, "AUD-01: the snapshot lacks `{$key}`.");
+        }
     }
 
     // ───────────────────────────────────────────────────────────────── helpers

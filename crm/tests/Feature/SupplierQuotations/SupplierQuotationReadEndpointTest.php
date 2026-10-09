@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -294,8 +296,9 @@ final class SupplierQuotationReadEndpointTest extends TestCase
         $this->assertSame($stored, array_column($items, 'id'));
         $this->assertIsArray($items[0]);
         // D-81 (F-05 · 1.2) added the balance pair beside the offer's `quantity`;
-        // D-93 (F-18 · 1.2) the item's name beside its id.
-        $this->assertSame(['id', 'catalog_item_id', 'product_name', 'unit_price', 'quantity', 'consumed_quantity', 'available_quantity'], array_keys($items[0]));
+        // D-93 (F-18 · 1.2) the item's name beside its id; D-105 (F-39 · 1.3)
+        // the price as entered beside the net one.
+        $this->assertSame(['id', 'catalog_item_id', 'product_name', 'unit_price', 'entered_unit_price', 'quantity', 'consumed_quantity', 'available_quantity'], array_keys($items[0]));
     }
 
     /**
@@ -397,6 +400,29 @@ final class SupplierQuotationReadEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'resource_not_found');
+    }
+
+    /** D-105: the detail reads back the flag, the captured rate, and each amount both ways. */
+    public function test_that_a_tax_inclusive_offer_reads_back_the_net_and_what_was_entered(): void
+    {
+        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload([
+            'prices_include_tax' => true,
+            'total_price' => '1140',
+            'items' => [['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10']],
+        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+
+        self::assertIsString($id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.prices_include_tax', true)
+            ->assertJsonPath('data.included_tax_percent', '14.000')
+            ->assertJsonPath('data.total_price', '1000.000000')
+            ->assertJsonPath('data.entered_total_price', '1140.000000')
+            ->assertJsonPath('data.items.0.unit_price', '100.000000')
+            ->assertJsonPath('data.items.0.entered_unit_price', '114.000000');
     }
 
     // ───────────────────────────────────────────────────────────────── helpers

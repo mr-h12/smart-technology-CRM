@@ -25,6 +25,7 @@ final readonly class SupplierQuotationLine
         public string $id,
         public string $catalogItemId,
         public string $unitPrice,
+        public ?string $enteredUnitPrice,
         public string $quantity,
         /** `D-81`: drawn by accepted customer quotations; `quantity` itself never moves. */
         public string $consumedQuantity,

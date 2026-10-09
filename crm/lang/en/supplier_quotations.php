@@ -9,6 +9,8 @@ return [
     // `errors.invalid_request`; the specific cause is in `details`, below.
     'errors' => [
         'lines_need_currency' => 'An offer with priced lines must name their currency (and its total).',
+        'not_decimal_text' => 'A tax-inclusive price must be a plain decimal number, such as 114 or 114.50.',
+        'no_tax_rate' => 'Prices cannot be entered tax-inclusive until the default tax percent is set in the system settings.',
         'invalid_request' => 'This request could not be understood.',
     ],
 

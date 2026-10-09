@@ -795,7 +795,7 @@ onMounted(async () => {
                             </span>
                         </td>
                         <td class="hidden p-3 md:table-cell">{{ customer.sector ?? '—' }}</td>
-                        <td class="hidden p-3 md:table-cell" data-testid="customers-contact">{{ contactLine(customer, titles, locale) }}</td>
+                        <td class="hidden p-3 md:table-cell" data-testid="customers-contact">{{ contactLine(customer, titles, locale, t('customers.contactTitleShort')) }}</td>
                         <!-- D-70: Inter draws Western digits in both locales;
                              tabular-nums keeps a column of figures aligned. -->
                         <td class="hidden p-3 tabular-nums md:table-cell">{{ customer.phone ?? '—' }}</td>

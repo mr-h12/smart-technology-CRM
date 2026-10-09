@@ -3720,11 +3720,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `mr` → «أستاذ» and `mrs` → «أستاذة» as the Arabic labels, and `ManagedLists` with them.
             1.2's migration is applied and is not edited.
             *(2026-10-08, #289 — a label an administrator renamed is left alone, both ways)*
-      - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
+      - [x] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
             *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
             the wide name field on one row; the list column and the detail view print «title name» (the
             title in the screen's language; no title → the name alone; no name → «—»); the types.
             `rtl-ui-verifier` at ar/en × 1280/375.
+            *(2026-10-09 — amended per 1.1b: Arabic prints «أ.» for either title, the box keeps «أستاذ» / «أستاذة»)*
       - [ ] **1.4** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

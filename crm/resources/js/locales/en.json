@@ -572,6 +572,7 @@
         "error": "The import did not run. Nothing was changed."
     },
     "customers": {
+        "contactTitleShort": "",
         "title": "Customers",
         "total": "No customers | 1 customer | {count} customers",
         "loading": "Loading customers…",

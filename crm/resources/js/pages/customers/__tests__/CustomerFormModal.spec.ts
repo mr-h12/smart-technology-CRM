@@ -50,10 +50,10 @@ const SECTORS = [
     { code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 2 },
 ];
 
-/** `D-104`: «أ.» for both in Arabic, the owner's ruling. */
+/** `D-104` as amended: the box offers the full words «أستاذ» / «أستاذة» in Arabic. */
 const TITLES = [
-    { code: 'mr', label_en: 'Mr.', label_ar: 'أ.', position: 1 },
-    { code: 'mrs', label_en: 'Mrs.', label_ar: 'أ.', position: 2 },
+    { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+    { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
 ];
 
 function render(editing: Customer | null = null, locale = 'en') {
@@ -192,7 +192,7 @@ describe('CustomerFormModal — what it sends', () => {
 
 describe('CustomerFormModal — D-104 the contact person and their title', () => {
     it('names the field «الشخص المتواصل معه» and draws the title box before the name, empty first, in the screen language', () => {
-        for (const [locale, label, mr, mrs] of [['ar', 'الشخص المتواصل معه', 'أ.', 'أ.'], ['en', 'Contact person', 'Mr.', 'Mrs.']]) {
+        for (const [locale, label, mr, mrs] of [['ar', 'الشخص المتواصل معه', 'أستاذ', 'أستاذة'], ['en', 'Contact person', 'Mr.', 'Mrs.']]) {
             const view = render(null, locale);
             const box = view.find('[data-testid="customer-form-contact-title"]');
 

@@ -356,8 +356,8 @@ describe('CustomersView — §5.2 table', () => {
  */
 describe('CustomersView — D-104 the contact person and their title', () => {
     const TITLES = [
-        { code: 'mr', label_en: 'Mr.', label_ar: 'أ.', position: 1 },
-        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أ.', position: 2 },
+        { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
     ];
 
     function stubWithTitles(rows: unknown[]): string[] {

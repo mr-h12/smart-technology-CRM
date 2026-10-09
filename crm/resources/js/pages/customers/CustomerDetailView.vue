@@ -290,7 +290,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col" data-testid="customer-contact-person">
                         <dt class="text-[var(--color-text-muted)]">{{ t('customers.column.contact') }}</dt>
-                        <dd>{{ contactLine(customer, titles, locale) }}</dd>
+                        <dd>{{ contactLine(customer, titles, locale, t('customers.contactTitleShort')) }}</dd>
                     </div>
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>

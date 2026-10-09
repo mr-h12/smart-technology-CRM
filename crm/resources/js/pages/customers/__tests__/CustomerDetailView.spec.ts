@@ -124,8 +124,8 @@ beforeEach(() => {
  */
 describe('CustomerDetailView — D-104 the contact person and their title', () => {
     const TITLES = [
-        { code: 'mr', label_en: 'Mr.', label_ar: 'أ.', position: 1 },
-        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أ.', position: 2 },
+        { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
     ];
 
     function stubWithTitles(record: unknown): void {
@@ -148,6 +148,11 @@ describe('CustomerDetailView — D-104 the contact person and their title', () =
     it.each([
         ['en', { contact_title: 'mrs', contact_person: 'Sara' }, 'Contact person', 'Mrs. Sara'],
         ['ar', { contact_title: 'mrs', contact_person: 'Sara' }, 'الشخص المتواصل معه', 'أ. Sara'],
+        // D-104 as amended: «أ.» for either title once chosen, a fixed text, not the list's label.
+        ['ar', { contact_title: 'mr', contact_person: 'Ali' }, 'الشخص المتواصل معه', 'أ. Ali'],
+        ['en', { contact_title: 'mr', contact_person: 'Ali' }, 'Contact person', 'Mr. Ali'],
+        ['ar', { contact_title: null, contact_person: 'Mona Adel' }, 'الشخص المتواصل معه', 'Mona Adel'],
+        ['ar', { contact_title: 'mr', contact_person: null }, 'الشخص المتواصل معه', '—'],
         ['en', { contact_title: null, contact_person: 'Mona Adel' }, 'Contact person', 'Mona Adel'],
         ['en', { contact_title: 'mr', contact_person: null }, 'Contact person', '—'],
     ])('in %s, %o prints under %s as %s', async (locale, fields, label, shown) => {

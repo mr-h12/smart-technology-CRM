@@ -46,9 +46,11 @@ export interface Customer {
 /**
  * `D-104`: the contact person as «title name», the title in the reader's
  * language. No title — or one no longer on the list — prints the name alone;
- * no name prints «—», whatever the title.
+ * no name prints «—», whatever the title. `short` is the screen's fixed text
+ * for any chosen title (`customers.contactTitleShort`: «أ.» in Arabic, as
+ * amended); empty, the list's own label is printed (English).
  */
-export function contactLine(customer: Pick<Customer, 'contact_person' | 'contact_title'>, titles: readonly ListEntry[], locale: string): string {
+export function contactLine(customer: Pick<Customer, 'contact_person' | 'contact_title'>, titles: readonly ListEntry[], locale: string, short: string): string {
     const name = customer.contact_person?.trim() ?? '';
 
     if (name === '') {
@@ -57,7 +59,7 @@ export function contactLine(customer: Pick<Customer, 'contact_person' | 'contact
 
     const title = titles.find((entry) => entry.code === customer.contact_title);
 
-    return title === undefined ? name : `${entryLabel(title, locale)} ${name}`;
+    return title === undefined ? name : `${short === '' ? entryLabel(title, locale) : short} ${name}`;
 }
 
 /** The customer's page (`CustomerPayload::detail`): the owner's name, resolved by the server (F-19 · 1.1a, `D-83`). */

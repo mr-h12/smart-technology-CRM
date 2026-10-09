@@ -78,7 +78,8 @@ const COSTED_LINE = {
     unit_cost_currency: 'EGP',
     unit_cost_fx_rate_at_time: '1.000000',
     unit_cost_base: '400.000000',
-    margin_percent: '25.00',
+    margin_percent: '5.00',
+    effective_margin_percent: '25.00',
     line_cost: '800.000000',
 };
 
@@ -297,7 +298,9 @@ describe('the quotation detail view', () => {
 
         const costed = await render(respond({ quotation: { ...QUOTATION, default_margin: '25.00', items: [COSTED_LINE] } }));
         expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.000');
-        expect(costed.wrapper.find('[data-testid="quotation-line-margin_percent"]').text()).toBe('25.00%');
+        // D-106, the owner's ruling (b): the column is the line's whole margin as
+        // the server computed it, never the line's own extra (5.00).
+        expect(costed.wrapper.find('[data-testid="quotation-line-effective_margin_percent"]').text()).toBe('25.00%');
         expect(costed.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('25.00%');
     });
 

@@ -644,7 +644,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         return $value;
     }
 
-    /** `margin_percent`: null is "inherits the header's margin", so it is kept apart from the text. */
+    /** `margin_percent`: null is "no extra on the header's margin" (`D-106`), so it is kept apart from the text. */
     private static function nullableText(stdClass $row, string $column): ?string
     {
         return ($row->{$column} ?? null) === null ? null : self::text($row, $column);

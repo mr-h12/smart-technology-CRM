@@ -350,6 +350,44 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['additional_items' => [['description' => 'Delivery', 'amount' => '-1']]], 'additional_items.0.amount');
     }
 
+    /** `D-106`, the owner's ruling (a) of 2026-10-09: −20 on a 20% quotation sells the line at cost. */
+    public function test_that_a_negative_line_margin_is_accepted_and_sells_at_cost(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+
+        $id = $this->postJson(self::ENDPOINT, $this->payload([
+            'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-20']],
+        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+
+        self::assertSame('100.000000', DB::table('quotation_items')->where('quotation_id', $id)->value('unit_price'));
+    }
+
+    /** CHECK `unit_price >= 0`: a whole margin below −100% would price below zero, so it is a 422, never a 500. */
+    public function test_that_a_line_margin_taking_the_whole_margin_below_minus_a_hundred_is_refused(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+
+        $this->post422(['lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-120.001']]], 'lines.0.margin_percent');
+    }
+
+    /** `margin_percent` is NUMERIC(6,3): a negative extra past −999.999 is a 422, even when the header would allow it. */
+    public function test_that_a_line_margin_past_the_columns_range_is_refused_not_a_500(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+
+        $this->post422(['default_margin' => '950', 'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-1050']]], 'lines.0.margin_percent');
+    }
+
+    /** The bound itself: 20 − 120 = −100% prices the line at zero, which the CHECK allows. */
+    public function test_that_a_whole_margin_of_exactly_minus_a_hundred_is_accepted(): void
+    {
+        $line = $this->supplierLine('100', '5', $this->egpId);
+
+        $this->postJson(self::ENDPOINT, $this->payload([
+            'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-120']],
+        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
+    }
+
     // ───────────────────────────────────── the deal, at the boundary
 
     public function test_that_an_unknown_deal_is_refused_on_its_field(): void

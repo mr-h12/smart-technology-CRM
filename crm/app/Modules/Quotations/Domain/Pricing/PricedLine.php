@@ -58,7 +58,7 @@ final readonly class PricedLine
     /**
      * @param  numeric-string  $unitCost  the supplier's price, in the supplier's currency
      * @param  numeric-string  $fxRateAtTime  the rate captured on this line at creation (§5.6)
-     * @param  numeric-string|null  $marginPercent  the line's own margin; null inherits (`D-03`)
+     * @param  numeric-string|null  $marginPercent  the line's extra margin, added to the quotation's; null adds nothing (`D-106`)
      * @param  numeric-string  $defaultMargin  the quotation's margin
      * @param  numeric-string  $quantity
      */
@@ -69,12 +69,10 @@ final readonly class PricedLine
         string $defaultMargin,
         string $quantity,
     ): self {
-        // `D-03` says a line margin is used "if empty". Empty means absent, and
-        // absent means null — `0` is a margin a Team Leader can deliberately
-        // set, so `??` is correct here and `?:` would silently overwrite it.
-        // This is the numeric form of the distinction the drafts make with
-        // `array_key_exists` rather than `??`.
-        $margin = $marginPercent ?? $defaultMargin;
+        // `D-106`: the line margin is an extra on the quotation's, summed and
+        // applied once. Summed at the multiplier's scale, so a margin typed
+        // with more than three decimals prices exactly as it did before.
+        $margin = self::effectiveMargin($marginPercent, $defaultMargin, self::SCALE + 2);
 
         // Two guard digits below the money scale, the idiom `RoundingRule` uses:
         // `margin_percent` is NUMERIC(6,3), so `margin / 100` needs five and the
@@ -100,6 +98,21 @@ final readonly class PricedLine
             bcmul($unitPrice, $quantity, self::SCALE),
             bcmul($unitCostBase, $quantity, self::SCALE),
         );
+    }
+
+    /**
+     * The line's whole margin — the quotation's plus the line's extra, an empty
+     * line counting as `0` (`D-106`). The one place the sum is written: the
+     * price above and the detail's `effective_margin_percent` both read it.
+     *
+     * @param  numeric-string|null  $lineMargin
+     * @param  numeric-string  $defaultMargin
+     * @param  int  $scale  `margin_percent`'s NUMERIC(6,3) for display; the pricing passes its own
+     * @return numeric-string
+     */
+    public static function effectiveMargin(?string $lineMargin, string $defaultMargin, int $scale = 3): string
+    {
+        return bcadd($defaultMargin, $lineMargin ?? '0', $scale);
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Presentation;
 
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderDetail;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderPage;
@@ -14,6 +15,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
+use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 use App\Modules\Storage\Domain\StoredFile;
 
@@ -27,7 +29,7 @@ use App\Modules\Storage\Domain\StoredFile;
  *
  * `$withCosts` is §3.5's "view cost & margin", decided by `ShowQuotation`.
  * Without it the cost fields are **absent**, not null: `margin_percent` null
- * already means "inherits the header's margin", so a null here would be a
+ * already means "no extra on the header's margin" (`D-106`), so a null here would be a
  * lie about the line, and a zero would be a lie about the money.
  *
  * `warnings()` is §5.6's "warn, do not block", carried in `meta` the way `D-35`'s
@@ -186,6 +188,9 @@ final class QuotationPayload
                     'line_no' => $line->lineNo,
                     'product_name' => $lineNames[$line->id] ?? null,
                     ...($withCosts ? $line->asRow() : array_diff_key($line->asRow(), array_flip(QuotationLine::COST_FIELDS))),
+                    // `D-106`, the owner's ruling (b): the whole margin, computed here, never by the SPA —
+                    // a cost field, so it goes with the others; read-only, so not in `asRow()`'s audit values.
+                    ...($withCosts ? ['effective_margin_percent' => PricedLine::effectiveMargin($line->marginPercent === null ? null : Decimal::of($line->marginPercent, 'margin_percent'), Decimal::of($quotation->defaultMargin, 'default_margin'))] : []),
                 ],
                 $quotation->items,
             ),

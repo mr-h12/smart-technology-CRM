@@ -639,6 +639,12 @@ describe('the quotation builder (edit)', () => {
         expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
         expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
         expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25.00');
+        // D-106: the field is an extra on top of the quotation margin, and says so.
+        expect(wrapper.find(id('existing-0-margin_percent')).element.closest('label')?.textContent).toContain('Extra line margin % (optional)');
+        // D-106 (a): a negative extra must be typeable — a phone's decimal pad has no minus key.
+        expect(wrapper.find(id('existing-0-margin_percent')).attributes('inputmode')).not.toBe('decimal');
+        // Design System §3 l.128: a negative extra reads "-20", never "20-", inside an RTL page.
+        expect(wrapper.find(id('existing-0-margin_percent')).attributes('dir')).toBe('ltr');
         expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.000');
         expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('400.000000');
         expect(wrapper.find(id('existing-0-product')).text()).toBe('Split unit 1.5HP');

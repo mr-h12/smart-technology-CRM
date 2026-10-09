@@ -3831,7 +3831,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             waste audit: the rule restated in `CLAUDE.md`/`AGENTS.md`, MVP Build Plan's acceptance case,
             `pricing-invariant-reviewer` and their Arabic twins. Docs only.
             *(2026-10-09, #292 — `D-105`/`D-106` recorded; nine restatements of the old rule corrected)*
-      - [ ] **1.2** Failing tests first, then `PricedLine` sums the line margin with the quotation
+      - [x] **1.2** Failing tests first, then `PricedLine` sums the line margin with the quotation
             margin (an empty line margin counts as `0`). Tests: 20 + 10 on 100 → 130; no line margin →
             the quotation margin; a line margin of `0` → the quotation margin. With it, the quotation
             builder's line-margin field reads as an *extra* margin, ar and en (1.5 folded in by the
@@ -3844,6 +3844,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             inputs drop `inputmode="decimal"`, whose phone pad has no minus key, and carry `dir="ltr"` so
             Arabic reads "-20", not "20-" (Design System l.128); the floor never passes −999.999, the
             column's NUMERIC(6,3), so an extreme negative is a 422, not a 500.
+            *(2026-10-09, #293 — the line margin is summed; the detail shows the whole margin)*
       - [ ] **1.3** Failing tests first, then one migration with a working `down()`:
             `supplier_quotations.prices_include_tax` (default false), the captured rate and the entered
             `total_price`, with a CHECK tying the rate to the flag; `supplier_quotation_items` keeps the

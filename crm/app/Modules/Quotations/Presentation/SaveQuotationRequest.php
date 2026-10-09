@@ -41,8 +41,9 @@ use Illuminate\Validation\Rule;
  * a PHP float by the time validation sees it, and `numeric` alone would wave it
  * through to `Decimal::of()`'s throw. `string` first, then the plain-decimal
  * regex, then `numeric` for the comparison rules — `RecordFxRateRequest`'s
- * triple. The regex has no sign, so a negative margin is refused here; if a
- * loss-leading quotation is ever wanted, the regex is the one place to relax.
+ * triple. The regex has no sign, except on a line margin: `D-106` (the owner's
+ * ruling (a), 2026-10-09) sells a line below the quotation margin by a negative
+ * extra, bounded so the whole margin stays at or above −100% (`unit_price >= 0`).
  */
 final class SaveQuotationRequest extends FormRequest
 {
@@ -86,7 +87,7 @@ final class SaveQuotationRequest extends FormRequest
             'lines' => $this->isMethod('POST') ? ['sometimes', 'array'] : ['present', 'array'],
             'lines.*.supplier_quotation_item_id' => ['required', 'uuid'],
             'lines.*.quantity' => self::decimal('required', 'gt:0'),
-            'lines.*.margin_percent' => self::decimal('nullable'),
+            'lines.*.margin_percent' => ['nullable', 'string', 'regex:/^-?\d+(\.\d+)?$/', 'numeric', ...self::wholeMarginFloor($this->input('default_margin'))],
 
             'additional_items' => $this->isMethod('POST') ? ['sometimes', 'array'] : ['present', 'array'],
             'additional_items.*.description' => ['required', 'string', 'max:255', 'regex:/\S/'],
@@ -128,6 +129,26 @@ final class SaveQuotationRequest extends FormRequest
             && ($term['key'] ?? null) === null
             && is_string($term['body'] ?? null)
             && trim($term['body']) !== '';
+    }
+
+    /**
+     * `D-106`: the line's extra may not take the whole margin below −100%, the
+     * point where `unit_price >= 0` would refuse it, nor past −999.999, where
+     * `margin_percent`'s NUMERIC(6,3) would. While the header margin is itself
+     * invalid only the column bound applies — its own rule answers the rest.
+     *
+     * @return list<string>
+     */
+    private static function wholeMarginFloor(mixed $defaultMargin): array
+    {
+        $floor = '-999.999';
+
+        if (is_string($defaultMargin) && is_numeric($defaultMargin) && preg_match('/^\d+(\.\d+)?$/', $defaultMargin) === 1) {
+            $wholeMargin = bcsub('-100', $defaultMargin, 3);
+            $floor = bccomp($wholeMargin, $floor, 3) > 0 ? $wholeMargin : $floor;
+        }
+
+        return ['gte:'.$floor];
     }
 
     /**

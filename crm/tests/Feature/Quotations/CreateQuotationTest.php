@@ -60,7 +60,7 @@ final class CreateQuotationTest extends TestCase
 
     /**
      * The whole of §5, priced end to end: two USD lines converted to an EGP
-     * quotation at the captured rate, a line margin overriding the quotation's,
+     * quotation at the captured rate, a line margin added to the quotation's (`D-106`),
      * an untaxed additional item, a discount taken **before** tax, and 14% tax on
      * the reduced base. Every figure is asserted against §5.1/§5.2 by hand.
      */
@@ -73,7 +73,7 @@ final class CreateQuotationTest extends TestCase
         $result = $this->create($this->payload(
             lines: [
                 ['supplier_quotation_item_id' => $line1, 'quantity' => '2', 'margin_percent' => null],
-                ['supplier_quotation_item_id' => $line2, 'quantity' => '3', 'margin_percent' => '50'],
+                ['supplier_quotation_item_id' => $line2, 'quantity' => '3', 'margin_percent' => '30'],
             ],
             additional: [['description' => 'Delivery', 'amount' => '1000']],
             overrides: ['default_margin' => '20', 'discount_percent' => '10', 'tax_percent' => '14'],
@@ -113,7 +113,7 @@ final class CreateQuotationTest extends TestCase
             [
                 'unit_cost' => '500.000000', 'unit_cost_currency' => 'USD',
                 'unit_cost_fx_rate_at_time' => '30.00000000', 'unit_cost_base' => '15000.000000',
-                'margin_percent' => '50.000', 'unit_price' => '22500.000000',  // 15000 × 1.50 (line margin wins)
+                'margin_percent' => '30.000', 'unit_price' => '22500.000000',  // 15000 × (1 + 0.20 + 0.30) (D-106)
                 'line_total' => '67500.000000', 'line_cost' => '45000.000000',
             ],
         ], $lines);

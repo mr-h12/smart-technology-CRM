@@ -638,7 +638,7 @@ onMounted(refresh);
                                 <td class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
                                 <td class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayDecimals(line.quantity) }}</td>
                                 <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(displayDecimals(line.unit_cost)) }}</td>
-                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-margin_percent">{{ percent(line.margin_percent) }}</td>
+                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent">{{ percent(line.effective_margin_percent) }}</td>
                                 <td class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
                                 <td class="p-3 text-end tabular-nums">{{ displayDecimals(line.line_total) }}</td>
                             </tr>

@@ -1626,6 +1626,11 @@ would hide them behind `OD-03` indefinitely.
       `QuotationBuilderView.vue` and `DealFormModal.vue:153` each define `function orNull`, and they
       differ: the builder's sends blank-only text as null (`trim()`), the deal form's only `''`. Both
       predate F-37. Owed: one helper with one rule, the owner's choice, when the owner orders it
+- [ ] **A quotation margin or line margin above 999.999 is a 500, not a 422** — *revealed by F-39 ·
+      1.2's pricing review, 2026-10-09.* `default_margin` and `lines.*.margin_percent` carry no upper
+      bound in `SaveQuotationRequest`, and both columns are NUMERIC(6,3), so `1000` overflows the
+      column. 1.2 bounded the negative side it opened (−999.999); the positive side predates it.
+      Owed: `lte:999.999` on both, with a test, when the owner orders it.
 - [ ] **Other row-level 422s still name the request path** — *revealed by F-37 · 1.4b, 2026-10-08;
       not fixed there, because the owner's choice was the terms and the additional items.*
       `lines.*` (`SaveQuotationRequest.php:87-89`) and the supplier quotation's `items.*`
@@ -3830,13 +3835,22 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             margin (an empty line margin counts as `0`). Tests: 20 + 10 on 100 → 130; no line margin →
             the quotation margin; a line margin of `0` → the quotation margin. With it, the quotation
             builder's line-margin field reads as an *extra* margin, ar and en (1.5 folded in by the
-            owner, 2026-10-09, so the new rule never ships under the old label).
+            owner, 2026-10-09, so the new rule never ships under the old label). The owner's rulings of
+            2026-10-09 while opening it: (a) a line is sold below the quotation margin by a negative
+            extra (−20 on 20 → at cost); (b) the detail's margin column shows the line's whole margin,
+            `effective_margin_percent`, computed by the server and sent only with the cost fields.
+            Widened by the owner the same day, so (a) works from the screen: the request takes a signed
+            line margin, refused below a whole margin of −100% (`unit_price >= 0`); the two line-margin
+            inputs drop `inputmode="decimal"`, whose phone pad has no minus key, and carry `dir="ltr"` so
+            Arabic reads "-20", not "20-" (Design System l.128); the floor never passes −999.999, the
+            column's NUMERIC(6,3), so an extreme negative is a 422, not a 500.
       - [ ] **1.3** Failing tests first, then one migration with a working `down()`:
             `supplier_quotations.prices_include_tax` (default false), the captured rate and the entered
             `total_price`, with a CHECK tying the rate to the flag; `supplier_quotation_items` keeps the
             entered `unit_price`. The save strips the tax from every line and the total with BCMath at
             money scale; an edit recomputes from the entered amounts with the captured rate; the flag
-            with no setting → `422`; `defaults.tax_percent` seeded `14`; the resource returns the flag,
+            with no setting → `422`; `defaults.tax_percent` seeded `14`; §7.2's `prices_include_tax` row
+            (taken out by 1.2: `SupplierQuotationSchemaMigrationTest` holds §7.2 to the columns); the resource returns the flag,
             the rate, the entered and the net amounts; the audit snapshot carries them.
       - [ ] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
             net shown beside each price and the total, the entered amounts on edit; ar and en.

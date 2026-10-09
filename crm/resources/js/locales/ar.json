@@ -1254,7 +1254,7 @@
             "newSupplierQuotation": "عرض مورّد جديد",
             "noLines": "لا بنود في عرض المورّد هذا.",
             "recorded": "سعر المورّد {price} · الكمية المتاحة {quantity}",
-            "lineMargin": "هامش البند % (اختياري)",
+            "lineMargin": "زيادة هامش البند % (اختياري)",
             "addItem": "إضافة بند",
             "removeItem": "إزالة",
             "recentTerms": "شروط استُخدمت مؤخرًا",

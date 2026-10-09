@@ -128,8 +128,8 @@ final readonly class UpdateQuotation
     /**
      * §3.5's `edit margin` and `edit tax`, each asked only when the body
      * moves the thing it guards. Margin: the header's `default_margin`, or any
-     * submitted line margin (a line margin overrides the header's, §5.1, so
-     * setting one is editing the margin). Tax: the **derived** `tax_percent`
+     * submitted line margin (a line margin is added to the header's, `D-106`,
+     * so setting one is editing the margin). Tax: the **derived** `tax_percent`
      * against the stored one, so a rate sent for an exempt customer — which
      * `D-63` discards — is not counted as an edit of the tax.
      *

@@ -38,13 +38,14 @@ final class PricedLineTest extends TestCase
         self::assertSame('1000.000000', $line->unitCostBase());
     }
 
-    public function test_a_line_margin_overrides_the_quotation_margin(): void
+    public function test_a_line_margin_is_added_to_the_quotation_margin(): void
     {
-        // Acceptance row 2. `D-03`: the line wins wherever it has an opinion.
+        // Acceptance row 2, as `D-106` amends it: the line margin is an extra
+        // on top of the quotation's, summed and applied once — 20 + 10 → 30%.
         $line = PricedLine::from(
             unitCost: '1000',
             fxRateAtTime: '1',
-            marginPercent: '30.000',
+            marginPercent: '10.000',
             defaultMargin: '20.000',
             quantity: '1',
         );
@@ -72,7 +73,7 @@ final class PricedLineTest extends TestCase
         self::assertSame('9700.000000', $line->lineCost());
     }
 
-    // ───────────────────────────────── what "if empty" means (D-03)
+    // ───────────────────────────────── what "if empty" means (D-03, D-106)
 
     public function test_an_absent_line_margin_inherits_the_quotation_margin(): void
     {
@@ -87,11 +88,9 @@ final class PricedLineTest extends TestCase
         self::assertSame('1200.000000', $line->unitPrice());
     }
 
-    public function test_a_zero_line_margin_is_not_an_absent_one(): void
+    public function test_a_zero_line_margin_adds_nothing(): void
     {
-        // The whole point of `??` over `?:`. A Team Leader who sets a line to
-        // 0% is selling it at cost deliberately; inheriting 20% there would
-        // overcharge the customer and no error would ever be raised.
+        // `D-106`: an extra of 0 is no extra — the quotation margin alone.
         $line = PricedLine::from(
             unitCost: '1000',
             fxRateAtTime: '1',
@@ -100,7 +99,45 @@ final class PricedLineTest extends TestCase
             quantity: '1',
         );
 
+        self::assertSame('1200.000000', $line->unitPrice());
+    }
+
+    public function test_a_negative_line_margin_lowers_the_quotation_margin_to_sell_at_cost(): void
+    {
+        // The owner's ruling of 2026-10-09 under `D-106`: selling one line at
+        // cost is a line margin of minus the quotation margin.
+        $line = PricedLine::from(
+            unitCost: '1000',
+            fxRateAtTime: '1',
+            marginPercent: '-20.000',
+            defaultMargin: '20.000',
+            quantity: '1',
+        );
+
         self::assertSame('1000.000000', $line->unitPrice());
+    }
+
+    public function test_a_whole_margin_of_minus_a_hundred_prices_the_line_at_zero(): void
+    {
+        // The request's floor (`D-106`) stops exactly here: `unit_price >= 0`.
+        $line = PricedLine::from(
+            unitCost: '1000',
+            fxRateAtTime: '1',
+            marginPercent: '-120.000',
+            defaultMargin: '20.000',
+            quantity: '1',
+        );
+
+        self::assertSame('0.000000', $line->unitPrice());
+    }
+
+    public function test_the_effective_margin_is_the_sum_and_an_empty_line_counts_as_zero(): void
+    {
+        // The one place the sum is written: the price and the detail's
+        // effective margin both read it (`D-106`, the owner's ruling (b)).
+        self::assertSame('30.000', PricedLine::effectiveMargin('10.000', '20.000'));
+        self::assertSame('20.000', PricedLine::effectiveMargin(null, '20.000'));
+        self::assertSame('0.000', PricedLine::effectiveMargin('-20.000', '20.000'));
     }
 
     public function test_a_negative_margin_prices_below_cost_rather_than_being_refused(): void
@@ -111,11 +148,12 @@ final class PricedLineTest extends TestCase
         $line = PricedLine::from(
             unitCost: '1000',
             fxRateAtTime: '1',
-            marginPercent: '-10.000',
+            marginPercent: '-30.000',
             defaultMargin: '20.000',
             quantity: '1',
         );
 
+        // 20 − 30 = −10% (`D-106`).
         self::assertSame('900.000000', $line->unitPrice());
     }
 
@@ -134,8 +172,8 @@ final class PricedLineTest extends TestCase
         );
 
         self::assertSame('10.500000', $line->unitCostBase());
-        self::assertSame('11.550000', $line->unitPrice());
-        self::assertSame('28.875000', $line->lineTotal());
+        self::assertSame('13.650000', $line->unitPrice());   // 10.5 × (1 + 0.20 + 0.10), D-106
+        self::assertSame('34.125000', $line->lineTotal());
         self::assertSame('26.250000', $line->lineCost());
     }
 

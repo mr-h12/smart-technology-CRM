@@ -158,6 +158,17 @@ final class QuotationUpdateEndpointTest extends TestCase
         ]), RoleName::Manager)->assertStatus(403);
     }
 
+    /** `D-106` (a): a negative extra is a margin too — the sign changes nothing about who may set it. */
+    public function test_that_a_negative_line_margin_needs_the_edit_margin_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2', 'margin_percent' => '-20']],
+        ]), RoleName::Manager)->assertStatus(403);
+    }
+
     /** … and an unchanged margin is not an edit of the margin. */
     public function test_that_an_unchanged_margin_needs_no_margin_grant(): void
     {

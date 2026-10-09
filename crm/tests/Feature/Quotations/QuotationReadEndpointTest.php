@@ -438,6 +438,8 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.line_total', '24.000000')
             ->assertJsonPath('data.items.0.unit_cost', '10.000000')
             ->assertJsonPath('data.items.0.line_cost', '20.000000')
+            // `D-106`, the owner's ruling (b): no line margin → the quotation's alone.
+            ->assertJsonPath('data.items.0.effective_margin_percent', '20.000')
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.etag', 'quotation:'.$id.':1')
             ->assertJsonStructure(['data' => ['code', 'created_by', 'created_at', 'updated_by', 'updated_at'], 'meta' => ['request_id']]);
@@ -445,6 +447,18 @@ final class QuotationReadEndpointTest extends TestCase
         $code = $response->json('data.code');
         self::assertIsString($code);
         self::assertMatchesRegularExpression('/^QT-\d{4}-\d{4}$/', $code);
+    }
+
+    /** `D-106`, the owner's ruling (b): the detail carries the line's whole margin, computed by the server. */
+    public function test_that_the_detail_carries_the_effective_margin_of_a_line_with_its_own(): void
+    {
+        $id = $this->quotation($this->deal(null), lineMargin: '10');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.margin_percent', '10.000')
+            ->assertJsonPath('data.items.0.effective_margin_percent', '30.000')
+            ->assertJsonPath('data.items.0.unit_price', '13.000000');
     }
 
     /** §3.5 `view cost & margin`: withdrawn, the cost fields are absent — not null, not zero. */
@@ -456,6 +470,7 @@ final class QuotationReadEndpointTest extends TestCase
         $line = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
             ->assertJsonMissingPath('data.default_margin')
+            ->assertJsonMissingPath('data.items.0.effective_margin_percent')
             ->assertJsonPath('data.items.0.unit_price', '12.000000')
             // F-16 · 1.1: what the line is, is not a cost — it stays.
             ->assertJsonPath('data.items.0.product_name', 'Widget')
@@ -603,7 +618,7 @@ final class QuotationReadEndpointTest extends TestCase
     }
 
     /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus a 5 delivery item. */
-    private function quotation(string $dealId): string
+    private function quotation(string $dealId, ?string $lineMargin = null): string
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
@@ -611,7 +626,8 @@ final class QuotationReadEndpointTest extends TestCase
             'currency' => 'EGP',
             'default_margin' => '20',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']],
+            'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']
+                + ($lineMargin === null ? [] : ['margin_percent' => $lineMargin])],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 

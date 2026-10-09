@@ -1254,7 +1254,7 @@
             "newSupplierQuotation": "New supplier quotation",
             "noLines": "This supplier quotation has no lines.",
             "recorded": "Supplier price {price} · available quantity {quantity}",
-            "lineMargin": "Line margin % (optional)",
+            "lineMargin": "Extra line margin % (optional)",
             "addItem": "Add item",
             "removeItem": "Remove",
             "recentTerms": "Recent terms",

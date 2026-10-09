@@ -3725,7 +3725,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             the wide name field on one row; the list column and the detail view print «title name» (the
             title in the screen's language; no title → the name alone; no name → «—»); the types.
             `rtl-ui-verifier` at ar/en × 1280/375.
-            *(2026-10-09 — amended per 1.1b: Arabic prints «أ.» for either title, the box keeps «أستاذ» / «أستاذة»)*
+            *(2026-10-09, #290 — amended per 1.1b: Arabic prints «أ.» for either title, the box keeps «أستاذ» / «أستاذة»)*
       - [ ] **1.4** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

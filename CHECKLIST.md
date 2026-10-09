@@ -3727,7 +3727,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `rtl-ui-verifier` at ar/en × 1280/375.
             *(2026-10-09, #290 — amended per 1.1b: Arabic prints «أ.» for either title, the box keeps «أستاذ» / «أستاذة»)*
       - [x] **1.4** The Arabic manual test list.
-            *(2026-10-09 — 30 checks below; closes F-38)*
+            *(2026-10-09, #291 — 30 checks below; closes F-38)*
 
       #### قائمة الاختبار اليدوي — F-38 كاملة *(النقطة 1.4، 2026-10-09)*
 

@@ -3713,7 +3713,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.2b** Failing tests first, then a new migration (working `down()` back to «أ.») that sets
             `mr` → «أستاذ» and `mrs` → «أستاذة» as the Arabic labels, and `ManagedLists` with them.
             1.2's migration is applied and is not edited.
-            *(2026-10-08 — a label an administrator renamed is left alone, both ways)*
+            *(2026-10-08, #289 — a label an administrator renamed is left alone, both ways)*
       - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
             *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
             the wide name field on one row; the list column and the detail view print «title name» (the

@@ -66,7 +66,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { archiveCustomer, assignCustomers, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
+import { archiveCustomer, assignCustomers, contactLine, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // ponytail: reused where it lives. It is already generic and text-driven — its
@@ -104,6 +104,7 @@ const denied = ref(false);
 
 /** §4.2's sectors, from `DB-05`'s managed list rather than from a copy of the seeded six. */
 const sectors = ref<ListEntry[]>([]);
+const titles = ref<ListEntry[]>([]);
 
 const page = ref(1);
 const search = ref('');
@@ -260,6 +261,15 @@ async function loadSectors(): Promise<void> {
         sectors.value = (await listEntries('sectors', 1)).items;
     } catch {
         sectors.value = [];
+    }
+}
+
+/** `D-104`'s titles: the form's box and «title name». A failure prints the name alone. */
+async function loadTitles(): Promise<void> {
+    try {
+        titles.value = (await listEntries('contact_titles', 1)).items;
+    } catch {
+        titles.value = [];
     }
 }
 
@@ -495,7 +505,7 @@ async function onShowIncomplete(): Promise<void> {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadSectors()]);
+    await Promise.all([load(), loadSectors(), loadTitles()]);
 });
 </script>
 
@@ -785,7 +795,7 @@ onMounted(async () => {
                             </span>
                         </td>
                         <td class="hidden p-3 md:table-cell">{{ customer.sector ?? '—' }}</td>
-                        <td class="hidden p-3 md:table-cell">{{ customer.contact_person ?? '—' }}</td>
+                        <td class="hidden p-3 md:table-cell" data-testid="customers-contact">{{ contactLine(customer, titles, locale, t('customers.contactTitleShort')) }}</td>
                         <!-- D-70: Inter draws Western digits in both locales;
                              tabular-nums keeps a column of figures aligned. -->
                         <td class="hidden p-3 tabular-nums md:table-cell">{{ customer.phone ?? '—' }}</td>
@@ -894,6 +904,7 @@ onMounted(async () => {
             :open="formOpen"
             :editing="editing"
             :sectors="sectors"
+            :titles="titles"
             @saved="onSaved"
             @cancel="formOpen = false"
         />

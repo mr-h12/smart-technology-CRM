@@ -495,7 +495,8 @@
             "units": "Units",
             "service_types": "Service types",
             "delivery_terms": "Delivery terms",
-            "companies": "Companies"
+            "companies": "Companies",
+            "contact_titles": "Contact titles"
         },
         "column": {
             "code": "Code",
@@ -571,6 +572,7 @@
         "error": "The import did not run. Nothing was changed."
     },
     "customers": {
+        "contactTitleShort": "",
         "title": "Customers",
         "total": "No customers | 1 customer | {count} customers",
         "loading": "Loading customers…",
@@ -578,7 +580,7 @@
             "name": "Name",
             "status": "Status",
             "sector": "Sector",
-            "contact": "Contact",
+            "contact": "Contact person",
             "phone": "Phone",
             "startDate": "Start date",
             "added": "Added",
@@ -622,6 +624,7 @@
             "required": "(required)",
             "sectionIdentity": "Identity",
             "sectionContact": "Contact",
+            "contactTitle": "Title",
             "name": "Name",
             "region": "Region",
             "phone2": "Second phone",

@@ -31,6 +31,7 @@ const EXISTING: Customer = {
     sector: 'commercial',
     region: 'Cairo',
     contact_person: 'Mona Adel',
+    contact_title: null,
     phone: '+20 100 000 0000',
     phone2: null,
     whatsapp: null,
@@ -49,9 +50,15 @@ const SECTORS = [
     { code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 2 },
 ];
 
+/** `D-104` as amended: the box offers the full words «أستاذ» / «أستاذة» in Arabic. */
+const TITLES = [
+    { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+    { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
+];
+
 function render(editing: Customer | null = null, locale = 'en') {
     return mount(CustomerFormModal, {
-        props: { open: true, editing, sectors: SECTORS },
+        props: { open: true, editing, sectors: SECTORS, titles: TITLES },
         global: {
             // §10.2's similar customers are `RouterLink`s as of Point 4.4;
             // without a router they render as nothing and the assertions below
@@ -180,6 +187,57 @@ describe('CustomerFormModal — what it sends', () => {
         for (const forbidden of ['customer_status', 'is_archived', 'is_incomplete', 'sales_owner_id']) {
             expect(body).not.toHaveProperty(forbidden);
         }
+    });
+});
+
+describe('CustomerFormModal — D-104 the contact person and their title', () => {
+    it('names the field «الشخص المتواصل معه» and draws the title box before the name, empty first, in the screen language', () => {
+        for (const [locale, label, mr, mrs] of [['ar', 'الشخص المتواصل معه', 'أستاذ', 'أستاذة'], ['en', 'Contact person', 'Mr.', 'Mrs.']]) {
+            const view = render(null, locale);
+            const box = view.find('[data-testid="customer-form-contact-title"]');
+
+            expect(box.element.tagName).toBe('SELECT');
+            expect(box.findAll('option').map((option) => [option.attributes('value'), option.text()])).toEqual([
+                ['', ''],
+                ['mr', mr],
+                ['mrs', mrs],
+            ]);
+            expect(box.attributes('aria-label')).toBe(locale === 'ar' ? 'اللقب' : 'Title');
+
+            // Before the name, in document order — the row the employee reads.
+            const html = view.html();
+            expect(html.indexOf('customer-form-contact-title')).toBeLessThan(html.indexOf('customer-form-contact-person'));
+            expect(view.text()).toContain(label);
+        }
+    });
+
+    it('sends the chosen title on a create, and null when the empty choice clears it on an edit', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => json(200, { data: EXISTING, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const creating = render(null);
+        await creating.find('[data-testid="customer-form-name"]').setValue('Beta Medical');
+        await creating.find('[data-testid="customer-form-contact-title"]').setValue('mrs');
+        await creating.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBodies(fetchMock)[0]?.contact_title).toBe('mrs');
+
+        const editing = render({ ...EXISTING, contact_title: 'mr' });
+        await editing.find('[data-testid="customer-form-contact-title"]').setValue('');
+        await editing.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        const body = sentBodies(fetchMock)[1] ?? {};
+        expect(body).toHaveProperty('contact_title');
+        expect(body.contact_title).toBeNull();
+    });
+
+    it('opens an edit on the saved title', () => {
+        const view = render({ ...EXISTING, contact_title: 'mrs' });
+        const box = view.find('[data-testid="customer-form-contact-title"]').element as HTMLSelectElement;
+
+        expect(box.value).toBe('mrs');
     });
 });
 

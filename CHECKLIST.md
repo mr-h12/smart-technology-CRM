@@ -688,6 +688,12 @@ would hide them behind `OD-03` indefinitely.
       from `services/admin.ts`, which is now the shared one. Owed: three one-line swaps to the
       import. Not done in 6.4 — the files are outside its approved list and a cleanup buried in an
       unrelated point is unreviewable
+- [ ] **The managed-list loader is written four times under `pages/customers/`** — *revealed by
+      F-38 · 1.3, 2026-10-08 (`waste-auditor`).* `CustomersView.vue` and `CustomerDetailView.vue`
+      each hold `loadSectors()` and, since 1.3, `loadTitles()`: the same five-line try/catch around
+      `listEntries(list, 1)` that empties the ref on failure. 1.3 mirrored the existing pair rather
+      than refactor untouched code. Owed: one `loadList(name, ref)` beside `listEntries`, when the
+      owner orders it
 - [ ] **`company` is required on the server but is not in the catalog form's `REQUIRED` mirror** —
       recorded 2026-08-31 with Point 6.4. `SaveCatalogItemRequest` has made it `required` on POST
       and `sometimes|required` on PATCH since Point 5.2, but `CatalogItemFormModal`'s `REQUIRED` map
@@ -3714,11 +3720,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `mr` → «أستاذ» and `mrs` → «أستاذة» as the Arabic labels, and `ManagedLists` with them.
             1.2's migration is applied and is not edited.
             *(2026-10-08, #289 — a label an administrator renamed is left alone, both ways)*
-      - [ ] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
+      - [x] **1.3** Failing specs first, then `customers.column.contact` → «الشخص المتواصل معه» /
             *Contact person*; in the form a small title `<select>` (empty, then the list's entries) before
             the wide name field on one row; the list column and the detail view print «title name» (the
             title in the screen's language; no title → the name alone; no name → «—»); the types.
             `rtl-ui-verifier` at ar/en × 1280/375.
+            *(2026-10-09, #290 — amended per 1.1b: Arabic prints «أ.» for either title, the box keeps «أستاذ» / «أستاذة»)*
       - [ ] **1.4** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

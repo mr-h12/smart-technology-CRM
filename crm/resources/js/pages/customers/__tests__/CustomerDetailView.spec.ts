@@ -95,7 +95,7 @@ async function signIn(profile: AuthenticatedUser): Promise<void> {
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(profile: AuthenticatedUser = VIEWER, id = 'c1') {
+async function render(profile: AuthenticatedUser = VIEWER, id = 'c1', locale = 'en') {
     const { createAppRouter } = await import('@/router');
     const router: Router = createAppRouter();
 
@@ -107,7 +107,7 @@ async function render(profile: AuthenticatedUser = VIEWER, id = 'c1') {
 
     return mount(CustomerDetailView, {
         global: {
-            plugins: [router, createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } })],
+            plugins: [router, createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
     });
 }
@@ -116,6 +116,55 @@ beforeEach(() => {
     vi.restoreAllMocks();
     useAuth().forgetSession();
     window.localStorage.clear();
+});
+
+/**
+ * `D-104` (F-38 · 1.3): the detail page prints the contact person as «title
+ * name», in the screen's language; no title, the name alone; no name, «—».
+ */
+describe('CustomerDetailView — D-104 the contact person and their title', () => {
+    const TITLES = [
+        { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
+    ];
+
+    function stubWithTitles(record: unknown): void {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string) => {
+                if (String(url).includes('/managed-lists/contact_titles')) {
+                    return json(200, { data: TITLES, meta: { pagination: PAGINATION } });
+                }
+
+                if (String(url).includes('/managed-lists/')) {
+                    return json(200, { data: [], meta: { pagination: PAGINATION } });
+                }
+
+                return json(200, { data: record, meta: {} });
+            }),
+        );
+    }
+
+    it.each([
+        ['en', { contact_title: 'mrs', contact_person: 'Sara' }, 'Contact person', 'Mrs. Sara'],
+        ['ar', { contact_title: 'mrs', contact_person: 'Sara' }, 'الشخص المتواصل معه', 'أ. Sara'],
+        // D-104 as amended: «أ.» for either title once chosen, a fixed text, not the list's label.
+        ['ar', { contact_title: 'mr', contact_person: 'Ali' }, 'الشخص المتواصل معه', 'أ. Ali'],
+        ['en', { contact_title: 'mr', contact_person: 'Ali' }, 'Contact person', 'Mr. Ali'],
+        ['ar', { contact_title: null, contact_person: 'Mona Adel' }, 'الشخص المتواصل معه', 'Mona Adel'],
+        ['ar', { contact_title: 'mr', contact_person: null }, 'الشخص المتواصل معه', '—'],
+        ['en', { contact_title: null, contact_person: 'Mona Adel' }, 'Contact person', 'Mona Adel'],
+        ['en', { contact_title: 'mr', contact_person: null }, 'Contact person', '—'],
+    ])('in %s, %o prints under %s as %s', async (locale, fields, label, shown) => {
+        stubWithTitles({ ...CUSTOMER, ...fields });
+
+        const view = await render(VIEWER, 'c1', locale);
+        await flushPromises();
+
+        const row = view.find('[data-testid="customer-contact-person"]');
+        expect(row.find('dt').text()).toBe(label);
+        expect(row.find('dd').text()).toBe(shown);
+    });
 });
 
 describe('CustomerDetailView — Design System §5.2 Detail', () => {

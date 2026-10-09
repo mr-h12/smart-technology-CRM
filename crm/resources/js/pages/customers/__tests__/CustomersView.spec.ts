@@ -349,6 +349,59 @@ describe('CustomersView — §5.2 table', () => {
  * as a puzzle rather than as the contract.
  */
 
+/**
+ * `D-104` (F-38 · 1.3): the column is «الشخص المتواصل معه» and prints the title
+ * before the name, in the screen's language — no title, the name alone; no
+ * name, «—» even when a title is set.
+ */
+describe('CustomersView — D-104 the contact person and their title', () => {
+    const TITLES = [
+        { code: 'mr', label_en: 'Mr.', label_ar: 'أستاذ', position: 1 },
+        { code: 'mrs', label_en: 'Mrs.', label_ar: 'أستاذة', position: 2 },
+    ];
+
+    function stubWithTitles(rows: unknown[]): string[] {
+        const asked: string[] = [];
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string) => {
+                asked.push(url);
+
+                if (url.includes('/managed-lists/contact_titles')) {
+                    return json(200, { data: TITLES, meta: { pagination: PAGINATION } });
+                }
+
+                if (url.includes('/managed-lists/')) {
+                    return json(200, { data: [], meta: { pagination: PAGINATION } });
+                }
+
+                return json(200, page(rows));
+            }),
+        );
+
+        return asked;
+    }
+
+    const ROWS = [
+        { ...ROW, id: 'c1', contact_title: 'mrs', contact_person: 'Sara' },
+        { ...ROW, id: 'c2', contact_title: null, contact_person: 'Mona Adel' },
+        { ...ROW, id: 'c3', contact_title: 'mr', contact_person: null },
+    ];
+
+    it('names the column and prints «title name» in each language', async () => {
+        for (const [locale, header, first] of [['en', 'Contact person', 'Mrs. Sara'], ['ar', 'الشخص المتواصل معه', 'أ. Sara']]) {
+            const asked = stubWithTitles(ROWS);
+            const view = render(locale);
+            await flushPromises();
+
+            expect(asked.some((url) => url.includes('/managed-lists/contact_titles'))).toBe(true);
+            expect(view.findAll('th').map((th) => th.text())).toContain(header);
+            expect(view.findAll('[data-testid="customers-contact"]').map((cell) => cell.text())).toEqual([first, 'Mona Adel', '—']);
+        }
+    });
+});
+
 const SECTOR = { code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 2 };
 
 function stubScreen(options: { sectors?: unknown[]; sectorsStatus?: number; pages?: unknown[] } = {}): string[] {

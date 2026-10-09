@@ -495,7 +495,8 @@
             "units": "الوحدات",
             "service_types": "أنواع الخدمات",
             "delivery_terms": "شروط التسليم",
-            "companies": "الشركات"
+            "companies": "الشركات",
+            "contact_titles": "ألقاب جهة الاتصال"
         },
         "column": {
             "code": "الرمز",
@@ -571,6 +572,7 @@
         "error": "لم يُنفَّذ الاستيراد. لم يتغيّر أي شيء."
     },
     "customers": {
+        "contactTitleShort": "أ.",
         "title": "العملاء",
         "total": "لا عملاء | عميل واحد | {count} عملاء",
         "loading": "جارٍ تحميل العملاء…",
@@ -578,7 +580,7 @@
             "name": "الاسم",
             "status": "الحالة",
             "sector": "القطاع",
-            "contact": "جهة الاتصال",
+            "contact": "الشخص المتواصل معه",
             "phone": "الهاتف",
             "startDate": "تاريخ البداية",
             "added": "تاريخ الإضافة",
@@ -622,6 +624,7 @@
             "required": "(مطلوب)",
             "sectionIdentity": "البيانات الأساسية",
             "sectionContact": "بيانات التواصل",
+            "contactTitle": "اللقب",
             "name": "الاسم",
             "region": "المنطقة",
             "phone2": "هاتف ثانٍ",

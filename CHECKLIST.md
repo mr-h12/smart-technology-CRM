@@ -3812,6 +3812,37 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - **المورّدون:** جهة اتصال المورّد لم تتغيّر (الحكم 1)؛ لا شيء يُضغط.
       - **ملف PDF لعرض السعر:** لا يطبع الشخص المتواصل معه؛ F-38 لم يغيّره.
 
+- [ ] **F-39** A supplier quotation may be entered with tax-inclusive prices, and a line margin is
+      added to the quotation margin (`D-105`, `D-106`). The owner's request, 2026-10-09: a supplier
+      sometimes quotes prices that include VAT; the employee ticks «السعر شامل الضريبة» and the system
+      strips the tax and stores the net; a customer quotation then adds the margin, then any extra
+      line margin, then the tax. The owner's rulings and this point list were approved 2026-10-09 in
+      conversation: `net = entered ÷ (1 + rate/100)`; the rate is the system setting
+      `defaults.tax_percent` (seeded 14), captured on the offer; one flag for the whole offer, the
+      header `total_price` included; the edit form shows the entered amount and the net; a line
+      margin is summed with the quotation margin (20 + 10 on 100 → 130). Taken before F-37 · 1.5.
+      - [x] **1.1** `D-105` and `D-106` in §2 (proposed); `D-62`, `D-03`, §5.1 and §7.2 pointed to
+            them; the Arabic copy's §5.1 line; + this list. Widened by the owner 2026-10-09 after the
+            waste audit: the rule restated in `CLAUDE.md`/`AGENTS.md`, MVP Build Plan's acceptance case,
+            `pricing-invariant-reviewer` and their Arabic twins. Docs only.
+            *(2026-10-09, #292 — `D-105`/`D-106` recorded; nine restatements of the old rule corrected)*
+      - [ ] **1.2** Failing tests first, then `PricedLine` sums the line margin with the quotation
+            margin (an empty line margin counts as `0`). Tests: 20 + 10 on 100 → 130; no line margin →
+            the quotation margin; a line margin of `0` → the quotation margin. With it, the quotation
+            builder's line-margin field reads as an *extra* margin, ar and en (1.5 folded in by the
+            owner, 2026-10-09, so the new rule never ships under the old label).
+      - [ ] **1.3** Failing tests first, then one migration with a working `down()`:
+            `supplier_quotations.prices_include_tax` (default false), the captured rate and the entered
+            `total_price`, with a CHECK tying the rate to the flag; `supplier_quotation_items` keeps the
+            entered `unit_price`. The save strips the tax from every line and the total with BCMath at
+            money scale; an edit recomputes from the entered amounts with the captured rate; the flag
+            with no setting → `422`; `defaults.tax_percent` seeded `14`; the resource returns the flag,
+            the rate, the entered and the net amounts; the audit snapshot carries them.
+      - [ ] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
+            net shown beside each price and the total, the entered amounts on edit; ar and en.
+      - [x] **1.5** ~~The quotation builder's line-margin field~~ — folded into 1.2 (owner, 2026-10-09).
+      - [ ] **1.6** The Arabic manual test list.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

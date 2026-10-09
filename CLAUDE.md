@@ -119,7 +119,7 @@ Any change to a screen, component, or stylesheet must be verified in a real brow
 ## Financial and Quotation Rules
 
 - Calculate all prices in the backend. The UI may preview but never be the source of truth.
-- Selling price = converted supplier unit cost × `(1 + margin / 100)`; a line margin overrides quotation margin.
+- Selling price = converted supplier unit cost × `(1 + margin / 100)`; a line margin is added to the quotation margin (`D-106`).
 - Discount is a percentage of the subtotal only, and it is subtracted **before** tax so it reduces the tax base (`D-64`). Additional items are never taxed (`D-62`).
 - Tax is optional and its percentage is per quotation, defaulting from the customer (`D-63`). An exempt quotation renders **no tax line at all**, not a zero line.
 - Rounding is **optional per currency** (`D-65`). When it is on, apply it to the final total only, using that currency's configured unit. Store `rounding_diff` — it is `0` when rounding is off.

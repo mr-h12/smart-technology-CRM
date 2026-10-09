@@ -212,7 +212,7 @@ GET   /api/v1/quotations?group_by=employee|customer
 
 **Acceptance criteria (the most important in the project):**
 - Given cost 1000 and margin 20% → Then selling price is 1200 automatically
-- Given quotation margin 20% and line margin 30% → Then the line uses 30%
+- Given quotation margin 20% and line margin 10% → Then the line uses 30% (the two are summed, `D-106`)
 - Given suppliers in different currencies → Then conversion at the current FX rate and one quotation currency
 - Given rounding is on and a total of 1234.67 EGP → Then the final total is 1235 and `rounding_diff` = 0.33
 - Given rounding is on and a total of 1234.678 USD → Then the final total is 1234.68 (rounding unit 0.01)

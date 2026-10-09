@@ -3828,7 +3828,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-09, #292 — `D-105`/`D-106` recorded; nine restatements of the old rule corrected)*
       - [ ] **1.2** Failing tests first, then `PricedLine` sums the line margin with the quotation
             margin (an empty line margin counts as `0`). Tests: 20 + 10 on 100 → 130; no line margin →
-            the quotation margin; a line margin of `0` → the quotation margin.
+            the quotation margin; a line margin of `0` → the quotation margin. With it, the quotation
+            builder's line-margin field reads as an *extra* margin, ar and en (1.5 folded in by the
+            owner, 2026-10-09, so the new rule never ships under the old label).
       - [ ] **1.3** Failing tests first, then one migration with a working `down()`:
             `supplier_quotations.prices_include_tax` (default false), the captured rate and the entered
             `total_price`, with a CHECK tying the rate to the flag; `supplier_quotation_items` keeps the
@@ -3838,7 +3840,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             the rate, the entered and the net amounts; the audit snapshot carries them.
       - [ ] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
             net shown beside each price and the total, the entered amounts on edit; ar and en.
-      - [ ] **1.5** The quotation builder's line-margin field reads as an *extra* margin; ar and en.
+      - [x] **1.5** ~~The quotation builder's line-margin field~~ — folded into 1.2 (owner, 2026-10-09).
       - [ ] **1.6** The Arabic manual test list.
 
 ## Shell revisions — owner-directed

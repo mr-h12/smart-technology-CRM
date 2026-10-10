@@ -924,6 +924,8 @@
             "unsavedChanges": "هذا النموذج يحتوي على تغييرات لم تُحفظ.",
             "keepEditing": "متابعة التعديل",
             "discard": "تجاهل التغييرات",
+            "pricesIncludeTax": "السعر شامل الضريبة",
+            "net": "الصافي قبل الضريبة: {amount}",
             "totalPrice": "الإجمالي",
             "currency": "العملة",
             "currencyNone": "اختر العملة"

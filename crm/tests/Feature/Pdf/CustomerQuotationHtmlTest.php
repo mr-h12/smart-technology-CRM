@@ -467,7 +467,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         foreach (['ar', 'en'] as $locale) {
             $html = $this->html(
                 locale: $locale,
-                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000')],
+                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000', null, null, null, '100.125000')],
                 additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.000000')],
                 subtotal: '1000.005000',
                 discountAmount: '50.000500',
@@ -501,10 +501,10 @@ final class CustomerQuotationHtmlTest extends TestCase
             $html = $this->html(
                 locale: $locale,
                 lines: [
-                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000'),
-                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000'),
-                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000'),
-                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000'),
+                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000', null, null, null, '110.000000'),
+                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000', null, null, null, '275.000000'),
+                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000', null, null, null, '1100.000000'),
+                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000', null, null, null, '2200.000000'),
                 ],
                 discountPercent: '7.500',
                 taxPercent: '14.000',

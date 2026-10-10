@@ -43,4 +43,13 @@ interface LineDescriptionsInterface
      * @return array<string, string>
      */
     public function descriptionsOf(array $supplierQuotationItemIds): array;
+
+    /**
+     * F-40 · 1.4 (`D-107`): supplier-quotation item id => its unit in both
+     * languages. No unit, no entry — the PDF prints `—`.
+     *
+     * @param  list<string>  $supplierQuotationItemIds
+     * @return array<string, array{en: string, ar: string}>
+     */
+    public function unitsOf(array $supplierQuotationItemIds): array;
 }

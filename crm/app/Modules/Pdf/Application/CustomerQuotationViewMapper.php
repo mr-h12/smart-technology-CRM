@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Pdf\Application;
 
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
+use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
@@ -20,6 +22,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\Quotations\Domain\Pricing\CustomerLineFigures;
 
 /**
  * `QuotationDetail` → `CustomerQuotationView` — Module 9 Point 1.2, and the
@@ -82,6 +85,7 @@ final readonly class CustomerQuotationViewMapper
         private LineDescriptionsInterface $lineDescriptions,
         private DealTitlesInterface $dealTitles,
         private UserFactsInterface $users,
+        private CustomerContactsInterface $contacts,
     ) {}
 
     /**
@@ -107,20 +111,29 @@ final readonly class CustomerQuotationViewMapper
         $customerName = self::present($this->customerNames->namesOf([$quotation->customerId])[$quotation->customerId] ?? null)
             ?? throw CustomerViewIncomplete::customerName($quotation->id, $quotation->customerId);
 
+        $contact = $this->contacts->contactOf($quotation->customerId);
+        $signerTitles = $quotation->createdBy === null
+            ? []
+            : $this->users->jobTitlesOf([$quotation->createdBy])[$quotation->createdBy] ?? [];
+
         return new CustomerQuotationView(
             code: $quotation->code,
             quotationDate: $quotation->quotationDate,
             validUntil: $quotation->validUntil,
             currencyCode: $quotation->currency,
             customerName: $customerName,
-            customerContact: null,
+            customerContact: $contact === null ? null : self::present($contact['name']),
+            customerContactTitle: $contact === null ? null : self::present($contact['title_en']),
             companyName: $companyName,
             companyAddress: self::present($settings[SystemSetting::CompanyAddress->value] ?? null),
             companyPhones: self::present($settings[SystemSetting::CompanyPhones->value] ?? null),
+            companyEmail: self::present($settings[SystemSetting::CompanyEmail->value] ?? null),
             subject: self::present($this->dealTitles->titlesOf([$quotation->dealId])[$quotation->dealId] ?? null),
             signatoryName: $quotation->createdBy === null
                 ? null
                 : self::present($this->users->namesOf([$quotation->createdBy])[$quotation->createdBy] ?? null),
+            signatoryTitleEn: self::present($signerTitles['en'] ?? null),
+            signatoryTitleAr: self::present($signerTitles['ar'] ?? null),
             lines: $this->lines($quotation),
             additionalItems: array_map(
                 static fn (QuotationAdditionalLine $line): CustomerAdditionalLine => new CustomerAdditionalLine(
@@ -132,6 +145,10 @@ final readonly class CustomerQuotationViewMapper
             ),
             subtotal: $quotation->subtotal,
             additionalTotal: $quotation->additionalTotal,
+            totalExcludingVat: CustomerLineFigures::excludingVat(
+                Decimal::of($quotation->subtotal, 'subtotal'),
+                Decimal::of($quotation->additionalTotal, 'additional_total'),
+            ),
             discountPercent: $quotation->discountPercent,
             discountAmount: $quotation->discountAmount,
             taxBase: $quotation->taxBase,
@@ -167,10 +184,15 @@ final readonly class CustomerQuotationViewMapper
      */
     private function lines(QuotationDetail $quotation): array
     {
-        $descriptions = $this->lineDescriptions->descriptionsOf(array_values(array_unique(array_map(
+        $itemIds = array_values(array_unique(array_map(
             static fn (QuotationLine $line): string => $line->supplierQuotationItemId,
             $quotation->items,
-        ))));
+        )));
+        $descriptions = $this->lineDescriptions->descriptionsOf($itemIds);
+        $units = $this->lineDescriptions->unitsOf($itemIds);
+
+        $discountPercent = Decimal::of($quotation->discountPercent, 'discount_percent');
+        $taxPercent = $quotation->taxPercent === null ? null : Decimal::of($quotation->taxPercent, 'tax_percent');
 
         $lines = [];
         $undescribed = [];
@@ -184,12 +206,17 @@ final readonly class CustomerQuotationViewMapper
                 continue;
             }
 
+            $lineTotal = Decimal::of($line->lineTotal, 'line_total');
             $lines[] = new CustomerQuotationLine(
                 lineNo: $line->lineNo,
                 description: $description,
                 quantity: $line->quantity,
                 unitPrice: $line->unitPrice,
                 lineTotal: $line->lineTotal,
+                unitEn: $units[$line->supplierQuotationItemId]['en'] ?? null,
+                unitAr: $units[$line->supplierQuotationItemId]['ar'] ?? null,
+                vatAmount: CustomerLineFigures::vat($lineTotal, $discountPercent, $taxPercent),
+                total: CustomerLineFigures::total($lineTotal, $discountPercent, $taxPercent),
             );
         }
 

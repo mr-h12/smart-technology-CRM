@@ -44,6 +44,20 @@ final class CatalogLineDescriptionsTest extends TestCase
         );
     }
 
+    /** F-40 · 1.4 — `D-107`: each line's unit is its catalog item's, in both languages; none, no entry. */
+    public function test_that_each_line_takes_its_catalog_items_unit_in_both_languages(): void
+    {
+        $descriptions = new CatalogLineDescriptions(
+            self::prices([self::LINE_A => self::price(self::CATALOG_A), self::LINE_B => self::price(self::CATALOG_B)]),
+            self::labels([], null, [self::CATALOG_A => ['en' => 'Piece', 'ar' => 'قطعة']]),
+        );
+
+        self::assertSame(
+            [self::LINE_A => ['en' => 'Piece', 'ar' => 'قطعة']],
+            $descriptions->unitsOf([self::LINE_A, self::LINE_B]),
+        );
+    }
+
     public function test_that_nothing_of_the_suppliers_line_but_the_catalog_label_leaves(): void
     {
         $supplierLine = new SupplierItemPrice(
@@ -140,16 +154,23 @@ final class CatalogLineDescriptionsTest extends TestCase
      *
      * @param  array<string, string>  $labels
      * @param  ArrayObject<int, list<string>>|null  $asked
+     * @param  array<string, array{en: string, ar: string}>  $units
      */
-    private static function labels(array $labels, ?ArrayObject $asked = null): CatalogItemLabelsInterface
+    private static function labels(array $labels, ?ArrayObject $asked = null, array $units = []): CatalogItemLabelsInterface
     {
-        return new class($labels, $asked ?? new ArrayObject) implements CatalogItemLabelsInterface
+        return new class($labels, $asked ?? new ArrayObject, $units) implements CatalogItemLabelsInterface
         {
             /**
              * @param  array<string, string>  $labels
              * @param  ArrayObject<int, list<string>>  $asked
+             * @param  array<string, array{en: string, ar: string}>  $units
              */
-            public function __construct(private readonly array $labels, private readonly ArrayObject $asked) {}
+            public function __construct(private readonly array $labels, private readonly ArrayObject $asked, private readonly array $units) {}
+
+            public function unitsOf(array $catalogItemIds): array
+            {
+                return array_intersect_key($this->units, array_flip($catalogItemIds));
+            }
 
             public function labelsOf(array $catalogItemIds): array
             {

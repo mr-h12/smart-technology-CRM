@@ -84,15 +84,24 @@ final readonly class CustomerQuotationView
         public string $currencyCode,
         public string $customerName,
         public ?string $customerContact,
+        /** F-40 · 1.4: `D-104`'s English title label; the Arabic page prints «أ.». */
+        public ?string $customerContactTitle,
         public string $companyName,
         public ?string $companyAddress,
         public ?string $companyPhones,
+        /** F-40 · 1.2's `company.email`, for `D-107`'s footer. */
+        public ?string $companyEmail,
         public ?string $subject,
         public ?string $signatoryName,
+        /** `D-107` ruling (2), F-40 · 1.3's columns. */
+        public ?string $signatoryTitleEn,
+        public ?string $signatoryTitleAr,
         public array $lines,
         public array $additionalItems,
         public string $subtotal,
         public string $additionalTotal,
+        /** `D-107`: *Total Amount Excl. VAT* = subtotal + additional total. */
+        public string $totalExcludingVat,
         public string $discountPercent,
         public string $discountAmount,
         public string $taxBase,
@@ -110,6 +119,10 @@ final readonly class CustomerQuotationView
         self::refuseBlank('companyPhones', $companyPhones);
         self::refuseBlank('subject', $subject);
         self::refuseBlank('signatoryName', $signatoryName);
+        self::refuseBlank('customerContactTitle', $customerContactTitle);
+        self::refuseBlank('companyEmail', $companyEmail);
+        self::refuseBlank('signatoryTitleEn', $signatoryTitleEn);
+        self::refuseBlank('signatoryTitleAr', $signatoryTitleAr);
     }
 
     private static function refuseBlank(string $field, ?string $value): void

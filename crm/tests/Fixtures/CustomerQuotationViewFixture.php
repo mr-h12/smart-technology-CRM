@@ -29,20 +29,22 @@ final class CustomerQuotationViewFixture
             'validUntil' => '2026-08-13',
             'currencyCode' => 'EGP',
             'customerName' => 'Vegatrone',
-            'customerContact' => 'Mr. Medhat',
-            'customerContactTitle' => null,
+            'customerContact' => 'Medhat',
+            'customerContactTitle' => 'Mr.',
             'companyName' => 'Smart Technology for Integrated Systems',
             'companyAddress' => '5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt',
             'companyPhones' => '035829952 · 01070764779',
-            'companyEmail' => null,
+            'companyEmail' => 'info@smarttechegy.com',
             'subject' => 'IT Offer',
             'signatoryName' => 'Ahmed Essam',
-            'signatoryTitleEn' => null,
-            'signatoryTitleAr' => null,
+            'signatoryTitleEn' => 'Sales Manager',
+            'signatoryTitleAr' => 'مدير المبيعات',
             'lines' => [
-                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', null, null, null, '10438.60'),
-                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', null, null, null, '18997.50'),
-                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, null, '5418.00'),
+                // D-107: VAT after the 5% discount is spread over the line; the
+                // third line has no unit, so the page prints `—`.
+                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
+                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
+                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             'subtotal' => '34854.10',
@@ -77,13 +79,13 @@ final class CustomerQuotationViewFixture
     {
         return self::make([
             'customerName' => 'شركة فيجاترون',
-            'customerContact' => 'الأستاذ مدحت',
+            'customerContact' => 'مدحت',
             'subject' => 'عرض أجهزة وطابعات',
             'signatoryName' => 'أحمد عصام',
             'lines' => [
-                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', null, null, null, '10438.60'),
-                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', null, null, null, '18997.50'),
-                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, null, '5418.00'),
+                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
+                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
+                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'التوصيل والتركيب', '250.00')],
             'terms' => [

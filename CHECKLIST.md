@@ -1295,12 +1295,19 @@ would hide them behind `OD-03` indefinitely.
       A search of the specs for `parity`, `Object.keys(en)` and `Object.keys(ar)` finds nothing. F-32 · 1.1
       pins its own two keys by asserting the Arabic sentence, and both files were compared by hand; one
       spec walking both files' key lists would guard every later key.
-- [ ] **Three customer-PDF labels nothing prints** — *revealed by F-34 · 1.2's waste audit, 2026-10-02;
-      registered, not fixed.* `pdf.totals.additional`, `pdf.totals.tax_base` and `pdf.totals.net` exist in
+- [x] **Three customer-PDF labels nothing prints** — *revealed by F-34 · 1.2's waste audit, 2026-10-02;
+      registered, not fixed.* *(2026-10-11, F-40 · 1.5 — deleted with D-100's other labels; a test pins their absence)* `pdf.totals.additional`, `pdf.totals.tax_base` and `pdf.totals.net` exist in
       both `lang/en/pdf.php` and `lang/ar/pdf.php`, and no template, class or test reads them: the template
       prints each additional item under its own description, and never prints the tax base or the net
       amount (`git grep` over `app/Modules/Pdf`, `resources/views` and `tests/Feature/Pdf`). They predate
       F-34. Deleting them is a two-file edit, unless the owner wants those rows on the page.
+- [ ] **Five customer-PDF view fields nothing reads** — *revealed by F-40 · 1.5's waste audit, 2026-10-11;
+      registered, not fixed.* `CustomerQuotationView`'s `subtotal`, `additionalTotal`, `taxBase`,
+      `netAmount` and `discountPercent` are filled by `CustomerQuotationViewMapper.php:146-157` and read by
+      no template or class since D-107's *Total Amount Excl. VAT* replaced the rows that printed them; only
+      `CustomerQuotationViewMapperTest.php:331-332` and `CustomerQuotationViewTest.php:173` read them. The
+      mapper's own use of the quotation's discount percent (line 194, the per-line VAT) is separate and
+      stays. Removing them touches the model, the mapper and two tests — outside 1.5's approved files.
 - [ ] **The English customer PDF draws Arabic text typed into a quotation in a system face** — *revealed
       by F-35 · 1.2's real PDF, 2026-10-02; registered, not fixed.* QT-2026-0003 in English embeds
       `DejaVuSans` beside Inter: its terms hold Arabic text (`pdftotext` lists 22 Arabic letters on the

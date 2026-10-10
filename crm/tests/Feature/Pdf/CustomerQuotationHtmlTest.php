@@ -13,14 +13,16 @@ use Tests\Fixtures\CustomerQuotationViewFixture;
 use Tests\TestCase;
 
 /**
- * Module 9, Point 2.4 — the customer quotation, laid out as `D-100` since
- * F-34 · 1.2, rendered from one template in both languages.
+ * Module 9, Point 2.4 — the customer quotation, laid out as `D-107`'s
+ * *Commercial Offer* since F-40 · 1.5, rendered from one template in both
+ * languages.
  *
- * The HTML is checked here rather than the PDF: what a person must eventually
- * look at is 2.7's job, but every rule with a citation behind it — the labels
- * coming from lang files, the percentages coming from the quotation, no tax row
- * on an exempt one, no supplier or cost value anywhere — is a property of the
- * markup, and the markup can be read without a browser.
+ * The HTML is checked here rather than the PDF: where each word lands on the
+ * page is 1.6's comparison against the reference PDFs, but every rule with a
+ * citation behind it — the labels coming from lang files, the percentages
+ * coming from the quotation, no tax column or row on an exempt one, no
+ * supplier or cost value anywhere — is a property of the markup, and the
+ * markup can be read without a browser.
  */
 final class CustomerQuotationHtmlTest extends TestCase
 {
@@ -34,9 +36,9 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertStringContainsString('<html lang="ar" dir="rtl"', $ar);
         self::assertStringContainsString('<html lang="en" dir="ltr"', $en);
 
-        self::assertStringContainsString((string) Lang::get('pdf.header.subject', [], 'ar'), $ar);
-        self::assertStringContainsString((string) Lang::get('pdf.header.subject', [], 'en'), $en);
-        self::assertStringNotContainsString((string) Lang::get('pdf.header.subject', [], 'en'), $ar);
+        self::assertStringContainsString((string) Lang::get('pdf.info.subject', [], 'ar'), $ar);
+        self::assertStringContainsString((string) Lang::get('pdf.info.subject', [], 'en'), $en);
+        self::assertStringNotContainsString((string) Lang::get('pdf.info.subject', [], 'en'), $ar);
     }
 
     public function test_that_the_template_carries_no_user_facing_text_of_its_own(): void
@@ -92,29 +94,161 @@ final class CustomerQuotationHtmlTest extends TestCase
         return (string) $stripped;
     }
 
+    public function test_that_the_page_opens_with_the_commercial_offer_title_and_its_info_block_in_order(): void
+    {
+        // D-107: the logo, the centred title, then Offer No. · Issue Date ·
+        // Prepared For · Att. · Subject, each label followed by its value.
+        foreach (['ar', 'en'] as $locale) {
+            $body = (string) strstr($this->html(locale: $locale), '<body');
+            $label = static fn (string $key): string => preg_quote(e((string) Lang::get('pdf.'.$key, [], $locale)), '/');
+
+            self::assertMatchesRegularExpression('/class="title"[^>]*>\s*'.$label('heading').'\s*</u', $body, "The {$locale} page has no Commercial Offer title.");
+
+            self::assertMatchesRegularExpression(
+                '/'.$label('info.offer_no').'.*?QT-2026-0001'
+                .'.*?'.$label('info.issue_date').'.*?2026-07-14'
+                .'.*?'.$label('info.prepared_for').'.*?'.preg_quote(e($locale === 'ar' ? 'شركة فيجاترون' : 'Vegatrone'), '/')
+                .'.*?'.$label('info.attention')
+                .'.*?'.$label('info.subject').'/su',
+                $this->html(locale: $locale, customerName: $locale === 'ar' ? 'شركة فيجاترون' : 'Vegatrone'),
+                "The {$locale} info block is missing a line or out of D-107's order.",
+            );
+        }
+    }
+
+    public function test_that_the_attention_line_carries_the_contacts_title_in_each_language(): void
+    {
+        // D-104 through D-107: the English page prints the stored English
+        // title before the name; the Arabic page prints the fixed «أ.».
+        self::assertMatchesRegularExpression('/id="contact-line"[^>]*>.*?Mr\. Medhat\s*</su', $this->html(locale: 'en'));
+        self::assertMatchesRegularExpression('/id="contact-line"[^>]*>.*?أ\. مدحت\s*</su', $this->html(locale: 'ar', customerContact: 'مدحت'));
+
+        // No title: the name alone, in both languages.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale, customerContactTitle: null);
+            self::assertMatchesRegularExpression('/id="contact-line"[^>]*>.*?<\/span>\s*Medhat\s*</su', $html, "The {$locale} attention line invented a title.");
+        }
+    }
+
+    public function test_that_the_validity_date_prints_only_in_its_term(): void
+    {
+        // D-107: "Valid until prints only in the validity term".
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale);
+
+            self::assertStringNotContainsString('id="valid-until-line"', $html);
+            self::assertSame(1, substr_count($html, '2026-08-13'), "The {$locale} page prints the validity date outside its term.");
+        }
+    }
+
+    public function test_that_the_table_has_d107s_six_columns_in_order(): void
+    {
+        self::assertSame(
+            ['description' => 'Description', 'unit' => 'Unit', 'quantity' => 'Qty', 'unit_price' => 'Unit Price', 'vat' => 'VAT', 'total' => 'Total'],
+            Lang::get('pdf.table', [], 'en'),
+            'The column titles are not the ones D-107 names.',
+        );
+
+        foreach (['ar', 'en'] as $locale) {
+            $titles = array_map(
+                static fn (string $key): string => '<th[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.table.'.$key, [], $locale)), '/').'\s*<\/th>',
+                ['description', 'unit', 'quantity', 'unit_price', 'vat', 'total'],
+            );
+            self::assertMatchesRegularExpression('/'.implode('\s*', $titles).'/u', $this->html(locale: $locale), "The {$locale} column titles are missing or out of order.");
+        }
+    }
+
+    public function test_that_each_line_prints_its_unit_vat_and_total_with_a_dash_for_no_unit(): void
+    {
+        // F-40 · 1.4's figures, printed: the unit in the document's language,
+        // `—` when the item has none; the line's VAT; the discounted line + VAT.
+        $cells = static fn (string ...$values): string => '/'.implode('\s*', array_map(
+            static fn (string $v): string => '<td[^>]*>\s*'.preg_quote(e($v), '/').'\s*<\/td>',
+            $values,
+        )).'/u';
+
+        $en = $this->html(locale: 'en');
+        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'Pcs', '2', '5219.30', '1388.33', '11305.00'), $en);
+        self::assertMatchesRegularExpression($cells('Toner CF259A', 'Box', '3', '6332.50', '2526.67', '20574.29'), $en);
+        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5867.69'), $en);
+
+        $ar = $this->html(locale: 'ar');
+        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'قطعة', '2', '5219.30', '1388.33', '11305.00'), $ar, 'The Arabic page does not print the Arabic unit.');
+        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5867.69'), $ar);
+    }
+
+    public function test_that_an_additional_item_is_a_table_row_with_a_dash_unit_quantity_one_and_no_vat(): void
+    {
+        // D-107's default: unit `—`, quantity 1, VAT `0.00` (D-62), the amount
+        // as both the unit price and the total.
+        foreach (['ar', 'en'] as $locale) {
+            self::assertMatchesRegularExpression(
+                '/<td[^>]*>\s*Delivery &amp; Installation\s*<\/td>\s*<td[^>]*>\s*—\s*<\/td>\s*<td[^>]*>\s*1\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>\s*<td[^>]*>\s*0\.00\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>/u',
+                $this->html(locale: $locale),
+                "The {$locale} additional item is not a row of the table.",
+            );
+        }
+    }
+
+    public function test_that_an_exempt_quotation_prints_no_vat_column_no_vat_row_and_no_vat_term(): void
+    {
+        // D-63 and D-107: "an exempt quotation prints no VAT column, no VAT row
+        // and no The price includes VAT term".
+        $exempt = [
+            'taxPercent' => null,
+            'taxAmount' => null,
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', null, '9916.670000')],
+        ];
+
+        foreach (['ar', 'en'] as $locale) {
+            $vat = preg_quote(e((string) Lang::get('pdf.table.vat', [], $locale)), '/');
+            $html = $this->html($locale, ...$exempt);
+
+            self::assertDoesNotMatchRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $html, "The exempt {$locale} page has a VAT column.");
+            self::assertStringNotContainsString('id="tax-row"', $html);
+            self::assertStringNotContainsString('id="vat-included"', $html);
+            self::assertStringNotContainsString(e((string) Lang::get('pdf.conditions.vat_included', [], $locale)), $html);
+            // Five cells a row: the additional item drops its 0.00 VAT cell too.
+            self::assertMatchesRegularExpression('/<td[^>]*>\s*1\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>/u', $html);
+            self::assertMatchesRegularExpression('/<td[^>]*>\s*5219\.30\s*<\/td>\s*<td[^>]*>\s*9916\.67\s*<\/td>/u', $html);
+
+            $taxed = $this->html(locale: $locale);
+            self::assertMatchesRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $taxed, 'A taxed quotation must still show the column.');
+            self::assertStringContainsString('id="tax-row"', $taxed);
+            self::assertStringContainsString('id="vat-included"', $taxed);
+        }
+    }
+
+    public function test_that_the_totals_are_d107s_rows_in_order(): void
+    {
+        // Total Amount Excl. VAT · Discount (no percentage) · VAT n% · Total
+        // with the currency after the figure.
+        foreach (['ar', 'en'] as $locale) {
+            $row = static fn (string $label, string $value): string => '<td[^>]*>\s*'.preg_quote(e($label), '/').'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>';
+            $t = static fn (string $key, array $replace = []): string => (string) Lang::get('pdf.totals.'.$key, $replace, $locale);
+
+            self::assertMatchesRegularExpression(
+                '/'.$row($t('excl_vat'), '35104.10').'.*?'.$row($t('discount'), '1742.71')
+                .'.*?'.$row($t('tax', ['percent' => '14']), '4635.59').'.*?class="final".*?'.$row($t('final'), '37996.98 EGP').'/su',
+                $this->html(locale: $locale),
+                "The {$locale} totals are missing a row or out of D-107's order.",
+            );
+        }
+
+        self::assertStringNotContainsString(':percent', (string) Lang::get('pdf.totals.discount', [], 'en'), 'D-107: the discount label carries no percentage.');
+    }
+
     public function test_that_the_percentages_come_from_the_quotation_and_not_from_the_label(): void
     {
         // The defect found against the source document on 2026-09-13: P-01's
         // dictionaries carried "Discount 5%" and "14% VAT" as literal strings.
-        $html = $this->html(discountPercent: '7.5', taxPercent: '10');
+        $html = $this->html(taxPercent: '10');
 
-        self::assertStringContainsString('7.5', $html);
-        self::assertStringContainsString('10', $html);
+        self::assertStringContainsString(e((string) Lang::get('pdf.totals.tax', ['percent' => '10'], 'en')), $html);
 
         $source = (string) file_get_contents(base_path(self::TEMPLATE));
         self::assertStringNotContainsString('5%', $source);
         self::assertStringNotContainsString('14%', $source);
-    }
-
-    public function test_that_an_exempt_quotation_renders_no_tax_row_at_all(): void
-    {
-        // D-63: "an exempt quotation renders no tax line at all, not a zero line".
-        $html = $this->html(taxPercent: null, taxAmount: null);
-
-        self::assertStringNotContainsString((string) Lang::get('pdf.totals.tax', ['percent' => ''], 'en'), $html);
-        self::assertStringNotContainsString('id="tax-row"', $html);
-
-        self::assertStringContainsString('id="tax-row"', $this->html(), 'A taxed quotation must still show the row.');
     }
 
     public function test_that_the_optional_lines_are_absent_rather_than_empty(): void
@@ -122,16 +256,18 @@ final class CustomerQuotationHtmlTest extends TestCase
         $bare = $this->html(
             subject: null,
             signatoryName: null,
+            signatoryTitleEn: null,
             customerContact: null,
             terms: [],
             companyAddress: null,
             companyPhones: null,
+            companyEmail: null,
             quotationDate: null,
             validUntil: null,
         );
 
-        $optional = ['subject-line', 'signatory', 'contact-line',
-            'company-address', 'company-phones', 'issue-date', 'valid-until-line'];
+        $optional = ['subject-line', 'signatory', 'signatory-title', 'contact-line',
+            'company-address', 'company-phones', 'company-email', 'issue-date', 'validity'];
 
         foreach ($optional as $id) {
             self::assertStringNotContainsString('id="'.$id.'"', $bare, "{$id} was rendered with nothing in it.");
@@ -143,13 +279,14 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
-    public function test_that_the_terms_are_numbered_lines_currency_first_and_validity_last(): void
+    public function test_that_the_terms_are_a_numbered_list_currency_first_validity_then_vat_last(): void
     {
-        // D-103's ruling 5: 1. the offer currency, then the employee's terms
-        // in their order as "Name: body", the offer validity last. Ruling 4:
-        // a ready term with no name prints the PDF's own label in the PDF's
-        // language, and a typed name prints exactly as typed — the ready
-        // payment term renamed here included.
+        // D-103's ruling 5 and D-107: the offer currency, then the employee's
+        // terms in their order as "Name: body", the offer validity, then — on
+        // a taxed quotation — "The price includes VAT". Ruling 4: a ready term
+        // with no name prints the PDF's own label in the PDF's language, and a
+        // typed name prints exactly as typed. The numbers are the list's own
+        // (`<ol>`, as the reference HTML): Latin digits in both languages.
         $terms = [
             new CustomerTerm('warranty', null, 'One year.'),
             new CustomerTerm(null, 'Spare parts', 'Six months.'),
@@ -160,24 +297,14 @@ final class CustomerQuotationHtmlTest extends TestCase
 
         foreach (['ar', 'en'] as $locale) {
             self::assertSame([
-                '1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
-                '2. '.$labels[$locale][0].': One year.',
-                '3. Spare parts: Six months.',
-                '4. Payment schedule: Net 30.',
-                '5. '.$labels[$locale][1].': Within two weeks.',
-                '6. '.Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
-            ], self::termLines($this->html(locale: $locale, terms: $terms)), "The {$locale} terms are not numbered in D-103's order.");
-        }
-
-        // The owner's ruling, 2026-10-08: Latin digits in both languages, and
-        // on the Arabic page the number takes the line's own direction, so
-        // the dot sits between the number and the text (".1" read from the
-        // left), the way Word numbers an Arabic list. A direction isolate
-        // around the number would turn it into "1." — so the line opens with
-        // the bare number, nothing before it.
-        $ar = $this->html(locale: 'ar', terms: $terms);
-        foreach (range(1, 6) as $n) {
-            self::assertMatchesRegularExpression('/<p\b[^>]*>\s*'.$n.'\. /u', $ar, "Arabic term {$n} does not open with its bare number.");
+                Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
+                $labels[$locale][0].': One year.',
+                'Spare parts: Six months.',
+                'Payment schedule: Net 30.',
+                $labels[$locale][1].': Within two weeks.',
+                Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
+                Lang::get('pdf.conditions.vat_included', [], $locale),
+            ], self::termLines($this->html(locale: $locale, terms: $terms)), "The {$locale} terms are not in D-107's order.");
         }
     }
 
@@ -185,38 +312,39 @@ final class CustomerQuotationHtmlTest extends TestCase
     {
         $terms = [new CustomerTerm('payment_terms', null, 'Net 30.')];
 
-        self::assertSame('2. Payment: Net 30.', self::termLines($this->html(locale: 'en', terms: $terms))[1]);
-        self::assertSame('2. الدفع: Net 30.', self::termLines($this->html(locale: 'ar', terms: $terms))[1]);
+        self::assertSame('Payment: Net 30.', self::termLines($this->html(locale: 'en', terms: $terms))[1]);
+        self::assertSame('الدفع: Net 30.', self::termLines($this->html(locale: 'ar', terms: $terms))[1]);
     }
 
-    public function test_that_no_terms_leave_only_the_currency_and_the_validity(): void
+    public function test_that_no_terms_leave_only_the_currency_the_validity_and_the_vat_line(): void
     {
         foreach (['ar', 'en'] as $locale) {
             self::assertSame([
-                '1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
-                '2. '.Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
+                Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale),
+                Lang::get('pdf.conditions.validity', ['date' => '2026-08-13'], $locale),
+                Lang::get('pdf.conditions.vat_included', [], $locale),
             ], self::termLines($this->html(locale: $locale, terms: [])));
 
             self::assertSame(
-                ['1. '.Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale)],
-                self::termLines($this->html(locale: $locale, terms: [], validUntil: null)),
-                'With no validity date, the currency is the only line.',
+                [Lang::get('pdf.conditions.currency', ['currency' => 'EGP'], $locale)],
+                self::termLines($this->html(locale: $locale, terms: [], validUntil: null, taxPercent: null, taxAmount: null)),
+                'With no validity date and no tax, the currency is the only line.',
             );
         }
     }
 
     /**
-     * The terms block's lines as a reader sees them: tags, entities and the
+     * The terms list's items as a reader sees them: tags, entities and the
      * direction isolates gone.
      *
      * @return list<string>
      */
     private static function termLines(string $html): array
     {
-        $block = (string) strstr((string) strstr($html, 'class="terms"'), 'class="totals"', true);
-        self::assertNotSame('', $block, 'The page has no terms block before the totals.');
+        $block = (string) strstr((string) strstr($html, 'class="terms"'), '</ol>', true);
+        self::assertNotSame('', $block, 'The page has no numbered terms list.');
 
-        preg_match_all('/<p\b[^>]*>(.*?)<\/p>/su', $block, $matches);
+        preg_match_all('/<li\b[^>]*>(.*?)<\/li>/su', $block, $matches);
 
         return array_map(
             static fn (string $line): string => trim((string) preg_replace(
@@ -228,26 +356,64 @@ final class CustomerQuotationHtmlTest extends TestCase
         );
     }
 
-    public function test_that_the_header_prints_the_company_from_the_settings(): void
+    public function test_that_the_signer_prints_with_the_title_in_the_documents_language_beside_the_sales_signature(): void
     {
-        // D-100's first ruling and §14.6's "company logo and details from
-        // settings": the name, the address and the phones are text from
-        // Settings, the phones as typed. The template before D-100 printed none
-        // of the three — the footer band carried them as pixels. There is no
-        // e-mail line because no setting holds one.
-        //
-        // Each line is wrapped in a first-strong isolate (U+2068 … U+2069),
-        // found on the first real Arabic PDF: inside the RTL page, bidi printed
-        // `5-El-Fath St, …` as `El-Fath St, … Egypt-5` and swapped the two
-        // phone numbers. The isolate takes its direction from the text itself —
-        // a Latin address reads left to right, an Arabic one right to left, and
-        // a line of digits, having no letter, left to right.
-        foreach (['ar', 'en'] as $locale) {
+        // D-107: Best Regards, the signer's name and job title at the start,
+        // a Sales Signature line at the end. The title is the one in the
+        // document's language, omitted when that one is blank.
+        foreach (['en' => 'Sales Manager', 'ar' => 'مدير المبيعات'] as $locale => $title) {
             $html = $this->html(locale: $locale);
 
-            self::assertStringContainsString(e('Smart Technology for Integrated Systems'), $html, "The {$locale} header has no company name.");
-            self::assertMatchesRegularExpression('/id="company-address"[^>]*>\s*\x{2068}'.preg_quote(e('5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt'), '/').'\x{2069}\s*</u', $html, "The {$locale} address is missing or not isolated.");
-            self::assertMatchesRegularExpression('/id="company-phones"[^>]*>\s*\x{2068}'.preg_quote(e('035829952 · 01070764779'), '/').'\x{2069}\s*</u', $html, "The {$locale} phones are missing or not isolated.");
+            self::assertMatchesRegularExpression('/id="signatory"[^>]*>\s*Ahmed Essam\s*<.*?id="signatory-title"[^>]*>\s*'.preg_quote($title, '/').'\s*</su', $html, "The {$locale} signer's title is missing.");
+            self::assertStringContainsString(e((string) Lang::get('pdf.signature', [], $locale)), $html);
+        }
+
+        self::assertStringNotContainsString('id="signatory-title"', $this->html(locale: 'ar', signatoryTitleAr: null), 'The Arabic page fell back to the English title.');
+        self::assertStringNotContainsString('Sales Manager', $this->html(locale: 'ar', signatoryTitleAr: null));
+    }
+
+    public function test_that_the_footer_prints_the_company_from_the_settings_in_english_on_both_pages(): void
+    {
+        // D-107: "a footer, always in English": the company name, Address,
+        // Tel, Email — text from Settings (§14.6). The approved F-40 · 1.5
+        // places it on page one; 1.6 repeats it on every page.
+        //
+        // Each value is wrapped in a first-strong isolate (U+2068 … U+2069),
+        // found on the first real Arabic PDF: bidi printed `5-El-Fath St, …`
+        // as `El-Fath St, … Egypt-5` and swapped the two phone numbers.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale);
+            $footer = (string) strstr((string) strstr($html, '<footer'), '</footer>', true);
+
+            self::assertStringStartsWith('<footer dir="ltr" lang="en"', $footer, "The {$locale} footer is not English.");
+            self::assertStringContainsString(e('Smart Technology for Integrated Systems'), $footer);
+            foreach (['address', 'tel', 'email'] as $key) {
+                self::assertStringContainsString(e((string) Lang::get('pdf.footer.'.$key, [], 'en')), $footer, "The {$locale} footer has no English pdf.footer.{$key}.");
+            }
+            self::assertMatchesRegularExpression('/id="company-address".*?\x{2068}'.preg_quote(e('5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt'), '/').'\x{2069}/su', $footer);
+            self::assertMatchesRegularExpression('/id="company-phones".*?\x{2068}'.preg_quote(e('035829952 · 01070764779'), '/').'\x{2069}/su', $footer);
+            self::assertMatchesRegularExpression('/id="company-email".*?info@smarttechegy\.com/su', $footer);
+        }
+    }
+
+    public function test_that_each_language_takes_the_reference_htmls_measures(): void
+    {
+        // D-107: "every size, space and position is that CSS". The values both
+        // reference pages share, then the ones the Arabic page changes —
+        // `diff` of QT-2026-0003-commercial-offer-{en,ar}.html.
+        $shared = ['width: 75mm', 'font-size: 14pt', 'margin-top: 8mm', 'margin: 12mm 0 4mm',
+            'border: 0.75pt solid #bfbfbf', 'background: #f2f2f2', 'font-size: 10.5pt', 'margin-top: 6mm',
+            'width: 60mm', 'height: 16mm', 'font-size: 8.5pt'];
+        $own = [
+            'en' => ['font-size: 11pt', 'padding: 2.4mm 2mm', 'margin-top: 10.6mm', 'margin: -2.6mm 0 3.7mm', 'padding-top: 11.55mm', 'margin-left: 1.4mm'],
+            'ar' => ['font-size: 11.5pt', 'padding: 2.4mm 1.4mm', 'margin-top: 10.9mm', 'margin: -2.9mm 0 0.5mm', 'padding-top: 11.75mm', 'margin-right: 1.27mm'],
+        ];
+
+        foreach ($own as $locale => $measures) {
+            $css = (string) strstr($this->html(locale: $locale), '</style>', true);
+            foreach ([...$shared, ...$measures] as $measure) {
+                self::assertStringContainsString($measure, $css, "The {$locale} page does not take the reference's {$measure}.");
+            }
         }
     }
 
@@ -256,15 +422,11 @@ final class CustomerQuotationHtmlTest extends TestCase
         // Reported by the owner on the first PDFs of D-100's layout: the item
         // table's right border was missing, in both languages. Chrome clips the
         // page at the margins the renderer sets, and a full-width table with
-        // collapsed borders draws half of its outer border outside its own box,
-        // so the right half was cut. The layout before D-100 lost it too, under
-        // a darker border (measured on a PDF from main). So the side margins are
-        // padding inside the page, and the renderer's left and right margins are
-        // 0. Measured after the change, at 300 dpi: both borders drawn, the
-        // table at 294..2186 px like the prototype. No rasteriser ships in the
-        // image, so this test pins the arrangement rather than the pixels.
+        // collapsed borders draws half of its outer border outside its own box.
+        // So the side margins are padding inside the page — D-107's 22 mm —
+        // and the renderer's left and right margins are 0.
         $template = (string) file_get_contents(base_path(self::TEMPLATE));
-        self::assertMatchesRegularExpression('/\bbody\s*\{[^}]*padding:\s*0 25mm/', $template, 'The side margins are not padding inside the page.');
+        self::assertMatchesRegularExpression('/\bbody\s*\{[^}]*padding:\s*0 22mm/', $template, 'The side margins are not padding inside the page.');
 
         $renderer = (string) file_get_contents(base_path('app/Modules/Pdf/Infrastructure/BrowsershotPdfRenderer.php'));
         self::assertStringContainsString('->margins(22, 0, 20, 0)', $renderer, 'The renderer still sets side margins, where Chrome clips.');
@@ -282,54 +444,45 @@ final class CustomerQuotationHtmlTest extends TestCase
 
     public function test_that_the_logo_is_the_only_picture_on_the_page(): void
     {
-        // D-100's second ruling: the footer band and the faded S.T.I.S mark are
-        // gone, so the logo — a PNG — is the one image left.
+        // D-100's second ruling, kept by D-107: no footer band and no faded
+        // S.T.I.S mark, so the logo — a PNG — is the one image.
         $html = $this->html();
 
         self::assertSame(1, substr_count($html, '<img'), 'Something besides the logo is drawn on the page.');
         self::assertStringNotContainsString('data:image/jpeg', $html, 'The footer band or the watermark is still embedded.');
     }
 
-    public function test_that_the_layout_reads_its_labels_from_the_lang_file_in_both_languages(): void
+    public function test_that_the_lang_files_hold_d107s_labels_and_nothing_unread(): void
     {
-        // D-100's layout: the heading, the parties block and the terms heading
-        // are new labels, and the column titles are the owner's own words.
-        self::assertSame(
-            ['serial' => '#', 'item' => 'Description', 'unit_price' => 'Unit Price', 'quantity' => 'Qty', 'line_total' => 'Total'],
-            Lang::get('pdf.table', [], 'en'),
-            'The column titles are not the ones D-100 names.',
-        );
-
+        // The three labels no template ever read (a debt row), and the ones
+        // D-100's layout read and D-107's does not, are gone; both languages
+        // carry the same keys.
         foreach (['ar', 'en'] as $locale) {
-            $html = $this->html(locale: $locale);
-            // The page, not the <title>: "Quotation QT-2026-0001" there would
-            // pass for a missing heading (found by removing it on purpose).
-            $body = (string) strstr($html, '<body');
-
-            foreach (['heading', 'parties.prepared_for', 'parties.issue_date', 'parties.valid_until', 'terms.heading', 'header.attention', 'header.subject'] as $key) {
-                $label = (string) Lang::get('pdf.'.$key, [], $locale);
-                self::assertNotSame('pdf.'.$key, $label, "pdf.{$key} is missing from the {$locale} lang file.");
-                self::assertStringContainsString(e($label), $body, "The {$locale} page does not show pdf.{$key}.");
+            foreach (['totals.additional', 'totals.tax_base', 'totals.net', 'totals.subtotal', 'parties', 'header', 'table.serial', 'table.item'] as $gone) {
+                self::assertFalse(Lang::has('pdf.'.$gone, $locale, false), "pdf.{$gone} is still in the {$locale} lang file.");
             }
-
-            // The five titles, in the order the table prints them.
-            $titles = array_map(
-                static fn (string $key): string => '<th[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.table.'.$key, [], $locale)), '/').'\s*<\/th>',
-                ['serial', 'item', 'unit_price', 'quantity', 'line_total'],
-            );
-            self::assertMatchesRegularExpression('/'.implode('\s*', $titles).'/u', $html, "The {$locale} column titles are missing or out of order.");
-
-            // The terms are plain lines in the prototype, not a bulleted list.
-            self::assertStringNotContainsString('<li', $html, "The {$locale} terms are still bullets.");
         }
+
+        $keys = static function (string $locale): array {
+            $flat = [];
+            $walk = static function (array $labels, string $prefix) use (&$walk, &$flat): void {
+                foreach ($labels as $key => $value) {
+                    is_array($value) ? $walk($value, $prefix.$key.'.') : $flat[] = $prefix.$key;
+                }
+            };
+            $walk((array) Lang::get('pdf', [], $locale), '');
+            sort($flat);
+
+            return $flat;
+        };
+        self::assertSame($keys('en'), $keys('ar'), 'The two pdf lang files carry different keys.');
     }
 
-    public function test_that_the_text_is_black_and_the_table_lines_grey(): void
+    public function test_that_the_text_is_black(): void
     {
-        // The owner's changes to the Conta layout (D-100): every word black, the
-        // column-title row #f2f2f2, the table lines #d9d9d9 — a little darker.
-        // Read from the template's own CSS: a colour is a declaration, and the
-        // rendered markup carries the same text.
+        // Every word black (D-100, kept by D-107). Read from the template's own
+        // CSS: a colour is a declaration, and the rendered markup carries the
+        // same text.
         $source = (string) file_get_contents(base_path(self::TEMPLATE));
 
         preg_match_all('/(?<![\w-])color\s*:\s*([^;}\s]+)/i', $source, $colours);
@@ -337,9 +490,6 @@ final class CustomerQuotationHtmlTest extends TestCase
         foreach ($colours[1] as $colour) {
             self::assertSame('#000', strtolower($colour), "A text colour of {$colour} is not black.");
         }
-
-        self::assertMatchesRegularExpression('/\bth\b[^{}]*\{[^}]*background(-color)?\s*:\s*#f2f2f2/i', $source, 'The column-title row is not light grey.');
-        self::assertMatchesRegularExpression('/\btd\b[^{}]*\{[^}]*border\s*:[^;]*#d9d9d9/i', $source, 'The table lines are not the darker grey.');
 
         // The page number is text on the page too.
         $html = $this->app->make(CustomerQuotationHtml::class);
@@ -379,7 +529,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         // Installation" on the page is the escaping working, not a defect.
         $text = html_entity_decode($html, ENT_QUOTES | ENT_HTML5);
 
-        foreach (['QT-2026-0001', 'Vegatrone', '5219.30', '10438.60', '34854.10', '37996.98', 'Formatter M428dw', 'Delivery & Installation'] as $shown) {
+        foreach (['QT-2026-0001', 'Vegatrone', '5219.30', '11305.00', '35104.10', '37996.98', 'Formatter M428dw', 'Delivery & Installation'] as $shown) {
             self::assertStringContainsString($shown, $text);
         }
     }
@@ -455,21 +605,18 @@ final class CustomerQuotationHtmlTest extends TestCase
     public function test_that_money_prints_at_two_places_rounded_half_up(): void
     {
         // F-33 · 1.2, D-99. The figures arrive at the scale D-68 stores them —
-        // NUMERIC(18,6) — and the page printed them so: `110.000000`. The
-        // fixture's hand-typed `5219.30` is why no test saw it, so every value
-        // here is at stored scale, and every cell is matched whole: a substring
-        // check finds `110.00` inside `110.000000` and passes the defect.
-        // `100.125000` and `1000.005000` sit on the half: truncation and
-        // half-even would both print `.12` / `.00`, half-up prints `.13` / `.01`.
-        // `-0.125000` is the negative half — a real rounding difference when
-        // an EGP total of `1234.125` rounds to the unit 1: half away from zero
-        // prints `-0.13`, and a half-up toward +∞ would print `-0.12`.
+        // NUMERIC(18,6) — and every cell is matched whole: a substring check
+        // finds `110.00` inside `110.000000` and passes the defect.
+        // `100.125000`, `1000.005000` and `2000.005000` sit on the half:
+        // truncation and half-even would print `.12` / `.00`, half-up prints
+        // `.13` / `.01`. `-0.125000` is the negative half: half away from zero
+        // prints `-0.13`, a half-up toward +∞ would print `-0.12`.
         foreach (['ar', 'en'] as $locale) {
             $html = $this->html(
                 locale: $locale,
-                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000', null, null, null, '100.125000')],
+                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000', 'Pcs', 'قطعة', '1000.005000', '100.125000')],
                 additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.000000')],
-                subtotal: '1000.005000',
+                totalExcludingVat: '2000.005000',
                 discountAmount: '50.000500',
                 taxAmount: '133.994999',
                 roundingDiff: '-0.125000',
@@ -477,16 +624,17 @@ final class CustomerQuotationHtmlTest extends TestCase
             );
 
             foreach ([
-                'unit price' => '<td class="money">110.00</td>',
-                'line total' => '<td class="money">100.13</td>',
-                'subtotal' => '<td class="money">1000.01</td>',
-                'additional item' => '<td class="money">250.00</td>',
-                'discount' => '<td class="money">50.00</td>',
-                'tax' => '<td class="money">133.99</td>',
-                'rounding difference' => '<td class="money">-0.13</td>',
-                'final total' => '<td class="money">695.00 EGP</td>',
-            ] as $figure => $cell) {
-                self::assertStringContainsString($cell, $html, "The {$figure} on the {$locale} page is not at two places, half-up (D-99).");
+                'unit price' => '110.00',
+                'line VAT' => '1000.01',
+                'line total' => '100.13',
+                'additional item' => '250.00',
+                'total excl. VAT' => '2000.01',
+                'discount' => '50.00',
+                'tax' => '133.99',
+                'rounding difference' => '-0.13',
+                'final total' => '695.00 EGP',
+            ] as $figure => $value) {
+                self::assertMatchesRegularExpression('/<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>/', $html, "The {$figure} on the {$locale} page is not at two places, half-up (D-99).");
             }
         }
     }
@@ -495,27 +643,27 @@ final class CustomerQuotationHtmlTest extends TestCase
     {
         // D-99: `1.0000` → `1`, `2.5000` → `2.5`, `14.000` → `14`. Only zeros
         // after a point go: `10.0000` keeps its `10`, and a value with no point
-        // is left alone — `20` is not `2`. The line numbers start at 6 so no
-        // serial cell can pass for a quantity cell.
+        // is left alone — `20` is not `2`. No additional item, whose quantity
+        // `1` would pass for a line's. The lines carry their VAT: a taxed page
+        // refuses a line without one rather than printing a zero.
         foreach (['ar', 'en'] as $locale) {
             $html = $this->html(
                 locale: $locale,
                 lines: [
-                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000', null, null, null, '110.000000'),
-                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000', null, null, null, '275.000000'),
-                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000', null, null, null, '1100.000000'),
-                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000', null, null, null, '2200.000000'),
+                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000', null, null, '14.630000', '124.630000'),
+                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000', null, null, '36.575000', '311.575000'),
+                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000', null, null, '146.300000', '1246.300000'),
+                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000', null, null, '292.600000', '2492.600000'),
                 ],
-                discountPercent: '7.500',
+                additionalItems: [],
                 taxPercent: '14.000',
             );
 
             foreach (['1', '2.5', '10', '20'] as $quantity) {
-                self::assertStringContainsString('<td class="num">'.$quantity.'</td>', $html, "The quantity {$quantity} on the {$locale} page kept its trailing zeros or lost a digit.");
+                self::assertMatchesRegularExpression('/<td[^>]*>\s*—\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($quantity, '/').'\s*<\/td>/', $html, "The quantity {$quantity} on the {$locale} page kept its trailing zeros or lost a digit.");
             }
 
-            self::assertStringContainsString('<td>'.e((string) Lang::get('pdf.totals.discount', ['percent' => '7.5'], $locale)).'</td>', $html, "The {$locale} discount percentage kept its trailing zeros.");
-            self::assertStringContainsString('<td>'.e((string) Lang::get('pdf.totals.tax', ['percent' => '14'], $locale)).'</td>', $html, "The {$locale} tax percentage kept its trailing zeros.");
+            self::assertStringContainsString(e((string) Lang::get('pdf.totals.tax', ['percent' => '14'], $locale)), $html, "The {$locale} tax percentage kept its trailing zeros.");
         }
     }
 
@@ -548,7 +696,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         // `ViewException` that keeps the message.
         $this->expectExceptionMessage('DB-07');
 
-        $this->html(subtotal: '1e5');
+        $this->html(totalExcludingVat: '1e5');
     }
 
     private function html(

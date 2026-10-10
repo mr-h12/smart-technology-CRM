@@ -12,28 +12,28 @@ declare(strict_types=1);
 return [
     'title' => 'Quotation :code',
 
-    // D-100: the heading over the company's name, and the parties block.
-    'heading' => 'Quotation',
+    // D-107: the centred title, and the info block under it.
+    'heading' => 'COMMERCIAL OFFER',
 
-    'header' => [
-        'attention' => 'Att',
-        'subject' => 'Subject',
-    ],
-
-    'parties' => [
-        'prepared_for' => 'Prepared for',
-        'issue_date' => 'Issue date',
-        'valid_until' => 'Valid until',
+    'info' => [
+        'offer_no' => 'Offer No.',
+        'issue_date' => 'Issue Date:',
+        'prepared_for' => 'Prepared For:',
+        'attention' => 'Att.:',
+        // D-104: the stored English title before the name.
+        'attention_name' => ':title :name',
+        'subject' => 'Subject:',
     ],
 
     'intro' => 'We have the pleasure to provide you with the following offer:',
 
     'table' => [
-        'serial' => '#',
-        'item' => 'Description',
-        'unit_price' => 'Unit Price',
+        'description' => 'Description',
+        'unit' => 'Unit',
         'quantity' => 'Qty',
-        'line_total' => 'Total',
+        'unit_price' => 'Unit Price',
+        'vat' => 'VAT',
+        'total' => 'Total',
     ],
 
     'terms' => [
@@ -47,12 +47,9 @@ return [
     ],
 
     'totals' => [
-        'subtotal' => 'Subtotal',
-        'additional' => 'Delivery & Installation',
-        'discount' => 'Discount (:percent%)',
-        'tax_base' => 'Amount before tax',
-        'tax' => 'VAT (:percent%)',
-        'net' => 'Net amount',
+        'excl_vat' => 'Total Amount Excl. VAT',
+        'discount' => 'Discount',
+        'tax' => 'VAT :percent%',
         'rounding' => 'Rounding',
         'final' => 'Total',
     ],
@@ -61,14 +58,21 @@ return [
         'currency' => 'Offer currency: :currency.',
         'term' => ':name: :body',
         'validity' => 'Offer validity: valid until :date.',
+        // D-107: the last term, on a taxed quotation only.
+        'vat_included' => 'The price includes VAT.',
     ],
 
     'footer' => [
         'page' => 'Page :current of :total',
+        // D-107: the company block, always in English.
+        'address' => 'Address:',
+        'tel' => 'Tel:',
+        'email' => 'Email:',
     ],
 
     'closing' => 'Please do not hesitate to contact us in case you have any questions.',
     'regards' => 'Best Regards,',
+    'signature' => 'Sales Signature',
 
     'attributes' => [
         'locale' => 'document language',

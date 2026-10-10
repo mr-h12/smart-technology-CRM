@@ -12,28 +12,28 @@ declare(strict_types=1);
 return [
     'title' => 'عرض سعر :code',
 
-    // D-100: the heading over the company's name, and the parties block.
-    'heading' => 'عرض سعر',
+    // D-107: the centred title, and the info block under it.
+    'heading' => 'عرض تجاري',
 
-    'header' => [
-        'attention' => 'عناية',
-        'subject' => 'الموضوع',
-    ],
-
-    'parties' => [
-        'prepared_for' => 'مقدم إلى',
-        'issue_date' => 'تاريخ الإصدار',
-        'valid_until' => 'صالح حتى',
+    'info' => [
+        'offer_no' => 'رقم العرض:',
+        'issue_date' => 'تاريخ الإصدار:',
+        'prepared_for' => 'مقدم إلى:',
+        'attention' => 'عناية:',
+        // D-104: the fixed «أ.» whatever the stored title.
+        'attention_name' => 'أ. :name',
+        'subject' => 'الموضوع:',
     ],
 
     'intro' => 'يسرّنا أن نتقدم إليكم بعرض الأسعار التالي:',
 
     'table' => [
-        'serial' => '#',
-        'item' => 'الوصف',
-        'unit_price' => 'سعر الوحدة',
+        'description' => 'الوصف',
+        'unit' => 'الوحدة',
         'quantity' => 'الكمية',
-        'line_total' => 'الإجمالي',
+        'unit_price' => 'سعر الوحدة',
+        'vat' => 'الضريبة',
+        'total' => 'الإجمالي',
     ],
 
     'terms' => [
@@ -47,12 +47,9 @@ return [
     ],
 
     'totals' => [
-        'subtotal' => 'الإجمالي قبل الخصم',
-        'additional' => 'التوصيل والتركيب',
-        'discount' => 'الخصم (:percent%)',
-        'tax_base' => 'الوعاء الضريبي',
-        'tax' => 'ضريبة القيمة المضافة (:percent%)',
-        'net' => 'الصافي',
+        'excl_vat' => 'الإجمالي غير شامل الضريبة',
+        'discount' => 'الخصم',
+        'tax' => 'ضريبة القيمة المضافة :percent%',
         'rounding' => 'التقريب',
         'final' => 'الإجمالي النهائي',
     ],
@@ -61,14 +58,21 @@ return [
         'currency' => 'عملة العرض: :currency.',
         'term' => ':name: :body',
         'validity' => 'صلاحية العرض: حتى تاريخ :date.',
+        // D-107: the last term, on a taxed quotation only.
+        'vat_included' => 'السعر يشمل ضريبة القيمة المضافة.',
     ],
 
     'footer' => [
         'page' => 'صفحة :current من :total',
+        // D-107: the company block is English on the Arabic page too.
+        'address' => 'Address:',
+        'tel' => 'Tel:',
+        'email' => 'Email:',
     ],
 
     'closing' => 'يسعدنا تواصلكم معنا لأي استفسار.',
     'regards' => 'مع خالص التحية،',
+    'signature' => 'توقيع المبيعات',
 
     'attributes' => [
         'locale' => 'لغة المستند',

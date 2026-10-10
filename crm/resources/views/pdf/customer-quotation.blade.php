@@ -1,19 +1,21 @@
 {{--
-    F-34 · 1.2 — the customer quotation, laid out as `D-100` approved: the
-    Conta-style quote the owner chose on 2026-10-02, every word black, the
-    column-title row light grey and the table lines a little darker. What is
-    printed and when a line is omitted are still `D-89`'s; the totals are §5's.
+    F-40 · 1.5 — the customer quotation as `D-107`'s *Commercial Offer*. Every
+    size, space and position is the reference HTML's CSS
+    (`prototypes/quotation-client-layout/QT-2026-0003-commercial-offer-{en,ar}.html`),
+    copied, not estimated; where the Arabic reference differs, `$rtl` picks its
+    value. What is printed and when a line is omitted are `D-89`'s and
+    `D-107`'s; the figures are §5's and F-40 · 1.4's.
 
     Every word comes from `lang/{ar,en}/pdf.php` through `$t`, which is bound to
     one locale for the whole render — the document's language is the customer's,
-    not whoever pressed the button. The percentages are placeholders, never part
-    of a label (the defect found against P-01 on 2026-09-13).
+    not whoever pressed the button. The percentage is a placeholder, never part
+    of a label (the defect found against P-01 on 2026-09-13). The footer is
+    English on both pages (`D-107`): the Arabic lang file holds English there.
 
     Nothing here is fetched: the faces and the logo arrive as `data:` URIs from
     `PdfAssetsInterface` (Point 2.2), because the renderer runs on the `pdf`
-    queue with no reason to reach the web. The company's name, address and
-    phones are text from Settings (§14.6); `D-100` removed the footer band that
-    carried them as pixels, and the faded watermark with it.
+    queue with no reason to reach the web. The company's details are text from
+    Settings (§14.6).
 
     The logo carries `alt=""` on purpose: it is decorative here — a PDF has no
     assistive text layer, and the localisation guard is right that an `alt`
@@ -23,9 +25,12 @@
     present-but-empty string (Point 1.1), so `@if` here means "the fact is
     unknown", and a heading over nothing cannot be printed.
 
-    One stylesheet serves both directions: `start`/`end` and the flex rows follow
-    `dir`, so the Arabic page is the English page's mirror (`D-100`).
+    ponytail: the footer closes page one's flow; F-40 · 1.6 moves it to every
+    page and sets the page's top and bottom, which belong to the renderer.
 --}}
+{{-- D-63 / D-107: an exempt quotation prints no VAT column, row or term. --}}
+@php($rtl = $direction === 'rtl')
+@php($taxed = $view->taxPercent !== null && $view->taxAmount !== null)
 <!doctype html>
 <html lang="{{ $locale }}" dir="{{ $direction }}">
 <head>
@@ -39,176 +44,188 @@
            padding here: Chrome clips at the renderer's margins, and a full-width
            table's collapsed border spills half outside its own box. */
         @page { size: A4; }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            padding: 0 25mm;
-            font-family: '{{ $direction === 'rtl' ? 'CRM Sans Arabic' : 'CRM Sans' }}', 'CRM Sans';
-            font-size: 9pt;
-            line-height: 1.4;
+            padding: 0 22mm;
+            font-family: '{{ $rtl ? 'CRM Sans Arabic' : 'CRM Sans' }}', '{{ $rtl ? 'CRM Sans' : 'CRM Sans Arabic' }}';
+            font-size: {{ $rtl ? '11.5pt' : '11pt' }};
+            line-height: 1.45;
             color: #000;
         }
 
-        .label { font-weight: 700; text-transform: uppercase; }
+        .h { font-weight: 700; font-size: 12.5pt; }
 
-        header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10mm; }
-        .logo { width: 50mm; }
-        .company { text-align: end; }
-        .company h1 { margin: 0 0 4mm; font-size: 14pt; font-weight: 700; text-transform: uppercase; }
-        hr { border: 0; border-top: 0.75pt solid #f1f1f1; margin: 6mm 0 7mm; }
+        .logo { width: 75mm; display: block; margin-left: -1.58mm; {{ $rtl ? 'margin-right: auto;' : '' }} }
+        .title { text-align: center; margin-top: 2.14mm; font-size: 14pt; font-weight: 700; }
 
-        .parties { display: flex; justify-content: space-between; gap: 10mm; }
-        .parties .meta { text-align: end; }
-        .parties .meta > div + div { margin-top: 4mm; }
+        .info { margin-top: 8mm; }
+        .info > div + div { margin-top: 1.5mm; }
 
-        .intro { margin: 10mm 0 3mm; }
+        .intro { margin: 12mm 0 4mm; }
 
         table { border-collapse: collapse; }
-        table.items { width: 100%; }
-        table.items th, table.items td { border: 0.75pt solid #d9d9d9; padding: 2.4mm 2.2mm; vertical-align: top; }
-        table.items th { background: #f2f2f2; font-weight: 700; text-align: start; padding-top: 4.5mm; padding-bottom: 4.5mm; }
-        table.items .serial { width: 1%; }
-        table.items .description { width: 46%; }
-        table.items .money { text-align: end; white-space: nowrap; }
-        table.items .num { text-align: center; font-weight: 700; }
+        .items { width: 100%; }
+        .items th, .items td { border: 0.75pt solid #bfbfbf; padding: {{ $rtl ? '2.4mm 1.4mm' : '2.4mm 2mm' }}; text-align: center; vertical-align: middle; }
+        .items th { background: #f2f2f2; white-space: nowrap; }
+        .items .desc { width: 52%; }
+        .items td.desc { text-align: start; }
         /* A row that splits across a page break is the defect D-79 carried
-           forward as the one-page guard; the table may run on, a row may not. */
-        table.items tr { break-inside: avoid; page-break-inside: avoid; }
-        table.items thead { display: table-header-group; }
+           forward; the table may run on, a row may not, and its header repeats. */
+        .items tr { break-inside: avoid; page-break-inside: avoid; }
+        .items thead { display: table-header-group; }
 
-        .below { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; margin-top: 7mm; }
-        .terms p { margin: 0; }
-        table.totals { flex-shrink: 0; }
-        table.totals td { padding: 1.6mm 0; padding-inline-start: 8mm; text-align: end; font-size: 7.5pt; text-transform: uppercase; white-space: nowrap; }
-        table.totals tr.final td { padding-top: 4mm; font-size: 10pt; font-weight: 700; }
-        table.totals tr.final td.money { font-size: 12pt; }
+        .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; }
+        .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: 10.5pt; }
+        .totals td.h { font-size: 11pt; }
+        .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; }
 
-        .closing { margin-top: 9mm; }
-        .closing .regards { margin-top: 4mm; }
-        .closing .signatory { margin-top: 1mm; font-weight: 700; }
+        .terms { margin-top: 6mm; }
+        .terms ol { margin: 3mm 0 0; {{ $rtl ? 'padding-right: 6mm;' : 'padding-left: 6mm;' }} }
+
+        .contact { margin-top: {{ $rtl ? '10.9mm' : '10.6mm' }}; }
+        .closing { display: flex; justify-content: space-between; align-items: flex-start; margin: {{ $rtl ? '-2.9mm 0 0.5mm' : '-2.6mm 0 3.7mm' }}; }
+        .closing > div:first-child { padding-top: {{ $rtl ? '11.75mm' : '11.55mm' }}; }
+        .closing .name { margin-top: 1mm; }
+        .closing .name, .closing .role { {{ $rtl ? 'margin-right: 1.27mm' : 'margin-left: 1.4mm' }}; }
+        .sign { width: 60mm; text-align: center; }
+        .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
+        .sign .h { margin-top: 1.5mm; }
+
+        footer { margin-top: auto; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-family: 'CRM Sans'; font-size: 8.5pt; line-height: 1.6; }
+        footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
+        footer .k { display: inline-block; width: 16mm; font-weight: 700; }
     </style>
 </head>
 <body>
 
-<header>
-    <img class="logo" src="{{ $logo }}" alt="">
-    <div class="company">
-        <h1>{{ $t('heading') }}</h1>
-        <div class="label">{{ $view->companyName }}</div>
-        @if ($view->companyAddress !== null)
-            <div id="company-address">{{ $isolate($view->companyAddress) }}</div>
-        @endif
-        @if ($view->companyPhones !== null)
-            <div id="company-phones">{{ $isolate($view->companyPhones) }}</div>
-        @endif
-    </div>
-</header>
+<img class="logo" src="{{ $logo }}" alt="">
 
-<hr>
+<div class="title">{{ $t('heading') }}</div>
 
-<div class="parties">
-    <div>
-        <div class="label">{{ $t('parties.prepared_for') }}</div>
-        <div>{{ $view->customerName }}</div>
-        @if ($view->customerContact !== null)
-            <div id="contact-line">{{ $t('header.attention') }}: {{ $view->customerContact }}</div>
-        @endif
-    </div>
-    <div class="meta">
-        @if ($view->subject !== null)
-            <div id="subject-line"><div class="label">{{ $t('header.subject') }}</div>{{ $view->subject }}</div>
-        @endif
-        @if ($view->quotationDate !== null)
-            <div id="issue-date"><div class="label">{{ $t('parties.issue_date') }}</div>{{ $ltr($view->quotationDate) }}</div>
-        @endif
-        @if ($view->validUntil !== null)
-            <div id="valid-until-line"><div class="label">{{ $t('parties.valid_until') }}</div>{{ $ltr($view->validUntil) }}</div>
-        @endif
-    </div>
+<div class="info">
+    <div><span class="h">{{ $t('info.offer_no') }}</span> {{ $ltr($view->code) }}</div>
+    @if ($view->quotationDate !== null)
+        <div id="issue-date"><span class="h">{{ $t('info.issue_date') }}</span> {{ $ltr($view->quotationDate) }}</div>
+    @endif
+    <div><span class="h">{{ $t('info.prepared_for') }}</span> {{ $view->customerName }}</div>
+    @if ($view->customerContact !== null)
+        <div id="contact-line"><span class="h">{{ $t('info.attention') }}</span>
+            {{ $view->customerContactTitle === null ? $view->customerContact : $t('info.attention_name', ['title' => $view->customerContactTitle, 'name' => $view->customerContact]) }}
+        </div>
+    @endif
+    @if ($view->subject !== null)
+        <div id="subject-line"><span class="h">{{ $t('info.subject') }}</span> {{ $view->subject }}</div>
+    @endif
 </div>
 
 <p class="intro">{{ $t('intro') }}</p>
 
 <table class="items">
-    <thead>
+    <thead class="h">
     <tr>
-        <th class="serial">{{ $t('table.serial') }}</th>
-        <th class="description">{{ $t('table.item') }}</th>
-        <th class="money">{{ $t('table.unit_price') }}</th>
-        <th class="num">{{ $t('table.quantity') }}</th>
-        <th class="money">{{ $t('table.line_total') }}</th>
+        <th class="desc">{{ $t('table.description') }}</th>
+        <th>{{ $t('table.unit') }}</th>
+        <th>{{ $t('table.quantity') }}</th>
+        <th>{{ $t('table.unit_price') }}</th>
+        @if ($taxed)
+            <th>{{ $t('table.vat') }}</th>
+        @endif
+        <th>{{ $t('table.total') }}</th>
     </tr>
     </thead>
     <tbody>
     @foreach ($view->lines as $line)
         <tr>
-            <td class="serial">{{ $line->lineNo }}</td>
-            <td>{{ $line->description }}</td>
-            <td class="money">{{ $money($line->unitPrice) }}</td>
-            <td class="num">{{ $plain($line->quantity) }}</td>
-            <td class="money">{{ $money($line->lineTotal) }}</td>
+            <td class="desc">{{ $line->description }}</td>
+            <td>{{ ($rtl ? $line->unitAr : $line->unitEn) ?? '—' }}</td>
+            <td>{{ $plain($line->quantity) }}</td>
+            <td>{{ $money($line->unitPrice) }}</td>
+            @if ($taxed)
+                <td>{{ $money($line->vatAmount) }}</td>
+            @endif
+            <td>{{ $money($line->total) }}</td>
+        </tr>
+    @endforeach
+    {{-- D-107: an additional item is a row — no unit, one of it, untaxed (D-62). --}}
+    @foreach ($view->additionalItems as $additional)
+        <tr>
+            <td class="desc">{{ $additional->description }}</td>
+            <td>—</td>
+            <td>1</td>
+            <td>{{ $money($additional->amount) }}</td>
+            @if ($taxed)
+                <td>{{ $money('0') }}</td>
+            @endif
+            <td>{{ $money($additional->amount) }}</td>
         </tr>
     @endforeach
     </tbody>
 </table>
 
-<div class="below">
-    <div class="terms">
-        <div class="label">{{ $t('terms.heading') }}</div>
-        {{-- D-103: numbered plain lines, never <li> (D-100). Latin digits in both
-             languages, the number bare so it takes the line's direction (the
-             owner, 2026-10-08). A term with no name prints the PDF's label. --}}
-        <p>1. {{ $t('conditions.currency', ['currency' => $view->currencyCode]) }}</p>
+<table class="totals">
+    <tr><td class="h">{{ $t('totals.excl_vat') }}</td><td>{{ $money($view->totalExcludingVat) }}</td></tr>
+    <tr><td class="h">{{ $t('totals.discount') }}</td><td>{{ $money($view->discountAmount) }}</td></tr>
+    @if ($taxed)
+        <tr id="tax-row"><td class="h">{{ $t('totals.tax', ['percent' => $plain($view->taxPercent)]) }}</td><td>{{ $money($view->taxAmount) }}</td></tr>
+    @endif
+    {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. --}}
+    @if ($money($view->roundingDiff) !== '0.00')
+        <tr id="rounding-row"><td class="h">{{ $t('totals.rounding') }}</td><td>{{ $money($view->roundingDiff) }}</td></tr>
+    @endif
+    <tr class="final"><td class="h">{{ $t('totals.final') }}</td><td>{{ $money($view->finalTotal) }} {{ $view->currencyCode }}</td></tr>
+</table>
+
+<div class="terms">
+    <div class="h">{{ $t('terms.heading') }}</div>
+    {{-- D-103's order, then D-107's VAT line; the numbers are the list's own,
+         Latin in both languages, as the reference HTML draws them. A term with
+         no name prints the PDF's label. --}}
+    <ol>
+        <li>{{ $t('conditions.currency', ['currency' => $view->currencyCode]) }}</li>
         @foreach ($view->terms as $term)
-            <p>{{ $loop->iteration + 1 }}. {{ $t('conditions.term', ['name' => $term->title ?? $t('terms.labels.'.$term->key), 'body' => $term->body]) }}</p>
+            <li>{{ $t('conditions.term', ['name' => $term->title ?? $t('terms.labels.'.$term->key), 'body' => $term->body]) }}</li>
         @endforeach
         @if ($view->validUntil !== null)
-            <p id="validity">{{ count($view->terms) + 2 }}. {{ $t('conditions.validity', ['date' => $ltr($view->validUntil)]) }}</p>
+            <li id="validity">{{ $t('conditions.validity', ['date' => $ltr($view->validUntil)]) }}</li>
         @endif
-    </div>
-
-    <table class="totals">
-        <tr>
-            <td>{{ $t('totals.subtotal') }}</td>
-            <td class="money">{{ $money($view->subtotal) }}</td>
-        </tr>
-        @foreach ($view->additionalItems as $additional)
-            <tr>
-                <td>{{ $additional->description }}</td>
-                <td class="money">{{ $money($additional->amount) }}</td>
-            </tr>
-        @endforeach
-        <tr>
-            <td>{{ $t('totals.discount', ['percent' => $plain($view->discountPercent)]) }}</td>
-            <td class="money">{{ $money($view->discountAmount) }}</td>
-        </tr>
-        {{-- D-63: an exempt quotation renders no tax line at all, not a zero one. --}}
-        @if ($view->taxPercent !== null && $view->taxAmount !== null)
-            <tr id="tax-row">
-                <td>{{ $t('totals.tax', ['percent' => $plain($view->taxPercent)]) }}</td>
-                <td class="money">{{ $money($view->taxAmount) }}</td>
-            </tr>
+        @if ($taxed)
+            <li id="vat-included">{{ $t('conditions.vat_included') }}</li>
         @endif
-        {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. --}}
-        @if ($money($view->roundingDiff) !== '0.00')
-            <tr id="rounding-row">
-                <td>{{ $t('totals.rounding') }}</td>
-                <td class="money">{{ $money($view->roundingDiff) }}</td>
-            </tr>
-        @endif
-        <tr class="final">
-            <td>{{ $t('totals.final') }}</td>
-            <td class="money">{{ $money($view->finalTotal) }} {{ $view->currencyCode }}</td>
-        </tr>
-    </table>
+    </ol>
 </div>
+
+<div class="contact">{{ $t('closing') }}</div>
 
 <div class="closing">
-    <div>{{ $t('closing') }}</div>
-    <div class="regards">{{ $t('regards') }}</div>
-    @if ($view->signatoryName !== null)
-        <div id="signatory" class="signatory">{{ $view->signatoryName }}</div>
-    @endif
+    <div>
+        <div>{{ $t('regards') }}</div>
+        @if ($view->signatoryName !== null)
+            <div id="signatory" class="name">{{ $view->signatoryName }}</div>
+        @endif
+        @php($signatoryTitle = $rtl ? $view->signatoryTitleAr : $view->signatoryTitleEn)
+        @if ($signatoryTitle !== null)
+            <div id="signatory-title" class="role">{{ $signatoryTitle }}</div>
+        @endif
+    </div>
+    <div class="sign">
+        <div class="line"></div>
+        <div class="h">{{ $t('signature') }}</div>
+    </div>
 </div>
+
+<footer dir="ltr" lang="en">
+    <div class="co">{{ $view->companyName }}</div>
+    @if ($view->companyAddress !== null)
+        <div id="company-address"><span class="k">{{ $t('footer.address') }}</span>{{ $isolate($view->companyAddress) }}</div>
+    @endif
+    @if ($view->companyPhones !== null)
+        <div id="company-phones"><span class="k">{{ $t('footer.tel') }}</span>{{ $isolate($view->companyPhones) }}</div>
+    @endif
+    @if ($view->companyEmail !== null)
+        <div id="company-email"><span class="k">{{ $t('footer.email') }}</span>{{ $view->companyEmail }}</div>
+    @endif
+</footer>
 </body>
 </html>

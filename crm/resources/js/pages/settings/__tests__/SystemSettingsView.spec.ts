@@ -134,7 +134,7 @@ describe('SystemSettingsView', () => {
         expect(view.find('[data-testid="loading-state"]').exists()).toBe(true);
     });
 
-    it('renders the eight fields the API exposes, and no more', async () => {
+    it('renders the nine fields the API exposes, and no more', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
         const view = await render();
@@ -144,6 +144,7 @@ describe('SystemSettingsView', () => {
 
         expect(fields.map((f) => f.attributes('data-setting-key')).sort()).toEqual([
             'company.address',
+            'company.email',
             'company.name',
             'company.phones',
             'defaults.currency',
@@ -152,6 +153,17 @@ describe('SystemSettingsView', () => {
             'locale.language',
             'locale.timezone',
         ]);
+    });
+
+    // D-107: the customer PDF's footer prints the company's e-mail from here.
+    // Its hint is checked with every other field's in 'gives every field an explanation'.
+    it('labels the company e-mail field, not with a raw key', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
+
+        const view = await render();
+        await flushPromises();
+
+        expect(view.get('[data-setting-key="company.email"]').text()).toContain(en.settings.field.company_email);
     });
 
     it('does not render a control for the logo or the templates', async () => {
@@ -488,7 +500,7 @@ describe('SystemSettingsView', () => {
 
         const fields = view.findAll('[data-setting-key]');
 
-        expect(fields).toHaveLength(8);
+        expect(fields).toHaveLength(9);
 
         const hints: Record<string, string> = en.settings.hint;
 

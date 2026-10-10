@@ -50,6 +50,7 @@ export const SETTING_KEYS = [
     'company.name',
     'company.address',
     'company.phones',
+    'company.email',
     'defaults.currency',
     'defaults.tax_percent',
     'locale.language',

@@ -30,6 +30,7 @@ return [
             'company_name' => 'اسم الشركة',
             'company_address' => 'العنوان',
             'company_phones' => 'أرقام الهاتف',
+            'company_email' => 'البريد الإلكتروني للشركة',
             'defaults_currency' => 'العملة الافتراضيّة',
             'defaults_tax_percent' => 'الضريبة الافتراضيّة',
             'locale_language' => 'اللغة',

@@ -35,6 +35,7 @@ return [
             'company_name' => 'company name',
             'company_address' => 'address',
             'company_phones' => 'phone numbers',
+            'company_email' => 'company e-mail',
             'defaults_currency' => 'default currency',
             'defaults_tax_percent' => 'default tax',
             'locale_language' => 'language',

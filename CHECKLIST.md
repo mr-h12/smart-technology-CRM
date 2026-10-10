@@ -3978,6 +3978,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       `D-107`. Replaces F-34 · 1.3.
       - [x] **1.1** `D-107` in §2 (proposed); `D-89`, `D-100` and `OD-02` pointed to it; F-34 · 1.3
             marked superseded; + this list. Docs only.
+            *(2026-10-10, #297 — the references are byte-identical to the prototypes, so D-107 cites their CSS)*
       - [ ] **1.2** A `company.email` setting: the `SystemSetting` key, `email` validation, the seeder,
             the Admin settings field and its labels. Failing test first.
       - [ ] **1.3** The user's job title: a migration adding nullable `job_title_en` / `job_title_ar` to

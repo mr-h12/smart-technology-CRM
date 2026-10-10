@@ -3874,8 +3874,15 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             the pricing review: a flagged amount that is not decimal text (a JSON float, `1e3`) and a
             setting that is no percent (`-100`, `1e2`, `1000`) are each a 422, not a 500.
             *(2026-10-09, #294 — 114 entered at 14% is stored as 100; the edit keeps the captured rate)*
-      - [ ] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
+      - [x] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
             net shown beside each price and the total, the entered amounts on edit; ar and en.
+            The owner's rulings of 2026-10-10 while opening it: (a) the flag is locked while an edit's
+            lines are unread, because `items` is omitted then and a flag sent alone is 1.3's bare
+            toggle; (b) the net is the server's, shown on edit only and hidden beside an amount retyped
+            since the read; the form computes none (`D-67`). After the pricing review: ticking or
+            unticking an existing offer re-reads the amounts on screen with no warning, as `D-105`
+            words it; accepted, no help text.
+            *(2026-10-10, #295 — an edit opens 4560 entered with «الصافي قبل الضريبة: 4000.000» beside it)*
       - [x] **1.5** ~~The quotation builder's line-margin field~~ — folded into 1.2 (owner, 2026-10-09).
       - [ ] **1.6** The Arabic manual test list.
 

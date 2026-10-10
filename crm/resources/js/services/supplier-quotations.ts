@@ -46,6 +46,10 @@ export interface SupplierQuotation {
     offer_date: string | null;
     valid_until: string | null;
     notes: string | null;
+    /** D-105: when true, `total_price` is the net and `entered_total_price` what was typed. */
+    prices_include_tax: boolean;
+    included_tax_percent: string | null;
+    entered_total_price: string | null;
 }
 
 /** A line as the detail returns it. `id` is what a customer quotation's line points at (`supplier_quotation_item_id`, Module 7). */
@@ -55,6 +59,8 @@ export interface SupplierQuotationLine {
     /** D-93 (F-18 · 1.2): §7.3's label for the item — its `name`, or a service's `service_type`. */
     product_name: string | null;
     unit_price: string;
+    /** D-105: the price as typed when the offer is tax-inclusive; `unit_price` is then its net. */
+    entered_unit_price: string | null;
     /** The supplier's original offer — never edited by consumption (D-81). */
     quantity: string;
     /** D-81: what accepted quotations drew down, and what is left (`quantity − consumed_quantity`, computed server-side). */
@@ -115,6 +121,8 @@ export interface SupplierQuotationDraft {
     offer_date?: string | null;
     valid_until?: string | null;
     notes?: string | null;
+    /** D-105: the amounts below are sent as typed; the server strips the tax. */
+    prices_include_tax?: boolean;
     items?: SupplierQuotationLineDraft[];
 }
 

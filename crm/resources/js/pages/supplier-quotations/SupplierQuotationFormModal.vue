@@ -76,15 +76,16 @@ const emit = defineEmits<{ saved: [SupplierQuotation]; cancel: [] }>();
 const { t } = useI18n();
 
 /** The fields a server refusal can name, which are the inputs this form has. */
-const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'total_price', 'currency_id'] as const;
+const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'total_price', 'currency_id', 'prices_include_tax'] as const;
 
 type Field = (typeof FIELDS)[number];
 
-type Values = Record<Field, string>;
+/** D-105's flag is the one box that is not text. */
+type Values = Record<Exclude<Field, 'prices_include_tax'>, string> & { prices_include_tax: boolean };
 
 /** "" is "not given" for every one of them; `draft()` turns that into `null`. */
 function blank(): Values {
-    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '', total_price: '', currency_id: '' };
+    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '', total_price: '', currency_id: '', prices_include_tax: false };
 }
 
 const values = ref<Values>(blank());
@@ -120,6 +121,12 @@ interface LineValues extends Record<LineField, string> {
      * `items()` never sends it back.
      */
     balance?: { recorded: string; consumed: string; available: string };
+    /**
+     * D-105, read-only: the server's net, and the price it was stripped from.
+     * Shown only while `unit_price` still equals `of` — the form never
+     * computes a net (`D-67`), so a retyped price has none until it is saved.
+     */
+    net?: { of: string; is: string };
     /**
      * D-93 (F-18 · 1.2), never sent: the picked item's name, which the picker
      * shows, `''` until one is picked. It lives on the line because the rows
@@ -192,6 +199,15 @@ const attachmentErrorKey = ref<string | null>(null);
 const attachmentError = ref<string | null>(null);
 
 const isEdit = computed(() => props.editing !== null);
+
+/** D-105: the server's net for the total, while the flag and the total are as opened. */
+const totalNet = computed(() => {
+    const record = props.editing;
+
+    return record?.prices_include_tax === true && values.value.prices_include_tax && values.value.total_price === opened.value.total_price
+        ? displayDecimals(record.total_price)
+        : null;
+});
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
     || JSON.stringify(lines.value) !== openedLines.value);
@@ -321,8 +337,10 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
         next.offer_date = record.offer_date ?? '';
         next.valid_until = record.valid_until ?? '';
         next.notes = record.notes ?? '';
-        // Strings as sent (`4500.000000`), never parsed: DB-07.
-        next.total_price = record.total_price ?? '';
+        // Strings as sent (`4500.000000`), never parsed: DB-07. D-105: the
+        // amount as entered, so a re-save strips from it, never twice.
+        next.total_price = (record.prices_include_tax ? record.entered_total_price : record.total_price) ?? '';
+        next.prices_include_tax = record.prices_include_tax;
         next.currency_id = record.currency_id ?? '';
     }
 
@@ -389,7 +407,8 @@ async function loadLines(record: SupplierQuotation | null): Promise<void> {
             ...blankLine(),
             catalog_item_id: line.catalog_item_id,
             label: line.product_name ?? '',
-            unit_price: line.unit_price,
+            unit_price: line.entered_unit_price ?? line.unit_price,
+            ...(line.entered_unit_price === null ? {} : { net: { of: line.entered_unit_price, is: displayDecimals(line.unit_price) } }),
             quantity: line.quantity,
             balance: { recorded: displayDecimals(line.quantity), consumed: displayDecimals(line.consumed_quantity), available: displayDecimals(line.available_quantity) },
         }));
@@ -495,6 +514,9 @@ function draft(): SupplierQuotationDraft {
         notes: notes === '' ? null : notes,
         total_price: total === '' ? null : total,
         currency_id: current.currency_id === '' ? null : current.currency_id,
+        // Always named, with every amount beside it: a bare flag would leave
+        // the stored amounts meaning something else (F-39 · 1.3's debt row).
+        prices_include_tax: current.prices_include_tax,
     };
 
     // The whole reason `linesState` exists. `items: []` from an editor that
@@ -714,6 +736,31 @@ function discard(): void {
                 </span>
             </label>
 
+            <!-- D-105: one flag for the whole offer. Locked until the lines are
+                 read: `draft()` omits `items` without them, and a flag sent alone
+                 would leave the stored prices meaning something else. -->
+            <div class="flex flex-col gap-1.5">
+                <label class="flex min-h-11 items-center gap-2" :for="fieldId('prices_include_tax')">
+                    <input
+                        :id="fieldId('prices_include_tax')"
+                        v-model="values.prices_include_tax"
+                        type="checkbox"
+                        :disabled="saving || linesState !== 'ready'"
+                        :aria-invalid="errorFor('prices_include_tax') !== null"
+                        class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:opacity-40"
+                        :data-testid="testId('prices_include_tax')"
+                    />
+                    <span :data-testid="`${testId('prices_include_tax')}-label`">{{ t('supplierQuotations.form.pricesIncludeTax') }}</span>
+                </label>
+                <span
+                    v-if="errorFor('prices_include_tax') !== null"
+                    class="text-[var(--color-danger)]"
+                    data-testid="supplier-quotation-form-prices-include-tax-error"
+                >
+                    {{ errorFor('prices_include_tax') }}
+                </span>
+            </div>
+
             <!-- §7.2's total and currency — one pair; the server says when one
                  is missing (`required_with`). `inputmode`, not `type="number"`:
                  the value is a decimal string at `D-68`'s scale (`DB-07`). -->
@@ -731,6 +778,13 @@ function discard(): void {
                         class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                         :data-testid="testId('total_price')"
                     />
+                    <span
+                        v-if="totalNet !== null"
+                        class="text-[var(--color-text-muted)] tabular-nums"
+                        data-testid="supplier-quotation-form-total-price-net"
+                    >
+                        {{ t('supplierQuotations.form.net', { amount: totalNet }) }}
+                    </span>
                     <span
                         v-if="errorFor('total_price') !== null"
                         class="text-[var(--color-danger)]"
@@ -954,6 +1008,13 @@ function discard(): void {
                         :data-testid="lineTestId(index, 'quantity-error')"
                     >
                         {{ lineErrorFor(index, 'quantity') }}
+                    </p>
+                    <p
+                        v-if="values.prices_include_tax && line.net !== undefined && line.unit_price === line.net.of"
+                        class="basis-full text-[var(--color-text-muted)] tabular-nums"
+                        :data-testid="lineTestId(index, 'unit-price-net')"
+                    >
+                        {{ t('supplierQuotations.form.net', { amount: line.net.is }) }}
                     </p>
                     <!-- D-81: the balance the accepted quotations left, beside the offer that is edited above. -->
                     <p

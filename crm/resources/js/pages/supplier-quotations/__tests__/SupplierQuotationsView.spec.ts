@@ -56,6 +56,10 @@ const OFFER = {
     offer_date: '2026-09-01',
     valid_until: null,
     notes: null,
+    // F-39 · 1.3 (D-105): every summary carries the flag, the captured rate and the total as entered.
+    prices_include_tax: false,
+    included_tax_percent: null,
+    entered_total_price: null,
 };
 
 const CURRENCY = { id: 'c1', code: 'EGP', rounding_unit: '1', rounding_enabled: true, is_base: true };
@@ -132,7 +136,7 @@ const OFFER_LINES = [{ catalog_item_id: 'ci1', unit_price: '1500.000000', quanti
  * The same lines as the detail publishes them — with F-05's balance (D-81) and
  * F-18 · 1.2's `product_name` (D-93), neither of which the editor sends back.
  */
-const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, product_name: 'Cable 2.5mm', consumed_quantity: '1.0000', available_quantity: '2.0000' }));
+const OFFER_DETAIL_LINES = OFFER_LINES.map((line) => ({ ...line, entered_unit_price: null, product_name: 'Cable 2.5mm', consumed_quantity: '1.0000', available_quantity: '2.0000' }));
 
 /** A `GET /supplier-quotations/{id}`, which a `PATCH` to the same path is not. */
 function isDetailRead(input: string, init?: RequestInit): boolean {
@@ -686,6 +690,8 @@ describe('the supplier quotation form', () => {
             // A string, never a number: DB-07 through JSON.
             total_price: '4500',
             currency_id: 'c1',
+            // F-39 · 1.4: always named, so a save never leaves the flag to the stored row.
+            prices_include_tax: false,
             // Point 6.4: a create always states its line set, and `forCreate()`
             // folds absent and `[]` together anyway. Still no `code`.
             items: [],
@@ -1496,6 +1502,223 @@ describe('the supplier quotation line editor', () => {
         expect(view.get('[data-testid="supplier-quotation-line-0-quantity-error"]').text())
             .toBe('The quantity must be above zero.');
         // A named field means no generic banner — the sentence is already on the control.
+        expect(view.find('[data-testid="supplier-quotation-form-error"]').exists()).toBe(false);
+    });
+});
+
+/**
+ * F-39 · 1.4 — `D-105` on the form: one flag for the whole offer.
+ *
+ * The server strips the tax (F-39 · 1.3); this form only sends the flag with
+ * every amount as typed, and shows the server's net. It never computes one
+ * (`D-67`), so a create shows no net, and a net beside an amount retyped since
+ * the read is hidden rather than left stale (the owner's ruling, 2026-10-10).
+ */
+const TAXED = {
+    ...OFFER,
+    total_price: '4000.000000',
+    prices_include_tax: true,
+    included_tax_percent: '14.000',
+    entered_total_price: '4560.000000',
+};
+
+const TAXED_DETAIL = {
+    ...TAXED,
+    items: [{ ...OFFER_DETAIL_LINES[0], unit_price: '1500.000000', entered_unit_price: '1710.000000' }],
+};
+
+describe('the tax-inclusive supplier quotation (D-105)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('labels the flag «السعر شامل الضريبة» / Prices include tax', async () => {
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-form-prices-include-tax-label"]').text()).toBe('Prices include tax');
+        expect(ar.supplierQuotations.form.pricesIncludeTax).toBe('السعر شامل الضريبة');
+    });
+
+    it('sends the ticked flag with the total and every line as typed', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await flushPromises();
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').setValue(true);
+        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('4560');
+        await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
+        await pickProduct(view, 0);
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('1710');
+        await view.get('[data-testid="supplier-quotation-line-0-quantity"]').setValue('1');
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const sent = sentBody(fetchMock, 'POST');
+
+        expect(sent.prices_include_tax).toBe(true);
+        expect(sent.total_price).toBe('4560');
+        expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710', quantity: '1' }]);
+    });
+
+    it('opens a tax-inclusive offer with its entered amounts, the server\'s net beside each, and sends them back', async () => {
+        const fetchMock = respond([TAXED], 200, TAXED_DETAIL);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).checked).toBe(true);
+        expect((view.get('[data-testid="supplier-quotation-form-total-price"]').element as HTMLInputElement).value).toBe('4560.000000');
+        expect((view.get('[data-testid="supplier-quotation-line-0-unit-price"]').element as HTMLInputElement).value).toBe('1710.000000');
+        // D-82: cut after the third decimal, like every other figure on this form.
+        expect(view.get('[data-testid="supplier-quotation-form-total-price-net"]').text()).toContain('4000.000');
+        expect(view.get('[data-testid="supplier-quotation-line-0-unit-price-net"]').text()).toContain('1500.000');
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        const sent = sentBody(fetchMock, 'PATCH');
+
+        // Re-sent as entered with the flag, so the server strips once, from the entered amount.
+        expect(sent.prices_include_tax).toBe(true);
+        expect(sent.total_price).toBe('4560.000000');
+        expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710.000000', quantity: '3.000' }]);
+    });
+
+    it('shows no net on an offer entered without tax, and saves it unflagged', async () => {
+        const fetchMock = respond();
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).checked).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-form-total-price-net"]').exists()).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-line-0-unit-price-net"]').exists()).toBe(false);
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBody(fetchMock, 'PATCH').prices_include_tax).toBe(false);
+    });
+
+    it('hides a net once its amount is retyped, never showing a stale one', async () => {
+        const view = await render(respond([TAXED], 200, TAXED_DETAIL));
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('5000');
+
+        expect(view.find('[data-testid="supplier-quotation-form-total-price-net"]').exists()).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-line-0-unit-price-net"]').exists()).toBe(true);
+
+        await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('2000');
+
+        expect(view.find('[data-testid="supplier-quotation-line-0-unit-price-net"]').exists()).toBe(false);
+    });
+
+    it('hides the nets once the flag is unticked, and sends the amounts as typed without it', async () => {
+        const fetchMock = respond([TAXED], 200, TAXED_DETAIL);
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').setValue(false);
+
+        expect(view.find('[data-testid="supplier-quotation-form-total-price-net"]').exists()).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-line-0-unit-price-net"]').exists()).toBe(false);
+
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        // The amounts on screen go with the flag that is ticked: unticked, they are taken as typed.
+        const sent = sentBody(fetchMock, 'PATCH');
+
+        expect(sent.prices_include_tax).toBe(false);
+        expect(sent.total_price).toBe('4560.000000');
+        expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710.000000', quantity: '3.000' }]);
+    });
+
+    /**
+     * The owner's ruling (a), 2026-10-10: `items` is omitted while the lines
+     * are unread, and a flag sent without them is the bare toggle F-39 · 1.3
+     * left as debt — the stored lines would keep their old meaning.
+     */
+    it('locks the flag while the offer\'s lines are loading or could not be read', async () => {
+        const loading = await render(respond([TAXED], 200, TAXED_DETAIL));
+
+        // Not flushed: the frame before the detail read resolves.
+        await loading.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        expect((loading.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).disabled).toBe(true);
+
+        await flushPromises();
+        expect((loading.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).disabled).toBe(false);
+
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (isDetailRead(String(input), init)) {
+                return json(500, { error: { code: 'server_error', message: 'no' }, meta: { request_id: 'r1' } });
+            }
+
+            return json(200, envelope([TAXED], { pagination: PAGINATION }));
+        });
+        const unread = await render(fetchMock);
+
+        await unread.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+
+        expect((unread.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).disabled).toBe(true);
+
+        await unread.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        // The stored flag and the entered total, as they were; the lines left alone.
+        const sent = sentBody(fetchMock, 'PATCH');
+
+        expect(sent.prices_include_tax).toBe(true);
+        expect(sent.total_price).toBe('4560.000000');
+        expect(Object.keys(sent)).not.toContain('items');
+    });
+
+    /** `IncludedTaxRate::current()` names `prices_include_tax` when `defaults.tax_percent` is unusable. */
+    it('shows the no-tax-rate refusal under the flag', async () => {
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+            if (String(input).includes('/suppliers')) {
+                return json(200, envelope([SUPPLIER], { pagination: { ...PAGINATION, per_page: 100 } }));
+            }
+
+            if (init?.method === 'POST') {
+                return json(422, {
+                    error: {
+                        code: 'validation_failed',
+                        message: 'no',
+                        details: [{ field: 'prices_include_tax', message: 'No tax rate is set.' }],
+                    },
+                    meta: { request_id: 'r1' },
+                });
+            }
+
+            return json(200, envelope([OFFER], { pagination: PAGINATION }));
+        });
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-create"]').trigger('click');
+        await pickSupplier(view);
+        await view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').setValue(true);
+        await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-form-prices-include-tax-error"]').text()).toBe('No tax rate is set.');
         expect(view.find('[data-testid="supplier-quotation-form-error"]').exists()).toBe(false);
     });
 });

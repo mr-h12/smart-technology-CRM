@@ -924,6 +924,8 @@
             "unsavedChanges": "This form has changes that were not saved.",
             "keepEditing": "Keep editing",
             "discard": "Discard changes",
+            "pricesIncludeTax": "Prices include tax",
+            "net": "Net before tax: {amount}",
             "totalPrice": "Total",
             "currency": "Currency",
             "currencyNone": "Choose a currency"

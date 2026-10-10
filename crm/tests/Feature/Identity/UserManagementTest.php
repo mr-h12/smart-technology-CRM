@@ -575,6 +575,154 @@ final class UserManagementTest extends TestCase
         self::assertStringContainsString('Test Indoor Sales', $serialised, 'AUD-02: the old value is missing.');
     }
 
+    // ── F-40 · 1.3: the job title (`D-107` ruling 2) ────────────────────────
+
+    /** @return array<string, mixed> */
+    private static function decoded(mixed $json): array
+    {
+        self::assertIsString($json);
+        $values = json_decode($json, true);
+        self::assertIsArray($values);
+        // `audit_log` is jsonb, which stores keys in its own order.
+        ksort($values);
+
+        /** @var array<string, mixed> $values */
+        return $values;
+    }
+
+    /** @return array{job_title_en: mixed, job_title_ar: mixed} */
+    private static function storedJobTitle(string $userId): array
+    {
+        $row = (array) DB::table('users')->where('id', $userId)->first(['job_title_en', 'job_title_ar']);
+
+        return ['job_title_en' => $row['job_title_en'] ?? null, 'job_title_ar' => $row['job_title_ar'] ?? null];
+    }
+
+    public function test_a_manager_sets_a_job_title_and_the_change_is_audited(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($manager))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, [
+                'job_title_en' => 'Sales Manager',
+                'job_title_ar' => 'مدير المبيعات',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.job_title_en', 'Sales Manager')
+            ->assertJsonPath('data.job_title_ar', 'مدير المبيعات');
+
+        self::assertSame(
+            ['job_title_en' => 'Sales Manager', 'job_title_ar' => 'مدير المبيعات'],
+            self::storedJobTitle($target->id),
+        );
+
+        $rows = $this->auditRows(IdentityAuditEvents::USER_UPDATED);
+
+        self::assertCount(1, $rows);
+        self::assertSame(['job_title_ar' => null, 'job_title_en' => null], self::decoded($rows[0]['old_values']));
+        self::assertSame(
+            ['job_title_ar' => 'مدير المبيعات', 'job_title_en' => 'Sales Manager'],
+            self::decoded($rows[0]['new_values']),
+        );
+    }
+
+    public function test_a_job_title_is_cleared_by_null_or_an_empty_string_and_a_repeat_writes_no_audit(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $target = $this->userWith(RoleName::IndoorSales);
+        DB::table('users')->where('id', $target->id)
+            ->update(['job_title_en' => 'Sales Manager', 'job_title_ar' => 'مدير المبيعات']);
+
+        $token = $this->tokenFor($manager);
+        $clear = ['job_title_en' => null, 'job_title_ar' => ''];
+
+        $this->withToken($token)->patchJson(self::ENDPOINT.'/'.$target->id, $clear)
+            ->assertStatus(200)
+            ->assertJsonPath('data.job_title_en', null)
+            ->assertJsonPath('data.job_title_ar', null);
+
+        self::assertSame(['job_title_en' => null, 'job_title_ar' => null], self::storedJobTitle($target->id));
+        self::assertCount(1, $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+
+        // Nothing differs now: AUD-03 — no row saying nothing happened.
+        $this->withToken($token)->patchJson(self::ENDPOINT.'/'.$target->id, $clear)->assertStatus(200);
+
+        self::assertCount(1, $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    public function test_a_new_user_may_carry_a_job_title_and_it_is_audited(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $token = $this->tokenFor($manager);
+
+        $this->withToken($token)->postJson(self::ENDPOINT, [
+            'name' => 'Nadia Salem',
+            'email' => 'nadia@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId(RoleName::IndoorSales),
+            'job_title_en' => 'Sales Engineer',
+            'job_title_ar' => 'مهندسة مبيعات',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.job_title_en', 'Sales Engineer')
+            ->assertJsonPath('data.job_title_ar', 'مهندسة مبيعات');
+
+        $rows = $this->auditRows(IdentityAuditEvents::USER_CREATED);
+        self::assertCount(1, $rows);
+        $new = self::decoded($rows[0]['new_values']);
+        self::assertSame('Sales Engineer', $new['job_title_en'] ?? null);
+        self::assertSame('مهندسة مبيعات', $new['job_title_ar'] ?? null);
+
+        // Optional: an account created without one stores none.
+        $this->withToken($token)->postJson(self::ENDPOINT, [
+            'name' => 'Omar Adel',
+            'email' => 'omar@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId(RoleName::IndoorSales),
+        ])->assertStatus(201)
+            ->assertJsonPath('data.job_title_en', null)
+            ->assertJsonPath('data.job_title_ar', null);
+    }
+
+    /** @return array<string, array{array<string, mixed>, string}> */
+    public static function invalidJobTitles(): array
+    {
+        return [
+            'English over 255' => [['job_title_en' => str_repeat('a', 256)], 'job_title_en'],
+            'Arabic over 255' => [['job_title_ar' => str_repeat('م', 256)], 'job_title_ar'],
+            'not a string' => [['job_title_en' => ['Sales Manager']], 'job_title_en'],
+        ];
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    #[DataProvider('invalidJobTitles')]
+    public function test_an_invalid_job_title_is_refused_by_field(array $payload, string $field): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($manager))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.0.field', $field);
+
+        self::assertSame(['job_title_en' => null, 'job_title_ar' => null], self::storedJobTitle($target->id));
+    }
+
+    /** SEC-07: the field rides the route's `admin.create_user`; nobody else writes it. */
+    public function test_a_role_without_admin_create_user_cannot_set_a_job_title(): void
+    {
+        $sales = $this->userWith(RoleName::IndoorSales);
+        $target = $this->userWith(RoleName::Procurement);
+
+        $this->withToken($this->tokenFor($sales))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['job_title_en' => 'CEO'])
+            ->assertStatus(403);
+
+        self::assertSame(['job_title_en' => null, 'job_title_ar' => null], self::storedJobTitle($target->id));
+    }
+
     public function test_a_role_change_writes_the_mandatory_rule_four_entry(): void
     {
         $manager = $this->userWith(RoleName::Manager);
@@ -894,7 +1042,8 @@ final class UserManagementTest extends TestCase
             ->assertStatus(200);
 
         self::assertSame([
-            'id', 'name', 'email', 'role_id', 'role', 'is_active', 'created_at', 'updated_at',
+            'id', 'name', 'email', 'role_id', 'role', 'is_active', 'job_title_en', 'job_title_ar',
+            'created_at', 'updated_at',
         ], array_keys((array) $response->json('data')));
 
         self::assertSame($target->id, $response->json('data.id'));

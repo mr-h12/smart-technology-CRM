@@ -76,7 +76,9 @@ final class UserSchemaMigrationTest extends TestCase
         self::assertSame(
             ['id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at',
                 'name', 'email', 'password', 'role_id', 'is_active', 'is_hidden',
-                'failed_login_attempts', 'locked_until'],
+                'failed_login_attempts', 'locked_until',
+                // F-40 · 1.3 (`D-107` ruling 2) — JobTitleMigrationTest owns them.
+                'job_title_en', 'job_title_ar'],
             self::columns('users'),
         );
 

@@ -34,6 +34,9 @@ final readonly class AdministeredUser
         public bool $isHidden,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
+        /** `D-107` ruling (2): the signer's optional job title (F-40 · 1.3). */
+        public ?string $jobTitleEn,
+        public ?string $jobTitleAr,
     ) {}
 
     /**

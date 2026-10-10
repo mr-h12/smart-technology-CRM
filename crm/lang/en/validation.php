@@ -216,6 +216,8 @@ return [
         'is_visible'               => 'is visible',
         'is_winner'                => 'is winner',
         'items'                    => 'items',
+        'job_title_ar'             => 'Arabic job title',
+        'job_title_en'             => 'English job title',
         'key'                      => 'key',
         'last_name'                => 'last name',
         'lesson'                   => 'lesson',

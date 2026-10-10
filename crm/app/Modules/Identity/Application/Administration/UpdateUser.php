@@ -53,7 +53,7 @@ final readonly class UpdateUser
     ) {}
 
     /**
-     * @param  array{name?: string, email?: string, role_id?: string}  $submitted
+     * @param  array{name?: string, email?: string, role_id?: string, job_title_en?: ?string, job_title_ar?: ?string}  $submitted
      *
      * @throws UserAdministrationRefused
      */
@@ -90,6 +90,15 @@ final readonly class UpdateUser
                 $changes['email'] = $submitted['email'];
                 $before['email'] = $existing->email;
                 $after['email'] = $submitted['email'];
+            }
+
+            // `D-107` ruling (2), F-40 · 1.3 — optional; null clears it.
+            foreach (['job_title_en' => $existing->jobTitleEn, 'job_title_ar' => $existing->jobTitleAr] as $field => $stored) {
+                if (array_key_exists($field, $submitted) && $submitted[$field] !== $stored) {
+                    $changes[$field] = $submitted[$field];
+                    $before[$field] = $stored;
+                    $after[$field] = $submitted[$field];
+                }
             }
 
             if ($role instanceof RoleSummary) {

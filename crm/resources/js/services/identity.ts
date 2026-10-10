@@ -22,6 +22,9 @@ export interface AdministeredUser {
      */
     role: { slug: string; name: string; label: string };
     is_active: boolean;
+    /** `D-107` ruling (2): the signer's optional job title (F-40 · 1.3). */
+    job_title_en: string | null;
+    job_title_ar: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -169,13 +172,15 @@ export async function createUser(payload: {
     email: string;
     password: string;
     role_id: string;
+    job_title_en: string | null;
+    job_title_ar: string | null;
 }): Promise<AdministeredUser> {
     return (await apiPost<AdministeredUser>('/users', payload)).data;
 }
 
 export async function updateUser(
     id: string,
-    payload: { name?: string; email?: string; role_id?: string },
+    payload: { name?: string; email?: string; role_id?: string; job_title_en?: string | null; job_title_ar?: string | null },
 ): Promise<AdministeredUser> {
     return (await apiPatch<AdministeredUser>(`/users/${id}`, payload)).data;
 }

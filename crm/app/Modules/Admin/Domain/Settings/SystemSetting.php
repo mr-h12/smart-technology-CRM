@@ -40,6 +40,9 @@ enum SystemSetting: string
     /** §13/4 "phone numbers" — plural, and free text: §4.2 stores a customer's the same way. */
     case CompanyPhones = 'company.phones';
 
+    /** `D-107`: the e-mail the customer PDF's footer prints. */
+    case CompanyEmail = 'company.email';
+
     /** §13/4 "default currency". §5.3's three are the values; the row holds the code. */
     case DefaultCurrency = 'defaults.currency';
 
@@ -82,6 +85,7 @@ enum SystemSetting: string
     {
         return match ($this) {
             self::DefaultTaxPercent => 'numeric',
+            self::CompanyEmail => 'email',
             default => 'string',
         };
     }

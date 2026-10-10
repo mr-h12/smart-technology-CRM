@@ -288,4 +288,35 @@ final class SettingsEndpointTest extends TestCase
         self::assertStringContainsString('default tax', $message);
         self::assertSame('settings.defaults.tax_percent', $response->json('error.details.0.field'));
     }
+
+    /** `D-107`: the customer PDF's footer prints the company's e-mail from here. */
+    public function test_that_the_company_email_is_saved_when_it_is_an_email_address(): void
+    {
+        $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['company.email' => 'info@smarttechegy.com']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(200);
+
+        self::assertSame(
+            'info@smarttechegy.com',
+            DB::scalar("select value from settings where key = 'company.email'"),
+        );
+    }
+
+    public function test_that_a_company_email_that_is_not_an_address_is_refused(): void
+    {
+        $response = $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['company.email' => 'not-an-email']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        self::assertSame('settings.company.email', $response->json('error.details.0.field'));
+        $message = $response->json('error.details.0.message');
+
+        self::assertIsString($message);
+        self::assertStringContainsString('company e-mail', $message);
+        self::assertSame(0, DB::table('settings')->where('key', 'company.email')->count());
+    }
 }

@@ -3651,7 +3651,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and compared with the prototype.
             *(2026-10-02, #279 — Chrome clipped the table's right border at the renderer's side margins;
             the 25 mm sides are now `body` padding, the renderer keeps only top and bottom)*
-      - [ ] **1.3** The Arabic manual test list.
+      - [x] **1.3** ~~The Arabic manual test list.~~ — superseded by F-40 · 1.7 (owner, 2026-10-10).
 - [ ] **F-35** The Arabic customer PDF sets Arabic text in Noto Naskh Arabic (`D-101`). Requested by the
       owner, 2026-10-02: a more formal Arabic face across the Arabic PDF. Chosen from QT-2026-0003
       rendered in Noto Sans Arabic, Noto Naskh Arabic and Noto Kufi Arabic; Inter stays for numbers and
@@ -3968,6 +3968,33 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - **تبديل المربّع على عرض محفوظ** لا يحذّر من تغيّر معنى الأرقام (15) — قرارك 2026-10-10.
       - **Escape** لا يُغلق نافذة عرض المورّد والتركيز على المربّع في الهاتف — ملاحظة، غير مسجّلة.
       - **عرض الاختبار SQ-2026-0006** على جهاز التطوير (4560 ⇒ 4000) أُنشئ للفحص في 1.4؛ أبقِه أو أرشفه.
+
+- [ ] **F-40** The customer quotation PDF takes the owner's final *Commercial Offer* format (`D-107`).
+      Requested by the owner, 2026-10-10, from three reference PDFs (`prototypes/qt-final-format/`, local,
+      not in git) byte-identical to `prototypes/quotation-client-layout/`'s, whose HTML is the measured
+      specification: follow every detail — spaces, positions, sizes, wording, the total — and the
+      difference between a one-page and a two-page offer. The owner's rulings are `D-107`'s. The point
+      list was published and approved 2026-10-10 in conversation, with a yes to the shell write of
+      `D-107`. Replaces F-34 · 1.3.
+      - [x] **1.1** `D-107` in §2 (proposed); `D-89`, `D-100` and `OD-02` pointed to it; F-34 · 1.3
+            marked superseded; + this list. Docs only.
+      - [ ] **1.2** A `company.email` setting: the `SystemSetting` key, `email` validation, the seeder,
+            the Admin settings field and its labels. Failing test first.
+      - [ ] **1.3** The user's job title: a migration adding nullable `job_title_en` / `job_title_ar` to
+            `users` with a working `down()`; the Admin users API and form; audited. Tests include the
+            rollback.
+      - [ ] **1.4** The PDF's data, no layout: each line's unit, VAT and discounted total (BCMath, beside
+            `QuotationTotals`); the additional items as rows; *Total Amount Excl. VAT*; the *Att.* line
+            (today the mapper passes none); the signer's title; the company e-mail. Tests: discount 0
+            and 10%, exempt, the cents case, additional rows, a line with no unit.
+      - [ ] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
+            `lang/{ar,en}/pdf.php` and the three unread labels deleted. Failing tests first in
+            `CustomerQuotationHtmlTest`.
+      - [ ] **1.6** The renderer and pagination: the English footer with the page number on every page;
+            later pages begin 41.7 mm down; the header repeated, no row split; the one-page and
+            multi-page spacing. Real PDFs compared with the references word by word (`pdftotext
+            -bbox`, ±0.5 mm).
+      - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed
 

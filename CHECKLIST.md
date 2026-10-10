@@ -3986,10 +3986,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `users` with a working `down()`; the Admin users API and form; audited. Tests include the
             rollback.
             *(2026-10-10, #299 — create and edit both take it; audited only on change; the PDF prints it in 1.4)*
-      - [ ] **1.4** The PDF's data, no layout: each line's unit, VAT and discounted total (BCMath, beside
+      - [x] **1.4** The PDF's data, no layout: each line's unit, VAT and discounted total (BCMath, beside
             `QuotationTotals`); the additional items as rows; *Total Amount Excl. VAT*; the *Att.* line
             (today the mapper passes none); the signer's title; the company e-mail. Tests: discount 0
             and 10%, exempt, the cents case, additional rows, a line with no unit.
+            *(2026-10-11, #300 — `CustomerLineFigures` beside `QuotationTotals`, published to Pdf; Att. via a new `CustomerContactsInterface`; nothing printed until 1.5)*
       - [ ] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
             `lang/{ar,en}/pdf.php` and the three unread labels deleted. Failing tests first in
             `CustomerQuotationHtmlTest`.

@@ -56,6 +56,9 @@ final class CreateUserRequest extends FormRequest
                 'required', 'uuid',
                 Rule::exists('roles', 'id')->whereNull('deleted_at'),
             ],
+            // `D-107` ruling (2) — the signer's optional job title.
+            'job_title_en' => ['nullable', 'string', 'max:255'],
+            'job_title_ar' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

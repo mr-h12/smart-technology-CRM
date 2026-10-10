@@ -49,6 +49,8 @@ final class UserPayload
                 'label' => $user->roleLabel($locale),
             ],
             'is_active' => $user->isActive,
+            'job_title_en' => $user->jobTitleEn,
+            'job_title_ar' => $user->jobTitleAr,
             'created_at' => $user->createdAt->format(DATE_ATOM),
             'updated_at' => $user->updatedAt->format(DATE_ATOM),
         ];

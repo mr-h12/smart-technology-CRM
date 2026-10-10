@@ -75,7 +75,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
         return $row === null ? null : self::hydrate($row);
     }
 
-    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden): AdministeredUser
+    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden, ?string $jobTitleEn, ?string $jobTitleAr): AdministeredUser
     {
         $user = new User;
         $user->fill([
@@ -88,6 +88,8 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             'role_id' => $roleId,
             'is_active' => true,
             'is_hidden' => $isHidden,
+            'job_title_en' => $jobTitleEn,
+            'job_title_ar' => $jobTitleAr,
         ]);
         $user->save();
 
@@ -185,6 +187,8 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             // conversion to the reader's timezone is the SPA's, at display.
             createdAt: DateTimeImmutable::createFromInterface($createdAt),
             updatedAt: DateTimeImmutable::createFromInterface($updatedAt),
+            jobTitleEn: $user->job_title_en,
+            jobTitleAr: $user->job_title_ar,
         );
     }
 }

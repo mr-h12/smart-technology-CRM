@@ -44,6 +44,10 @@ final class UpdateUserRequest extends FormRequest
                 'sometimes', 'required', 'uuid',
                 Rule::exists('roles', 'id')->whereNull('deleted_at'),
             ],
+            // `D-107` ruling (2) — optional, so `null` (or `""`, which
+            // ConvertEmptyStringsToNull turns into it) clears the title.
+            'job_title_en' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'job_title_ar' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 
@@ -72,5 +76,5 @@ final class UpdateUserRequest extends FormRequest
     }
 
     /** @var list<string> */
-    private const UPDATABLE = ['name', 'email', 'role_id'];
+    private const UPDATABLE = ['name', 'email', 'role_id', 'job_title_en', 'job_title_ar'];
 }

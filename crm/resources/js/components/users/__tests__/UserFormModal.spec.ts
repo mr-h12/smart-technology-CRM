@@ -6,7 +6,7 @@ import ar from '@/locales/ar.json';
 import UserFormModal from '@/components/users/UserFormModal.vue';
 import { MANAGER_MAY_CREATE, assignableBy } from '@/domain/roleAssignment';
 import { ApiError } from '@/api';
-import { createUser } from '@/services/identity';
+import { createUser, updateUser } from '@/services/identity';
 
 vi.mock('@/services/identity', () => ({
     createUser: vi.fn(),
@@ -185,5 +185,105 @@ describe('a server refusal lands on the field that caused it', () => {
         const wrapper = await submitWith(new ApiError(422, 'validation_failed', [], 'refused', 'req-3', []));
 
         expect(wrapper.find('[data-testid="user-form-error"]').exists()).toBe(true);
+    });
+});
+
+/** F-40 · 1.3 — `D-107` ruling (2): the signer's optional job title, in Arabic and English. */
+describe('the job title', () => {
+    const EDITING = {
+        id: 'u-1',
+        name: 'Nadia Salem',
+        email: 'nadia@example.test',
+        role_id: 'r-indoor',
+        role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
+        job_title_en: 'Sales Manager',
+        job_title_ar: 'مدير المبيعات',
+        is_active: true,
+        created_at: '2026-10-10T00:00:00+00:00',
+        updated_at: '2026-10-10T00:00:00+00:00',
+    };
+
+    beforeEach(() => {
+        vi.mocked(createUser).mockReset().mockResolvedValue(EDITING);
+        vi.mocked(updateUser).mockReset().mockResolvedValue(EDITING);
+    });
+
+    async function fillRequired(wrapper: ReturnType<typeof mountForm>) {
+        await wrapper.find('[data-testid="user-form-name"]').setValue('Nadia Salem');
+        await wrapper.find('[data-testid="user-form-email"]').setValue('nadia@example.test');
+        await wrapper.find('[data-testid="user-form-role"]').setValue('r-indoor');
+        await wrapper.find('[data-testid="user-form-password"]').setValue('Str0ngpass');
+    }
+
+    it('sends both titles, trimmed, when a user is created', async () => {
+        const wrapper = mountForm('super_admin');
+        await fillRequired(wrapper);
+        await wrapper.find('[data-testid="user-form-job-title-en"]').setValue('  Sales Engineer ');
+        await wrapper.find('[data-testid="user-form-job-title-ar"]').setValue(' مهندسة مبيعات ');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(createUser).toHaveBeenCalledWith(expect.objectContaining({
+            job_title_en: 'Sales Engineer',
+            job_title_ar: 'مهندسة مبيعات',
+        }));
+    });
+
+    it('sends null for a title left blank, so it stays optional', async () => {
+        const wrapper = mountForm('super_admin');
+        await fillRequired(wrapper);
+        await wrapper.find('[data-testid="user-form-job-title-en"]').setValue('   ');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ job_title_en: null, job_title_ar: null }));
+    });
+
+    it('prefills the stored titles when editing and sends them back on save', async () => {
+        const wrapper = mount(UserFormModal, {
+            props: { open: false, editing: null, roles: ROLES, actorRole: 'super_admin' },
+            global: { plugins: [createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { ar, en } })] },
+        });
+        await wrapper.setProps({ open: true, editing: EDITING });
+
+        const en_ = wrapper.find<HTMLInputElement>('[data-testid="user-form-job-title-en"]');
+        const ar_ = wrapper.find<HTMLInputElement>('[data-testid="user-form-job-title-ar"]');
+        expect(en_.element.value).toBe('Sales Manager');
+        expect(ar_.element.value).toBe('مدير المبيعات');
+
+        await en_.setValue('Head of Sales');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(updateUser).toHaveBeenCalledWith('u-1', expect.objectContaining({
+            job_title_en: 'Head of Sales',
+            job_title_ar: 'مدير المبيعات',
+        }));
+    });
+
+    it('marks the title input the server names', async () => {
+        vi.mocked(createUser).mockRejectedValue(new ApiError(422, 'validation_failed', ['invalid'], 'validation failed', 'req-4', [
+            { field: 'job_title_ar', code: 'invalid', message: 'The Arabic job title may not be greater than 255 characters.' },
+        ]));
+
+        const wrapper = mountForm('super_admin');
+        await fillRequired(wrapper);
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('The Arabic job title may not be greater than 255 characters.');
+        expect(wrapper.find('[data-testid="user-form-job-title-ar"]').attributes('aria-invalid')).toBe('true');
+    });
+
+    it('labels both inputs in both languages', () => {
+        for (const locale of ['en', 'ar'] as const) {
+            const wrapper = mountForm('super_admin', locale);
+            for (const id of ['user-form-job-title-en', 'user-form-job-title-ar']) {
+                const input = wrapper.find(`[data-testid="${id}"]`);
+                expect(input.exists()).toBe(true);
+                expect(input.element.closest('label')?.textContent?.trim()).not.toBe('');
+            }
+            expect(wrapper.text()).not.toMatch(/users\.form\./);
+        }
     });
 });

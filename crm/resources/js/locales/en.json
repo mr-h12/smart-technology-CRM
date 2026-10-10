@@ -161,6 +161,8 @@
             "editTitle": "Edit employee",
             "name": "Name",
             "email": "Email address",
+            "jobTitleEn": "Job title (English)",
+            "jobTitleAr": "Job title (Arabic)",
             "role": "Role",
             "rolePlaceholder": "Choose a role",
             "noAssignableRoles": "There is no role you are permitted to assign.",

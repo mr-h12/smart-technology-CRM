@@ -50,6 +50,8 @@ const name = ref('');
 const email = ref('');
 const password = ref('');
 const roleId = ref('');
+const jobTitleEn = ref('');
+const jobTitleAr = ref('');
 const saving = ref(false);
 
 /** Lang-file keys, by field. `_form` holds anything not tied to one. */
@@ -68,7 +70,7 @@ const errors = ref<Record<string, string>>({});
 const serverErrors = ref<Record<string, string>>({});
 
 /** The fields a server refusal can name, which are the inputs this form has. */
-const FIELDS = ['name', 'email', 'role_id', 'password'] as const;
+const FIELDS = ['name', 'email', 'role_id', 'password', 'job_title_en', 'job_title_ar'] as const;
 
 function hasError(field: string): boolean {
     return errors.value[field] !== undefined || serverErrors.value[field] !== undefined;
@@ -111,6 +113,8 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     name.value = props.editing?.name ?? '';
     email.value = props.editing?.email ?? '';
     roleId.value = props.editing?.role_id ?? '';
+    jobTitleEn.value = props.editing?.job_title_en ?? '';
+    jobTitleAr.value = props.editing?.job_title_ar ?? '';
 }, { immediate: true });
 
 function validate(): boolean {
@@ -219,11 +223,15 @@ async function save(): Promise<void> {
                 email: email.value.trim(),
                 password: password.value,
                 role_id: roleId.value,
+                job_title_en: jobTitleEn.value.trim() || null,
+                job_title_ar: jobTitleAr.value.trim() || null,
             })
             : await updateUser(props.editing.id, {
                 name: name.value.trim(),
                 email: email.value.trim(),
                 role_id: roleId.value,
+                job_title_en: jobTitleEn.value.trim() || null,
+                job_title_ar: jobTitleAr.value.trim() || null,
             });
 
         password.value = '';
@@ -306,6 +314,36 @@ async function save(): Promise<void> {
                     {{ t('users.form.noAssignableRoles') }}
                 </span>
                 <span v-if="hasError('role_id')" class="text-[var(--color-danger)]">{{ errorText('role_id') }}</span>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('users.form.jobTitleEn') }}</span>
+                <input
+                    v-model="jobTitleEn"
+                    type="text"
+                    autocomplete="off"
+                    dir="auto"
+                    :disabled="saving"
+                    :aria-invalid="hasError('job_title_en')"
+                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="user-form-job-title-en"
+                />
+                <span v-if="hasError('job_title_en')" class="text-[var(--color-danger)]">{{ errorText('job_title_en') }}</span>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('users.form.jobTitleAr') }}</span>
+                <input
+                    v-model="jobTitleAr"
+                    type="text"
+                    autocomplete="off"
+                    dir="auto"
+                    :disabled="saving"
+                    :aria-invalid="hasError('job_title_ar')"
+                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    data-testid="user-form-job-title-ar"
+                />
+                <span v-if="hasError('job_title_ar')" class="text-[var(--color-danger)]">{{ errorText('job_title_ar') }}</span>
             </label>
 
             <label v-if="!isEdit" class="flex flex-col gap-1.5">

@@ -37,13 +37,15 @@ use Illuminate\Notifications\Notifiable;
  * @property string $role_id
  * @property bool $is_active
  * @property bool $is_hidden
+ * @property string|null $job_title_en
+ * @property string|null $job_title_ar
  * @property int $failed_login_attempts
  * @property \Illuminate\Support\Carbon|null $locked_until
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  */
-#[Fillable(['name', 'email', 'password', 'role_id', 'is_active', 'is_hidden'])]
+#[Fillable(['name', 'email', 'password', 'role_id', 'is_active', 'is_hidden', 'job_title_en', 'job_title_ar'])]
 #[Hidden(['password'])]
 class User extends Authenticatable
 {

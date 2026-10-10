@@ -36,5 +36,12 @@ final readonly class CustomerQuotationLine
         public string $quantity,
         public string $unitPrice,
         public string $lineTotal,
+        /** F-40 · 1.4 (`D-107`): the catalog item's unit; both null when it has none (printed `—`). */
+        public ?string $unitEn,
+        public ?string $unitAr,
+        /** `D-107` ruling (1), full scale; null on an exempt quotation (`D-63`). */
+        public ?string $vatAmount,
+        /** The discounted line plus its VAT. */
+        public string $total,
     ) {}
 }

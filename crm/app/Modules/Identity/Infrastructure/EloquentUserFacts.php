@@ -36,4 +36,24 @@ final readonly class EloquentUserFacts implements UserFactsInterface
 
         return $names;
     }
+
+    public function jobTitlesOf(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $titles = [];
+        /** @var object{id: string, job_title_en: string|null, job_title_ar: string|null} $row */
+        foreach ($this->connection->table('users')
+            ->whereNull('deleted_at')
+            ->where('is_hidden', false)
+            ->whereIn('id', $userIds)
+            ->select('id', 'job_title_en', 'job_title_ar')
+            ->get() as $row) {
+            $titles[$row->id] = ['en' => $row->job_title_en, 'ar' => $row->job_title_ar];
+        }
+
+        return $titles;
+    }
 }

@@ -36,6 +36,24 @@ final readonly class CatalogLineDescriptions implements LineDescriptionsInterfac
 
     public function descriptionsOf(array $supplierQuotationItemIds): array
     {
+        $catalogItemIds = $this->catalogItemIdsOf($supplierQuotationItemIds);
+
+        return self::byLine($catalogItemIds, $this->labels->labelsOf(array_values(array_unique($catalogItemIds))));
+    }
+
+    public function unitsOf(array $supplierQuotationItemIds): array
+    {
+        $catalogItemIds = $this->catalogItemIdsOf($supplierQuotationItemIds);
+
+        return self::byLine($catalogItemIds, $this->labels->unitsOf(array_values(array_unique($catalogItemIds))));
+    }
+
+    /**
+     * @param  list<string>  $supplierQuotationItemIds
+     * @return array<string, string> supplier-quotation item id => catalog item id
+     */
+    private function catalogItemIdsOf(array $supplierQuotationItemIds): array
+    {
         $catalogItemIds = [];
 
         foreach ($supplierQuotationItemIds as $supplierQuotationItemId) {
@@ -46,15 +64,26 @@ final readonly class CatalogLineDescriptions implements LineDescriptionsInterfac
             }
         }
 
-        $labels = $this->labels->labelsOf(array_values(array_unique($catalogItemIds)));
-        $descriptions = [];
+        return $catalogItemIds;
+    }
+
+    /**
+     * @template T
+     *
+     * @param  array<string, string>  $catalogItemIds
+     * @param  array<string, T>  $byCatalogItem
+     * @return array<string, T>
+     */
+    private static function byLine(array $catalogItemIds, array $byCatalogItem): array
+    {
+        $byLine = [];
 
         foreach ($catalogItemIds as $supplierQuotationItemId => $catalogItemId) {
-            if (isset($labels[$catalogItemId])) {
-                $descriptions[$supplierQuotationItemId] = $labels[$catalogItemId];
+            if (isset($byCatalogItem[$catalogItemId])) {
+                $byLine[$supplierQuotationItemId] = $byCatalogItem[$catalogItemId];
             }
         }
 
-        return $descriptions;
+        return $byLine;
     }
 }

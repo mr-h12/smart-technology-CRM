@@ -33,11 +33,13 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Catalog\Domain\Contracts\CatalogProductProvisionerInterface;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemLabels;
+use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
+use App\Modules\Customers\Infrastructure\EloquentCustomerContacts;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentCustomerNames;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
@@ -230,6 +232,8 @@ class AppServiceProvider extends ServiceProvider
         // `whereIn` on one table. Module 7 labels its rows through this —
         // the name only, unfiltered by archive, deletion or scope.
         $this->app->bind(CustomerNamesInterface::class, EloquentCustomerNames::class);
+        // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
+        $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 
         // Module 7 Point 3.7. `bind` for the same reason: stateless, three
         // statements on one table. `OpenAPI §9.1`'s store, consumed by the

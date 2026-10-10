@@ -7,6 +7,7 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
@@ -186,6 +187,11 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return array_intersect_key(['c1' => 'Formatter M428dw', 'c2' => 'Toner CF259A'], array_flip($catalogItemIds));
             }
+
+            public function unitsOf(array $catalogItemIds): array
+            {
+                return [];
+            }
         };
 
         $this->expectException(CustomerViewIncomplete::class);
@@ -223,6 +229,97 @@ final class CustomerQuotationViewMapperTest extends TestCase
             new CustomerTerm(null, 'Spare parts', 'Six months.'),
             new CustomerTerm('payment_terms', null, 'Net 30.'),
         ], $view->terms);
+    }
+
+    // ── F-40 · 1.4: `D-107`'s data ──────────────────────────────────────────
+
+    /** `D-107` ruling (1), at full scale: the PDF rounds when it prints, not here. */
+    public function test_each_line_carries_its_unit_vat_and_discounted_total(): void
+    {
+        $lines = $this->mapper()->map(self::quotation())->lines;
+
+        self::assertSame(
+            [
+                ['Piece', 'قطعة', '1388.333800', '11305.003800'],
+                ['Box', 'علبة', '2526.667500', '20574.292500'],
+                ['Piece', 'قطعة', '720.594000', '5867.694000'],
+            ],
+            array_map(static fn ($line): array => [$line->unitEn, $line->unitAr, $line->vatAmount, $line->total], $lines),
+        );
+        // The undiscounted figures the table also prints stay as they were.
+        self::assertSame(['5219.30', '10438.60'], [$lines[0]->unitPrice, $lines[0]->lineTotal]);
+    }
+
+    /** `D-63`: an exempt quotation carries no line VAT; the total is the discounted line. */
+    public function test_an_exempt_quotation_has_no_line_vat(): void
+    {
+        $line = $this->mapper()->map(self::quotation(taxPercent: null))->lines[0];
+
+        self::assertNull($line->vatAmount);
+        self::assertSame('9916.670000', $line->total);
+    }
+
+    /** `D-107`: a catalog item with no unit prints `—`, so it maps, with no unit. */
+    public function test_a_line_with_no_unit_maps_with_none(): void
+    {
+        $first = array_key_first(self::SUPPLIER_ITEMS);
+
+        $line = $this->mapper(units: [$first => ['en' => 'Piece', 'ar' => 'قطعة']])->map(self::quotation())->lines[1];
+
+        self::assertNull($line->unitEn);
+        self::assertNull($line->unitAr);
+        self::assertSame('Toner CF259A', $line->description);
+    }
+
+    /** `D-107`'s defaults: the additional items cross as rows, and Excl. VAT adds them. */
+    public function test_additional_rows_and_the_total_excluding_vat_cross(): void
+    {
+        $view = $this->mapper()->map(self::quotation());
+
+        self::assertSame('35104.100000', $view->totalExcludingVat);
+        self::assertCount(1, $view->additionalItems);
+        self::assertSame(['Delivery & Installation', '250.00'], [$view->additionalItems[0]->description, $view->additionalItems[0]->amount]);
+    }
+
+    /** `D-89` / `D-104`: *Att.* is the customer's contact person with the English title label. */
+    public function test_the_att_line_carries_the_contact_and_its_title(): void
+    {
+        $view = $this->mapper(contacts: [self::CUSTOMER_ID => ['name' => 'Mona Adel', 'title_en' => 'Mrs.']])->map(self::quotation());
+
+        self::assertSame('Mona Adel', $view->customerContact);
+        self::assertSame('Mrs.', $view->customerContactTitle);
+    }
+
+    public function test_no_contact_omits_the_att_line(): void
+    {
+        $view = $this->mapper(contacts: [])->map(self::quotation());
+
+        self::assertNull($view->customerContact);
+        self::assertNull($view->customerContactTitle);
+    }
+
+    /** `D-107` ruling (2) and the `company.email` setting (F-40 · 1.2). */
+    public function test_the_signer_title_and_the_company_email_cross(): void
+    {
+        $view = $this->mapper(
+            settings: [
+                SystemSetting::CompanyName->value => 'Smart Technology for Integrated Systems',
+                SystemSetting::CompanyEmail->value => 'info@smarttechegy.com',
+            ],
+            jobTitles: [self::CREATOR_ID => ['en' => 'Sales Manager', 'ar' => 'مدير المبيعات']],
+        )->map(self::quotation());
+
+        self::assertSame('info@smarttechegy.com', $view->companyEmail);
+        self::assertSame(['Sales Manager', 'مدير المبيعات'], [$view->signatoryTitleEn, $view->signatoryTitleAr]);
+    }
+
+    public function test_an_untitled_signer_and_an_unset_email_are_omitted(): void
+    {
+        $view = $this->mapper(jobTitles: [self::CREATOR_ID => ['en' => null, 'ar' => '  ']])->map(self::quotation());
+
+        self::assertNull($view->companyEmail);
+        self::assertNull($view->signatoryTitleEn);
+        self::assertNull($view->signatoryTitleAr);
     }
 
     public function test_that_the_money_chain_and_its_percentages_cross_unchanged(): void
@@ -285,6 +382,9 @@ final class CustomerQuotationViewMapperTest extends TestCase
      * @param  array<string, string>|null  $descriptions
      * @param  array<string, string>|null  $titles
      * @param  array<string, string>|null  $userNames
+     * @param  array<string, array{en: string, ar: string}>|null  $units
+     * @param  array<string, array{name: string, title_en: string|null}>|null  $contacts
+     * @param  array<string, array{en: string|null, ar: string|null}>|null  $jobTitles
      */
     private function mapper(
         ?array $settings = null,
@@ -293,6 +393,9 @@ final class CustomerQuotationViewMapperTest extends TestCase
         ?LineDescriptionsInterface $lineDescriptions = null,
         ?array $titles = null,
         ?array $userNames = null,
+        ?array $units = null,
+        ?array $contacts = null,
+        ?array $jobTitles = null,
     ): CustomerQuotationViewMapper {
         return new CustomerQuotationViewMapper(
             self::directory(self::quotation()),
@@ -302,9 +405,10 @@ final class CustomerQuotationViewMapperTest extends TestCase
                 SystemSetting::CompanyPhones->value => '035829952 · 01070764779',
             ]),
             self::customerNames($customerNames ?? [self::CUSTOMER_ID => 'Vegatrone']),
-            $lineDescriptions ?? self::lineDescriptions($descriptions ?? self::descriptions()),
+            $lineDescriptions ?? self::lineDescriptions($descriptions ?? self::descriptions(), null, $units ?? self::units()),
             self::dealTitles($titles ?? [self::DEAL_ID => 'Printers for the Alexandria branch']),
-            self::userFacts($userNames ?? [self::CREATOR_ID => 'Ahmed Essam']),
+            self::userFacts($userNames ?? [self::CREATOR_ID => 'Ahmed Essam'], $jobTitles ?? []),
+            self::customerContacts($contacts ?? []),
         );
     }
 
@@ -329,19 +433,45 @@ final class CustomerQuotationViewMapperTest extends TestCase
 
     /**
      * @param  array<string, string>  $names
+     * @param  array<string, array{en: string|null, ar: string|null}>  $jobTitles
      */
-    private static function userFacts(array $names): UserFactsInterface
+    private static function userFacts(array $names, array $jobTitles = []): UserFactsInterface
     {
-        return new class($names) implements UserFactsInterface
+        return new class($names, $jobTitles) implements UserFactsInterface
         {
             /**
              * @param  array<string, string>  $names
+             * @param  array<string, array{en: string|null, ar: string|null}>  $jobTitles
              */
-            public function __construct(private readonly array $names) {}
+            public function __construct(private readonly array $names, private readonly array $jobTitles) {}
 
             public function namesOf(array $userIds): array
             {
                 return array_intersect_key($this->names, array_flip($userIds));
+            }
+
+            public function jobTitlesOf(array $userIds): array
+            {
+                return array_intersect_key($this->jobTitles, array_flip($userIds));
+            }
+        };
+    }
+
+    /**
+     * @param  array<string, array{name: string, title_en: string|null}>  $contacts
+     */
+    private static function customerContacts(array $contacts): CustomerContactsInterface
+    {
+        return new class($contacts) implements CustomerContactsInterface
+        {
+            /**
+             * @param  array<string, array{name: string, title_en: string|null}>  $contacts
+             */
+            public function __construct(private readonly array $contacts) {}
+
+            public function contactOf(string $customerId): ?array
+            {
+                return $this->contacts[$customerId] ?? null;
             }
         };
     }
@@ -407,16 +537,18 @@ final class CustomerQuotationViewMapperTest extends TestCase
      *
      * @param  array<string, string>  $descriptions
      * @param  ArrayObject<int, list<string>>|null  $asked
+     * @param  array<string, array{en: string, ar: string}>  $units
      */
-    private static function lineDescriptions(array $descriptions, ?ArrayObject $asked = null): LineDescriptionsInterface
+    private static function lineDescriptions(array $descriptions, ?ArrayObject $asked = null, array $units = []): LineDescriptionsInterface
     {
-        return new class($descriptions, $asked ?? new ArrayObject) implements LineDescriptionsInterface
+        return new class($descriptions, $asked ?? new ArrayObject, $units) implements LineDescriptionsInterface
         {
             /**
              * @param  array<string, string>  $descriptions
              * @param  ArrayObject<int, list<string>>  $asked
+             * @param  array<string, array{en: string, ar: string}>  $units
              */
-            public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked) {}
+            public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked, private readonly array $units) {}
 
             public function descriptionsOf(array $supplierQuotationItemIds): array
             {
@@ -424,7 +556,24 @@ final class CustomerQuotationViewMapperTest extends TestCase
 
                 return array_intersect_key($this->descriptions, array_flip($supplierQuotationItemIds));
             }
+
+            public function unitsOf(array $supplierQuotationItemIds): array
+            {
+                return array_intersect_key($this->units, array_flip($supplierQuotationItemIds));
+            }
         };
+    }
+
+    /**
+     * @return array<string, array{en: string, ar: string}>
+     */
+    private static function units(): array
+    {
+        return array_combine(array_keys(self::SUPPLIER_ITEMS), [
+            ['en' => 'Piece', 'ar' => 'قطعة'],
+            ['en' => 'Box', 'ar' => 'علبة'],
+            ['en' => 'Piece', 'ar' => 'قطعة'],
+        ]);
     }
 
     /**
@@ -442,6 +591,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         bool $repeatFirstItem = false,
         ?string $createdBy = self::CREATOR_ID,
         array $terms = [],
+        ?string $taxPercent = '14',
     ): QuotationDetail {
         // Quantity, unit price and line total per supplier item — the customer's figures.
         $priced = [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
@@ -484,7 +634,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             currency: 'EGP',
             defaultMargin: self::DEFAULT_MARGIN,
             discountPercent: '5',
-            taxPercent: '14',
+            taxPercent: $taxPercent,
             roundingUnit: '1',
             roundingEnabled: false,
             subtotal: '34854.10',

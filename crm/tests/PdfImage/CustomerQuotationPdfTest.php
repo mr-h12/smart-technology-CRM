@@ -73,7 +73,7 @@ final class CustomerQuotationPdfTest extends TestCase
         // paginate rather than clip, and a row may not split across the break.
         $lines = [];
         for ($i = 1; $i <= 40; $i++) {
-            $lines[] = new CustomerQuotationLine($i, "Formatter M428dw spare part {$i}", '2', '5219.30', '10438.60');
+            $lines[] = new CustomerQuotationLine($i, "Formatter M428dw spare part {$i}", '2', '5219.30', '10438.60', null, null, null, '10438.60');
         }
 
         $pdf = $this->render(CustomerQuotationViewFixture::make(['lines' => $lines]), 'en');

@@ -26,4 +26,14 @@ interface UserFactsInterface
      * @return array<string, string>
      */
     public function namesOf(array $userIds): array;
+
+    /**
+     * F-40 · 1.4 — `D-107` ruling (2): each user's optional job title, on the
+     * terms of {@see namesOf()} (no hidden or deleted account). Untitled is
+     * `null`, not absent.
+     *
+     * @param  list<string>  $userIds
+     * @return array<string, array{en: string|null, ar: string|null}>
+     */
+    public function jobTitlesOf(array $userIds): array;
 }

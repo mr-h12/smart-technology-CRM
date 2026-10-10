@@ -29,5 +29,8 @@ final readonly class SupplierQuotationSummary
         public ?string $offerDate,
         public ?string $validUntil,
         public ?string $notes,
+        public bool $pricesIncludeTax,
+        public ?string $includedTaxPercent,
+        public ?string $enteredTotalPrice,
     ) {}
 }

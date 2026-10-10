@@ -1631,6 +1631,21 @@ would hide them behind `OD-03` indefinitely.
       bound in `SaveQuotationRequest`, and both columns are NUMERIC(6,3), so `1000` overflows the
       column. 1.2 bounded the negative side it opened (−999.999); the positive side predates it.
       Owed: `lte:999.999` on both, with a test, when the owner orders it.
+- [ ] **`defaults.tax_percent` is validated only as `numeric`** — *revealed by F-39 · 1.3's pricing
+      review, 2026-10-09; not fixed there, because the rule is Admin's (`SystemSetting.php:84`).* The
+      settings screen accepts `-100`, `1e2` or `1000`. 1.3 guards its own reader: `IncludedTaxRate`
+      treats anything but a plain 0–999.999 decimal as unset (422, never a division by zero), but the
+      same setting also defaults a customer quotation's tax (`D-63`). Owed: a bounded rule on the
+      setting (e.g. `min:0|max:100`), with a test, when the owner orders it.
+- [ ] **Toggling «السعر شامل الضريبة» on a PATCH that resends no amounts leaves them as they were** —
+      *a ceiling F-39 · 1.3 chose, marked `ponytail:` in `SupplierQuotationDraft::withIncludedTax`.*
+      Unflagged that way, the lines keep their `entered_unit_price`; flagged, they keep the recorded
+      price as the net. The form resends both (F-39 · 1.4). Owed, if a caller other than the form ever
+      sends a bare toggle: refuse it with a 422.
+- [ ] **`1 + x / 100` at money scale lives in two modules** — *revealed by F-39 · 1.3's waste audit,
+      2026-10-09.* `PricedLine::from` (Quotations) and `SupplierQuotationDraft::net` (SupplierQuotations)
+      build the same divisor/multiplier and truncate at `D-68`'s scale; deptrac keeps the modules apart,
+      so sharing it is a new crossing. Owed only if the two ever have to change together.
 - [ ] **Other row-level 422s still name the request path** — *revealed by F-37 · 1.4b, 2026-10-08;
       not fixed there, because the owner's choice was the terms and the additional items.*
       `lines.*` (`SaveQuotationRequest.php:87-89`) and the supplier quotation's `items.*`
@@ -3845,7 +3860,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             Arabic reads "-20", not "20-" (Design System l.128); the floor never passes −999.999, the
             column's NUMERIC(6,3), so an extreme negative is a 422, not a 500.
             *(2026-10-09, #293 — the line margin is summed; the detail shows the whole margin)*
-      - [ ] **1.3** Failing tests first, then one migration with a working `down()`:
+      - [x] **1.3** Failing tests first, then one migration with a working `down()`:
             `supplier_quotations.prices_include_tax` (default false), the captured rate and the entered
             `total_price`, with a CHECK tying the rate to the flag; `supplier_quotation_items` keeps the
             entered `unit_price`. The save strips the tax from every line and the total with BCMath at
@@ -3853,6 +3868,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             with no setting → `422`; `defaults.tax_percent` seeded `14`; §7.2's `prices_include_tax` row
             (taken out by 1.2: `SupplierQuotationSchemaMigrationTest` holds §7.2 to the columns); the resource returns the flag,
             the rate, the entered and the net amounts; the audit snapshot carries them.
+            The owner's approvals of 2026-10-09 while opening it: the column names
+            (`included_tax_percent`, `entered_total_price`, `entered_unit_price`), the §7.2 row, the
+            deptrac grant `SupplierQuotations → AdminContract`, and truncation at scale 6. Widened by
+            the pricing review: a flagged amount that is not decimal text (a JSON float, `1e3`) and a
+            setting that is no percent (`-100`, `1e2`, `1000`) are each a 422, not a 500.
+            *(2026-10-09, #294 — 114 entered at 14% is stored as 100; the edit keeps the captured rate)*
       - [ ] **1.4** The supplier quotation form: the «السعر شامل الضريبة» checkbox for the offer, the
             net shown beside each price and the total, the entered amounts on edit; ar and en.
       - [x] **1.5** ~~The quotation builder's line-margin field~~ — folded into 1.2 (owner, 2026-10-09).

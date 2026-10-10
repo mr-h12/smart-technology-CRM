@@ -680,6 +680,13 @@ parameters:
       # through `DealFactsInterface` (`dealIdsMatchingCode`, `codesOf`), never
       # the table, on Quotations' terms above. The first caller is F-13 · 1.3.
       - DealsContract
+      # AdminContract, added 2026-10-09 with F-39 · 1.3 (`D-105`), approved by
+      # the owner. An offer flagged tax-inclusive is stripped at the rate in the
+      # system setting `defaults.tax_percent`, read through
+      # `SettingsRepositoryInterface` — Pdf's crossing for the company's name,
+      # on the same terms. `Decimal` validates the decimal strings it divides.
+      # The contract half only; nothing points at `AdminDriver`.
+      - AdminContract
     # Suppliers → Framework, SharedContracts, added 2026-08-30 with Point 2.1,
     # the module's first endpoint. Granted on the same terms as Customers, and
     # deliberately **two entries shorter**.

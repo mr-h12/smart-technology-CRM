@@ -80,6 +80,9 @@ final class SaveSupplierQuotationRequest extends FormRequest
             // Both `required_with`s together are what makes the pair symmetric.
             'currency_id' => ['nullable', 'uuid', 'required_with:total_price', $this->alive('currencies')],
 
+            // `D-105`: one flag for the whole offer, off unless sent.
+            'prices_include_tax' => ['sometimes', 'boolean'],
+
             'offer_date' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],

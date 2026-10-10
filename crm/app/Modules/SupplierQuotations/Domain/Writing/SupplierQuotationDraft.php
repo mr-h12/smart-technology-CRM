@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Domain\Writing;
 
+use App\Modules\Admin\Domain\Money\Decimal;
+use App\Modules\Admin\Domain\Money\RoundedTotal;
+
 /**
  * The fields a caller may write on a supplier quotation — `DealDraft`'s shape
  * (Module 5 Point 2.3), on the same reasoning.
@@ -137,6 +140,58 @@ final readonly class SupplierQuotationDraft
     public function withItems(array $items): self
     {
         return new self($this->attributes, $items);
+    }
+
+    /**
+     * `D-105`: a copy whose prices are read as tax-inclusive at `$rate`, or —
+     * `null` — taken as recorded (`D-62`).
+     *
+     * With a rate, `total_price` and every line's `unit_price` become the net,
+     * `entered ÷ (1 + rate / 100)`, truncated at money scale as `PricedLine`
+     * truncates (`D-68`), and the amounts as entered move to `entered_*`. The
+     * caller always sends what was typed, so a re-save strips once.
+     *
+     * Only what this draft carries is touched: an edit that names no lines
+     * leaves the stored ones as they are. ponytail: toggling the flag on an
+     * edit that resends neither the total nor the lines leaves the stored
+     * amounts as they were — unflagged, the lines keep their
+     * `entered_unit_price`; flagged, they keep the recorded price as the net.
+     * The form always resends both (F-39 · 1.4); refuse the bare toggle if a
+     * caller other than the form ever sends one.
+     *
+     * @param  numeric-string|null  $rate
+     */
+    public function withIncludedTax(?string $rate): self
+    {
+        $attributes = [...$this->attributes, 'prices_include_tax' => $rate !== null, 'included_tax_percent' => $rate];
+
+        if ($rate === null) {
+            $attributes['entered_total_price'] = null;
+        } elseif (array_key_exists('total_price', $attributes)) {
+            $attributes['entered_total_price'] = $attributes['total_price'];
+            $attributes['total_price'] = $attributes['total_price'] === null ? null : self::net($attributes['total_price'], $rate);
+        }
+
+        $items = $this->items === null ? null : array_map(
+            static fn (array $line): array => [
+                ...$line,
+                'unit_price' => $rate === null ? $line['unit_price'] ?? null : self::net($line['unit_price'] ?? null, $rate),
+                'entered_unit_price' => $rate === null ? null : $line['unit_price'] ?? null,
+            ],
+            $this->items,
+        );
+
+        return new self($attributes, $items);
+    }
+
+    /** @param  numeric-string  $rate */
+    private static function net(mixed $entered, string $rate): string
+    {
+        $entered = Decimal::of(is_int($entered) ? (string) $entered : (is_string($entered) ? $entered : ''), 'an entered price');
+        // `PricedLine`'s two guard digits: a NUMERIC(6,3) rate over 100 is exact at eight.
+        $divisor = bcadd('1', bcdiv($rate, '100', RoundedTotal::SCALE + 2), RoundedTotal::SCALE + 2);
+
+        return bcdiv($entered, $divisor, RoundedTotal::SCALE);
     }
 
     /**

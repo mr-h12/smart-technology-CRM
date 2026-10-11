@@ -4183,7 +4183,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `SaveDealRequest` (≤ 2000), save, summary, payload, audited like `title`; §4.3's `details` row
             and the OpenAPI deal schema with it. Tests include the rollback and a customer PDF that does
             not carry `details`.
-            *(2026-10-11, PR pending — `text` + `CHECK (char_length(details) <= 2000)` (owner, «أ»); the PDF guard reads the job's real view)*
+            *(2026-10-11, #306 — `text` + `CHECK (char_length(details) <= 2000)` (owner, «أ»); the PDF guard reads the job's real view)*
       - [ ] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
             the full text on the deal page; ar/en keys. Vitest first.
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and

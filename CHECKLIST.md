@@ -4045,7 +4045,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             title 13, totals 9.5 / 10) to read the size of the Arabic (the owner, 2026-10-11; `D-107`).
             *(2026-10-11, #301 — regards and Sales Signature at the same height, measured)*
       - [x] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
-            *(2026-10-11 — 36 checks below; closes F-40, F-34 and F-35)*
+            *(2026-10-11, #302 — 36 checks below; closes F-40, F-34 and F-35)*
 
       #### قائمة الاختبار اليدوي — F-40 كاملة، ومعها F-34 و F-35 *(النقطة 1.7، 2026-10-11)*
 

@@ -200,3 +200,67 @@ None of these rows changes group in §1. A row moves only once its question is a
 - **A-22 Recommendation** — **Option B for the Return note and Delete-confirm, Option A for the rest.**
   - The Return note is drawn above the table, off-screen from row 12 (SH-31). Delete is destructive, so its confirmation needs the dialog's announcement (Q-07). Both are exactly what a dialog is for.
   - The status change in a deal row, and recording a PO, are part of the row or page the user is already reading. Moving them into a dialog adds a layer for no gain, so they stay inline with Option A's focus handling.
+
+## 4. Focus, highlight and feedback (F-42 · 3.4)
+
+**Rows covered:** A-08, A-31 and A-32. The CHECKLIST line also names A-34, A-51 and A-64. 3.1 moved all three to Phase 4 (#317), because each has one fix: a global `:focus-visible` rule, and hover rules.
+
+**F-41.** A-31 and A-32 carry the F-41 flag in §1. Their deal-screen parts are built only after F-41 closes.
+
+**The mock-up.** `prototypes/ux-feedback/index.html` is untracked. It loads the real `tokens.css` and is served by `ux-prototypes` at `http://localhost:8790/prototypes/ux-feedback/index.html`.
+
+**How it was measured** (2026-10-12):
+- Contrast uses the WCAG 2.x formula in the page. It reads each element's computed colour, and a transparent background falls back to its parent's.
+- **The checker was proven able to fail first:** planted `#eee` on white = **1.16**, `#222` on Midnight's canvas = **1.20**, black on white = **21**.
+- **"measure: pass"** means:
+  - the option's signal is ≥ 3:1 against every colour next to it in all 3 themes (WCAG 1.4.11);
+  - its text is ≥ 4.5:1;
+  - for feedback, the message obeys DS §6.6.
+- **Keyboard:** real ArrowDown, ArrowUp and Enter presses move `aria-activedescendant` and pick the option.
+- **Width and direction:** at 375, Arabic and English both have horizontal overflow 0. The picker list sits at 33–342 of 375. The toast sits at 16–241 in RTL and 147–359 in LTR, at the inline end in both.
+
+**Contrast measured:**
+
+| Measured pair | Warm Editorial | Clean Monochrome | Midnight Obsidian |
+|---|---|---|---|
+| Today: highlighted row vs the list (background only, A-08's defect) | **1.12** | **1.04** | **1.17** |
+| A: inset `focus-ring` outline vs the highlighted row | 4.61 | 4.95 | 9.14 |
+| B: start-edge `focus-ring` bar vs the highlighted row | 4.61 | 4.95 | 9.14 |
+| B: the same bar vs the list beside it | 5.18 | 5.17 | 7.78 |
+| In place: `success` text on `surface` | 7.13 | 7.13 | 10.14 |
+| In place: `danger` text on `surface` | 6.57 | 6.57 | 8.74 |
+| Toast: `canvas` text on `text` | 14.31 | 16.12 | 15.54 |
+
+B-22 measured today's Midnight highlight at 1.03; this mock-up's list background gives 1.17. Both fail the same 3:1 floor, and the difference doesn't change the comparison.
+
+### A-08, the highlighted option in a picker
+
+- **A-08 Option A** — an inset 2 px outline in `focus-ring`, plus today's `surface-muted` fill. — measure: pass
+  - The outline vs the row is 4.61 / 4.95 / 9.14.
+  - The walk passes: two ArrowDown presses → `listA-1`.
+- **A-08 Option B** — a 4 px bar in `focus-ring` on the row's **start** edge (it mirrors in RTL through `border-inline-start`), text at weight 600, plus today's fill. — measure: pass
+  - The bar vs the row is 4.61 / 4.95 / 9.14, and vs the list 5.18 / 5.17 / 7.78.
+  - The walk passes: Down ×3, Up, Enter → `listB-1`, and the value becomes «مؤسسة الأمل».
+- **A-08 Recommendation** — **Option B.**
+  - Both clear 3:1 by the same margin, but the input above the list already draws a `focus-ring` outline while you type. Option A puts a second, identical ring in the list, so there would be two focus-looking rings on screen at once.
+  - Option B's bar plus weight is a different shape that can't be mistaken for keyboard focus. Two signals that aren't colour also meet DS §4.1's "never colour alone" twice over.
+
+### A-31, results of slow actions (import, upload, assign)
+
+- **A-31 Option A** — the result is shown in place: one `role="status"` region beside the action, **present from load** (empty), with its text set when the result arrives. — measure: pass
+  - `success` is 7.13 / 7.13 / 10.14 and `danger` is 6.57 / 6.57 / 8.74.
+  - The region exists before its text (`role=status`, text ""), which is A-31's defect fixed. An error stays on screen until the next action.
+- **A-31 Option B** — the result is shown in one shared toast region in the page corner, present from load and cleared after 5 s. — measure: fail
+  - The text contrast passes (14.31 / 16.12 / 15.54), but the import error «رُفض الملف: السطر 4 بلا اسم عميل…» was **gone after 6 s**.
+  - DS §6.6 says "a toast must not be the only place an error is explained", and these results are mostly errors: a rejected CSV, a refused upload.
+- **A-31 Recommendation** — **Option A.** The result belongs next to what produced it, and errors must stay readable. It also needs no new component: the region is a plain `<p role="status">`, rendered always rather than behind a `v-if`. The one at `SearchCombobox.vue:240-243` is behind a `v-if`, which is A-31's very defect, so it is the element to reuse, not the pattern.
+
+### A-32, confirming a success (approve, return, deal save)
+
+- **A-32 Option A** — in place: the same always-present `role="status"` region, set at the top of the list, because the approved row itself disappears. — measure: pass
+  - `success` is 7.13 / 7.13 / 10.14, and the message stays until the next action.
+- **A-32 Option B** — a toast: the shared corner region, 5 s. — measure: pass
+  - The text is 14.31 / 16.12 / 15.54, and a short success message is exactly DS §6.6's permitted use of a toast.
+- **A-32 Recommendation** — **Option A.** The toast is allowed here, but A-31 already needs the in-place region. One mechanism for every result is less to build and keeps errors and successes in the same place.
+  - The app has **no toast component today**, so Option B would add one, plus a timing rule (WCAG 2.2.1), for a case Option A already covers.
+  - If the owner wants toasts anyway, they must be for successes only, never errors.

@@ -4225,6 +4225,26 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.7** The owner filter in the SPA, shown only for `deal.view.all`. Vitest first.
       - [ ] **1.8** The Arabic manual test list; closes F-41.
 
+- [ ] **F-42** UI/UX upgrade, UI layer only: no business logic, calculation, permission, API or route
+      changes; `Design_System_EN.md` stays the authority and existing tokens and components are reused.
+      Requested by the owner, 2026-10-12; the owner's answers of the same day: main screens first (shell
+      and states, login, deals, quotations, customers, approvals, purchase orders; admin screens a later
+      round), pain points unknown (the audit finds them), usability and accessibility ranked above polish,
+      roles checked through Login As. The deals list is audited but not changed until F-41 closes. Phases
+      3–6 (design options, plan, redesign, verify) get their own point lists after the audit.
+      The point list for Phases 1–2 was published and approved 2026-10-12 in conversation. Docs only.
+      - [x] **0.1** This row and its point list. Docs only.
+            *(2026-10-12, #312 — F-42 numbered by the agent, the owner's to confirm; no CI run, docs only)*
+      - [ ] **1.1** `docs/ux-upgrade/screen-map.md`: each in-scope screen's route, file, roles (seeded
+            permissions, read-only), personas, main flow, rendered states, and F-41/F-37/F-33 overlap.
+      - [ ] **2.1** Code audit against `Design_System_EN.md` §4–§8 (`web-design-guidelines`,
+            `ui-ux-pro-max`); raw notes, not committed.
+      - [ ] **2.2** Browser audit at :8765 through Login As: every screen × its roles × 3 themes at ar/1280;
+            en/1280 and ar+en/375 once each; empty, loading, error and refused states; console errors; a
+            defect's cause found, not fixed.
+      - [ ] **2.3** `docs/ux-upgrade/audit.md`: one prioritized list (severity, screen, role, fix,
+            citation, overlap); the top 15 shown to the owner.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

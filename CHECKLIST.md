@@ -4261,7 +4261,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **3.2** The owner's decisions, each asked with a recommendation: A-15 preview or save-then-see,
             A-25 interim landing, A-26 D-99's display form on screen, A-62 the margin's minus sign, the API
             requests behind A-03, A-18, A-45, A-54.
-            *(2026-10-12 — 9 rows asked (A-55 added by 3.1); the owner said "go green" without answers, so all 9 are deferred with their recommendations in `design-options.md` §2; §1 unchanged)*
+            *(2026-10-12, #318 — 9 rows asked (A-55 added by 3.1); the owner said "go green" without answers, so all 9 are deferred with their recommendations in `design-options.md` §2; §1 unchanged)*
       - [ ] **3.3** Dialogs and confirmations — native `<dialog>` vs a shared helper on the current markup;
             the confirm step (A-04, A-09, A-22, A-30, A-35, A-61).
       - [ ] **3.4** Focus, highlight and feedback — focus ring, picker highlight, hover, live region vs

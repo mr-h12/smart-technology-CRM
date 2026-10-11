@@ -228,8 +228,10 @@ async function submitRejection(): Promise<void> {
     border-radius: 999px;
     padding-block: 0.125rem;
     padding-inline: 0.625rem;
-    border: 1px solid var(--color-border-strong);
     width: fit-content;
+    white-space: nowrap;
+    /* D-109: a chip filled with its own tone, as `QuotationStatusChip`. */
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 /* §6.4's four types, each carrying an icon and a word beside the colour. */

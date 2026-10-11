@@ -65,6 +65,8 @@ const DEAL = {
     service_type: 'product',
     status: 'lead',
     owner_id: 'u9',
+    // F-41 · 1.6b (`D-109`): the server's name for the owner.
+    owner_name: 'Sara Haddad',
     approval_status: 'pending',
     rejection_reason: null,
     lost_reason: null,
@@ -403,14 +405,41 @@ describe('the deals screen', () => {
         expect(customers).toEqual(['Acme Industrial Ltd', 'Acme Industrial Ltd']);
     });
 
-    it('shows the customer name the server sent and leaves the owner as an identifier', async () => {
-        const wrapper = await render(respond());
+    it('names the owner the server sent, never the identifier (F-41 · 1.6c, D-109)', async () => {
+        const wrapper = await render(respond([DEAL, { ...SECOND_DEAL_SAME_CUSTOMER, owner_name: null }]));
+        const owners = wrapper.findAll('[data-testid="deals-owner"]').map((o) => o.text());
 
-        expect(wrapper.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial Ltd');
-        // ⚠️ Identity publishes no list this module may resolve a name against,
-        // so the owner is an id. A bare identifier is honest; a made-up name
-        // would not be.
-        expect(wrapper.find('[data-testid="deals-owner"]').text()).toBe('u9');
+        // `null` is the hidden Super Admin, a deleted account or no owner —
+        // all drawn «—», and the `owner_id` the row still carries never shows.
+        expect(owners).toEqual(['Sara Haddad', '—']);
+    });
+
+    it('puts the request under the customer, in one cell (D-109)', async () => {
+        const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER, { ...DEAL, id: 'd3', title: null }]));
+        const cells = wrapper.findAll('[data-testid="deals-customer-cell"]');
+
+        expect(cells).toHaveLength(3);
+        expect(cells[0]!.find('[data-testid="deals-customer"]').text()).toBe('Acme Industrial Ltd');
+        expect(cells.map((c) => c.find('[data-testid="deals-request"]').text())).toEqual(['Twelve pumps', 'Spare seals', '—']);
+        // The name comes first in the cell, the request after it.
+        expect(cells[0]!.text().indexOf('Acme Industrial Ltd')).toBeLessThan(cells[0]!.text().indexOf('Twelve pumps'));
+        // No separate request column is left beside it.
+        expect(wrapper.findAll('[data-testid="deals-table"] thead th').map((th) => th.text())).not.toContain('Request');
+    });
+
+    it('draws the status as a chip of its §6.4 tone, carrying its word (D-109)', async () => {
+        const wrapper = await render(respond([
+            { ...DEAL, id: 'a', status: 'won' },
+            { ...DEAL, id: 'b', status: 'delivery_complete' },
+            { ...DEAL, id: 'c', status: 'lost' },
+            { ...DEAL, id: 'd', status: 'lead' },
+            { ...DEAL, id: 'e', status: 'negotiations' },
+        ]));
+        const chips = wrapper.findAll('[data-testid="deals-status-chip"]');
+
+        expect(chips.map((c) => c.text())).toEqual(['Won', 'Delivery complete', 'Lost', 'Lead', 'Negotiations']);
+        expect(chips.map((c) => ['status-chip--success', 'status-chip--danger', 'status-chip--info'].find((tone) => c.classes().includes(tone))))
+            .toEqual(['status-chip--success', 'status-chip--success', 'status-chip--danger', 'status-chip--info', 'status-chip--info']);
     });
 
     it('names a customer past the hundredth, because the name comes with the row', async () => {
@@ -595,6 +624,14 @@ describe('the deals screen', () => {
 
         expect(wrapper.find('[data-testid="deals-create"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="deals-row-edit"]').exists()).toBe(true);
+    });
+
+    it('draws the row’s edit as a ghost action (§6.2, D-109)', async () => {
+        const wrapper = await render(respond());
+        const edit = wrapper.find('[data-testid="deals-row-edit"]');
+
+        expect(edit.classes()).toContain('ghost-action');
+        expect(edit.classes()).not.toContain('row-action');
     });
 
     it('draws neither for the CEO, whom §3.4 grants view and nothing else', async () => {

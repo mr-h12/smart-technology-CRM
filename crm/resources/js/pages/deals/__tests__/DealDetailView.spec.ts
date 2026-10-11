@@ -33,6 +33,7 @@ const DEAL = {
     id: 'd1', code: 'DL-2026-0001', customer_id: 'c1', title: 'Twelve pumps',
     details: 'Site visit on Tuesday.\nTwo floors.',
     source: 'employee_entry', service_type: 'product', status: 'contacted', owner_id: 'u9',
+    owner_name: 'Sara Haddad',
     approval_status: 'pending', rejection_reason: null, lost_reason: null,
     last_activity_at: '2026-09-08T09:00:00+00:00',
     created_at: '2026-09-08T09:00:00+00:00', updated_at: '2026-09-08T09:00:00+00:00',
@@ -160,6 +161,28 @@ describe('the deal detail view', () => {
         expect(wrapper.find('[data-testid="deal-detail-title"]').text()).toBe('DL-2026-0001');
         expect(wrapper.find('[data-testid="deal-detail-status"]').text()).toBe('Contacted');
         expect(wrapper.find('[data-testid="deal-detail-customer"]').text()).toBe('Acme Industrial');
+    });
+
+    it('names the owner in the summary, never the identifier (F-41 · 1.6c, D-109)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="deal-detail-owner_name"]').text()).toBe('Sara Haddad');
+        expect(wrapper.find('[data-testid="deal-detail-summary"]').text()).not.toContain('u9');
+    });
+
+    it('draws — for an owner the server does not name', async () => {
+        const wrapper = await render(respond({ deal: { ...DEAL, owner_name: null } }));
+
+        expect(wrapper.find('[data-testid="deal-detail-owner_name"]').text()).toBe('—');
+        expect(wrapper.find('[data-testid="deal-detail-summary"]').text()).not.toContain('u9');
+    });
+
+    it('draws the status as the list’s chip, tone and word (D-109)', async () => {
+        const wrapper = await render(respond({ deal: { ...DEAL, status: 'lost' } }));
+        const status = wrapper.find('[data-testid="deal-detail-status"]');
+
+        expect(status.text()).toBe('Lost');
+        expect(status.classes()).toContain('status-chip--danger');
     });
 
     it('shows the details in full, line breaks kept (F-41 · 1.5, D-108)', async () => {

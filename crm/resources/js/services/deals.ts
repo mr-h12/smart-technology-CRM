@@ -31,7 +31,7 @@ import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } fro
 
 export type { Pagination } from '@/api';
 
-/** §4.3's fields, as `DealPayload::of()` serialises them. No customer or owner name: they belong to other modules. */
+/** §4.3's fields, as `DealPayload::of()` serialises them. No customer name: it belongs to another module. */
 export interface Deal {
     id: string;
     code: string;
@@ -42,6 +42,8 @@ export interface Deal {
     service_type: string | null;
     status: string;
     owner_id: string | null;
+    /** `D-109`, F-41 · 1.6b: on the read answers only (`GET /deals`, `GET /deals/{id}`); `null` draws «—». */
+    owner_name?: string | null;
     approval_status: string | null;
     rejection_reason: string | null;
     lost_reason: string | null;

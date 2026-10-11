@@ -1729,6 +1729,14 @@ would hide them behind `OD-03` indefinitely.
       shape 1.5 copied (label, `rows="4"`, the `form-field` focus-ring classes, a `testId()`). They differ
       in `maxlength`, `aria-invalid` and the error span. Owed: one `FormTextarea` component, when the owner
       orders it
+- [ ] **Status chips have three recipes, and the tone fill is copied in four files** — *revealed by
+      F-41 · 1.6c, 2026-10-12 (`waste-auditor`); not fixed there, because the approved line is the deals
+      table.* `grep -rln "color-mix(in srgb, currentColor 14%" resources/js` lists `DealStatusChip.vue`,
+      `DealApprovalControls.vue`, `QuotationStatusChip.vue` and `ApprovalsView.vue`; `DealStatusChip` is
+      `QuotationStatusChip`'s shape (a tone map, `?? 'info'`, the same rules) without its dot; Customers,
+      Suppliers and Catalog draw `.status-chip` from `--color-status-neutral` instead. `.row-action` is
+      copied in about fifteen files and `.ghost-action` is DealsView's alone. Owed: one shared tone chip
+      (word, tone, optional dot), when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -4207,8 +4215,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `UserFactsInterface::namesOf`, `null` for the hidden Super Admin, a deleted account or no owner;
             the OpenAPI deal schema. Tests first.
             *(2026-10-12, #310 — one `namesOf` per page, `ListCustomers::salesOwnerName()`'s shape for the detail; the write answers do not carry it)*
-      - [ ] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
+      - [x] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
+            *(2026-10-12 — `DealStatusChip` in `QuotationStatusChip`'s shape without its dot (owner); approval badges filled; «—» for a `null` owner)*
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`
             (reuses 1.6b's owner-name read, the owner, 2026-10-12);

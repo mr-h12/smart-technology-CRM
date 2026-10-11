@@ -57,6 +57,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
+import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import { displayDecimals } from '@/domain/displayDecimals';
@@ -97,7 +98,8 @@ const id = computed(() => String(route.params.id ?? ''));
 const SUMMARY_FIELDS = [
     { key: 'code', label: 'deals.column.code' },
     { key: 'title', label: 'deals.column.title' },
-    { key: 'owner_id', label: 'deals.column.owner' },
+    // D-109: the server's name, never the identifier.
+    { key: 'owner_name', label: 'deals.column.owner' },
 ] as const;
 
 function summaryValue(key: (typeof SUMMARY_FIELDS)[number]['key']): string {
@@ -239,7 +241,7 @@ onMounted(async () => {
                 <h1 class="text-page-title" data-testid="deal-detail-title">
                     {{ deal.code }}
                 </h1>
-                <p data-testid="deal-detail-status">{{ statusLabel(deal.status) }}</p>
+                <DealStatusChip :status="deal.status" data-testid="deal-detail-status" />
             </header>
 
             <!-- §5.2: summary first. -->

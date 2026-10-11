@@ -45,8 +45,9 @@ final class SaveDealRequest extends FormRequest
                 ? ['required', 'uuid']
                 : ['prohibited'],
 
-            // Lengths are the columns' own (Point 1.1).
+            // Lengths are the columns' own (Point 1.1; `details`' CHECK, F-41 · 1.4).
             'title' => ['nullable', 'string', 'max:255'],
+            'details' => ['nullable', 'string', 'max:2000'],
             'source' => ['nullable', 'string', 'in:'.implode(',', ['outlook_whatsapp', 'outdoor_visit', 'employee_entry'])],
             'service_type' => ['nullable', 'string', 'in:'.implode(',', ['product', 'service'])],
 

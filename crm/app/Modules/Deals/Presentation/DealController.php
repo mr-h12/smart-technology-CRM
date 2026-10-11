@@ -46,9 +46,9 @@ final class DealController
 
     public function show(Request $request, string $deal, ListDeals $deals): JsonResponse
     {
-        return ApiEnvelope::single($request, DealPayload::of(
-            $deals->one($deal, self::heldScopes($request), self::actorId($request)),
-        ));
+        $record = $deals->one($deal, self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, DealPayload::detail($record, $deals->ownerName($record)));
     }
 
     public function timeline(Request $request, string $deal, ListDealTimeline $timeline): JsonResponse

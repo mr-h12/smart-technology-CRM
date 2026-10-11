@@ -11,10 +11,12 @@ use App\Modules\Deals\Domain\Listing\DealSummary;
  * How a deal appears on the wire — §4.3's fields, in `OpenAPI §8`'s shapes.
  *
  * `customer_id` and `owner_id` are explicit ids per §8.2, "represent direct
- * relationships with explicit ID fields". The owner's name is not expanded.
- * The customer's name rides the **list** row only (`many()`), read once per
- * page through Customers' contract (`D-83`, F-07 · 1.5) — never another
- * module's rows; an id the port does not name is sent as the id.
+ * relationships with explicit ID fields". The customer's name rides the
+ * **list** row only (`many()`), read once per page through Customers' contract
+ * (`D-83`, F-07 · 1.5) — never another module's rows; an id the port does not
+ * name is sent as the id. The owner's name rides the list row and the detail
+ * (`detail()`), through Identity's contract (`D-109`) — `null`, never the id,
+ * when the port names nobody.
  *
  * `status`, `source`, `service_type` and `approval_status` are sent as their
  * stored codes, not translated labels — the SPA translates them, and a
@@ -52,7 +54,14 @@ final class DealPayload
         return array_map(static fn (DealSummary $deal): array => [
             ...self::of($deal),
             'customer_name' => $page->customerNames[$deal->customerId] ?? $deal->customerId,
+            'owner_name' => $deal->ownerId === null ? null : ($page->ownerNames[$deal->ownerId] ?? null),
         ], $page->items);
+    }
+
+    /** @return array<string, mixed> `GET /deals/{id}`: the deal and its owner's name (`D-109`). */
+    public static function detail(DealSummary $deal, ?string $ownerName): array
+    {
+        return self::of($deal) + ['owner_name' => $ownerName];
     }
 
     /** @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool} */

@@ -4203,13 +4203,15 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.6a** `D-109` in §2 (proposed) + this list (1.6a–1.6c, the owner's answers of 2026-10-11:
             inside F-41, the deal page too, customer + request in one cell, before 1.6). Docs only.
             *(2026-10-11, #309 — 103 D-rows)*
-      - [ ] **1.6b** `owner_name` on `GET /deals` rows and `GET /deals/{id}` through
+      - [x] **1.6b** `owner_name` on `GET /deals` rows and `GET /deals/{id}` through
             `UserFactsInterface::namesOf`, `null` for the hidden Super Admin, a deleted account or no owner;
             the OpenAPI deal schema. Tests first.
+            *(2026-10-12 — one `namesOf` per page, `ListCustomers::salesOwnerName()`'s shape for the detail; the write answers do not carry it)*
       - [ ] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
-            `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`;
+            `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`
+            (reuses 1.6b's owner-name read, the owner, 2026-10-12);
             both in the OpenAPI contract. Tests first, with a negative authorization case.
       - [ ] **1.7** The owner filter in the SPA, shown only for `deal.view.all`. Vitest first.
       - [ ] **1.8** The Arabic manual test list; closes F-41.

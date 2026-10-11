@@ -23,9 +23,18 @@
 # 2-vCPU runner, and it grows by 50-100 tests per point. So `build` warms the
 # cache once, `bundle` builds the SPA the shell tests render, and `static`,
 # `tests` (three shards) and `verify` restore the image (~20 s each) and run
-# side by side. `publish` waits for all of them. The frontend gates (vue-tsc,
+# side by side on a pull request. The frontend gates (vue-tsc,
 # Vitest) live in frontend.yml, which already caches npm and already ran on
 # the same changes.
+#
+# ── Gates on the pull request, publish on main (owner, 2026-10-11) ──────────
+#
+# The gates already passed on the PR, so a push to main only builds and
+# publishes: one full run per change, not two. ponytail: main's tree is the
+# tree the PR tested only when the branch was up to date with main at merge
+# (one PR at a time, each cut from the latest main); the upgrade is required
+# status checks with "require branches to be up to date" on the ruleset.
+# `workflow_dispatch` still runs every gate.
 
 name: PHP image
 
@@ -162,6 +171,7 @@ jobs:
   # frontend.yml's gates on the same push, and this bundle is an input to
   # tests, not a check of its own. Runs beside `build`, not after it.
   bundle:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -198,6 +208,7 @@ jobs:
   # php:8.4-cli and failed with exit 127 because ./vendor/bin/deptrac did not
   # exist.
   static:
+    if: github.event_name != 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -278,6 +289,7 @@ jobs:
   # adding up the three `Tests:` lines. Rebalance when one shard runs >30 %
   # longer than the others (`gh run view <id> --json jobs`).
   tests:
+    if: github.event_name != 'push'
     needs: [build, bundle]
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -406,6 +418,7 @@ jobs:
 
   # ── verify: both targets behave, and the split holds ────────────────────────
   verify:
+    if: github.event_name != 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -490,16 +503,17 @@ jobs:
           docker run --rm crm-php:ci-pdf sh -c 'command -v chromium >/dev/null' \
             || { echo "pdf target is missing chromium"; exit 1; }
 
-  # ── publish: only after every gate, only on main ────────────────────────────
+  # ── publish: only on main, after the PR's gates ─────────────────────────────
   #
   # A broken image must never reach the registry, because DEV-04 treats a
-  # published tag as the rollback target — so this waits for all four.
+  # published tag as the rollback target — so nothing merges until the PR's
+  # gates pass, and this needs only `build` (the gates do not run on push).
   # Tagged with the commit SHA as well as latest: DEV-04 wants a rollback to
   # the previous release in under 15 minutes, and pulling a known tag is
   # faster and more certain than rebuilding.
   publish:
     if: github.event_name == 'push'
-    needs: [build, bundle, static, tests, verify]
+    needs: [build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

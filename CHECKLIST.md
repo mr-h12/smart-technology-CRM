@@ -648,6 +648,13 @@ would hide them behind `OD-03` indefinitely.
       it. Owed: add `docker-compose.yml` to the `paths` filter. Not done here, because it is a
       change to CI behaviour and this point is a sign-off, not a fix
       *(2026-09-12, CI sharding PR — `docker-compose.yml` and `.env.example` added to both `paths` filters)*
+- [ ] **`main` is not re-tested after a merge** — *created 2026-10-11 by the owner's ruling
+      «one CI run per change» (option 3).* `php-image.yml` runs `bundle`, `static`, `tests` and
+      `verify` on the pull request only; a push to `main` runs `build` and `publish`, and
+      `frontend.yml` no longer runs on `main` at all. The ceiling: the merged tree is the tested
+      tree only when the branch was up to date with `main` at merge — true while one PR is open at
+      a time and each is cut from the latest `main`. Owed when two PRs overlap: required status
+      checks with "require branches to be up to date" on the `main` ruleset.
 - [ ] **`php-image.yml` test shards are balanced by hand** — created 2026-09-12 by the CI
       sharding PR, which split the 545 s serial test step (70 % of a 13-minute run) into three
       matrix jobs, each running its own migrate up/down/up and a fixed list of test directories.

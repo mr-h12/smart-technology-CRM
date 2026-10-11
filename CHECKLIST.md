@@ -4163,7 +4163,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       shell write of `D-108`; ordered before F-37 · 1.5.
       - [x] **1.1** `D-108` in §2 (proposed); §4.6's `po_date` points to it; the Team Leader debt row;
             + this list. Docs only.
-            *(2026-10-11 — D-108 supersedes Module 10 · 1.6's "future allowed"; 102 D-rows; §4.3's `details` row moved to 1.4, since `DealSchemaMigrationTest` holds §4.3 to the columns)*
+            *(2026-10-11, #303 — D-108 supersedes Module 10 · 1.6's "future allowed"; 102 D-rows; §4.3's `details` row moved to 1.4, since `DealSchemaMigrationTest` holds §4.3 to the columns)*
       - [ ] **1.2** The response form's reason, PO reference and PO date inputs get the bordered
             `.form-field` rule in `QuotationDetailView.vue`'s scoped style. CSS only; proved in the browser.
       - [ ] **1.3** `po_date` on or before the company's today: `before_or_equal` in

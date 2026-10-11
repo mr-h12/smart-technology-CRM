@@ -4177,7 +4177,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             the date input; the "future allowed" comment at `RespondQuotationRequest.php:27-29` and the
             OpenAPI `respond` row's `po_date` updated. Failing tests first: tomorrow 422, today 200, a
             non-UTC day boundary.
-            *(2026-10-11, PR pending — `CompanyToday` shared with `J-01`; the picker's `max` is the device's day (owner, «أ»), the server's 422 the rule)*
+            *(2026-10-11, #305 — `CompanyToday` shared with `J-01`; the picker's `max` is the device's day (owner, «أ»), the server's 422 the rule)*
       - [ ] **1.4** `details` on deals, backend: a migration (nullable `text`, working `down()`),
             `SaveDealRequest` (≤ 2000), save, summary, payload, audited like `title`; §4.3's `details` row
             and the OpenAPI deal schema with it. Tests include the rollback and a customer PDF that does

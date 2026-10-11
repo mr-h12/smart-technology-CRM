@@ -19,12 +19,9 @@
 
 name: Frontend build
 
+# No `push` to main: the PR already ran these gates on the same change, and
+# this workflow publishes nothing (owner, 2026-10-11 — one run per change).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'crm/**'
-      - '.github/workflows/frontend.yml'
   pull_request:
     paths:
       - 'crm/**'

@@ -4245,8 +4245,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             en/1280 and ar+en/375 once each; empty, loading, error and refused states; console errors; a
             defect's cause found, not fixed.
             *(2026-10-12, #314 — 51 notes, 7 roles; the builder keeps a stale deal across builder routes; D-70 digits on 5 screens; `crm-http` in `.claude/launch.json` starts the :8765 proxy)*
-      - [ ] **2.3** `docs/ux-upgrade/audit.md`: one prioritized list (severity, screen, role, fix,
+      - [x] **2.3** `docs/ux-upgrade/audit.md`: one prioritized list (severity, screen, role, fix,
             citation, overlap); the top 15 shown to the owner.
+            *(2026-10-12 — 219 raw ids into 67 rows: 0 blocker, 27 major, 36 minor, 4 polish; 7 need non-UI work; the quotations count is 28 minor, not 29)*
 
 ## Shell revisions — owner-directed
 

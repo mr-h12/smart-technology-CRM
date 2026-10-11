@@ -3,6 +3,12 @@
   "configurations": [
     {
       "name": "crm-http",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "const http=require('http'),https=require('https');http.createServer((q,s)=>{const p=https.request({host:'localhost',port:8443,path:q.url,method:q.method,headers:{...q.headers,host:'localhost:8443','accept-encoding':'identity'},rejectUnauthorized:false},r=>{const h={...r.headers};const o=/^https:\\/\\/localhost(:8443)?/g;if(h.location)h.location=h.location.replace(o,'http://localhost:8765');if(!String(h['content-type']).includes('text/html')){s.writeHead(r.statusCode,h);return r.pipe(s)}let b='';r.setEncoding('utf8');r.on('data',c=>b+=c);r.on('end',()=>{b=b.replace(/https:\\/\\/localhost:8443/g,'http://localhost:8765');delete h['content-length'];s.writeHead(r.statusCode,h);s.end(b)})});p.on('error',e=>{s.writeHead(502);s.end(String(e))});q.pipe(p)}).listen(8765,()=>console.log('crm-http proxy :8765 -> https://localhost:8443'))"
+      ],
+      "port": 8765,
       "url": "http://localhost:8765"
     }
   ]

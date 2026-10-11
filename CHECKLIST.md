@@ -4238,11 +4238,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** `docs/ux-upgrade/screen-map.md`: each in-scope screen's route, file, roles (seeded
             permissions, read-only), personas, main flow, rendered states, and F-41/F-37/F-33 overlap.
             *(2026-10-12, #313 — 13 screens, all 23 routes accounted for; seven of eight roles land on `Ping`; the Super Admin holds no screen permission)*
-      - [ ] **2.1** Code audit against `Design_System_EN.md` §4–§8 (`web-design-guidelines`,
+      - [x] **2.1** Code audit against `Design_System_EN.md` §4–§8 (`web-design-guidelines`,
             `ui-ux-pro-max`); raw notes, not committed.
-      - [ ] **2.2** Browser audit at :8765 through Login As: every screen × its roles × 3 themes at ar/1280;
+            *(2026-10-12, #314 — 163 findings, 0 blocker, 35 major; five spot-checked in source; ticked with 2.2)*
+      - [x] **2.2** Browser audit at :8765 through Login As: every screen × its roles × 3 themes at ar/1280;
             en/1280 and ar+en/375 once each; empty, loading, error and refused states; console errors; a
             defect's cause found, not fixed.
+            *(2026-10-12, #314 — 51 notes, 7 roles; the builder keeps a stale deal across builder routes; D-70 digits on 5 screens; `crm-http` in `.claude/launch.json` starts the :8765 proxy)*
       - [ ] **2.3** `docs/ux-upgrade/audit.md`: one prioritized list (severity, screen, role, fix,
             citation, overlap); the top 15 shown to the owner.
 

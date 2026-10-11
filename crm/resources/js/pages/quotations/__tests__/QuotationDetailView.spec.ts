@@ -597,6 +597,23 @@ describe('the quotation detail view', () => {
             expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
         });
 
+        it('shows each response field as a field: a hint where text goes and the focus ring (D-108)', async () => {
+            const { wrapper } = await openDialog('sent', () => null);
+            const focusRing = ['focus:outline-2', 'focus:outline-offset-2', 'focus:outline-[var(--color-focus-ring)]'];
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-rejected"]').setValue(true);
+            const reason = wrapper.find('[data-testid="quotation-respond-reason"]');
+            expect(reason.attributes('placeholder')).toBe('Type the reason here…');
+            expect(reason.classes()).toEqual(expect.arrayContaining(['form-field', ...focusRing]));
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-accepted"]').setValue(true);
+            const reference = wrapper.find('[data-testid="quotation-respond-po-reference"]');
+            expect(reference.attributes('placeholder')).toBe('e.g. 4500123987');
+            for (const field of [reference, wrapper.find('[data-testid="quotation-respond-po-date"]')]) {
+                expect(field.classes()).toEqual(expect.arrayContaining(['form-field', ...focusRing]));
+            }
+        });
+
         it('opens the new draft after Partial or Counter', async () => {
             for (const outcome of ['partial', 'counter']) {
                 const { wrapper, router, fetchMock } = await openDialog('sent', (url) =>

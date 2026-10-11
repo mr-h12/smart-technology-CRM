@@ -1427,6 +1427,11 @@ would hide them behind `OD-03` indefinitely.
       — *closed 2026-09-24 by F-18 · 1.1 (the owner's ruling):* both pickers share
       `SearchCombobox.vue`'s Escape, which stops at an open list; `DealFormModal.spec.ts` proves one
       Escape closes the list and the next closes the form.
+- [ ] **The approvals screen's reason field has no focus ring** — *revealed by F-41 · 1.2's waste audit,
+      2026-10-11; registered, not fixed.* `ApprovalsView.vue:188` carries `form-field rounded-lg p-3`
+      without the `focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]` every
+      other `.form-field` input carries (23 of 24 files), so keyboard focus on it is the browser default,
+      not `focus-ring` (Design System §184). One class string; its own point.
 - [ ] **`.form-field` is declared once per component, inside `<style scoped>`** — *revealed by F-08
       Point 1.5, 2026-09-21; not fixed there, because the point was one missing border.* The same three
       lines (`background-color`, `border: 1px solid var(--color-border-strong)`, `color`) live in
@@ -4164,8 +4169,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.1** `D-108` in §2 (proposed); §4.6's `po_date` points to it; the Team Leader debt row;
             + this list. Docs only.
             *(2026-10-11, #303 — D-108 supersedes Module 10 · 1.6's "future allowed"; 102 D-rows; §4.3's `details` row moved to 1.4, since `DealSchemaMigrationTest` holds §4.3 to the columns)*
-      - [ ] **1.2** The response form's reason, PO reference and PO date inputs get the bordered
+      - [x] **1.2** The response form's reason, PO reference and PO date inputs get the bordered
             `.form-field` rule in `QuotationDetailView.vue`'s scoped style. CSS only; proved in the browser.
+            *(2026-10-11, PR pending — border 0px → 1px `rgb(120,113,108)`, white, focus ring, hints; ar/en × 1280/375 in the browser)*
       - [ ] **1.3** `po_date` on or before the company's today: `before_or_equal` in
             `RespondQuotationRequest`, the day read like `ExpireQuotations` (one shared reader), `max` on
             the date input; the "future allowed" comment at `RespondQuotationRequest.php:27-29` and the

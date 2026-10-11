@@ -4199,7 +4199,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-11, #306 — `text` + `CHECK (char_length(details) <= 2000)` (owner, «أ»); the PDF guard reads the job's real view)*
       - [x] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
             the full text on the deal page; ar/en keys. Vitest first.
-            *(2026-10-11 — `maxlength="2000"` (owner «أ»); `dir="auto"` and an 8rem cell after `rtl-ui-verifier` found Arabic mis-set in EN and the table scrolling in its frame at 1280)*
+            *(2026-10-11, #308 — `maxlength="2000"` (owner «أ»); `dir="auto"` and an 8rem cell after `rtl-ui-verifier` found Arabic mis-set in EN and the table scrolling in its frame at 1280)*
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`;
             both in the OpenAPI contract. Tests first, with a negative authorization case.

@@ -17,9 +17,11 @@ final readonly class DealPage
     /**
      * `$customerNames` is `D-83`'s one call per page — customer id => name for
      * the page's rows, filled by `ListDeals::handle()` (F-07 · 1.5).
+     * `$ownerNames` is `D-109`'s, the same way, through Identity's contract.
      *
      * @param  list<DealSummary>  $items
      * @param  array<string, string>  $customerNames
+     * @param  array<string, string>  $ownerNames
      */
     public function __construct(
         public array $items,
@@ -27,6 +29,7 @@ final readonly class DealPage
         public int $page,
         public int $perPage,
         public array $customerNames = [],
+        public array $ownerNames = [],
     ) {}
 
     public function totalPages(): int

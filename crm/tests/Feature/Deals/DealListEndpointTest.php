@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Deals;
 
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -478,6 +479,107 @@ final class DealListEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
             ->assertJsonPath('data.0.customer_name', $customer);
+    }
+
+    // ───────────────────────── F-41 · 1.6b (`D-109`): the owner's name, not the id
+
+    /** `D-109`: each row names its current owner through Identity's contract, as `D-83` names the customer. */
+    public function test_that_each_row_carries_its_owners_name(): void
+    {
+        $owner = $this->userWith(RoleName::IndoorSales);
+        $this->deal('Alpha', $owner->id);
+
+        $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.owner_id', $owner->id)
+            ->assertJsonPath('data.0.owner_name', $owner->name);
+    }
+
+    /**
+     * `D-109`: the hidden Super Admin (§3.1), a soft-deleted account (`DB-01`)
+     * and a deal with no owner are all `null` — the key is there, and it is
+     * never the identifier.
+     */
+    public function test_that_an_owner_the_contract_does_not_name_is_null(): void
+    {
+        $deleted = $this->userWith(RoleName::IndoorSales);
+        $this->deal('Hidden', $this->userWith(RoleName::SuperAdmin)->id);
+        $this->deal('Deleted', $deleted->id);
+        $this->deal('Nobody');
+        $bearer = $this->bearerFor(RoleName::Manager);
+        $deleted->delete();
+
+        $rows = $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200)->json('data');
+
+        self::assertIsArray($rows);
+        self::assertCount(3, $rows);
+        /** @var list<array{title: string}> $rows */
+        foreach ($rows as $row) {
+            // Present and null at once: a missing key fails here, unlike `assertJsonPath(…, null)`.
+            self::assertSame(['owner_name' => null], array_intersect_key($row, ['owner_name' => true]), $row['title']);
+        }
+    }
+
+    /** `D-109`, on `D-83`'s rule: one call per page, each distinct owner once, none for a deal with no owner. */
+    public function test_that_owner_names_are_read_once_per_page(): void
+    {
+        $indoor = $this->userWith(RoleName::IndoorSales)->id;
+        $outdoor = $this->userWith(RoleName::OutdoorSales)->id;
+        $this->deal('Alpha', $indoor);
+        $this->deal('Beta', $indoor);
+        $this->deal('Gamma', $outdoor);
+        $this->deal('Delta');
+        $bearer = $this->bearerFor(RoleName::Manager);
+        $fake = $this->fakeUserNames();
+
+        $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200);
+
+        self::assertCount(1, $fake->calls);
+        self::assertEqualsCanonicalizing([$indoor, $outdoor], $fake->calls[0]);
+    }
+
+    /** `D-109`: the deal page names its owner too; the hidden Super Admin is `null` there as well. */
+    public function test_that_the_detail_carries_its_owners_name(): void
+    {
+        $owner = $this->userWith(RoleName::IndoorSales);
+        $named = $this->deal('Alpha', $owner->id);
+        $hidden = $this->deal('Beta', $this->userWith(RoleName::SuperAdmin)->id);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->getJson(self::ENDPOINT.'/'.$named, $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.owner_name', $owner->name);
+
+        $data = $this->getJson(self::ENDPOINT.'/'.$hidden, $bearer)->assertStatus(200)->json('data');
+        self::assertIsArray($data);
+        // `assertJsonPath(…, null)` would also pass on a missing key.
+        self::assertArrayHasKey('owner_name', $data);
+        self::assertNull($data['owner_name']);
+    }
+
+    /** @return object{calls: list<list<string>>} Identity's port, answering every id with its own name and recording each call. */
+    private function fakeUserNames(): object
+    {
+        $fake = new class implements UserFactsInterface
+        {
+            /** @var list<list<string>> */
+            public array $calls = [];
+
+            public function namesOf(array $userIds): array
+            {
+                $this->calls[] = $userIds;
+
+                return array_fill_keys($userIds, 'Faked');
+            }
+
+            public function jobTitlesOf(array $userIds): array
+            {
+                return [];
+            }
+        };
+        $this->app->instance(UserFactsInterface::class, $fake);
+
+        return $fake;
     }
 
     /**

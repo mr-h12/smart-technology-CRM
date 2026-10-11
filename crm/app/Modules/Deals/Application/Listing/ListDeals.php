@@ -11,6 +11,7 @@ use App\Modules\Deals\Domain\Listing\DealListCriteria;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealPage;
 use App\Modules\Deals\Domain\Listing\DealSummary;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 
 /**
  * §10's deal list and detail, with `SEC-08`'s reach applied once — `ListCustomers`'s
@@ -19,12 +20,17 @@ use App\Modules\Deals\Domain\Listing\DealSummary;
  */
 final readonly class ListDeals
 {
-    public function __construct(private DealDirectoryInterface $deals, private CustomerNamesInterface $customers) {}
+    public function __construct(
+        private DealDirectoryInterface $deals,
+        private CustomerNamesInterface $customers,
+        private UserFactsInterface $users,
+    ) {}
 
     /**
      * F-07 · 1.5 (`D-83`): the page carries its customers' names, read
      * through Customers' contract **once** for the page's distinct ids —
-     * `ListQuotations::handle()`'s shape.
+     * `ListQuotations::handle()`'s shape. Its owners' names likewise, through
+     * Identity's (`D-109`, F-41 · 1.6b); a deal with no owner asks nothing.
      *
      * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
      */
@@ -32,8 +38,9 @@ final readonly class ListDeals
     {
         $page = $this->deals->list($criteria, DealRowScope::resolve($heldScopes, $actorId));
         $names = $this->customers->namesOf(array_values(array_unique(array_map(static fn (DealSummary $row): string => $row->customerId, $page->items))));
+        $owners = $this->users->namesOf(array_values(array_unique(array_filter(array_map(static fn (DealSummary $row): ?string => $row->ownerId, $page->items)))));
 
-        return new DealPage($page->items, $page->total, $page->page, $page->perPage, $names);
+        return new DealPage($page->items, $page->total, $page->page, $page->perPage, $names, $owners);
     }
 
     /**
@@ -52,5 +59,17 @@ final readonly class ListDeals
         }
 
         return $deal;
+    }
+
+    /**
+     * `D-109`: the deal page's owner name, `ListCustomers::salesOwnerName()`'s
+     * shape. `null` with no owner, or when the contract names nobody (the
+     * hidden Super Admin, a soft-deleted account) — never the identifier.
+     */
+    public function ownerName(DealSummary $deal): ?string
+    {
+        $ownerId = $deal->ownerId;
+
+        return $ownerId === null ? null : ($this->users->namesOf([$ownerId])[$ownerId] ?? null);
     }
 }

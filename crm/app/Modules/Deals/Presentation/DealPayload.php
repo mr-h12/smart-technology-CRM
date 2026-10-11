@@ -32,6 +32,7 @@ final class DealPayload
             'code' => $deal->code,
             'customer_id' => $deal->customerId,
             'title' => $deal->title,
+            'details' => $deal->details,
             'source' => $deal->source,
             'service_type' => $deal->serviceType,
             'status' => $deal->status,

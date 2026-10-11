@@ -33,7 +33,7 @@ namespace App\Modules\Deals\Domain\Writing;
 final readonly class DealDraft
 {
     /** §4.3's user-entered fields, writable on both verbs. */
-    public const WRITABLE = ['title', 'source', 'service_type'];
+    public const WRITABLE = ['title', 'details', 'source', 'service_type'];
 
     /** @return list<string> */
     public static function writableOnCreate(): array

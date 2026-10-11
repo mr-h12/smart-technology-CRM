@@ -404,6 +404,7 @@ Supplier ──► Supplier Quotation            ← standalone entity (D-51)
 | code | Automatic — `DL-2026-0001` |
 | customer_id | |
 | title | Short description of the request |
+| details | Optional internal free text, ≤ 2000 characters; never on a customer PDF (D-108) |
 | source | Outlook/WhatsApp · Outdoor visit · Employee entry |
 | service_type | Product · Service |
 | status | See 4.4 |

@@ -271,6 +271,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
             code: $row->code,
             customerId: $row->customer_id,
             title: $row->title,
+            details: $row->details,
             source: $row->source,
             serviceType: $row->service_type,
             status: $row->status,

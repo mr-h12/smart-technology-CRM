@@ -204,6 +204,7 @@ final readonly class SaveDeal
     {
         $previous = [
             'title' => $before->title,
+            'details' => $before->details,
             'source' => $before->source,
             'service_type' => $before->serviceType,
         ];

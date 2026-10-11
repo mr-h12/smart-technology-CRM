@@ -20,6 +20,7 @@ final readonly class DealSummary
         public string $code,
         public string $customerId,
         public ?string $title,
+        public ?string $details,
         public ?string $source,
         public ?string $serviceType,
         public string $status,

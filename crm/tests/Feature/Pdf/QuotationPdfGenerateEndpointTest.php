@@ -71,6 +71,26 @@ final class QuotationPdfGenerateEndpointTest extends TestCase
             ->count());
     }
 
+    /**
+     * `D-108`: a deal's `details` is "internal only — never on a customer PDF". The view the job
+     * carries is the one mapped from the database; its title proves the deal was read at all.
+     */
+    public function test_that_a_deals_internal_details_never_reach_the_customer_pdf(): void
+    {
+        $quotationId = $this->insertQuotation($this->userWith(RoleName::IndoorSales)->id);
+        DB::table('deals')
+            ->where('id', DB::table('quotations')->where('id', $quotationId)->value('deal_id'))
+            ->update(['title' => 'Office fit-out', 'details' => 'INTERNAL-DETAILS-7731']);
+
+        $this->postJson($this->endpoint($quotationId), ['locale' => 'en'], $this->bearerFor(RoleName::Manager))->assertStatus(202);
+
+        Queue::assertPushedOn('pdf', RenderQuotationPdfJob::class, function (RenderQuotationPdfJob $job): bool {
+            $view = serialize($job->view);
+
+            return str_contains($view, 'Office fit-out') && ! str_contains($view, 'INTERNAL-DETAILS-7731');
+        });
+    }
+
     public function test_that_the_language_is_the_requests_own_unless_one_is_named(): void
     {
         $quotationId = $this->insertQuotation();

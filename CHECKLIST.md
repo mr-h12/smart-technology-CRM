@@ -1066,7 +1066,8 @@ would hide them behind `OD-03` indefinitely.
       the title, then theme · language · sign-out; `scrollWidth` 375 at 375 px in Arabic and English.)*
 
 - [ ] **Eleven schema tests carry a byte-identical `refusedWith()` helper** — *revealed by Module 7
-      Point 1.1, 2026-09-07.* `grep -rln "private function refusedWith" crm/tests/` returns eleven
+      Point 1.1, 2026-09-07; recounted by F-41 · 1.4, 2026-10-11: 19 files, the new
+      `DealDetailsMigrationTest` using `expectExceptionCode` instead.* `grep -rln "private function refusedWith" crm/tests/` returned eleven
       files across Customers, Suppliers, Catalog, Admin, Deals, SupplierQuotations and now Quotations.
       Each is the same six lines: run a write, catch `QueryException`, return `errorInfo[0]`. The
       per-test `insert()` factories differ legitimately (different required columns), but the
@@ -4185,10 +4186,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             OpenAPI `respond` row's `po_date` updated. Failing tests first: tomorrow 422, today 200, a
             non-UTC day boundary.
             *(2026-10-11, #305 — `CompanyToday` shared with `J-01`; the picker's `max` is the device's day (owner, «أ»), the server's 422 the rule)*
-      - [ ] **1.4** `details` on deals, backend: a migration (nullable `text`, working `down()`),
+      - [x] **1.4** `details` on deals, backend: a migration (nullable `text`, working `down()`),
             `SaveDealRequest` (≤ 2000), save, summary, payload, audited like `title`; §4.3's `details` row
             and the OpenAPI deal schema with it. Tests include the rollback and a customer PDF that does
             not carry `details`.
+            *(2026-10-11, #306 — `text` + `CHECK (char_length(details) <= 2000)` (owner, «أ»); the PDF guard reads the job's real view)*
       - [ ] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
             the full text on the deal page; ar/en keys. Vitest first.
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and

@@ -1320,7 +1320,10 @@ would hide them behind `OD-03` indefinitely.
       the English one, so against it the values differ by up to 1.3 mm. The page bodies match within
       0.26 mm: QT-2026-0003 in English (125/125) and QT-2026-0006's first page (166/166); in Arabic
       193 of 196 words, the other three single letters the comparison paired with the wrong twin
-      (not checked by eye).
+      (not checked by eye). (4) *(2026-10-11, F-40 · 1.6d — the owner's order, `D-107`)* the English
+      page is one point smaller than the reference and the regards line sits 17.5 mm down, level
+      with *Sales Signature*, in both languages — so the English measurements above, and the regards
+      line in both, no longer match the references by design.
 - [ ] **The PDF page count is read by four copies of one regex** — *revealed by F-40 · 1.6's waste audit,
       2026-10-11; registered, not fixed.* `#/Type\s*/Page(?!s)#` counts a PDF's pages in
       `RenderQuotationPdf.php` (new in 1.6, to choose the longer offer's spacing) and three times in
@@ -4030,6 +4033,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.6c** An offer of six rows or fewer that overflows one page is rendered again compact;
             if it still overflows, its last two rows begin page two's table, so the signature is never
             alone on a page (the owner, 2026-10-11, on QT-2026-0009; recorded on `D-107`).
+      - [ ] **1.6d** *Best Regards,* / «مع خالص التحية» under the signature line, level with *Sales
+            Signature*, both languages; the English page one point smaller (body 10 pt, headings 11.5,
+            title 13, totals 9.5 / 10) to read the size of the Arabic (the owner, 2026-10-11; `D-107`).
       - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed

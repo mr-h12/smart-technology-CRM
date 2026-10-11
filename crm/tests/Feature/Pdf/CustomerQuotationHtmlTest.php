@@ -432,18 +432,26 @@ final class CustomerQuotationHtmlTest extends TestCase
         // D-107: "every size, space and position is that CSS". The values both
         // reference pages share, then the ones the Arabic page changes —
         // `diff` of QT-2026-0003-commercial-offer-{en,ar}.html.
-        $shared = ['width: 75mm', 'font-size: 14pt', 'margin-top: 8mm', 'margin: 12mm 0 4mm',
-            'border: 0.75pt solid #bfbfbf', 'background: #f2f2f2', 'font-size: 10.5pt', 'margin-top: 6mm',
-            'width: 60mm', 'height: 16mm']; // the footer's 8.5pt is `footer()`'s (F-40 · 1.6)
+        // F-40 · 1.6d (the owner, 2026-10-11): the regards line sits level with
+        // *Sales Signature* — the 16 mm line plus the label's 1.5 mm — and the
+        // English page is one point smaller than the reference throughout.
+        $shared = ['width: 75mm', 'margin-top: 8mm', 'margin: 12mm 0 4mm',
+            'border: 0.75pt solid #bfbfbf', 'background: #f2f2f2', 'margin-top: 6mm',
+            'width: 60mm', 'height: 16mm', 'padding-top: 17.5mm']; // the footer's 8.5pt is `footer()`'s (F-40 · 1.6)
         $own = [
-            'en' => ['font-size: 11pt', 'padding: 2.4mm 2mm', 'margin-top: 10.6mm', 'margin: -2.6mm 0 3.7mm', 'padding-top: 11.55mm', 'margin-left: 1.4mm'],
-            'ar' => ['font-size: 11.5pt', 'padding: 2.4mm 1.4mm', 'margin-top: 10.9mm', 'margin: -2.9mm 0 0.5mm', 'padding-top: 11.75mm', 'margin-right: 1.27mm'],
+            'en' => ['font-size: 10pt', 'font-size: 11.5pt', 'font-size: 13pt', 'font-size: 9.5pt', 'padding: 2.4mm 2mm', 'margin-top: 10.6mm', 'margin: -2.6mm 0 3.7mm', 'margin-left: 1.4mm'],
+            'ar' => ['font-size: 11.5pt', 'font-size: 12.5pt', 'font-size: 14pt', 'font-size: 10.5pt', 'font-size: 11pt', 'padding: 2.4mm 1.4mm', 'margin-top: 10.9mm', 'margin: -2.9mm 0 0.5mm', 'margin-right: 1.27mm'],
         ];
+
+        $english = (string) strstr($this->html(locale: 'en'), '</style>', true);
+        foreach (['font-size: 11pt', 'font-size: 12.5pt', 'font-size: 14pt', 'font-size: 10.5pt', 'padding-top: 11.55mm'] as $gone) {
+            self::assertStringNotContainsString($gone, $english, "The English page keeps the size 1.6d replaced: {$gone}.");
+        }
 
         foreach ($own as $locale => $measures) {
             $css = (string) strstr($this->html(locale: $locale), '</style>', true);
             foreach ([...$shared, ...$measures] as $measure) {
-                self::assertStringContainsString($measure, $css, "The {$locale} page does not take the reference's {$measure}.");
+                self::assertStringContainsString($measure, $css, "The {$locale} page does not take {$measure}.");
             }
         }
     }
@@ -857,7 +865,7 @@ final class CustomerQuotationHtmlTest extends TestCase
             }
 
             // The owner, 2026-10-11: «مع خالص التحية» stays level with the
-            // signature line — its 11.55 / 11.75 mm offset is not tightened.
+            // signature label — its 17.5 mm offset (1.6d) is not tightened.
             self::assertStringNotContainsString('.compact .closing', $compact, "The {$locale} compact page moves the regards line off the signature line.");
         }
     }

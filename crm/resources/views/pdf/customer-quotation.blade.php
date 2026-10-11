@@ -3,7 +3,9 @@
     size, space and position is the reference HTML's CSS
     (`prototypes/quotation-client-layout/QT-2026-0003-commercial-offer-{en,ar}.html`),
     copied, not estimated; where the Arabic reference differs, `$rtl` picks its
-    value. What is printed and when a line is omitted are `D-89`'s and
+    value. The owner's departures are named where they sit: the English page
+    one point smaller and the regards line level with the signature label
+    (F-40 · 1.6d), and the compact spacing (1.6c). What is printed and when a line is omitted are `D-89`'s and
     `D-107`'s; the figures are §5's and F-40 · 1.4's.
 
     Every word comes from `lang/{ar,en}/pdf.php` through `$t`, which is bound to
@@ -36,6 +38,10 @@
     <style>
         {!! $fontFaceCss !!}
 
+        /* F-40 · 1.6d (the owner, 2026-10-11): the English page is one point
+           smaller than the reference, to read the size of the Arabic; the
+           regards line sits level with the signature label (16 + 1.5 mm). */
+
         /* The top and bottom margins live in the renderer (Point 2.5): Chrome
            draws the footer inside the bottom one, and its top one is a later
            page's 41.7 mm (D-107). Page one begins 8 mm down — measured: Chrome
@@ -50,15 +56,15 @@
             margin: 0;
             padding: 0 22mm;
             font-family: '{{ $rtl ? 'CRM Sans Arabic' : 'CRM Sans' }}', '{{ $rtl ? 'CRM Sans' : 'CRM Sans Arabic' }}';
-            font-size: {{ $rtl ? '11.5pt' : '11pt' }};
+            font-size: {{ $rtl ? '11.5pt' : '10pt' }};
             line-height: 1.45;
             color: #000;
         }
 
-        .h { font-weight: 700; font-size: 12.5pt; }
+        .h { font-weight: 700; font-size: {{ $rtl ? '12.5pt' : '11.5pt' }}; }
 
         .logo { width: 75mm; display: block; margin-left: -1.58mm; {{ $rtl ? 'margin-right: auto;' : '' }} }
-        .title { text-align: center; margin-top: 2.14mm; font-size: 14pt; font-weight: 700; }
+        .title { text-align: center; margin-top: 2.14mm; font-size: {{ $rtl ? '14pt' : '13pt' }}; font-weight: 700; }
 
         .info { margin-top: 8mm; }
         .info > div + div { margin-top: 1.5mm; }
@@ -78,8 +84,8 @@
         .items-next { break-before: page; }
 
         .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; break-inside: avoid; }
-        .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: 10.5pt; }
-        .totals td.h { font-size: 11pt; }
+        .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: {{ $rtl ? '10.5pt' : '9.5pt' }}; }
+        .totals td.h { font-size: {{ $rtl ? '11pt' : '10pt' }}; }
         .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; }
 
         .terms { margin-top: 6mm; }
@@ -87,7 +93,7 @@
 
         .contact { margin-top: {{ $rtl ? '10.9mm' : '10.6mm' }}; }
         .closing { break-inside: avoid; display: flex; justify-content: space-between; align-items: flex-start; margin: {{ $rtl ? '-2.9mm 0 0.5mm' : '-2.6mm 0 3.7mm' }}; }
-        .closing > div:first-child { padding-top: {{ $rtl ? '11.75mm' : '11.55mm' }}; }
+        .closing > div:first-child { padding-top: 17.5mm; }
         .closing .name { margin-top: 1mm; }
         .closing .name, .closing .role { {{ $rtl ? 'margin-right: 1.27mm' : 'margin-left: 1.4mm' }}; }
         .sign { width: 60mm; text-align: center; }

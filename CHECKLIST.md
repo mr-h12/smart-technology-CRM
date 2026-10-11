@@ -4254,6 +4254,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       `prototypes/ux-<pattern>/`), seen in the browser at ar/en × 1280/375. The point list was published
       and approved 2026-10-12 in conversation, with mock-ups and the order below as recommended.
       - [x] **3.0** This point list. Docs only.
+            *(2026-10-12, #316 — nine points, 3.0–3.8; 44 of the 67 audit rows named, the rest sorted by 3.1; no CI run, docs only)*
       - [ ] **3.1** Sort the 67 audit rows into one obvious fix (→ Phase 4), needs options (→ 3.3–3.7) and
             owner decision / non-UI (→ 3.2); a script proves each row is sorted once.
       - [ ] **3.2** The owner's decisions, each asked with a recommendation: A-15 preview or save-then-see,

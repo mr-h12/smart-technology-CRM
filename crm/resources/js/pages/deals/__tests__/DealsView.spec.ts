@@ -60,6 +60,7 @@ const DEAL = {
     // list's `Acme Industrial` — a screen that still joins shows the wrong one.
     customer_name: 'Acme Industrial Ltd',
     title: 'Twelve pumps',
+    details: 'Site visit on Tuesday.\nTwo floors, twelve pumps, one of them on the roof.',
     source: 'employee_entry',
     service_type: 'product',
     status: 'lead',
@@ -78,6 +79,7 @@ const SECOND_DEAL_SAME_CUSTOMER = {
     id: 'd2',
     code: 'DL-2026-0002',
     title: 'Spare seals',
+    details: null,
     status: 'negotiations',
     approval_status: null,
 };
@@ -246,6 +248,24 @@ describe('the deals screen', () => {
         // the router rather than silently producing a dead link.
         expect(link.exists()).toBe(true);
         expect(link.attributes('href')).toBe('/deals/d1');
+    });
+
+    it('shows details shortened from lg, the whole text in its title, — when none (F-41 · 1.5, D-108)', async () => {
+        const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER]));
+        const header = wrapper.find('[data-testid="deals-details-header"]');
+        const [given, none] = wrapper.findAll('[data-testid="deals-details"]');
+
+        expect(header.text()).toBe('Details');
+        // jsdom lays nothing out: the classes are what is checked here, and
+        // the browser check proves the column hides below lg and clips.
+        for (const cell of [header, given!]) {
+            expect(cell.classes()).toEqual(expect.arrayContaining(['hidden', 'lg:table-cell']));
+        }
+        expect(given!.find('span').classes()).toContain('truncate');
+        expect(given!.find('span').attributes('title')).toBe(DEAL.details);
+        expect(given!.find('span').attributes('dir')).toBe('auto');
+        expect(none!.text()).toBe('—');
+        expect(none!.find('span').attributes('title')).toBeUndefined();
     });
 
     it('draws two deals for one customer as two rows with separate statuses', async () => {

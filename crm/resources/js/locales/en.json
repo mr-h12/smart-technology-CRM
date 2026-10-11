@@ -989,6 +989,7 @@
             "code": "Code",
             "customer": "Customer",
             "title": "Request",
+            "details": "Details",
             "status": "Status",
             "approval": "Approval",
             "lastActivity": "Last activity",

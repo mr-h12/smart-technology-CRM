@@ -399,6 +399,7 @@ onMounted(load);
                             </th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.customer') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.title') }}</th>
+                            <th scope="col" class="hidden p-3 text-start lg:table-cell" data-testid="deals-details-header">{{ t('deals.column.details') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.status') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.approval') }}</th>
 
@@ -446,6 +447,10 @@ onMounted(load);
                             </td>
                             <td class="p-3" data-testid="deals-customer">{{ deal.customer_name }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
+                            <!-- D-108: shortened to one line; the whole text is the cell's title. -->
+                            <td class="hidden p-3 lg:table-cell" data-testid="deals-details">
+                                <span class="block max-w-32 truncate" dir="auto" :title="deal.details ?? undefined">{{ deal.details ?? '—' }}</span>
+                            </td>
                             <td class="p-3" data-testid="deals-status">
                                 {{ statusLabel(deal.status) }}
                                 <DealStatusControl :deal="deal" @changed="onDecided" />

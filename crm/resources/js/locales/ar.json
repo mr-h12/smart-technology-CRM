@@ -989,6 +989,7 @@
             "code": "الرمز",
             "customer": "العميل",
             "title": "الطلب",
+            "details": "التفاصيل",
             "status": "الحالة",
             "approval": "الاعتماد",
             "lastActivity": "آخر نشاط",

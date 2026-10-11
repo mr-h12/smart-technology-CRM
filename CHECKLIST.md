@@ -1723,6 +1723,12 @@ would hide them behind `OD-03` indefinitely.
       They stay so nothing is deleted and the rollback is a column drop. Since F-37 · 1.3 nothing
       reads them either: `QuotationDetail` dropped them and the PDF prints `terms`. Owed: a migration that drops the four columns and
       their `@property` lines, once 1.3 and 1.4 are merged and the owner orders it.
+- [ ] **The bordered `<textarea class="form-field …">` is hand-written in nine screens** — *revealed by
+      F-41 · 1.5, 2026-10-11 (`waste-auditor`); not fixed there, because the approved line is the deal's
+      `details`.* `grep -rln "<textarea" pages components` lists them; `CustomerFormModal.vue:516` is the
+      shape 1.5 copied (label, `rows="4"`, the `form-field` focus-ring classes, a `testId()`). They differ
+      in `maxlength`, `aria-invalid` and the error span. Owed: one `FormTextarea` component, when the owner
+      orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -4191,8 +4197,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and the OpenAPI deal schema with it. Tests include the rollback and a customer PDF that does
             not carry `details`.
             *(2026-10-11, #306 — `text` + `CHECK (char_length(details) <= 2000)` (owner, «أ»); the PDF guard reads the job's real view)*
-      - [ ] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
+      - [x] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
             the full text on the deal page; ar/en keys. Vitest first.
+            *(2026-10-11 — `maxlength="2000"` (owner «أ»); `dir="auto"` and an 8rem cell after `rtl-ui-verifier` found Arabic mis-set in EN and the table scrolling in its frame at 1280)*
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`;
             both in the OpenAPI contract. Tests first, with a negative authorization case.

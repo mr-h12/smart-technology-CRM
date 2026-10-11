@@ -36,6 +36,7 @@ const DEAL: Deal = {
     code: 'DL-2026-0001',
     customer_id: 'c1',
     title: 'Twelve pumps',
+    details: 'Site visit on Tuesday.\nTwo floors.',
     source: 'employee_entry',
     service_type: 'product',
     status: 'lead',
@@ -175,6 +176,7 @@ describe('the deal form dialog', () => {
             customer_id: 'c-183',
             owner_id: null,
             title: 'Twelve pumps',
+            details: null,
             source: null,
             service_type: null,
         });
@@ -227,7 +229,9 @@ describe('the deal form dialog', () => {
 
         const body = JSON.parse(String(writeCall()![1].body));
 
-        expect(body).toEqual({ title: 'Fourteen pumps', source: 'employee_entry', service_type: 'product' });
+        expect(body).toEqual({
+            title: 'Fourteen pumps', details: 'Site visit on Tuesday.\nTwo floors.', source: 'employee_entry', service_type: 'product',
+        });
         // Sending the unchanged value would 422 the save outright.
         expect(body).not.toHaveProperty('customer_id');
         expect(body).not.toHaveProperty('owner_id');
@@ -301,6 +305,59 @@ describe('the deal form dialog', () => {
     });
 
     // ───────────────────────────────────────────────────── the server's refusals
+
+    // ─────────────────────────────────────────── F-41 · 1.5: details (D-108)
+
+    it('posts details as typed, and caps the box at §4.3’s 2000 characters', async () => {
+        const wrapper = await mountModal();
+        const box = wrapper.find('[data-testid="deal-form-details"]');
+
+        expect(box.element.tagName).toBe('TEXTAREA');
+        // The owner's «أ», 2026-10-11: the box stops at the limit; the
+        // server's `max:2000` and the column's CHECK stay the rule.
+        expect(box.attributes('maxlength')).toBe('2000');
+        // Typed text may be in either language, whatever the screen's: the
+        // box takes its direction from the text (rtl-ui-verifier, 1.5).
+        expect(box.attributes('dir')).toBe('auto');
+
+        await pickCustomer(wrapper);
+        await box.setValue('Site visit on Tuesday.\nTwo floors.');
+        await wrapper.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(JSON.parse(String(writeCall()![1].body)).details).toBe('Site visit on Tuesday.\nTwo floors.');
+    });
+
+    it('opens an edit with the deal’s details and sends a cleared box as null', async () => {
+        const wrapper = await mountModal(DEAL);
+        const box = wrapper.find('[data-testid="deal-form-details"]');
+
+        expect((box.element as HTMLTextAreaElement).value).toBe('Site visit on Tuesday.\nTwo floors.');
+
+        // `PATCH` takes null as "erase" (OpenAPI, #306).
+        await box.setValue('');
+        await wrapper.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(JSON.parse(String(writeCall()![1].body)).details).toBeNull();
+    });
+
+    it('renders a details refusal under its own box', async () => {
+        const wrapper = await mountModal(DEAL, ASSIGNER, 200, async () => json(422, {
+            error: {
+                code: 'validation_failed',
+                message: 'The given data was invalid.',
+                details: [{ field: 'details', message: 'The details may not be longer than 2000 characters.' }],
+            },
+            meta: { request_id: 'r1' },
+        }));
+
+        await wrapper.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="deal-form-details-error"]').text())
+            .toBe('The details may not be longer than 2000 characters.');
+    });
 
     it('renders a field refusal as the server’s own sentence', async () => {
         const wrapper = await mountModal(DEAL, ASSIGNER, 200, async () => json(422, {

@@ -10,7 +10,7 @@ as it is on `main` (`102c355`).** It decides nothing and proposes nothing.
 |---|---|
 | Routes, guards | `crm/resources/js/router/index.ts` (`meta.requiredPermission`) |
 | Who holds a permission, and at what scope | the dev database, `role_permissions ⋈ roles ⋈ permissions`; the query is quoted in the PR |
-| Personas, main screens | `docs/User_Personas_EN.md` P-01…P-08 |
+| Personas, main screens | `docs/User_Personas_EN.md` P-01…P-08. `CRM_Documentation_EN.md` §8 is the documented per-role screen list (intent); this map is what the code routes today, and §8 wins where they differ |
 | States a screen renders | a `grep` of each page for `<LoadingState`, `<EmptyState`, `<ErrorState`, `<PermissionDeniedState` |
 | Links between screens | the `name: '<route>'` targets inside each page |
 

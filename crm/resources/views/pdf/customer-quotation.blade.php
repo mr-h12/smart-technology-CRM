@@ -75,6 +75,7 @@
            forward; the table may run on, a row may not, and its header repeats. */
         .items tr { break-inside: avoid; page-break-inside: avoid; }
         .items thead { display: table-header-group; }
+        .items-next { break-before: page; }
 
         .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; break-inside: avoid; }
         .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: 10.5pt; }
@@ -127,7 +128,16 @@
 
 <p class="intro">{{ $t('intro') }}</p>
 
-<table class="items">
+{{-- Each row's cells: description, unit, quantity, unit price, VAT (null when exempt), total.
+     D-107: an additional item is a row after the lines — no unit, one of it, untaxed (D-62). --}}
+@php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $taxed ? $money($line->vatAmount) : null, $money($line->total)])
+@php($additionalCells = fn ($additional) => [$additional->description, '—', '1', $money($additional->amount), $taxed ? $money('0') : null, $money($additional->amount)])
+@php($rows = [...array_map($lineCells, $view->lines), ...array_map($additionalCells, $view->additionalItems)])
+{{-- F-40 · 1.6b (the owner, 2026-10-11): six rows on page one, at most eight on each later page, each page its own table. --}}
+@php($later = array_slice($rows, 6))
+@php($pages = [array_slice($rows, 0, 6), ...array_chunk($later, 8)])
+@foreach ($pages as $page)
+<table class="items{{ $loop->first ? '' : ' items-next' }}">
     <thead class="h">
     <tr>
         <th class="desc">{{ $t('table.description') }}</th>
@@ -141,33 +151,21 @@
     </tr>
     </thead>
     <tbody>
-    @foreach ($view->lines as $line)
+    @foreach ($page as $row)
         <tr>
-            <td class="desc">{{ $line->description }}</td>
-            <td>{{ ($rtl ? $line->unitAr : $line->unitEn) ?? '—' }}</td>
-            <td>{{ $plain($line->quantity) }}</td>
-            <td>{{ $money($line->unitPrice) }}</td>
+            <td class="desc">{{ $row[0] }}</td>
+            <td>{{ $row[1] }}</td>
+            <td>{{ $row[2] }}</td>
+            <td>{{ $row[3] }}</td>
             @if ($taxed)
-                <td>{{ $money($line->vatAmount) }}</td>
+                <td>{{ $row[4] }}</td>
             @endif
-            <td>{{ $money($line->total) }}</td>
-        </tr>
-    @endforeach
-    {{-- D-107: an additional item is a row — no unit, one of it, untaxed (D-62). --}}
-    @foreach ($view->additionalItems as $additional)
-        <tr>
-            <td class="desc">{{ $additional->description }}</td>
-            <td>—</td>
-            <td>1</td>
-            <td>{{ $money($additional->amount) }}</td>
-            @if ($taxed)
-                <td>{{ $money('0') }}</td>
-            @endif
-            <td>{{ $money($additional->amount) }}</td>
+            <td>{{ $row[5] }}</td>
         </tr>
     @endforeach
     </tbody>
 </table>
+@endforeach
 
 <table class="totals">
     <tr><td class="h">{{ $t('totals.excl_vat') }}</td><td>{{ $money($view->totalExcludingVat) }}</td></tr>

@@ -4024,6 +4024,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             later pages begin 41.7 mm down; the header repeated, no row split; the one-page and
             multi-page spacing. Real PDFs compared with the references word by word (`pdftotext
             -bbox`, ±0.5 mm).
+      - [ ] **1.6b** Page one carries at most six table rows (lines, then additional items); every
+            later page at most eight, each in its own table, header repeated, at the top of its page
+            (the owner, 2026-10-11 — amends `D-107`'s "the table may run onto later pages").
       - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed

@@ -763,6 +763,98 @@ final class CustomerQuotationHtmlTest extends TestCase
         $this->html(totalExcludingVat: '1e5');
     }
 
+    public function test_that_six_rows_stay_in_one_table_on_page_one(): void
+    {
+        // F-40 · 1.6b (the owner, 2026-10-11): page one carries at most six
+        // rows — five lines and the additional item are still one table.
+        foreach (['ar', 'en'] as $locale) {
+            $tables = self::itemTables($this->html(locale: $locale, lines: self::lines(5)));
+
+            self::assertCount(1, $tables, "Six rows on the {$locale} page were split.");
+            self::assertSame(['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5', 'Delivery &amp; Installation'], self::descriptions($tables[0]));
+        }
+    }
+
+    public function test_that_the_seventh_row_starts_a_new_table_with_its_header_on_the_next_page(): void
+    {
+        // F-40 · 1.6b: "more than 6 items … create a table in the next page and
+        // start from number 7" — the seventh row opens a second table, which
+        // carries the column titles and begins on a new page. The additional
+        // item counts as a row (D-107).
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale, lines: self::lines(9));
+            $tables = self::itemTables($html);
+
+            self::assertCount(2, $tables, "Ten rows on the {$locale} page are not two tables.");
+            self::assertSame(['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5', 'Item 6'], self::descriptions($tables[0]), "The {$locale} page one does not hold rows 1 to 6.");
+            self::assertSame(['Item 7', 'Item 8', 'Item 9', 'Delivery &amp; Installation'], self::descriptions($tables[1]), "The {$locale} page two does not start at row 7.");
+            self::assertStringContainsString('<thead', $tables[1], "The {$locale} second table has no column titles.");
+            self::assertStringContainsString('class="items items-next"', $html, "The {$locale} second table is not marked to start a page.");
+        }
+
+        $css = (string) strstr($this->html(lines: self::lines(9)), '</style>', true);
+        self::assertMatchesRegularExpression('/\.items-next\s*\{[^}]*break-before:\s*page/', $css, 'The second table does not begin on a new page.');
+    }
+
+    public function test_that_every_later_page_carries_at_most_eight_rows_in_its_own_table(): void
+    {
+        // F-40 · 1.6b (the owner, 2026-10-11): "second page limit of items
+        // inside the table is 8, same goes for page 3" — 15 rows are 6 + 8 + 1,
+        // each later table on its own page with its own column titles.
+        foreach (['ar', 'en'] as $locale) {
+            $tables = self::itemTables($this->html(locale: $locale, lines: self::lines(14)));
+
+            self::assertCount(3, $tables, "Fifteen rows on the {$locale} page are not three tables.");
+            self::assertSame(['Item 7', 'Item 8', 'Item 9', 'Item 10', 'Item 11', 'Item 12', 'Item 13', 'Item 14'], self::descriptions($tables[1]), "The {$locale} page two does not hold rows 7 to 14.");
+            self::assertSame(['Delivery &amp; Installation'], self::descriptions($tables[2]), "The {$locale} page three does not start at row 15.");
+
+            foreach ([1, 2] as $later) {
+                self::assertStringContainsString('<thead', $tables[$later], "The {$locale} table on page ".($later + 1).' has no column titles.');
+                self::assertStringStartsWith('<table class="items items-next">', $tables[$later], "The {$locale} table on page ".($later + 1).' does not start a page.');
+            }
+        }
+
+        // Exactly 6 + 8 stays two tables: a full later page opens no empty one.
+        self::assertCount(2, self::itemTables($this->html(lines: self::lines(13))));
+    }
+
+    public function test_that_an_additional_item_in_seventh_place_moves_to_page_two(): void
+    {
+        $tables = self::itemTables($this->html(
+            lines: self::lines(5),
+            additionalItems: [new CustomerAdditionalLine(1, 'Delivery', '100.00'), new CustomerAdditionalLine(2, 'Installation', '50.00')],
+        ));
+
+        self::assertCount(2, $tables);
+        self::assertSame(['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5', 'Delivery'], self::descriptions($tables[0]));
+        self::assertSame(['Installation'], self::descriptions($tables[1]));
+    }
+
+    /** @return list<CustomerQuotationLine> */
+    private static function lines(int $count): array
+    {
+        return array_map(
+            static fn (int $n): CustomerQuotationLine => new CustomerQuotationLine($n, "Item {$n}", '1', '100.00', '100.00', 'Pcs', 'قطعة', '14.00', '114.00'),
+            range(1, $count),
+        );
+    }
+
+    /** @return list<string> each item table's markup, in page order */
+    private static function itemTables(string $html): array
+    {
+        preg_match_all('/<table class="items[^"]*">.*?<\/table>/s', $html, $matches);
+
+        return $matches[0];
+    }
+
+    /** @return list<string> */
+    private static function descriptions(string $table): array
+    {
+        preg_match_all('/<td class="desc">\s*(.*?)\s*<\/td>/s', $table, $matches);
+
+        return $matches[1];
+    }
+
     private function html(
         string $locale = 'en',
         mixed ...$overrides,

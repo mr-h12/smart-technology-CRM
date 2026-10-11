@@ -4248,6 +4248,29 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **2.3** `docs/ux-upgrade/audit.md`: one prioritized list (severity, screen, role, fix,
             citation, overlap); the top 15 shown to the owner.
             *(2026-10-12, #315 — 219 raw ids into 67 rows: 0 blocker, 27 major, 36 minor, 4 polish; 7 need non-UI work; the quotations count is 28 minor, not 29)*
+      **Phase 3 — design options.** Design only, no code; the output is `docs/ux-upgrade/design-options.md`.
+      Two options only where a real choice exists; a row with one obvious fix goes straight to Phase 4.
+      Options are shown as static HTML mock-ups on the real `tokens.css` (untracked
+      `prototypes/ux-<pattern>/`), seen in the browser at ar/en × 1280/375. The point list was published
+      and approved 2026-10-12 in conversation, with mock-ups and the order below as recommended.
+      - [x] **3.0** This point list. Docs only.
+      - [ ] **3.1** Sort the 67 audit rows into one obvious fix (→ Phase 4), needs options (→ 3.3–3.7) and
+            owner decision / non-UI (→ 3.2); a script proves each row is sorted once.
+      - [ ] **3.2** The owner's decisions, each asked with a recommendation: A-15 preview or save-then-see,
+            A-25 interim landing, A-26 D-99's display form on screen, A-62 the margin's minus sign, the API
+            requests behind A-03, A-18, A-45, A-54.
+      - [ ] **3.3** Dialogs and confirmations — native `<dialog>` vs a shared helper on the current markup;
+            the confirm step (A-04, A-09, A-22, A-30, A-35, A-61).
+      - [ ] **3.4** Focus, highlight and feedback — focus ring, picker highlight, hover, live region vs
+            toast; contrast measured in 3 themes (A-08, A-31, A-32, A-34, A-51, A-64).
+      - [ ] **3.5** Page structure — one h1, one Primary, row-level Danger, the total in the quotation
+            header, section refusal, error wording (A-21, A-28, A-33, A-43, A-53, A-56).
+      - [ ] **3.6** Lists — URL filters, reload without blanking, the phone layout, sticky header, filter
+            rules; built only after F-41 closes (A-13, A-14, A-19, A-39, A-40, A-48, A-49, A-57, A-67).
+      - [ ] **3.7** Builder — error summary, sticky Save, Enter, labels and required marks, per-block
+            loading, file input (A-11, A-20, A-24, A-37, A-41, A-50).
+      - [ ] **3.8** Token proposals as proposed decisions in Design System §10 — radius, `--color-overlay`,
+            `color-scheme`, the dead `--shadow-3` (A-42, A-63, A-65); applied only on the owner's yes.
 
 ## Shell revisions — owner-directed
 

@@ -4200,6 +4200,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
             the full text on the deal page; ar/en keys. Vitest first.
             *(2026-10-11, #308 — `maxlength="2000"` (owner «أ»); `dir="auto"` and an 8rem cell after `rtl-ui-verifier` found Arabic mis-set in EN and the table scrolling in its frame at 1280; the whole text in a native `popover="auto"` — hover opens, a click pins it until a click elsewhere or Escape (owner, same day))*
+      - [x] **1.6a** `D-109` in §2 (proposed) + this list (1.6a–1.6c, the owner's answers of 2026-10-11:
+            inside F-41, the deal page too, customer + request in one cell, before 1.6). Docs only.
+            *(2026-10-11 — 103 D-rows)*
+      - [ ] **1.6b** `owner_name` on `GET /deals` rows and `GET /deals/{id}` through
+            `UserFactsInterface::namesOf`, `null` for the hidden Super Admin, a deleted account or no owner;
+            the OpenAPI deal schema. Tests first.
+      - [ ] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
+            request in one cell; Ghost edit. Vitest first.
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`;
             both in the OpenAPI contract. Tests first, with a negative authorization case.

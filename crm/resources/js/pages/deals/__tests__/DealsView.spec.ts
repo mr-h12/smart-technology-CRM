@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
@@ -60,6 +60,7 @@ const DEAL = {
     // list's `Acme Industrial` — a screen that still joins shows the wrong one.
     customer_name: 'Acme Industrial Ltd',
     title: 'Twelve pumps',
+    details: 'Site visit on Tuesday.\nTwo floors, twelve pumps, one of them on the roof.',
     source: 'employee_entry',
     service_type: 'product',
     status: 'lead',
@@ -78,6 +79,7 @@ const SECOND_DEAL_SAME_CUSTOMER = {
     id: 'd2',
     code: 'DL-2026-0002',
     title: 'Spare seals',
+    details: null,
     status: 'negotiations',
     approval_status: null,
 };
@@ -246,6 +248,143 @@ describe('the deals screen', () => {
         // the router rather than silently producing a dead link.
         expect(link.exists()).toBe(true);
         expect(link.attributes('href')).toBe('/deals/d1');
+    });
+
+    it('shows details shortened from lg, — when none (F-41 · 1.5, D-108)', async () => {
+        const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER]));
+        const header = wrapper.find('[data-testid="deals-details-header"]');
+        const [given, none] = wrapper.findAll('[data-testid="deals-details"]');
+
+        expect(header.text()).toBe('Details');
+        // happy-dom lays nothing out: the classes are what is checked here, and
+        // the browser check proves the column hides below lg and clips.
+        for (const cell of [header, given!]) {
+            expect(cell.classes()).toEqual(expect.arrayContaining(['hidden', 'lg:table-cell']));
+        }
+        const trigger = given!.find('[data-testid="deals-details-trigger"]');
+
+        expect(trigger.element.tagName).toBe('BUTTON');
+        expect(trigger.find('span').classes()).toContain('truncate');
+        expect(trigger.find('span').attributes('dir')).toBe('auto');
+        expect(none!.text()).toBe('—');
+        expect(none!.find('[data-testid="deals-details-trigger"]').exists()).toBe(false);
+    });
+
+    /**
+     * F-41 · 1.5, the owner, 2026-10-11: hovering the shortened details shows the
+     * whole text in a pop-up; a click keeps it open until the user clicks
+     * elsewhere. The browser's own `popover="auto"` does the "elsewhere" (and
+     * Escape); happy-dom has no Popover API, so the two calls are stubbed here
+     * and the light dismiss is proved in the browser.
+     */
+    describe('the details pop-up', () => {
+        let shown: ReturnType<typeof vi.fn>;
+        let hidden: ReturnType<typeof vi.fn>;
+        /** The browser's open state, which `:popover-open` reads; the real calls throw on the wrong one. */
+        let open: WeakSet<Element>;
+        const matches = Element.prototype.matches;
+
+        beforeEach(() => {
+            open = new WeakSet();
+            // Like the browser: opening an open one, or closing a closed one, throws.
+            shown = vi.fn(function (this: Element) {
+                if (open.has(this)) throw new DOMException('already open', 'InvalidStateError');
+                open.add(this);
+            });
+            hidden = vi.fn(function (this: Element) {
+                if (!open.has(this)) throw new DOMException('not open', 'InvalidStateError');
+                open.delete(this);
+            });
+            Object.assign(HTMLElement.prototype, { showPopover: shown, hidePopover: hidden });
+            vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
+                return selector === ':popover-open' ? open.has(this) : matches.call(this, selector);
+            });
+        });
+
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        /** What the browser does on a click outside or Escape: closes, then says so. */
+        function lightDismiss(popover: Element): void {
+            open.delete(popover);
+            popover.dispatchEvent(Object.assign(new Event('toggle'), { newState: 'closed' }));
+        }
+
+        it('holds the whole text, line breaks kept, as an auto popover', async () => {
+            const wrapper = await render(respond());
+            const popover = wrapper.find('[data-testid="deals-details-popover"]');
+
+            expect(popover.attributes('popover')).toBe('auto');
+            expect(popover.text()).toBe(DEAL.details.trim());
+            expect(popover.classes()).toContain('whitespace-pre-line');
+            expect(popover.attributes('dir')).toBe('auto');
+        });
+
+        it('places it from one edge only, whatever the last language left behind', async () => {
+            const wrapper = await render(respond());
+            const popover = wrapper.find('[data-testid="deals-details-popover"]').element as HTMLElement;
+
+            // What an Arabic opening left before the switch to English (rtl-ui-verifier).
+            popover.style.right = '527px';
+            await wrapper.find('[data-testid="deals-details-trigger"]').trigger('mouseenter');
+
+            expect(popover.style.right).toBe('auto');
+        });
+
+        it('opens on hover and closes when the pointer leaves', async () => {
+            const wrapper = await render(respond());
+            const trigger = wrapper.find('[data-testid="deals-details-trigger"]');
+
+            await trigger.trigger('mouseenter');
+            expect(shown).toHaveBeenCalledTimes(1);
+
+            await trigger.trigger('mouseleave');
+            expect(hidden).toHaveBeenCalledTimes(1);
+        });
+
+        it('stays open after a click when the pointer leaves', async () => {
+            const wrapper = await render(respond());
+            const trigger = wrapper.find('[data-testid="deals-details-trigger"]');
+
+            await trigger.trigger('mouseenter');
+            await trigger.trigger('click');
+            await trigger.trigger('mouseleave');
+
+            expect(hidden).not.toHaveBeenCalled();
+        });
+
+        it('opens on a click alone, for a keyboard or a touch with no hover', async () => {
+            const wrapper = await render(respond());
+
+            await wrapper.find('[data-testid="deals-details-trigger"]').trigger('click');
+
+            expect(shown).toHaveBeenCalledTimes(1);
+        });
+
+        it('leaves quietly when Escape already closed it under the pointer', async () => {
+            const wrapper = await render(respond());
+            const trigger = wrapper.find('[data-testid="deals-details-trigger"]');
+
+            await trigger.trigger('mouseenter');
+            lightDismiss(wrapper.find('[data-testid="deals-details-popover"]').element);
+            await trigger.trigger('mouseleave');
+
+            // The browser throws on closing a closed popover.
+            expect(hidden).not.toHaveBeenCalled();
+        });
+
+        it('forgets the click once the browser has dismissed it, so hover closes again', async () => {
+            const wrapper = await render(respond());
+            const trigger = wrapper.find('[data-testid="deals-details-trigger"]');
+
+            await trigger.trigger('click');
+            lightDismiss(wrapper.find('[data-testid="deals-details-popover"]').element);
+            await trigger.trigger('mouseenter');
+            await trigger.trigger('mouseleave');
+
+            expect(hidden).toHaveBeenCalledTimes(1);
+        });
     });
 
     it('draws two deals for one customer as two rows with separate statuses', async () => {

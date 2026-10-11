@@ -228,6 +228,54 @@ function onDate(value: string | null): string {
     return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
 }
 
+/**
+ * F-41 · 1.5 (the owner, 2026-10-11): hover shows a deal's whole details, a click
+ * keeps them open until a click elsewhere. `popover="auto"` is the browser's own
+ * light dismiss (outside click, Escape); this only pins and places it.
+ */
+const pinnedDetails = ref<string | null>(null);
+
+function popoverAfter(trigger: EventTarget | null): HTMLElement {
+    return (trigger as HTMLElement).nextElementSibling as HTMLElement;
+}
+
+function openDetails(event: Event): void {
+    const popover = popoverAfter(event.currentTarget);
+
+    if (popover.matches(':popover-open')) {
+        return;
+    }
+
+    // Under the cell, from its start edge; fixed, because the top layer is. Both
+    // edges every time, or the other language's edge squeezes it.
+    // ponytail: no flip above near the viewport's bottom; the page scrolls.
+    const cell = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const rtl = locale.value === 'ar';
+    popover.style.top = `${cell.bottom + 4}px`;
+    popover.style.right = rtl ? `${window.innerWidth - cell.right}px` : 'auto';
+    popover.style.left = rtl ? 'auto' : `${cell.left}px`;
+    popover.showPopover();
+}
+
+function closeDetails(event: Event, dealId: string): void {
+    const popover = popoverAfter(event.currentTarget);
+
+    if (pinnedDetails.value !== dealId && popover.matches(':popover-open')) {
+        popover.hidePopover();
+    }
+}
+
+function pinDetails(event: Event, dealId: string): void {
+    pinnedDetails.value = dealId;
+    openDetails(event);
+}
+
+function onDetailsToggle(event: Event, dealId: string): void {
+    if ((event as ToggleEvent).newState === 'closed' && pinnedDetails.value === dealId) {
+        pinnedDetails.value = null;
+    }
+}
+
 function startCreate(): void {
     editing.value = null;
     formOpen.value = true;
@@ -399,6 +447,7 @@ onMounted(load);
                             </th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.customer') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.title') }}</th>
+                            <th scope="col" class="hidden p-3 text-start lg:table-cell" data-testid="deals-details-header">{{ t('deals.column.details') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.status') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.approval') }}</th>
 
@@ -446,6 +495,29 @@ onMounted(load);
                             </td>
                             <td class="p-3" data-testid="deals-customer">{{ deal.customer_name }}</td>
                             <td class="p-3">{{ deal.title ?? '—' }}</td>
+                            <!-- D-108: shortened to one line; the whole text in a pop-up. -->
+                            <td class="hidden p-3 lg:table-cell" data-testid="deals-details">
+                                <template v-if="deal.details !== null">
+                                    <button
+                                        type="button"
+                                        class="details-trigger rounded text-start focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        data-testid="deals-details-trigger"
+                                        @mouseenter="openDetails($event)"
+                                        @mouseleave="closeDetails($event, deal.id)"
+                                        @click="pinDetails($event, deal.id)"
+                                    >
+                                        <span class="block max-w-32 truncate" dir="auto">{{ deal.details }}</span>
+                                    </button>
+                                    <div
+                                        popover="auto"
+                                        dir="auto"
+                                        class="details-popover inset-auto m-0 max-w-sm whitespace-pre-line rounded-lg p-3 text-pretty"
+                                        data-testid="deals-details-popover"
+                                        @toggle="onDetailsToggle($event, deal.id)"
+                                    >{{ deal.details }}</div>
+                                </template>
+                                <template v-else>—</template>
+                            </td>
                             <td class="p-3" data-testid="deals-status">
                                 {{ statusLabel(deal.status) }}
                                 <DealStatusControl :deal="deal" @changed="onDecided" />
@@ -554,6 +626,18 @@ onMounted(load);
 .row-link {
     color: var(--color-primary);
     text-decoration: underline;
+}
+
+.details-trigger {
+    color: inherit;
+    cursor: help;
+}
+
+.details-popover {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-1);
+    color: var(--color-text);
 }
 
 .row-action {

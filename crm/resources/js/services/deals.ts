@@ -37,6 +37,7 @@ export interface Deal {
     code: string;
     customer_id: string;
     title: string | null;
+    details: string | null;
     source: string | null;
     service_type: string | null;
     status: string;
@@ -104,6 +105,7 @@ export interface DealListQuery {
  */
 export interface DealDraft {
     title?: string | null;
+    details?: string | null;
     source?: string | null;
     service_type?: string | null;
 }

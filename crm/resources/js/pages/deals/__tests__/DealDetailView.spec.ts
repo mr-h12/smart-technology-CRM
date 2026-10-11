@@ -31,6 +31,7 @@ function json(status: number, body: unknown): Response {
 
 const DEAL = {
     id: 'd1', code: 'DL-2026-0001', customer_id: 'c1', title: 'Twelve pumps',
+    details: 'Site visit on Tuesday.\nTwo floors.',
     source: 'employee_entry', service_type: 'product', status: 'contacted', owner_id: 'u9',
     approval_status: 'pending', rejection_reason: null, lost_reason: null,
     last_activity_at: '2026-09-08T09:00:00+00:00',
@@ -159,6 +160,22 @@ describe('the deal detail view', () => {
         expect(wrapper.find('[data-testid="deal-detail-title"]').text()).toBe('DL-2026-0001');
         expect(wrapper.find('[data-testid="deal-detail-status"]').text()).toBe('Contacted');
         expect(wrapper.find('[data-testid="deal-detail-customer"]').text()).toBe('Acme Industrial');
+    });
+
+    it('shows the details in full, line breaks kept (F-41 · 1.5, D-108)', async () => {
+        const wrapper = await render(respond());
+        const details = wrapper.find('[data-testid="deal-detail-details"]');
+
+        expect(details.text()).toBe('Site visit on Tuesday.\nTwo floors.');
+        expect(details.classes()).toContain('whitespace-pre-line');
+        expect(details.attributes('dir')).toBe('auto');
+        expect(wrapper.find('[data-testid="deal-detail-summary"]').text()).toContain('Details');
+    });
+
+    it('draws — for a deal with no details', async () => {
+        const wrapper = await render(respond({ deal: { ...DEAL, details: null } }));
+
+        expect(wrapper.find('[data-testid="deal-detail-details"]').text()).toBe('—');
     });
 
     it('falls back to the customer identifier when the name cannot be read', async () => {

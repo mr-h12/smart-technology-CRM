@@ -64,7 +64,7 @@ const emit = defineEmits<{ saved: []; cancel: [] }>();
 const { t } = useI18n();
 const auth = useAuth();
 
-const FIELDS = ['customer_id', 'owner_id', 'title', 'source', 'service_type'] as const;
+const FIELDS = ['customer_id', 'owner_id', 'title', 'details', 'source', 'service_type'] as const;
 
 type Field = (typeof FIELDS)[number];
 
@@ -72,7 +72,7 @@ type Values = Record<Field, string>;
 
 /** "" is "not given" for every one of them; `draft()` turns that into `null`. */
 function blank(): Values {
-    return { customer_id: '', owner_id: '', title: '', source: '', service_type: '' };
+    return { customer_id: '', owner_id: '', title: '', details: '', source: '', service_type: '' };
 }
 
 const values = ref<Values>(blank());
@@ -136,6 +136,7 @@ watch(
                 customer_id: deal.customer_id,
                 owner_id: deal.owner_id ?? '',
                 title: deal.title ?? '',
+                details: deal.details ?? '',
                 source: deal.source ?? '',
                 service_type: deal.service_type ?? '',
             };
@@ -200,6 +201,7 @@ async function save(): Promise<void> {
                 customer_id: values.value.customer_id,
                 owner_id: orNull(values.value.owner_id),
                 title: orNull(values.value.title),
+                details: orNull(values.value.details),
                 source: orNull(values.value.source),
                 service_type: orNull(values.value.service_type),
             });
@@ -208,6 +210,7 @@ async function save(): Promise<void> {
             // PATCH, so sending the unchanged value would 422 the save.
             await updateDeal(props.editing.id, {
                 title: orNull(values.value.title),
+                details: orNull(values.value.details),
                 source: orNull(values.value.source),
                 service_type: orNull(values.value.service_type),
             });
@@ -335,6 +338,25 @@ function discard(): void {
                 />
                 <span v-if="errorFor('title') !== null" class="text-[var(--color-danger)]" data-testid="deal-form-title-error">
                     {{ errorFor('title') }}
+                </span>
+            </label>
+
+            <!-- D-108: internal free text; maxlength mirrors §4.3's 2000 (owner «أ»), the server's max:2000 is the rule. -->
+            <label class="flex flex-col gap-1.5" :for="fieldId('details')">
+                <span>{{ t('deals.column.details') }}</span>
+                <textarea
+                    :id="fieldId('details')"
+                    v-model="values.details"
+                    rows="4"
+                    maxlength="2000"
+                    dir="auto"
+                    :disabled="saving"
+                    :aria-invalid="errorFor('details') !== null"
+                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :data-testid="testId('details')"
+                />
+                <span v-if="errorFor('details') !== null" class="text-[var(--color-danger)]" data-testid="deal-form-details-error">
+                    {{ errorFor('details') }}
                 </span>
             </label>
 

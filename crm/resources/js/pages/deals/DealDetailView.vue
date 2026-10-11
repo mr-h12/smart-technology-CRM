@@ -260,6 +260,12 @@ onMounted(async () => {
                     <dt class="text-[var(--color-text-muted)]">{{ t('deals.column.lastActivity') }}</dt>
                     <dd class="tabular-nums" data-testid="deal-detail-activity">{{ onMoment(deal.last_activity_at) }}</dd>
                 </div>
+
+                <!-- D-108: the details in full, across the whole row, line breaks kept. -->
+                <div class="col-span-full flex flex-col gap-1">
+                    <dt class="text-[var(--color-text-muted)]">{{ t('deals.column.details') }}</dt>
+                    <dd class="whitespace-pre-line text-pretty" dir="auto" data-testid="deal-detail-details">{{ deal.details ?? '—' }}</dd>
+                </div>
             </dl>
 
             <!-- §5.2: "action controls only by permission" — each draws itself. -->

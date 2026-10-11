@@ -23,7 +23,7 @@ function json(status: number, body: unknown): Response {
 }
 
 const PENDING: Deal = {
-    id: 'd1', code: 'DL-2026-0001', customer_id: 'c1', title: 'Twelve pumps',
+    id: 'd1', code: 'DL-2026-0001', customer_id: 'c1', title: 'Twelve pumps', details: null,
     source: 'employee_entry', service_type: 'product', status: 'lead', owner_id: 'u9',
     approval_status: 'pending', rejection_reason: null, lost_reason: null,
     last_activity_at: '2026-09-08T09:00:00+00:00',

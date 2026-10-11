@@ -4171,7 +4171,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-11, #303 — D-108 supersedes Module 10 · 1.6's "future allowed"; 102 D-rows; §4.3's `details` row moved to 1.4, since `DealSchemaMigrationTest` holds §4.3 to the columns)*
       - [x] **1.2** The response form's reason, PO reference and PO date inputs get the bordered
             `.form-field` rule in `QuotationDetailView.vue`'s scoped style. CSS only; proved in the browser.
-            *(2026-10-11, PR pending — border 0px → 1px `rgb(120,113,108)`, white, focus ring, hints; ar/en × 1280/375 in the browser)*
+            *(2026-10-11, #304 — border 0px → 1px `rgb(120,113,108)`, white, focus ring, hints; ar/en × 1280/375 in the browser)*
       - [ ] **1.3** `po_date` on or before the company's today: `before_or_equal` in
             `RespondQuotationRequest`, the day read like `ExpireQuotations` (one shared reader), `max` on
             the date input; the "future allowed" comment at `RespondQuotationRequest.php:27-29` and the

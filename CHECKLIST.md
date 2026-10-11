@@ -1330,6 +1330,11 @@ would hide them behind `OD-03` indefinitely.
       `tests/PdfImage`: inline at `CustomerQuotationPdfTest.php:35`, in its own `pagesIn()`, and in
       `BrowsershotRenderTest.php:42`. The tests counting on their own is deliberate; the two copies
       inside `CustomerQuotationPdfTest` are not — the inline one could call `pagesIn()`.
+- [ ] **The Team Leader has no deals-list owner filter** — *created by `D-108`'s scoping, F-41 · 1.1,
+      2026-10-11; registered by design.* §3.4 grants the Team Leader `deal.view` at Team, but `team`
+      returns no rows (`DealRowScope.php:25`: no team entity, no team column on `users`), so F-41 · 1.7
+      offers the owner filter to `deal.view.all` holders only (Manager, CEO). It reaches the Team Leader
+      when `team` scope is built — a separate item with its own `D-xx`.
 - [ ] **F-39's manual test list names a menu item that does not exist** — *revealed by F-40 · 1.7's waste
       audit, 2026-10-11; registered, not fixed.* Its checks #1 and #20 say «الإعدادات»; the menu reads
       «إعدادات النظام» (`ar.json` `nav.item.settings`). F-40 · 1.7's list uses the real name.
@@ -4148,6 +4153,35 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       بـ `pdftotext -bbox` في 1.6–1.6d؛ وتضمين الخطّين في الملف يفحصه اختبار `tests/PdfImage` آليًا، و`pdffonts` يدويًا،
       لا النظر. المسمّى الوظيفي للمستخدم Super Admin لا يُعدَّل من الشاشة لأنه مخفي عن قائمة المستخدمين
       (`SEC`)، فعروضه تطبع اسمه بلا مسمّى.
+
+- [ ] **F-41** A request carries optional internal details, the deals list filters by current owner, a
+      customer's PO date is never after today, and the response form's fields are visibly fields
+      (`D-108`). Requested by the owner, 2026-10-11, after field use; the owner's answers of the same day
+      fixed the details' placement (form, list column, deal page), the filter's field (`owner_id`) and
+      roles (Manager, CEO; the Team Leader is a debt row), and the reversal of Module 10 · 1.6's "future
+      allowed" (the owner's ruling as recorded at `RespondQuotationRequest.php:27-29`). The point list was published and approved 2026-10-11 in conversation, with a yes to the
+      shell write of `D-108`; ordered before F-37 · 1.5.
+      - [x] **1.1** `D-108` in §2 (proposed); §4.6's `po_date` points to it; the Team Leader debt row;
+            + this list. Docs only.
+            *(2026-10-11 — D-108 supersedes Module 10 · 1.6's "future allowed"; 102 D-rows; §4.3's `details` row moved to 1.4, since `DealSchemaMigrationTest` holds §4.3 to the columns)*
+      - [ ] **1.2** The response form's reason, PO reference and PO date inputs get the bordered
+            `.form-field` rule in `QuotationDetailView.vue`'s scoped style. CSS only; proved in the browser.
+      - [ ] **1.3** `po_date` on or before the company's today: `before_or_equal` in
+            `RespondQuotationRequest`, the day read like `ExpireQuotations` (one shared reader), `max` on
+            the date input; the "future allowed" comment at `RespondQuotationRequest.php:27-29` and the
+            OpenAPI `respond` row's `po_date` updated. Failing tests first: tomorrow 422, today 200, a
+            non-UTC day boundary.
+      - [ ] **1.4** `details` on deals, backend: a migration (nullable `text`, working `down()`),
+            `SaveDealRequest` (≤ 2000), save, summary, payload, audited like `title`; §4.3's `details` row
+            and the OpenAPI deal schema with it. Tests include the rollback and a customer PDF that does
+            not carry `details`.
+      - [ ] **1.5** `details` in the SPA: a textarea in the deal form, a shortened list column (from `lg`),
+            the full text on the deal page; ar/en keys. Vitest first.
+      - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
+            `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`;
+            both in the OpenAPI contract. Tests first, with a negative authorization case.
+      - [ ] **1.7** The owner filter in the SPA, shown only for `deal.view.all`. Vitest first.
+      - [ ] **1.8** The Arabic manual test list; closes F-41.
 
 ## Shell revisions — owner-directed
 

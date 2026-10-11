@@ -4027,6 +4027,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.6b** Page one carries at most six table rows (lines, then additional items); every
             later page at most eight, each in its own table, header repeated, at the top of its page
             (the owner, 2026-10-11 — amends `D-107`'s "the table may run onto later pages").
+      - [ ] **1.6c** An offer of six rows or fewer that overflows one page is rendered again compact;
+            if it still overflows, its last two rows begin page two's table, so the signature is never
+            alone on a page (the owner, 2026-10-11, on QT-2026-0009; recorded on `D-107`).
       - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed

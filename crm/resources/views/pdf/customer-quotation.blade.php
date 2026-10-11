@@ -98,10 +98,21 @@
            same in both languages (the owner, 2026-10-11). */
         .multi-page .contact { margin-top: 21mm; }
         .multi-page .closing { margin: 3mm 0 3.7mm; }
+
+        /* F-40 · 1.6c (the owner, 2026-10-11): a short offer that overflows by
+           its ending is tightened to one page; the signature line stays 16 mm
+           and the regards line stays level with it (the owner, 2026-10-11). */
+        .compact .info { margin-top: 4mm; }
+        .compact .intro { margin: 6mm 0 2mm; }
+        .compact .totals { margin-top: 3mm; }
+        .compact .terms { margin-top: 3mm; }
+        .compact .contact { margin-top: 5mm; }
     </style>
 </head>
 @if ($multiPage)
 <body class="multi-page">
+@elseif ($compact)
+<body class="compact">
 @else
 <body>
 @endif
@@ -133,10 +144,12 @@
 @php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $taxed ? $money($line->vatAmount) : null, $money($line->total)])
 @php($additionalCells = fn ($additional) => [$additional->description, '—', '1', $money($additional->amount), $taxed ? $money('0') : null, $money($additional->amount)])
 @php($rows = [...array_map($lineCells, $view->lines), ...array_map($additionalCells, $view->additionalItems)])
-{{-- F-40 · 1.6b (the owner, 2026-10-11): six rows on page one, at most eight on each later page, each page its own table. --}}
-@php($later = array_slice($rows, 6))
-@php($pages = [array_slice($rows, 0, 6), ...array_chunk($later, 8)])
+{{-- F-40 · 1.6b (the owner, 2026-10-11): six rows on page one, at most eight on each later page, each page its own table.
+     1.6c: page one may keep fewer, and when it keeps none it prints no empty table. --}}
+@php($later = array_slice($rows, $firstPageRows))
+@php($pages = [array_slice($rows, 0, $firstPageRows), ...array_chunk($later, 8)])
 @foreach ($pages as $page)
+@continue($page === [] && ! $loop->last)
 <table class="items{{ $loop->first ? '' : ' items-next' }}">
     <thead class="h">
     <tr>

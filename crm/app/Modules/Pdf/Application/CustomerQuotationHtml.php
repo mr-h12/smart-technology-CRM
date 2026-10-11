@@ -35,6 +35,9 @@ final readonly class CustomerQuotationHtml
 {
     private const LOCALES = ['ar' => 'rtl', 'en' => 'ltr'];
 
+    /** F-40 · 1.6b (the owner, 2026-10-11): the table rows page one carries; 1.6c may ask for fewer. */
+    public const FIRST_PAGE_ROWS = 6;
+
     public function __construct(
         private ViewFactory $views,
         private Translator $translator,
@@ -105,10 +108,12 @@ final readonly class CustomerQuotationHtml
     /**
      * @param  string  $locale  `ar` or `en` — §1's two languages, and no third
      * @param  bool  $multiPage  the document already takes more than one page
+     * @param  bool  $compact  a short offer that overflowed, tightened to fit one (F-40 · 1.6c)
+     * @param  int  $firstPageRows  the table rows page one keeps; the rest begin page two (F-40 · 1.6b/1.6c)
      *
      * @throws InvalidArgumentException when the locale is not one of them
      */
-    public function render(CustomerQuotationView $view, string $locale, bool $multiPage = false): string
+    public function render(CustomerQuotationView $view, string $locale, bool $multiPage = false, bool $compact = false, int $firstPageRows = self::FIRST_PAGE_ROWS): string
     {
         $direction = self::LOCALES[$locale] ?? throw new InvalidArgumentException(
             "The customer PDF renders in ar or en, not {$locale}."
@@ -121,6 +126,8 @@ final readonly class CustomerQuotationHtml
             // D-107: a document longer than a page takes the longer offer's
             // spacing; only a render tells, so `RenderQuotationPdf` asks twice.
             'multiPage' => $multiPage,
+            'compact' => $compact,
+            'firstPageRows' => $firstPageRows,
             'fontFaceCss' => $this->assets->fontFaceCss(),
             'logo' => $this->assets->logo(),
             't' => fn (string $key, array $replace = []): string => (string) $this->translator->get(

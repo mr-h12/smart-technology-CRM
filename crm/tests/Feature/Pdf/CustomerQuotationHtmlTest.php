@@ -26,6 +26,8 @@ use Tests\TestCase;
  */
 final class CustomerQuotationHtmlTest extends TestCase
 {
+    use ReadsItemTables;
+
     private const TEMPLATE = 'resources/views/pdf/customer-quotation.blade.php';
 
     public function test_that_each_language_renders_its_own_direction_and_labels(): void
@@ -830,6 +832,56 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertSame(['Installation'], self::descriptions($tables[1]));
     }
 
+    public function test_that_a_compact_document_tightens_the_vertical_spaces_and_nothing_else(): void
+    {
+        // F-40 · 1.6c (the owner, 2026-10-11): a short offer that overflows is
+        // tightened first — the values approved with the point; the signature
+        // line's 16 mm is where the customer signs and stays, and so does the
+        // regards line level with it.
+        $html = $this->app->make(CustomerQuotationHtml::class);
+
+        foreach (['ar', 'en'] as $locale) {
+            $compact = $html->render(CustomerQuotationViewFixture::make(), $locale, compact: true);
+
+            self::assertStringContainsString('<body class="compact">', $compact, "The {$locale} compact document is not marked.");
+            self::assertStringContainsString('<body>', $html->render(CustomerQuotationViewFixture::make(), $locale), "The {$locale} plain document is marked.");
+
+            foreach ([
+                '.compact .info { margin-top: 4mm; }',
+                '.compact .intro { margin: 6mm 0 2mm; }',
+                '.compact .totals { margin-top: 3mm; }',
+                '.compact .terms { margin-top: 3mm; }',
+                '.compact .contact { margin-top: 5mm; }',
+            ] as $rule) {
+                self::assertStringContainsString($rule, $compact, "The {$locale} page has no {$rule}");
+            }
+
+            // The owner, 2026-10-11: «مع خالص التحية» stays level with the
+            // signature line — its 11.55 / 11.75 mm offset is not tightened.
+            self::assertStringNotContainsString('.compact .closing', $compact, "The {$locale} compact page moves the regards line off the signature line.");
+        }
+    }
+
+    public function test_that_page_one_can_be_told_to_keep_fewer_rows(): void
+    {
+        // F-40 · 1.6c: when compact cannot fit, page one keeps all but the
+        // last two rows, and page two's table starts with them.
+        $html = $this->app->make(CustomerQuotationHtml::class);
+
+        foreach (['ar', 'en'] as $locale) {
+            $tables = self::itemTables($html->render(CustomerQuotationViewFixture::make(), $locale, multiPage: true, firstPageRows: 2));
+
+            self::assertSame(['Formatter M428dw', 'Toner CF259A'], self::descriptions($tables[0]), "The {$locale} page one does not keep two rows.");
+            self::assertSame(['Fuser RM2-5399', 'Delivery &amp; Installation'], self::descriptions($tables[1]), "The {$locale} page two does not start with the last two rows.");
+            self::assertStringStartsWith('<table class="items items-next">', $tables[1]);
+        }
+
+        // No rows left for page one: no empty table there, the whole table begins page two.
+        $tables = self::itemTables($html->render(CustomerQuotationViewFixture::make(), 'en', multiPage: true, firstPageRows: 0));
+        self::assertCount(1, $tables, 'Page one kept an empty table.');
+        self::assertStringStartsWith('<table class="items items-next">', $tables[0], 'The table did not move to page two.');
+    }
+
     /** @return list<CustomerQuotationLine> */
     private static function lines(int $count): array
     {
@@ -837,22 +889,6 @@ final class CustomerQuotationHtmlTest extends TestCase
             static fn (int $n): CustomerQuotationLine => new CustomerQuotationLine($n, "Item {$n}", '1', '100.00', '100.00', 'Pcs', 'قطعة', '14.00', '114.00'),
             range(1, $count),
         );
-    }
-
-    /** @return list<string> each item table's markup, in page order */
-    private static function itemTables(string $html): array
-    {
-        preg_match_all('/<table class="items[^"]*">.*?<\/table>/s', $html, $matches);
-
-        return $matches[0];
-    }
-
-    /** @return list<string> */
-    private static function descriptions(string $table): array
-    {
-        preg_match_all('/<td class="desc">\s*(.*?)\s*<\/td>/s', $table, $matches);
-
-        return $matches[1];
     }
 
     private function html(

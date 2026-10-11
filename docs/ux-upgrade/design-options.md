@@ -106,3 +106,21 @@ Every audit row has exactly one group:
 - A-55 → 3.2 (the owner's open question about the dot).
 
 **Wording gap:** 3.1's line says "needs options (→ 3.3–3.7)". The token rows go to 3.8, as that point's own line says.
+
+## 2. Owner decisions (F-42 · 3.2)
+
+All nine questions were asked on 2026-10-12, each with a recommendation. The owner said "go green" without answering, so each row is recorded as **deferred**, with the recommendation kept as it was asked. That is the rule stated when the questions were put.
+
+None of these rows changes group in §1. A row moves only once its question is answered.
+
+| Row | Status | Question | Recommendation |
+|---|---|---|---|
+| A-03 | deferred | Request per-row abilities on the quotation payload (SEC-09)? | Yes, as its own fix point; F-42 fixes only the wrong "create" message on the edit route |
+| A-15 | deferred | A server total preview, or accept "save, then see"? | A server preview as its own fix point (§7.2 asks for the total; D-67 forbids the SPA computing it); until then a line under Save |
+| A-18 | deferred | Request `deal_code`, `customer_name` and the timeline actor's name? | Yes, as one fix point shaped like F-41 · 1.6b's `owner_name`; F-42 adds the gap and "—" |
+| A-25 | deferred | Interim landing per role: the first built screen in §8's list, or keep Ping until Module 14? | The first built screen, as its own point outside F-42 (it is a route change); `RoleLandingTest` reads §8 |
+| A-26 | deferred | Apply D-99's display form (2 dp money, trimmed quantities, grouping) on screen? | Yes: display only, so the screen and the PDF show the same figure |
+| A-45 | deferred | Request the impersonated role's display name, and fill `roles.name_ar`? | Yes to both: while impersonating, the target user cannot read the roles list, and `name_ar` is empty for every role |
+| A-54 | deferred | A customer's deals on its page: build now or defer? | Defer until F-41 closes (F-41 · 1.7 adds a filter to the same list); the `tel:`/`mailto:` links are built now |
+| A-55 | deferred | One shared status chip: without the dot, or with it? | Without (the owner's newer ruling for deals; one line on the quotation chip) |
+| A-62 | deferred | Margin accepts a minus sign (`D-106`; `SaveQuotationRequest.php:90` `^-?`): keep `type="text"`? | Keep it and add a comment saying why; the row would then become an obvious fix |

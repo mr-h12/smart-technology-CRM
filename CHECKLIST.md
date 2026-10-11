@@ -4262,8 +4262,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             A-25 interim landing, A-26 D-99's display form on screen, A-62 the margin's minus sign, the API
             requests behind A-03, A-18, A-45, A-54.
             *(2026-10-12, #318 — 9 rows asked (A-55 added by 3.1); the owner said "go green" without answers, so all 9 are deferred with their recommendations in `design-options.md` §2; §1 unchanged)*
-      - [ ] **3.3** Dialogs and confirmations — native `<dialog>` vs a shared helper on the current markup;
+      - [x] **3.3** Dialogs and confirmations — native `<dialog>` vs a shared helper on the current markup;
             the confirm step (A-04, A-09, A-22, A-30, A-35, A-61).
+            *(2026-10-12 — `design-options.md` §3, rows A-02/04/09/22/35 (A-30, A-61 moved by 3.1); 8 walks pass, both Undo walks fail; recommended: native `<dialog>`, edit mode after save, confirm on Approve, undo on line removal, Return/Delete as dialogs; `ux-prototypes` serves the mock-ups at :8790)*
       - [ ] **3.4** Focus, highlight and feedback — focus ring, picker highlight, hover, live region vs
             toast; contrast measured in 3 themes (A-08, A-31, A-32, A-34, A-51, A-64).
       - [ ] **3.5** Page structure — one h1, one Primary, row-level Danger, the total in the quotation

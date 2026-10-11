@@ -10,6 +10,12 @@
       ],
       "port": 8765,
       "url": "http://localhost:8765"
+    },
+    {
+      "name": "ux-prototypes",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8790", "--bind", "127.0.0.1"],
+      "port": 8790
     }
   ]
 }

@@ -124,3 +124,79 @@ None of these rows changes group in §1. A row moves only once its question is a
 | A-54 | deferred | A customer's deals on its page: build now or defer? | Defer until F-41 closes (F-41 · 1.7 adds a filter to the same list); the `tel:`/`mailto:` links are built now |
 | A-55 | deferred | One shared status chip: without the dot, or with it? | Without (the owner's newer ruling for deals; one line on the quotation chip) |
 | A-62 | deferred | Margin accepts a minus sign (`D-106`; `SaveQuotationRequest.php:90` `^-?`): keep `type="text"`? | Keep it and add a comment saying why; the row would then become an obvious fix |
+
+## 3. Dialogs and confirmations (F-42 · 3.3)
+
+**Rows covered:** A-02, A-04, A-09, A-22, A-35. The CHECKLIST line also names A-30 and A-61, but 3.1 moved both to Phase 4 (#317).
+
+**F-41.** A-04, A-09 and A-22 carry the F-41 flag in §1. They are designed here, but the parts on the deals screens are built only after F-41 closes.
+
+**The mock-up.** `prototypes/ux-dialogs/index.html` is untracked. It loads the real `crm/resources/css/tokens.css` and is served by `preview_start {name: "ux-prototypes"}` at `http://localhost:8790/prototypes/ux-dialogs/index.html`. 3.4–3.7 reuse the same entry for their own `prototypes/ux-<pattern>/` pages.
+
+**How the walk-throughs were done** (2026-10-12):
+- Real key presses in the browser pane: Enter, Tab, Escape. A focus log on the page records every focus change.
+- Every option in Arabic at 1280.
+- The dialog and the Undo bar opened in Arabic at 375, English at 375 and English at 1280.
+- Horizontal overflow is 0 in all four states, and every dialog sits inside the viewport (for example 19–356 of 375).
+
+**A walk passes when:**
+- focus lands inside on open;
+- Tab never reaches the page behind;
+- Escape cancels;
+- focus never ends on `<body>`, and returns to the control that opened it, or to the result it produced.
+
+**Option A for A-09 and A-35** uses A-04's Option A mechanism. The two pairs differ only in confirming versus undoing.
+
+**Source:** DS §6.6. Dialogs "trap focus, label the purpose, support Escape where cancellation is safe, and return focus to the invoking control". Approval and return "show their consequence".
+
+### A-04, the shared dialog behaviour
+
+- **A-04 Option A** — the native `<dialog>` with `showModal()`. — walk: pass
+  - The log reads `#a04a → #nName → Save → Cancel → #nName → Save → Cancel`. Escape closes the dialog, and focus returns to `#a04a`. The browser makes the page inert and owns Escape.
+  - Native `cancel` can be `preventDefault`ed while a save is in flight (the A-30 fix).
+- **A-04 Option B** — today's `fixed inset-0` markup, plus a helper of about 8 lines: `inert` on the page root, focus the first field, Escape closes, restore the opener. — walk: pass
+  - The log reads `#a04b → #bName → Save → Cancel → #bName …`. Escape closes the dialog, and focus returns to `#a04b`.
+  - **But** `inert` on the page root also inerts any dialog inside it. In the app every dialog renders inside `#app` (`createApp(App).mount('#app')`, with 0 `<Teleport>` uses), so Option B also needs each of the 14 dialogs moved out with `<Teleport to="body">`.
+- **A-04 Recommendation** — **Option A.** It meets DS §6.6 where the dialogs already sit. It needs no Teleport and no trap code, so it is the smallest change that satisfies the rule.
+  - The stacking is the browser's top layer, so the dialog can't be covered by the sticky bar.
+  - The backdrop needs a colour: the `--color-overlay` token is still owed (DS §10, row A-42 at 3.8). The mock-up uses `rgb(0 0 0 / 0.5)` as a stand-in.
+
+### A-02, the customer dialog after its first save, when similar customers exist
+
+- **A-02 Option A** — the dialog stays open. It is retitled "Edit customer «…»", and the similar-customer warning is inserted at its top with focus on it. — walk: pass
+  - The log reads `#a02a → #cName → Save → #a02warn`. Escape then returns focus to `#a02a`.
+- **A-02 Option B** — the dialog closes, and the warning appears above the list with focus on it. — walk: pass
+  - The log reads `#a02b → #dName → Save → #a02list-warning`.
+- **A-02 Recommendation** — **Option A.** The defect is a second Save creating a duplicate customer. Edit mode makes a second Save an *update* of the saved record, so the duplicate can't happen. It also keeps the warning beside the record that the user may need to correct.
+  - Option B also prevents the duplicate. But it moves the user away from the form just as they are told something about it.
+
+### A-09, Approve
+
+- **A-09 Option A** — a confirm dialog that names the record: "Approve QT-2026-0011?", plus one line on the consequence. — walk: pass
+  - The log reads `#a09a → Approve → Cancel → Approve → Cancel → #a09a`, and Escape cancels.
+- **A-09 Option B** — the approval happens at once, with an "Undo" bar for 8 seconds and focus on Undo. — walk: fail
+  - Undo works: focus moves `#a09b → #undoBtn → #a09b` and the row comes back. But when the bar expires untouched, focus ends on `<body>`.
+  - Beyond the focus issue, a real undo needs either a server "un-approve" or holding the request for 8 seconds in the browser. That would make the SPA decide when a state transition happens. **D-67** forbids that ("the SPA never owns a business rule … may preview, never decide", `CRM_Documentation_EN.md:197`; CLAUDE.md § Laravel Conventions: "never owns a calculation, a permission decision, or a state transition"). The audit trail would also record an approval that was then withdrawn.
+- **A-09 Recommendation** — **Option A.** DS §6.6 asks approval to "show its consequence" before it happens. Undo is ruled out by D-67, not only by the focus failure.
+
+### A-35, removing in the builder
+
+- **A-35 Option A** — confirm first: "Remove line 1?", with the typed quantity and margin named. — walk: pass
+  - The log reads `#a35a → Remove → Cancel → Remove → #a35a`, and Escape cancels.
+- **A-35 Option B** — the line is removed at once, with an "Undo" bar. — walk: fail
+  - When the bar expires untouched, focus ends on `<body>` (`#a35b → #undoBtn`, then `<body>`).
+  - This one is fixable: on expiry, move focus to the next line. And here an undo is honest, because the builder's lines are unsaved local state. No request and no transition are involved.
+- **A-35 Recommendation** — **Option B, with the expiry fix**: on expiry, focus moves to the next line or the Add button (A-17's rule).
+  - Removing lines is frequent, cheap to reverse and local, so a confirm on every remove slows the seller for no protection.
+  - Changing a block's supplier offer wipes its typed values (A-35's other half). That one keeps a confirm, because there is no single row to restore.
+
+### A-22, inline confirmation forms (Return, Delete-confirm, record PO, status change)
+
+- **A-22 Option A** — stay inline. — walk: pass
+  - The form is named (`aria-labelledby`) and the trigger carries `aria-expanded`/`aria-controls`. On open, focus moves to the first field; Escape or Cancel returns it to the trigger.
+  - The log reads `#a22a → #a22note → #a22a`. The form isn't modal, so Tab after Cancel continues down the page, as it should.
+- **A-22 Option B** — the forms become dialogs with A-04's behaviour. — walk: pass
+  - The log reads `#a22b → textarea → Send → Cancel → textarea → Send → #a22b`, and Escape returns focus.
+- **A-22 Recommendation** — **Option B for the Return note and Delete-confirm, Option A for the rest.**
+  - The Return note is drawn above the table, off-screen from row 12 (SH-31). Delete is destructive, so its confirmation needs the dialog's announcement (Q-07). Both are exactly what a dialog is for.
+  - The status change in a deal row, and recording a PO, are part of the row or page the user is already reading. Moving them into a dialog adds a layer for no gain, so they stay inline with Option A's focus handling.

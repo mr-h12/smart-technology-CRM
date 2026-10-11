@@ -1330,6 +1330,9 @@ would hide them behind `OD-03` indefinitely.
       `tests/PdfImage`: inline at `CustomerQuotationPdfTest.php:35`, in its own `pagesIn()`, and in
       `BrowsershotRenderTest.php:42`. The tests counting on their own is deliberate; the two copies
       inside `CustomerQuotationPdfTest` are not — the inline one could call `pagesIn()`.
+- [ ] **F-39's manual test list names a menu item that does not exist** — *revealed by F-40 · 1.7's waste
+      audit, 2026-10-11; registered, not fixed.* Its checks #1 and #20 say «الإعدادات»; the menu reads
+      «إعدادات النظام» (`ar.json` `nav.item.settings`). F-40 · 1.7's list uses the real name.
 - [ ] **The English customer PDF draws Arabic text typed into a quotation in a system face** — *revealed
       by F-35 · 1.2's real PDF, 2026-10-02; registered, not fixed.* QT-2026-0003 in English embeds
       `DejaVuSans` beside Inter: its terms hold Arabic text (`pdftotext` lists 22 Arabic letters on the
@@ -3660,7 +3663,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-01, #276 — `bcround(Decimal::of(…), 2)`, half away from zero, `-0.125` → `-0.13`;
             a figure that is not a plain decimal is refused; QT-2026-0003 read in ar and en)*
       - [ ] **1.3** The Arabic manual test list.
-- [ ] **F-34** The customer quotation PDF takes the Conta-style design (`D-100`). Requested by the owner,
+- [x] **F-34** The customer quotation PDF takes the Conta-style design (`D-100`). Requested by the owner,
       2026-10-02, from a throwaway prototype (`prototypes/quotation-conta-style/`, local, not in git):
       Conta's quote layout with all text black, a light-grey column-title row, light-grey table lines a
       little darker, no signature or acceptance box, and Inter. The owner's rulings, 2026-10-02: the
@@ -3681,7 +3684,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-02, #279 — Chrome clipped the table's right border at the renderer's side margins;
             the 25 mm sides are now `body` padding, the renderer keeps only top and bottom)*
       - [x] **1.3** ~~The Arabic manual test list.~~ — superseded by F-40 · 1.7 (owner, 2026-10-10).
-- [ ] **F-35** The Arabic customer PDF sets Arabic text in Noto Naskh Arabic (`D-101`). Requested by the
+- [x] **F-35** The Arabic customer PDF sets Arabic text in Noto Naskh Arabic (`D-101`). Requested by the
       owner, 2026-10-02: a more formal Arabic face across the Arabic PDF. Chosen from QT-2026-0003
       rendered in Noto Sans Arabic, Noto Naskh Arabic and Noto Kufi Arabic; Inter stays for numbers and
       English. The point list was published and approved 2026-10-02 in conversation, with a yes to the
@@ -3998,7 +4001,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - **Escape** لا يُغلق نافذة عرض المورّد والتركيز على المربّع في الهاتف — ملاحظة، غير مسجّلة.
       - **عرض الاختبار SQ-2026-0006** على جهاز التطوير (4560 ⇒ 4000) أُنشئ للفحص في 1.4؛ أبقِه أو أرشفه.
 
-- [ ] **F-40** The customer quotation PDF takes the owner's final *Commercial Offer* format (`D-107`).
+- [x] **F-40** The customer quotation PDF takes the owner's final *Commercial Offer* format (`D-107`).
       Requested by the owner, 2026-10-10, from three reference PDFs (`prototypes/qt-final-format/`, local,
       not in git) byte-identical to `prototypes/quotation-client-layout/`'s, whose HTML is the measured
       specification: follow every detail — spaces, positions, sizes, wording, the total — and the
@@ -4041,7 +4044,110 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             Signature*, both languages; the English page one point smaller (body 10 pt, headings 11.5,
             title 13, totals 9.5 / 10) to read the size of the Arabic (the owner, 2026-10-11; `D-107`).
             *(2026-10-11, #301 — regards and Sales Signature at the same height, measured)*
-      - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
+      - [x] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
+            *(2026-10-11, #302 — 36 checks below; closes F-40, F-34 and F-35)*
+
+      #### قائمة الاختبار اليدوي — F-40 كاملة، ومعها F-34 و F-35 *(النقطة 1.7، 2026-10-11)*
+
+      ⚠️ **قبل البدء:** على جهاز العميل، بعد التحديث من `main`: `php artisan migrate` (عمودا المسمّى
+      الوظيفي من 1.3)، ثم أعد تشغيل `worker-pdf` (يحتفظ بالكود القديم حتى يُعاد تشغيله). الأرقام QT-…
+      أدناه من قاعدة التطوير يوم 2026-10-11؛ على جهاز العميل اختر أي عرض بعدد الصفوف نفسه (الصفوف =
+      البنود + البنود الإضافية). كل ملف PDF يُنشأ من لوحة «ملف PDF للعميل» في صفحة العرض: اختر «لغة
+      المستند» ثم «إنشاء ملف PDF» ثم «تنزيل ملف PDF». ملف أُنشئ قبل هذا التحديث يبقى بشكله القديم
+      (`D-107`: نسخة ثابتة) — أنشئ ملفًا جديدًا لكل فحص.
+      **F-40 يتقدّم:** `D-107` حلّ محلّ تصميم `D-100` (F-34)، فلا تُفحص هنا أشياء F-34 التي استُبدلت:
+      الترويسة العلوية، «لا سطر بريد»، «لا مربّع توقيع». الباقي من F-34 و F-35 مفحوص أدناه باسمه.
+
+      **أ. إعدادات النظام** — *F-40 · 1.2، F-34 · 1.2 (بيانات الشركة من الإعدادات)*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 1 | Super Admin | افتح «إعدادات النظام» ⇒ يجب أن ترى في بيانات الشركة حقل «البريد الإلكتروني»، واكتب فيه بريد الشركة واحفظ ⇒ يُحفظ |
+      | 2 | Super Admin | اكتب في الحقل نفسه `abc` واحفظ ⇒ يجب أن ترى رسالة خطأ تحت الحقل بالعربية، ولا يُحفظ؛ أعد البريد الصحيح |
+      | 3 | Super Admin | بدّل إلى EN ⇒ اسم الحقل ورسالة الخطأ بالإنجليزية، والصفحة من اليسار إلى اليمين |
+
+      **ب. المستخدمون — المسمّى الوظيفي** — *F-40 · 1.3*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 4 | Super Admin | افتح «الموظفون» ثم عدّل مستخدم Indoor Sales ⇒ يجب أن ترى «المسمّى الوظيفي (بالعربية)» و«المسمّى الوظيفي (بالإنجليزية)» فارغين |
+      | 5 | Super Admin | اكتب «مدير مبيعات» و *Sales Manager* واحفظ، ثم أعد فتح المستخدم ⇒ يجب أن يظهر المسمّيان كما كُتبا |
+      | 6 | Super Admin | أنشئ مستخدمًا جديدًا بمسمّى ⇒ يُحفظ معه المسمّى؛ وأنشئ آخر بلا مسمّى ⇒ يُحفظ أيضًا (الحقل اختياري) |
+
+      **ج. صفحة PDF الأولى — عرض قصير، بالعربية** — *F-40 · 1.4، 1.5؛ F-35 · 1.2* — عرض من 4 صفوف (QT-2026-0007)
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 7 | Manager | أنشئ PDF بالعربية ⇒ صفحة واحدة: الشعار يسارًا، ثم العنوان في الوسط «عرض تجاري» |
+      | 8 | Manager | ⇒ كتلة المعلومات: «رقم العرض:»، «تاريخ الإصدار:»، «مقدم إلى:»، «عناية:» (اسم الشخص المتواصل معه بلقبه، يُحذف السطر إن لم يكن له شخص)، «الموضوع:» |
+      | 9 | Manager | ⇒ الجدول بأعمدة: الوصف · الوحدة · الكمية · سعر الوحدة · الضريبة · الإجمالي؛ الوصف في بداية الخلية، والباقي في الوسط؛ بند بلا وحدة يطبع «—» |
+      | 10 | Manager | ⇒ الإجماليات: «الإجمالي غير شامل الضريبة»، «الخصم»، «ضريبة القيمة المضافة 14%»، خط، ثم «الإجمالي النهائي» بخط عريض والعملة بعد الرقم |
+      | 11 | Manager | ⇒ «الشروط والأحكام» مرقّمة: عملة العرض، ثم شروط العرض، ثم «صلاحية العرض: حتى تاريخ …»، ثم «السعر يشمل ضريبة القيمة المضافة.» |
+      | 12 | Manager | ⇒ «يسعدنا تواصلكم معنا لأي استفسار.»، ثم اسم المُعِدّ في البداية و«توقيع المبيعات» على خط في النهاية |
+      | 13 | Manager | ⇒ النص العربي بخط نسخي رسمي (Noto Naskh Arabic، F-35)، والأرقام والحروف اللاتينية بخط Inter |
+      | 14 | Manager | ⇒ لا تظهر في الملف أي كلمة عن المورّد أو سعره أو التكلفة أو الهامش (§6.2) |
+
+      **د. التذييل** — *F-40 · 1.6، F-34 · 1.2 (لا شريط تذييل ولا علامة مائية)*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 15 | Manager | في الملف العربي من #7 ⇒ أسفل الصفحة تذييل **بالإنجليزية** (الحكم في `D-107`): اسم الشركة، *Address:*، *Tel:*، *Email:* بالقيم المحفوظة في الإعدادات (#1) |
+      | 16 | Manager | ⇒ *Page 1 of 1* في آخر سطر البريد (فرق مقبول رقم 2 أدناه) |
+      | 17 | Manager | ⇒ صورة واحدة فقط في الصفحة هي الشعار؛ لا شريط ملوّن في التذييل ولا علامة مائية خلف النص |
+
+      **هـ. اللغة الإنجليزية** — *F-40 · 1.5، 1.6d*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 18 | Manager | أنشئ PDF للعرض نفسه بالإنجليزية ⇒ *COMMERCIAL OFFER*، والصفحة كلها من اليسار إلى اليمين، والشعار يسارًا كما في العربي |
+      | 19 | Manager | ضع الصفحتين جنبًا إلى جنب ⇒ النص الإنجليزي يبدو بحجم النص العربي تقريبًا، لا أكبر منه (أصغر بنقطة من المرجع، 1.6d) |
+      | 20 | Manager | في الصفحتين ⇒ «مع خالص التحية،» / *Best Regards,* تحت خط التوقيع، على مستوى «توقيع المبيعات» / *Sales Signature* نفسه (1.6d) |
+
+      **و. الصفوف والصفحات** — *F-40 · 1.6، 1.6b، 1.6c*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 21 | Manager | عرض من 7 صفوف (QT-2026-0009) ⇒ صفحتان: 6 صفوف في الأولى، والصف السابع في جدول جديد أعلى الصفحة الثانية برأس الأعمدة مكرّرًا |
+      | 22 | Manager | عرض من 12 صفًا (QT-2026-0008) ⇒ 6 في الأولى، و6 في الثانية؛ *Page 1 of 2* و *Page 2 of 2* |
+      | 23 | Manager | عرض من 15 صفًا (QT-2026-0006) ⇒ ثلاث صفحات: 6، ثم 8، ثم 1؛ التذييل في كل صفحة؛ لا صف مقسوم بين صفحتين |
+      | 24 | Manager | في #23 ⇒ محتوى الصفحتين الثانية والثالثة يبدأ تحت الهامش العلوي نفسه، والبنود الإضافية آخر صفوف الجدول (وحدة «—»، كمية 1، ضريبة 0.00) |
+      | 25 | Manager | اختياري — عرض مسودّة من صف واحد (QT-2026-0010): أضف إليه شروطًا طويلة حتى لا يتّسع لصفحة، ثم أنشئ PDF بالعربية ⇒ إمّا صفحة واحدة بمسافات أضيق، وإمّا يبدأ الجدول كله أعلى الصفحة الثانية (آخر صفّين — هنا الصف الوحيد) — لا يبقى التوقيع وحده (1.6c) |
+
+      **ز. الخصم، الإعفاء، التقريب** — *F-40 · 1.4، `D-107` الحكمان 1 و 3*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 26 | Manager | عرض بخصم 2% (QT-2026-0009) ⇒ سطر «الخصم» بلا نسبة؛ ضريبة كل بند محسوبة بعد الخصم؛ فرق قروش بين مجموع عمود الضريبة وسطر الضريبة مقبول |
+      | 27 | Manager | عرض بلا خصم (QT-2026-0007) ⇒ سطر «الخصم» يظهر دائمًا وقيمته 0.00، وإجمالي كل بند = سعره × الكمية + ضريبته |
+      | 28 | Manager | عرض مسودّة: ألغِ الضريبة (معفى) واحفظ، ثم PDF ⇒ لا عمود «الضريبة»، لا سطر ضريبة (ولا سطر صفر)، ولا شرط «السعر يشمل ضريبة القيمة المضافة.» (`D-63`) |
+      | 29 | Manager | عرض بتقريب غير صفري (QT-2026-0003: ‎-0.40) ⇒ سطر «التقريب» بقيمته؛ عرض بتقريب صفري (QT-2026-0007) ⇒ لا سطر «التقريب» |
+
+      **ح. المُعِدّ ومسمّاه** — *F-40 · 1.4 (`D-107` الحكم 2)*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 30 | Indoor Sales | عرضك أنت (QT-2026-0004، أُعدّ باسم Test Indoor Sales) ⇒ PDF بالعربية يطبع اسمك وتحته «مدير مبيعات» (من #5)؛ وبالإنجليزية *Sales Manager* |
+      | 31 | Indoor Sales | عرض أعدّه مستخدم بلا مسمّى ⇒ الاسم وحده، بلا سطر فارغ مكان المسمّى |
+
+      **ط. الصلاحيات والأخطاء** — *`SEC-07`، `D-89`*
+
+      | # | الدور | الخطوة ⇒ المتوقَّع |
+      |---|---|---|
+      | 32 | CEO | افتح عرضًا له ملف (QT-2026-0006) ⇒ ترى لوحة «ملف PDF للعميل» وزر «تنزيل ملف PDF»، ولا ترى «لغة المستند» ولا «إنشاء ملف PDF» (CEO يملك `export_pdf` لا `generate_pdf`) |
+      | 33 | Indoor Sales | افتح عرضًا لم تُعدّه أنت (QT-2026-0007) ⇒ لا تصل إليه (غير موجود)، فلا ملف PDF |
+      | 34 | Super Admin | امسح اسم الشركة من «إعدادات النظام»، ثم أنشئ PDF ⇒ رسالة «لا يمكن إنشاء ملف PDF للعميل بعد: اسم الشركة غير مُعرَّف في إعدادات النظام.»؛ أعد الاسم |
+      | 35 | Manager | عرض لم يُنشأ له ملف بعد ⇒ «لم يُنشأ ملف PDF لعرض السعر هذا بعد.»؛ بعد الضغط ⇒ «جارٍ إنشاء ملف PDF…» ثم «ملف PDF جاهز.» دون تحديث الصفحة |
+      | 36 | Manager | بدّل الواجهة إلى EN وكرّر #35 ⇒ الرسائل نفسها بالإنجليزية، واللوحة من اليسار إلى اليمين |
+
+      **فروق مقبولة عن ملفات المرجع — لا تُسجَّل كأخطاء** (صف الفروق المعروفة في سجل الديون، البنود 1–4):
+      (1) أعمدة الصفحة الثانية في عرض طويل قد تنحرف نحو 1.7 مم عن المرجع؛ (2) رقم الصفحة في آخر سطر البريد،
+      لا في سطر مستقل تحته؛ (3) التذييل إنجليزي في الملفين، وقد يختلف عن التذييل العربي في المرجع بنحو 1 مم؛
+      (4) الصفحة الإنجليزية أصغر بنقطة من المرجع، و«مع خالص التحية» أنزل من مكانه في المرجع — بأمر المالك.
+
+      **ما لا يُختبر بالعين:** المسافات بالمليمتر (41.7 مم أعلى الصفحات التالية، ±0.5 مم من المرجع) قيست
+      بـ `pdftotext -bbox` في 1.6–1.6d؛ وتضمين الخطّين في الملف يفحصه اختبار `tests/PdfImage` آليًا، و`pdffonts` يدويًا،
+      لا النظر. المسمّى الوظيفي للمستخدم Super Admin لا يُعدَّل من الشاشة لأنه مخفي عن قائمة المستخدمين
+      (`SEC`)، فعروضه تطبع اسمه بلا مسمّى.
 
 ## Shell revisions — owner-directed
 

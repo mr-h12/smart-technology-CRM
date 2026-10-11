@@ -4217,7 +4217,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-12, #310 — one `namesOf` per page, `ListCustomers::salesOwnerName()`'s shape for the detail; the write answers do not carry it)*
       - [x] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
-            *(2026-10-12 — `DealStatusChip` in `QuotationStatusChip`'s shape without its dot (owner); approval badges filled; «—» for a `null` owner)*
+            *(2026-10-12, #311 — `DealStatusChip` in `QuotationStatusChip`'s shape without its dot (owner); approval badges filled; «—» for a `null` owner)*
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`
             (reuses 1.6b's owner-name read, the owner, 2026-10-12);

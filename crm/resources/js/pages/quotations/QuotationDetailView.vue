@@ -563,7 +563,8 @@ onMounted(refresh);
                         required
                         rows="3"
                         maxlength="2000"
-                        class="form-field rounded-lg p-3"
+                        :placeholder="t('quotations.detail.respondReasonHint')"
+                        class="form-field rounded-lg p-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                         data-testid="quotation-respond-reason"
                     ></textarea>
                 </label>
@@ -575,7 +576,8 @@ onMounted(refresh);
                             type="text"
                             required
                             maxlength="255"
-                            class="form-field min-h-11 rounded-lg px-3"
+                            :placeholder="t('quotations.detail.poReferenceHint')"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                             data-testid="quotation-respond-po-reference"
                         />
                     </label>
@@ -585,7 +587,7 @@ onMounted(refresh);
                             v-model="poDate"
                             type="date"
                             required
-                            class="form-field min-h-11 rounded-lg px-3"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                             data-testid="quotation-respond-po-date"
                         />
                     </label>
@@ -755,6 +757,13 @@ onMounted(refresh);
     border: 1px solid var(--color-border-strong);
 }
 
+/* D-108: the response form's inputs read as fields — the three lines every form declares
+   (`.form-field` is scoped per component; a shared rule is a debt row). */
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
 .row-link {
     color: var(--color-primary);
     text-decoration: underline;

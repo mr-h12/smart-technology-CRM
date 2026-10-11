@@ -86,10 +86,16 @@ final readonly class RenderQuotationPdf
         $requester = $generation->requestedBy
             ?? throw new UnexpectedValueException("Generation {$generation->id} names nobody who asked for it.");
 
-        $bytes = $this->renderer->render(
-            $this->html->render($view, $generation->locale),
-            $this->html->footer($generation->locale),
-        );
+        $footer = $this->html->footer($view, $generation->locale);
+        $bytes = $this->renderer->render($this->html->render($view, $generation->locale), $footer);
+
+        // D-107: a longer offer has its own spacing, and only a render says how
+        // many pages a document takes — so a second render, with that spacing.
+        // ponytail: counts Chrome's `/Type /Page` objects in the bytes (as
+        // `tests/PdfImage` does); a PDF library if a renderer ever compresses them.
+        if (preg_match_all('#/Type\s*/Page(?!s)#', $bytes) > 1) {
+            $bytes = $this->renderer->render($this->html->render($view, $generation->locale, multiPage: true), $footer);
+        }
 
         // `store()` copies from a readable source and leaves it alone. Handing
         // it the bytes as a `data:` URL keeps this module off the filesystem

@@ -9,13 +9,13 @@
     Every word comes from `lang/{ar,en}/pdf.php` through `$t`, which is bound to
     one locale for the whole render — the document's language is the customer's,
     not whoever pressed the button. The percentage is a placeholder, never part
-    of a label (the defect found against P-01 on 2026-09-13). The footer is
-    English on both pages (`D-107`): the Arabic lang file holds English there.
+    of a label (the defect found against P-01 on 2026-09-13).
 
     Nothing here is fetched: the faces and the logo arrive as `data:` URIs from
     `PdfAssetsInterface` (Point 2.2), because the renderer runs on the `pdf`
     queue with no reason to reach the web. The company's details are text from
-    Settings (§14.6).
+    Settings (§14.6), printed by Chrome's footer on every page
+    (`CustomerQuotationHtml::footer()`, F-40 · 1.6), not by this page.
 
     The logo carries `alt=""` on purpose: it is decorative here — a PDF has no
     assistive text layer, and the localisation guard is right that an `alt`
@@ -24,9 +24,6 @@
     Every optional field is *absent* rather than blank — the model refuses a
     present-but-empty string (Point 1.1), so `@if` here means "the fact is
     unknown", and a heading over nothing cannot be printed.
-
-    ponytail: the footer closes page one's flow; F-40 · 1.6 moves it to every
-    page and sets the page's top and bottom, which belong to the renderer.
 --}}
 {{-- D-63 / D-107: an exempt quotation prints no VAT column, row or term. --}}
 @php($rtl = $direction === 'rtl')
@@ -40,10 +37,13 @@
         {!! $fontFaceCss !!}
 
         /* The top and bottom margins live in the renderer (Point 2.5): Chrome
-           draws the page number inside the bottom one. The side margins are
-           padding here: Chrome clips at the renderer's margins, and a full-width
+           draws the footer inside the bottom one, and its top one is a later
+           page's 41.7 mm (D-107). Page one begins 8 mm down — measured: Chrome
+           takes this over the renderer's margin. The side margins are padding
+           here: Chrome clips at the renderer's margins, and a full-width
            table's collapsed border spills half outside its own box. */
         @page { size: A4; }
+        @page :first { margin-top: 8mm; }
         * { box-sizing: border-box; }
 
         body {
@@ -76,7 +76,7 @@
         .items tr { break-inside: avoid; page-break-inside: avoid; }
         .items thead { display: table-header-group; }
 
-        .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; }
+        .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; break-inside: avoid; }
         .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: 10.5pt; }
         .totals td.h { font-size: 11pt; }
         .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; }
@@ -85,7 +85,7 @@
         .terms ol { margin: 3mm 0 0; {{ $rtl ? 'padding-right: 6mm;' : 'padding-left: 6mm;' }} }
 
         .contact { margin-top: {{ $rtl ? '10.9mm' : '10.6mm' }}; }
-        .closing { display: flex; justify-content: space-between; align-items: flex-start; margin: {{ $rtl ? '-2.9mm 0 0.5mm' : '-2.6mm 0 3.7mm' }}; }
+        .closing { break-inside: avoid; display: flex; justify-content: space-between; align-items: flex-start; margin: {{ $rtl ? '-2.9mm 0 0.5mm' : '-2.6mm 0 3.7mm' }}; }
         .closing > div:first-child { padding-top: {{ $rtl ? '11.75mm' : '11.55mm' }}; }
         .closing .name { margin-top: 1mm; }
         .closing .name, .closing .role { {{ $rtl ? 'margin-right: 1.27mm' : 'margin-left: 1.4mm' }}; }
@@ -93,12 +93,17 @@
         .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
         .sign .h { margin-top: 1.5mm; }
 
-        footer { margin-top: auto; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-family: 'CRM Sans'; font-size: 8.5pt; line-height: 1.6; }
-        footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
-        footer .k { display: inline-block; width: 16mm; font-weight: 700; }
+        /* D-107's longer offer (QT-2026-0006-commercial-offer-en.html), the
+           same in both languages (the owner, 2026-10-11). */
+        .multi-page .contact { margin-top: 21mm; }
+        .multi-page .closing { margin: 3mm 0 3.7mm; }
     </style>
 </head>
+@if ($multiPage)
+<body class="multi-page">
+@else
 <body>
+@endif
 
 <img class="logo" src="{{ $logo }}" alt="">
 
@@ -215,17 +220,5 @@
     </div>
 </div>
 
-<footer dir="ltr" lang="en">
-    <div class="co">{{ $view->companyName }}</div>
-    @if ($view->companyAddress !== null)
-        <div id="company-address"><span class="k">{{ $t('footer.address') }}</span>{{ $isolate($view->companyAddress) }}</div>
-    @endif
-    @if ($view->companyPhones !== null)
-        <div id="company-phones"><span class="k">{{ $t('footer.tel') }}</span>{{ $isolate($view->companyPhones) }}</div>
-    @endif
-    @if ($view->companyEmail !== null)
-        <div id="company-email"><span class="k">{{ $t('footer.email') }}</span>{{ $view->companyEmail }}</div>
-    @endif
-</footer>
 </body>
 </html>

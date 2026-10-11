@@ -1308,6 +1308,25 @@ would hide them behind `OD-03` indefinitely.
       `CustomerQuotationViewMapperTest.php:331-332` and `CustomerQuotationViewTest.php:173` read them. The
       mapper's own use of the quotation's discount percent (line 194, the per-line VAT) is separate and
       stays. Removing them touches the model, the mapper and two tests — outside 1.5's approved files.
+- [ ] **The Commercial Offer's known differences from the reference PDFs** — *accepted by the owner,
+      2026-10-11, during F-40 · 1.6; registered, not fixed.* Measured word by word with `pdftotext -bbox`
+      against `prototypes/quotation-client-layout/`: (1) QT-2026-0006's second page — its columns sit
+      1.7 mm left of the reference's, because the reference draws page two as a second table whose
+      widths come from its own five rows, and the system prints one table across both pages; (2) the
+      page number sits at the end of the e-mail line, not on a line under the company block (D-107
+      ruling 4), because Chrome clips its footer band below that line; (3) the footer is one English
+      block on both pages (D-107), placed on the English reference — its labels within 0.4 mm and its
+      values 0.68 mm low there, while the Arabic reference's own footer sits about 0.5 mm higher than
+      the English one, so against it the values differ by up to 1.3 mm. The page bodies match within
+      0.26 mm: QT-2026-0003 in English (125/125) and QT-2026-0006's first page (166/166); in Arabic
+      193 of 196 words, the other three single letters the comparison paired with the wrong twin
+      (not checked by eye).
+- [ ] **The PDF page count is read by four copies of one regex** — *revealed by F-40 · 1.6's waste audit,
+      2026-10-11; registered, not fixed.* `#/Type\s*/Page(?!s)#` counts a PDF's pages in
+      `RenderQuotationPdf.php` (new in 1.6, to choose the longer offer's spacing) and three times in
+      `tests/PdfImage`: inline at `CustomerQuotationPdfTest.php:35`, in its own `pagesIn()`, and in
+      `BrowsershotRenderTest.php:42`. The tests counting on their own is deliberate; the two copies
+      inside `CustomerQuotationPdfTest` are not — the inline one could call `pagesIn()`.
 - [ ] **The English customer PDF draws Arabic text typed into a quotation in a system face** — *revealed
       by F-35 · 1.2's real PDF, 2026-10-02; registered, not fixed.* QT-2026-0003 in English embeds
       `DejaVuSans` beside Inter: its terms hold Arabic text (`pdftotext` lists 22 Arabic letters on the

@@ -266,8 +266,7 @@ final class CustomerQuotationHtmlTest extends TestCase
             validUntil: null,
         );
 
-        $optional = ['subject-line', 'signatory', 'signatory-title', 'contact-line',
-            'company-address', 'company-phones', 'company-email', 'issue-date', 'validity'];
+        $optional = ['subject-line', 'signatory', 'signatory-title', 'contact-line', 'issue-date', 'validity'];
 
         foreach ($optional as $id) {
             self::assertStringNotContainsString('id="'.$id.'"', $bare, "{$id} was rendered with nothing in it.");
@@ -276,6 +275,15 @@ final class CustomerQuotationHtmlTest extends TestCase
         $full = $this->html();
         foreach ($optional as $id) {
             self::assertStringContainsString('id="'.$id.'"', $full);
+        }
+
+        // The company's optional lines are the footer's (F-40 · 1.6).
+        $footer = $this->app->make(CustomerQuotationHtml::class);
+        $bareFooter = $footer->footer(CustomerQuotationViewFixture::make(['companyAddress' => null, 'companyPhones' => null, 'companyEmail' => null]), 'en');
+        $fullFooter = $footer->footer(CustomerQuotationViewFixture::make(), 'en');
+        foreach (['company-address', 'company-phones', 'company-email'] as $id) {
+            self::assertStringNotContainsString('id="'.$id.'"', $bareFooter, "{$id} was rendered with nothing in it.");
+            self::assertStringContainsString('id="'.$id.'"', $fullFooter);
         }
     }
 
@@ -372,20 +380,25 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertStringNotContainsString('Sales Manager', $this->html(locale: 'ar', signatoryTitleAr: null));
     }
 
-    public function test_that_the_footer_prints_the_company_from_the_settings_in_english_on_both_pages(): void
+    public function test_that_the_footer_carries_the_company_and_the_page_number_on_every_page(): void
     {
-        // D-107: "a footer, always in English": the company name, Address,
-        // Tel, Email — text from Settings (§14.6). The approved F-40 · 1.5
-        // places it on page one; 1.6 repeats it on every page.
+        // D-107: "a footer, always in English, on every page": the company
+        // name, Address, Tel, Email — text from Settings (§14.6) — and, by the
+        // owner's ruling (4), the page number, small. So it is Chrome's footer,
+        // drawn in every page's bottom margin, not a block at the end of the
+        // document (F-40 · 1.6). English on both pages, the page number too,
+        // and the number at the end of the block's last line: a line of its
+        // own under the block was clipped by Chrome (the owner, 2026-10-11).
         //
         // Each value is wrapped in a first-strong isolate (U+2068 … U+2069),
         // found on the first real Arabic PDF: bidi printed `5-El-Fath St, …`
         // as `El-Fath St, … Egypt-5` and swapped the two phone numbers.
-        foreach (['ar', 'en'] as $locale) {
-            $html = $this->html(locale: $locale);
-            $footer = (string) strstr((string) strstr($html, '<footer'), '</footer>', true);
+        $html = $this->app->make(CustomerQuotationHtml::class);
 
-            self::assertStringStartsWith('<footer dir="ltr" lang="en"', $footer, "The {$locale} footer is not English.");
+        foreach (['ar', 'en'] as $locale) {
+            $footer = $html->footer(CustomerQuotationViewFixture::make(), $locale);
+
+            self::assertStringStartsWith('<div dir="ltr" lang="en"', $footer, "The {$locale} footer is not English.");
             self::assertStringContainsString(e('Smart Technology for Integrated Systems'), $footer);
             foreach (['address', 'tel', 'email'] as $key) {
                 self::assertStringContainsString(e((string) Lang::get('pdf.footer.'.$key, [], 'en')), $footer, "The {$locale} footer has no English pdf.footer.{$key}.");
@@ -393,7 +406,23 @@ final class CustomerQuotationHtmlTest extends TestCase
             self::assertMatchesRegularExpression('/id="company-address".*?\x{2068}'.preg_quote(e('5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt'), '/').'\x{2069}/su', $footer);
             self::assertMatchesRegularExpression('/id="company-phones".*?\x{2068}'.preg_quote(e('035829952 · 01070764779'), '/').'\x{2069}/su', $footer);
             self::assertMatchesRegularExpression('/id="company-email".*?info@smarttechegy\.com/su', $footer);
+
+            // The page number after the company lines, in English.
+            self::assertMatchesRegularExpression('/id="company-email".*Page <span class="pageNumber"><\/span> of <span class="totalPages"><\/span>/su', $footer, "The {$locale} page number is not an English line under the company.");
+            self::assertDoesNotMatchRegularExpression('/\p{Arabic}/u', strip_tags($footer), "Arabic reached the {$locale} footer.");
+
+            // The reference's footer measures (QT-2026-0003-commercial-offer-en.html).
+            // `top: 4.6mm` is measured: Chrome anchors the footer to the foot of
+            // its band, and that shift puts "Smart" at the reference's 273.2 mm.
+            foreach (['border-top: 0.75pt solid #bfbfbf', 'padding-top: 3mm', 'font-size: 8.5pt', 'line-height: 1.6', 'font-size: 9.5pt', 'width: 16mm', 'margin: 0 22mm',
+                'width: 100%; position: relative; top: 4.6mm', 'justify-content: space-between; align-items: flex-end'] as $measure) {
+                self::assertStringContainsString($measure, $footer, "The {$locale} footer does not take the reference's {$measure}.");
+            }
         }
+
+        // The page no longer closes on a block of its own.
+        self::assertStringNotContainsString('<footer', $this->html(locale: 'ar'));
+        self::assertStringNotContainsString('<footer', $this->html(locale: 'en'));
     }
 
     public function test_that_each_language_takes_the_reference_htmls_measures(): void
@@ -403,7 +432,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         // `diff` of QT-2026-0003-commercial-offer-{en,ar}.html.
         $shared = ['width: 75mm', 'font-size: 14pt', 'margin-top: 8mm', 'margin: 12mm 0 4mm',
             'border: 0.75pt solid #bfbfbf', 'background: #f2f2f2', 'font-size: 10.5pt', 'margin-top: 6mm',
-            'width: 60mm', 'height: 16mm', 'font-size: 8.5pt'];
+            'width: 60mm', 'height: 16mm']; // the footer's 8.5pt is `footer()`'s (F-40 · 1.6)
         $own = [
             'en' => ['font-size: 11pt', 'padding: 2.4mm 2mm', 'margin-top: 10.6mm', 'margin: -2.6mm 0 3.7mm', 'padding-top: 11.55mm', 'margin-left: 1.4mm'],
             'ar' => ['font-size: 11.5pt', 'padding: 2.4mm 1.4mm', 'margin-top: 10.9mm', 'margin: -2.9mm 0 0.5mm', 'padding-top: 11.75mm', 'margin-right: 1.27mm'],
@@ -429,7 +458,50 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertMatchesRegularExpression('/\bbody\s*\{[^}]*padding:\s*0 22mm/', $template, 'The side margins are not padding inside the page.');
 
         $renderer = (string) file_get_contents(base_path('app/Modules/Pdf/Infrastructure/BrowsershotPdfRenderer.php'));
-        self::assertStringContainsString('->margins(22, 0, 20, 0)', $renderer, 'The renderer still sets side margins, where Chrome clips.');
+        self::assertStringContainsString('->margins(41.7, 0, 27.5, 0)', $renderer, 'The renderer still sets side margins, where Chrome clips.');
+    }
+
+    public function test_that_page_one_begins_8_mm_down_and_later_pages_41_7_mm_down(): void
+    {
+        // D-107 and the reference PDFs: page one's logo 8 mm from the top; a
+        // later page's content 33.7 mm below that 8 mm, 41.7 mm down. The
+        // renderer's top margin is the later pages', and `@page :first` gives
+        // page one its own — measured in a real Chrome PDF on 2026-10-11 (the
+        // first page's text 29.6 mm higher than the next pages').
+        $template = (string) file_get_contents(base_path(self::TEMPLATE));
+        self::assertMatchesRegularExpression('/@page\s*:first\s*\{\s*margin-top:\s*8mm;?\s*\}/', $template, 'Page one does not begin 8 mm down.');
+
+        $renderer = (string) file_get_contents(base_path('app/Modules/Pdf/Infrastructure/BrowsershotPdfRenderer.php'));
+        self::assertMatchesRegularExpression('/->margins\(41\.7,/', $renderer, 'Later pages do not begin 41.7 mm down.');
+    }
+
+    public function test_that_a_multi_page_document_takes_the_longer_offers_spacing(): void
+    {
+        // QT-2026-0006-commercial-offer-en.html, the two-page reference: the
+        // contact sentence 21 mm under the terms and the signature block 3 mm
+        // under it; one page keeps 10.6 / -2.6 mm (10.9 / -2.9 mm in Arabic).
+        // The same values in both languages on a longer offer (the owner,
+        // 2026-10-11: no Arabic two-page reference exists).
+        $html = $this->app->make(CustomerQuotationHtml::class);
+
+        foreach (['ar', 'en'] as $locale) {
+            $one = $html->render(CustomerQuotationViewFixture::make(), $locale);
+            $multi = $html->render(CustomerQuotationViewFixture::make(), $locale, multiPage: true);
+
+            self::assertMatchesRegularExpression('/<body>/', $one, "The {$locale} one-page document is marked multi-page.");
+            self::assertMatchesRegularExpression('/<body class="multi-page">/', $multi, "The {$locale} multi-page document is not marked.");
+
+            foreach (['.multi-page .contact { margin-top: 21mm; }', '.multi-page .closing { margin: 3mm 0 3.7mm; }'] as $rule) {
+                self::assertStringContainsString($rule, $multi, "The {$locale} page has no {$rule}");
+            }
+        }
+
+        // The totals and the signature block are never split (the reference's
+        // `break-inside: avoid`), beside the rows D-79 already guards.
+        // Read from the rendered CSS: the source's `{{ … }}` sit inside the rules.
+        $css = (string) strstr($this->html(), '</style>', true);
+        self::assertMatchesRegularExpression('/\.totals\s*\{[^}]*break-inside:\s*avoid/', $css, 'The totals can split across pages.');
+        self::assertMatchesRegularExpression('/\.closing\s*\{[^}]*break-inside:\s*avoid/', $css, 'The signature block can split across pages.');
     }
 
     public function test_that_the_page_renders_in_standards_mode(): void
@@ -494,8 +566,11 @@ final class CustomerQuotationHtmlTest extends TestCase
         // The page number is text on the page too.
         $html = $this->app->make(CustomerQuotationHtml::class);
         foreach (['ar', 'en'] as $locale) {
-            preg_match_all('/(?<![\w-])color\s*:\s*([^;"]+)/i', $html->footer($locale), $footerColours);
-            self::assertSame(['#000'], $footerColours[1], "The {$locale} page number is not black.");
+            preg_match_all('/(?<![\w-])color\s*:\s*([^;"]+)/i', $html->footer(CustomerQuotationViewFixture::make(), $locale), $footerColours);
+            self::assertNotSame([], $footerColours[1], "The {$locale} footer sets no text colour.");
+            foreach ($footerColours[1] as $colour) {
+                self::assertSame('#000', strtolower(trim($colour)), "A {$locale} footer colour of {$colour} is not black.");
+            }
         }
     }
 
@@ -534,7 +609,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
-    public function test_that_the_page_number_footer_is_localised_and_left_to_chrome(): void
+    public function test_that_the_page_number_is_left_to_chrome_and_the_footer_stays_small(): void
     {
         // Point 2.5, and D-79's carried-forward item: the count varies per
         // quotation, so the numbering belongs to Chrome's footerTemplate and
@@ -542,32 +617,21 @@ final class CustomerQuotationHtmlTest extends TestCase
         $html = $this->app->make(CustomerQuotationHtml::class);
 
         foreach (['en', 'ar'] as $locale) {
-            $footer = $html->footer($locale);
+            $footer = $html->footer(CustomerQuotationViewFixture::make(), $locale);
 
             self::assertStringContainsString('<span class="pageNumber"></span>', $footer);
             self::assertStringContainsString('<span class="totalPages"></span>', $footer);
-            // No embedded face here, and the docblock says why: Browsershot
-            // passes this template as a command argument, and a base64 face
-            // makes the command too long for the OS. The families are the ones
-            // the rendering image installs.
+            // No embedded face here: Browsershot passes this template as a
+            // command argument, and a base64 face makes the command too long
+            // for the OS. Inter is the face the rendering image installs.
             self::assertStringNotContainsString('data:font/woff2;base64,', $footer);
-            // D-101: Inter first in both languages, so the page numbers are
-            // Inter; Arabic words fall through to Naskh, the page's own face.
-            self::assertStringContainsString("font-family:'Inter', 'Noto Naskh Arabic',sans-serif", $footer);
+            self::assertStringContainsString("font-family: 'Inter'", $footer);
             self::assertLessThan(2000, strlen($footer), 'A footer this large risks Chrome\'s command-line limit.');
         }
 
-        // The words come from the lang files, and Arabic puts them in the other
-        // order — which is why the label takes both numbers as placeholders
-        // rather than being concatenated around them.
-        self::assertStringContainsString('Page', $html->footer('en'));
-        self::assertStringContainsString('صفحة', $html->footer('ar'));
-        self::assertStringContainsString('dir="rtl"', $html->footer('ar'));
-
-        // The visible text only — `class="totalPages"` is Chrome's own hook and
-        // contains "Page", which an assertion over the whole string would flag.
-        $arabicText = strip_tags($html->footer('ar'));
-        self::assertDoesNotMatchRegularExpression('/[A-Za-z]{2,}/', $arabicText, 'English reached the Arabic footer.');
+        // The label keeps both numbers as placeholders, in both lang files.
+        self::assertSame('Page :current of :total', Lang::get('pdf.footer.page', [], 'ar'));
+        self::assertSame('Page :current of :total', Lang::get('pdf.footer.page', [], 'en'));
     }
 
     public function test_that_an_unknown_locale_is_refused_by_both_halves(): void
@@ -576,7 +640,7 @@ final class CustomerQuotationHtmlTest extends TestCase
 
         foreach (['fr', 'en-GB', ''] as $locale) {
             try {
-                $html->footer($locale);
+                $html->footer(CustomerQuotationViewFixture::make(), $locale);
                 self::fail("The footer rendered in {$locale}.");
             } catch (\InvalidArgumentException $e) {
                 self::assertStringContainsString('ar or en', $e->getMessage());

@@ -45,6 +45,9 @@ final class RenderQuotationPdfTest extends TestCase
 
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n";
 
+    /** Two page objects and their tree — what Chrome writes for a two-page document. */
+    private const TWO_PAGES = "%PDF-1.4\n1 0 obj << /Type /Pages /Count 2 >> endobj\n2 0 obj << /Type /Page >> endobj\n3 0 obj << /Type /Page >> endobj\n%%EOF\n";
+
     private FakeRenderer $renderer;
 
     protected function setUp(): void
@@ -90,7 +93,34 @@ final class RenderQuotationPdfTest extends TestCase
         // The bytes went through Storage's own `store()` whole.
         self::assertIsString($file->storage_path);
         self::assertSame(self::PDF, $this->storedBytes($file->storage_path));
-        self::assertSame(['ar'], $this->renderer->locales);
+        self::assertSame(['ar'], $this->renderer->locales, 'A one-page document is rendered once.');
+        self::assertStringNotContainsString('class="multi-page"', $this->renderer->htmls[0]);
+        // D-107: the company and the page number are Chrome's footer, on every page.
+        self::assertStringContainsString('Smart Technology for Integrated Systems', (string) $this->renderer->footers[0]);
+    }
+
+    public function test_that_a_document_longer_than_a_page_is_rendered_again_with_the_multi_page_spacing(): void
+    {
+        // D-107: "the space above the contact sentence and the signature
+        // block's offset differ between a one-page and a longer offer". Only
+        // a render says how many pages a document takes, so a longer one is
+        // rendered a second time with the longer offer's spacing, and that
+        // second document is the one stored.
+        $this->renderer = new FakeRenderer(self::TWO_PAGES);
+        $this->app->instance(PdfRendererInterface::class, $this->renderer);
+        [$generationId] = $this->queuedGeneration();
+
+        $this->attempt($generationId, 1);
+
+        self::assertSame(2, $this->renderer->calls, 'A longer document was not rendered again.');
+        self::assertStringNotContainsString('class="multi-page"', $this->renderer->htmls[0]);
+        self::assertStringContainsString('<body class="multi-page">', $this->renderer->htmls[1]);
+        self::assertSame($this->renderer->footers[0], $this->renderer->footers[1], 'The second render lost the footer.');
+
+        $generation = DB::table('pdf_generations')->where('id', $generationId)->first();
+        self::assertNotNull($generation);
+        self::assertSame('completed', $generation->status);
+        self::assertSame(1, DB::table('files')->where('id', $generation->file_id)->count(), 'Two renders stored two files.');
     }
 
     public function test_that_a_renderer_failing_twice_then_succeeding_leaves_exactly_one_file(): void
@@ -266,6 +296,12 @@ final class FakeRenderer implements PdfRendererInterface
     /** @var list<string> */
     public array $locales = [];
 
+    /** @var list<string> */
+    public array $htmls = [];
+
+    /** @var list<string|null> */
+    public array $footers = [];
+
     private int $failures = 0;
 
     public function __construct(private readonly string $bytes) {}
@@ -279,6 +315,8 @@ final class FakeRenderer implements PdfRendererInterface
     {
         $this->calls++;
         $this->locales[] = str_contains($html, 'dir="rtl"') ? 'ar' : 'en';
+        $this->htmls[] = $html;
+        $this->footers[] = $footerHtml;
 
         if ($this->calls <= $this->failures) {
             throw PdfRenderingFailed::because(new RuntimeException('Chromium did not answer.'));

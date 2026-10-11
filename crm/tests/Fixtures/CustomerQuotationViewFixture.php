@@ -72,6 +72,38 @@ final class CustomerQuotationViewFixture
     }
 
     /**
+     * The owner's one-page reference, QT-2026-0003 (`D-107`): two lines, no
+     * discount, five terms — the document the reference PDF shows on one page.
+     */
+    public static function reference(): CustomerQuotationView
+    {
+        return self::make([
+            'code' => 'QT-2026-0003',
+            'customerName' => 'Alex Scan',
+            'customerContact' => 'Ahmed Ali',
+            'subject' => 'Scanners & Enterprise Solutions Offer',
+            'lines' => [
+                new CustomerQuotationLine(1, 'ATEN Enterprise Solutions', '1', '110.00', '110.00', 'Pcs', 'قطعة', '15.40', '125.40'),
+                new CustomerQuotationLine(2, 'printer/ Professional Scanner — Brother', '5', '100.00', '500.00', 'Pcs', 'قطعة', '70.00', '570.00'),
+            ],
+            'additionalItems' => [],
+            'subtotal' => '610.00',
+            'additionalTotal' => '0.00',
+            'totalExcludingVat' => '610.00',
+            'discountPercent' => '0',
+            'discountAmount' => '0.00',
+            'taxBase' => '610.00',
+            'taxAmount' => '85.40',
+            'netAmount' => '695.40',
+            'finalTotal' => '695.40',
+            'terms' => [
+                new CustomerTerm('warranty', null, 'test'),
+                new CustomerTerm('delivery_terms', null, 'خلال 2 إلى 4 أسابيع من استلام أمر الشراء'),
+            ],
+        ]);
+    }
+
+    /**
      * An Arabic quotation — the same document, in the language §1 makes the
      * default, with the prose a customer would actually read.
      */

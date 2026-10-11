@@ -63,8 +63,8 @@ return [
     ],
 
     'footer' => [
-        'page' => 'صفحة :current من :total',
-        // D-107: the company block is English on the Arabic page too.
+        // D-107: the footer is English on the Arabic page too.
+        'page' => 'Page :current of :total',
         'address' => 'Address:',
         'tel' => 'Tel:',
         'email' => 'Email:',

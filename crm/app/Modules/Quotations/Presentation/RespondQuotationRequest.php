@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Presentation;
 
+use App\Modules\Quotations\Application\Writing\CompanyToday;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use RuntimeException;
@@ -19,16 +20,17 @@ use RuntimeException;
 final class RespondQuotationRequest extends FormRequest
 {
     /** @return array<string, list<mixed>> */
-    public function rules(): array
+    public function rules(CompanyToday $today): array
     {
         return [
             'response' => ['required', 'string', Rule::in(['accepted', 'partial', 'counter', 'rejected'])],
             'reason' => ['nullable', 'string', 'max:2000', 'prohibited_unless:response,counter,rejected'],
             // Owner B (1.6): a reference with a character (`TrimStrings` makes a
-            // blank one null, so `required_if` refuses it) and a real date,
-            // future allowed; 255 is the column, not a business rule.
+            // blank one null, so `required_if` refuses it) and a real date, on or
+            // before the company's today (`D-108`, superseding 1.6's "future
+            // allowed"); 255 is the column, not a business rule.
             'customer_po_reference' => ['required_if:response,accepted', 'prohibited_unless:response,accepted', 'nullable', 'string', 'max:255'],
-            'po_date' => ['required_if:response,accepted', 'prohibited_unless:response,accepted', 'nullable', 'date_format:Y-m-d'],
+            'po_date' => ['required_if:response,accepted', 'prohibited_unless:response,accepted', 'nullable', 'date_format:Y-m-d', 'before_or_equal:'.$today->date()],
         ];
     }
 

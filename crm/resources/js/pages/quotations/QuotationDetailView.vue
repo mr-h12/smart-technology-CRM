@@ -99,6 +99,12 @@ const outcome = ref<CustomerResponse['response']>('accepted');
 const reason = ref('');
 const poReference = ref('');
 const poDate = ref('');
+/**
+ * `D-108`: the picker offers no day after today. ponytail: the device's day, not
+ * `locale.timezone`'s, which the SPA cannot read — a device in another zone may
+ * be one day off near midnight, and the server's 422 still holds the rule.
+ */
+const poDateMax = ref('');
 const respondButton = ref<HTMLButtonElement | null>(null);
 const dialog = ref<HTMLFormElement | null>(null);
 /** 1.5's `deal_lost`, after a rejection only. */
@@ -262,6 +268,8 @@ async function openResponse(): Promise<void> {
     reason.value = quotation.value?.status === 'expired' ? t('quotations.detail.noResponse') : '';
     poReference.value = '';
     poDate.value = '';
+    const now = new Date();
+    poDateMax.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     responding.value = true;
     await nextTick();
     dialog.value?.querySelector<HTMLElement>('input, textarea')?.focus();
@@ -587,6 +595,7 @@ onMounted(refresh);
                             v-model="poDate"
                             type="date"
                             required
+                            :max="poDateMax"
                             class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                             data-testid="quotation-respond-po-date"
                         />

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
+use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -11,6 +13,7 @@ use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -512,6 +515,60 @@ final class QuotationRespondEndpointTest extends TestCase
             ->assertJsonPath('error.details.0.field', $field);
 
         $this->assertNothingWritten($id);
+    }
+
+    // ─────────────────────────────────── po_date ≤ the company's today (F-41 · 1.3)
+
+    /** `D-108`: "`po_date` must be on or before today", superseding Module 10 · 1.6's "future allowed". */
+    public function test_a_po_date_after_the_company_today_is_refused(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-11 12:00:00', 'UTC'));
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, ['po_date' => '2026-10-12'] + self::PO_BODY)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.0.field', 'po_date');
+
+        $this->assertNothingWritten($id);
+        self::assertSame(0, DB::table('purchase_orders')->count());
+    }
+
+    /** "On or before": today itself is a PO date (`before_or_equal`, not `before`). */
+    public function test_a_po_date_of_the_company_today_is_accepted(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-11 12:00:00', 'UTC'));
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, ['po_date' => '2026-10-11'] + self::PO_BODY)
+            ->assertStatus(200)
+            ->assertJsonPath('data.purchase_order.po_date', '2026-10-11');
+    }
+
+    /**
+     * Riyadh (UTC+3) is already on the 12th at 22:30Z; Honolulu (UTC−10) is still on the 10th at 05:00Z.
+     *
+     * @return array<string, array{string, string, string, int}>
+     */
+    public static function companyDayBoundaries(): array
+    {
+        return [
+            'ahead of UTC: the company is already on the next day' => ['Asia/Riyadh', '2026-10-11 22:30:00', '2026-10-12', 200],
+            'behind UTC: UTC today is the company tomorrow' => ['Pacific/Honolulu', '2026-10-11 05:00:00', '2026-10-11', 422],
+        ];
+    }
+
+    /** `D-108`: "today in the company timezone (`locale.timezone`, UTC fallback)" — the day `ExpireQuotations` reads. */
+    #[DataProvider('companyDayBoundaries')]
+    public function test_the_po_date_limit_is_the_company_day_not_utc(string $zone, string $utcNow, string $poDate, int $status): void
+    {
+        $this->app->make(SettingsRepositoryInterface::class)->put(SystemSetting::Timezone, $zone);
+        $this->travelTo(Carbon::parse($utcNow, 'UTC'));
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, ['po_date' => $poDate] + self::PO_BODY)->assertStatus($status);
+
+        self::assertSame($status === 200 ? 1 : 0, DB::table('purchase_orders')->count());
     }
 
     // ────────────────────────────────────────────────────── optimistic locking

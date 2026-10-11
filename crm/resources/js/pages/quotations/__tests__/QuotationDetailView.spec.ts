@@ -614,6 +614,20 @@ describe('the quotation detail view', () => {
             }
         });
 
+        it('offers no PO date after today in the date picker (D-108)', async () => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date(2026, 9, 11, 23, 30));
+            try {
+                const { wrapper } = await openDialog('sent', () => null);
+
+                await wrapper.find('[data-testid="quotation-respond-outcome-accepted"]').setValue(true);
+
+                expect(wrapper.find('[data-testid="quotation-respond-po-date"]').attributes('max')).toBe('2026-10-11');
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
         it('opens the new draft after Partial or Counter', async () => {
             for (const outcome of ['partial', 'counter']) {
                 const { wrapper, router, fetchMock } = await openDialog('sent', (url) =>

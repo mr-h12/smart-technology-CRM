@@ -29,20 +29,22 @@ final class CustomerQuotationViewFixture
             'validUntil' => '2026-08-13',
             'currencyCode' => 'EGP',
             'customerName' => 'Vegatrone',
-            'customerContact' => 'Mr. Medhat',
-            'customerContactTitle' => null,
+            'customerContact' => 'Medhat',
+            'customerContactTitle' => 'Mr.',
             'companyName' => 'Smart Technology for Integrated Systems',
             'companyAddress' => '5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt',
             'companyPhones' => '035829952 · 01070764779',
-            'companyEmail' => null,
+            'companyEmail' => 'info@smarttechegy.com',
             'subject' => 'IT Offer',
             'signatoryName' => 'Ahmed Essam',
-            'signatoryTitleEn' => null,
-            'signatoryTitleAr' => null,
+            'signatoryTitleEn' => 'Sales Manager',
+            'signatoryTitleAr' => 'مدير المبيعات',
             'lines' => [
-                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', null, null, null, '10438.60'),
-                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', null, null, null, '18997.50'),
-                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, null, '5418.00'),
+                // D-107: VAT after the 5% discount is spread over the line; the
+                // third line has no unit, so the page prints `—`.
+                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
+                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
+                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             'subtotal' => '34854.10',
@@ -70,6 +72,38 @@ final class CustomerQuotationViewFixture
     }
 
     /**
+     * The owner's one-page reference, QT-2026-0003 (`D-107`): two lines, no
+     * discount, five terms — the document the reference PDF shows on one page.
+     */
+    public static function reference(): CustomerQuotationView
+    {
+        return self::make([
+            'code' => 'QT-2026-0003',
+            'customerName' => 'Alex Scan',
+            'customerContact' => 'Ahmed Ali',
+            'subject' => 'Scanners & Enterprise Solutions Offer',
+            'lines' => [
+                new CustomerQuotationLine(1, 'ATEN Enterprise Solutions', '1', '110.00', '110.00', 'Pcs', 'قطعة', '15.40', '125.40'),
+                new CustomerQuotationLine(2, 'printer/ Professional Scanner — Brother', '5', '100.00', '500.00', 'Pcs', 'قطعة', '70.00', '570.00'),
+            ],
+            'additionalItems' => [],
+            'subtotal' => '610.00',
+            'additionalTotal' => '0.00',
+            'totalExcludingVat' => '610.00',
+            'discountPercent' => '0',
+            'discountAmount' => '0.00',
+            'taxBase' => '610.00',
+            'taxAmount' => '85.40',
+            'netAmount' => '695.40',
+            'finalTotal' => '695.40',
+            'terms' => [
+                new CustomerTerm('warranty', null, 'test'),
+                new CustomerTerm('delivery_terms', null, 'خلال 2 إلى 4 أسابيع من استلام أمر الشراء'),
+            ],
+        ]);
+    }
+
+    /**
      * An Arabic quotation — the same document, in the language §1 makes the
      * default, with the prose a customer would actually read.
      */
@@ -77,13 +111,13 @@ final class CustomerQuotationViewFixture
     {
         return self::make([
             'customerName' => 'شركة فيجاترون',
-            'customerContact' => 'الأستاذ مدحت',
+            'customerContact' => 'مدحت',
             'subject' => 'عرض أجهزة وطابعات',
             'signatoryName' => 'أحمد عصام',
             'lines' => [
-                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', null, null, null, '10438.60'),
-                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', null, null, null, '18997.50'),
-                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, null, '5418.00'),
+                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
+                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
+                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'التوصيل والتركيب', '250.00')],
             'terms' => [

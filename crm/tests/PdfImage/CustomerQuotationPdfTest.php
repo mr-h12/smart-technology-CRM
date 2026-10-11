@@ -24,9 +24,12 @@ final class CustomerQuotationPdfTest extends TestCase
 {
     public function test_that_both_languages_render_on_one_page_with_the_embedded_faces(): void
     {
-        foreach (['en' => CustomerQuotationViewFixture::make(), 'ar' => CustomerQuotationViewFixture::arabic()] as $locale => $view) {
-            $html = $this->app->make(CustomerQuotationHtml::class)->render($view, $locale);
-            $pdf = $this->app->make(PdfRendererInterface::class)->render($html);
+        // D-107: the owner's one-page reference is one page in both languages,
+        // with the footer Chrome draws on every page (F-40 · 1.6). Its English
+        // page carries an Arabic delivery term, so it also proves the English
+        // stack reaches the embedded Naskh rather than a system face.
+        foreach (['en', 'ar'] as $locale) {
+            $pdf = $this->render(CustomerQuotationViewFixture::reference(), $locale);
 
             self::assertStringStartsWith('%PDF-', $pdf, "The {$locale} quotation did not render.");
             self::assertSame(1, preg_match_all('#/Type\s*/Page(?!s)#', $pdf), "The {$locale} quotation spilled onto a second page (D-79's one-page guard).");
@@ -73,13 +76,13 @@ final class CustomerQuotationPdfTest extends TestCase
         // paginate rather than clip, and a row may not split across the break.
         $lines = [];
         for ($i = 1; $i <= 40; $i++) {
-            $lines[] = new CustomerQuotationLine($i, "Formatter M428dw spare part {$i}", '2', '5219.30', '10438.60', null, null, null, '10438.60');
+            $lines[] = new CustomerQuotationLine($i, "Formatter M428dw spare part {$i}", '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800');
         }
 
         $pdf = $this->render(CustomerQuotationViewFixture::make(['lines' => $lines]), 'en');
 
         self::assertGreaterThan(1, self::pagesIn($pdf), 'Forty lines fitted on one page, so something clipped them.');
-        self::assertSame(1, self::pagesIn($this->render(CustomerQuotationViewFixture::make(), 'en')));
+        self::assertSame(1, self::pagesIn($this->render(CustomerQuotationViewFixture::reference(), 'en')));
     }
 
     public function test_that_the_footer_reaches_the_document(): void
@@ -89,12 +92,12 @@ final class CustomerQuotationPdfTest extends TestCase
         // back out here — the owner reads them at Point 2.7. What is provable
         // is that asking for the footer changes the document: without it the
         // same quotation renders materially smaller.
-        $view = CustomerQuotationViewFixture::make();
+        $view = CustomerQuotationViewFixture::reference();
         $html = $this->app->make(CustomerQuotationHtml::class);
         $renderer = $this->app->make(PdfRendererInterface::class);
 
         $page = $html->render($view, 'en');
-        $withFooter = $renderer->render($page, $html->footer('en'));
+        $withFooter = $renderer->render($page, $html->footer($view, 'en'));
         $without = $renderer->render($page);
 
         self::assertGreaterThan(strlen($without) + 2000, strlen($withFooter), 'The footer was not drawn.');
@@ -105,7 +108,7 @@ final class CustomerQuotationPdfTest extends TestCase
     {
         $html = $this->app->make(CustomerQuotationHtml::class);
 
-        return $this->app->make(PdfRendererInterface::class)->render($html->render($view, $locale), $html->footer($locale));
+        return $this->app->make(PdfRendererInterface::class)->render($html->render($view, $locale), $html->footer($view, $locale));
     }
 
     private static function pagesIn(string $pdf): int

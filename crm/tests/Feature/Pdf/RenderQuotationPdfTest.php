@@ -8,6 +8,7 @@ use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Pdf\Application\Generation\RenderQuotationPdf;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Domain\Rendering\PdfRenderingFailed;
+use App\Modules\Pdf\Domain\View\CustomerQuotationView;
 use App\Modules\Pdf\Presentation\RenderQuotationPdfJob;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -39,11 +40,15 @@ use Throwable;
 final class RenderQuotationPdfTest extends TestCase
 {
     use InsertsQuotationRows;
+    use ReadsItemTables;
     use RefreshDatabase;
     use RemovesOnlyFilesItStored;
     use SignsInByRole;
 
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n";
+
+    /** Two page objects and their tree — what Chrome writes for a two-page document. */
+    private const TWO_PAGES = "%PDF-1.4\n1 0 obj << /Type /Pages /Count 2 >> endobj\n2 0 obj << /Type /Page >> endobj\n3 0 obj << /Type /Page >> endobj\n%%EOF\n";
 
     private FakeRenderer $renderer;
 
@@ -90,7 +95,93 @@ final class RenderQuotationPdfTest extends TestCase
         // The bytes went through Storage's own `store()` whole.
         self::assertIsString($file->storage_path);
         self::assertSame(self::PDF, $this->storedBytes($file->storage_path));
-        self::assertSame(['ar'], $this->renderer->locales);
+        self::assertSame(['ar'], $this->renderer->locales, 'A one-page document is rendered once.');
+        self::assertStringNotContainsString('class="multi-page"', $this->renderer->htmls[0]);
+        // D-107: the company and the page number are Chrome's footer, on every page.
+        self::assertStringContainsString('Smart Technology for Integrated Systems', (string) $this->renderer->footers[0]);
+    }
+
+    public function test_that_a_short_offer_that_overflows_is_rendered_again_compact_and_that_one_is_stored(): void
+    {
+        // F-40 · 1.6c (the owner, 2026-10-11, on D-107): six rows or fewer
+        // that overflow one page are first tightened. The fixture has four
+        // rows; the compact render fits, so it is the document stored.
+        $this->renderer = new FakeRenderer(self::TWO_PAGES, self::PDF);
+        $this->app->instance(PdfRendererInterface::class, $this->renderer);
+        [$generationId] = $this->queuedGeneration();
+
+        $this->attempt($generationId, 1);
+
+        self::assertSame(2, $this->renderer->calls, 'A short offer that overflowed was not rendered again.');
+        self::assertStringContainsString('<body>', $this->renderer->htmls[0]);
+        self::assertStringContainsString('<body class="compact">', $this->renderer->htmls[1]);
+        self::assertSame($this->renderer->footers[0], $this->renderer->footers[1], 'The second render lost the footer.');
+
+        $generation = DB::table('pdf_generations')->where('id', $generationId)->first();
+        self::assertNotNull($generation);
+        self::assertSame('completed', $generation->status);
+        self::assertSame(1, DB::table('files')->where('id', $generation->file_id)->count(), 'Two renders stored two files.');
+        $file = DB::table('files')->where('id', $generation->file_id)->first();
+        self::assertNotNull($file);
+        self::assertIsString($file->storage_path);
+        self::assertSame(self::PDF, $this->storedBytes($file->storage_path), 'The stored document is not the compact one.');
+    }
+
+    public function test_that_a_short_offer_compact_cannot_fit_moves_its_last_two_rows_to_page_two(): void
+    {
+        // F-40 · 1.6c: when tightening is not enough, the longer offer's
+        // spacing, and the last two of the four rows begin page two's table —
+        // the signature is never alone on a page.
+        $this->renderer = new FakeRenderer(self::TWO_PAGES);
+        $this->app->instance(PdfRendererInterface::class, $this->renderer);
+        [$generationId] = $this->queuedGeneration();
+
+        $this->attempt($generationId, 1);
+
+        self::assertSame(3, $this->renderer->calls, 'A short offer that compact could not fit was not rendered a third time.');
+        self::assertStringContainsString('<body class="compact">', $this->renderer->htmls[1]);
+        self::assertStringContainsString('<body class="multi-page">', $this->renderer->htmls[2]);
+        self::assertSame(
+            [['Formatter M428dw', 'Toner CF259A'], ['Fuser RM2-5399', 'Delivery &amp; Installation']],
+            self::tableDescriptions($this->renderer->htmls[2]),
+            'Page two does not start with the last two rows.',
+        );
+        self::assertSame($this->renderer->footers[0], $this->renderer->footers[2], 'The third render lost the footer.');
+    }
+
+    public function test_that_a_one_row_offer_compact_cannot_fit_moves_its_table_to_page_two(): void
+    {
+        // Two rows cannot be left behind when there is one: the whole table
+        // begins page two, and page one keeps no empty table.
+        $this->renderer = new FakeRenderer(self::TWO_PAGES);
+        $this->app->instance(PdfRendererInterface::class, $this->renderer);
+        [$generationId] = $this->queuedGeneration();
+
+        $this->attempt($generationId, 1, CustomerQuotationViewFixture::make(['lines' => [CustomerQuotationViewFixture::make()->lines[0]], 'additionalItems' => []]));
+
+        self::assertSame([['Formatter M428dw']], self::tableDescriptions($this->renderer->htmls[2]));
+        self::assertStringContainsString('<table class="items items-next">', $this->renderer->htmls[2], 'The moved table does not begin a page.');
+    }
+
+    public function test_that_an_offer_of_more_than_six_rows_is_not_compacted(): void
+    {
+        // F-40 · 1.6b already moves row 7 to page two; compact is for six or fewer.
+        $this->renderer = new FakeRenderer(self::TWO_PAGES);
+        $this->app->instance(PdfRendererInterface::class, $this->renderer);
+        [$generationId] = $this->queuedGeneration();
+        $line = CustomerQuotationViewFixture::make()->lines[0];
+
+        $this->attempt($generationId, 1, CustomerQuotationViewFixture::make(['lines' => array_fill(0, 6, $line)]));
+
+        self::assertSame(2, $this->renderer->calls);
+        self::assertStringContainsString('<body class="multi-page">', $this->renderer->htmls[1]);
+        self::assertSame([6, 1], array_map(count(...), self::tableDescriptions($this->renderer->htmls[1])), 'Seven rows are not split 6 + 1.');
+    }
+
+    /** @return list<list<string>> each item table's descriptions, in page order */
+    private static function tableDescriptions(string $html): array
+    {
+        return array_map(self::descriptions(...), self::itemTables($html));
     }
 
     public function test_that_a_renderer_failing_twice_then_succeeding_leaves_exactly_one_file(): void
@@ -225,9 +316,9 @@ final class RenderQuotationPdfTest extends TestCase
         return [$this->insertGeneration(['quotation_id' => $quotationId, 'locale' => $locale, 'created_by' => $requester]), $quotationId, $requester];
     }
 
-    private function attempt(string $generationId, int $attempt): void
+    private function attempt(string $generationId, int $attempt, ?CustomerQuotationView $view = null): void
     {
-        $this->app->make(RenderQuotationPdf::class)->handle($generationId, CustomerQuotationViewFixture::make(), $attempt);
+        $this->app->make(RenderQuotationPdf::class)->handle($generationId, $view ?? CustomerQuotationViewFixture::make(), $attempt);
     }
 
     /**
@@ -266,9 +357,22 @@ final class FakeRenderer implements PdfRendererInterface
     /** @var list<string> */
     public array $locales = [];
 
+    /** @var list<string> */
+    public array $htmls = [];
+
+    /** @var list<string|null> */
+    public array $footers = [];
+
     private int $failures = 0;
 
-    public function __construct(private readonly string $bytes) {}
+    /** @var list<string> */
+    private readonly array $answers;
+
+    /** Each render answers the next document; the last one answers every render after it. */
+    public function __construct(string ...$answers)
+    {
+        $this->answers = array_values($answers);
+    }
 
     public function failTimes(int $failures): void
     {
@@ -279,12 +383,14 @@ final class FakeRenderer implements PdfRendererInterface
     {
         $this->calls++;
         $this->locales[] = str_contains($html, 'dir="rtl"') ? 'ar' : 'en';
+        $this->htmls[] = $html;
+        $this->footers[] = $footerHtml;
 
         if ($this->calls <= $this->failures) {
             throw PdfRenderingFailed::because(new RuntimeException('Chromium did not answer.'));
         }
 
-        return $this->bytes;
+        return $this->answers[min($this->calls, count($this->answers)) - 1];
     }
 }
 

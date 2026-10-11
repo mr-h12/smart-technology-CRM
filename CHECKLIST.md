@@ -1295,12 +1295,41 @@ would hide them behind `OD-03` indefinitely.
       A search of the specs for `parity`, `Object.keys(en)` and `Object.keys(ar)` finds nothing. F-32 · 1.1
       pins its own two keys by asserting the Arabic sentence, and both files were compared by hand; one
       spec walking both files' key lists would guard every later key.
-- [ ] **Three customer-PDF labels nothing prints** — *revealed by F-34 · 1.2's waste audit, 2026-10-02;
-      registered, not fixed.* `pdf.totals.additional`, `pdf.totals.tax_base` and `pdf.totals.net` exist in
+- [x] **Three customer-PDF labels nothing prints** — *revealed by F-34 · 1.2's waste audit, 2026-10-02;
+      registered, not fixed.* *(2026-10-11, F-40 · 1.5 — deleted with D-100's other labels; a test pins their absence)* `pdf.totals.additional`, `pdf.totals.tax_base` and `pdf.totals.net` exist in
       both `lang/en/pdf.php` and `lang/ar/pdf.php`, and no template, class or test reads them: the template
       prints each additional item under its own description, and never prints the tax base or the net
       amount (`git grep` over `app/Modules/Pdf`, `resources/views` and `tests/Feature/Pdf`). They predate
       F-34. Deleting them is a two-file edit, unless the owner wants those rows on the page.
+- [ ] **Five customer-PDF view fields nothing reads** — *revealed by F-40 · 1.5's waste audit, 2026-10-11;
+      registered, not fixed.* `CustomerQuotationView`'s `subtotal`, `additionalTotal`, `taxBase`,
+      `netAmount` and `discountPercent` are filled by `CustomerQuotationViewMapper.php:146-157` and read by
+      no template or class since D-107's *Total Amount Excl. VAT* replaced the rows that printed them; only
+      `CustomerQuotationViewMapperTest.php:331-332` and `CustomerQuotationViewTest.php:173` read them. The
+      mapper's own use of the quotation's discount percent (line 194, the per-line VAT) is separate and
+      stays. Removing them touches the model, the mapper and two tests — outside 1.5's approved files.
+- [ ] **The Commercial Offer's known differences from the reference PDFs** — *accepted by the owner,
+      2026-10-11, during F-40 · 1.6; registered, not fixed.* Measured word by word with `pdftotext -bbox`
+      against `prototypes/quotation-client-layout/`: (1) QT-2026-0006's second page — its columns sit
+      1.7 mm left of the reference's, because the reference draws page two as a second table whose
+      widths come from its own five rows, and the system prints one table across both pages; (2) the
+      page number sits at the end of the e-mail line, not on a line under the company block (D-107
+      ruling 4), because Chrome clips its footer band below that line; (3) the footer is one English
+      block on both pages (D-107), placed on the English reference — its labels within 0.4 mm and its
+      values 0.68 mm low there, while the Arabic reference's own footer sits about 0.5 mm higher than
+      the English one, so against it the values differ by up to 1.3 mm. The page bodies match within
+      0.26 mm: QT-2026-0003 in English (125/125) and QT-2026-0006's first page (166/166); in Arabic
+      193 of 196 words, the other three single letters the comparison paired with the wrong twin
+      (not checked by eye). (4) *(2026-10-11, F-40 · 1.6d — the owner's order, `D-107`)* the English
+      page is one point smaller than the reference and the regards line sits 17.5 mm down, level
+      with *Sales Signature*, in both languages — so the English measurements above, and the regards
+      line in both, no longer match the references by design.
+- [ ] **The PDF page count is read by four copies of one regex** — *revealed by F-40 · 1.6's waste audit,
+      2026-10-11; registered, not fixed.* `#/Type\s*/Page(?!s)#` counts a PDF's pages in
+      `RenderQuotationPdf.php` (new in 1.6, to choose the longer offer's spacing) and three times in
+      `tests/PdfImage`: inline at `CustomerQuotationPdfTest.php:35`, in its own `pagesIn()`, and in
+      `BrowsershotRenderTest.php:42`. The tests counting on their own is deliberate; the two copies
+      inside `CustomerQuotationPdfTest` are not — the inline one could call `pagesIn()`.
 - [ ] **The English customer PDF draws Arabic text typed into a quotation in a system face** — *revealed
       by F-35 · 1.2's real PDF, 2026-10-02; registered, not fixed.* QT-2026-0003 in English embeds
       `DejaVuSans` beside Inter: its terms hold Arabic text (`pdftotext` lists 22 Arabic letters on the
@@ -3991,13 +4020,27 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             (today the mapper passes none); the signer's title; the company e-mail. Tests: discount 0
             and 10%, exempt, the cents case, additional rows, a line with no unit.
             *(2026-10-11, #300 — `CustomerLineFigures` beside `QuotationTotals`, published to Pdf; Att. via a new `CustomerContactsInterface`; nothing printed until 1.5)*
-      - [ ] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
+      - [x] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
             `lang/{ar,en}/pdf.php` and the three unread labels deleted. Failing tests first in
             `CustomerQuotationHtmlTest`.
-      - [ ] **1.6** The renderer and pagination: the English footer with the page number on every page;
+            *(2026-10-11, #301 — the reference CSS verbatim, `$rtl` for the Arabic values; exempt prints no VAT column, row or term)*
+      - [x] **1.6** The renderer and pagination: the English footer with the page number on every page;
             later pages begin 41.7 mm down; the header repeated, no row split; the one-page and
             multi-page spacing. Real PDFs compared with the references word by word (`pdftotext
             -bbox`, ±0.5 mm).
+            *(2026-10-11, #301 — Chrome's footer on every page; a longer offer rendered again with its spacing; differences registered)*
+      - [x] **1.6b** Page one carries at most six table rows (lines, then additional items); every
+            later page at most eight, each in its own table, header repeated, at the top of its page
+            (the owner, 2026-10-11 — amends `D-107`'s "the table may run onto later pages").
+            *(2026-10-11, #301 — one table per page, `.items-next` breaks before it)*
+      - [x] **1.6c** An offer of six rows or fewer that overflows one page is rendered again compact;
+            if it still overflows, its last two rows begin page two's table, so the signature is never
+            alone on a page (the owner, 2026-10-11, on QT-2026-0009; recorded on `D-107`).
+            *(2026-10-11, #301 — up to three renders; QT-2026-0009 fits one page compact)*
+      - [x] **1.6d** *Best Regards,* / «مع خالص التحية» under the signature line, level with *Sales
+            Signature*, both languages; the English page one point smaller (body 10 pt, headings 11.5,
+            title 13, totals 9.5 / 10) to read the size of the Arabic (the owner, 2026-10-11; `D-107`).
+            *(2026-10-11, #301 — regards and Sales Signature at the same height, measured)*
       - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed

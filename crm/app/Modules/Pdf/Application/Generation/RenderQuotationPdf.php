@@ -86,10 +86,27 @@ final readonly class RenderQuotationPdf
         $requester = $generation->requestedBy
             ?? throw new UnexpectedValueException("Generation {$generation->id} names nobody who asked for it.");
 
-        $bytes = $this->renderer->render(
-            $this->html->render($view, $generation->locale),
-            $this->html->footer($generation->locale),
-        );
+        $footer = $this->html->footer($view, $generation->locale);
+        $bytes = $this->renderer->render($this->html->render($view, $generation->locale), $footer);
+
+        // D-107: a longer offer has its own spacing, and only a render says how
+        // many pages a document takes — so another render, with that spacing.
+        // F-40 · 1.6c: six rows or fewer are first tightened to one page; if
+        // that is not enough, the last two rows begin page two, so the
+        // signature is never alone there. More rows are 1.6b's six-then-eight.
+        // ponytail: counts Chrome's `/Type /Page` objects in the bytes (as
+        // `tests/PdfImage` does); a PDF library if a renderer ever compresses them.
+        // Up to three Chrome renders for the worst short offer, on the `pdf` queue.
+        $overflows = static fn (string $pdf): bool => preg_match_all('#/Type\s*/Page(?!s)#', $pdf) > 1;
+        $rows = count($view->lines) + count($view->additionalItems);
+
+        if ($overflows($bytes) && $rows <= CustomerQuotationHtml::FIRST_PAGE_ROWS) {
+            $bytes = $this->renderer->render($this->html->render($view, $generation->locale, compact: true), $footer);
+        }
+
+        if ($overflows($bytes)) {
+            $bytes = $this->renderer->render($this->html->render($view, $generation->locale, multiPage: true, firstPageRows: $rows <= CustomerQuotationHtml::FIRST_PAGE_ROWS ? max(0, $rows - 2) : CustomerQuotationHtml::FIRST_PAGE_ROWS), $footer);
+        }
 
         // `store()` copies from a readable source and leaves it alone. Handing
         // it the bytes as a `data:` URL keeps this module off the filesystem

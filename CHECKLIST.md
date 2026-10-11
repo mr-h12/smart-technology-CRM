@@ -4206,7 +4206,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.6b** `owner_name` on `GET /deals` rows and `GET /deals/{id}` through
             `UserFactsInterface::namesOf`, `null` for the hidden Super Admin, a deleted account or no owner;
             the OpenAPI deal schema. Tests first.
-            *(2026-10-12 — one `namesOf` per page, `ListCustomers::salesOwnerName()`'s shape for the detail; the write answers do not carry it)*
+            *(2026-10-12, #310 — one `namesOf` per page, `ListCustomers::salesOwnerName()`'s shape for the detail; the write answers do not carry it)*
       - [ ] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
       - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and

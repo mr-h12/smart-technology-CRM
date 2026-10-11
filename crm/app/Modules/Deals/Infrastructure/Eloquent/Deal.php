@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $code
  * @property string $customer_id
  * @property string|null $title
+ * @property string|null $details
  * @property string|null $source
  * @property string|null $service_type
  * @property string $status
@@ -46,7 +47,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  */
-#[Fillable(['customer_id', 'title', 'source', 'service_type', 'owner_id'])]
+#[Fillable(['customer_id', 'title', 'details', 'source', 'service_type', 'owner_id'])]
 class Deal extends Model
 {
     use HasUuids, SoftDeletes;

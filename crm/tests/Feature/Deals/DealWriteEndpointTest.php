@@ -277,6 +277,43 @@ final class DealWriteEndpointTest extends TestCase
         self::assertDatabaseHas('deals', ['id' => $id, 'title' => 'Renamed']);
     }
 
+    // ─────────────────────────────── details (F-41 · 1.4, D-108)
+
+    /** `D-108`: "≤ 2000 characters", counted in characters (Arabic is two bytes each). */
+    public function test_that_a_deal_is_created_and_read_with_its_details(): void
+    {
+        $details = str_repeat('ب', 2000);
+
+        $id = $this->postJson(self::ENDPOINT, ['customer_id' => $this->customerId(), 'details' => $details], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->assertJsonPath('data.details', $details)
+            ->json('data.id');
+
+        self::assertDatabaseHas('deals', ['id' => $id, 'details' => $details]);
+    }
+
+    public function test_that_details_over_2000_characters_are_refused(): void
+    {
+        $this->postJson(self::ENDPOINT, ['customer_id' => $this->customerId(), 'details' => str_repeat('ب', 2001)], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.0.field', 'details');
+
+        self::assertSame(0, DB::table('deals')->count());
+    }
+
+    /** `title: null`'s precedent (`DealDraft::only()`): a null is an erasure the caller asked for. */
+    public function test_that_details_can_be_erased_with_null(): void
+    {
+        $id = $this->deal(overrides: ['details' => 'Before']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['details' => null], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.details', null);
+
+        self::assertDatabaseHas('deals', ['id' => $id, 'details' => null]);
+    }
+
     public function test_that_a_row_outside_the_callers_scope_is_404_on_update(): void
     {
         $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id);
@@ -364,5 +401,22 @@ final class DealWriteEndpointTest extends TestCase
             ['title' => 'After'],
             json_decode((string) $row->new_values, true),   // @phpstan-ignore-line cast.string
         );
+    }
+
+    /** `D-108` / AUD-01: `details` is audited like `title` — only the field touched, old and new. */
+    public function test_that_updating_details_is_audited_with_the_old_and_new_value(): void
+    {
+        $id = $this->deal(overrides: ['details' => 'قبل']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['details' => 'بعد'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200);
+
+        $row = DB::table('audit_log')->where('entity_id', $id)->where('event', 'DEAL_UPDATED')->first();
+
+        self::assertIsObject($row);
+        self::assertObjectHasProperty('old_values', $row);
+        self::assertObjectHasProperty('new_values', $row);
+        self::assertSame(['details' => 'قبل'], json_decode((string) $row->old_values, true));   // @phpstan-ignore-line cast.string
+        self::assertSame(['details' => 'بعد'], json_decode((string) $row->new_values, true));   // @phpstan-ignore-line cast.string
     }
 }

@@ -415,6 +415,16 @@ final class DealListEndpointTest extends TestCase
             ->assertJsonMissingPath('data.customer_name');
     }
 
+    /** `D-108`: the list shows `details` shortened (F-41 · 1.5), so each row carries it whole; the detail too. */
+    public function test_that_each_listed_deal_carries_its_details(): void
+    {
+        $id = $this->deal('Alpha', null, ['details' => 'تفاصيل داخلية']);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200)->assertJsonPath('data.0.details', 'تفاصيل داخلية');
+        $this->getJson(self::ENDPOINT.'/'.$id, $bearer)->assertStatus(200)->assertJsonPath('data.details', 'تفاصيل داخلية');
+    }
+
     /** `D-83` mechanism 3: archiving the customer (`DB-01`) does not take the name off the row. */
     public function test_that_an_archived_customers_name_still_shows(): void
     {

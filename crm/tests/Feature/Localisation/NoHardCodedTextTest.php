@@ -127,6 +127,7 @@ final class NoHardCodedTextTest extends TestCase
                 // the same terms: the scan below was run against it first and
                 // passed.
                 'DealOwnerPicker.vue',
+                'DealStatusChip.vue',
                 'DealStatusControl.vue',
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',

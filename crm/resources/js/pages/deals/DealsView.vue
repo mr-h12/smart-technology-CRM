@@ -81,6 +81,7 @@ import {
 } from '@/services/deals';
 import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
+import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -446,7 +447,6 @@ onMounted(load);
                                 </button>
                             </th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.customer') }}</th>
-                            <th scope="col" class="p-3 text-start">{{ t('deals.column.title') }}</th>
                             <th scope="col" class="hidden p-3 text-start lg:table-cell" data-testid="deals-details-header">{{ t('deals.column.details') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.status') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('deals.column.approval') }}</th>
@@ -493,8 +493,11 @@ onMounted(load);
                                     {{ deal.code }}
                                 </RouterLink>
                             </td>
-                            <td class="p-3" data-testid="deals-customer">{{ deal.customer_name }}</td>
-                            <td class="p-3">{{ deal.title ?? '—' }}</td>
+                            <!-- D-109: the customer and the request in one cell, the name first. -->
+                            <td class="p-3" data-testid="deals-customer-cell">
+                                <span class="block" data-testid="deals-customer">{{ deal.customer_name }}</span>
+                                <span class="block text-[var(--color-text-muted)]" dir="auto" data-testid="deals-request">{{ deal.title ?? '—' }}</span>
+                            </td>
                             <!-- D-108: shortened to one line; the whole text in a pop-up. -->
                             <td class="hidden p-3 lg:table-cell" data-testid="deals-details">
                                 <template v-if="deal.details !== null">
@@ -519,7 +522,7 @@ onMounted(load);
                                 <template v-else>—</template>
                             </td>
                             <td class="p-3" data-testid="deals-status">
-                                {{ statusLabel(deal.status) }}
+                                <DealStatusChip :status="deal.status" data-testid="deals-status-chip" />
                                 <DealStatusControl :deal="deal" @changed="onDecided" />
                             </td>
                             <td class="p-3" data-testid="deals-approval">
@@ -532,14 +535,14 @@ onMounted(load);
                             <td class="hidden p-3 md:table-cell">
                                 {{ deal.service_type === null ? '—' : t(`deals.serviceType.${deal.service_type}`) }}
                             </td>
-                            <!-- ⚠️ An identifier: Identity publishes no list this
-                                 module may resolve a name against. -->
-                            <td class="hidden p-3 lg:table-cell" data-testid="deals-owner">{{ deal.owner_id ?? '—' }}</td>
+                            <!-- D-109: the server's name; «—» for the hidden Super Admin,
+                                 a deleted account or no owner — never the identifier. -->
+                            <td class="hidden p-3 lg:table-cell" data-testid="deals-owner">{{ deal.owner_name ?? '—' }}</td>
 
                             <td v-if="canEdit" class="p-3">
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="ghost-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
                                     data-testid="deals-row-edit"
                                     @click="startEdit(deal)"
                                 >
@@ -644,6 +647,15 @@ onMounted(load);
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+}
+
+/* §6.2's Ghost: a low-emphasis table action — no fill, no frame until hovered. */
+.ghost-action {
+    color: var(--color-link);
+}
+
+.ghost-action:hover {
+    background-color: var(--color-surface);
 }
 
 .create-action {

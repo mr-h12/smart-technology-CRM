@@ -4234,6 +4234,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       3–6 (design options, plan, redesign, verify) get their own point lists after the audit.
       The point list for Phases 1–2 was published and approved 2026-10-12 in conversation. Docs only.
       - [x] **0.1** This row and its point list. Docs only.
+            *(2026-10-12, #312 — F-42 numbered by the agent, the owner's to confirm; no CI run, docs only)*
       - [ ] **1.1** `docs/ux-upgrade/screen-map.md`: each in-scope screen's route, file, roles (seeded
             permissions, read-only), personas, main flow, rendered states, and F-41/F-37/F-33 overlap.
       - [ ] **2.1** Code audit against `Design_System_EN.md` §4–§8 (`web-design-guidelines`,

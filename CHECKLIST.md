@@ -4020,22 +4020,27 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             (today the mapper passes none); the signer's title; the company e-mail. Tests: discount 0
             and 10%, exempt, the cents case, additional rows, a line with no unit.
             *(2026-10-11, #300 — `CustomerLineFigures` beside `QuotationTotals`, published to Pdf; Att. via a new `CustomerContactsInterface`; nothing printed until 1.5)*
-      - [ ] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
+      - [x] **1.5** Page one's template from the prototype's CSS, both languages, with the labels in
             `lang/{ar,en}/pdf.php` and the three unread labels deleted. Failing tests first in
             `CustomerQuotationHtmlTest`.
-      - [ ] **1.6** The renderer and pagination: the English footer with the page number on every page;
+            *(2026-10-11, #301 — the reference CSS verbatim, `$rtl` for the Arabic values; exempt prints no VAT column, row or term)*
+      - [x] **1.6** The renderer and pagination: the English footer with the page number on every page;
             later pages begin 41.7 mm down; the header repeated, no row split; the one-page and
             multi-page spacing. Real PDFs compared with the references word by word (`pdftotext
             -bbox`, ±0.5 mm).
-      - [ ] **1.6b** Page one carries at most six table rows (lines, then additional items); every
+            *(2026-10-11, #301 — Chrome's footer on every page; a longer offer rendered again with its spacing; differences registered)*
+      - [x] **1.6b** Page one carries at most six table rows (lines, then additional items); every
             later page at most eight, each in its own table, header repeated, at the top of its page
             (the owner, 2026-10-11 — amends `D-107`'s "the table may run onto later pages").
-      - [ ] **1.6c** An offer of six rows or fewer that overflows one page is rendered again compact;
+            *(2026-10-11, #301 — one table per page, `.items-next` breaks before it)*
+      - [x] **1.6c** An offer of six rows or fewer that overflows one page is rendered again compact;
             if it still overflows, its last two rows begin page two's table, so the signature is never
             alone on a page (the owner, 2026-10-11, on QT-2026-0009; recorded on `D-107`).
-      - [ ] **1.6d** *Best Regards,* / «مع خالص التحية» under the signature line, level with *Sales
+            *(2026-10-11, #301 — up to three renders; QT-2026-0009 fits one page compact)*
+      - [x] **1.6d** *Best Regards,* / «مع خالص التحية» under the signature line, level with *Sales
             Signature*, both languages; the English page one point smaller (body 10 pt, headings 11.5,
             title 13, totals 9.5 / 10) to read the size of the Arabic (the owner, 2026-10-11; `D-107`).
+            *(2026-10-11, #301 — regards and Sales Signature at the same height, measured)*
       - [ ] **1.7** The Arabic manual test list (also covers F-34's and F-35's).
 
 ## Shell revisions — owner-directed

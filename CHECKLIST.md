@@ -4301,9 +4301,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             feedback, list primitives, D-70/D-99 display, plurals, title and focus, form fields (the owner's yes,
             2026-10-12); per row the files, the failing test to write first and the browser check.
             *(2026-10-12, #327 — 34 shared rows (a fix in a component or stylesheet used by 2+ screens); A-02, A-19, A-35 moved to 4.3; A-26 needs a D-xx amending D-82 first (D-82 never rounds, D-99 rounds half-up); F-41 rows build their deals part after F-41 · 1.8)*
-      - [ ] **4.3** `plan.md` §2 per screen, and §3 the Phase 5 order: shared layer first, F-41-flagged rows
+      - [x] **4.3** `plan.md` §2 per screen, and §3 the Phase 5 order: shared layer first, F-41-flagged rows
             after F-41 · 1.8, overlaps with F-37 · 1.5 and F-33 · 1.3 named; every one of the 67 rows placed
             exactly once or marked outside F-42.
+            *(2026-10-12, #328 — 31 rows in 6 screen groups (no PO-only row) + 15 Phase 5 steps; A-66's Q-42 needs the API (no currency name on the payload); recommended: F-37 · 1.5 and F-33 · 1.3 before Phase 5)*
 
 ## Shell revisions — owner-directed
 

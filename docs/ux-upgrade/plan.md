@@ -256,3 +256,262 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 - **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`, `crm/resources/js/pages/customers/CustomerFormModal.vue`, `crm/resources/js/pages/auth/LoginView.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`.
 - **Test first:** a `CustomerFormModal` spec: every required field shows the word marker and `aria-required`, and no `*` remains.
 - **Browser:** each form in ar and en; the marker reads in both.
+
+## 2. Per screen (F-42 · 4.3)
+
+The 31 Phase 4 rows that are not in §1, grouped by the screen in `audit.md`'s Screen column. Each row's fix lands in one screen's files. The purchase orders screen has no row here: its rows (A-13, A-14, A-22, A-24, A-26, A-31, A-48, A-67) are all shared, in §1. A-66's polish items touch several screens and sit last.
+
+### 2.1 Shell
+
+### A-05 — the closed drawer is not focusable
+- **Fix:** `inert` on the drawer while it is closed below 1024 px, removed on open.
+- **Files:** `crm/resources/js/components/AppSidebar.vue`.
+- **Test first:** `AppSidebar.spec.ts`: the closed drawer carries `inert`, and the open one does not.
+- **Browser:** at 375, Tab from the menu button: the first stop is in the page, not the sidebar, in ar and en.
+
+### A-23 — rail links keep their name
+- **Fix:** when the rail is collapsed, each link gets an `aria-label` from its label, plus the count when badged («الموافقات، 3»).
+- **Files:** `crm/resources/js/components/AppSidebar.vue`.
+- **Test first:** `AppSidebar.spec.ts`: collapsed, the approvals link's accessible name holds the label and the count.
+- **Browser:** collapse the rail at 1280 as the Manager; the accessibility tree names each link.
+
+### A-28 — one h1 per page (owner's pick: Option A)
+- **Fix:** the bar's title becomes a `<p>` (`AppContextBar.vue:136`), so each page's own h1 is the only one. Home and `/403` have none today, so `Ping.vue`'s title and `PermissionDeniedState`'s heading become h1 on those pages.
+- **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/Ping.vue`, `crm/resources/js/pages/ForbiddenView.vue`, `crm/resources/js/components/states/PermissionDeniedState.vue`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: `AppContextBar.vue` holds no `<h1`, and every page file the router names holds exactly one.
+- **Browser:** the heading outline on customers, a quotation, Home and `/403`: one h1 each.
+
+### 2.2 Login
+
+### A-10 — Sign-in stays enabled
+- **Fix:** the button is disabled only while the request runs; an empty submit shows the existing field messages and focuses the first empty field.
+- **Files:** `crm/resources/js/pages/auth/LoginView.vue`.
+- **Test first:** `LoginView.spec.ts`: with both fields empty, the button is enabled, and a submit shows both messages and sends no request.
+- **Browser:** the login page in a private window (so the owner's session is not signed out), Enter on empty fields, ar and en.
+
+### A-46 — a language switch on login
+- **Fix:** the context bar's locale segment (`AppContextBar.vue:194`) moves into a small component, used by the bar and by the login card. No theme switch: the audit's fix names the language only.
+- **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/auth/LoginView.vue`.
+- **Test first:** `LoginView.spec.ts`: the login card renders the segment, and a click sets the locale to `en`.
+- **Browser:** a private window: switch to English, then reload; the choice is kept as the bar keeps it.
+
+### 2.3 Quotations and the builder
+
+### A-01 — the builder follows the route
+- **Fix:** `<RouterView>` in `App.vue` keyed by the route path, or `watch(() => route.fullPath, load)` in the builder. The watch is the one-file change and is taken.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: a route change from one `?deal=` to another reloads, and the second deal's code is shown.
+- **Browser:** edit a draft, press Back to `/quotations/new?deal=…`: the right deal shows without a reload. No save is pressed.
+
+### A-03 — the edit route's error says edit (UI part; owner's answer)
+- **Fix:** the builder's load error on `/quotations/:id/edit` reads an edit message, not the create one. The per-row abilities are a separate fix point outside F-42 (`CHECKLIST.md`, under 4.1).
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`, `crm/resources/js/locales/ar.json`, `crm/resources/js/locales/en.json`.
+- **Test first:** `QuotationBuilderView.spec.ts`: a 404 on the edit route renders the edit message key, not the create one.
+- **Browser:** as the TL through Login As, open Edit on a draft outside the team: the message says the quotation cannot be edited.
+
+### A-15 — a line under Save (UI part; owner's answer)
+- **Fix:** one muted line under Save: «يظهر الإجمالي بعد الحفظ.» / "The total appears after saving." The server preview is a fix point outside F-42; the SPA computes nothing (D-67).
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`, `crm/resources/js/locales/ar.json`, `crm/resources/js/locales/en.json`.
+- **Test first:** `QuotationBuilderView.spec.ts`: the line renders under Save, and no figure is computed in the view (a source case in `uiSourceRules.spec.ts` keeps `QuotationBuilderView.vue` free of `Number(`).
+- **Browser:** the builder in ar and en; the line sits under Save.
+
+### A-16 — no placeholder in quantity
+- **Fix:** the quantity input loses its `placeholder`; the recorded figure stays in the "recorded" text beside it.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: a supplier line with an available quantity renders an empty quantity input with no placeholder.
+- **Browser:** pick an offer in the builder: quantity boxes look empty until typed.
+
+### A-17 — focus follows add and remove
+- **Fix:** after Add, focus moves to the new row's first field (`nextTick`); after Remove, to the next row's first field, or to Add when none is left.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: Add line focuses the new line's first input; Remove on the last line focuses Add.
+- **Browser:** keyboard only: add and remove a block, a line and a term.
+
+### A-18 — no raw ids (UI part; owner's answer)
+- **Fix:** where no name is readable, the quotation page shows «—», not a uuid; the timeline gets a gap between actor and date. Names and codes are a fix point outside F-42, shaped like F-41 · 1.6b's `owner_name`.
+- **Files:** `crm/resources/js/pages/quotations/QuotationDetailView.vue`, `crm/resources/js/pages/deals/DealDetailView.vue`.
+- **Test first:** `QuotationDetailView.spec.ts`: a payload with no readable customer renders «—» and no uuid pattern. The timeline case goes in `DealDetailView.spec.ts`, **after F-41**.
+- **Browser:** a quotation as the TL and Procurement: no uuid on the page. The deal timeline after F-41.
+
+### A-20 — a sticky Save (owner's pick: Option A)
+- **Fix:** a bar fixed to the bottom of the viewport carries Save and Cancel; the page gets `scroll-padding-block-end` of the bar's height, so a focused field never hides under it.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: the builder's action bar is `sticky` at the bottom and the page sets `scroll-padding-block-end`.
+- **Browser:** a long draft at 1280 and 375: Save stays in view, and a Tab walk hides 0 focused fields (the 3.7 measure). The phone keyboard check is Phase 6's.
+
+### A-21 — a section line for a refused PDF (owner's pick: Option A)
+- **Fix:** `QuotationPdfPanel` keeps its title; on 403 its body is one muted line «هذا القسم غير متاح لك.» / "This section is not available to you.", with no lock, no admin prompt and no heading of its own.
+- **Files:** `crm/resources/js/components/pdf/QuotationPdfPanel.vue`, `crm/resources/js/locales/ar.json`, `crm/resources/js/locales/en.json`.
+- **Test first:** `QuotationPdfPanel.spec.ts`: a 403 renders the section line and not `PermissionDeniedState`.
+- **Browser:** a quotation as Procurement through Login As, ar and en.
+
+### A-27 — the product list stays in the dialog
+- **Fix:** **a browser check first** confirms the clipping. If it is confirmed, `CatalogItemPicker` takes the in-flow mode inside the supplier dialog, as `SupplierQuotationFormModal.vue`'s comment asks. If not, the row closes with the measure as its evidence.
+- **Files:** `crm/resources/js/components/catalog/CatalogItemPicker.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`.
+- **Test first:** `CatalogItemPicker.spec.ts`: inside the dialog, the list renders in flow (no floating class). Written only if the browser check confirms the clipping.
+- **Browser:** open the product list on the dialog's last line at 375 and 1280: every option is reachable.
+
+### A-35 — remove now, with Undo (owner's pick: Option B)
+- **Fix:** Remove takes effect at once and shows an «تراجع» / "Undo" bar for a few seconds; on expiry, focus moves by A-17's rule. Changing a block's offer is the same: values go, Undo brings them back.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts` with fake timers: Remove then Undo restores the line with its typed values; after expiry, focus is on the next line.
+- **Browser:** remove a typed line, undo it, then let one expire, keyboard only.
+
+### A-36 — each Remove names its row
+- **Fix:** `aria-label` on every Remove: «إزالة السطر 3» / "Remove line 3", and the supplier's name on a block.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: two lines give two distinct accessible names.
+- **Browser:** the accessibility tree on a 3-line draft and in the supplier dialog.
+
+### A-37 — Enter does not save mid-entry
+- **Fix:** Enter in a line input moves to the next field instead of submitting; Save still submits.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: Enter in a quantity input sends no request.
+- **Browser:** type a quantity and press Enter: no draft is created, and focus moves on.
+
+### A-56 — the total in the header (owner's pick: Option A)
+- **Fix:** the final total, already in the payload, is repeated at the end of the header beside the code and status. The totals block stays at the bottom.
+- **Files:** `crm/resources/js/pages/quotations/QuotationDetailView.vue`.
+- **Test first:** `QuotationDetailView.spec.ts`: the header shows the payload's final total string, unchanged.
+- **Browser:** a quotation at 1280 and 375, ar and en; the header figure equals the bottom one.
+
+### A-60 — Remove stays on its line
+- **Fix:** `.line-grid` gets a fourth column for Remove at ≥ 640 px.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: `.line-grid`'s template columns count its four children.
+- **Browser:** an existing draft at 1280: each Remove sits on its line's row.
+
+### A-61 — an in-app discard prompt
+- **Fix:** leaving with unsaved changes opens the in-app discard prompt the supplier dialog uses (`SupplierQuotationFormModal.vue`'s `discard()`), not `window.confirm`.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: a route leave while dirty opens the prompt and calls no `window.confirm`.
+- **Browser:** edit then press Back, ar and en: the prompt follows the page's language and direction.
+
+### A-62 — margin keeps its minus sign (owner's answer)
+- **Fix:** the line-margin inputs stay `type="text"` with no `inputmode`, because a margin may be negative (`D-106`, `SaveQuotationRequest.php`'s `^-?`) and a decimal keypad has no minus on iOS. A comment says so at both inputs. No other change.
+- **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
+- **Test first:** `QuotationBuilderView.spec.ts`: a line-margin input has no `inputmode` attribute.
+- **Browser:** at 375 on a phone, type a negative margin in a line.
+
+### 2.4 Customers
+
+### A-02 — no second create (owner's pick: Option A)
+- **Fix:** after a create that finds similar customers, the dialog switches to edit mode on the saved record, is retitled «تعديل العميل «…»», and focus moves to the warning at its top. A second Save is an update.
+- **Files:** `crm/resources/js/pages/customers/CustomerFormModal.vue`, `crm/resources/js/pages/customers/CustomersView.vue`.
+- **Test first:** `CustomerFormModal.spec.ts`: after a create answered with `similar`, the next Save sends a `PATCH` to the new id, not a `POST`.
+- **Browser:** create a customer named like an existing one, then Save again: one record exists. The test record is archived after.
+
+### A-54 — tappable contacts (UI part; owner's answer)
+- **Fix:** phone and WhatsApp become `tel:` and `wa.me` links, email a `mailto:` link, with A-07's `dir="ltr"`. The stale comment at `CustomerDetailView.vue:32` is corrected. The customer's deals wait for F-41 · 1.7's list filter, as answered.
+- **Files:** `crm/resources/js/pages/customers/CustomerDetailView.vue`.
+- **Test first:** `CustomerDetailView.spec.ts`: the phone renders as an `a[href^="tel:"]` and the email as `mailto:`.
+- **Browser:** a customer page at 375: each link opens its app.
+
+### A-57 — the bulk panel when needed
+- **Fix:** the "Assign to" panel renders once a row is selected.
+- **Files:** `crm/resources/js/pages/customers/CustomersView.vue`.
+- **Test first:** `CustomersView.spec.ts`: no panel with 0 selected; the panel after one checkbox.
+- **Browser:** as the Manager, select and clear a row.
+
+### A-59 — Close after an import
+- **Fix:** once a result is shown, the import dialog's exit reads «إغلاق» / "Close". The dialog opens from customers, suppliers and catalog.
+- **Files:** `crm/resources/js/components/imports/ImportModal.vue`.
+- **Test first:** `ImportModal.spec.ts`: after a result, the exit button reads the close key.
+- **Browser:** an import of the dev sample on customers, ar and en.
+
+### 2.5 Approvals
+
+### A-47 — four approvals fixes
+- **Fix:** a whitespace-only Return note shows the empty-note error; `load()` clears the 409 banner; each group gets its own `<tbody>` with a `scope="rowgroup"` header; the quotation code takes the PO screen's link style.
+- **Files:** `crm/resources/js/pages/approvals/ApprovalsView.vue`.
+- **Test first:** `ApprovalsView.spec.ts`: a "   " note shows the error and sends nothing; Reload after a 409 clears the banner.
+- **Browser:** as the Manager, the four cases in ar and en; the table read by the accessibility tree.
+
+### 2.6 Deals (after F-41)
+
+Every row here is flagged F-41 and is built after F-41 · 1.8 closes.
+
+### A-19 — the phone deals list (owner's pick: Option A)
+- **Fix:** below 640 px the filters fold behind one «عوامل التصفية (2)» / "Filters (2)" button; rows stay a table with `whitespace-nowrap` codes and a compact status action. Built after F-41.
+- **Files:** `crm/resources/js/pages/deals/DealsView.vue`, `crm/resources/js/pages/deals/DealStatusControl.vue`.
+- **Test first:** `DealsView.spec.ts`: the filter form is collapsed behind a button with the active-filter count. After F-41.
+- **Browser:** at 375 as OSales: the first row is above the fold (3.6 measure). After F-41.
+
+### A-29 — unique ids per row
+- **Fix:** `useId()` for the status and reason fields, as `SearchCombobox.vue` does. Built after F-41.
+- **Files:** `crm/resources/js/pages/deals/DealStatusControl.vue`, `crm/resources/js/pages/deals/DealApprovalControls.vue`.
+- **Test first:** `DealsView.spec.ts`: two open row forms give distinct label targets. After F-41.
+- **Browser:** open two rows' status forms: each label focuses its own field. After F-41.
+
+### A-53 — the deal header (owner's pick: Option A)
+- **Fix:** h1 is the code with the status chip; under it the title and the customer as a link; a back link above, as on the customer page; the not-found state gets the same back link. Built after F-41.
+- **Files:** `crm/resources/js/pages/deals/DealDetailView.vue`.
+- **Test first:** `DealDetailView.spec.ts`: the header holds the code, title and a customer link; not-found renders a back link. After F-41.
+- **Browser:** a deal and a stale deal id, ar and en. After F-41.
+
+### A-58 — the details trigger
+- **Fix:** the trigger's `aria-label` is «التفاصيل» / "Details", the text stays in the popover, and `cursor: help` becomes `pointer`. Built after F-41.
+- **Files:** `crm/resources/js/pages/deals/DealsView.vue`.
+- **Test first:** `DealsView.spec.ts`: the trigger's accessible name is the short label, not the details text. After F-41.
+- **Browser:** the accessibility tree on a deal with long details. After F-41.
+
+### 2.7 Polish across screens
+
+### A-66 — fifteen polish items
+- **Fix:** each as listed in `audit.md`:
+  - `useId()` for `ConfirmDialog`'s fixed ids (SH-11);
+  - named text sizes in `SearchCombobox` (SH-15);
+  - a show/hide toggle on the login password (SH-22);
+  - `aria-controls` on the menu button (SH-24);
+  - `--color-link` on PO row links (SH-44);
+  - an example in the PO search placeholder (SH-45);
+  - a `theme-color` meta (SH-48);
+  - the sidebar group label tied to its list (SH-52);
+  - one token for danger text on a fill (DC-42);
+  - `EmptyState` for the deal page's empty sections (DC-55), **after F-41**;
+  - `disabled:opacity-60` on Restore (DC-62);
+  - `autocomplete="off"` on the deal title (DC-69), **after F-41**;
+  - `overscroll-behavior: contain` in the supplier dialog (Q-39);
+  - no `title` on the quotation chip (Q-41).
+  - Q-42 (currency names) is **not built**: the currency payload carries no name (`services/admin.ts`'s `Currency`), so it is an API change outside F-42, the same as F-40 · 1.5's "keep the code".
+- **Files:** `crm/resources/js/components/users/ConfirmDialog.vue`, `crm/resources/js/components/SearchCombobox.vue`, `crm/resources/js/pages/auth/LoginView.vue`, `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/purchase-orders/PurchaseOrdersView.vue`, `crm/resources/views/welcome.blade.php`, `crm/resources/js/components/AppSidebar.vue`, `crm/resources/js/pages/customers/CustomerFormModal.vue`, `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`, `crm/resources/js/pages/quotations/QuotationStatusChip.vue`; after F-41, `crm/resources/js/pages/deals/DealDetailView.vue` and `crm/resources/js/pages/deals/DealFormModal.vue`.
+- **Test first:** one case per item where a DOM check can fail. The cases go in the existing spec of each file, or in `uiSourceRules.spec.ts` for the token and class items. `LoginView.spec.ts`: the toggle switches the input to `type="text"` and back.
+- **Browser:** each item on its screen, ar and en; the `theme-color` in the 3 themes on a phone. The deal items after F-41.
+
+## 3. The Phase 5 order (F-42 · 4.3)
+
+This is the order Phase 5's point list follows. That list is published and approved on its own, before Phase 5's first point. One step here may become several points.
+
+**Shared layer first**, in §1's order, because every screen step uses it:
+1. Tokens: A-42, A-63, A-65.
+2. The focus rule: A-34, A-64, A-08.
+3. Buttons and status: A-51, A-33, A-55.
+4. The dialog shell: A-04, A-09, A-22, A-30.
+5. Feedback and states: A-31, A-32, A-41, A-43.
+6. List primitives: A-13, A-14, A-39, A-40, A-48, A-49, A-67.
+7. Display, plurals, and title and focus: A-06, A-07, A-26, A-52, A-44, A-12. **A-26's point opens with the D-xx amending D-82**, a shell write with the owner's yes.
+8. Form fields: A-11, A-24, A-38, A-50.
+
+**Then the screens**, from §2:
+
+9. Shell: A-05, A-23, A-28.
+10. Login: A-10, A-46.
+11. Customers: A-02, A-57, A-59, A-54.
+12. Approvals: A-47.
+13. Quotations and the builder:
+    - the route and focus first: A-01, A-17, then A-35 (it uses A-17's focus rule);
+    - then the inputs: A-16, A-36, A-37, A-60, A-61, A-62, A-27;
+    - then the page: A-20, A-03, A-15, A-21, A-56, and A-18's quotation part.
+14. Polish: A-66, without its deals items.
+
+**After F-41 · 1.8 closes:**
+
+15. Deals: A-19, A-29, A-53, A-58, A-18's timeline part, A-66's DC-55 and DC-69. Then the deals-screen part of every §1 row marked "after F-41", each in its own row's step order.
+
+**Outside F-42:** A-25 and A-45 are outside F-42. Their fix is an API or route change, numbered by the owner (`CHECKLIST.md`, under 4.1), as are the API parts of A-03, A-15 and A-18.
+
+**Overlaps with other open points.** F-37 · 1.5 and F-33 · 1.3 are both Arabic manual test lists of work already merged: F-37's for a quotation's terms and the builder, F-33's for the PDF's D-99 figures. Phase 5 changes the screens their steps walk:
+- F-37 · 1.5: the builder and the supplier dialog, so steps 4, 8 and 13 (A-01, A-16, A-17, A-20, A-27, A-35, A-36, A-37, A-60, A-61, A-62).
+- F-33 · 1.3: the quotation page beside its PDF, so A-26 (the screen then shows D-99's form, the same as the PDF), A-56, A-21 and A-03.
+
+**Recommended:** run F-37 · 1.5 and F-33 · 1.3 before Phase 5's first point, as the fix pass already orders them (F-41 → F-37 · 1.5 → F-33 · 1.3). Each list is then walked against the screens it was written for. If Phase 5 goes first, the rows named above are the ones whose lines in those lists need rereading.

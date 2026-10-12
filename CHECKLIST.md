@@ -4326,7 +4326,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-12, #330 — 11 dialogs; no visual change (the fallback already drew `--shadow-2`); `ThemeTokenTest` scans every `var(--…)` in `js/` against `tokens.css` and `app.css`, since `--font-mono` and `--text-table` live in `app.css`'s `@theme`)*
       - [x] **5.2** A-42: `--color-overlay` and `color-scheme` (DS §10 "Token changes", the owner's pick).
             *(2026-10-12, #331 — 23rd token `rgb(0 0 0 / 0.5)` + `color-scheme` light/light/dark; 12 scrims + the sidebar's `backdrop-filter` → the token; picker list `--shadow-2`; D-73 reads 23 (shell write, owner's yes))*
-      - [ ] **5.3** A-63: radius 8 / 12 / 16 per role, and `90dvh` on the form dialogs.
+      - [x] **5.3** A-63: radius 8 / 12 / 16 per role, and `90dvh` on the form dialogs.
+            *(2026-10-12, #332 — 3 context-bar controls → `lg`, 6 cards → `xl`, 5 form dialogs → `90dvh`; the 2 segmented tracks stay `xl` (8 px buttons + 4 px padding, the owner's call); `uiSourceRules.spec.ts` created as F-42's one source-scan spec)*
       **Step 2 — focus.**
       - [ ] **5.4** A-34: one global `:focus-visible` rule.
       - [ ] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).

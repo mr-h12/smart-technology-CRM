@@ -147,7 +147,7 @@ The dark theme carries markedly higher alpha because a 6%-black shadow over `#0B
 | `space-8` | 32px | Major page sections |
 | `space-10` | 40px | Large desktop separation |
 
-- Radius: `6px` controls, `8px` cards, `12px` dialogs; do not use pill shapes except badges/chips.
+- Radius: `8px` controls, `12px` cards, `16px` dialogs (Tailwind `rounded-lg` / `rounded-xl` / `rounded-2xl`; A-63, F-42 · 5.3); do not use pill shapes except badges/chips. A segmented track is `12px`: its `8px` buttons plus its `4px` padding.
 - `shadow-1`: subtle resting card/menu elevation; `shadow-2`: dialog and popover only.
 - Standard desktop content max width: `1600px`; application shell remains full width for data tables.
 
@@ -368,12 +368,12 @@ name was `"Collapse sidebar Collapse sidebar"` — read out of the browser's acc
 invisible to every text-scanning check here. The hidden label now exists only when the collapsed
 rail has no visible one.
 
-### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner; A-42 applied in F-42 · 5.2, A-63 not yet
+### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner; applied in F-42 · 5.2 (A-42) and 5.3 (A-63)
 
 Two proposals from the UI/UX upgrade's design-options pass. The options, the measurements and
 today's failing case are in `docs/ux-upgrade/design-options.md` §8. **The owner chose both
 recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). A-42 is applied (F-42 · 5.2:
-`tokens.css`, `ThemeTokenTest`, §3.2, §3.3); A-63's radius line changes in F-42 · 5.3.
+`tokens.css`, `ThemeTokenTest`, §3.2, §3.3); A-63 is applied (F-42 · 5.3: §4.2's radius line, `uiSourceRules.spec.ts`).
 
 - **A-42 — `--color-overlay` and `color-scheme` (recommended: §8 Option A).** It closes the first
   two items of the debt above.
@@ -384,7 +384,7 @@ recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). A-42 is applied 
   - It amends `D-73`'s 22-token count, so `ThemeTokenTest` gains the name.
   - The rejected alternative is `backdrop-filter: brightness(0.45)` on every scrim. It needs no
     token, but it gives no dimming where the filter is unsupported.
-- **A-63 — the radius steps (recommended: §8 Option B).** §4.2's radius line would read **`8px`
+- **A-63 — the radius steps (recommended: §8 Option B).** §4.2's radius line now reads **`8px`
   controls, `12px` cards, `16px` dialogs** (Tailwind `rounded-lg` / `rounded-xl` /
   `rounded-2xl`).
   - Those are the steps the application already renders (the edit counts are in §8).

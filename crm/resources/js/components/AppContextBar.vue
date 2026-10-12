@@ -215,7 +215,7 @@ function localeCode(option: Locale): string {
             <RouterLink
                 v-if="auth.isAuthenticated.value"
                 :to="{ name: 'account-security' }"
-                class="context-control hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
+                class="context-control hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
                 :title="t('account.title')"
                 data-testid="user-context"
             >
@@ -234,7 +234,7 @@ function localeCode(option: Locale): string {
                  requires a session is a guard redirect wearing a name badge. -->
             <span
                 v-else
-                class="hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
+                class="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
                 data-testid="user-context"
             >
                 <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
@@ -246,7 +246,7 @@ function localeCode(option: Locale): string {
             <button
                 v-if="auth.isAuthenticated.value"
                 type="button"
-                class="context-control inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 text-table"
+                class="context-control inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 text-table"
                 data-testid="sign-out"
                 @click="signOut"
             >

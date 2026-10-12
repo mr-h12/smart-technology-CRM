@@ -255,7 +255,7 @@ onMounted(async () => {
             </header>
 
             <!-- §5.2's "Summary first". -->
-            <div class="detail-card flex flex-col gap-4 rounded-2xl p-4" data-testid="customer-summary">
+            <div class="detail-card flex flex-col gap-4 rounded-xl p-4" data-testid="customer-summary">
                 <div class="flex flex-wrap items-center gap-3">
                     <!-- §6.4: never colour alone — the chip carries its own word. -->
                     <span class="status-chip rounded-full px-2 py-0.5" data-testid="customer-detail-status">
@@ -316,7 +316,7 @@ onMounted(async () => {
 
             <!-- §5.2's "related data/timeline second". `D-16` puts the
                  communication history in the notes field. -->
-            <section class="detail-card flex flex-col gap-2 rounded-2xl p-4">
+            <section class="detail-card flex flex-col gap-2 rounded-xl p-4">
                 <h2 class="text-card-title">{{ t('customers.detail.notesTitle') }}</h2>
 
                 <p v-if="customer.notes !== null && customer.notes !== ''" class="whitespace-pre-line text-pretty" data-testid="customer-notes">
@@ -329,7 +329,7 @@ onMounted(async () => {
 
             <!-- Flow 10, last after §5.2's summary and related data. The picker
                  is the deal page's own control, reused rather than copied. -->
-            <section v-if="canAssign" class="detail-card flex flex-col gap-2 rounded-2xl p-4" data-testid="customer-assign">
+            <section v-if="canAssign" class="detail-card flex flex-col gap-2 rounded-xl p-4" data-testid="customer-assign">
                 <h2 class="text-card-title">{{ t('customers.assign.title') }}</h2>
 
                 <p v-if="assignErrorKey !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="customer-assign-error">

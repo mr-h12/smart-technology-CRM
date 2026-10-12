@@ -93,7 +93,7 @@ async function submit(): Promise<void> {
             </div>
 
             <form
-                class="login-card flex flex-col gap-4 rounded-2xl p-6"
+                class="login-card flex flex-col gap-4 rounded-xl p-6"
                 novalidate
                 data-testid="login-form"
                 @submit.prevent="submit"

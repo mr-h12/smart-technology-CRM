@@ -56,7 +56,7 @@ const { t } = useI18n();
         <button
             v-if="retryable"
             type="button"
-            class="action mt-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-border-strong)] px-4 text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+            class="action mt-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-border-strong)] px-4 text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
             data-testid="error-retry"
             @click="$emit('retry')"
         >

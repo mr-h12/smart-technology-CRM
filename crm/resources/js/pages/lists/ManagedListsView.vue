@@ -333,7 +333,7 @@ onMounted(load);
                 v-for="list in MANAGED_LISTS"
                 :key="list"
                 type="button"
-                class="chip min-h-11 rounded-lg border px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                class="chip min-h-11 rounded-lg border px-4"
                 :class="list === active
                     ? 'chip-selected border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-text)]'
                     : 'chip-idle border-[var(--color-border-strong)] text-[var(--color-text)]'"
@@ -352,7 +352,7 @@ onMounted(load);
             <span class="text-form-label text-[var(--color-text)]">{{ t('lists.view.label') }}</span>
             <select
                 v-model="view"
-                class="field min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                class="field min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)]"
                 data-testid="lists-view"
                 @change="switchView"
             >
@@ -494,7 +494,7 @@ onMounted(load);
             <div class="w-full">
                 <button
                     type="submit"
-                    class="primary-action min-h-11 rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="primary-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="adding"
                     data-testid="lists-submit"
                 >
@@ -553,7 +553,7 @@ onMounted(load);
                             <button
                                 v-if="!showingArchived"
                                 type="button"
-                                class="archive-action min-h-11 rounded-lg border px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                class="archive-action min-h-11 rounded-lg border px-3"
                                 :data-list-code="entry.code"
                                 data-testid="lists-archive"
                                 @click="archiving = entry"
@@ -564,7 +564,7 @@ onMounted(load);
                             <button
                                 v-else
                                 type="button"
-                                class="chip min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                class="chip min-h-11 rounded-lg border border-[var(--color-border-strong)] px-3 text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-60"
                                 :disabled="restoring"
                                 :data-list-code="entry.code"
                                 data-testid="lists-restore"
@@ -586,7 +586,7 @@ onMounted(load);
         >
             <button
                 type="button"
-                class="chip min-h-11 rounded-lg px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="chip min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_previous_page || loading"
                 data-testid="lists-previous"
                 @click="goToPage(pagination.page - 1)"
@@ -604,7 +604,7 @@ onMounted(load);
 
             <button
                 type="button"
-                class="chip min-h-11 rounded-lg px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="chip min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_next_page || loading"
                 data-testid="lists-next"
                 @click="goToPage(pagination.page + 1)"

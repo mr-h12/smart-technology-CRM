@@ -41,4 +41,15 @@ describe('UI source rules (F-42)', () => {
         // 90vh ignores the phone's toolbar, so Save can sit under it; dvh does not.
         expect(linesMatching(/\b90vh\b/)).toEqual([]);
     });
+
+    it('one global focus rule (A-34): app.css holds :focus-visible once with --color-focus-ring, and no element repeats it', () => {
+        // DS §6: every interactive element shows focus with focus-ring.
+        const rules = [...readFileSync('resources/css/app.css', 'utf8').matchAll(/:focus-visible\s*\{([^}]*)\}/g)];
+
+        expect(rules).toHaveLength(1);
+        expect(rules[0]?.[1]).toMatch(/outline:\s*2px solid var\(--color-focus-ring\);/);
+        expect(rules[0]?.[1]).toMatch(/outline-offset:\s*2px;/);
+        expect(linesMatching(/focus-visible:outline-2\b/)).toEqual([]);
+        expect(linesMatching(/outline:\s*2px solid var\(--color-focus-ring\)/)).toEqual([]);
+    });
 });

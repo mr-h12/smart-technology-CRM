@@ -133,7 +133,6 @@ function onBackdrop(): void {
                     'app-sidebar__toggle hidden size-9 shrink-0 place-items-center rounded-lg lg:grid',
                     'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)]',
                     'hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]',
-                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]',
                 ]"
                 :aria-expanded="!props.collapsed"
                 data-testid="sidebar-collapse"
@@ -174,7 +173,6 @@ function onBackdrop(): void {
                             :class="[
                                 'app-sidebar__link group relative flex min-h-11 items-center gap-3 rounded-lg',
                                 'text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]',
-                                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]',
                                 props.collapsed ? 'justify-center px-0' : 'px-3',
                             ]"
                             active-class="app-sidebar__link--active bg-[var(--color-surface-muted)] font-medium"

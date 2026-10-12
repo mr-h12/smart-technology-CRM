@@ -122,7 +122,7 @@ function localeCode(option: Locale): string {
         <!-- §4.3: the drawer control exists only where there is a drawer. -->
         <button
             type="button"
-            class="context-control grid size-11 shrink-0 place-items-center rounded-lg text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] lg:hidden"
+            class="context-control grid size-11 shrink-0 place-items-center rounded-lg text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] lg:hidden"
             :aria-expanded="sidebarOpen"
             :aria-label="sidebarOpen ? t('nav.close') : t('nav.open')"
             data-testid="sidebar-toggle"
@@ -161,7 +161,7 @@ function localeCode(option: Locale): string {
                     v-for="option in THEMES"
                     :key="option"
                     type="button"
-                    class="segmented__option grid size-11 place-items-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                    class="segmented__option grid size-11 place-items-center rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                     :class="option === theme ? 'segmented__option--on' : ''"
                     :aria-pressed="option === theme"
                     :title="themeLabel(option)"
@@ -190,7 +190,7 @@ function localeCode(option: Locale): string {
                     v-for="option in SUPPORTED"
                     :key="option"
                     type="button"
-                    class="segmented__option grid min-h-11 min-w-11 place-items-center rounded-lg px-1 text-table text-[var(--color-text-muted)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                    class="segmented__option grid min-h-11 min-w-11 place-items-center rounded-lg px-1 text-table text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                     :class="locale === option ? 'segmented__option--on' : ''"
                     :aria-pressed="locale === option"
                     :title="localeLabel(option)"
@@ -215,7 +215,7 @@ function localeCode(option: Locale): string {
             <RouterLink
                 v-if="auth.isAuthenticated.value"
                 :to="{ name: 'account-security' }"
-                class="context-control hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] md:inline-flex"
+                class="context-control hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
                 :title="t('account.title')"
                 data-testid="user-context"
             >

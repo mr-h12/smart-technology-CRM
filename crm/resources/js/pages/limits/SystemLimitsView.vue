@@ -287,7 +287,7 @@ onMounted(load);
             <div class="flex">
                 <button
                     type="submit"
-                    class="action inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-[var(--color-primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                    class="action inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-[var(--color-primary-text)] disabled:opacity-60"
                     :disabled="saving"
                 >
                     {{ saving ? t('action.saving') : t('action.save') }}

@@ -433,7 +433,7 @@ onMounted(async () => {
 
                                     <button
                                         type="button"
-                                        class="row-action min-h-11 rounded-lg px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                        class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                                         :disabled="savingCode !== null"
                                         data-testid="currencies-save"
                                         @click="saveRounding(row)"
@@ -552,7 +552,7 @@ onMounted(async () => {
 
                 <button
                     type="submit"
-                    class="primary-action min-h-11 rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="primary-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="recording"
                     data-testid="rates-record"
                 >
@@ -613,7 +613,7 @@ onMounted(async () => {
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!ratesPagination.has_previous_page || ratesLoading"
                     data-testid="rates-previous"
                     @click="goToRatePage(ratesPagination.page - 1)"
@@ -631,7 +631,7 @@ onMounted(async () => {
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!ratesPagination.has_next_page || ratesLoading"
                     data-testid="rates-next"
                     @click="goToRatePage(ratesPagination.page + 1)"

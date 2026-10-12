@@ -1,0 +1,44 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+/**
+ * F-42's source scans, in one file (docs/ux-upgrade/plan.md §1): a rule read
+ * from the source, because jsdom renders no layout. Each later row adds a case
+ * here rather than a new scan file. Specs are skipped.
+ */
+const ROOT = 'resources/js';
+
+const SOURCES: Array<[string, string]> = readdirSync(ROOT, { recursive: true, encoding: 'utf8' })
+    .filter((path) => /\.(vue|ts)$/.test(path) && !path.endsWith('.spec.ts'))
+    .map((path) => [path, readFileSync(`${ROOT}/${path}`, 'utf8')]);
+
+/** `file:line` for every line of every source that matches. */
+function linesMatching(pattern: RegExp, keep: (line: string, path: string) => boolean = () => true): string[] {
+    return SOURCES.flatMap(([path, text]) =>
+        text
+            .split('\n')
+            .map((line, index) => ({ line, at: `${path}:${index + 1}` }))
+            .filter(({ line }) => pattern.test(line) && keep(line, path))
+            .map(({ at }) => at),
+    );
+}
+
+describe('UI source rules (F-42)', () => {
+    it('radius per role (A-63): no xl control in AppContextBar, 2xl only on dialog panels, state plates and Ping, no 90vh', () => {
+        // DS §4.2: 8px controls (lg), 12px cards (xl), 16px dialogs (2xl). A
+        // segmented track stays xl: 8px buttons + its 4px padding (owner, 5.3).
+        expect(
+            linesMatching(/\brounded-xl\b/, (line, path) => path.endsWith('AppContextBar.vue') && !/\bsegmented\b/.test(line)),
+        ).toEqual([]);
+
+        expect(
+            linesMatching(
+                /\brounded-2xl\b/,
+                (line, path) => !/\b(dialog-panel|modal-panel|state-plate)\b/.test(line) && !path.endsWith('pages/Ping.vue'),
+            ),
+        ).toEqual([]);
+
+        // 90vh ignores the phone's toolbar, so Save can sit under it; dvh does not.
+        expect(linesMatching(/\b90vh\b/)).toEqual([]);
+    });
+});

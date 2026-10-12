@@ -263,7 +263,7 @@ function discard(): void {
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
-            class="modal-panel relative flex max-h-[90vh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
+            class="modal-panel relative flex max-h-[90dvh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="customer-form-title"

@@ -324,7 +324,7 @@ onMounted(loadSessions);
         </header>
 
         <!-- ── SEC-04 · §9 Flow 0 ─────────────────────────────────────────── -->
-        <section class="panel flex flex-col gap-4 rounded-2xl p-5" data-testid="password-section">
+        <section class="panel flex flex-col gap-4 rounded-xl p-5" data-testid="password-section">
             <div class="flex flex-col gap-1">
                 <h2 class="text-section-title">{{ t('account.password.title') }}</h2>
                 <p class="text-table text-[var(--color-text-muted)] text-pretty">
@@ -427,7 +427,7 @@ onMounted(loadSessions);
         </section>
 
         <!-- ── SEC-05 ─────────────────────────────────────────────────────── -->
-        <section class="panel flex flex-col gap-4 rounded-2xl p-5" data-testid="devices-section">
+        <section class="panel flex flex-col gap-4 rounded-xl p-5" data-testid="devices-section">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="flex flex-col gap-1">
                     <h2 class="text-section-title">{{ t('account.devices.title') }}</h2>

@@ -264,3 +264,96 @@ B-22 measured today's Midnight highlight at 1.03; this mock-up's list background
 - **A-32 Recommendation** — **Option A.** The toast is allowed here, but A-31 already needs the in-place region. One mechanism for every result is less to build and keeps errors and successes in the same place.
   - The app has **no toast component today**, so Option B would add one, plus a timing rule (WCAG 2.2.1), for a case Option A already covers.
   - If the owner wants toasts anyway, they must be for successes only, never errors.
+
+## 5. Page structure (F-42 · 3.5)
+
+**Rows covered:** A-21, A-28, A-33, A-43, A-53, A-56, all six rows §1 sorts to 3.5.
+
+**F-41.** A-33, A-43 and A-53 carry the F-41 flag in §1. Their deal-screen parts are designed here and built only after F-41 closes.
+
+**The mock-up.** `prototypes/ux-structure/index.html` is untracked. It loads the real `tokens.css`, and `ux-prototypes` serves it at `http://localhost:8790/prototypes/ux-structure/index.html`. Its `measure()` returns every number below.
+
+**How it was measured** (2026-10-12):
+- Contrast uses the 3.4 checker unchanged. **It was proven able to fail first:** planted `#eee` on white = **1.16**, `#222` on Midnight's canvas = **1.20**, black on white = **21**.
+- **A-21's shift check was proven able to fail too:** before the 403 is simulated, `measure()` reports A-21 A as failing.
+- The 403 was simulated by a real click.
+- At 1280: Arabic and English in all 3 themes. At 375: Arabic and English. Horizontal overflow is 0 in every state, and every option sits at 33–342 of 375.
+- **"measure: pass"** means the row's own rule (below) holds, text is ≥ 4.5:1 and a border used as the signal is ≥ 3:1, in all 3 themes.
+
+**Contrast and geometry measured** (Warm Editorial / Clean Monochrome / Midnight Obsidian; 1280 unless stated):
+
+| Measured | Warm | Mono | Midnight |
+|---|---|---|---|
+| A-21 A: the muted refusal line | 7.63 | 7.73 | 9.12 |
+| A-33: row Danger text (A and B) | 6.20 | 5.98 | 9.44 |
+| A-33 A: row Danger border | 6.20 | 5.98 | 9.44 |
+| A-33: filled Danger in the confirm (`text-inverse` on `danger`) | 6.57 | 6.57 | 9.44 |
+| A-43 A: the inline link | 7.31 | 6.70 | 8.90 |
+| A-56: the final total | 14.31 | 16.12 | 15.54 |
+
+### A-28, one h1
+
+The rule: exactly one `h1`, and it names the page's subject.
+- **A-28 Option A** — the bar title becomes plain text (`AppContextBar.vue:136`, `h1` → `p`), and each page keeps its own `h1`. — walk: pass
+  - One `h1`, and on the deal page it reads `DL-2026-0006`.
+- **A-28 Option B** — the bar keeps its `h1`, and each page's title becomes plain text. — walk: pass
+  - One `h1`. **But** the bar's title comes from the route's `titleKey`, and the detail routes use the list's key (`router/index.ts:186`, `:256`: `deals.title`, `quotations.title`). So on a detail page the only heading reads «الصفقات» / "Deals", and the record's code is no longer a heading.
+- **A-28 Recommendation** — **Option A.** It is a one-element change in one shared component, and it keeps the record's name as the page heading on every page that has one (19 `<h1>` elements in 18 page files).
+  - **Ceiling:** Home (`Ping.vue`) and `/403` (`ForbiddenView.vue`) have no page `h1` (0 each), so under Option A they would have none. Phase 4 gives them one; on `/403`, `PermissionDeniedState`'s `h2` is the candidate.
+
+### A-21, a section the user may not see (the PDF card for Procurement)
+
+The rule: after the 403 arrives, nothing below the section moves, and the refusal adds no heading and no admin prompt.
+- **A-21 Option A** — the card keeps its own title, and its body becomes one muted line: «هذا القسم غير متاح لك.» / "This section is not available to you." — measure: pass
+  - The card below moves **0 px** at 1280 and at 375, in both languages. The refusal adds no heading; the card's own title stays.
+  - The line names nothing beyond the card's title, so `PermissionDeniedState`'s no-enumeration rule (its header comment) still holds.
+- **A-21 Option B** — the card is hidden once the 403 arrives. — measure: fail
+  - The panel learns the refusal only from the API (`QuotationPdfPanel.vue:78`), so the card is drawn loading first and then removed. The card below jumps up **87 px**, at both widths and in both languages.
+- **A-21 Recommendation** — **Option A.** Option B could only avoid the jump if the page knew the answer before asking. The SPA does not decide permissions (D-67), so it can't.
+
+### A-33, one Primary, row-level Danger
+
+The rule: at most one Primary per context; row Danger text ≥ 4.5:1; filled Danger only inside the confirm; every button ≥ 44 px tall.
+- **A-33 Option A** — row Danger is an outline: a `danger` border and text on a transparent fill. — measure: pass
+  - Primaries per context are 1 / 0 / 0 (action bar / rows / confirm). Text and border are 6.20 / 5.98 / 9.44. Buttons are 44 px at both widths.
+- **A-33 Option B** — row Danger is text only: `danger` text, no border, the same size as the ghost Edit beside it. — measure: pass
+  - Primaries per context are 1 / 0 / 0. Text is 6.20 / 5.98 / 9.44. Buttons are 44 px.
+- **A-33 Recommendation** — **Option B.** Customers draw Archive on every row (178 today). A red outline on each still makes the list a wall of red, while red text reads as one weight with Edit and stays distinct by colour plus its own label.
+  - The filled Danger stays where DS §6.2 puts the irreversible step: inside the confirm (6.57 / 6.57 / 9.44).
+  - Ghost's prohibited use is "critical workflow confirmation". The row button only opens the confirm, so Option B doesn't break it.
+  - Reject (styled primary today) becomes Danger by the same rule.
+
+### A-43, error wording with a next step
+
+The rule: every case says what happened and gives one next step. The case's copy is a **draft, the owner's to approve**.
+- Out of scope or missing: «السجل غير متاح. راجع الرابط، أو ارجع إلى قائمة الصفقات.» / "The record is not available. Check the link, or return to the deal list." This is the customer page's existing sentence (`customers.detail.notFoundMessage`) made the one wording for every record.
+- No connection: «تعذّر الوصول إلى الخادم. تحقّق من الاتصال ثم أعد المحاولة.» / "The server could not be reached. Check the connection, then try again." It replaces the raw `error.message`.
+- `/403`: «ليست لديك صلاحية عرض هذه الصفحة.» / "You do not have permission to view this page." Plus a link Home.
+
+Options:
+- **A-43 Option A** — the next step is a link inside the sentence. — measure: pass
+  - Each of the 3 cases has 1 next step. The link is 7.31 / 6.70 / 8.90.
+- **A-43 Option B** — the next step is a button under the sentence. — measure: pass
+  - Each of the 3 cases has 1 next step. The buttons are 44 px tall at both widths.
+- **A-43 Recommendation** — **Option B.** `ErrorState` already shows its next step (Retry) as a button, so Option B is that component's existing shape with the action named per case. It also meets DS §8's 44 px target on the phone, which an inline link in a sentence does not.
+  - The record header stays above the error, so the page still says which record failed (audit row).
+
+### A-53, the deal header
+
+The rule: a back link, the customer as a link, and an `h1` that names the record in every case in at most 2 lines.
+- **A-53 Option A** — `h1` = the code, with the status chip beside it. Under it: the deal's title · the customer as a link. A back link sits above, as on the customer page (`CustomerDetailView.vue:234-240`). — measure: pass
+  - The `h1` is 1 line at 1280 and at 375.
+- **A-53 Option B** — `h1` = the deal's title. Under it: code · status · customer link. The same back link. — measure: fail
+  - The title is optional (`SaveDealRequest.php:49`, `nullable`, max 255). With no title, the heading is «—».
+  - A realistic title wraps to 2 lines (Arabic) and 3 (English) at 1280, and to 3 and 5 at 375.
+- **A-53 Recommendation** — **Option A.** The code always exists, is short, and is what people quote. The title is shown in full right under it.
+
+### A-56, the total in the quotation header
+
+The rule: the final total is visible at load without scrolling, and its text is ≥ 4.5:1.
+- **A-56 Option A** — the final total is repeated at the header's end, beside the code and status. — measure: pass
+  - It sits 42 px from the top at load and covers nothing. Text is 14.31 / 16.12 / 15.54.
+  - It scrolls away with the header.
+- **A-56 Option B** — a sticky bar at the bottom carries the final total. — measure: pass
+  - It is visible at load and after scrolling, and its text is 15.17 / 17.72 / 12.59. But it covers **36–38 px** of the lines at every scroll position, at both widths.
+- **A-56 Recommendation** — **Option A.** DS §5.2 asks for "summary first", and the header is where Option A puts it. A permanent bar would compete for the same bottom edge as 3.7's sticky Save (A-11), and the full totals block stays at the bottom for the breakdown.

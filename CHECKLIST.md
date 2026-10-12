@@ -4297,9 +4297,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             - A-18: `deal_code`, `customer_name` and the timeline actor's name on the payloads, shaped like F-41 · 1.6b's `owner_name`.
             - A-25: an interim landing screen per role, the first built screen in §8's list, until Module 14 (a route change; `RoleLandingTest`).
             - A-45: the impersonated role's display name on the API, and `roles.name_ar` filled.
-      - [ ] **4.2** `plan.md` §1, the shared layer: tokens, focus rule, buttons, status chip, dialog shell,
-            feedback, list primitives, D-70/D-99 display, plurals, title and focus; per row the files, the
-            failing test to write first and the browser check.
+      - [x] **4.2** `plan.md` §1, the shared layer: tokens, focus rule, buttons, status chip, dialog shell,
+            feedback, list primitives, D-70/D-99 display, plurals, title and focus, form fields (the owner's yes,
+            2026-10-12); per row the files, the failing test to write first and the browser check.
+            *(2026-10-12, #327 — 34 shared rows (a fix in a component or stylesheet used by 2+ screens); A-02, A-19, A-35 moved to 4.3; A-26 needs a D-xx amending D-82 first (D-82 never rounds, D-99 rounds half-up); F-41 rows build their deals part after F-41 · 1.8)*
       - [ ] **4.3** `plan.md` §2 per screen, and §3 the Phase 5 order: shared layer first, F-41-flagged rows
             after F-41 · 1.8, overlaps with F-37 · 1.5 and F-33 · 1.3 named; every one of the 67 rows placed
             exactly once or marked outside F-42.

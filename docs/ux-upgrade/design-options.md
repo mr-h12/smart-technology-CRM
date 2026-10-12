@@ -357,3 +357,112 @@ The rule: the final total is visible at load without scrolling, and its text is 
 - **A-56 Option B** — a sticky bar at the bottom carries the final total. — measure: pass
   - It is visible at load and after scrolling, and its text is 15.17 / 17.72 / 12.59. But it covers **36–38 px** of the lines at every scroll position, at both widths.
 - **A-56 Recommendation** — **Option A.** DS §5.2 asks for "summary first", and the header is where Option A puts it. A permanent bar would compete for the same bottom edge as 3.7's sticky Save (A-11), and the full totals block stays at the bottom for the breakdown.
+
+## 6. Lists (F-42 · 3.6)
+
+**Rows covered:** A-14, A-19, A-39, A-40, A-48, A-49. The CHECKLIST line also names A-13, A-57 and A-67, but 3.1 moved all three to Phase 4 (#317). So "URL filters" (A-13) isn't in this point.
+
+**F-41.** All six rows carry the F-41 flag in §1. They are designed here and built only after F-41 closes. `DealsView.vue` is unchanged.
+
+**The mock-up.** `prototypes/ux-lists/index.html` is untracked. It loads the real `tokens.css`, and `ux-prototypes` serves it at `http://localhost:8790/prototypes/ux-lists/index.html`.
+- Each row draws **today's behaviour** beside its two options, as the planted failing case. **Every check below was seen failing on today's version** before any option was measured.
+- The page carries a sticky bar like `AppContextBar.vue:119` (`sticky top-0`). The page scrolls the window, so a sticky table header has to stick *under* that bar.
+
+**How it was measured** (2026-10-12):
+- **A-14:** real clicks on Next in Arabic at 1280.
+- **A-49:** real typing into each search box, then the status select changed.
+- **Everything else:** Arabic and English at 1280 and at 375.
+- **Contrast:** the 3.4 checker, in all 3 themes. It was proven again: planted `#eee` on white = 1.16, black on white = 21.
+- **Width:** at 375 every option sits at 33–342. Page overflow is 0 in all four states, after two mock-up fixes (below).
+- **"measure: pass"** means the row's own rule (below) holds, and text is ≥ 4.5:1 in all 3 themes.
+
+**Contrast measured** (Warm / Mono / Midnight):
+
+| Measured pair | Warm | Mono | Midnight |
+|---|---|---|---|
+| A-14 A: the loading text on the veil | 15.17 | 17.72 | 14.40 |
+| A-14 A: stale rows under the veil (inactive while busy) | 2.37 | 2.53 | 3.32 |
+| A-14 B: stale rows at 50 % opacity (inactive while busy) | 3.14 | 3.47 | 4.38 |
+| A-19 A: the compact Status action | 7.31 | 6.70 | 8.90 |
+| A-19 B: the card's muted line | 7.63 | 7.73 | 9.12 |
+| A-40: the header cell | 13.49 | 16.97 | 14.78 |
+| A-49 A: the "not applied yet" note | 7.20 | 7.03 | 9.85 |
+
+Both A-14 options deliberately dim the stale rows below 4.5:1 while the next page loads. That is the busy signal itself, not content to read. WCAG 1.4.3 exempts inactive components, and B marks the region `aria-busy`. The rows have to come back to full contrast when the load ends.
+
+### A-14, reload without blanking
+
+The rule: after Next is pressed, focus stays on Next (never `<body>`), and the table stays mounted while the next page loads.
+- **Today**, measured by real click: focus lands on `body`, and the table is gone while loading. **This fails the rule.**
+  - The scroll jump the audit saw was **not reproduced**: the mock-up's page is long, and `scrollDelta` = 0 for all three.
+- **A-14 Option A** — the table stays, and a veil with "Loading…" covers it until the rows update in place. — measure: pass
+  - Focus stays on Next, and the table is present during the load and kept after.
+- **A-14 Option B** — the table stays at 50 % opacity with `aria-busy="true"`, and a `role="status"` line above it reads «جارٍ تحديث القائمة…» / "Updating the list…". — measure: pass
+  - Focus stays on Next, and the table is present during the load and kept after.
+- **A-14 Recommendation** — **Option B.** Its status line is announced, while A's veil text is not in a live region. It is also the in-place `role="status"` region 3.4 recommends for slow-action results (A-31) and successes (A-32), so there is one mechanism, not two.
+  - The stale rows must ignore clicks while `aria-busy` is set. The mock-up doesn't draw that; the build adds it.
+
+### A-19, the deals list on a phone
+
+The rule: at 375, the first row starts in the top half of an 812 px screen, and deal codes take one line.
+- **Today:** the four filters are drawn open, and every row has a full "Change status" button. The first row is at **292** (ar) / **285** (en). Codes take **3 lines**, and 7 / 6 rows fit in 812. **This fails the rule.**
+  - The audit measured 574–694 on the real page, with the real bar and banner. The mock-up's frame differs, so compare the options with each other, not with that number.
+- **A-19 Option A** — the filters fold behind one «عوامل التصفية (2)» / "Filters (2)" button; rows stay a table with `nowrap` codes, and status is a compact text action. — measure: pass
+  - The first row is at 198 / 195, codes take 1 line, and **10 rows** fit in 812.
+- **A-19 Option B** — the same folded filters, with rows as cards: code + status chip, customer, total + Status action. — measure: pass
+  - The first row is at 198 / 195, codes take 1 line, and **5 cards** fit in 812.
+- **A-19 Recommendation** — **Option A.** It shows twice the deals per screen for the same first-row position. The folded "Filters" button is shared by both options, and that button is what moves the first row up.
+  - A-39 (approvals, quotations) does need cards, because those rows carry money and two buttons. A deal row needs only code, customer and one action.
+
+### A-39, tables at 375 (the approvals table)
+
+The rule: at 375, the table doesn't scroll sideways, and Approve is inside the viewport.
+- **Today:** the table scrolls sideways by **591 px** (ar) / **659 px** (en), and Approve is off-screen. **This fails the rule.**
+- **A-39 Option A** — below 640 px each row becomes a card of labelled lines (code, customer, deal, submitter, date, total, actions). — measure: pass
+  - Sideways scroll is 0 in both languages, and Approve is in view.
+- **A-39 Option B** — below 640 px the secondary columns (customer, deal, submitter, date) are hidden (`hidden md:table-cell`), leaving code, total and actions. — measure: fail
+  - It still scrolls sideways by **128 px** (ar) / **165 px** (en), and Approve is off-screen. Code + a money figure + two 44 px buttons don't fit in 343 px.
+  - The hidden columns also take the customer's name away from the approver.
+- **A-39 Recommendation** — **Option A.** It is DS §4.3's own wording for below 640 px ("tables become cards"), and it is the only option that passes.
+  - At 1280 all three show the full table with 0 sideways scroll, so the cards apply only below 640.
+
+### A-40, the sticky table header
+
+The rule: on a long list, once the table passes under the context bar, the header row sits right below the bar (or at the top of its box).
+- **Today** (`overflow-x: auto` on the frame): the header scrolls away to **−286** (1280) / **−182** (375) while the bar ends at 57 / 109. **This fails the rule.**
+  - It fails even when nothing scrolls sideways (0 at 1280). `overflow-x: auto` alone makes the frame the sticky container.
+- **A-40 Option A** — the frame becomes `overflow-x: clip`, and the page scrolls. The header sticks at `top: <bar height>`. — measure: pass
+  - The header sits at exactly the bar's bottom: 57 at 1280, 109 at 375 (the bar is two rows on the phone).
+  - **But** `clip` cuts off whatever is wider than the frame: at 375 the plain 3-column test table loses **128 px** that can't be reached.
+- **A-40 Option B** — the frame keeps its scroll, with a `max-height: 60vh`, so the header sticks at the frame's own top. — measure: pass
+  - The header sits at the box's top (65 / 117). But the list becomes a 480–487 px box inside a page that also scrolls. That is two scrollbars, and on a phone the inner box traps the swipe.
+- **A-40 Recommendation** — **Option A, together with A-39 Option A.** The two rows depend on each other, as §1 says.
+  - At 640 px and wider the tables fit, so `clip` hides nothing and the header sticks under the bar.
+  - Below 640 px the rows are cards, so there is no header to stick and nothing wide to clip.
+  - A wide table that must stay a table below 640 px (the 7 cost columns of a supplier offer, S7) keeps today's `overflow-x: auto` and gives up the sticky header there. That table is the exception, and it is named here so Phase 4 doesn't clip it.
+
+### A-48, when the filter bar shows
+
+The rule: a refused user sees no working search box (DS §8), and a user with an active filter can always see and clear it.
+- **Today:** the bar shows in all four states, refused included. **This fails the rule.**
+- **A-48 Option A** — the bar shows when the list has data or a filter is active. It is hidden when refused, and hidden for an empty list with no filter. — measure: pass
+  - Refused: hidden. Empty with no filter: hidden. Empty with a filter: shown. Data: shown.
+- **A-48 Option B** — the bar shows always, except when refused. — measure: pass
+  - Refused: hidden. Empty with no filter: **shown**. Empty with a filter: shown. Data: shown.
+- **A-48 Recommendation** — **Option A.** Both pass the rule, but B keeps the defect the audit actually found (B-27). OSup, TL and Procurement see a full filter bar above a deal list that is always empty for them.
+  - Under A, the bar reappears the moment there is something to filter.
+  - The rule reads only what the API returned (rows, or a 403), so the SPA decides no permission (D-67).
+
+### A-49, one apply rule per bar
+
+The rule: no request carries text the bar shows as not applied. Measured by typing «شر», then changing the status.
+- **Today:** the select change sent `q="شر"` while the last applied search was `""`. That half-typed text was applied silently. **This fails the rule.**
+- **A-49 Option A** — everything waits for Apply. The select change sends nothing, and «تغييرات لم تُطبَّق بعد» / "Changes not applied yet" appears. — measure: pass
+  - 0 requests until Apply.
+- **A-49 Option B** — everything is live: selects at once, text after a 400 ms pause. — measure: pass
+  - Typing «شركة النور» (10 keys) sent **1** request. The select then sent 1 more, with the same text, which the list already showed as applied.
+- **A-49 Recommendation** — **Option B.** Selects already apply at once today, so B changes only the text box.
+  - The pause already exists: `SearchCombobox.vue:53,106-110` waits `PAUSE_MS = 300` with `clearTimeout`/`setTimeout`. The build reuses that pattern and its 300 ms rather than writing a second timer with a different delay. Moving it into a shared helper is Phase 4's call.
+  - A would add a click to every select change on every list, plus a "not applied" notice to keep honest.
+  - With A-19's folded filters on the phone, B needs no Apply button in the panel.
+  - **Ceiling:** the mock-up's 400 ms was a guess, and the combobox's 300 ms is not measured against the list API either.

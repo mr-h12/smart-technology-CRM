@@ -4328,7 +4328,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **5.9** A-55: one status chip without the dot; the deal chip after F-41.
       **Step 4 — the dialog shell.**
       - [ ] **5.10** A-04, first part: `ConfirmDialog` on native `<dialog>`, with its new spec.
-      - [ ] **5.11** A-04, second part: the other 11 dialogs, and `inert` on the drawer; the deal dialog after F-41.
+      - [ ] **5.11** A-04, second part: the other 11 dialogs; the deal dialog after F-41. The drawer's `inert` is 5.33's
+            (`plan.md` names it under both rows).
       - [ ] **5.12** A-09: Approve asks first.
       - [ ] **5.13** A-22: Return and Delete-confirm become dialogs; the other inline forms move focus.
       - [ ] **5.14** A-30: busy actions.
@@ -4370,7 +4371,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **5.40** A-35: remove at once, with Undo.
       - [ ] **5.41** A-16, A-36, A-37 and A-60: the builder's line inputs.
       - [ ] **5.42** A-61 and A-62: an in-app discard prompt; margin keeps its minus sign.
-      - [ ] **5.43** A-27: a browser check first; the in-flow list only if the clipping is confirmed.
+      - [ ] **5.43** A-27: a browser check first; the in-flow list only if the clipping is confirmed, otherwise the
+            measure closes it with no code.
       - [ ] **5.44** A-20: a sticky Save.
       - [ ] **5.45** A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
       **Step 14 — polish.**
@@ -4379,7 +4381,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **5.47** A-19 and A-58: the phone deals list and the details trigger.
       - [ ] **5.48** A-29 and A-53: unique ids per row and the deal header.
       - [ ] **5.49** A-18's timeline and A-66's deals items (DC-55, DC-69).
-      - [ ] **5.50** The deals-screen part of every `plan.md` §1 row marked "after F-41".
+      - [ ] **5.50** The deals-screen part of every `plan.md` §1 row marked "after F-41". Split into its own point
+            list when F-41 · 1.8 closes (about 22 Browser lines), published for approval then.
 
 ## Shell revisions — owner-directed
 

@@ -524,7 +524,7 @@ onMounted(async () => {
                 <button
                     v-if="canImport"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     data-testid="customers-import"
                     @click="importOpen = true"
                 >
@@ -535,7 +535,7 @@ onMounted(async () => {
                 <button
                     v-if="canCreate"
                     type="button"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="create-action min-h-11 rounded-lg px-4"
                     data-testid="customers-create"
                     @click="startCreate()"
                 >
@@ -552,14 +552,14 @@ onMounted(async () => {
                 <input
                     v-model="search"
                     type="search"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="customers-search"
                 />
             </label>
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
                 data-testid="customers-search-submit"
             >
                 {{ t('customers.filter.searchAction') }}
@@ -569,7 +569,7 @@ onMounted(async () => {
                 <span>{{ t('customers.filter.status') }}</span>
                 <select
                     v-model="statusFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="customers-filter-status"
                     @change="applyFilters"
                 >
@@ -582,7 +582,7 @@ onMounted(async () => {
                 <span>{{ t('customers.filter.sector') }}</span>
                 <select
                     v-model="sectorFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="customers-filter-sector"
                     @change="applyFilters"
                 >
@@ -595,7 +595,7 @@ onMounted(async () => {
                 <input
                     v-model="incompleteOnly"
                     type="checkbox"
-                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="size-4"
                     data-testid="customers-filter-incomplete"
                     @change="applyFilters"
                 />
@@ -609,7 +609,7 @@ onMounted(async () => {
                 <span>{{ t('customers.filter.archived') }}</span>
                 <select
                     v-model="archivedFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="customers-filter-archived"
                     @change="applyFilters"
                 >
@@ -624,7 +624,7 @@ onMounted(async () => {
                 <input
                     v-model="ownerInactiveOnly"
                     type="checkbox"
-                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="size-4"
                     data-testid="customers-filter-owner-inactive"
                     @change="applyFilters"
                 />
@@ -662,7 +662,7 @@ onMounted(async () => {
                 <button
                     v-if="canArchive && restorableIds.length > 0"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="selectedIds.length === 0 || acting"
                     data-testid="customers-bulk-restore"
                     @click="ask({ kind: 'restore-selected' })"
@@ -689,7 +689,7 @@ onMounted(async () => {
 
                     <button
                         type="button"
-                        class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="selectedIds.length === 0 || acting"
                         data-testid="customers-bulk-assign"
                         @click="askAssign()"
@@ -710,7 +710,7 @@ onMounted(async () => {
                         <th v-if="showSelection" scope="col" class="p-3 text-start">
                             <input
                                 type="checkbox"
-                                class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="size-4"
                                 :checked="allSelected"
                                 :aria-label="t(canAssign ? 'customers.assign.selectAll' : 'customers.archive.selectAll')"
                                 data-testid="customers-select-all"
@@ -721,7 +721,7 @@ onMounted(async () => {
                         <th scope="col" class="p-3 text-start" :aria-sort="ariaSort('name')" data-testid="customers-column-name">
                             <button
                                 type="button"
-                                class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="sort-action min-h-11 rounded-lg px-2"
                                 data-testid="customers-sort-name"
                                 @click="sortBy('name')"
                             >
@@ -748,7 +748,7 @@ onMounted(async () => {
                         >
                             <button
                                 type="button"
-                                class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="sort-action min-h-11 rounded-lg px-2"
                                 :data-testid="`customers-sort-${column.field}`"
                                 @click="sortBy(column.field)"
                             >
@@ -771,7 +771,7 @@ onMounted(async () => {
                                 type="checkbox"
                                 :value="customer.id"
                                 :disabled="!selectable(customer)"
-                                class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:opacity-40"
+                                class="size-4 disabled:opacity-40"
                                 :aria-label="t('customers.archive.select', { name: customer.name })"
                                 data-testid="customers-select-row"
                             />
@@ -782,7 +782,7 @@ onMounted(async () => {
                                  was plain text until then. -->
                             <RouterLink
                                 :to="{ name: 'customer-detail', params: { id: customer.id } }"
-                                class="row-link focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="row-link"
                                 data-testid="customers-row-link"
                             >
                                 {{ customer.name }}
@@ -806,7 +806,7 @@ onMounted(async () => {
                                 <button
                                     v-if="canEdit"
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     data-testid="customers-row-edit"
                                     @click="startEdit(customer)"
                                 >
@@ -818,7 +818,7 @@ onMounted(async () => {
                                 <button
                                     v-if="canArchive && !customer.is_archived"
                                     type="button"
-                                    class="danger-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="danger-action min-h-11 rounded-lg px-3"
                                     data-testid="customers-row-archive"
                                     @click="ask({ kind: 'archive', customer })"
                                 >
@@ -832,7 +832,7 @@ onMounted(async () => {
                                 <button
                                     v-if="canArchive && customer.is_archived"
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     :disabled="acting"
                                     data-testid="customers-row-restore"
                                     @click="restoreOne(customer)"
@@ -855,7 +855,7 @@ onMounted(async () => {
         >
             <button
                 type="button"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_previous_page || loading"
                 data-testid="customers-previous"
                 @click="goToPage(pagination.page - 1)"
@@ -869,7 +869,7 @@ onMounted(async () => {
 
             <button
                 type="button"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_next_page || loading"
                 data-testid="customers-next"
                 @click="goToPage(pagination.page + 1)"

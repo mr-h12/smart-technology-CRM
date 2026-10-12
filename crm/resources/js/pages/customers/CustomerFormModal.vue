@@ -306,7 +306,7 @@ function discard(): void {
                     <li v-for="match in similar" :key="match.id">
                         <RouterLink
                             :to="{ name: 'customer-detail', params: { id: match.id } }"
-                            class="similar-link focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="similar-link"
                             data-testid="customer-form-similar-link"
                         >
                             {{ match.name }}
@@ -352,7 +352,7 @@ function discard(): void {
                         autocomplete="off"
                         :disabled="saving"
                         :aria-invalid="errorFor('name') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('name')"
                     />
                     <span v-if="errorFor('name') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-name-error">
@@ -367,7 +367,7 @@ function discard(): void {
                         v-model="values.sector"
                         :disabled="saving"
                         :aria-invalid="errorFor('sector') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('sector')"
                     >
                         <option value="">{{ t('customers.form.sectorNone') }}</option>
@@ -389,7 +389,7 @@ function discard(): void {
                         type="text"
                         maxlength="128"
                         :disabled="saving"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('region')"
                     />
                 </label>
@@ -405,7 +405,7 @@ function discard(): void {
                         type="date"
                         :disabled="saving"
                         :aria-invalid="errorFor('start_date') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('start_date')"
                     />
                     <span v-if="errorFor('start_date') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-start-date-error">
@@ -427,7 +427,7 @@ function discard(): void {
                             :aria-label="t('customers.form.contactTitle')"
                             :aria-invalid="errorFor('contact_title') !== null"
                             :disabled="saving"
-                            class="form-field min-h-11 w-20 shrink-0 rounded-lg px-2 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 w-20 shrink-0 rounded-lg px-2 py-2"
                             :data-testid="testId('contact_title')"
                         >
                             <option value=""></option>
@@ -439,7 +439,7 @@ function discard(): void {
                             type="text"
                             maxlength="255"
                             :disabled="saving"
-                            class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2"
                             :data-testid="testId('contact_person')"
                         />
                     </div>
@@ -457,7 +457,7 @@ function discard(): void {
                         inputmode="tel"
                         maxlength="32"
                         :disabled="saving"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('phone')"
                     />
                 </label>
@@ -471,7 +471,7 @@ function discard(): void {
                         inputmode="tel"
                         maxlength="32"
                         :disabled="saving"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('phone2')"
                     />
                 </label>
@@ -485,7 +485,7 @@ function discard(): void {
                         inputmode="tel"
                         maxlength="32"
                         :disabled="saving"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('whatsapp')"
                     />
                 </label>
@@ -501,7 +501,7 @@ function discard(): void {
                         autocomplete="off"
                         :disabled="saving"
                         :aria-invalid="errorFor('email') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('email')"
                     />
                     <span v-if="errorFor('email') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-email-error">
@@ -518,7 +518,7 @@ function discard(): void {
                     v-model="values.notes"
                     rows="4"
                     :disabled="saving"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId('notes')"
                 />
             </label>
@@ -536,7 +536,7 @@ function discard(): void {
                 <div class="mt-2 flex flex-wrap gap-2">
                     <button
                         type="button"
-                        class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                         data-testid="customer-form-keep-editing"
                         @click="confirmingDiscard = false"
                     >
@@ -544,7 +544,7 @@ function discard(): void {
                     </button>
                     <button
                         type="button"
-                        class="modal-discard min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-discard min-h-11 rounded-lg px-4 py-2"
                         data-testid="customer-form-discard"
                         @click="discard()"
                     >
@@ -556,7 +556,7 @@ function discard(): void {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="saving"
                     data-testid="customer-form-cancel"
                     @click="requestClose()"
@@ -566,7 +566,7 @@ function discard(): void {
 
                 <button
                     type="submit"
-                    class="modal-save min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="modal-save min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                     data-testid="customer-form-save"
                 >

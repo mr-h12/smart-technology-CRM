@@ -344,7 +344,7 @@ onMounted(async () => {
                 <button
                     v-if="canImport"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     data-testid="catalog-import"
                     @click="importOpen = true"
                 >
@@ -354,7 +354,7 @@ onMounted(async () => {
                 <button
                     v-if="canManage"
                     type="button"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="create-action min-h-11 rounded-lg px-4"
                     data-testid="catalog-create"
                     @click="startCreate()"
                 >
@@ -371,7 +371,7 @@ onMounted(async () => {
                 :key="code"
                 type="button"
                 role="tab"
-                class="tab min-h-11 rounded-t-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="tab min-h-11 rounded-t-lg px-4"
                 :class="kind === code ? 'tab-current' : ''"
                 :aria-selected="kind === code"
                 :data-testid="`catalog-tab-${code}`"
@@ -389,7 +389,7 @@ onMounted(async () => {
                 <input
                     v-model="search"
                     type="search"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="catalog-search"
                 />
             </label>
@@ -403,14 +403,14 @@ onMounted(async () => {
                     v-model="categoryFilter"
                     type="text"
                     maxlength="128"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="catalog-filter-category"
                 />
             </label>
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
                 data-testid="catalog-search-submit"
             >
                 {{ t('catalog.filter.searchAction') }}
@@ -422,7 +422,7 @@ onMounted(async () => {
                 <span>{{ t('catalog.column.company') }}</span>
                 <select
                     v-model="companyFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="catalog-filter-company"
                     @change="applyFilters"
                 >
@@ -439,7 +439,7 @@ onMounted(async () => {
                 <span>{{ t('catalog.filter.active') }}</span>
                 <select
                     v-model="activeFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="catalog-filter-active"
                     @change="applyFilters"
                 >
@@ -454,7 +454,7 @@ onMounted(async () => {
                 <input
                     v-model="incompleteOnly"
                     type="checkbox"
-                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="size-4"
                     data-testid="catalog-filter-incomplete"
                     @change="applyFilters"
                 />
@@ -488,7 +488,7 @@ onMounted(async () => {
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="catalog-sort-name"
                                     @click="sortBy('name')"
                                 >
@@ -519,7 +519,7 @@ onMounted(async () => {
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="catalog-sort-created_at"
                                     @click="sortBy('created_at')"
                                 >
@@ -575,7 +575,7 @@ onMounted(async () => {
                                 <td v-if="canManage" class="p-3">
                                     <button
                                         type="button"
-                                        class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        class="row-action min-h-11 rounded-lg px-3"
                                         data-testid="catalog-row-edit"
                                         @click="startEdit(row.item)"
                                     >
@@ -596,7 +596,7 @@ onMounted(async () => {
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_previous_page || loading"
                     data-testid="catalog-previous"
                     @click="goToPage(pagination.page - 1)"
@@ -610,7 +610,7 @@ onMounted(async () => {
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_next_page || loading"
                     data-testid="catalog-next"
                     @click="goToPage(pagination.page + 1)"

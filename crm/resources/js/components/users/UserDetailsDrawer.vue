@@ -211,7 +211,7 @@ function shortAgent(userAgent: string | null): string {
 
                 <button
                     type="button"
-                    class="drawer-close min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="drawer-close min-h-11 rounded-lg px-3"
                     data-testid="details-close"
                     @click="emit('close')"
                 >
@@ -316,7 +316,7 @@ function shortAgent(userAgent: string | null): string {
                             <button
                                 v-if="canTerminate && !session.is_current"
                                 type="button"
-                                class="ghost-danger min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                class="ghost-danger min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                                 :disabled="busy"
                                 :data-testid="`details-revoke-${session.id}`"
                                 @click="terminating = session"

@@ -277,7 +277,7 @@ async function save(): Promise<void> {
                     autocomplete="off"
                     :disabled="saving"
                     :aria-invalid="hasError('name')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-name"
                 />
                 <span v-if="hasError('name')" class="text-[var(--color-danger)]">{{ errorText('name') }}</span>
@@ -292,7 +292,7 @@ async function save(): Promise<void> {
                     autocomplete="off"
                     :disabled="saving"
                     :aria-invalid="hasError('email')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-email"
                 />
                 <span v-if="hasError('email')" class="text-[var(--color-danger)]">{{ errorText('email') }}</span>
@@ -304,7 +304,7 @@ async function save(): Promise<void> {
                     v-model="roleId"
                     :disabled="saving || options.length === 0"
                     :aria-invalid="hasError('role_id')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-role"
                 >
                     <option value="" disabled>{{ t('users.form.rolePlaceholder') }}</option>
@@ -325,7 +325,7 @@ async function save(): Promise<void> {
                     dir="auto"
                     :disabled="saving"
                     :aria-invalid="hasError('job_title_en')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-job-title-en"
                 />
                 <span v-if="hasError('job_title_en')" class="text-[var(--color-danger)]">{{ errorText('job_title_en') }}</span>
@@ -340,7 +340,7 @@ async function save(): Promise<void> {
                     dir="auto"
                     :disabled="saving"
                     :aria-invalid="hasError('job_title_ar')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-job-title-ar"
                 />
                 <span v-if="hasError('job_title_ar')" class="text-[var(--color-danger)]">{{ errorText('job_title_ar') }}</span>
@@ -354,7 +354,7 @@ async function save(): Promise<void> {
                     autocomplete="new-password"
                     :disabled="saving"
                     :aria-invalid="hasError('password')"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="user-form-password"
                 />
                 <span class="text-[var(--color-text-muted)]">{{ t('users.form.passwordHint') }}</span>
@@ -366,7 +366,7 @@ async function save(): Promise<void> {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="saving"
                     data-testid="user-form-cancel"
                     @click="emit('cancel')"
@@ -376,7 +376,7 @@ async function save(): Promise<void> {
 
                 <button
                     type="submit"
-                    class="modal-save min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="modal-save min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                     data-testid="user-form-save"
                 >

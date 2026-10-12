@@ -339,7 +339,7 @@ onMounted(loadSessions);
                     </span>
                     <input
                         v-model="currentPassword"
-                        class="field min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="field min-h-11 rounded-lg px-3"
                         type="password"
                         autocomplete="current-password"
                         data-testid="current-password"
@@ -352,7 +352,7 @@ onMounted(loadSessions);
                     </span>
                     <input
                         v-model="newPassword"
-                        class="field min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="field min-h-11 rounded-lg px-3"
                         type="password"
                         autocomplete="new-password"
                         data-testid="new-password"
@@ -383,7 +383,7 @@ onMounted(loadSessions);
                     </span>
                     <input
                         v-model="confirmPassword"
-                        class="field min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="field min-h-11 rounded-lg px-3"
                         type="password"
                         autocomplete="new-password"
                         data-testid="confirm-password"
@@ -409,7 +409,7 @@ onMounted(loadSessions);
                 <div class="flex flex-wrap items-center gap-3">
                     <button
                         type="submit"
-                        class="primary min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="primary min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="!canRequestChallenge"
                         data-testid="change-password"
                     >
@@ -438,7 +438,7 @@ onMounted(loadSessions);
 
                 <button
                     type="button"
-                    class="danger min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="danger min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="revokingOthers || otherDeviceCount === 0"
                     data-testid="revoke-others"
                     @click="revokeOthers"
@@ -508,7 +508,7 @@ onMounted(loadSessions);
                         <button
                             v-if="!session.is_current"
                             type="button"
-                            class="ghost-danger min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                            class="ghost-danger min-h-11 rounded-lg px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                             :disabled="revoking !== null"
                             :data-testid="`revoke-${session.id}`"
                             @click="revokeOne(session)"

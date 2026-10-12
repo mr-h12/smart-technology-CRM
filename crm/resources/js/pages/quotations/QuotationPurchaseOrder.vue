@@ -155,7 +155,7 @@ onMounted(load);
                 <button
                     v-else
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-3"
                     :disabled="downloadingId === document.id"
                     data-testid="purchase-order-download"
                     @click="download(document)"

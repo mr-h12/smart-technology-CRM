@@ -98,7 +98,7 @@ onMounted(load);
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
             >
                 {{ t('purchaseOrders.apply') }}
             </button>
@@ -154,7 +154,7 @@ onMounted(load);
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_previous_page || loading"
                     data-testid="purchase-orders-previous"
                     @click="goToPage(pagination.page - 1)"
@@ -168,7 +168,7 @@ onMounted(load);
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_next_page || loading"
                     data-testid="purchase-orders-next"
                     @click="goToPage(pagination.page + 1)"

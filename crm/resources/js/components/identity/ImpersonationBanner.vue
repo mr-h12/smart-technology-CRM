@@ -69,7 +69,7 @@ async function leave(): Promise<void> {
 
         <button
             type="button"
-            class="impersonation-leave min-h-11 shrink-0 rounded-lg px-3 py-1.5 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            class="impersonation-leave min-h-11 shrink-0 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="auth.pending.value"
             data-testid="impersonation-leave"
             @click="leave"

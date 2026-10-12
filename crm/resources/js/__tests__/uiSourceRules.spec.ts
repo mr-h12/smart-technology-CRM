@@ -52,4 +52,11 @@ describe('UI source rules (F-42)', () => {
         expect(linesMatching(/focus-visible:outline-2\b/)).toEqual([]);
         expect(linesMatching(/outline:\s*2px solid var\(--color-focus-ring\)/)).toEqual([]);
     });
+
+    it('focus rings only for the keyboard (A-64): no focus:outline / focus:ring utility outside pages/deals', () => {
+        // A focus: ring also shows on a mouse click; A-34's :focus-visible rule
+        // draws the same ring for the keyboard only.
+        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+        expect(linesMatching(/\bfocus:(outline|ring)/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+    });
 });

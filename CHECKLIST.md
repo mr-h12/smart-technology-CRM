@@ -1741,6 +1741,9 @@ would hide them behind `OD-03` indefinitely.
       fixed there, because the approved line is `--shadow-3`.* `PermissionDiffModal.vue:165` and
       `RolesMatrixView.vue:625` write `var(--font-mono, ui-monospace, monospace)`, while `--font-mono` is
       declared in `app.css:30` and `ErrorState.vue:85` uses it bare. Owed: drop the two fallbacks
+- [ ] **An unqueried `data-testid="sidebar-backdrop"`** — *revealed by F-42 · 5.2, 2026-10-12 (`waste-auditor`);
+      pre-existing, not fixed there.* `AppSidebar.vue:94` carries it and no spec or test reads it. Owed: a spec
+      that clicks the backdrop to close the drawer, or drop the attribute
 
 ## Agent guide revisions — owner-directed
 
@@ -4321,7 +4324,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       **Step 1 — tokens.**
       - [x] **5.1** A-65: the dead `--shadow-3` becomes `--shadow-2`.
             *(2026-10-12, #330 — 11 dialogs; no visual change (the fallback already drew `--shadow-2`); `ThemeTokenTest` scans every `var(--…)` in `js/` against `tokens.css` and `app.css`, since `--font-mono` and `--text-table` live in `app.css`'s `@theme`)*
-      - [ ] **5.2** A-42: `--color-overlay` and `color-scheme` (DS §10 "Token changes", the owner's pick).
+      - [x] **5.2** A-42: `--color-overlay` and `color-scheme` (DS §10 "Token changes", the owner's pick).
+            *(2026-10-12, #331 — 23rd token `rgb(0 0 0 / 0.5)` + `color-scheme` light/light/dark; 12 scrims + the sidebar's `backdrop-filter` → the token; picker list `--shadow-2`; D-73 reads 23 (shell write, owner's yes))*
       - [ ] **5.3** A-63: radius 8 / 12 / 16 per role, and `90dvh` on the form dialogs.
       **Step 2 — focus.**
       - [ ] **5.4** A-34: one global `:focus-visible` rule.

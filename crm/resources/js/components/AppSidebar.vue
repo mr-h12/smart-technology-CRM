@@ -86,11 +86,11 @@ function onBackdrop(): void {
     <!-- The backdrop is symmetric on both axes, so inset-0 carries no direction
          and needs no logical form. It exists only below 1024px. Opacity is the
          one thing animated here: it is compositor-only and mirrors nothing.
-         It dims with a filter and not with a colour — see the stylesheet. -->
+         --color-overlay darkens in all three themes (A-42). -->
     <Transition name="backdrop">
         <div
             v-if="props.open"
-            class="app-sidebar__backdrop fixed inset-0 z-30 lg:hidden"
+            class="fixed inset-0 z-30 bg-[var(--color-overlay)] lg:hidden"
             data-testid="sidebar-backdrop"
             @click="onBackdrop"
         />
@@ -246,29 +246,6 @@ function onBackdrop(): void {
    defect: the list bottoms out and the document behind starts moving. */
 .app-sidebar__scroll {
     overscroll-behavior: contain;
-}
-
-/*
- * The scrim dims with a filter rather than with a tinted colour, and that is
- * not a stylistic preference — it is the only theme-correct option in the
- * token set.
- *
- * A scrim has to darken in every theme. The 22 tokens contain no overlay
- * colour, and no single one behaves: `--color-text` is near-black in the two
- * light themes and near-white in Midnight Obsidian, so tinting with it lays a
- * *light* veil over dark content. That is what the first version of this did —
- * measured in the browser as `#e0e7ff` at 40%, not noticed by reading it.
- * `--color-canvas` fails the same way in the opposite direction.
- *
- * `brightness()` takes what is actually behind the element and darkens it, so
- * it is correct in all three themes and hard-codes nothing. A dedicated
- * `--color-overlay` token would be the better answer and is owed to the design
- * system as a D-73 follow-up; until that is approved, this needs no token at
- * all. Where backdrop-filter is unsupported the drawer still separates by its
- * own shadow and border.
- */
-.app-sidebar__backdrop {
-    backdrop-filter: brightness(0.45) blur(2px);
 }
 
 /* §4.1 gives no tracking token, so this is presentation of an existing size

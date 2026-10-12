@@ -45,7 +45,7 @@ final class ThemeTokenTest extends TestCase
             'primary' => '#C2410C', 'primary-hover' => '#9A3412', 'primary-active' => '#7C2D12', 'primary-text' => '#FFFFFF',
             'focus-ring' => '#C2410C', 'link' => '#9A3412',
             'success' => '#166534', 'warning' => '#9A4700', 'danger' => '#B42318', 'info' => '#1D4ED8',
-            'status-neutral' => '#57534E',
+            'status-neutral' => '#57534E', 'overlay' => 'rgb(0 0 0 / 0.5)',
         ],
         'clean-monochrome' => [
             'canvas' => '#F4F4F5', 'surface' => '#FFFFFF', 'surface-raised' => '#FFFFFF', 'surface-muted' => '#FAFAFA',
@@ -54,7 +54,7 @@ final class ThemeTokenTest extends TestCase
             'primary' => '#2563EB', 'primary-hover' => '#1D4ED8', 'primary-active' => '#1E3A8A', 'primary-text' => '#FFFFFF',
             'focus-ring' => '#2563EB', 'link' => '#1D4ED8',
             'success' => '#166534', 'warning' => '#9A4700', 'danger' => '#B42318', 'info' => '#1D4ED8',
-            'status-neutral' => '#52525B',
+            'status-neutral' => '#52525B', 'overlay' => 'rgb(0 0 0 / 0.5)',
         ],
         'midnight-obsidian' => [
             'canvas' => '#0B0F19', 'surface' => '#111827', 'surface-raised' => '#1B2437', 'surface-muted' => '#0F1524',
@@ -63,7 +63,7 @@ final class ThemeTokenTest extends TestCase
             'primary' => '#818CF8', 'primary-hover' => '#A5B4FC', 'primary-active' => '#C7D2FE', 'primary-text' => '#0B0F19',
             'focus-ring' => '#A5B4FC', 'link' => '#A5B4FC',
             'success' => '#5DDB90', 'warning' => '#FFCA6A', 'danger' => '#FF9B91', 'info' => '#7CC4FF',
-            'status-neutral' => '#AFBAD4',
+            'status-neutral' => '#AFBAD4', 'overlay' => 'rgb(0 0 0 / 0.5)',
         ],
     ];
 
@@ -206,6 +206,41 @@ final class ThemeTokenTest extends TestCase
         }
 
         self::assertSame([], array_keys($undefined), 'Every var(--…) a component uses is declared in tokens.css or app.css (§3.2, §8).');
+    }
+
+    #[DataProvider('themes')]
+    public function test_every_theme_declares_color_scheme_and_a_darkening_overlay(string $theme): void
+    {
+        // A-42 (DS §10 "Token changes"): without color-scheme, native scrollbars
+        // and <select> menus paint light in Midnight; a scrim tinted with
+        // --color-text lightened Midnight's canvas instead of darkening it.
+        $scheme = $theme === 'midnight-obsidian' ? 'dark' : 'light';
+
+        self::assertMatchesRegularExpression('/(?<![\w-])color-scheme\s*:\s*'.$scheme.'\s*;/', self::block($theme), "Theme '{$theme}' must declare color-scheme: {$scheme}.");
+
+        $canvas = self::EXPECTED[$theme]['canvas'];
+        $over = self::composite(self::declarations($theme)['overlay'] ?? '', $canvas);
+
+        self::assertLessThan(self::luminance($canvas), self::luminance($over), "The overlay must darken '{$theme}''s canvas.");
+    }
+
+    public function test_no_scrim_tints_with_the_text_colour(): void
+    {
+        // A-42: every scrim reads --color-overlay. The two replaced recipes may
+        // not come back: the --color-text tint (light in Midnight) and the
+        // sidebar's backdrop-filter stand-in.
+        $offenders = [];
+
+        foreach (File::allFiles(base_path('resources/js')) as $file) {
+            $path = $file->getPathname();
+
+            if (preg_match('/\.(vue|ts)$/', $path) && ! str_ends_with($path, '.spec.ts')
+                && preg_match('/var\(--color-text\)\s+45%|backdrop-filter\s*:\s*brightness/', self::read($path)) === 1) {
+                $offenders[] = substr($path, strlen(base_path()) + 1);
+            }
+        }
+
+        self::assertSame([], $offenders, 'A scrim uses var(--color-overlay) (A-42).');
     }
 
     // ─────────────────────────────────────────────────── contrast, computed
@@ -365,6 +400,24 @@ final class ThemeTokenTest extends TestCase
         return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
     }
 
+    /** `rgb(r g b / a)` laid over an opaque hex, as the browser blends it (sRGB). */
+    private static function composite(string $rgba, string $hex): string
+    {
+        if (preg_match('/^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/', $rgba, $m) !== 1) {
+            throw new RuntimeException("Not an rgb(r g b / a) colour: '{$rgba}'");
+        }
+
+        $alpha = (float) $m[4];
+        $out = '#';
+
+        foreach ([1, 2, 3] as $i) {
+            $under = hexdec(substr(ltrim($hex, '#'), ($i - 1) * 2, 2));
+            $out .= sprintf('%02X', (int) round($alpha * (int) $m[$i] + (1 - $alpha) * $under));
+        }
+
+        return $out;
+    }
+
     /**
      * The custom properties declared in one theme's block, with the --color-
      * prefix removed so the keys read as the §3.2 contract does.
@@ -372,6 +425,23 @@ final class ThemeTokenTest extends TestCase
      * @return array<string, string>
      */
     private static function declarations(string $theme): array
+    {
+        if (preg_match_all('/--([a-z0-9-]+)\s*:\s*([^;]+);/', self::block($theme), $matches) === false) {
+            throw new RuntimeException('Reading declarations failed: '.preg_last_error_msg());
+        }
+
+        $declared = [];
+
+        foreach ($matches[1] as $index => $name) {
+            $value = trim($matches[2][$index] ?? '');
+            $declared[str_starts_with($name, 'color-') ? substr($name, 6) : $name] = $value;
+        }
+
+        return $declared;
+    }
+
+    /** One theme's block body in tokens.css, between its braces. */
+    private static function block(string $theme): string
     {
         $css = self::read(base_path('resources/css/tokens.css'));
         $selector = self::SELECTORS[$theme];
@@ -389,20 +459,7 @@ final class ThemeTokenTest extends TestCase
             throw new RuntimeException("The {$selector} block in tokens.css is not closed.");
         }
 
-        $body = substr($css, $open + 1, $close - $open - 1);
-
-        if (preg_match_all('/--([a-z0-9-]+)\s*:\s*([^;]+);/', $body, $matches) === false) {
-            throw new RuntimeException('Reading declarations failed: '.preg_last_error_msg());
-        }
-
-        $declared = [];
-
-        foreach ($matches[1] as $index => $name) {
-            $value = trim($matches[2][$index] ?? '');
-            $declared[str_starts_with($name, 'color-') ? substr($name, 6) : $name] = $value;
-        }
-
-        return $declared;
+        return substr($css, $open + 1, $close - $open - 1);
     }
 
     private static function read(string $path): string

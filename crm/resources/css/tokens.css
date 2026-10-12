@@ -29,6 +29,7 @@
 
 :root {
     /* Warm Editorial — the default (§3.4: paper-warm, editorial calm, terracotta). */
+    color-scheme: light; /* native scrollbars, <select>, date pickers (A-42) */
     --color-canvas: #FAF8F5;
     --color-surface: #FFFFFF;
     --color-surface-raised: #FFFFFF;
@@ -56,6 +57,8 @@
     --color-danger: #B42318;
     --color-info: #1D4ED8;
     --color-status-neutral: #57534E;
+    /* A-42: a scrim black in every theme; a --color-text tint lightened Midnight. */
+    --color-overlay: rgb(0 0 0 / 0.5);
 
     --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.10);
     --shadow-2: 0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08);
@@ -63,6 +66,7 @@
 
 /* Clean Monochrome (§3.4: neutral zinc, low chroma, cobalt for action only). */
 [data-theme='clean-monochrome'] {
+    color-scheme: light;
     --color-canvas: #F4F4F5;
     --color-surface: #FFFFFF;
     --color-surface-raised: #FFFFFF;
@@ -89,6 +93,7 @@
     --color-danger: #B42318;
     --color-info: #1D4ED8;
     --color-status-neutral: #52525B;
+    --color-overlay: rgb(0 0 0 / 0.5);
 
     --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.10);
     --shadow-2: 0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08);
@@ -96,6 +101,7 @@
 
 /* Midnight Obsidian (§3.4: near-black canvas, indigo highlights, high-contrast text). */
 [data-theme='midnight-obsidian'] {
+    color-scheme: dark;
     --color-canvas: #0B0F19;
     --color-surface: #111827;
     --color-surface-raised: #1B2437;
@@ -127,6 +133,7 @@
     --color-danger: #FF9B91;
     --color-info: #7CC4FF;
     --color-status-neutral: #AFBAD4;
+    --color-overlay: rgb(0 0 0 / 0.5);
 
     /* D-70: markedly higher alpha — a 6%-black shadow over #0B0F19 is invisible. */
     --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.30);

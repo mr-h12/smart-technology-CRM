@@ -98,7 +98,7 @@ watch(() => props.open, async (open) => {
 
 <style scoped>
 .dialog-scrim {
-    background-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    background-color: var(--color-overlay);
 }
 
 .dialog-panel {

@@ -71,7 +71,7 @@ const bare = computed(() => route.meta.bare === true);
              means tabbing the whole sidebar on every navigation. -->
         <a
             href="#page-content"
-            class="sr-only rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 shadow-[var(--shadow-2)] focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+            class="sr-only rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 shadow-[var(--shadow-2)] focus:not-sr-only focus:absolute focus:z-50 focus:m-2"
         >
             {{ t('shell.skipToContent') }}
         </a>

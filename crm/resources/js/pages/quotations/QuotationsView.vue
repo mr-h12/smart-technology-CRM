@@ -376,7 +376,7 @@ onMounted(async () => {
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
                 data-testid="quotations-filter-apply"
             >
                 {{ t('quotations.filter.apply') }}
@@ -396,7 +396,7 @@ onMounted(async () => {
                 v-for="option in VIEWS"
                 :key="option"
                 type="button"
-                class="view-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="view-action min-h-11 rounded-lg px-3"
                 :aria-pressed="view === option"
                 :data-testid="`quotations-view-${option}`"
                 @click="chooseView(option)"
@@ -433,7 +433,7 @@ onMounted(async () => {
                             <th scope="col" class="p-3 text-start" :aria-sort="ariaSort('code')" data-testid="quotations-column-code">
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="quotations-sort-code"
                                     @click="sortBy('code')"
                                 >
@@ -449,7 +449,7 @@ onMounted(async () => {
                             <th scope="col" class="p-3 text-end" :aria-sort="ariaSort('final_total')" data-testid="quotations-column-final_total">
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                    class="sort-action min-h-11 rounded-lg px-2 disabled:cursor-not-allowed disabled:opacity-60"
                                     :disabled="!hasCurrency"
                                                     data-testid="quotations-sort-final_total"
                                     @click="sortBy('final_total')"
@@ -462,7 +462,7 @@ onMounted(async () => {
                             <th scope="col" class="hidden p-3 text-start md:table-cell" :aria-sort="ariaSort('quotation_date')" data-testid="quotations-column-quotation_date">
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="quotations-sort-quotation_date"
                                     @click="sortBy('quotation_date')"
                                 >
@@ -477,7 +477,7 @@ onMounted(async () => {
                             <th scope="col" class="hidden p-3 text-start lg:table-cell" :aria-sort="ariaSort('updated_at')" data-testid="quotations-column-updated_at">
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="quotations-sort-updated_at"
                                     @click="sortBy('updated_at')"
                                 >
@@ -549,7 +549,7 @@ onMounted(async () => {
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!panels[bucket].pagination?.has_previous_page || panels[bucket].loading"
                     data-testid="quotations-previous"
                     @click="goToPage(bucket, panels[bucket].page - 1)"
@@ -563,7 +563,7 @@ onMounted(async () => {
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!panels[bucket].pagination?.has_next_page || panels[bucket].loading"
                     data-testid="quotations-next"
                     @click="goToPage(bucket, panels[bucket].page + 1)"

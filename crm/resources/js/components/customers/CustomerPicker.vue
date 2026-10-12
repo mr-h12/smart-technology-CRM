@@ -91,7 +91,7 @@ watch(model, (value) => {
             <button
                 v-if="allLabel !== undefined && model !== ''"
                 type="button"
-                class="min-h-11 rounded-lg px-3 text-[var(--color-text-muted)] focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="min-h-11 rounded-lg px-3 text-[var(--color-text-muted)]"
                 :data-testid="`${testId}-clear`"
                 @click="pick(null)"
             >

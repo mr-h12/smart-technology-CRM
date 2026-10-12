@@ -747,7 +747,7 @@ function discard(): void {
                         type="checkbox"
                         :disabled="saving || linesState !== 'ready'"
                         :aria-invalid="errorFor('prices_include_tax') !== null"
-                        class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:opacity-40"
+                        class="size-4 disabled:opacity-40"
                         :data-testid="testId('prices_include_tax')"
                     />
                     <span :data-testid="`${testId('prices_include_tax')}-label`">{{ t('supplierQuotations.form.pricesIncludeTax') }}</span>
@@ -775,7 +775,7 @@ function discard(): void {
                         autocomplete="off"
                         :disabled="saving"
                         :aria-invalid="errorFor('total_price') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                         :data-testid="testId('total_price')"
                     />
                     <span
@@ -801,7 +801,7 @@ function discard(): void {
                         v-model="values.currency_id"
                         :disabled="saving"
                         :aria-invalid="errorFor('currency_id') !== null"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('currency_id')"
                     >
                         <option value="">{{ t('supplierQuotations.form.currencyNone') }}</option>
@@ -836,7 +836,7 @@ function discard(): void {
                     type="date"
                     :disabled="saving"
                     :aria-invalid="errorFor('offer_date') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('offer_date')"
                 />
                 <span
@@ -856,7 +856,7 @@ function discard(): void {
                     type="date"
                     :disabled="saving"
                     :aria-invalid="errorFor('valid_until') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('valid_until')"
                 />
                 <span
@@ -875,7 +875,7 @@ function discard(): void {
                     v-model="values.notes"
                     rows="3"
                     :disabled="saving"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId('notes')"
                 />
             </label>
@@ -939,7 +939,7 @@ function discard(): void {
                             maxlength="255"
                             autocomplete="off"
                             :disabled="saving"
-                            class="form-field field-sizing-content min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field field-sizing-content min-h-11 rounded-lg px-3 py-2"
                             :data-testid="lineTestId(index, 'product-name')"
                             @keydown.enter.prevent
                         />
@@ -957,7 +957,7 @@ function discard(): void {
                             inputmode="decimal"
                             :disabled="saving"
                             :aria-invalid="lineErrorFor(index, 'unit_price') !== null"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                             :data-testid="lineTestId(index, 'unit-price')"
                         />
                     </label>
@@ -971,14 +971,14 @@ function discard(): void {
                             inputmode="decimal"
                             :disabled="saving"
                             :aria-invalid="lineErrorFor(index, 'quantity') !== null"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                             :data-testid="lineTestId(index, 'quantity')"
                         />
                     </label>
 
                     <button
                         type="button"
-                        class="modal-cancel min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-cancel min-h-11 rounded-lg px-3 py-2"
                         :disabled="saving"
                         :data-testid="lineTestId(index, 'remove')"
                         @click="removeLine(index)"
@@ -1029,7 +1029,7 @@ function discard(): void {
                 <!-- §7.2's "(+ to add more)". -->
                 <button
                     type="button"
-                    class="modal-cancel min-h-11 self-start rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="modal-cancel min-h-11 self-start rounded-lg px-4 py-2"
                     :disabled="saving"
                     data-testid="supplier-quotation-form-add-line"
                     @click="addLine()"
@@ -1087,7 +1087,7 @@ function discard(): void {
                             <button
                                 v-if="document_.scan_status === 'clean'"
                                 type="button"
-                                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                                 :disabled="downloadingId !== null"
                                 :data-testid="`supplier-quotation-attachment-${index}-download`"
                                 @click="download(document_)"
@@ -1131,7 +1131,7 @@ function discard(): void {
                             id="supplier-quotation-form-attachment"
                             type="file"
                             :disabled="uploading || saving"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2"
                             data-testid="supplier-quotation-form-attachment-file"
                             @change="upload($event)"
                         />
@@ -1152,7 +1152,7 @@ function discard(): void {
                 <div class="mt-2 flex flex-wrap gap-2">
                     <button
                         type="button"
-                        class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                         data-testid="supplier-quotation-form-keep-editing"
                         @click="confirmingDiscard = false"
                     >
@@ -1160,7 +1160,7 @@ function discard(): void {
                     </button>
                     <button
                         type="button"
-                        class="modal-discard min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-discard min-h-11 rounded-lg px-4 py-2"
                         data-testid="supplier-quotation-form-discard"
                         @click="discard()"
                     >
@@ -1172,7 +1172,7 @@ function discard(): void {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="saving"
                     data-testid="supplier-quotation-form-cancel"
                     @click="requestClose()"
@@ -1182,7 +1182,7 @@ function discard(): void {
 
                 <button
                     type="submit"
-                    class="modal-save min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="modal-save min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                     data-testid="supplier-quotation-form-save"
                 >

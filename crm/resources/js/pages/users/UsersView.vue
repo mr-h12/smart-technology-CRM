@@ -215,7 +215,7 @@ onMounted(async () => {
 
             <button
                 type="button"
-                class="primary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="primary-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!canCreate"
                 data-testid="users-create"
                 @click="openCreate"
@@ -239,7 +239,7 @@ onMounted(async () => {
                 <span>{{ t('users.filter.status') }}</span>
                 <select
                     v-model="activeFilter"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="users-filter-status"
                     @change="applyFilters"
                 >
@@ -253,7 +253,7 @@ onMounted(async () => {
                 <span>{{ t('users.filter.role') }}</span>
                 <select
                     v-model="roleFilter"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="users-filter-role"
                     @change="applyFilters"
                 >
@@ -302,7 +302,7 @@ onMounted(async () => {
                             <div class="flex flex-wrap justify-end gap-2">
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     :disabled="busy"
                                     data-testid="users-details"
                                     @click="inspecting = user.id"
@@ -312,7 +312,7 @@ onMounted(async () => {
 
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     :disabled="busy || !canCreate"
                                     data-testid="users-edit"
                                     @click="openEdit(user)"
@@ -322,7 +322,7 @@ onMounted(async () => {
 
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     :disabled="busy"
                                     data-testid="users-toggle-activation"
                                     @click="confirming = user"
@@ -333,7 +333,7 @@ onMounted(async () => {
                                 <button
                                     v-if="auth.isSuperAdmin.value && !auth.isImpersonating.value"
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     :disabled="busy || !user.is_active"
                                     data-testid="users-login-as"
                                     @click="loginAs(user)"
@@ -355,7 +355,7 @@ onMounted(async () => {
         >
             <button
                 type="button"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_previous_page || loading"
                 data-testid="users-previous"
                 @click="goToPage(pagination.page - 1)"
@@ -369,7 +369,7 @@ onMounted(async () => {
 
             <button
                 type="button"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!pagination.has_next_page || loading"
                 data-testid="users-next"
                 @click="goToPage(pagination.page + 1)"

@@ -190,7 +190,7 @@ watch(
                 :aria-expanded="open ? 'true' : 'false'"
                 :aria-controls="listboxId"
                 :aria-activedescendant="active >= 0 ? optionId(active) : undefined"
-                class="form-field min-h-11 w-full rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="form-field min-h-11 w-full rounded-lg px-3"
                 :data-testid="testId"
                 @focus="show"
                 @input="typed"
@@ -252,7 +252,7 @@ watch(
             <button
                 v-if="status === 'failed'"
                 type="button"
-                class="mx-3 mb-2 min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="mx-3 mb-2 min-h-11 rounded-lg px-3"
                 :data-testid="`${testId}-retry`"
                 @click="search"
             >

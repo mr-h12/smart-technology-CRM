@@ -366,7 +366,7 @@ onMounted(load);
             <button
                 v-if="!loading && !failed"
                 type="button"
-                class="primary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="primary-action min-h-11 rounded-lg px-4 py-2"
                 data-testid="roles-create"
                 @click="creating = true; createError = null"
             >
@@ -390,7 +390,7 @@ onMounted(load);
                     type="button"
                     role="tab"
                     :aria-selected="role.id === selectedRoleId"
-                    class="role-tab min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="role-tab min-h-11 rounded-lg px-3 py-2"
                     :class="role.id === selectedRoleId ? 'role-tab--active' : ''"
                     data-testid="roles-tab"
                     @click="selectRole(role.id)"
@@ -535,7 +535,7 @@ onMounted(load);
                     <button
                         v-if="archivable"
                         type="button"
-                        class="danger-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="danger-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="saving || archiveBusy"
                         data-testid="roles-archive"
                         @click="archivingId = selectedRoleId"
@@ -545,7 +545,7 @@ onMounted(load);
 
                     <button
                         type="button"
-                        class="secondary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="secondary-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="changeCount === 0 || saving"
                         data-testid="roles-discard"
                         @click="discard"
@@ -555,7 +555,7 @@ onMounted(load);
 
                     <button
                         type="button"
-                        class="primary-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="primary-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="!editable || changeCount === 0 || saving"
                         data-testid="roles-save"
                         @click="confirming = true"

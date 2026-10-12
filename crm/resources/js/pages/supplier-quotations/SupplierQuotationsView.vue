@@ -256,7 +256,7 @@ onMounted(async () => {
             <button
                 v-if="canWrite"
                 type="button"
-                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="create-action min-h-11 rounded-lg px-4"
                 data-testid="supplier-quotations-create"
                 @click="startCreate()"
             >
@@ -305,7 +305,7 @@ onMounted(async () => {
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
                 data-testid="supplier-quotations-filter-apply"
             >
                 {{ t('supplierQuotations.filter.apply') }}
@@ -341,7 +341,7 @@ onMounted(async () => {
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="supplier-quotations-sort-offer_date"
                                     @click="sortBy('offer_date')"
                                 >
@@ -384,7 +384,7 @@ onMounted(async () => {
                             <td v-if="canWrite" class="p-3">
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     data-testid="supplier-quotations-row-edit"
                                     @click="startEdit(offer)"
                                 >
@@ -404,7 +404,7 @@ onMounted(async () => {
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_previous_page || loading"
                     data-testid="supplier-quotations-previous"
                     @click="goToPage(pagination.page - 1)"
@@ -418,7 +418,7 @@ onMounted(async () => {
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_next_page || loading"
                     data-testid="supplier-quotations-next"
                     @click="goToPage(pagination.page + 1)"

@@ -572,7 +572,7 @@ onMounted(refresh);
                         rows="3"
                         maxlength="2000"
                         :placeholder="t('quotations.detail.respondReasonHint')"
-                        class="form-field rounded-lg p-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="form-field rounded-lg p-3"
                         data-testid="quotation-respond-reason"
                     ></textarea>
                 </label>
@@ -585,7 +585,7 @@ onMounted(refresh);
                             required
                             maxlength="255"
                             :placeholder="t('quotations.detail.poReferenceHint')"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2"
                             data-testid="quotation-respond-po-reference"
                         />
                     </label>
@@ -596,7 +596,7 @@ onMounted(refresh);
                             type="date"
                             required
                             :max="poDateMax"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2"
                             data-testid="quotation-respond-po-date"
                         />
                     </label>

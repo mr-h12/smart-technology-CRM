@@ -252,7 +252,7 @@ onMounted(load);
                 <button
                     v-if="canImport"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     data-testid="suppliers-import"
                     @click="importOpen = true"
                 >
@@ -264,7 +264,7 @@ onMounted(load);
                 <button
                     v-if="canManage"
                     type="button"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="create-action min-h-11 rounded-lg px-4"
                     data-testid="suppliers-create"
                     @click="startCreate()"
                 >
@@ -281,14 +281,14 @@ onMounted(load);
                 <input
                     v-model="search"
                     type="search"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="suppliers-search"
                 />
             </label>
 
             <button
                 type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-3"
                 data-testid="suppliers-search-submit"
             >
                 {{ t('suppliers.filter.searchAction') }}
@@ -298,7 +298,7 @@ onMounted(load);
                 <span>{{ t('suppliers.filter.rating') }}</span>
                 <select
                     v-model="ratingFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="suppliers-filter-rating"
                     @change="applyFilters"
                 >
@@ -311,7 +311,7 @@ onMounted(load);
                 <span>{{ t('suppliers.filter.type') }}</span>
                 <select
                     v-model="typeFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="suppliers-filter-type"
                     @change="applyFilters"
                 >
@@ -326,7 +326,7 @@ onMounted(load);
                 <span>{{ t('suppliers.filter.active') }}</span>
                 <select
                     v-model="activeFilter"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="suppliers-filter-active"
                     @change="applyFilters"
                 >
@@ -340,7 +340,7 @@ onMounted(load);
                 <input
                     v-model="incompleteOnly"
                     type="checkbox"
-                    class="size-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="size-4"
                     data-testid="suppliers-filter-incomplete"
                     @change="applyFilters"
                 />
@@ -374,7 +374,7 @@ onMounted(load);
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="suppliers-sort-name"
                                     @click="sortBy('name')"
                                 >
@@ -401,7 +401,7 @@ onMounted(load);
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="suppliers-sort-created_at"
                                     @click="sortBy('created_at')"
                                 >
@@ -453,7 +453,7 @@ onMounted(load);
                             <td v-if="canManage" class="p-3">
                                 <button
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="row-action min-h-11 rounded-lg px-3"
                                     data-testid="suppliers-row-edit"
                                     @click="startEdit(supplier)"
                                 >
@@ -473,7 +473,7 @@ onMounted(load);
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_previous_page || loading"
                     data-testid="suppliers-previous"
                     @click="goToPage(pagination.page - 1)"
@@ -487,7 +487,7 @@ onMounted(load);
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_next_page || loading"
                     data-testid="suppliers-next"
                     @click="goToPage(pagination.page + 1)"

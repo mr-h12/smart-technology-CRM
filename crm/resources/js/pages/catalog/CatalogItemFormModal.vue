@@ -426,7 +426,7 @@ function discard(): void {
                     rows="3"
                     :disabled="saving"
                     :aria-invalid="errorFor(field) !== null"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId(field)"
                 />
                 <select
@@ -435,7 +435,7 @@ function discard(): void {
                     v-model="values[field]"
                     :disabled="saving"
                     :aria-invalid="errorFor(field) !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId(field)"
                 >
                     <option value="">{{ t('catalog.form.noSelection') }}</option>
@@ -453,7 +453,7 @@ function discard(): void {
                     autocomplete="off"
                     :disabled="saving"
                     :aria-invalid="errorFor(field) !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId(field)"
                 />
 
@@ -518,7 +518,7 @@ function discard(): void {
                 <div class="mt-2 flex flex-wrap gap-2">
                     <button
                         type="button"
-                        class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                         data-testid="catalog-form-keep-editing"
                         @click="confirmingDiscard = false"
                     >
@@ -526,7 +526,7 @@ function discard(): void {
                     </button>
                     <button
                         type="button"
-                        class="modal-discard min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="modal-discard min-h-11 rounded-lg px-4 py-2"
                         data-testid="catalog-form-discard"
                         @click="discard()"
                     >
@@ -538,7 +538,7 @@ function discard(): void {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="modal-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="modal-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="saving"
                     data-testid="catalog-form-cancel"
                     @click="requestClose()"
@@ -548,7 +548,7 @@ function discard(): void {
 
                 <button
                     type="submit"
-                    class="modal-save min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="modal-save min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                     data-testid="catalog-form-save"
                 >

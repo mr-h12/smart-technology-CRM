@@ -149,7 +149,7 @@ watch(() => props.open, (open) => {
                 <input
                     type="file"
                     accept=".csv,text/csv"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="import-file"
                     @change="onPick"
                 />
@@ -174,7 +174,7 @@ watch(() => props.open, (open) => {
                 <p class="tabular-nums" data-testid="import-rejected">{{ t('import.rejected') }}: {{ batch.rejected.length }}</p>
                 <ul
                     v-if="batch.rejected.length > 0"
-                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
                     tabindex="0"
                     :aria-label="t('import.rejected')"
                     data-testid="import-rejected-rows"
@@ -185,7 +185,7 @@ watch(() => props.open, (open) => {
                 <p class="tabular-nums" data-testid="import-skipped">{{ t('import.skipped') }}: {{ batch.skipped.length }}</p>
                 <ul
                     v-if="batch.skipped.length > 0"
-                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
                     tabindex="0"
                     :aria-label="t('import.skipped')"
                     data-testid="import-skipped-rows"
@@ -198,7 +198,7 @@ watch(() => props.open, (open) => {
                 <button
                     v-if="batch.incomplete_count > 0"
                     type="button"
-                    class="row-action min-h-11 self-start rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 self-start rounded-lg px-3"
                     data-testid="import-show-incomplete"
                     @click="emit('showIncomplete')"
                 >
@@ -209,7 +209,7 @@ watch(() => props.open, (open) => {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     data-testid="import-cancel"
                     @click="emit('cancel')"
                 >
@@ -220,7 +220,7 @@ watch(() => props.open, (open) => {
                      alternative" — hence a word, not a bare spinner. -->
                 <button
                     type="button"
-                    class="submit-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="submit-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="chosen === null || busy"
                     data-testid="import-submit"
                     @click="submit"

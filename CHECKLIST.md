@@ -4331,7 +4331,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       **Step 2 — focus.**
       - [x] **5.4** A-34: one global `:focus-visible` rule.
             *(2026-10-12, #333 — `app.css` `@layer base`: 2 px `--color-focus-ring`, 2 px offset; 24 `focus-visible:` triplets in 9 files and `RoleFormModal`'s scoped copy deleted (owner's yes); Approvals' list was empty, so its row actions were not walked)*
-      - [ ] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).
+      - [x] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).
+            *(2026-10-13, #334 — 191 triplets in 30 files deleted (5.4's rule draws the ring for the keyboard); **the deals part waits for step 15**: 28 in 6 `pages/deals/` files, exempted in `uiSourceRules.spec.ts` (owner's yes); Chromium still rings a text input or select on click, by `:focus-visible`'s own rule)*
       - [ ] **5.6** A-08: the picker's active-option bar.
       **Step 3 — buttons and status.**
       - [ ] **5.7** A-51: hover and pressed states.

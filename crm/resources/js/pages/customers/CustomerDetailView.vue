@@ -219,7 +219,7 @@ onMounted(async () => {
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('customers.detail.notFoundMessage') }}</p>
             <RouterLink
                 :to="{ name: 'customers' }"
-                class="row-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="row-action min-h-11 rounded-lg px-4 py-2"
                 data-testid="customer-back"
             >
                 {{ t('customers.detail.backToList') }}
@@ -233,7 +233,7 @@ onMounted(async () => {
                 <div class="flex flex-col gap-1">
                     <RouterLink
                         :to="{ name: 'customers' }"
-                        class="text-[var(--color-text-muted)] focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="text-[var(--color-text-muted)]"
                         data-testid="customer-back"
                     >
                         {{ t('customers.detail.backToList') }}
@@ -246,7 +246,7 @@ onMounted(async () => {
                 <button
                     v-if="canEdit"
                     type="button"
-                    class="edit-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="edit-action min-h-11 rounded-lg px-4"
                     data-testid="customer-detail-edit"
                     @click="formOpen = true"
                 >
@@ -353,7 +353,7 @@ onMounted(async () => {
 
                     <button
                         type="submit"
-                        class="edit-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="edit-action min-h-11 rounded-lg px-4"
                     >
                         {{ t('customers.assign.action') }}
                     </button>

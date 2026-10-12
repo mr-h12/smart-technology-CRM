@@ -64,7 +64,7 @@ function toggle(supplier: Picked | null): void {
                     <span>{{ picked.name }}</span>
                     <button
                         type="button"
-                        class="min-h-11 min-w-11 rounded-full focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="min-h-11 min-w-11 rounded-full"
                         :aria-label="t('suppliers.picker.remove', { name: picked.name })"
                         :disabled="disabled"
                         :data-testid="`${testId}-chip-remove`"

@@ -125,7 +125,7 @@ async function submit(): Promise<void> {
                         :disabled="auth.pending.value"
                         :aria-invalid="emailMissing"
                         :aria-describedby="emailMissing ? 'login-email-error' : undefined"
-                        class="login-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="login-field rounded-lg px-3 py-2"
                         data-testid="login-email"
                         @input="auth.clearError()"
                     />
@@ -145,7 +145,7 @@ async function submit(): Promise<void> {
                         :disabled="auth.pending.value"
                         :aria-invalid="passwordMissing"
                         :aria-describedby="passwordMissing ? 'login-password-error' : undefined"
-                        class="login-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="login-field rounded-lg px-3 py-2"
                         data-testid="login-password"
                         @input="auth.clearError()"
                     />
@@ -157,7 +157,7 @@ async function submit(): Promise<void> {
                 <button
                     type="submit"
                     :disabled="!canSubmit"
-                    class="login-submit flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="login-submit flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
                     data-testid="login-submit"
                 >
                     <!-- §6.1: "Loading controls retain their width and show a

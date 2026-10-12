@@ -113,7 +113,7 @@ watch(() => props.open, async (open) => {
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="dialog-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="dialog-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="busy"
                     data-testid="diff-cancel"
                     @click="emit('cancel')"
@@ -124,7 +124,7 @@ watch(() => props.open, async (open) => {
                 <button
                     ref="confirmButton"
                     type="button"
-                    class="dialog-confirm min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="dialog-confirm min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="diff-confirm"
                     @click="emit('confirm')"

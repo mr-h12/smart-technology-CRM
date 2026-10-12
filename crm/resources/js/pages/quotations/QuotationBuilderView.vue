@@ -728,7 +728,7 @@ onMounted(load);
                             v-model="header.currency"
                             required
                             :aria-invalid="fieldErrors.has('currency')"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2"
                             :data-testid="fieldId('currency')"
                         >
                             <option value="">{{ t('quotations.builder.currencyNone') }}</option>
@@ -744,7 +744,7 @@ onMounted(load);
                             autocomplete="off"
                             :placeholder="t('quotations.filter.currencyPlaceholder')"
                             :aria-invalid="fieldErrors.has('currency')"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 uppercase focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 uppercase"
                             :data-testid="fieldId('currency')"
                         />
                         <span v-if="fieldErrors.has('currency')" class="text-[var(--color-danger)]" :data-testid="fieldId('currency-error')">
@@ -763,7 +763,7 @@ onMounted(load);
                             :required="field !== 'tax_percent'"
                             :placeholder="field === 'tax_percent' ? t('quotations.builder.taxExempt') : ''"
                             :aria-invalid="fieldErrors.has(field)"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                             :data-testid="fieldId(field)"
                         />
                         <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
@@ -778,7 +778,7 @@ onMounted(load);
                             v-model="header[field]"
                             type="date"
                             :aria-invalid="fieldErrors.has(field)"
-                            class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                            class="form-field min-h-11 rounded-lg px-3 py-2"
                             :data-testid="fieldId(field)"
                         />
                         <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
@@ -808,7 +808,7 @@ onMounted(load);
                                 inputmode="decimal"
                                 autocomplete="off"
                                 :aria-invalid="lineError(`existing-${i}`) !== null"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                 :data-testid="fieldId(`existing-${i}-quantity`)"
                             />
                         </label>
@@ -820,7 +820,7 @@ onMounted(load);
                                 type="text"
                                 dir="ltr"
                                 autocomplete="off"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                 :data-testid="fieldId(`existing-${i}-margin_percent`)"
                             />
                         </label>
@@ -872,7 +872,7 @@ onMounted(load);
                                 <select
                                     :id="fieldId(`supplier-${b}-pick`)"
                                     v-model="block.supplierQuotationId"
-                                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="form-field min-h-11 rounded-lg px-3 py-2"
                                     :data-testid="fieldId(`supplier-${b}-pick`)"
                                     @change="pickOffer(b)"
                                 >
@@ -907,7 +907,7 @@ onMounted(load);
                                         autocomplete="off"
                                         :placeholder="displayDecimals(item.available_quantity)"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
-                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"
                                     />
                                 </label>
@@ -919,7 +919,7 @@ onMounted(load);
                                         type="text"
                                         dir="ltr"
                                         autocomplete="off"
-                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                         :data-testid="fieldId(`line-${b}-${l}-margin_percent`)"
                                     />
                                 </label>
@@ -954,7 +954,7 @@ onMounted(load);
                                 maxlength="255"
                                 autocomplete="off"
                                 :aria-invalid="fieldErrors.has(`additional_items.${i}.description`)"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="form-field min-h-11 rounded-lg px-3 py-2"
                                 :data-testid="fieldId(`item-${i}-description`)"
                             />
                         </label>
@@ -967,7 +967,7 @@ onMounted(load);
                                 inputmode="decimal"
                                 autocomplete="off"
                                 :aria-invalid="fieldErrors.has(`additional_items.${i}.amount`)"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                 :data-testid="fieldId(`item-${i}-amount`)"
                             />
                         </label>
@@ -1009,7 +1009,7 @@ onMounted(load);
                                     autocomplete="off"
                                     :placeholder="term.key === null ? '' : t(`quotations.terms.labels.${term.key}`)"
                                     :aria-invalid="fieldErrors.has(`terms.${i}.title`)"
-                                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="form-field min-h-11 rounded-lg px-3 py-2"
                                     :data-testid="fieldId(`term-${i}-title`)"
                                 />
                             </label>
@@ -1042,7 +1042,7 @@ onMounted(load);
                                 v-model="term.body"
                                 rows="3"
                                 :aria-invalid="fieldErrors.has(`terms.${i}.body`)"
-                                class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                class="form-field rounded-lg px-3 py-2"
                                 :data-testid="fieldId(`term-${i}-body`)"
                             ></textarea>
                         </label>
@@ -1075,7 +1075,7 @@ onMounted(load);
                 <div v-if="!frozen" class="flex flex-wrap gap-2">
                     <button
                         type="submit"
-                        class="save-action min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        class="save-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="saving"
                         data-testid="quotation-builder-save"
                     >

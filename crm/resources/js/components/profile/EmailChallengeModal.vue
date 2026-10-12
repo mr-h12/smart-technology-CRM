@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
 
                 <input
                     ref="codeInput"
-                    class="challenge-input min-h-11 rounded-lg px-3 text-center tabular-nums focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="challenge-input min-h-11 rounded-lg px-3 text-center tabular-nums"
                     type="text"
                     inputmode="numeric"
                     autocomplete="one-time-code"
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
                      disagree is a button that lies in both directions. -->
                 <button
                     type="button"
-                    class="dialog-cancel me-auto min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="dialog-cancel me-auto min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy || resending"
                     data-testid="challenge-resend"
                     @click="emit('resend')"
@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
 
                 <button
                     type="button"
-                    class="dialog-cancel min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="dialog-cancel min-h-11 rounded-lg px-4 py-2"
                     :disabled="busy"
                     data-testid="challenge-cancel"
                     @click="emit('cancel')"
@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
 
                 <button
                     type="submit"
-                    class="dialog-confirm min-h-11 rounded-lg px-4 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="dialog-confirm min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!canSubmit"
                     data-testid="challenge-submit"
                 >

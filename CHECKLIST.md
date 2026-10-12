@@ -4268,8 +4268,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **3.4** Focus, highlight and feedback — focus ring, picker highlight, hover, live region vs
             toast; contrast measured in 3 themes (A-08, A-31, A-32, A-34, A-51, A-64).
             *(2026-10-12, #320 — `design-options.md` §4, rows A-08/31/32 (A-34, A-51, A-64 moved by 3.1); both highlights ≥ 4.61:1 in 3 themes against today's 1.04–1.17; the toast drops an import error after 5 s; recommended: start-edge bar + weight, one in-place status region for every result)*
-      - [ ] **3.5** Page structure — one h1, one Primary, row-level Danger, the total in the quotation
+      - [x] **3.5** Page structure — one h1, one Primary, row-level Danger, the total in the quotation
             header, section refusal, error wording (A-21, A-28, A-33, A-43, A-53, A-56).
+            *(2026-10-12, — `design-options.md` §5, all six rows; 10 options pass, A-21 B (87 px jump after the 403) and A-53 B (a nullable title as h1) fail; recommended: bar title not a heading, a muted line in a refused section, Danger as text in rows, a button as each error's next step (copy is the owner's), the code as the deal h1, the total in the quotation header)*
       - [ ] **3.6** Lists — URL filters, reload without blanking, the phone layout, sticky header, filter
             rules; built only after F-41 closes (A-13, A-14, A-19, A-39, A-40, A-48, A-49, A-57, A-67).
       - [ ] **3.7** Builder — error summary, sticky Save, Enter, labels and required marks, per-block

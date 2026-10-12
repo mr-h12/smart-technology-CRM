@@ -4273,9 +4273,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-12, #321 — `design-options.md` §5, all six rows; 10 options pass, A-21 B (87 px jump after the 403) and A-53 B (a nullable title as h1) fail; recommended: bar title not a heading, a muted line in a refused section, Danger as text in rows, a button as each error's next step (copy is the owner's), the code as the deal h1, the total in the quotation header)*
       - [x] **3.6** Lists — URL filters, reload without blanking, the phone layout, sticky header, filter
             rules; built only after F-41 closes (A-13, A-14, A-19, A-39, A-40, A-48, A-49, A-57, A-67).
-            *(2026-10-12, — `design-options.md` §6, rows A-14/19/39/40/48/49 (A-13, A-57, A-67 moved by 3.1); every check failed on today's behaviour first; A-39 B fails (128–165 px sideways); recommended: dimmed table + `aria-busy`, folded filters + compact rows, cards below 640, `overflow-x: clip` with the cards, bar shown with data or a filter, everything live reusing `SearchCombobox`'s pause)*
-      - [ ] **3.7** Builder — error summary, sticky Save, Enter, labels and required marks, per-block
+            *(2026-10-12, #322 — `design-options.md` §6, rows A-14/19/39/40/48/49 (A-13, A-57, A-67 moved by 3.1); every check failed on today's behaviour first; A-39 B fails (128–165 px sideways); recommended: dimmed table + `aria-busy`, folded filters + compact rows, cards below 640, `overflow-x: clip` with the cards, bar shown with data or a filter, everything live reusing `SearchCombobox`'s pause)*
+      - [x] **3.7** Builder — error summary, sticky Save, Enter, labels and required marks, per-block
             loading, file input (A-11, A-20, A-24, A-37, A-41, A-50).
+            *(2026-10-12, — `design-options.md` §7, rows A-11/20/24/50 (A-37, A-41 moved by 3.1); every rule failed on today's behaviour first; A-24 B fails (the browser's English button); a Tab walk hid 0 of 28 fields, and 4 with `scroll-padding` removed; recommended: focus the first invalid field, a sticky bottom Save, a translated file button, the word «(مطلوب)»)*
       - [ ] **3.8** Token proposals as proposed decisions in Design System §10 — radius, `--color-overlay`,
             `color-scheme`, the dead `--shadow-3` (A-42, A-63, A-65); applied only on the owner's yes.
 

@@ -548,3 +548,54 @@ The rule: one form uses one kind of required marker on every required field, no 
   - 1 kind, 2 of 2 marked, no placeholder-only rule, the reason present. The marker is 6 px wide.
 - **A-50 Recommendation** — **Option A.** DS §6.3 asks for an "explicit required marker", and the supplier dialog already chose the word for that reason (`SupplierQuotationFormModal.vue:668`: "a word, not only a glyph"). So A makes the other forms match a decision the code has already made.
   - B saves 45–58 px per label, but it needs the legend to be read first and gives a sighted reader a 6 px glyph to find.
+
+## 8. Tokens (F-42 · 3.8)
+
+**Rows covered:** A-42, A-63. The CHECKLIST line also names the dead `--shadow-3` (A-65), but 3.1 moved it to Phase 4 as one obvious fix (use `--shadow-2`, no token change).
+
+**A token change is the owner's decision.** Nothing here touches `tokens.css`. Each recommendation is written as a **proposed** decision in DS §10, and it applies only on the owner's yes.
+
+**The mock-up.** `prototypes/ux-tokens/index.html` is untracked. It loads the real `tokens.css`, and `ux-prototypes` serves it at `http://localhost:8790/prototypes/ux-tokens/index.html`. A select (`today|A|B`) redraws all three themes at once.
+- **Today's behaviour is the planted failing case:** every rule below was seen failing on it first.
+- The scrim is measured, not eyeballed: a probe element in each theme reads the computed scrim colour and composites it over that theme's `--color-canvas`. The result is the canvas's luminance divided by the luminance under the scrim, so above 1 darkens and below 1 lightens.
+- **Width:** at 375 the page overflow is 0.
+
+**Measured today in the code** (2026-10-12):
+- **Scrim:** 12 dialogs and drawers use `color-mix(in srgb, var(--color-text) 45%, transparent)`, and `AppSidebar.vue:271` uses `backdrop-filter: brightness(0.45) blur(2px)`.
+- **`color-scheme`:** 0 hits under `crm/resources/`.
+- **Radius:** `rounded-lg` ×358, `rounded-xl` ×32, `rounded-2xl` ×21, `rounded-full` ×30 and `rounded` ×1. Tailwind 4.3.3's scale is `md` 6 px, `lg` 8, `xl` 12 and `2xl` 16, so §4.2's 6/8/12 are exactly `md`/`lg`/`xl`.
+  - Controls are `lg` (8), except `AppContextBar.vue`'s 5 shell controls, which are `xl` (12).
+  - Cards are `xl` (12) on the deal and quotation detail pages and table frames, and `2xl` (16) on the customer detail page, the login card and the account-security panels.
+  - Dialogs are `2xl` (16).
+  - The 358 `lg` uses are counted as controls, as the audit did. They were not classified one by one.
+
+### A-42, the scrim and `color-scheme`
+
+The rule: in every theme, a scrim makes the content behind a dialog darker, and native controls (scrollbars, `<select>` menus, date pickers) paint in the theme's own scheme.
+- **Today:** the scrim darkens by 2.93 (Warm) and 3.19 (Mono), but in Midnight it measures **0.03**: the canvas under it is about 33× lighter, the light veil the audit saw. `color-scheme` computes to `normal` in all three themes, and the native select stays light on the dark dialog in the screenshot. **This fails the rule.**
+- **A-42 Option A** — a 23rd token, `--color-overlay: rgb(0 0 0 / 0.5)`, in each of the three theme blocks. All 12 scrims and the sidebar use it, plus `color-scheme: light` on `:root` and Clean Monochrome and `color-scheme: dark` on Midnight Obsidian. — measure: pass
+  - Darkens by 4.66 / 4.65 / 2.14. `color-scheme` computes to light / light / dark, and the select turns dark in Midnight.
+  - It amends `D-73`'s 22-token record: `ThemeTokenTest::EXPECTED` and its "exactly the documented colour tokens" test gain the 23rd name.
+- **A-42 Option B** — no new token. All 12 scrims reuse `AppSidebar.vue:271`'s `backdrop-filter: brightness(0.45)`, which darkens what is behind it in any theme, plus the same `color-scheme` lines. — measure: pass
+  - Darkens by 5.84 / 5.82 / 2.38. `color-scheme` computes to light / light / dark.
+  - Where `backdrop-filter` is unsupported, there is no dimming at all: the dialog separates only by its own shadow and border (`AppSidebar.vue:267-268`). Support on the field staff's phones is not measured here.
+- **A-42 Recommendation** — **Option A.** DS §10's "Debt owed to the token set" already calls the token "the better answer", and `AppSidebar.vue:264-266` says the filter stands in only until the token is approved.
+  - A colour has no support gap and does not repaint the page behind 12 dialogs. It also keeps §8's "no component hard-codes a color" declarative.
+  - Both options need the same `color-scheme` lines, which are an amendment to `D-73` either way.
+  - **Seen, not measured:** in Midnight, the dialog's surface (`#111827`) sits close to the darkened canvas in both options. The dialog's border and `--shadow-2` carry the separation.
+
+### A-63, the radius scale
+
+The rule: each role has one radius across the app, and they rise from control to card to dialog, which is §4.2's order.
+- **Today:** controls are 8 and 12, cards are 12 and 16, and dialogs are 16. **This fails the rule:** two roles have two values each, and a 12 px control matches a 12 px card.
+- **A-63 Option A** — code follows §4.2 as written: controls `rounded-md` (6), cards `rounded-lg` (8), dialogs `rounded-xl` (12). — measure: pass
+  - One radius per role: 6 < 8 < 12, and it matches §4.2.
+  - It edits about 411 class uses (all `lg`, `xl` and `2xl`), so every screen changes visibly.
+- **A-63 Option B** — §4.2 is amended to today's main steps: controls `rounded-lg` (8), cards `rounded-xl` (12), dialogs `rounded-2xl` (16). — measure: pass
+  - One radius per role: 8 < 12 < 16. It does not match §4.2 as written; it amends §4.2.
+  - It edits 11 uses: `AppContextBar.vue`'s 5 shell controls `xl` → `lg`, and the 6 `2xl` cards (customer detail ×3, login, account security ×2) → `xl`. Everything else already renders this way. The 3 `state-plate` icon tiles (Empty, Error and PermissionDenied states) and the dev page `Ping.vue:110` also use `2xl`; they are not a control, card or dialog, and they stay.
+- **A-63 Recommendation** — **Option B.** It keeps §4.2's intent (one radius per role, rising from control to dialog) and changes 11 uses instead of about 411. What renders today stays as it is on every other screen.
+  - The edit to §4.2 is one line, written as a proposed decision in DS §10.
+  - **Not an option, the same in both:** `max-h-[90vh]` → `max-h-[90dvh]` on the 5 form dialogs (Customer, Supplier, CatalogItem, Deal, SupplierQuotation). This is the row's "Save under the address bar" part.
+    - The browser pane has no mobile address bar, so the difference is not measured here; it is for Phase 6's device check.
+  - **Ceiling:** the role names (control, card, dialog) are not aliased as tokens (`--radius-control` …). Tailwind's `--radius-*` scale already carries the values. Add aliases if a second scale is ever needed.

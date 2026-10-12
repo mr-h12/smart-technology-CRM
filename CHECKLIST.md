@@ -4305,6 +4305,81 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             after F-41 · 1.8, overlaps with F-37 · 1.5 and F-33 · 1.3 named; every one of the 67 rows placed
             exactly once or marked outside F-42.
             *(2026-10-12, #328 — 31 rows in 7 groups, 6 screens + polish (no PO-only row) + 15 Phase 5 steps; A-66's Q-42 needs the API (no currency name on the payload); recommended: F-37 · 1.5 and F-33 · 1.3 before Phase 5)*
+      **Phase 5 — build.** UI layer only; the order is `docs/ux-upgrade/plan.md` §3, and each point carries out
+      its rows' Fix, Files, Test first and Browser lines from §1 or §2. Each point writes its test red first, then runs
+      `npm run test:unit` and `npm run build` (plus the PHP test its row names), `rtl-ui-verifier` (ar/en × 1280/375;
+      the three themes where colour is involved) and `waste-auditor`. A deals-screen part is built only after
+      F-41 · 1.8 closes; until then a point ships its other parts and says so on its line. Rows outside F-42 are
+      not here. Started before F-37 · 1.5 and F-33 · 1.3 (the owner's choice, 2026-10-12), so the lines of those
+      lists that §3 tags are reread when they run. The point list was published and approved 2026-10-12 in conversation.
+      - [x] **5.0** This point list. Docs only.
+            *(2026-10-12, #329 — 50 build points in §3's 15 steps; every Phase 4 row named once, the three split rows twice; Phase 6 gets its own list)*
+      **Step 1 — tokens.**
+      - [ ] **5.1** A-65: the dead `--shadow-3` becomes `--shadow-2`.
+      - [ ] **5.2** A-42: `--color-overlay` and `color-scheme` (DS §10 "Token changes", the owner's pick).
+      - [ ] **5.3** A-63: radius 8 / 12 / 16 per role, and `90dvh` on the form dialogs.
+      **Step 2 — focus.**
+      - [ ] **5.4** A-34: one global `:focus-visible` rule.
+      - [ ] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).
+      - [ ] **5.6** A-08: the picker's active-option bar.
+      **Step 3 — buttons and status.**
+      - [ ] **5.7** A-51: hover and pressed states.
+      - [ ] **5.8** A-33: one primary per area, row Danger as text.
+      - [ ] **5.9** A-55: one status chip without the dot; the deal chip after F-41.
+      **Step 4 — the dialog shell.**
+      - [ ] **5.10** A-04, first part: `ConfirmDialog` on native `<dialog>`, with its new spec.
+      - [ ] **5.11** A-04, second part: the other 11 dialogs, and `inert` on the drawer; the deal dialog after F-41.
+      - [ ] **5.12** A-09: Approve asks first.
+      - [ ] **5.13** A-22: Return and Delete-confirm become dialogs; the other inline forms move focus.
+      - [ ] **5.14** A-30: busy actions.
+      **Step 5 — feedback and states.**
+      - [ ] **5.15** A-31 and A-32: one always-present `role="status"` region for results and successes.
+      - [ ] **5.16** A-41: loading made visible.
+      - [ ] **5.17** A-43: errors with a cause and a next step.
+      **Step 6 — list primitives.**
+      - [ ] **5.18** A-13: filters, sort and page in the URL.
+      - [ ] **5.19** A-14: reload without losing the table.
+      - [ ] **5.20** A-39 and A-40: cards below 640 px and a sticky header that sticks.
+      - [ ] **5.21** A-48 and A-67: when the filter bar and the pager show.
+      - [ ] **5.22** A-49: every filter live.
+      **Step 7 — display, plurals, title and focus.**
+      - [ ] **5.23** A-06: D-70 digits and one date form.
+      - [ ] **5.24** A-07: phones keep their order.
+      - [ ] **5.25** A-26: D-99's display form on screen. Opens with the proposed D-xx amending D-82, a shell write
+            to `CRM_Documentation_EN.md` with the owner's yes.
+      - [ ] **5.26** A-52: long text stays inside.
+      - [ ] **5.27** A-44: Arabic plurals.
+      - [ ] **5.28** A-12: the tab title and focus on navigation.
+      **Step 8 — form fields.**
+      - [ ] **5.29** A-11: errors on a failed save.
+      - [ ] **5.30** A-24: the file control.
+      - [ ] **5.31** A-38: 44 px targets.
+      - [ ] **5.32** A-50: one required marker.
+      **Step 9 — the shell.**
+      - [ ] **5.33** A-05 and A-23: the closed drawer is inert; collapsed rail links keep their name.
+      - [ ] **5.34** A-28: one h1 per page.
+      **Step 10 — login.**
+      - [ ] **5.35** A-10 and A-46: Sign-in stays enabled; a language switch on the login card.
+      **Step 11 — customers.**
+      - [ ] **5.36** A-02: no second create.
+      - [ ] **5.37** A-57, A-59 and A-54's links: the bulk panel when needed, Close after an import, tappable contacts.
+      **Step 12 — approvals.**
+      - [ ] **5.38** A-47: four approvals fixes.
+      **Step 13 — quotations and the builder.**
+      - [ ] **5.39** A-01 and A-17: the builder follows the route; focus follows add and remove.
+      - [ ] **5.40** A-35: remove at once, with Undo.
+      - [ ] **5.41** A-16, A-36, A-37 and A-60: the builder's line inputs.
+      - [ ] **5.42** A-61 and A-62: an in-app discard prompt; margin keeps its minus sign.
+      - [ ] **5.43** A-27: a browser check first; the in-flow list only if the clipping is confirmed.
+      - [ ] **5.44** A-20: a sticky Save.
+      - [ ] **5.45** A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
+      **Step 14 — polish.**
+      - [ ] **5.46** A-66, without its deals items.
+      **Step 15 — after F-41 · 1.8.**
+      - [ ] **5.47** A-19 and A-58: the phone deals list and the details trigger.
+      - [ ] **5.48** A-29 and A-53: unique ids per row and the deal header.
+      - [ ] **5.49** A-18's timeline and A-66's deals items (DC-55, DC-69).
+      - [ ] **5.50** The deals-screen part of every `plan.md` §1 row marked "after F-41".
 
 ## Shell revisions — owner-directed
 

@@ -216,8 +216,14 @@ watch(
                     :key="option === null ? '' : option.id"
                     role="option"
                     :aria-selected="(option === null ? leading?.selected : selected(option)) ? 'true' : 'false'"
-                    class="cursor-pointer px-3 py-2"
-                    :class="{ 'flex items-start gap-2': multiple, 'bg-[var(--color-surface-muted)]': index === active }"
+                    class="cursor-pointer border-s-4 px-3 py-2"
+                    :class="[
+                        { 'flex items-start gap-2': multiple },
+                        // A-08: a start-edge bar and weight, not the fill alone (1.03–1.12:1); every row reserves the 4px.
+                        index === active
+                            ? 'border-[var(--color-focus-ring)] bg-[var(--color-surface-muted)] font-semibold'
+                            : 'border-transparent',
+                    ]"
                     :data-testid="option === null ? `${testId}-all` : `${testId}-option`"
                     @mousedown.prevent="pick(option)"
                 >

@@ -258,6 +258,24 @@ describe('CustomerPicker', () => {
         expect((input.element as HTMLInputElement).value).toBe('Nisco');
     });
 
+    it('marks the arrow-key option with a start-edge bar and weight, not colour alone (A-08)', async () => {
+        const wrapper = render(server());
+        await open(wrapper);
+        const input = wrapper.find('[data-testid="picker"]');
+        const marks = ['border-[var(--color-focus-ring)]', 'font-semibold'];
+        const marked = (index: number): boolean => {
+            const classes = wrapper.findAll('[role="option"]')[index]?.classes() ?? [];
+            // border-transparent compiles after the bar colour and would hide it.
+            return marks.every((mark) => classes.includes(mark)) && !classes.includes('border-transparent');
+        };
+
+        await input.trigger('keydown', { key: 'ArrowDown' });
+        expect([marked(0), marked(1)]).toEqual([true, false]);
+
+        await input.trigger('keydown', { key: 'ArrowDown' });
+        expect([marked(0), marked(1)]).toEqual([false, true]);
+    });
+
     it('closes on Escape without choosing', async () => {
         const wrapper = render(server());
         await open(wrapper);

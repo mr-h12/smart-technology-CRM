@@ -4333,7 +4333,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-12, #333 — `app.css` `@layer base`: 2 px `--color-focus-ring`, 2 px offset; 24 `focus-visible:` triplets in 9 files and `RoleFormModal`'s scoped copy deleted (owner's yes); Approvals' list was empty, so its row actions were not walked)*
       - [x] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).
             *(2026-10-13, #334 — 191 triplets in 30 files deleted (5.4's rule draws the ring for the keyboard); **the deals part waits for step 15**: 28 in 6 `pages/deals/` files, exempted in `uiSourceRules.spec.ts` (owner's yes); Chromium still rings a text input or select on click, by `:focus-visible`'s own rule)*
-      - [ ] **5.6** A-08: the picker's active-option bar.
+      - [x] **5.6** A-08: the picker's active-option bar.
+            *(2026-10-13, #335 — `SearchCombobox`: 4 px `border-s` in `--color-focus-ring` + weight 600 on the arrow-key option; every row reserves the 4 px (owner's yes); `border-transparent` only on the other rows, since it compiles after the bar colour and hid it — the spec now fails on that)*
       **Step 3 — buttons and status.**
       - [ ] **5.7** A-51: hover and pressed states.
       - [ ] **5.8** A-33: one primary per area, row Danger as text.

@@ -214,7 +214,7 @@ watch(
 .dialog-panel {
     background-color: var(--color-surface-raised);
     border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-3, var(--shadow-2));
+    box-shadow: var(--shadow-2);
 }
 
 .field {

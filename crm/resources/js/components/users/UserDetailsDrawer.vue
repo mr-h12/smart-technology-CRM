@@ -353,7 +353,7 @@ function shortAgent(userAgent: string | null): string {
     /* The inline axis: the drawer enters from the end side, which is the right
        in English and the left in Arabic. */
     border-inline-start: 1px solid var(--color-border);
-    box-shadow: var(--shadow-3, var(--shadow-2));
+    box-shadow: var(--shadow-2);
 }
 
 .drawer-close {

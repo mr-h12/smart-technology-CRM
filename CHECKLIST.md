@@ -4280,6 +4280,22 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **3.8** Token proposals as proposed decisions in Design System §10 — radius, `--color-overlay`,
             `color-scheme` (A-42, A-63; the dead `--shadow-3`, A-65, moved to Phase 4 by 3.1); applied only on the owner's yes.
             *(2026-10-12, #324 — `design-options.md` §8 + DS §10 "Token changes"; the owner chose both recommendations (A-42 A, A-63 B), applied in Phase 4; today's Midnight scrim lightens the canvas (0.03), `color-scheme` absent, radius 8+12 / 12+16 / 16 per role; recommended: a 23rd token `--color-overlay` with `color-scheme`, and §4.2 amended to 8 / 12 / 16 (11 edits, not ~411))*
+      **Phase 4 — plan.** Docs only; the output is `docs/ux-upgrade/plan.md`, the build plan Phase 5 carries
+      out. The owner's answers of 2026-10-12: every option row in `design-options.md` §3–§8 takes its written
+      recommendation; §2's nine questions take theirs. The UI parts (A-26, A-55, A-62, A-54's links) join
+      Phase 4, and the API or route parts (A-03, A-15, A-18, A-25, A-45) become separate fix points outside
+      F-42, numbered by the owner. The point list was published and approved 2026-10-12 in conversation.
+      - [x] **4.0** This point list. Docs only.
+            *(2026-10-12, #325 — four points, 4.0–4.3; the owner took every recommendation in §2–§8; five API or route rows leave F-42; no CI run, docs only)*
+      - [ ] **4.1** Record the owner's picks in `design-options.md`: §2's nine rows answered, each
+            Recommendation in §3–§8 marked as the owner's pick, §1 regrouped (Phase 4 or outside F-42, none
+            left open; 67 rows); the five outside rows listed here as unnumbered proposals.
+      - [ ] **4.2** `plan.md` §1, the shared layer: tokens, focus rule, buttons, status chip, dialog shell,
+            feedback, list primitives, D-70/D-99 display, plurals, title and focus; per row the files, the
+            failing test to write first and the browser check.
+      - [ ] **4.3** `plan.md` §2 per screen, and §3 the Phase 5 order: shared layer first, F-41-flagged rows
+            after F-41 · 1.8, overlaps with F-37 · 1.5 and F-33 · 1.3 named; every one of the 67 rows placed
+            exactly once or marked outside F-42.
 
 ## Shell revisions — owner-directed
 

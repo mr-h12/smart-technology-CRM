@@ -223,11 +223,6 @@ watch(
     color: var(--color-text);
 }
 
-.field:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 2px;
-}
-
 .hint {
     color: var(--color-text-muted);
     font-size: 0.875rem;

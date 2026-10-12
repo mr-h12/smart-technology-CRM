@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
                             <input
                                 v-model="documentLocale"
                                 type="radio"
-                                class="size-4 accent-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                class="size-4 accent-[var(--color-primary)]"
                                 :name="`pdf-language-${quotationId}`"
                                 :value="option.value"
                                 :data-testid="`pdf-language-${option.value}`"
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
                 <button
                     v-if="canGenerate"
                     type="button"
-                    class="primary-action inline-flex min-h-11 items-center justify-center rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="primary-action inline-flex min-h-11 items-center justify-center rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="requesting || status === 'queued'"
                     :aria-describedby="status === 'queued' ? statusId : undefined"
                     data-testid="pdf-generate"
@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
                 <button
                     v-if="pdf?.latest_file_id"
                     type="button"
-                    class="row-action inline-flex min-h-11 items-center justify-center rounded-lg px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action inline-flex min-h-11 items-center justify-center rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="downloading"
                     data-testid="pdf-download"
                     @click="download(pdf.latest_file_id)"

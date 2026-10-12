@@ -4329,7 +4329,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **5.3** A-63: radius 8 / 12 / 16 per role, and `90dvh` on the form dialogs.
             *(2026-10-12, #332 — 3 context-bar controls → `lg`, 6 cards → `xl`, 5 form dialogs → `90dvh`; the 2 segmented tracks stay `xl` (8 px buttons + 4 px padding, the owner's call); `uiSourceRules.spec.ts` created as F-42's one source-scan spec)*
       **Step 2 — focus.**
-      - [ ] **5.4** A-34: one global `:focus-visible` rule.
+      - [x] **5.4** A-34: one global `:focus-visible` rule.
+            *(2026-10-12, #333 — `app.css` `@layer base`: 2 px `--color-focus-ring`, 2 px offset; 24 `focus-visible:` triplets in 9 files and `RoleFormModal`'s scoped copy deleted (owner's yes); Approvals' list was empty, so its row actions were not walked)*
       - [ ] **5.5** A-64: `focus:` ring utilities become `focus-visible:` or go (657 uses, 36 files).
       - [ ] **5.6** A-08: the picker's active-option bar.
       **Step 3 — buttons and status.**

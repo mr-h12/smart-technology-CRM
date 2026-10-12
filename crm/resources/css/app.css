@@ -80,3 +80,15 @@ body {
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
 }
+
+/*
+ * DS §6: every interactive element shows keyboard focus with focus-ring (A-34).
+ * In the base layer, so a control that needs a different ring can still say so
+ * with a utility; :focus-visible keeps it off mouse clicks.
+ */
+@layer base {
+    :focus-visible {
+        outline: 2px solid var(--color-focus-ring);
+        outline-offset: 2px;
+    }
+}

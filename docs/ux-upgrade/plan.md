@@ -276,9 +276,9 @@ The 31 Phase 4 rows that are not in §1, grouped by the screen in `audit.md`'s S
 - **Browser:** collapse the rail at 1280 as the Manager; the accessibility tree names each link.
 
 ### A-28 — one h1 per page (owner's pick: Option A)
-- **Fix:** the bar's title becomes a `<p>` (`AppContextBar.vue:136`), so each page's own h1 is the only one. Home and `/403` have none today, so `Ping.vue`'s title and `PermissionDeniedState`'s heading become h1 on those pages.
-- **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/Ping.vue`, `crm/resources/js/pages/ForbiddenView.vue`, `crm/resources/js/components/states/PermissionDeniedState.vue`.
-- **Test first:** a case in `uiSourceRules.spec.ts`: `AppContextBar.vue` holds no `<h1`, and every page file the router names holds exactly one.
+- **Fix:** the bar's title becomes a `<p>` (`AppContextBar.vue:136`), so each page's own h1 is the only one. Home and `/403` have none today: `Ping.vue`'s h2 title becomes h1, and `ForbiddenView.vue` gets its own h1. `PermissionDeniedState` keeps its h2, because 18 files draw it inside a page that already has an h1 (`CustomersView.vue:515` and `:648`).
+- **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/Ping.vue`, `crm/resources/js/pages/ForbiddenView.vue`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: `AppContextBar.vue` and `PermissionDeniedState.vue` hold no `<h1`, and `Ping.vue` and `ForbiddenView.vue` hold one each.
 - **Browser:** the heading outline on customers, a quotation, Home and `/403`: one h1 each.
 
 ### 2.2 Login
@@ -291,7 +291,7 @@ The 31 Phase 4 rows that are not in §1, grouped by the screen in `audit.md`'s S
 
 ### A-46 — a language switch on login
 - **Fix:** the context bar's locale segment (`AppContextBar.vue:194`) moves into a small component, used by the bar and by the login card. No theme switch: the audit's fix names the language only.
-- **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/auth/LoginView.vue`.
+- **Files:** new `js/components/LocaleSegment.vue`; `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/auth/LoginView.vue`.
 - **Test first:** `LoginView.spec.ts`: the login card renders the segment, and a click sets the locale to `en`.
 - **Browser:** a private window: switch to English, then reload; the choice is kept as the bar keeps it.
 
@@ -334,7 +334,7 @@ The 31 Phase 4 rows that are not in §1, grouped by the screen in `audit.md`'s S
 - **Browser:** a quotation as the TL and Procurement: no uuid on the page. The deal timeline after F-41.
 
 ### A-20 — a sticky Save (owner's pick: Option A)
-- **Fix:** a bar fixed to the bottom of the viewport carries Save and Cancel; the page gets `scroll-padding-block-end` of the bar's height, so a focused field never hides under it.
+- **Fix:** a bar sticky at the bottom of the viewport carries Save and Cancel; the page gets `scroll-padding-block-end` of the bar's height, so a focused field never hides under it.
 - **Files:** `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
 - **Test first:** a case in `uiSourceRules.spec.ts`: the builder's action bar is `sticky` at the bottom and the page sets `scroll-padding-block-end`.
 - **Browser:** a long draft at 1280 and 375: Save stays in view, and a Tab walk hides 0 focused fields (the 3.7 measure). The phone keyboard check is Phase 6's.

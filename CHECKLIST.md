@@ -4304,7 +4304,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **4.3** `plan.md` §2 per screen, and §3 the Phase 5 order: shared layer first, F-41-flagged rows
             after F-41 · 1.8, overlaps with F-37 · 1.5 and F-33 · 1.3 named; every one of the 67 rows placed
             exactly once or marked outside F-42.
-            *(2026-10-12, #328 — 31 rows in 6 screen groups (no PO-only row) + 15 Phase 5 steps; A-66's Q-42 needs the API (no currency name on the payload); recommended: F-37 · 1.5 and F-33 · 1.3 before Phase 5)*
+            *(2026-10-12, #328 — 31 rows in 7 groups, 6 screens + polish (no PO-only row) + 15 Phase 5 steps; A-66's Q-42 needs the API (no currency name on the payload); recommended: F-37 · 1.5 and F-33 · 1.3 before Phase 5)*
 
 ## Shell revisions — owner-directed
 

@@ -356,7 +356,7 @@ The rule: the final total is visible at load without scrolling, and its text is 
   - It scrolls away with the header.
 - **A-56 Option B** — a sticky bar at the bottom carries the final total. — measure: pass
   - It is visible at load and after scrolling, and its text is 15.17 / 17.72 / 12.59. But it covers **36–38 px** of the lines at every scroll position, at both widths.
-- **A-56 Recommendation** — **Option A.** DS §5.2 asks for "summary first", and the header is where Option A puts it. A permanent bar would compete for the same bottom edge as 3.7's sticky Save (A-11), and the full totals block stays at the bottom for the breakdown.
+- **A-56 Recommendation** — **Option A.** DS §5.2 asks for "summary first", and the header is where Option A puts it. A permanent bar would compete for the same bottom edge as 3.7's sticky Save (A-20), and the full totals block stays at the bottom for the breakdown.
 
 ## 6. Lists (F-42 · 3.6)
 

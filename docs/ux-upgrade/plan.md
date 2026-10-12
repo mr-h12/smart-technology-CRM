@@ -7,6 +7,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 - Each row's Phase 5 point writes the failing test named under **Test first** before the fix (Delivery Protocol 1).
 - Then it runs the **Browser** check through `rtl-ui-verifier`, at Arabic RTL and English LTR × 1280 and 375. The three themes are added where the row involves colour.
 - Paths are from the repo root. `js/` stands for `crm/resources/js/`.
+- **Source scans** (a rule read from the source files, with no mount) live in **one** spec, `js/__tests__/uiSourceRules.spec.ts`, created by the first row that needs one. Each later row adds a case; none adds a scan file. Scans skip `*.spec.ts`.
 - **F-41.** A row flagged F-41 in `design-options.md` §1 touches the deals screens. Its shared part is built in order; **its deals-screen part is built after F-41 · 1.8 closes** (said on the row as "after F-41").
 
 ## 1. The shared layer (F-42 · 4.2)
@@ -37,7 +38,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
   - `AppContextBar.vue`'s 5 shell controls change from `xl` to `lg`, and the 6 `2xl` cards (customer detail ×3, login, account security ×2) change to `xl`.
   - The 5 form dialogs change from `max-h-[90vh]` to `max-h-[90dvh]`.
 - **Files:** `docs/Design_System_EN.md`, `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/customers/CustomerDetailView.vue`, `crm/resources/js/pages/auth/LoginView.vue`, `crm/resources/js/pages/profile/AccountSecurityView.vue`, `crm/resources/js/pages/customers/CustomerFormModal.vue` (and the other four `90vh` dialogs).
-- **Test first:** a vitest source scan, `radiusScale.spec.ts`. It finds no `rounded-xl` on a control in `AppContextBar.vue`, no `rounded-2xl` outside the dialog panels and the three `state-plate` tiles, and no `90vh`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: no `rounded-xl` on a control in `AppContextBar.vue`, no `rounded-2xl` outside the dialog panels, the three `state-plate` tiles and the dev page `Ping.vue`, and no `90vh`.
 - **Browser:** 1280 and 375. Each role shows one radius, and at 375 Save stays in view in each form dialog.
 
 ### A-65 — the dead `--shadow-3`
@@ -51,19 +52,19 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-34 — one global focus rule
 - **Fix:** one `:focus-visible` rule in `app.css`: a 2 px outline in `--color-focus-ring` with a 2 px offset. Per-control ring classes that duplicate it go.
 - **Files:** `crm/resources/css/app.css`, `crm/resources/js/pages/approvals/ApprovalsView.vue`, `crm/resources/js/components/AppSidebar.vue`.
-- **Test first:** a vitest mount of a page with a sign-out button and a RouterLink button: the computed outline on `:focus-visible` uses the token. A source scan asserts that `app.css` holds the rule once.
+- **Test first:** a case in `uiSourceRules.spec.ts`: `app.css` holds the `:focus-visible` rule once, using `--color-focus-ring`. jsdom cannot compute a `:focus-visible` style, so the browser walk is the proof that the ring shows.
 - **Browser:** a Tab walk on approvals, quotations and the shell: every stop shows the ring, in 3 themes. The deals-screen stops are checked after F-41.
 
 ### A-64 — focus rings only for the keyboard
 - **Fix:** the `focus:` ring utilities (657 `focus:ring`/`focus:outline` uses in 36 files, measured 2026-10-12; the audit counted 219) become `focus-visible:`, under A-34's rule. Most are deleted outright, because the global rule covers them.
 - **Files:** `crm/resources/js/components/SearchCombobox.vue`, `crm/resources/js/pages/customers/CustomersView.vue` (and the other `focus:` files, 36 in all).
-- **Test first:** a source scan finds 0 `focus:ring` / `focus:outline` utilities in `js/` (657 today).
+- **Test first:** a case in `uiSourceRules.spec.ts`: 0 `focus:ring` / `focus:outline` utilities in `js/` outside `*.spec.ts` (657 today).
 - **Browser:** a mouse click shows no ring, and Tab shows it. Deals screens after F-41.
 
 ### A-08 — the picker's active option (owner's pick: Option B)
 - **Fix:** a 4 px `border-inline-start` bar in `--color-focus-ring` on the active option, text at weight 600, plus today's fill.
 - **Files:** `crm/resources/js/components/SearchCombobox.vue`.
-- **Test first:** `SearchCombobox.spec.ts` (new): ArrowDown sets `aria-activedescendant`, and the active option carries the bar class.
+- **Test first:** a case in the existing `components/customers/__tests__/CustomerPicker.spec.ts`, which mounts the combobox: ArrowDown sets `aria-activedescendant`, and the active option carries the bar class.
 - **Browser:** an arrow-key walk in the customer picker, ar and en (the bar mirrors), 3 themes. The bar must reach 3:1 against the list.
 
 ### 1.3 Buttons and status
@@ -71,13 +72,13 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-51 — hover and pressed states
 - **Fix:** shared `:hover` and `:active` rules for the secondary button, picker options and the picker's Retry, taken from `QuotationPdfPanel`'s existing `.row-action:hover`.
 - **Files:** `crm/resources/css/app.css`, `crm/resources/js/components/pdf/QuotationPdfPanel.vue`, `crm/resources/js/components/SearchCombobox.vue`.
-- **Test first:** a source scan: the hover rule exists once in `app.css` and no longer in `QuotationPdfPanel.vue`. Retry renders as a button.
+- **Test first:** a case in `uiSourceRules.spec.ts`: the hover rule exists once in `app.css` and no longer in `QuotationPdfPanel.vue`; a case in `CustomerPicker.spec.ts`: Retry renders as a button.
 - **Browser:** a mouse hover on a secondary button, an option and Retry, in 3 themes.
 
 ### A-33 — action hierarchy (owner's pick: Option B for row Danger)
 - **Fix:** DS §6.2's variants. One primary per area; Reject and Delete are Danger; row Danger is text only (`danger` text, no border, the size of the ghost Edit); Discard is told apart from Keep editing.
 - **Files:** `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/quotations/QuotationDetailView.vue`, `crm/resources/js/pages/approvals/ApprovalsView.vue`, `crm/resources/js/pages/deals/DealDetailView.vue`.
-- **Test first:** a vitest mount per screen. The Archive row action has the danger-text class and no border; Reject is not primary; one primary button per area.
+- **Test first:** one class assertion in each screen's existing view spec: the Archive row action has the danger-text class and no border, Reject is not primary, and each area has one primary button.
 - **Browser:** customers, quotation detail and approvals in 3 themes. Deal detail after F-41.
 
 ### A-55 — one status chip, no dot (owner's answer)
@@ -90,7 +91,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 
 ### A-04 — native `<dialog>` (owner's pick: Option A)
 - **Fix:** every modal uses `<dialog>` with `showModal()`. That gives the focus move, the trap, Escape and the return to the opener without new code; the drawer gets `inert`.
-- **Files:** `crm/resources/js/components/users/ConfirmDialog.vue`, `crm/resources/js/components/imports/ImportModal.vue`, `crm/resources/js/pages/customers/CustomerFormModal.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`, `crm/resources/js/pages/deals/DealFormModal.vue`.
+- **Files:** the 12 dialogs, `crm/resources/js/components/users/ConfirmDialog.vue`, `crm/resources/js/components/imports/ImportModal.vue`, `crm/resources/js/components/roles/RoleFormModal.vue`, `crm/resources/js/components/roles/PermissionDiffModal.vue`, `crm/resources/js/components/profile/EmailChallengeModal.vue`, `crm/resources/js/components/users/UserFormModal.vue`, `crm/resources/js/components/users/UserDetailsDrawer.vue`, `crm/resources/js/pages/customers/CustomerFormModal.vue`, `crm/resources/js/pages/suppliers/SupplierFormModal.vue`, `crm/resources/js/pages/catalog/CatalogItemFormModal.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`, `crm/resources/js/pages/deals/DealFormModal.vue`; the drawer's `inert` is in `crm/resources/js/components/AppSidebar.vue`.
 - **Test first:** `ConfirmDialog.spec.ts` (new): on open, focus is inside; on close, focus returns to the opener. jsdom lacks `showModal`, so the spec stubs it, and the browser check is the real proof.
 - **Browser:** a Tab walk stays inside each dialog, Escape closes it from any focus, and focus returns to the opener. The deal dialog after F-41.
 
@@ -132,7 +133,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-41 — loading made visible
 - **Fix:** a "Loading…" line while the picker queries and while a supplier block loads, with the block's error shown in the block. The owner picker shows its box only after a refusal, never a raw id.
 - **Files:** `crm/resources/js/components/SearchCombobox.vue`, `crm/resources/js/pages/deals/DealOwnerPicker.vue`, `crm/resources/js/pages/quotations/QuotationBuilderView.vue`.
-- **Test first:** `SearchCombobox.spec.ts`: while the status is `loading`, the popup shows the loading line, not an empty box.
+- **Test first:** a case in `CustomerPicker.spec.ts`: while the status is `loading`, the popup shows the loading line, not an empty box.
 - **Browser:** a throttled network on the customer picker and a builder supplier block. The deal owner picker after F-41.
 
 ### A-43 — errors with a cause and a next step (owner's pick: Option B)
@@ -167,7 +168,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-40 — a sticky header that sticks (owner's pick: Option A, with A-39)
 - **Fix:** the frame becomes `overflow-x: clip`, and the header sticks at `top:` the context bar's height (57 px at 1280, 109 px at 375).
 - **Files:** `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/quotations/QuotationsView.vue`, `crm/resources/js/pages/deals/DealsView.vue`.
-- **Test first:** a source scan: no `<thead class="sticky …">` inside an `overflow-x-auto` frame.
+- **Test first:** a case in `uiSourceRules.spec.ts`: no `<thead class="sticky …">` inside an `overflow-x-auto` frame.
 - **Browser:** scroll a long customer list at 1280 and 375: the header stays under the bar. Deals after F-41.
 
 ### A-48 — filter bar only when useful (owner's pick: Option A)
@@ -192,9 +193,9 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 
 ### A-06 — D-70 digits and one date form
 - **Fix:** every `toLocale*` call goes through `domain/displayDate.ts`, using `-u-nu-latn`, with a timestamp sibling that drops the seconds. One day-first order in both languages.
-- **Files:** `crm/resources/js/domain/displayDate.ts`, `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/quotations/QuotationsView.vue`, `crm/resources/js/pages/deals/DealsView.vue`.
-- **Test first:** `displayDate.spec.ts`: Arabic output holds Western digits only; the timestamp has no seconds. A scan finds 0 `toLocale` calls outside `displayDate.ts`.
-- **Browser:** dates on customers, quotations and POs in ar and en. Deals after F-41.
+- **Files:** `crm/resources/js/domain/displayDate.ts` and the 9 pages with their own date calls: `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/customers/CustomerDetailView.vue`, `crm/resources/js/pages/suppliers/SuppliersView.vue`, `crm/resources/js/pages/catalog/CatalogView.vue`, `crm/resources/js/pages/quotations/QuotationsView.vue`, `crm/resources/js/pages/quotations/QuotationDetailView.vue`, `crm/resources/js/pages/quotations/QuotationBuilderView.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationsView.vue`, `crm/resources/js/pages/deals/DealsView.vue`, `crm/resources/js/pages/deals/DealDetailView.vue`. `crm/resources/js/pages/purchase-orders/PurchaseOrdersView.vue` already uses `displayDate`.
+- **Test first:** `displayDate.spec.ts`: Arabic output holds Western digits only; the timestamp has no seconds. A case in `uiSourceRules.spec.ts`: 0 `toLocaleDateString` / `toLocaleTimeString` / `toLocaleString` calls outside `displayDate.ts` and `*.spec.ts` (`toLocaleLowerCase` is a string call and is not counted).
+- **Browser:** dates on customers, suppliers, catalog, quotations and supplier quotations in ar and en; POs as the reference. Deals after F-41.
 
 ### A-07 — phones keep their order
 - **Fix:** phone values render with `dir="ltr"` inside `<bdi>`, and the tel input gets `dir="ltr"`.
@@ -212,7 +213,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-52 — long text stays inside
 - **Fix:** `break-words min-w-0` on file names, import names and PO references, and a `title` on every `truncate`d title.
 - **Files:** `crm/resources/js/components/AppContextBar.vue`, `crm/resources/js/pages/deals/DealDocumentsPanel.vue`, `crm/resources/js/components/imports/ImportModal.vue`, `crm/resources/js/pages/customers/CustomersView.vue`.
-- **Test first:** a source scan: every `truncate` class sits on an element with a `title` binding.
+- **Test first:** a case in `uiSourceRules.spec.ts`: every `truncate` class sits on an element with a `title` binding.
 - **Browser:** a 120-character Arabic title and file name at 375. Deal documents after F-41.
 
 ### A-44 — Arabic plurals
@@ -238,7 +239,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-24 — the file control (owner's pick: Option A)
 - **Fix:**
   - The input is visually hidden but focusable, and its `<label>` is drawn as a button: «اختر ملفاً» / "Choose a file".
-  - «لم يُختر ملف.» and the limits line, as a lang string like `ImportModal.vue:36-46`, are tied by `aria-describedby`.
+  - «لم يُختر ملف.» and the limits line, a lang string like `import.hint` (the reason is in the comment at `ImportModal.vue:36-46`), are tied by `aria-describedby`.
   - `accept` is set.
 - **Files:** `crm/resources/js/pages/deals/DealDocumentsPanel.vue`, `crm/resources/js/pages/quotations/QuotationPurchaseOrder.vue`, `crm/resources/js/components/imports/ImportModal.vue`, `crm/resources/js/pages/supplier-quotations/SupplierQuotationFormModal.vue`.
 - **Test first:** a `QuotationPurchaseOrder` spec: the file input has `accept`, and its label renders the translated button text and the limits line.
@@ -247,7 +248,7 @@ This is the plan Phase 5 carries out. Every row comes from `audit.md`. Its fix i
 ### A-38 — 44 px targets
 - **Fix:** `min-h-11` on login's button and fields, `inline-flex` on inline-link buttons, and a 44 px label around each row checkbox.
 - **Files:** `crm/resources/js/pages/auth/LoginView.vue`, `crm/resources/js/pages/customers/CustomersView.vue`, `crm/resources/js/pages/customers/CustomerDetailView.vue`.
-- **Test first:** a source scan: every row checkbox sits inside a `label` with `min-h-11`, and the Back link is `inline-flex`.
+- **Test first:** a case in `uiSourceRules.spec.ts`: every row checkbox sits inside a `label` with `min-h-11`, and the Back link is `inline-flex`.
 - **Browser:** at 375, measure the targets with the accessibility tree: none under 44 px on login and customers.
 
 ### A-50 — one required marker (owner's pick: Option A)

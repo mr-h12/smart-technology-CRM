@@ -4287,9 +4287,16 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       F-42, numbered by the owner. The point list was published and approved 2026-10-12 in conversation.
       - [x] **4.0** This point list. Docs only.
             *(2026-10-12, #325 — four points, 4.0–4.3; the owner took every recommendation in §2–§8; five API or route rows leave F-42; no CI run, docs only)*
-      - [ ] **4.1** Record the owner's picks in `design-options.md`: §2's nine rows answered, each
+      - [x] **4.1** Record the owner's picks in `design-options.md`: §2's nine rows answered, each
             Recommendation in §3–§8 marked as the owner's pick, §1 regrouped (Phase 4 or outside F-42, none
             left open; 67 rows); the five outside rows listed here as unnumbered proposals.
+            *(2026-10-12, #326 — 65 rows to Phase 4, A-25 and A-45 outside; A-03, A-15, A-18 split (UI part in Phase 4, API part below), the owner's yes; 26 picks marked, 9 answered)*
+            **Proposals outside F-42, unnumbered (the owner numbers them):**
+            - A-03: per-row abilities on the quotation payload (SEC-09).
+            - A-15: a server total preview for the builder (§7.2; D-67 forbids the SPA computing it).
+            - A-18: `deal_code`, `customer_name` and the timeline actor's name on the payloads, shaped like F-41 · 1.6b's `owner_name`.
+            - A-25: an interim landing screen per role, the first built screen in §8's list, until Module 14 (a route change; `RoleLandingTest`).
+            - A-45: the impersonated role's display name on the API, and `roles.name_ar` filled.
       - [ ] **4.2** `plan.md` §1, the shared layer: tokens, focus rule, buttons, status chip, dialog shell,
             feedback, list primitives, D-70/D-99 display, plurals, title and focus; per row the files, the
             failing test to write first and the browser check.

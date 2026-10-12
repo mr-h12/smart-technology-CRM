@@ -201,7 +201,7 @@ watch(
 
         <div
             v-show="open"
-            class="mt-1 max-h-80 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] shadow-lg"
+            class="mt-1 max-h-80 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-2)]"
             :class="{ 'absolute inset-x-0 top-full z-20': floating }"
         >
             <ul

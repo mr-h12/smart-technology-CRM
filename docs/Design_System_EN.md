@@ -61,7 +61,7 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 --color-primary; --color-primary-hover; --color-primary-active; --color-primary-text;
 --color-focus-ring; --color-link;
 --color-success; --color-warning; --color-danger; --color-info;
---color-status-neutral; --shadow-1; --shadow-2;
+--color-status-neutral; --color-overlay; --shadow-1; --shadow-2;
 ```
 
 ### 3.3 Theme token values
@@ -88,6 +88,12 @@ Components consume semantic tokens only. Do not use theme hex values directly in
 | `danger` | `#B42318` | `#B42318` | `#FF9B91` |
 | `info` | `#1D4ED8` | `#1D4ED8` | `#7CC4FF` |
 | `status-neutral` | `#57534E` | `#52525B` | `#AFBAD4` |
+| `overlay` | `rgb(0 0 0 / 0.5)` | `rgb(0 0 0 / 0.5)` | `rgb(0 0 0 / 0.5)` |
+
+`overlay` is the scrim behind dialogs, drawers and the phone sidebar; it is black in every theme so
+it darkens in every theme (A-42). Each theme block also declares `color-scheme` — `light` for Warm
+Editorial and Clean Monochrome, `dark` for Midnight Obsidian — so native scrollbars, `<select>`
+menus and date pickers follow the theme.
 
 `shadow-1` and `shadow-2` are elevation, not colour, so they are listed separately rather than
 forced into the hex table. Roles are fixed by §4.2 and §6.6: `shadow-1` for resting cards and
@@ -336,6 +342,9 @@ holds.
 
 ### Debt owed to the token set (recorded 2026-08-23, during the shell elevation)
 
+> ✅ **Both items are closed** by F-42 · 5.2 (2026-10-12): `--color-overlay` and `color-scheme`
+> are in `tokens.css`, §3.2 and §3.3; `AppSidebar.vue`'s `backdrop-filter` is gone.
+
 Two things the shell needs and §3.2 does not have. Both were found by looking at rendered pixels,
 not by any check in this repository, and neither is applied — a token change is an owner's
 decision, not an implementation detail.
@@ -359,12 +368,12 @@ name was `"Collapse sidebar Collapse sidebar"` — read out of the browser's acc
 invisible to every text-scanning check here. The hidden label now exists only when the collapsed
 rail has no visible one.
 
-### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner, not yet applied
+### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner; A-42 applied in F-42 · 5.2, A-63 not yet
 
 Two proposals from the UI/UX upgrade's design-options pass. The options, the measurements and
 today's failing case are in `docs/ux-upgrade/design-options.md` §8. **The owner chose both
-recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). Neither is applied yet:
-`tokens.css`, `ThemeTokenTest` and §4.2's radius line change in F-42 Phase 4.
+recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). A-42 is applied (F-42 · 5.2:
+`tokens.css`, `ThemeTokenTest`, §3.2, §3.3); A-63's radius line changes in F-42 · 5.3.
 
 - **A-42 — `--color-overlay` and `color-scheme` (recommended: §8 Option A).** It closes the first
   two items of the debt above.

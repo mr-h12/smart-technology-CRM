@@ -446,7 +446,7 @@ function discard(): void {
        `LogicalPropertiesTest`'s token check caught it. §3.2's set is what a
        component may consume, so the scrim is mixed from `--color-text` exactly
        as `SupplierQuotationFormModal` does. */
-    background-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    background-color: var(--color-overlay);
 }
 
 .modal-panel {

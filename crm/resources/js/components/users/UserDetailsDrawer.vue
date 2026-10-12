@@ -345,7 +345,7 @@ function shortAgent(userAgent: string | null): string {
 
 <style scoped>
 .drawer-scrim {
-    background-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    background-color: var(--color-overlay);
 }
 
 .drawer-panel {

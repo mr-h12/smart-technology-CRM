@@ -12,7 +12,7 @@ Every audit row has exactly one group:
 - **owner's pick**: two designs were drawn at 3.3–3.8, and the owner took the recommendation (2026-10-12).
 - **owner's answer**: the owner answered the 3.2 question with its recommendation (2026-10-12).
 
-**Phase 4 or outside F-42 (F-42 · 4.1).** Every row now goes to Phase 4 except A-25 and A-45, whose whole fix is a route or API change. A-03, A-15 and A-18 are split: their UI part is in Phase 4 (the edit route's message, a line under Save, the gap and "—"), and their API part is a separate proposal outside F-42, listed in `CHECKLIST.md` under 4.1 with A-25 and A-45.
+**Phase 4 or outside F-42 (F-42 · 4.1).** Every row now goes to Phase 4 except A-25 and A-45, whose whole fix is a route or API change. A-03, A-15 and A-18 are split: their UI part (§2) is in Phase 4 and their API part is a proposal outside F-42, listed in `CHECKLIST.md` under 4.1. A-54's contact links are built in Phase 4; its deals list waits for F-41.
 
 **F-41** marks a row that touches the deals screens. It may be designed now but is built only after F-41 closes, whatever its group.
 
@@ -88,6 +88,8 @@ Every audit row has exactly one group:
 
 ### Counts
 
+At 3.1. **Since 4.1:** 65 rows go to Phase 4 (32 obvious fixes, 26 picks, 7 answers) and 2 go outside F-42 (A-25, A-45).
+
 | Group | Rows |
 |---|---|
 | one obvious fix → Phase 4 | 32 |
@@ -111,7 +113,7 @@ Every audit row has exactly one group:
 
 ## 2. Owner decisions (F-42 · 3.2)
 
-All nine questions were asked on 2026-10-12, each with a recommendation. The owner said "go green" without answering, so each row is recorded as **deferred**, with the recommendation kept as it was asked. That is the rule stated when the questions were put.
+All nine questions were asked on 2026-10-12, each with a recommendation. The owner said "go green" without answering, so each row was recorded as **deferred** at 3.2, with the recommendation kept as it was asked. That is the rule stated when the questions were put.
 
 **Answered 2026-10-12 (F-42 · 4.1):** the owner took every recommendation below. The Status column now reads "answered", and §1 places each row.
 

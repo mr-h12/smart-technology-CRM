@@ -358,3 +358,26 @@ rendered a visible label *and* an `sr-only` copy of the same string, so its comp
 name was `"Collapse sidebar Collapse sidebar"` — read out of the browser's accessibility tree, and
 invisible to every text-scanning check here. The hidden label now exists only when the collapsed
 rail has no visible one.
+
+### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner, not yet applied
+
+Two proposals from the UI/UX upgrade's design-options pass. The options, the measurements and
+today's failing case are in `docs/ux-upgrade/design-options.md` §8. **The owner chose both
+recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). Neither is applied yet:
+`tokens.css`, `ThemeTokenTest` and §4.2's radius line change in F-42 Phase 4.
+
+- **A-42 — `--color-overlay` and `color-scheme` (recommended: §8 Option A).** It closes the first
+  two items of the debt above.
+  - A 23rd token, `--color-overlay: rgb(0 0 0 / 0.5)`, goes in each of the three theme blocks, and
+    every scrim uses it.
+  - `color-scheme: light` goes on `:root` and Clean Monochrome, and `color-scheme: dark` on
+    Midnight Obsidian.
+  - It amends `D-73`'s 22-token count, so `ThemeTokenTest` gains the name.
+  - The rejected alternative is `backdrop-filter: brightness(0.45)` on every scrim. It needs no
+    token, but it gives no dimming where the filter is unsupported.
+- **A-63 — the radius steps (recommended: §8 Option B).** §4.2's radius line would read **`8px`
+  controls, `12px` cards, `16px` dialogs** (Tailwind `rounded-lg` / `rounded-xl` /
+  `rounded-2xl`).
+  - Those are the steps the application already renders (the edit counts are in §8).
+  - The rule §4.2 cares about holds either way: one radius per role, rising from control to card
+    to dialog.

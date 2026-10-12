@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Design;
 
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -172,6 +173,39 @@ final class ThemeTokenTest extends TestCase
         }
 
         self::assertSame([], $matches[0], 'app.css must consume tokens, not hex values (§3.2, §8).');
+    }
+
+    public function test_every_custom_property_a_component_uses_is_defined(): void
+    {
+        // §8 again, the other way round: a var() naming a token nobody defines
+        // is a dead fallback, not a token. A-65 found eleven `--shadow-3`s.
+        // app.css counts because Tailwind's @theme declares --font-mono and
+        // --text-table there.
+        $css = self::read(base_path('resources/css/tokens.css')).self::read(base_path('resources/css/app.css'));
+
+        if (preg_match_all('/--([a-z0-9-]+)\s*:/', $css, $defined) === false) {
+            throw new RuntimeException('Reading declarations failed: '.preg_last_error_msg());
+        }
+
+        $undefined = [];
+
+        foreach (File::allFiles(base_path('resources/js')) as $file) {
+            $path = $file->getPathname();
+
+            if (! preg_match('/\.(vue|ts)$/', $path) || str_ends_with($path, '.spec.ts')) {
+                continue;
+            }
+
+            if (preg_match_all('/var\(--([a-z0-9-]+)/', self::read($path), $used) === false) {
+                throw new RuntimeException('Scanning '.$path.' failed: '.preg_last_error_msg());
+            }
+
+            foreach (array_diff($used[1], $defined[1]) as $name) {
+                $undefined[$name] = true;
+            }
+        }
+
+        self::assertSame([], array_keys($undefined), 'Every var(--…) a component uses is declared in tokens.css or app.css (§3.2, §8).');
     }
 
     // ─────────────────────────────────────────────────── contrast, computed

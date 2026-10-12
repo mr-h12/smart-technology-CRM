@@ -359,11 +359,12 @@ name was `"Collapse sidebar Collapse sidebar"` — read out of the browser's acc
 invisible to every text-scanning check here. The hidden label now exists only when the collapsed
 rail has no visible one.
 
-### Proposed token changes (F-42 · 3.8, 2026-10-12) — not approved
+### Token changes (F-42 · 3.8, 2026-10-12) — approved by the owner, not yet applied
 
 Two proposals from the UI/UX upgrade's design-options pass. The options, the measurements and
-today's failing case are in `docs/ux-upgrade/design-options.md` §8. **Neither is applied.** A
-token change is the owner's decision, and `tokens.css` stays as it is until the owner says yes.
+today's failing case are in `docs/ux-upgrade/design-options.md` §8. **The owner chose both
+recommendations on 2026-10-12** (A-42 Option A, A-63 Option B). Neither is applied yet:
+`tokens.css`, `ThemeTokenTest` and §4.2's radius line change in F-42 Phase 4.
 
 - **A-42 — `--color-overlay` and `color-scheme` (recommended: §8 Option A).** It closes the first
   two items of the debt above.

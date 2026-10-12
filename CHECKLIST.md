@@ -4279,7 +4279,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-12, #323 — `design-options.md` §7, rows A-11/20/24/50 (A-37, A-41 moved by 3.1); every rule failed on today's behaviour first; A-24 B fails (the browser's English button); a Tab walk hid 0 of 28 fields, and 4 with `scroll-padding` removed; recommended: focus the first invalid field, a sticky bottom Save, a translated file button, the word «(مطلوب)»)*
       - [x] **3.8** Token proposals as proposed decisions in Design System §10 — radius, `--color-overlay`,
             `color-scheme` (A-42, A-63; the dead `--shadow-3`, A-65, moved to Phase 4 by 3.1); applied only on the owner's yes.
-            *(2026-10-12, — `design-options.md` §8 + DS §10 "Proposed token changes", not applied; today's Midnight scrim lightens the canvas (0.03), `color-scheme` absent, radius 8+12 / 12+16 / 16 per role; recommended: a 23rd token `--color-overlay` with `color-scheme`, and §4.2 amended to 8 / 12 / 16 (11 edits, not ~411))*
+            *(2026-10-12, #324 — `design-options.md` §8 + DS §10 "Token changes"; the owner chose both recommendations (A-42 A, A-63 B), applied in Phase 4; today's Midnight scrim lightens the canvas (0.03), `color-scheme` absent, radius 8+12 / 12+16 / 16 per role; recommended: a 23rd token `--color-overlay` with `color-scheme`, and §4.2 amended to 8 / 12 / 16 (11 edits, not ~411))*
 
 ## Shell revisions — owner-directed
 

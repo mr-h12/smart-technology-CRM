@@ -466,3 +466,85 @@ The rule: no request carries text the bar shows as not applied. Measured by typi
   - A would add a click to every select change on every list, plus a "not applied" notice to keep honest.
   - With A-19's folded filters on the phone, B needs no Apply button in the panel.
   - **Ceiling:** the mock-up's 400 ms was a guess, and the combobox's 300 ms is not measured against the list API either.
+
+## 7. Builder (F-42 · 3.7)
+
+**Rows covered:** A-11, A-20, A-24, A-50. The CHECKLIST line also names A-37 ("Enter") and A-41 ("per-block loading"), but 3.1 moved both to Phase 4 (#317).
+
+**F-41.** A-11 and A-24 carry the F-41 flag in §1. Their deal-screen parts (`DealFormModal`, the deal documents panel) are built only after F-41 closes.
+
+**The mock-up.** `prototypes/ux-builder/index.html` is untracked. It loads the real `tokens.css`, and `ux-prototypes` serves it at `http://localhost:8790/prototypes/ux-builder/index.html`.
+- Each row draws **today's behaviour** beside its options as the planted failing case. **Every rule below was seen failing on today's version first.**
+- A-20 draws one option per load (`?a20=today|A|B`), because two sticky bars on one page interfere with each other.
+- The page carries a sticky bar like `AppContextBar.vue:119`.
+
+**How it was measured** (2026-10-12):
+- **A-11:** a real Enter press in a field of each form, Arabic, at 1280.
+- **A-20:** a real Tab walk through the 28 line fields: forwards for A, backwards (Shift+Tab) for B, at 1280 and 375.
+- **A-24:** a real Tab onto the file control, plus a screenshot of the native button.
+- **Everything else:** Arabic and English at 1280 and 375, and contrast in all 3 themes with the 3.4 checker.
+- **Width:** at 375 every option sits at 33–342, and page overflow is 0 in all four states.
+
+**Contrast measured** (Warm / Mono / Midnight):
+
+| Measured pair | Warm | Mono | Midnight |
+|---|---|---|---|
+| Field error text (`danger`) | 6.20 | 5.98 | 9.44 |
+| A-11 A: summary link | 6.57 | 6.57 | 8.74 |
+| A-24 A: the translated button | 15.17 | 17.72 | 14.40 |
+| A-24 A: its focus ring vs the canvas | 4.89 | — | — |
+| A-50: the «(مطلوب)» / "(required)" marker | 6.20 | 5.98 | 9.44 |
+| A-50: help text (`text-muted`) | 7.20 | 7.03 | 9.85 |
+
+### A-11, errors on a failed save
+
+The rule: after a failed save, focus moves to the summary or to the first invalid field. Every invalid field carries `aria-invalid="true"` and an `aria-describedby` that points at its own error text.
+- **Today:** the Enter press leaves focus in the currency field. The red line appears at the top (the builder's `formError`, `QuotationBuilderView.vue:698`). The two field errors are tied to nothing. **This fails the rule.**
+- **A-11 Option A** — an error summary at the top («يجب تصحيح حقلين» / "Fix 2 fields") takes focus. It has one link per error to its field, and each field is tied to its error. — measure: pass
+  - Focus lands on the summary (`al-A`). Both fields are tied.
+- **A-11 Option B** — focus moves to the first invalid field. The existing top line gives the count («يجب تصحيح حقلين قبل الحفظ.»), and each field is tied to its error. — measure: pass
+  - Focus lands on the customer field (`c-B`). Both fields are tied.
+- **A-11 Recommendation** — **Option B.** Focus lands where the fix happens, and the screen reader reads that field's own error through `aria-describedby`. The count goes into the `role="alert"` line the builder already has (`:698`), so nothing new is built beyond the ids and the `focus()`.
+  - Option A adds a summary component with links. It is the better shape for a form whose errors are many and far apart, which the builder's lines can be. If the owner expects 3+ errors per save to be common, A is worth its extra size.
+  - Either option closes the audit's `aria-invalid` gap on margin and its "one `aria-describedby` in the whole slice". The import modal's missing `role="alert"` (`ImportModal.vue:163`) is part of A-11 too, and either option adds it.
+
+### A-20, where Save sits on a long builder
+
+The rule: halfway down a 14-line builder, Save is on screen, and no field focused by Tab is hidden under a sticky bar.
+- **Today:** Save is only at the end of the form. At mid-scroll it is **not on screen**. **This fails the rule.**
+- **A-20 Option A** — a sticky bar at the bottom of the viewport carries Save and Cancel. The page gets `scroll-padding-block-end: <bar height>`. — measure: pass
+  - Save is on screen at mid-scroll at both widths.
+  - A real Tab walk through all 28 fields hid **0**, at 1280 and at 375.
+  - The bar is 65 px; on the phone the screen keeps 109 px at the top (context bar) and 65 at the bottom.
+- **A-20 Option B** — a sticky bar under the context bar carries Save. The page gets a `scroll-padding-block-start` of both bars. — measure: pass
+  - Save is on screen. A real Shift+Tab walk through all 28 fields hid **0**.
+  - The top stack becomes **122 px** at 1280 and **174 px of 812** at 375: more than a fifth of the phone is fixed at the top.
+- **The hidden-field check was proven able to fail:** Option A with its `scroll-padding` removed hid **4 of 28** focused fields under the bar.
+- **A-20 Recommendation** — **Option A.**
+  - On the phone, A and B use the same 174 px. A splits it between top and bottom; B stacks all of it at the top, where the lines, and the sticky table headers of §6 (A-40), would sit under it.
+  - The bottom is where a form ends, and DS §6.2's single Primary sits at the end of its flow.
+  - **The `scroll-padding` is part of the option, not an extra:** without it the bar hides fields (measured above).
+  - **Not measured:** the phone's on-screen keyboard. A sticky bottom bar can sit behind the keyboard on iOS. The browser pane has no soft keyboard, so this is for the device check in Phase 6.
+
+### A-24, the file control
+
+The rule: on an Arabic page, the control's visible button reads in Arabic, and the allowed formats and size limit are shown before any upload, with `accept` set.
+- **Today:** the native control, with no `accept` and no limits text. In the screenshot it reads "No file chosen / Choose File" in English on the Arabic page. **This fails the rule.**
+- **A-24 Option A** — the input is visually hidden but focusable, and its `<label>` is drawn as a button: «اختر ملفاً» / "Choose a file". Under it come «لم يُختر ملف.» and «PDF أو JPG أو PNG، حتى 30 ميغابايت.», tied by `aria-describedby`. — measure: pass
+  - A real Tab lands on the hidden input, and its label shows a 2 px focus ring (4.89:1 against the canvas).
+- **A-24 Option B** — the native control as it is, plus `accept` and the limits line. — measure: fail
+  - The limits line and `accept` are there. But the button and "No file chosen" stay in the **browser's** language (English in the screenshot), whatever the page's locale. A page can't restyle or translate that text.
+- **A-24 Recommendation** — **Option A.**
+  - The number "30 MB" comes the way `ImportModal.vue:36-46` already gets it: a lang string for `config('files.max_size_bytes')` (D-71), because the SPA has no endpoint for the limit. The drift, if the configuration ever changes, is recorded at `checklist/module-03.md:905` and in that file's `ponytail:` comment.
+  - **Non-UI part, as §1 says:** showing the *configured* number live would need an endpoint. That is not F-42's.
+
+### A-50, required marker, help text and disabled reason
+
+The rule: one form uses one kind of required marker on every required field, no rule lives only in a placeholder, and a disabled control states why.
+- **Today:** «*» on one field and «(مطلوب)» on another (2 kinds). "Empty = no tax" lives only in a placeholder. The tax-included box is disabled with no reason. **This fails the rule.**
+- **A-50 Option A** — the word «(مطلوب)» / "(required)" after the label, in `danger`, with `aria-required`. The tax rule is help text under its field, and the disabled box carries «غير متاح لأن العرض معفى من الضريبة.», both tied by `aria-describedby`. — measure: pass
+  - 1 kind, 2 of 2 marked, no placeholder-only rule, the reason present. The marker is 51 px (ar) / 64 px (en) wide.
+- **A-50 Option B** — «*» after the label (`aria-hidden`, with `aria-required` on the input), plus one legend line «الحقول المعلَّمة بـ * مطلوبة.» at the top. The same help and reason lines. — measure: pass
+  - 1 kind, 2 of 2 marked, no placeholder-only rule, the reason present. The marker is 6 px wide.
+- **A-50 Recommendation** — **Option A.** DS §6.3 asks for an "explicit required marker", and the supplier dialog already chose the word for that reason (`SupplierQuotationFormModal.vue:668`: "a word, not only a glyph"). So A makes the other forms match a decision the code has already made.
+  - B saves 45–58 px per label, but it needs the legend to be read first and gives a sighted reader a 6 px glyph to find.

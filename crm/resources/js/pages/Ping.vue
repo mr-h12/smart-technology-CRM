@@ -124,7 +124,7 @@ onMounted(load);
                 </span>
 
                 <div class="min-w-0 flex-1">
-                    <h2 class="text-card-title text-balance text-[var(--color-text)]">{{ t('ping.title') }}</h2>
+                    <h1 class="text-card-title text-balance text-[var(--color-text)]">{{ t('ping.title') }}</h1>
                     <p class="mt-0.5 text-table text-[var(--color-text-muted)] text-pretty">{{ t('ping.subtitle') }}</p>
                 </div>
 

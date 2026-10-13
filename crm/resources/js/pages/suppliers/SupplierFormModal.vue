@@ -29,6 +29,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { createSupplier, updateSupplier, type Supplier, type SupplierDraft } from '@/services/suppliers';
 
@@ -41,6 +42,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [Supplier]; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 /**
  * §7.1's colours and types. Restated rather than fetched because both are a
@@ -252,18 +256,21 @@ function discard(): void {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="supplier-form-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="supplier-form-title"
+        data-testid="supplier-form-modal"
+        @cancel.prevent="requestClose()"
+    >
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="supplier-form-title"
             novalidate
             data-testid="supplier-form"
             @submit.prevent="save()"
-            @keydown.escape.prevent="requestClose()"
         >
             <h2 id="supplier-form-title" class="text-card-title">
                 {{ isEdit ? t('suppliers.form.editTitle') : t('suppliers.form.createTitle') }}
@@ -448,7 +455,7 @@ function discard(): void {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

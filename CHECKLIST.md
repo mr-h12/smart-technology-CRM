@@ -988,7 +988,9 @@ would hide them behind `OD-03` indefinitely.
       with no failing test behind it, which `CLAUDE.md`'s module-isolation rule and its ban on
       opportunistic cleanup inside an unrelated point both forbid. Recording it a second time is the
       argument that it is now large enough to schedule. Owed: one `FormModalShell` (or a composable
-      for the error mapping plus a shared stylesheet), five call sites
+      for the error mapping plus a shared stylesheet), five call sites. *Recount, F-42 · P2 (2026-10-13,
+      `waste-auditor`):* `grep -rln "modal-scrim"` now returns six, `DealFormModal` included; P2 moved the
+      `.dialog-*` pair into `app.css` but left the `.modal-*` pair, outside its rows
 
 - [ ] **Editing `docker-compose.yml` stales the php container's single-file mount** — *revealed while
       verifying the `spa-build` watch service, 2026-09-05.* The `php` service bind-mounts
@@ -1748,7 +1750,10 @@ would hide them behind `OD-03` indefinitely.
       `pages/deals/` files do (step 15). `RolesMatrixView.vue:700`'s scoped `.danger-action` is an outline
       (its `[data-v]` selector outranks the global filled one, so its look is unchanged), while the global
       `.danger-action` is DS §6.2's filled Danger for a confirm. Owed: delete the three copies; rename
-      Roles' outline or move it onto `.danger-text`, when the owner orders it
+      Roles' outline or move it onto `.danger-text`, when the owner orders it. *Also revealed by F-42 · P2
+      (`waste-auditor`):* `.dialog-confirm` / `.dialog-confirm--danger` / `.dialog-cancel` are scoped in
+      `ConfirmDialog`, `RoleFormModal`, `PermissionDiffModal` and `EmailChallengeModal`, repeating
+      `.create-action`, `.danger-action` and the secondary button
 - [ ] **Two dead `--font-mono` fallbacks** — *revealed by F-42 · 5.1, 2026-10-12 (`waste-auditor`); not
       fixed there, because the approved line is `--shadow-3`.* `PermissionDiffModal.vue:165` and
       `RolesMatrixView.vue:625` write `var(--font-mono, ui-monospace, monospace)`, while `--font-mono` is
@@ -4361,7 +4366,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.15 A-31 and A-32: one always-present `role="status"` region for results and successes.
             · 5.16 A-41: loading made visible.
             · 5.17 A-43: errors with a cause and a next step.
-      - [ ] **P2** Dialogs and the shell.
+      - [x] **P2** Dialogs and the shell.
+            *(2026-10-13, #339 — ConfirmDialog + 10 modals and Return are native `<dialog>`s through one `useModalDialog` (showModal on draw, focus back to the opener, modal again when Chrome closes on an uncancelable second Escape); scrim/panel once in `app.css`; Approve and Delete ask in ConfirmDialog; a greyed Record says why; closed drawer `inert` below 1024; collapsed links named «label، count»; bar title a `<p>`, Ping and /403 one h1. Deal parts (DealFormModal, approval and status controls) wait for step 15)*
             · 5.10 A-04, first part: `ConfirmDialog` on native `<dialog>`, with its new spec.
             · 5.11 A-04, second part: the other 11 dialogs; the deal dialog after F-41. The drawer's `inert` is 5.33's (`plan.md` names it under both rows).
             · 5.12 A-09: Approve asks first.

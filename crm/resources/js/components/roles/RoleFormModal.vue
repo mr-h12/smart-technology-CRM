@@ -25,8 +25,9 @@
  * label is required because something has to render; the Arabic one is optional
  * because `RoleView::label()` falls back, exactly as it does for §3.1's eight.
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { SLUG_PATTERN, isSlugShaped } from '@/domain/roleSlug';
 
 const props = defineProps<{ open: boolean; busy: boolean; errorKey: string | null }>();
@@ -37,6 +38,9 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 const slug = ref('');
 const name = ref('');
@@ -78,14 +82,11 @@ function submit(): void {
 // §6.1: "Escape closes dialogs/menus without discarding silently." Closing here
 // discards a form nothing was done with yet, which is the documented behaviour
 // for a create dialog — nothing has been sent.
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.open && !props.busy) {
+function onEscape(): void {
+    if (!props.busy) {
         emit('cancel');
     }
 }
-
-onMounted(() => document.addEventListener('keydown', onKeydown));
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 
 watch(
     () => props.open,
@@ -100,18 +101,18 @@ watch(
 </script>
 
 <template>
-    <div
+    <dialog
         v-if="open"
+        ref="dialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="role-form-title"
         data-testid="role-form-modal"
+        @cancel.prevent="onEscape"
     >
         <div class="dialog-scrim absolute inset-0" @click="busy ? null : emit('cancel')" />
 
         <form
             class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="role-form-title"
             @submit.prevent="submit"
         >
             <h2 id="role-form-title" class="text-card-title">{{ t('roles.create.title') }}</h2>
@@ -203,20 +204,10 @@ watch(
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.dialog-scrim {
-    background-color: var(--color-overlay);
-}
-
-.dialog-panel {
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-2);
-}
-
 .field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

@@ -75,6 +75,7 @@
         "primary": "Primary navigation",
         "collapse": "Collapse sidebar",
         "expand": "Expand sidebar",
+        "badged": "{label}, {count}",
         "open": "Open navigation",
         "close": "Close navigation",
         "group": {
@@ -1212,7 +1213,6 @@
             "newVersion": "New version",
             "delete": "Delete",
             "deletePrompt": "Delete this draft? It cannot be recovered from this screen.",
-            "deleteKeep": "Keep it",
             "deleteProceed": "Delete the draft",
             "send": "Send to the customer",
             "respond": "Record the customer's response",
@@ -1224,6 +1224,8 @@
             "poReferenceHint": "e.g. 4500123987",
             "poDate": "PO date",
             "respondRecord": "Record the response",
+            "recordNeedsPo": "Enter the customer's PO reference and PO date to record the response.",
+            "recordNeedsReason": "Write the reason to record the response.",
             "dealLost": "The deal is now Lost.",
             "dealKept": "The deal keeps its status: it still has other open quotations, or it cannot move to Lost from where it is.",
             "lines": "Lines",
@@ -1347,6 +1349,10 @@
         "slaExceeded": "SLA exceeded",
         "edit": "Edit & approve",
         "approve": "Approve",
+        "approveConfirm": {
+            "title": "Approve this quotation?",
+            "message": "Approve {name}? It leaves this list, and the seller can then send it to the customer."
+        },
         "return": "Return",
         "returnNote": "Note to the seller (required)",
         "returnSend": "Return with note",

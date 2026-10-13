@@ -223,7 +223,7 @@ describe('AppSidebar — the counters', () => {
         });
     }
 
-    async function mountWithRouter(fetchMock: ReturnType<typeof vi.fn>) {
+    async function mountWithRouter(fetchMock: ReturnType<typeof vi.fn>, props = { open: true, collapsed: false }) {
         vi.stubGlobal('fetch', fetchMock);
         await useAuth().login(MANAGER.email, 'Passw0rd123');
 
@@ -232,7 +232,7 @@ describe('AppSidebar — the counters', () => {
         await router.isReady();
 
         const wrapper = mount(AppSidebar, {
-            props: { open: true, collapsed: false },
+            props,
             global: {
                 plugins: [createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { ar, en } }), router],
                 stubs: { RouterLink: { template: '<a><slot /></a>' } },
@@ -252,6 +252,16 @@ describe('AppSidebar — the counters', () => {
         expect(wrapper.find('[data-testid="nav-badge-quotations"]').exists()).toBe(false);
     });
 
+    /** F-42 · 5.33 (A-23): the collapsed rail drops the visible label; the link keeps it as its name, with the count. */
+    it('names each collapsed link by its label, and the badged one with its count', async () => {
+        const { wrapper } = await mountWithRouter(server({ approvals: 3, my_quotations: 0 }), { open: false, collapsed: true });
+        const links = wrapper.findAll('nav a');
+        const approvals = links.find((link) => link.find('[data-testid="nav-badge-approvals"]').exists());
+
+        expect(approvals?.attributes('aria-label')).toBe(`${ar.nav.item.approvals}، 3`);
+        expect(links.filter((link) => (link.attributes('aria-label') ?? '') === '')).toEqual([]);
+    });
+
     it('re-reads the counts when the route changes', async () => {
         const fetchMock = server({ approvals: 0, my_quotations: 2 });
         const { wrapper, router } = await mountWithRouter(fetchMock);
@@ -263,5 +273,36 @@ describe('AppSidebar — the counters', () => {
         await flushPromises();
 
         expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/api/v1/badges')).length).toBe(before + 1);
+    });
+});
+
+/** F-42 · 5.33 (A-05): below 1024px the closed drawer sits off-screen, so it must leave the Tab order too. */
+describe('AppSidebar — the closed drawer', () => {
+    beforeEach(() => {
+        useAuth().forgetSession();
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('{"data":{}}', { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    });
+
+    it.each([
+        [375, false, true],
+        [375, true, false],
+        [1280, false, false],
+    ])('at %ipx with open=%s, inert is %s', (width, open, inert) => {
+        vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+            matches: width >= 1024,
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList);
+
+        const aside = mount(AppSidebar, {
+            props: { open, collapsed: false },
+            global: {
+                plugins: [createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { ar, en } }), memoryRouter()],
+                stubs: { RouterLink: { template: '<a><slot /></a>' } },
+            },
+        }).get('[data-testid="sidebar"]');
+
+        expect(aside.attributes('inert') !== undefined).toBe(inert);
     });
 });

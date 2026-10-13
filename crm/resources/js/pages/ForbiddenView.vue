@@ -19,6 +19,8 @@ const { t } = useI18n();
 
 <template>
     <div class="flex flex-col items-center gap-2">
+        <!-- A-28: the page's one h1; the state below keeps its h2 because 18 pages draw it under their own h1. -->
+        <h1 class="sr-only">{{ t('state.denied.title') }}</h1>
         <PermissionDeniedState />
         <RouterLink to="/" class="row-action inline-flex min-h-11 items-center rounded-lg px-4" data-testid="forbidden-home">
             {{ t('state.denied.home') }}

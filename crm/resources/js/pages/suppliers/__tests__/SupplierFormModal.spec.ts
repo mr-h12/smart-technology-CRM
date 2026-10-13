@@ -260,7 +260,8 @@ describe('SupplierFormModal — §5.2 unsaved changes', () => {
     it('takes the same path on Escape as on Cancel', async () => {
         const view = render();
         await view.find('[data-testid="supplier-form-name"]').setValue('Beta');
-        await view.find('[data-testid="supplier-form"]').trigger('keydown.escape');
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
 
         expect(view.emitted('cancel')).toBeFalsy();
         expect(view.find('[data-testid="supplier-form-unsaved"]').exists()).toBe(true);

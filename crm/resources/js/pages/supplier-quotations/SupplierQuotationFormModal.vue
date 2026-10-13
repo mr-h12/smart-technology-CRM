@@ -44,6 +44,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { listCurrencies, type Currency } from '@/services/admin';
 import { downloadFile } from '@/services/files';
@@ -74,6 +75,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [SupplierQuotation]; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 /** The fields a server refusal can name, which are the inputs this form has. */
 const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'total_price', 'currency_id', 'prices_include_tax'] as const;
@@ -636,18 +640,21 @@ function discard(): void {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="supplier-quotation-form-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="supplier-quotation-form-title"
+        data-testid="supplier-quotation-form-modal"
+        @cancel.prevent="requestClose()"
+    >
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="supplier-quotation-form-title"
             novalidate
             data-testid="supplier-quotation-form"
             @submit.prevent="save()"
-            @keydown.escape.prevent="requestClose()"
         >
             <h2 id="supplier-quotation-form-title" class="text-card-title">
                 {{ isEdit ? t('supplierQuotations.form.editTitle') : t('supplierQuotations.form.createTitle') }}
@@ -1190,7 +1197,7 @@ function discard(): void {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

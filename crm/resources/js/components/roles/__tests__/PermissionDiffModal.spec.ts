@@ -96,25 +96,16 @@ describe('the controls', () => {
     it('cancels on Escape (§6.1), and not while a request is in flight', async () => {
         const wrapper = mountModal();
 
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
         expect(wrapper.emitted('cancel')).toHaveLength(1);
 
         await wrapper.setProps({ busy: true });
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
         expect(wrapper.emitted('cancel')).toHaveLength(1);
 
         wrapper.unmount();
     });
 
-    it('stops listening for Escape once unmounted', () => {
-        const wrapper = mountModal();
-        wrapper.unmount();
-
-        // A document listener that outlives its component answers for a modal
-        // that is no longer on the page.
-        expect(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))).not.toThrow();
-        expect(wrapper.emitted('cancel')).toBeUndefined();
-    });
 });
 
 describe('Arabic', () => {

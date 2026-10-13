@@ -90,4 +90,37 @@ describe('UI source rules (F-42)', () => {
         expect(linesMatching(/^\.status-chip\b/, (_, path) => !later.test(path))).toEqual([]);
         expect(linesMatching(/status-dot/)).toEqual([]);
     });
+
+    it('native dialogs (A-04): no aria-modal div outside pages/deals; every modal opens a <dialog> through useModalDialog', () => {
+        // DS §6.6: showModal() traps focus, closes on Escape and makes the page behind inert, with no code of ours.
+        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+        expect(linesMatching(/aria-modal="true"/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+
+        const modals = SOURCES.filter(([path, text]) => path.endsWith('.vue') && !path.startsWith('pages/deals/') && /<dialog\b/.test(text)).map(([path]) => path);
+        expect(modals.sort()).toEqual([
+            'components/imports/ImportModal.vue',
+            'components/profile/EmailChallengeModal.vue',
+            'components/roles/PermissionDiffModal.vue',
+            'components/roles/RoleFormModal.vue',
+            'components/users/ConfirmDialog.vue',
+            'components/users/UserDetailsDrawer.vue',
+            'components/users/UserFormModal.vue',
+            'pages/approvals/ApprovalsView.vue',
+            'pages/catalog/CatalogItemFormModal.vue',
+            'pages/customers/CustomerFormModal.vue',
+            'pages/supplier-quotations/SupplierQuotationFormModal.vue',
+            'pages/suppliers/SupplierFormModal.vue',
+        ]);
+        expect(modals.filter((path) => !(SOURCES.find(([p]) => p === path)?.[1] ?? '').includes('useModalDialog('))).toEqual([]);
+    });
+
+    it('one h1 per page (A-28): the context bar and the refusal hold none, Home and /403 hold one each', () => {
+        // DS §8 "semantic headings": the page's own h1 is the only one.
+        const h1s = (path: string): number => (SOURCES.find(([p]) => p === path)?.[1].match(/<h1\b/g) ?? []).length;
+
+        expect(h1s('components/AppContextBar.vue')).toBe(0);
+        expect(h1s('components/states/PermissionDeniedState.vue')).toBe(0);
+        expect(h1s('pages/Ping.vue')).toBe(1);
+        expect(h1s('pages/ForbiddenView.vue')).toBe(1);
+    });
 });

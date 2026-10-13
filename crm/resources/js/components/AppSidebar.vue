@@ -15,10 +15,10 @@
  * whose guard sends them to the denial screen, and an endpoint that refuses
  * them regardless.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
-import { NAVIGATION, type BadgeableItem, type NavigationGroup } from '@/navigation';
+import { NAVIGATION, type BadgeableItem, type NavigationGroup, type NavigationItem } from '@/navigation';
 import { readBadges } from '@/services/badges';
 import { useAuth } from '@/stores/auth';
 
@@ -77,6 +77,31 @@ watch(() => route.fullPath, async () => {
     }
 }, { immediate: true });
 
+/**
+ * A-05: below 1024px a closed drawer only slides off-screen, so its links stay
+ * in the Tab order; `inert` takes them out until it opens. At ≥1024px it is the
+ * rail and always present.
+ */
+const wide = window.matchMedia('(min-width: 1024px)');
+const isWide = ref(wide.matches);
+const onWidth = (event: MediaQueryListEvent): void => {
+    isWide.value = event.matches;
+};
+
+wide.addEventListener('change', onWidth);
+onBeforeUnmount(() => wide.removeEventListener('change', onWidth));
+
+/** A-23: the collapsed rail draws no label, so the link carries it as its name, with the count when badged. */
+function railName(item: NavigationItem): string | undefined {
+    if (!props.collapsed) {
+        return undefined;
+    }
+
+    const count = item.badge === undefined ? 0 : badges.value[item.badge] ?? 0;
+
+    return count > 0 ? t('nav.badged', { label: t(item.labelKey), count }) : t(item.labelKey);
+}
+
 function onBackdrop(): void {
     emit('close');
 }
@@ -104,6 +129,7 @@ function onBackdrop(): void {
             props.collapsed ? 'app-sidebar--collapsed' : '',
         ]"
         :aria-label="t('nav.primary')"
+        :inert="!props.open && !isWide"
         data-testid="sidebar"
     >
         <!-- ── Header ────────────────────────────────────────────────────────
@@ -170,6 +196,7 @@ function onBackdrop(): void {
                         <RouterLink
                             :to="{ name: item.name }"
                             :title="props.collapsed ? t(item.labelKey) : undefined"
+                            :aria-label="railName(item)"
                             :class="[
                                 'app-sidebar__link group relative flex min-h-11 items-center gap-3 rounded-lg',
                                 'text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]',

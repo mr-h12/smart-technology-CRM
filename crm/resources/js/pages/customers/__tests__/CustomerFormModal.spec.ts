@@ -346,7 +346,8 @@ describe('CustomerFormModal — Design System §5.2 unsaved-change warning', () 
     it('does not let Escape discard an edited form silently', async () => {
         const view = render();
         await view.find('[data-testid="customer-form-name"]').setValue('Half a name');
-        await view.find('[data-testid="customer-form"]').trigger('keydown.escape');
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
 
         expect(view.find('[data-testid="customer-form-unsaved"]').exists()).toBe(true);
         expect(view.emitted('cancel')).toBeUndefined();

@@ -698,12 +698,6 @@ onMounted(async () => {
     color: inherit;
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 /* §6.2's Primary: the one main permitted action on this screen. */
 .create-action {
     background-color: var(--color-primary);

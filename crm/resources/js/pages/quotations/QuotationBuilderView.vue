@@ -1161,12 +1161,6 @@ onMounted(load);
     text-decoration: underline;
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .save-action {
     background-color: var(--color-primary);
     color: var(--color-primary-text);

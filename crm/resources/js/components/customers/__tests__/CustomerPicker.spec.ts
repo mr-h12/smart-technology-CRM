@@ -219,6 +219,22 @@ describe('CustomerPicker', () => {
         expect(wrapper.findAll('[data-testid="picker-option"]')).toHaveLength(1);
     });
 
+    it('draws Retry as the secondary button (A-51)', async () => {
+        const wrapper = render(server(() => refused(500)));
+        await open(wrapper);
+
+        const retry = wrapper.find('[data-testid="picker-retry"]');
+        expect(retry.element.tagName).toBe('BUTTON');
+        expect(retry.classes()).toContain('row-action');
+    });
+
+    it('fills an option under the mouse, not only the arrow-key one (A-51)', async () => {
+        const wrapper = render(server());
+        await open(wrapper);
+
+        expect(wrapper.find('[data-testid="picker-option"]').classes()).toContain('hover:bg-[var(--color-surface-muted)]');
+    });
+
     it('carries the combobox roles the APG pattern names', async () => {
         const wrapper = render(server());
         const input = wrapper.find('[data-testid="picker"]');

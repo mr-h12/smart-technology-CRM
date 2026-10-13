@@ -290,12 +290,6 @@ onMounted(load);
     color: var(--color-text);
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .sla-chip {
     color: var(--color-danger);
     background-color: color-mix(in srgb, currentColor 14%, transparent);

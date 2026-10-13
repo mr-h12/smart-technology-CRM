@@ -9,7 +9,7 @@ import { downloadFile } from '@/services/files';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 // The save gesture needs an object URL, which jsdom lacks; the name it is given is what matters.
-vi.mock('@/services/files', () => ({ downloadFile: vi.fn(async () => undefined) }));
+vi.mock('@/services/files', async (original) => ({ ...(await original<object>()), downloadFile: vi.fn(async () => undefined) }));
 
 /**
  * Module 7, Point 6.5 — one quotation, as `GET /quotations/{id}` answers it.

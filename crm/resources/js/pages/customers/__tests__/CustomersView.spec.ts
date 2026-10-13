@@ -1203,6 +1203,22 @@ describe('CustomersView — F-19 · 1.3 bulk assign', () => {
         expect(boxes).toHaveLength(3);
         expect(boxes.every((box) => box.attributes('disabled') === undefined)).toBe(true);
         expect(view.find('[data-testid="customers-select-all"]').attributes('aria-label')).toBe(en.customers.assign.selectAll);
+    });
+
+    /** A-57 (F-42 · P4): the "Assign to" panel only once a row is ticked. */
+    it('draws no assign panel with nothing ticked, and draws it after one checkbox', async () => {
+        stubBulk();
+        await signIn(ASSIGNER);
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-bulk-assign-owner"]').exists()).toBe(false);
+        expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(false);
+
+        await tick(view, [0]);
+
+        expect(view.find('[data-testid="customers-bulk-assign-owner"]').exists()).toBe(true);
         expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
     });
 
@@ -1320,6 +1336,7 @@ describe('CustomersView — F-19 · 1.3 bulk assign', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="customers-bulk-restore"]').exists()).toBe(true);
+        await tick(view, [0]);
         expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
     });
 
@@ -1342,6 +1359,7 @@ describe('CustomersView — F-19 · 1.3 bulk assign', () => {
 
         const view = render();
         await flushPromises();
+        await tick(view, [0]);
 
         expect(view.find('[data-testid="customers-bulk-assign"]').exists()).toBe(true);
         expect(view.find('[data-testid="customers-bulk-restore"]').exists()).toBe(false);

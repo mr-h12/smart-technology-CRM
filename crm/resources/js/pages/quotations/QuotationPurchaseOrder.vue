@@ -21,7 +21,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDate } from '@/domain/displayDate';
 import type { DealDocument } from '@/services/deals';
-import { downloadFile } from '@/services/files';
+import { downloadFile, FILE_ACCEPT } from '@/services/files';
 import { attachPurchaseOrderDocument, readPurchaseOrder, type PurchaseOrderReference } from '@/services/quotations';
 import { useAuth } from '@/stores/auth';
 
@@ -117,17 +117,25 @@ onMounted(load);
             {{ t(errorKey) }}
         </p>
 
-        <label v-if="canUpload" class="flex flex-col gap-1.5" for="purchase-order-file">
-            <span>{{ t('purchaseOrders.block.choose') }}</span>
-            <input
-                id="purchase-order-file"
-                type="file"
-                :disabled="uploading"
-                class="form-field rounded-lg px-3 py-2"
-                data-testid="purchase-order-file"
-                @change="onFileChosen"
-            />
-        </label>
+        <!-- A-24: a button in the page's language over a focusable input; the types and the limit are said beside it. -->
+        <div v-if="canUpload" class="flex flex-col gap-1.5">
+            <span id="purchase-order-file-title">{{ t('purchaseOrders.block.choose') }}</span>
+            <label class="file-pick row-action inline-flex min-h-11 items-center self-start rounded-lg px-4" for="purchase-order-file">
+                {{ t('files.choose') }}
+                <input
+                    id="purchase-order-file"
+                    type="file"
+                    :accept="FILE_ACCEPT"
+                    :disabled="uploading"
+                    class="sr-only"
+                    aria-describedby="purchase-order-file-title purchase-order-file-name purchase-order-file-hint"
+                    data-testid="purchase-order-file"
+                    @change="onFileChosen"
+                />
+            </label>
+            <p id="purchase-order-file-name" class="text-[var(--color-text-muted)]">{{ t('files.noFile') }}</p>
+            <p id="purchase-order-file-hint" class="text-[var(--color-text-muted)]">{{ t('files.hint') }}</p>
+        </div>
         <!-- A-31: present from load and empty; a live region announces what is set into it. -->
         <p role="status" data-testid="purchase-order-status">{{ uploading ? t('deals.documents.uploading') : '' }}</p>
 
@@ -178,11 +186,5 @@ onMounted(load);
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.form-field {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
 }
 </style>

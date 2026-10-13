@@ -15,6 +15,12 @@ import { apiDownload } from '@/api';
  * an entity has. That gap is on the debt register, not something this file can
  * paper over.
  */
+/**
+ * A-24: the file picker offers what Storage accepts — `AllowedFileType`'s six
+ * extensions. A hint, not the check: the server reads the true type (§17).
+ */
+export const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx';
+
 export async function downloadFile(fileId: string, filename: string): Promise<void> {
     const blob = await apiDownload(`/files/${fileId}/download`);
 

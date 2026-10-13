@@ -281,7 +281,7 @@ describe('the quotation builder (create)', () => {
 
         const options = wrapper.find(id('supplier-0-pick')).findAll('option').map((option) => option.text());
 
-        expect(options).toEqual(['', 'SQ-2026-0001 — Nile Pumps Co', 'SQ-2026-0002 — Delta Valves']);
+        expect(options).toEqual([en.quotations.builder.supplierQuotationNone, 'SQ-2026-0001 — Nile Pumps Co', 'SQ-2026-0002 — Delta Valves']);
     });
 
     it('says the deal could not be opened, never which of the two reasons', async () => {

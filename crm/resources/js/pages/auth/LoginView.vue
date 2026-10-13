@@ -27,11 +27,12 @@
  * are drawn by Inter in both locales without this screen saying anything about
  * fonts.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '@/stores/auth';
 import { landingRouteFor, safeRedirect } from '@/router';
+import LocaleSegment from '@/components/LocaleSegment.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -40,6 +41,8 @@ const auth = useAuth();
 
 const email = ref('');
 const password = ref('');
+const emailField = ref<HTMLInputElement | null>(null);
+const passwordField = ref<HTMLInputElement | null>(null);
 
 /** Set only after a submit, so the fields are not red before anyone typed. */
 const submitted = ref(false);
@@ -54,13 +57,22 @@ const passwordMissing = computed(() => submitted.value && password.value === '')
  * transition" (`D-67`), and a password policy is a rule with an authoritative
  * home in `PasswordPolicy`. What this form checks is that the two boxes are not
  * empty, which is about the form and not about the credential.
+ *
+ * A-10: the button stays enabled while they are empty — a disabled Sign-in says
+ * nothing about why; a submit names each empty box and puts the cursor in the
+ * first.
  */
-const canSubmit = computed(() => !auth.pending.value && email.value.trim() !== '' && password.value !== '');
-
 async function submit(): Promise<void> {
     submitted.value = true;
 
-    if (!canSubmit.value) {
+    if (auth.pending.value) {
+        return;
+    }
+
+    if (emailMissing.value || passwordMissing.value) {
+        await nextTick();
+        (emailMissing.value ? emailField : passwordField).value?.focus();
+
         return;
     }
 
@@ -98,7 +110,11 @@ async function submit(): Promise<void> {
                 data-testid="login-form"
                 @submit.prevent="submit"
             >
-                <h1 class="text-section-title">{{ t('auth.login.title') }}</h1>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h1 class="text-section-title">{{ t('auth.login.title') }}</h1>
+                    <!-- A-46: the language is chosen before signing in, as in the bar after. -->
+                    <LocaleSegment />
+                </div>
 
                 <!-- §8's error state, announced rather than only coloured (§9.5).
                      assertive because it is the result of something the person
@@ -114,8 +130,13 @@ async function submit(): Promise<void> {
                 </p>
 
                 <label class="flex flex-col gap-1.5">
-                    <span>{{ t('auth.login.email') }}</span>
+                    <span>
+                        {{ t('auth.login.email') }}
+                        <!-- A-50: the word, as every form says it. -->
+                        <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
+                    </span>
                     <input
+                        ref="emailField"
                         v-model="email"
                         type="email"
                         name="email"
@@ -125,7 +146,7 @@ async function submit(): Promise<void> {
                         :disabled="auth.pending.value"
                         :aria-invalid="emailMissing"
                         :aria-describedby="emailMissing ? 'login-email-error' : undefined"
-                        class="login-field rounded-lg px-3 py-2"
+                        class="login-field min-h-11 rounded-lg px-3 py-2"
                         data-testid="login-email"
                         @input="auth.clearError()"
                     />
@@ -135,8 +156,13 @@ async function submit(): Promise<void> {
                 </label>
 
                 <label class="flex flex-col gap-1.5">
-                    <span>{{ t('auth.login.password') }}</span>
+                    <span>
+                        {{ t('auth.login.password') }}
+                        <!-- A-50: the word, as every form says it. -->
+                        <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
+                    </span>
                     <input
+                        ref="passwordField"
                         v-model="password"
                         type="password"
                         name="password"
@@ -145,7 +171,7 @@ async function submit(): Promise<void> {
                         :disabled="auth.pending.value"
                         :aria-invalid="passwordMissing"
                         :aria-describedby="passwordMissing ? 'login-password-error' : undefined"
-                        class="login-field rounded-lg px-3 py-2"
+                        class="login-field min-h-11 rounded-lg px-3 py-2"
                         data-testid="login-password"
                         @input="auth.clearError()"
                     />
@@ -156,8 +182,8 @@ async function submit(): Promise<void> {
 
                 <button
                     type="submit"
-                    :disabled="!canSubmit"
-                    class="login-submit flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="auth.pending.value"
+                    class="login-submit flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-60"
                     data-testid="login-submit"
                 >
                     <!-- §6.1: "Loading controls retain their width and show a

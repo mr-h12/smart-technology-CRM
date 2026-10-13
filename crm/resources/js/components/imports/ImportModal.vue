@@ -149,25 +149,28 @@ watch(() => props.open, (open) => {
 
             <!-- §6.3: allowed formats and the configured size limit, stated
                  before anything is chosen. -->
-            <p class="text-[var(--color-text-muted)]">{{ t('import.hint') }}</p>
+            <p id="import-hint" class="text-[var(--color-text-muted)]">{{ t('import.hint') }}</p>
 
-            <label class="flex flex-col gap-1.5">
-                <span class="sr-only">{{ t('import.choose') }}</span>
+            <!-- A-24: the browser's own file button speaks the browser's language;
+                 this label speaks the page's, and the input stays focusable under it. -->
+            <label class="file-pick row-action inline-flex min-h-11 items-center self-start rounded-lg px-4">
+                {{ t('files.choose') }}
                 <input
                     type="file"
                     accept=".csv,text/csv"
-                    class="form-field min-h-11 rounded-lg px-3 py-2"
+                    class="sr-only"
+                    aria-describedby="import-file-name import-hint"
                     data-testid="import-file"
                     @change="onPick"
                 />
             </label>
 
-            <p class="min-w-0 break-words text-[var(--color-text-muted)]" data-testid="import-file-name">
-                {{ chosen === null ? t('import.noFile') : chosen.name }}
+            <p id="import-file-name" class="min-w-0 break-words text-[var(--color-text-muted)]" data-testid="import-file-name">
+                {{ chosen === null ? t('files.noFile') : chosen.name }}
             </p>
 
-            <!-- §6.1: server validation near the affected field. -->
-            <p v-if="errorMessage !== ''" class="import-error rounded-lg px-3 py-2" data-testid="import-error">
+            <!-- §6.1: server validation near the affected field; A-11: announced. -->
+            <p v-if="errorMessage !== ''" class="import-error rounded-lg px-3 py-2" role="alert" data-testid="import-error">
                 {{ errorMessage }}
             </p>
 
@@ -223,7 +226,8 @@ watch(() => props.open, (open) => {
                     data-testid="import-cancel"
                     @click="emit('cancel')"
                 >
-                    {{ t('action.cancel') }}
+                    <!-- A-59: after a result there is nothing left to cancel. -->
+                    {{ batch === null ? t('action.cancel') : t('action.close') }}
                 </button>
 
                 <!-- §6.1: "Loading controls retain their width and show a text
@@ -243,12 +247,6 @@ watch(() => props.open, (open) => {
 </template>
 
 <style scoped>
-.form-field {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .submit-action {
     background-color: var(--color-primary);
     color: var(--color-primary-text);

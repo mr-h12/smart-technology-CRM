@@ -45,9 +45,10 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModalDialog } from '@/components/useModalDialog';
+import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { ApiError } from '@/api';
 import { listCurrencies, type Currency } from '@/services/admin';
-import { downloadFile } from '@/services/files';
+import { downloadFile, FILE_ACCEPT } from '@/services/files';
 import {
     attachSupplierQuotationDocument,
     createSupplierQuotation,
@@ -76,6 +77,7 @@ const emit = defineEmits<{ saved: [SupplierQuotation]; cancel: [] }>();
 
 const { t } = useI18n();
 const dialog = ref<HTMLDialogElement | null>(null);
+const form = ref<HTMLFormElement | null>(null);
 
 useModalDialog(dialog);
 
@@ -229,6 +231,13 @@ function lineProductError(index: number): string | null {
     return lineErrorFor(index, 'catalog_item_id') ?? lineErrorFor(index, 'product_name');
 }
 
+/** A-11: a line error's id, for its control's `aria-describedby`; nothing while it is valid. */
+function lineErrorId(index: number, field: 'product' | 'unit_price' | 'quantity'): string | undefined {
+    const error = field === 'product' ? lineProductError(index) : lineErrorFor(index, field);
+
+    return error === null ? undefined : lineTestId(index, `${field}-error`);
+}
+
 function addLine(): void {
     lines.value.push(blankLine());
 }
@@ -246,6 +255,14 @@ function fieldId(field: Field): string {
 function testId(field: Field): string {
     return `supplier-quotation-form-${field.replace(/_/g, '-')}`;
 }
+
+/** A-11: the error's id, for the field's `aria-describedby`; nothing while it is valid. */
+function errorId(field: Field): string | undefined {
+    return errorFor(field) === null ? undefined : `${fieldId(field)}-error`;
+}
+
+/** A-11: how many fields the last save was refused on, said once at the top. */
+const invalidCount = computed(() => FIELDS.filter((field) => errorFor(field) !== null).length + lineErrors.value.size);
 
 /** The server's sentence when it sent one for this field, otherwise ours. */
 function errorFor(field: Field): string | null {
@@ -531,6 +548,8 @@ function draft(): SupplierQuotationDraft {
 
 async function save(): Promise<void> {
     if (!validate()) {
+        await focusFirstInvalid(form.value);
+
         return;
     }
 
@@ -551,6 +570,11 @@ async function save(): Promise<void> {
         applyServerErrors(error);
     } finally {
         saving.value = false;
+    }
+
+    // After `saving` clears: a disabled field cannot take focus.
+    if (invalidCount.value > 0) {
+        await focusFirstInvalid(form.value);
     }
 }
 
@@ -652,6 +676,7 @@ function discard(): void {
 
         <form
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
+            ref="form"
             novalidate
             data-testid="supplier-quotation-form"
             @submit.prevent="save()"
@@ -667,6 +692,10 @@ function discard(): void {
                 data-testid="supplier-quotation-form-error"
             >
                 {{ t(errorKeys._form) }}
+            </p>
+
+            <p v-if="invalidCount > 0" class="form-alert rounded-lg p-3" role="alert" data-testid="supplier-quotation-form-error-count">
+                {{ t('form.fixCount', invalidCount) }}
             </p>
 
             <label class="flex flex-col gap-1.5" :for="fieldId('supplier_id')">
@@ -686,7 +715,9 @@ function discard(): void {
                     :display="supplierName"
                     :placeholder="t('supplierQuotations.form.supplierNone')"
                     :disabled="saving"
+                    aria-required="true"
                     :aria-invalid="errorFor('supplier_id') !== null"
+                    :aria-describedby="errorId('supplier_id')"
                     @pick="pickSupplier"
                 >
                     <template #option="{ item }">
@@ -700,6 +731,7 @@ function discard(): void {
                 </SearchCombobox>
                 <span
                     v-if="errorFor('supplier_id') !== null"
+                    :id="errorId('supplier_id')"
                     class="text-[var(--color-danger)]"
                     data-testid="supplier-quotation-form-supplier-id-error"
                 >
@@ -723,6 +755,7 @@ function discard(): void {
                     :placeholder="t('deals.picker.placeholder')"
                     :disabled="saving"
                     :aria-invalid="errorFor('deal_id') !== null"
+                    :aria-describedby="errorId('deal_id')"
                     @pick="pickDeal"
                 >
                     <template #option="{ item }">
@@ -736,6 +769,7 @@ function discard(): void {
                 </SearchCombobox>
                 <span
                     v-if="errorFor('deal_id') !== null"
+                    :id="errorId('deal_id')"
                     class="text-[var(--color-danger)]"
                     data-testid="supplier-quotation-form-deal-id-error"
                 >
@@ -754,13 +788,18 @@ function discard(): void {
                         type="checkbox"
                         :disabled="saving || linesState !== 'ready'"
                         :aria-invalid="errorFor('prices_include_tax') !== null"
+                        :aria-describedby="[linesState === 'ready' ? '' : 'supplier-quotation-form-tax-locked', errorId('prices_include_tax') ?? ''].join(' ').trim() || undefined"
                         class="size-4 disabled:opacity-40"
                         :data-testid="testId('prices_include_tax')"
                     />
                     <span :data-testid="`${testId('prices_include_tax')}-label`">{{ t('supplierQuotations.form.pricesIncludeTax') }}</span>
                 </label>
+                <span v-if="linesState !== 'ready'" id="supplier-quotation-form-tax-locked" class="text-[var(--color-text-muted)]">
+                    {{ t('supplierQuotations.form.pricesIncludeTaxLocked') }}
+                </span>
                 <span
                     v-if="errorFor('prices_include_tax') !== null"
+                    :id="errorId('prices_include_tax')"
                     class="text-[var(--color-danger)]"
                     data-testid="supplier-quotation-form-prices-include-tax-error"
                 >
@@ -782,6 +821,7 @@ function discard(): void {
                         autocomplete="off"
                         :disabled="saving"
                         :aria-invalid="errorFor('total_price') !== null"
+                        :aria-describedby="errorId('total_price')"
                         class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                         :data-testid="testId('total_price')"
                     />
@@ -794,6 +834,7 @@ function discard(): void {
                     </span>
                     <span
                         v-if="errorFor('total_price') !== null"
+                        :id="errorId('total_price')"
                         class="text-[var(--color-danger)]"
                         data-testid="supplier-quotation-form-total-price-error"
                     >
@@ -808,6 +849,7 @@ function discard(): void {
                         v-model="values.currency_id"
                         :disabled="saving"
                         :aria-invalid="errorFor('currency_id') !== null"
+                        :aria-describedby="errorId('currency_id')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('currency_id')"
                     >
@@ -816,6 +858,7 @@ function discard(): void {
                     </select>
                     <span
                         v-if="errorFor('currency_id') !== null"
+                        :id="errorId('currency_id')"
                         class="text-[var(--color-danger)]"
                         data-testid="supplier-quotation-form-currency-id-error"
                     >
@@ -843,11 +886,13 @@ function discard(): void {
                     type="date"
                     :disabled="saving"
                     :aria-invalid="errorFor('offer_date') !== null"
+                    :aria-describedby="errorId('offer_date')"
                     class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('offer_date')"
                 />
                 <span
                     v-if="errorFor('offer_date') !== null"
+                    :id="errorId('offer_date')"
                     class="text-[var(--color-danger)]"
                     data-testid="supplier-quotation-form-offer-date-error"
                 >
@@ -863,11 +908,13 @@ function discard(): void {
                     type="date"
                     :disabled="saving"
                     :aria-invalid="errorFor('valid_until') !== null"
+                    :aria-describedby="errorId('valid_until')"
                     class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('valid_until')"
                 />
                 <span
                     v-if="errorFor('valid_until') !== null"
+                    :id="errorId('valid_until')"
                     class="text-[var(--color-danger)]"
                     data-testid="supplier-quotation-form-valid-until-error"
                 >
@@ -882,9 +929,18 @@ function discard(): void {
                     v-model="values.notes"
                     rows="3"
                     :disabled="saving"
+                    :aria-invalid="errorFor('notes') !== null"
+                    :aria-describedby="errorId('notes')"
                     class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId('notes')"
                 />
+                <span
+                    v-if="errorFor('notes') !== null"
+                    :id="errorId('notes')"
+                    class="text-[var(--color-danger)]"
+                >
+                    {{ errorFor('notes') }}
+                </span>
             </label>
 
             <!-- §7.2's `Line items` row — "Product · **price** · quantity
@@ -919,6 +975,7 @@ function discard(): void {
                             :supplier-id="values.supplier_id"
                             :disabled="saving"
                             :aria-invalid="lineProductError(index) !== null"
+                            :aria-describedby="lineErrorId(index, 'product')"
                             :test-id="lineTestId(index, 'product')"
                         />
                         <!-- The field is one line, so a long name is cut there;
@@ -964,6 +1021,7 @@ function discard(): void {
                             inputmode="decimal"
                             :disabled="saving"
                             :aria-invalid="lineErrorFor(index, 'unit_price') !== null"
+                            :aria-describedby="lineErrorId(index, 'unit_price')"
                             class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                             :data-testid="lineTestId(index, 'unit-price')"
                         />
@@ -978,6 +1036,7 @@ function discard(): void {
                             inputmode="decimal"
                             :disabled="saving"
                             :aria-invalid="lineErrorFor(index, 'quantity') !== null"
+                            :aria-describedby="lineErrorId(index, 'quantity')"
                             class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
                             :data-testid="lineTestId(index, 'quantity')"
                         />
@@ -997,6 +1056,7 @@ function discard(): void {
                          `basis-full` so a refusal never squeezes the row. -->
                     <p
                         v-if="lineProductError(index) !== null"
+                        :id="lineErrorId(index, 'product')"
                         class="basis-full text-[var(--color-danger)]"
                         :data-testid="lineTestId(index, 'product-error')"
                     >
@@ -1004,6 +1064,7 @@ function discard(): void {
                     </p>
                     <p
                         v-if="lineErrorFor(index, 'unit_price') !== null"
+                        :id="lineErrorId(index, 'unit_price')"
                         class="basis-full text-[var(--color-danger)]"
                         :data-testid="lineTestId(index, 'unit-price-error')"
                     >
@@ -1011,6 +1072,7 @@ function discard(): void {
                     </p>
                     <p
                         v-if="lineErrorFor(index, 'quantity') !== null"
+                        :id="lineErrorId(index, 'quantity')"
                         class="basis-full text-[var(--color-danger)]"
                         :data-testid="lineTestId(index, 'quantity-error')"
                     >
@@ -1132,17 +1194,25 @@ function discard(): void {
                     <!-- §3.6's third grant. Hidden here **and** enforced at the
                          API — `SEC-09` requires the second, not instead of the
                          first. -->
-                    <label v-if="canUpload" class="flex flex-col gap-1.5" for="supplier-quotation-form-attachment">
-                        <span>{{ uploading ? t('supplierQuotations.form.attachmentUploading') : t('supplierQuotations.form.attachmentChoose') }}</span>
-                        <input
-                            id="supplier-quotation-form-attachment"
-                            type="file"
-                            :disabled="uploading || saving"
-                            class="form-field min-h-11 rounded-lg px-3 py-2"
-                            data-testid="supplier-quotation-form-attachment-file"
-                            @change="upload($event)"
-                        />
-                    </label>
+                    <!-- A-24: a button in the page's language over a focusable input; the types and the limit are said beside it. -->
+                    <div v-if="canUpload" class="flex flex-col gap-1.5">
+                        <span id="supplier-quotation-form-attachment-title">{{ uploading ? t('supplierQuotations.form.attachmentUploading') : t('supplierQuotations.form.attachmentChoose') }}</span>
+                        <label class="file-pick row-action inline-flex min-h-11 items-center self-start rounded-lg px-4" for="supplier-quotation-form-attachment">
+                            {{ t('files.choose') }}
+                            <input
+                                id="supplier-quotation-form-attachment"
+                                type="file"
+                                :accept="FILE_ACCEPT"
+                                :disabled="uploading || saving"
+                                class="sr-only"
+                                aria-describedby="supplier-quotation-form-attachment-title supplier-quotation-form-attachment-name supplier-quotation-form-attachment-hint"
+                                data-testid="supplier-quotation-form-attachment-file"
+                                @change="upload($event)"
+                            />
+                        </label>
+                        <p id="supplier-quotation-form-attachment-name" class="text-[var(--color-text-muted)]">{{ t('files.noFile') }}</p>
+                        <p id="supplier-quotation-form-attachment-hint" class="text-[var(--color-text-muted)]">{{ t('files.hint') }}</p>
+                    </div>
                 </template>
             </fieldset>
 

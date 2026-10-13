@@ -87,6 +87,8 @@ body {
  * with a utility; :focus-visible keeps it off mouse clicks.
  */
 @layer base {
+    /* A-24: a file input is hidden under its label, so the label shows the ring. */
+    .file-pick:has(:focus-visible),
     :focus-visible {
         outline: 2px solid var(--color-focus-ring);
         outline-offset: 2px;
@@ -141,6 +143,47 @@ dialog:not([open]) {
  * Unlayered, as the scoped copies it replaces were, so it keeps their
  * precedence over utilities. pages/deals still holds 6 copies until F-42 step 15.
  */
+/*
+ * A segmented control: the bar's theme switch and LocaleSegment (A-46). The
+ * selected segment is raised, bordered and re-coloured rather than only tinted:
+ * §9.5 requires a state to be readable without relying on colour, and a
+ * segmented control whose only signal is a hue is unusable in the monochrome
+ * theme. Unlayered, as the scoped copy it replaces was.
+ */
+.segmented__option {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition-property: background-color, color, box-shadow;
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+}
+
+.segmented__option--on {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-1);
+    border: 1px solid var(--color-border-strong);
+}
+
+.segmented__option:not(.segmented__option--on):hover {
+    background-color: var(--color-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .segmented__option {
+        transition: none;
+    }
+}
+
+/*
+ * A link inside a row or a summary (A-47, A-54). Unlayered, as the scoped copies
+ * were; the older pages still hold their own copy (debt row).
+ */
+.row-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
 .row-action {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

@@ -694,7 +694,8 @@ onMounted(async () => {
                 <!-- F-19 · 1.3 (`D-92`): one owner for the ticked rows, in one request.
                      `min-w-0` for the customer page's reason: the picker's longest
                      option is wider than a 375 px screen. -->
-                <template v-if="canAssign">
+                <!-- A-57: the panel once a row is ticked; before that it has nothing to act on. -->
+                <template v-if="canAssign && selectedIds.length > 0">
                     <label class="flex min-w-0 flex-col gap-1.5" for="customers-bulk-assign-owner">
                         <span>{{ t('customers.assign.owner') }}</span>
                         <DealOwnerPicker v-model="bulkOwnerId" field-id="customers-bulk-assign-owner" test-id="customers-bulk-assign-owner" />
@@ -711,7 +712,7 @@ onMounted(async () => {
                     <button
                         type="button"
                         class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                        :disabled="selectedIds.length === 0 || acting"
+                        :disabled="acting"
                         data-testid="customers-bulk-assign"
                         @click="askAssign()"
                     >
@@ -733,15 +734,18 @@ onMounted(async () => {
                     <tr class="table-head">
                         <!-- Flow 7 gives select-all to *Restore*, so the column
                              exists only where there is something to restore. -->
-                        <th v-if="showSelection" scope="col" class="p-3 text-start">
-                            <input
-                                type="checkbox"
-                                class="size-4"
-                                :checked="allSelected"
-                                :aria-label="t(canAssign ? 'customers.assign.selectAll' : 'customers.archive.selectAll')"
-                                data-testid="customers-select-all"
-                                @change="toggleAll(($event.target as HTMLInputElement).checked)"
-                            />
+                        <!-- A-38: the label is the 44 px target around a 16 px box. -->
+                        <th v-if="showSelection" scope="col" class="px-1 text-start">
+                            <label class="inline-flex min-h-11 min-w-11 items-center justify-center">
+                                <input
+                                    type="checkbox"
+                                    class="size-4"
+                                    :checked="allSelected"
+                                    :aria-label="t(canAssign ? 'customers.assign.selectAll' : 'customers.archive.selectAll')"
+                                    data-testid="customers-select-all"
+                                    @change="toggleAll(($event.target as HTMLInputElement).checked)"
+                                />
+                            </label>
                         </th>
 
                         <th scope="col" class="p-3 text-start" :aria-sort="ariaSort('name')" data-testid="customers-column-name">
@@ -791,16 +795,18 @@ onMounted(async () => {
 
                 <tbody>
                     <tr v-for="customer in customers" :key="customer.id" class="table-row" data-testid="customers-row">
-                        <td v-if="showSelection" class="p-3">
-                            <input
-                                v-model="selectedIds"
-                                type="checkbox"
-                                :value="customer.id"
-                                :disabled="!selectable(customer)"
-                                class="size-4 disabled:opacity-40"
-                                :aria-label="t('customers.archive.select', { name: customer.name })"
-                                data-testid="customers-select-row"
-                            />
+                        <td v-if="showSelection" class="px-1">
+                            <label class="inline-flex min-h-11 min-w-11 items-center justify-center">
+                                <input
+                                    v-model="selectedIds"
+                                    type="checkbox"
+                                    :value="customer.id"
+                                    :disabled="!selectable(customer)"
+                                    class="size-4 disabled:opacity-40"
+                                    :aria-label="t('customers.archive.select', { name: customer.name })"
+                                    data-testid="customers-select-row"
+                                />
+                            </label>
                         </td>
                         <td class="min-w-0 break-words p-3">
                             <!-- Point 4.4 registered the detail route, so the

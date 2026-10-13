@@ -18,9 +18,9 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
-import { setLocale, SUPPORTED, type Locale } from '@/i18n';
 import { currentTheme, setTheme, THEMES, type Theme } from '@/theme';
 import { useAuth } from '@/stores/auth';
+import LocaleSegment from '@/components/LocaleSegment.vue';
 
 defineProps<{
     /** Drawer state, so the control can announce what it does. */
@@ -29,7 +29,7 @@ defineProps<{
 
 const emit = defineEmits<{ toggleSidebar: [] }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = useAuth();
@@ -87,12 +87,6 @@ const THEME_ICON: Record<Theme, readonly string[]> = {
     ],
 };
 
-function chooseLocale(next: Locale): void {
-    // Direction, document language and the Accept-Language of the next API call
-    // all move together — see i18n.ts.
-    setLocale(next);
-}
-
 function chooseTheme(next: Theme): void {
     // Applies and remembers. The pre-paint script in welcome.blade.php reads
     // what this writes, which is what makes the choice survive a reload (§3.1).
@@ -102,15 +96,6 @@ function chooseTheme(next: Theme): void {
 
 function themeLabel(option: Theme): string {
     return t(`theme.${option}`);
-}
-
-function localeLabel(option: Locale): string {
-    return option === 'ar' ? t('language.arabic') : t('language.english');
-}
-
-/** The code shown inside the dense control. A machine token, never translated. */
-function localeCode(option: Locale): string {
-    return option.toUpperCase();
 }
 </script>
 
@@ -176,32 +161,8 @@ function localeCode(option: Locale): string {
                 </button>
             </div>
 
-            <!-- ── Language ──────────────────────────────────────────────────────
-                 The visible token is the locale code; the accessible name is the
-                 language. Neither button is disabled — a disabled control drops out
-                 of the tab order, so the current language became unreachable by
-                 keyboard and unannounceable. `aria-pressed` says the same thing
-                 without removing it. -->
-            <div
-                class="segmented flex items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1"
-                role="group"
-                :aria-label="t('language.switch')"
-            >
-                <button
-                    v-for="option in SUPPORTED"
-                    :key="option"
-                    type="button"
-                    class="segmented__option grid min-h-11 min-w-11 place-items-center rounded-lg px-1 text-table text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                    :class="locale === option ? 'segmented__option--on' : ''"
-                    :aria-pressed="locale === option"
-                    :title="localeLabel(option)"
-                    :data-locale="option"
-                    @click="chooseLocale(option)"
-                >
-                    <span aria-hidden="true" translate="no">{{ localeCode(option) }}</span>
-                    <span class="sr-only">{{ localeLabel(option) }}</span>
-                </button>
-            </div>
+            <!-- ── Language ── A-46: the same control on the login card. -->
+            <LocaleSegment />
 
             <!-- ── Identity ──────────────────────────────────────────────────────
                  §5.1 lists a "user menu" in the context bar. This is it: the chip
@@ -261,8 +222,8 @@ function localeCode(option: Locale): string {
 </template>
 
 <style scoped>
-.context-control,
-.segmented__option {
+/* The segments' rules are app.css's since A-46 shared the language switch. */
+.context-control {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     transition-property: background-color, color, box-shadow;
@@ -270,26 +231,8 @@ function localeCode(option: Locale): string {
     transition-timing-function: ease-out;
 }
 
-/*
- * The selected segment. It is raised, bordered and re-coloured rather than only
- * tinted: §9.5 requires a state to be readable without relying on colour, and a
- * segmented control whose only signal is a hue is unusable in the monochrome
- * theme.
- */
-.segmented__option--on {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-1);
-    border: 1px solid var(--color-border-strong);
-}
-
-.segmented__option:not(.segmented__option--on):hover {
-    background-color: var(--color-surface);
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .context-control,
-    .segmented__option {
+    .context-control {
         transition: none;
     }
 }

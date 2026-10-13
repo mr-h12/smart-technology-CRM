@@ -147,4 +147,23 @@ describe('UI source rules (F-42)', () => {
 
         expect(untitled).toEqual([]);
     });
+
+    it('44 px targets (A-38): login\'s fields and button, every customers checkbox inside a min-h-11 label, the Back links inline-flex', () => {
+        const source = (path: string) => SOURCES.find(([at]) => at === path)?.[1] ?? '';
+        const short = (tags: string[]) => tags.filter((tag) => !/\bmin-h-11\b/.test(tag));
+
+        const login = source('pages/auth/LoginView.vue');
+        expect(short([...login.matchAll(/<(?:input|button)\b[^>]*>/g)].map(([tag]) => tag))).toEqual([]);
+
+        // A checkbox is 16 px; the label around it is the 44 px target (WCAG 2.5.8 / DS §6.1).
+        const customers = source('pages/customers/CustomersView.vue');
+        const boxes = [...customers.matchAll(/type="checkbox"/g)].length;
+        const wrapped = [...customers.matchAll(/<label\b[^>]*\bmin-h-11\b[^>]*>\s*<input\b[^>]*type="checkbox"/g)].length;
+        expect(boxes).toBeGreaterThan(0);
+        expect(wrapped).toBe(boxes);
+
+        const backs = [...source('pages/customers/CustomerDetailView.vue').matchAll(/<RouterLink\b[^>]*data-testid="customer-back"[^>]*>/g)].map(([tag]) => tag);
+        expect(backs).toHaveLength(3);
+        expect(backs.filter((tag) => !/\binline-flex\b/.test(tag) || !/\bmin-h-11\b/.test(tag))).toEqual([]);
+    });
 });

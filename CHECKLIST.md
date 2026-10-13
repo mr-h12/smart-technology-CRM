@@ -1771,6 +1771,21 @@ would hide them behind `OD-03` indefinitely.
       A-49's files are Customers and Quotations (Deals at step 15).* `SuppliersView.vue`, `CatalogView.vue`,
       `SupplierQuotationsView.vue` and `PurchaseOrdersView.vue` still apply their typed box on a button.
       Owed: the same `usePause` line on each and the button removed, when the owner orders it
+- [ ] **Seven scoped `.row-link` copies beside the shared rule** — *revealed by F-42 · P4, 2026-10-13
+      (`waste-auditor`); P4 put one `.row-link` in `app.css` for the approvals code (A-47) and the customer's
+      contact links (A-54) instead of adding two more.* `CustomersView`, `PurchaseOrdersView`, `QuotationsView`,
+      `QuotationDetailView`, `QuotationBuilderView`, `DealsView` and `DealDetailView` still hold the same two
+      lines in their `<style scoped>`. Owed: delete the seven copies (deals at step 15), when the owner orders it
+- [ ] **Five per-screen "(required)" keys beside `form.required`** — *revealed by F-42 · P4, 2026-10-13
+      (`waste-auditor`); A-50 added `form.required` for the login and the builder, which had no key.*
+      `customers.form.required`, `suppliers.form.required`, `catalog.form.requiredMarker`,
+      `supplierQuotations.form.required` and `deals.form.required` carry the same word in both locales. Owed:
+      point their readers at `form.required` and drop the five (deals at step 15), when the owner orders it
+- [ ] **The supplier-quotations list scrolls sideways at 375 px** — *found by `rtl-ui-verifier` during F-42 · P4,
+      2026-10-13; the file is not in P4's rows, so it is registered, not fixed.* `scrollWidth 386` vs `clientWidth 375`
+      in ar and en: the `sr-only` «تعديل» in the actions `<th>` (`SupplierQuotationsView.vue:353`) is absolutely
+      positioned and its `.table-frame overflow-x-auto` is not `position: relative`, so the span escapes the frame.
+      Owed: `relative` on that frame, with a 375 measure, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -4397,7 +4412,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.26 A-52: long text stays inside.
             · 5.27 A-44: Arabic plurals.
             · 5.28 A-12: the tab title and focus on navigation.
-      - [ ] **P4** Forms, login, customers and approvals.
+      - [x] **P4** Forms, login, customers and approvals.
+            *(2026-10-13, #341 — a refused save focuses the first invalid field, counts the fields in six Arabic forms and ties each error by `aria-describedby` (one `focusFirstInvalid`); file controls are a translated button over a focusable input with `accept` and the types-and-limit line; 44 px login fields and customers checkboxes; the word «(مطلوب)» with `aria-required`, no `*`, no blank option, the builder's tax rule as help text; Sign-in stays enabled; `LocaleSegment` on the bar and the login card; a similar-customer create becomes an edit; Assign only once a row is ticked; Close after an import; `tel:`/`wa.me`/`mailto:` links; approvals: blank note said, Reload clears the 409, one `tbody` per group with a `rowgroup` header, `.row-link` once in `app.css`. Deal parts (DealFormModal, DealDocumentsPanel) wait for step 15)*
             · 5.29 A-11: errors on a failed save.
             · 5.30 A-24: the file control.
             · 5.31 A-38: 44 px targets.

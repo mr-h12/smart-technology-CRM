@@ -118,6 +118,10 @@
         "edit": "Edit",
         "close": "Close"
     },
+    "form": {
+        "required": "(required)",
+        "fixCount": "No field needs fixing. | Fix 1 field before saving. | Fix {count} fields before saving."
+    },
     "impersonation": {
         "banner": "You are signed in as {name} ({role}). Everything you do is recorded against your own account.",
         "leave": "Leave and return to your account"
@@ -563,10 +567,13 @@
             "action": "Restore"
         }
     },
-    "import": {
-        "hint": "CSV files only, up to 30 MB.",
+    "files": {
         "choose": "Choose a file",
         "noFile": "No file chosen",
+        "hint": "A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB."
+    },
+    "import": {
+        "hint": "CSV files only, up to 30 MB.",
         "submit": "Import",
         "submitting": "Importing…",
         "resultTitle": "Import finished",
@@ -647,7 +654,9 @@
             "keepEditing": "Keep editing",
             "discard": "Discard changes",
             "unreachable": "The server could not be reached. The customer was not saved.",
-            "forbidden": "You do not have permission to save this customer."
+            "forbidden": "You do not have permission to save this customer.",
+            "titleNone": "No title",
+            "editTitleNamed": "Edit customer “{name}”"
         },
         "detail": {
             "title": "Customer",
@@ -935,7 +944,8 @@
             "net": "Net before tax: {amount}",
             "totalPrice": "Total",
             "currency": "Currency",
-            "currencyNone": "Choose a currency"
+            "currencyNone": "Choose a currency",
+            "pricesIncludeTaxLocked": "Available once the lines have loaded."
         },
         "column": {
             "code": "Code",
@@ -1286,7 +1296,8 @@
             "lineNo": "Line {no}",
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
             "unsaved": "You have unsaved changes. Leave without saving?",
-            "currencyNone": "Choose a currency"
+            "currencyNone": "Choose a currency",
+            "supplierQuotationNone": "Choose a supplier offer"
         },
         "terms": {
             "heading": "Terms and conditions",
@@ -1358,7 +1369,8 @@
         "returnSend": "Return with note",
         "returnCancel": "Cancel",
         "approved": "{code} was approved.",
-        "returned": "{code} was returned to the seller."
+        "returned": "{code} was returned to the seller.",
+        "noteRequired": "Write a note to the seller before returning."
     },
     "pdf": {
         "panel": {

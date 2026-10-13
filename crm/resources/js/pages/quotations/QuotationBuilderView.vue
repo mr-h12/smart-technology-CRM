@@ -109,6 +109,7 @@ import {
 import { listSuppliers, type Supplier } from '@/services/suppliers';
 import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
+import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { displayTimestamp } from '@/domain/displayDate';
 
 const route = useRoute();
@@ -245,6 +246,7 @@ const saving = ref(false);
 const formError = ref('');
 /** The server's sentence per request field — `discount_percent`, `lines.1.quantity`, `additional_items.0.amount`. */
 const fieldErrors = ref<Map<string, string>>(new Map());
+const form = ref<HTMLFormElement | null>(null);
 /** Which input each sent `lines[i]` came from — `existing-3` or `line-1-2` — so a server index maps back. */
 let sent: string[] = [];
 /** The save that carried warnings: the draft is saved, the link is on, the form stays (F-03). */
@@ -656,6 +658,11 @@ async function save(): Promise<void> {
     } finally {
         saving.value = false;
     }
+
+    // A-11: after `saving` clears, as a disabled field cannot take focus.
+    if (fieldErrors.value.size > 0) {
+        await focusFirstInvalid(form.value);
+    }
 }
 
 /** `Design System §5.2`: leaving a builder with unsaved changes asks first. */
@@ -688,7 +695,7 @@ onMounted(load);
             {{ t('quotations.builder.missing') }}
         </p>
 
-        <form v-else-if="deal !== null" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save">
+        <form v-else-if="deal !== null" ref="form" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save">
             <header class="flex flex-wrap items-center justify-between gap-3">
                 <h1 class="text-page-title">{{ editing ? t('quotations.builder.editTitle', { code: quotationCode }) : t('quotations.builder.title') }}</h1>
                 <p class="flex flex-wrap items-center gap-2">
@@ -701,6 +708,10 @@ onMounted(load);
 
             <p v-if="formError !== ''" class="form-alert rounded-lg p-3" role="alert" data-testid="quotation-builder-form-error">
                 {{ formError }}
+            </p>
+
+            <p v-if="fieldErrors.size > 0" class="form-alert rounded-lg p-3" role="alert" data-testid="quotation-builder-error-count">
+                {{ t('form.fixCount', fieldErrors.size) }}
             </p>
 
             <!-- `API-12`: the newer version's figures and a reload; nothing is merged or retried. -->
@@ -723,7 +734,7 @@ onMounted(load);
                 <!-- `Design System §7.2`: margin, discount and tax in their own group; §4.3 grid. -->
                 <div class="detail-grid rounded-xl p-4">
                     <label class="flex flex-col gap-1.5" :for="fieldId('currency')">
-                        <span>{{ t('quotations.builder.currency') }} *</span>
+                        <span>{{ t('quotations.builder.currency') }} <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></span>
                         <!-- The value is the ISO code either way: `QuotationDraft.currency`
                              takes a code, and the edit hydrates one. -->
                         <select
@@ -732,6 +743,7 @@ onMounted(load);
                             v-model="header.currency"
                             required
                             :aria-invalid="fieldErrors.has('currency')"
+                            :aria-describedby="fieldErrors.has('currency') ? fieldId('currency-error') : undefined"
                             class="form-field min-h-11 rounded-lg px-3 py-2"
                             :data-testid="fieldId('currency')"
                         >
@@ -751,13 +763,13 @@ onMounted(load);
                             class="form-field min-h-11 rounded-lg px-3 py-2 uppercase"
                             :data-testid="fieldId('currency')"
                         />
-                        <span v-if="fieldErrors.has('currency')" class="text-[var(--color-danger)]" :data-testid="fieldId('currency-error')">
+                        <span v-if="fieldErrors.has('currency')" :id="fieldId('currency-error')" class="text-[var(--color-danger)]" :data-testid="fieldId('currency-error')">
                             {{ fieldErrors.get('currency') }}
                         </span>
                     </label>
 
                     <label v-for="field in (['default_margin', 'discount_percent', 'tax_percent'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
-                        <span>{{ t(`quotations.builder.${field}`) }}<template v-if="field !== 'tax_percent'"> *</template></span>
+                        <span>{{ t(`quotations.builder.${field}`) }}<template v-if="field !== 'tax_percent'"> <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></template></span>
                         <input
                             :id="fieldId(field)"
                             v-model="header[field]"
@@ -765,12 +777,13 @@ onMounted(load);
                             inputmode="decimal"
                             autocomplete="off"
                             :required="field !== 'tax_percent'"
-                            :placeholder="field === 'tax_percent' ? t('quotations.builder.taxExempt') : ''"
                             :aria-invalid="fieldErrors.has(field)"
+                            :aria-describedby="[field === 'tax_percent' ? fieldId('tax_percent-help') : '', fieldErrors.has(field) ? fieldId(`${field}-error`) : ''].join(' ').trim() || undefined"
                             class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                             :data-testid="fieldId(field)"
                         />
-                        <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
+                        <span v-if="field === 'tax_percent'" :id="fieldId('tax_percent-help')" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.taxExempt') }}</span>
+                        <span v-if="fieldErrors.has(field)" :id="fieldId(`${field}-error`)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
                         </span>
                     </label>
@@ -782,10 +795,11 @@ onMounted(load);
                             v-model="header[field]"
                             type="date"
                             :aria-invalid="fieldErrors.has(field)"
+                            :aria-describedby="fieldErrors.has(field) ? fieldId(`${field}-error`) : undefined"
                             class="form-field min-h-11 rounded-lg px-3 py-2"
                             :data-testid="fieldId(field)"
                         />
-                        <span v-if="fieldErrors.has(field)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
+                        <span v-if="fieldErrors.has(field)" :id="fieldId(`${field}-error`)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
                         </span>
                     </label>
@@ -812,6 +826,7 @@ onMounted(load);
                                 inputmode="decimal"
                                 autocomplete="off"
                                 :aria-invalid="lineError(`existing-${i}`) !== null"
+                                :aria-describedby="lineError(`existing-${i}`) !== null ? fieldId(`existing-${i}-error`) : undefined"
                                 class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                 :data-testid="fieldId(`existing-${i}-quantity`)"
                             />
@@ -831,7 +846,7 @@ onMounted(load);
                         <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`existing-${i}-remove`)" @click="removeExisting(i)">
                             {{ t('quotations.builder.removeItem') }}
                         </button>
-                        <p v-if="lineError(`existing-${i}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`existing-${i}-error`)">
+                        <p v-if="lineError(`existing-${i}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`existing-${i}-error`)" :data-testid="fieldId(`existing-${i}-error`)">
                             {{ lineError(`existing-${i}`) }}
                         </p>
                         <p v-else-if="lineWarning(`existing-${i}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`existing-${i}-warning`)">
@@ -880,7 +895,7 @@ onMounted(load);
                                     :data-testid="fieldId(`supplier-${b}-pick`)"
                                     @change="pickOffer(b)"
                                 >
-                                    <option value=""></option>
+                                    <option value="">{{ t('quotations.builder.supplierQuotationNone') }}</option>
                                     <option v-for="offer in offers" :key="offer.id" :value="offer.id">{{ offerLabel(offer) }}</option>
                                 </select>
                             </label>
@@ -914,6 +929,7 @@ onMounted(load);
                                         autocomplete="off"
                                         :placeholder="displayQuantity(item.available_quantity)"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
+                                        :aria-describedby="lineError(`line-${b}-${l}`) !== null ? fieldId(`line-${b}-${l}-error`) : undefined"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"
                                     />
@@ -931,7 +947,7 @@ onMounted(load);
                                     />
                                 </label>
                                 <!-- §5.6: a missing price blocks; an excess quantity is red and does not. -->
-                                <p v-if="lineError(`line-${b}-${l}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`line-${b}-${l}-error`)">
+                                <p v-if="lineError(`line-${b}-${l}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`line-${b}-${l}-error`)" :data-testid="fieldId(`line-${b}-${l}-error`)">
                                     {{ lineError(`line-${b}-${l}`) }}
                                 </p>
                                 <p v-else-if="lineWarning(`line-${b}-${l}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`line-${b}-${l}-warning`)">
@@ -961,6 +977,7 @@ onMounted(load);
                                 maxlength="255"
                                 autocomplete="off"
                                 :aria-invalid="fieldErrors.has(`additional_items.${i}.description`)"
+                                :aria-describedby="fieldErrors.has(`additional_items.${i}.description`) ? fieldId(`item-${i}-error`) : undefined"
                                 class="form-field min-h-11 rounded-lg px-3 py-2"
                                 :data-testid="fieldId(`item-${i}-description`)"
                             />
@@ -974,6 +991,7 @@ onMounted(load);
                                 inputmode="decimal"
                                 autocomplete="off"
                                 :aria-invalid="fieldErrors.has(`additional_items.${i}.amount`)"
+                                :aria-describedby="fieldErrors.has(`additional_items.${i}.amount`) ? fieldId(`item-${i}-error`) : undefined"
                                 class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                 :data-testid="fieldId(`item-${i}-amount`)"
                             />
@@ -981,7 +999,7 @@ onMounted(load);
                         <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
                             {{ t('quotations.builder.removeItem') }}
                         </button>
-                        <p v-if="itemError(i) !== null" class="line-note text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`item-${i}-error`)">
+                        <p v-if="itemError(i) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
                             {{ itemError(i) }}
                         </p>
                     </div>
@@ -1016,6 +1034,7 @@ onMounted(load);
                                     autocomplete="off"
                                     :placeholder="term.key === null ? '' : t(`quotations.terms.labels.${term.key}`)"
                                     :aria-invalid="fieldErrors.has(`terms.${i}.title`)"
+                                    :aria-describedby="fieldErrors.has(`terms.${i}.title`) ? fieldId(`term-${i}-error`) : undefined"
                                     class="form-field min-h-11 rounded-lg px-3 py-2"
                                     :data-testid="fieldId(`term-${i}-title`)"
                                 />
@@ -1049,6 +1068,7 @@ onMounted(load);
                                 v-model="term.body"
                                 rows="3"
                                 :aria-invalid="fieldErrors.has(`terms.${i}.body`)"
+                                :aria-describedby="fieldErrors.has(`terms.${i}.body`) ? fieldId(`term-${i}-error`) : undefined"
                                 class="form-field rounded-lg px-3 py-2"
                                 :data-testid="fieldId(`term-${i}-body`)"
                             ></textarea>
@@ -1062,7 +1082,7 @@ onMounted(load);
                             class="text-sm break-words text-[var(--color-text-muted)]"
                             :data-testid="fieldId(`term-${i}-full`)"
                         >{{ term.body }}</span>
-                        <p v-if="termError(i) !== null" class="text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`term-${i}-error`)">
+                        <p v-if="termError(i) !== null" class="text-[var(--color-danger)]" role="alert" :id="fieldId(`term-${i}-error`)" :data-testid="fieldId(`term-${i}-error`)">
                             {{ termError(i) }}
                         </p>
                         <span v-if="term.key !== null && suggestions[term.key].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId(`term-${i}-suggestions`)">

@@ -180,4 +180,19 @@ describe('the login screen', () => {
         expect(wrapper.html()).not.toMatch(/class="[^"]*\b(?:ml|mr|pl|pr)-\d/);
         expect(wrapper.html()).not.toMatch(/\btext-(?:left|right)\b/);
     });
+
+    it('A-66 (SH-22): shows and hides the password, so a phone user can check it before the five-attempt lock', async () => {
+        const { wrapper } = await mountLogin(jsonResponse(200, {}));
+        const field = () => wrapper.find('[data-testid="login-password"]');
+
+        expect(field().attributes('type')).toBe('password');
+
+        await wrapper.find('[data-testid="login-password-toggle"]').trigger('click');
+        expect(field().attributes('type')).toBe('text');
+        expect(wrapper.find('[data-testid="login-password-toggle"]').text()).toBe(en.auth.login.hidePassword);
+
+        await wrapper.find('[data-testid="login-password-toggle"]').trigger('click');
+        expect(field().attributes('type')).toBe('password');
+        expect(wrapper.find('[data-testid="login-password-toggle"]').text()).toBe(en.auth.login.showPassword);
+    });
 });

@@ -43,6 +43,8 @@ const email = ref('');
 const password = ref('');
 const emailField = ref<HTMLInputElement | null>(null);
 const passwordField = ref<HTMLInputElement | null>(null);
+/** A-66 (SH-22): a phone user checks the password before the five-attempt lock (SEC-03). */
+const showPassword = ref(false);
 
 /** Set only after a submit, so the fields are not red before anyone typed. */
 const submitted = ref(false);
@@ -161,20 +163,33 @@ async function submit(): Promise<void> {
                         <!-- A-50: the word, as every form says it. -->
                         <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
                     </span>
-                    <input
-                        ref="passwordField"
-                        v-model="password"
-                        type="password"
-                        name="password"
-                        autocomplete="current-password"
-                        required
-                        :disabled="auth.pending.value"
-                        :aria-invalid="passwordMissing"
-                        :aria-describedby="passwordMissing ? 'login-password-error' : undefined"
-                        class="login-field min-h-11 rounded-lg px-3 py-2"
-                        data-testid="login-password"
-                        @input="auth.clearError()"
-                    />
+                    <span class="flex gap-2">
+                        <input
+                            id="login-password"
+                            ref="passwordField"
+                            v-model="password"
+                            :type="showPassword ? 'text' : 'password'"
+                            name="password"
+                            autocomplete="current-password"
+                            required
+                            :disabled="auth.pending.value"
+                            :aria-invalid="passwordMissing"
+                            :aria-describedby="passwordMissing ? 'login-password-error' : undefined"
+                            class="login-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2"
+                            data-testid="login-password"
+                            @input="auth.clearError()"
+                        />
+                        <button
+                            type="button"
+                            class="row-action min-h-11 rounded-lg px-3"
+                            aria-controls="login-password"
+                            :aria-pressed="showPassword"
+                            data-testid="login-password-toggle"
+                            @click="showPassword = !showPassword"
+                        >
+                            {{ showPassword ? t('auth.login.hidePassword') : t('auth.login.showPassword') }}
+                        </button>
+                    </span>
                     <span v-if="passwordMissing" id="login-password-error" class="text-[var(--color-danger)]">
                         {{ t('auth.login.passwordRequired') }}
                     </span>

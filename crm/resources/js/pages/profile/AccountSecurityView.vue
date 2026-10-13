@@ -588,7 +588,7 @@ onMounted(loadSessions);
 
 .danger {
     background-color: var(--color-danger);
-    color: var(--color-primary-text);
+    color: var(--color-text-inverse);
 }
 
 .ghost-danger {

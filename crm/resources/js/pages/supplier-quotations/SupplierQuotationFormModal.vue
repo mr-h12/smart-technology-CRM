@@ -675,7 +675,7 @@ function discard(): void {
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
-            class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
+            class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl p-6"
             ref="form"
             novalidate
             data-testid="supplier-quotation-form"
@@ -1327,7 +1327,7 @@ function discard(): void {
 
 .modal-discard {
     background-color: var(--color-danger);
-    color: var(--color-primary-text);
+    color: var(--color-text-inverse);
 }
 
 .modal-save {

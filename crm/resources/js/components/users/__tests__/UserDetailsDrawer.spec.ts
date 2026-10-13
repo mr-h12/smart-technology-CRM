@@ -199,7 +199,9 @@ describe('the force logout', () => {
 
         await wrapper.find('[data-testid="details-revoke-sess-phone"]').trigger('click');
 
-        expect(wrapper.find('#confirm-dialog-message').text()).toContain('Layla Hassan');
+        // A-66 (SH-11): the message is found through the id the dialog points at, not a fixed one.
+        const dialog = wrapper.find('[data-testid="confirm-dialog"]');
+        expect(wrapper.find(`#${dialog.attributes('aria-describedby')}`).text()).toContain('Layla Hassan');
     });
 
     it('sends the termination to the administrative endpoint and re-reads', async () => {

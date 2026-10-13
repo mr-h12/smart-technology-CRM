@@ -819,3 +819,50 @@ describe('the quotation detail view', () => {
         });
     });
 });
+
+/** F-42 · P5: the total beside the code (A-56), and no raw id where a name cannot be read (A-18). */
+describe('the quotation detail view (F-42 · P5)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('A-56: repeats the payload’s final total in the header, exactly as the totals block shows it', async () => {
+        const { wrapper } = await render(respond(), USER, 'ar');
+
+        const header = wrapper.find('header [data-testid="quotation-detail-header-total"]');
+
+        expect(header.exists()).toBe(true);
+        expect(header.text()).toBe(wrapper.find('[data-testid="quotation-total-final_total"]').text());
+    });
+
+    it('A-18: shows «—», never a uuid, where the customer’s name cannot be read', async () => {
+        const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+        const base = respond({ quotation: { ...QUOTATION, customer_id: '9d0f3c2a-1b2c-4d5e-8f90-a1b2c3d4e5f6', deal_id: '7a1e2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b' } }) as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) =>
+            String(input).includes('/customers/')
+                ? json(403, { error: { code: 'forbidden', message: 'no' }, meta: { request_id: 'r1' } })
+                : base(input, init));
+
+        const { wrapper } = await render(fetchMock, READER);
+
+        expect(wrapper.find('[data-testid="quotation-detail-customer"]').text()).toBe('—');
+        expect(wrapper.text()).not.toMatch(UUID);
+        expect(wrapper.find('[data-testid="quotation-detail-deal"]').attributes('href')).toBe('/deals/7a1e2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b');
+    });
+});
+
+describe('the quotation status chip (A-66, Q-41)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('carries no title that repeats its own words', async () => {
+        const { wrapper } = await render(respond());
+
+        expect(wrapper.find('[data-testid="quotation-status"]').attributes('title')).toBeUndefined();
+    });
+});

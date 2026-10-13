@@ -869,7 +869,7 @@ onMounted(async () => {
                                 <button
                                     v-if="canArchive && customer.is_archived"
                                     type="button"
-                                    class="row-action min-h-11 rounded-lg px-3"
+                                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                                     :disabled="acting"
                                     data-testid="customers-row-restore"
                                     @click="restoreOne(customer)"

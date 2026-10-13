@@ -714,7 +714,7 @@ function discard(): void {
 
 .modal-discard {
     background-color: var(--color-danger);
-    color: var(--color-primary-text);
+    color: var(--color-text-inverse);
 }
 
 .modal-save {

@@ -173,4 +173,11 @@ describe('the purchase orders list (Module 10 · 3.3)', () => {
 
         expect(wrapper.find('[data-testid="purchase-orders-search"]').exists()).toBe(false);
     });
+
+    it('A-66 (SH-45): the search placeholder shows an example and ends with an ellipsis, in both languages', () => {
+        for (const text of [en.purchaseOrders.searchPlaceholder, ar.purchaseOrders.searchPlaceholder]) {
+            expect(text).toMatch(/PO-2026-0001/);
+            expect(text.endsWith('…')).toBe(true);
+        }
+    });
 });

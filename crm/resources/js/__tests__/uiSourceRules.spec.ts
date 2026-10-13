@@ -166,4 +166,50 @@ describe('UI source rules (F-42)', () => {
         expect(backs).toHaveLength(3);
         expect(backs.filter((tag) => !/\binline-flex\b/.test(tag) || !/\bmin-h-11\b/.test(tag))).toEqual([]);
     });
+
+    it('the builder (A-20, A-60, A-15): a sticky Save bar, scroll padding for it, four line columns, and no Number(', () => {
+        const builder = SOURCES.find(([at]) => at === 'pages/quotations/QuotationBuilderView.vue')?.[1] ?? '';
+
+        // A-20: Save stays in view, and a focused field never hides under the bar.
+        expect(builder).toMatch(/\.action-bar\s*\{[^}]*position:\s*sticky;[^}]*inset-block-end:\s*0;/);
+        expect(builder).toMatch(/scroll-padding-block-end:/);
+        expect(builder).toMatch(/class="action-bar\b/);
+
+        // A-60: label, quantity, margin and Remove — four columns, so Remove stays on its line.
+        const columns = /\.line-grid\s*\{[^}]*grid-template-columns:\s*([^;]+);/.exec(builder)?.[1] ?? '';
+        expect(columns.trim().split(/\s+(?![^(]*\))/)).toHaveLength(4);
+
+        // A-15 / D-67: the SPA computes no figure.
+        expect(builder).not.toMatch(/\bNumber\(/);
+    });
+
+    it('polish (A-66): named sizes, aria-controls, the link token, theme-color, one danger-fill text token, Restore dims, the dialog contains its scroll', () => {
+        const source = (path: string) => SOURCES.find(([at]) => at === path)?.[1] ?? '';
+
+        // SH-15: DS §4.1's named sizes, not Tailwind's.
+        expect(source('components/SearchCombobox.vue')).not.toMatch(/\btext-(xs|sm|base)\b/);
+
+        // SH-24: the menu button points at the drawer it toggles.
+        expect(source('components/AppContextBar.vue')).toMatch(/aria-controls="app-sidebar"/);
+
+        // SH-44: a link takes the link token.
+        expect(source('pages/purchase-orders/PurchaseOrdersView.vue')).toMatch(/\.row-link\s*\{[^}]*color:\s*var\(--color-link\)/);
+
+        // SH-48: the phone's browser bar has a colour to follow.
+        expect(readFileSync('resources/views/welcome.blade.php', 'utf8')).toMatch(/<meta name="theme-color"/);
+
+        // DC-42: text on a danger fill is one token, the one app.css's .danger-action uses.
+        const fills = SOURCES.flatMap(([path, text]) =>
+            [...text.matchAll(/\{[^{}]*background-color:\s*var\(--color-danger\);[^{}]*\}/g)]
+                .filter(([rule]) => /color:\s*var\(--color-primary-text\)/.test(rule))
+                .map(() => path));
+        expect(fills).toEqual([]);
+
+        // DC-62: a disabled Restore looks disabled, as its siblings do.
+        const restore = /<button\b[^>]*data-testid="customers-row-restore"/.exec(source('pages/customers/CustomersView.vue'))?.[0] ?? '';
+        expect(restore).toMatch(/\bdisabled:opacity-60\b/);
+
+        // Q-39: scrolling past the dialog's end does not scroll the page behind it.
+        expect(source('pages/supplier-quotations/SupplierQuotationFormModal.vue')).toMatch(/class="modal-panel\b[^"]*\boverscroll-contain\b/);
+    });
 });

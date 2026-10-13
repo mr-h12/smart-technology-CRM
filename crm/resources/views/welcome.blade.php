@@ -27,6 +27,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- A-66 (SH-48): the default theme's surface; theme.ts keeps it in step with the theme. --}}
+    <meta name="theme-color" content="#FFFFFF">
     <title>{{ config('app.name') }}</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">

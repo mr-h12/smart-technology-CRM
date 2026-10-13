@@ -35,7 +35,6 @@ const label = computed(() => t(`quotations.status.${props.status}`));
     <span
         class="status-chip inline-flex items-center rounded-full px-2 py-0.5 text-table"
         :class="`status-chip--${tone}`"
-        :title="label"
         data-testid="quotation-status"
     >
         {{ label }}

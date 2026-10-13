@@ -97,4 +97,19 @@ describe('ConfirmDialog', () => {
         expect(view.emitted('cancel')).toBeUndefined();
         view.unmount();
     });
+
+    it('A-66 (SH-11): two mounted dialogs each point at their own title and message', () => {
+        // One app, as on a page: `useId` is unique within an app.
+        const props = { open: true, titleKey: 'customers.archive.confirmTitle', messageKey: 'customers.archive.confirmMessage', confirmKey: 'customers.archive.confirmAction', subject: 'A', busy: false };
+        const host = mount({ components: { ConfirmDialog }, setup: () => ({ props }), template: '<ConfirmDialog v-bind="props" /><ConfirmDialog v-bind="props" />' }, {
+            attachTo: document.body,
+            global: { plugins: [createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } })] },
+        });
+        const dialogs = host.findAll('dialog');
+        const titles = dialogs.map((dialog) => dialog.attributes('aria-labelledby') ?? '');
+
+        expect(new Set(titles).size).toBe(2);
+        expect(new Set(dialogs.map((dialog) => dialog.attributes('aria-describedby'))).size).toBe(2);
+        titles.forEach((id) => expect(document.getElementById(id)?.tagName).toBe('H2'));
+    });
 });

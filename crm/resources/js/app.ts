@@ -3,6 +3,7 @@ import { i18n } from '@/i18n';
 import App from '@/App.vue';
 import { createAppRouter } from '@/router';
 import { installAuthTransport } from '@/stores/auth';
+import { syncThemeColor } from '@/theme';
 
 const router = createAppRouter();
 
@@ -21,3 +22,6 @@ installAuthTransport(() => {
 });
 
 createApp(App).use(router).use(i18n).mount('#app');
+
+// The pre-paint script in welcome.blade.php set the theme before tokens.css could be read.
+syncThemeColor();

@@ -10,7 +10,7 @@
  * prose, so the same dialog serves deactivation and reactivation without either
  * message being written into a component.
  */
-import { ref, watch } from 'vue';
+import { ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModalDialog } from '@/components/useModalDialog';
 
@@ -31,6 +31,8 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const { t } = useI18n();
 const confirmButton = ref<HTMLButtonElement | null>(null);
 const dialog = ref<HTMLDialogElement | null>(null);
+/** A-66 (SH-11): two mounted dialogs must not share ids. */
+const ids = { title: useId(), message: useId() };
 
 useModalDialog(dialog);
 
@@ -58,16 +60,16 @@ watch(() => props.open, async (open) => {
         ref="dialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         role="alertdialog"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-message"
+        :aria-labelledby="ids.title"
+        :aria-describedby="ids.message"
         data-testid="confirm-dialog"
         @cancel.prevent="cancel"
     >
         <div class="dialog-scrim absolute inset-0" @click="cancel" />
 
         <div class="dialog-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6">
-            <h2 id="confirm-dialog-title" class="text-card-title">{{ t(titleKey) }}</h2>
-            <p id="confirm-dialog-message" class="text-[var(--color-text-muted)] text-pretty">
+            <h2 :id="ids.title" class="text-card-title">{{ t(titleKey) }}</h2>
+            <p :id="ids.message" class="text-[var(--color-text-muted)] text-pretty">
                 {{ t(messageKey, { name: subject }) }}
             </p>
 

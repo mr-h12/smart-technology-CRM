@@ -227,7 +227,7 @@ onMounted(load);
 }
 
 .row-link {
-    color: var(--color-primary);
+    color: var(--color-link);
     text-decoration: underline;
 }
 </style>

@@ -79,6 +79,17 @@ describe('CatalogItemPicker', () => {
         expect(render(server()).findComponent(SearchCombobox).exists()).toBe(true);
     });
 
+    it('A-27: opens its list in the flow, so a scrolling dialog cannot clip it', async () => {
+        const wrapper = render(server());
+
+        await open(wrapper);
+
+        const list = wrapper.find('[role="listbox"]');
+
+        expect(list.exists()).toBe(true);
+        expect(list.element.closest('.absolute')).toBeNull();
+    });
+
     // §10.4 / Module 4: a deactivated product is hidden from new selection lists.
     it('asks the server for active items, the supplier\'s first, then narrows with q', async () => {
         const fetchMock = server();

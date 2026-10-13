@@ -109,6 +109,7 @@ function themeLabel(option: Theme): string {
             type="button"
             class="context-control grid size-11 shrink-0 place-items-center rounded-lg text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] lg:hidden"
             :aria-expanded="sidebarOpen"
+            aria-controls="app-sidebar"
             :aria-label="sidebarOpen ? t('nav.close') : t('nav.open')"
             data-testid="sidebar-toggle"
             @click="emit('toggleSidebar')"

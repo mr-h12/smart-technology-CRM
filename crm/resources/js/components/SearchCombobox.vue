@@ -236,7 +236,7 @@ watch(
 
             <p
                 v-if="status === 'ready' && total > items.length"
-                class="px-3 py-2 text-sm text-[var(--color-text-muted)]"
+                class="px-3 py-2 text-body text-[var(--color-text-muted)]"
                 :data-testid="`${testId}-more`"
             >
                 {{ t(keys.more) }}
@@ -244,7 +244,7 @@ watch(
 
             <p
                 v-if="status === 'loading' || status === 'forbidden' || status === 'failed' || (status === 'ready' && items.length === 0)"
-                class="px-3 py-2 text-sm text-[var(--color-text-muted)]"
+                class="px-3 py-2 text-body text-[var(--color-text-muted)]"
                 role="status"
                 :data-testid="`${testId}-state`"
             >

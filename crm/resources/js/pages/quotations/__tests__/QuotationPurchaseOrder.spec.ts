@@ -7,7 +7,7 @@ import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vu
 import { downloadFile } from '@/services/files';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
-vi.mock('@/services/files', () => ({ downloadFile: vi.fn(async () => undefined) }));
+vi.mock('@/services/files', async (original) => ({ ...(await original<object>()), downloadFile: vi.fn(async () => undefined) }));
 
 /**
  * Module 10 · 3.3 — the purchase order on its quotation (Q-B: there is no PO
@@ -95,6 +95,22 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
             expect.stringContaining('order.pdf'),
             expect.stringContaining('stamp.png'),
         ]);
+    });
+
+    /** A-24 (F-42 · P4): a label drawn as a button in the page's language, the types and the limit tied to the input. */
+    it('draws the file control as a translated button, with accept and the limits line tied by aria-describedby', async () => {
+        const wrapper = await render(respond());
+        const input = wrapper.find('[data-testid="purchase-order-file"]');
+
+        expect(input.attributes('accept')).toBe('.pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx');
+        expect(input.classes()).toContain('sr-only');
+        expect(wrapper.find('label[for="purchase-order-file"]').text()).toContain('Choose a file');
+
+        const described = (input.attributes('aria-describedby') ?? '').split(' ').filter(Boolean);
+        const said = described.map((id) => wrapper.find(`#${id}`).text()).join(' ');
+
+        expect(said).toContain(en.files.hint);
+        expect(said).toContain(en.files.noFile);
     });
 
     it('says when no file is attached yet', async () => {

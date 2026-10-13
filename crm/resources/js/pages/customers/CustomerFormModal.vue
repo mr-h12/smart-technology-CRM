@@ -39,9 +39,10 @@
  * second copy of a rule — the copy that is wrong is always the one in the
  * screen.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModalDialog } from '@/components/useModalDialog';
+import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { ApiError } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
 import { createCustomer, updateCustomer, type Customer, type CustomerDraft } from '@/services/customers';
@@ -65,6 +66,8 @@ const emit = defineEmits<{ saved: [Customer, Customer[]]; cancel: [] }>();
 
 const { t, locale } = useI18n();
 const dialog = ref<HTMLDialogElement | null>(null);
+const form = ref<HTMLFormElement | null>(null);
+const similarBox = ref<HTMLDivElement | null>(null);
 
 useModalDialog(dialog);
 
@@ -102,13 +105,28 @@ const serverErrors = ref<Partial<Record<Field | '_form', string>>>({});
 /** `D-35`'s similar records, as the server reported them on the last save. */
 const similar = ref<Customer[]>([]);
 
+/**
+ * A-02: a create that found similar customers has already written the row
+ * (`D-35`), so the dialog now edits that row — a second Save is a PATCH, never
+ * a second customer.
+ */
+const created = ref<Customer | null>(null);
+
 const isEdit = computed(() => props.editing !== null);
+
+/** A-11: how many fields the last save was refused on, said once at the top. */
+const invalidCount = computed(() => FIELDS.filter((field) => errorFor(field) !== null).length);
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field]));
 
 /** The id of every control, so `<label for>` and `aria-describedby` agree. */
 function fieldId(field: Field): string {
     return `customer-form-${field}`;
+}
+
+/** A-11: the error's id, for the field's `aria-describedby`; nothing while it is valid. */
+function errorId(field: Field): string | undefined {
+    return errorFor(field) === null ? undefined : `${fieldId(field)}-error`;
 }
 
 function testId(field: Field): string {
@@ -151,6 +169,7 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     errorKeys.value = {};
     serverErrors.value = {};
     similar.value = [];
+    created.value = null;
     confirmingDiscard.value = false;
 }, { immediate: true });
 
@@ -218,6 +237,8 @@ function draft(): CustomerDraft {
 
 async function save(): Promise<void> {
     if (!validate()) {
+        await focusFirstInvalid(form.value);
+
         return;
     }
 
@@ -225,18 +246,31 @@ async function save(): Promise<void> {
     serverErrors.value = {};
 
     try {
-        const record = props.editing;
+        const record = props.editing ?? created.value;
         const written = record === null
             ? await createCustomer(draft())
             : await updateCustomer(record.id, draft());
 
         similar.value = written.similar;
         opened.value = { ...values.value };
+
+        if (record === null && written.similar.length > 0) {
+            created.value = written.customer;
+        }
+
         emit('saved', written.customer, written.similar);
     } catch (error) {
         applyServerErrors(error);
     } finally {
         saving.value = false;
+    }
+
+    // After `saving` clears: a disabled field cannot take focus.
+    if (invalidCount.value > 0) {
+        await focusFirstInvalid(form.value);
+    } else if (similar.value.length > 0) {
+        await nextTick();
+        similarBox.value?.focus();
     }
 }
 
@@ -274,14 +308,25 @@ function discard(): void {
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
+            ref="form"
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
             novalidate
             data-testid="customer-form"
             @submit.prevent="save()"
         >
             <h2 id="customer-form-title" class="text-card-title">
-                {{ isEdit ? t('customers.form.editTitle') : t('customers.form.createTitle') }}
+                <template v-if="created !== null">{{ t('customers.form.editTitleNamed', { name: created.name }) }}</template>
+                <template v-else>{{ isEdit ? t('customers.form.editTitle') : t('customers.form.createTitle') }}</template>
             </h2>
+
+            <p
+                v-if="invalidCount > 0"
+                class="form-alert rounded-lg p-3"
+                role="alert"
+                data-testid="customer-form-error-count"
+            >
+                {{ t('form.fixCount', invalidCount) }}
+            </p>
 
             <p
                 v-if="serverErrors._form !== undefined"
@@ -296,6 +341,8 @@ function discard(): void {
                  "never color alone". The row is already saved — this reports it. -->
             <div
                 v-if="similar.length > 0"
+                ref="similarBox"
+                tabindex="-1"
                 class="form-warning rounded-lg p-3"
                 role="status"
                 data-testid="customer-form-similar"
@@ -357,12 +404,14 @@ function discard(): void {
                         type="text"
                         maxlength="255"
                         autocomplete="off"
+                        aria-required="true"
                         :disabled="saving"
                         :aria-invalid="errorFor('name') !== null"
+                        :aria-describedby="errorId('name')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('name')"
                     />
-                    <span v-if="errorFor('name') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-name-error">
+                    <span v-if="errorFor('name') !== null" :id="errorId('name')" class="text-[var(--color-danger)]" data-testid="customer-form-name-error">
                         {{ errorFor('name') }}
                     </span>
                 </label>
@@ -374,13 +423,14 @@ function discard(): void {
                         v-model="values.sector"
                         :disabled="saving"
                         :aria-invalid="errorFor('sector') !== null"
+                        :aria-describedby="errorId('sector')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('sector')"
                     >
                         <option value="">{{ t('customers.form.sectorNone') }}</option>
                         <option v-for="entry in sectors" :key="entry.code" :value="entry.code">{{ sectorLabel(entry) }}</option>
                     </select>
-                    <span v-if="errorFor('sector') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-sector-error">
+                    <span v-if="errorFor('sector') !== null" :id="errorId('sector')" class="text-[var(--color-danger)]" data-testid="customer-form-sector-error">
                         {{ errorFor('sector') }}
                     </span>
                 </label>
@@ -396,9 +446,14 @@ function discard(): void {
                         type="text"
                         maxlength="128"
                         :disabled="saving"
+                        :aria-invalid="errorFor('region') !== null"
+                        :aria-describedby="errorId('region')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('region')"
                     />
+                    <span v-if="errorFor('region') !== null" :id="errorId('region')" class="text-[var(--color-danger)]">
+                        {{ errorFor('region') }}
+                    </span>
                 </label>
 
                 <!-- §6.3's "Date field: locale-aware presentation, ISO-safe
@@ -412,10 +467,11 @@ function discard(): void {
                         type="date"
                         :disabled="saving"
                         :aria-invalid="errorFor('start_date') !== null"
+                        :aria-describedby="errorId('start_date')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('start_date')"
                     />
-                    <span v-if="errorFor('start_date') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-start-date-error">
+                    <span v-if="errorFor('start_date') !== null" :id="errorId('start_date')" class="text-[var(--color-danger)]" data-testid="customer-form-start-date-error">
                         {{ errorFor('start_date') }}
                     </span>
                 </label>
@@ -433,11 +489,12 @@ function discard(): void {
                             v-model="values.contact_title"
                             :aria-label="t('customers.form.contactTitle')"
                             :aria-invalid="errorFor('contact_title') !== null"
+                            :aria-describedby="errorId('contact_title')"
                             :disabled="saving"
                             class="form-field min-h-11 w-20 shrink-0 rounded-lg px-2 py-2"
                             :data-testid="testId('contact_title')"
                         >
-                            <option value=""></option>
+                            <option value="">{{ t('customers.form.titleNone') }}</option>
                             <option v-for="entry in titles" :key="entry.code" :value="entry.code">{{ entryLabel(entry, locale) }}</option>
                         </select>
                         <input
@@ -446,12 +503,17 @@ function discard(): void {
                             type="text"
                             maxlength="255"
                             :disabled="saving"
+                            :aria-invalid="errorFor('contact_person') !== null"
+                            :aria-describedby="errorId('contact_person')"
                             class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2"
                             :data-testid="testId('contact_person')"
                         />
                     </div>
-                    <span v-if="errorFor('contact_title') !== null" class="text-[var(--color-danger)]">
+                    <span v-if="errorFor('contact_title') !== null" :id="errorId('contact_title')" class="text-[var(--color-danger)]">
                         {{ errorFor('contact_title') }}
+                    </span>
+                    <span v-if="errorFor('contact_person') !== null" :id="errorId('contact_person')" class="text-[var(--color-danger)]">
+                        {{ errorFor('contact_person') }}
                     </span>
                 </div>
 
@@ -465,9 +527,14 @@ function discard(): void {
                         dir="ltr"
                         maxlength="32"
                         :disabled="saving"
+                        :aria-invalid="errorFor('phone') !== null"
+                        :aria-describedby="errorId('phone')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('phone')"
                     />
+                    <span v-if="errorFor('phone') !== null" :id="errorId('phone')" class="text-[var(--color-danger)]">
+                        {{ errorFor('phone') }}
+                    </span>
                 </label>
 
                 <label class="flex flex-col gap-1.5" :for="fieldId('phone2')">
@@ -480,9 +547,14 @@ function discard(): void {
                         dir="ltr"
                         maxlength="32"
                         :disabled="saving"
+                        :aria-invalid="errorFor('phone2') !== null"
+                        :aria-describedby="errorId('phone2')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('phone2')"
                     />
+                    <span v-if="errorFor('phone2') !== null" :id="errorId('phone2')" class="text-[var(--color-danger)]">
+                        {{ errorFor('phone2') }}
+                    </span>
                 </label>
 
                 <label class="flex flex-col gap-1.5" :for="fieldId('whatsapp')">
@@ -495,9 +567,14 @@ function discard(): void {
                         dir="ltr"
                         maxlength="32"
                         :disabled="saving"
+                        :aria-invalid="errorFor('whatsapp') !== null"
+                        :aria-describedby="errorId('whatsapp')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('whatsapp')"
                     />
+                    <span v-if="errorFor('whatsapp') !== null" :id="errorId('whatsapp')" class="text-[var(--color-danger)]">
+                        {{ errorFor('whatsapp') }}
+                    </span>
                 </label>
 
                 <label class="flex flex-col gap-1.5" :for="fieldId('email')">
@@ -511,10 +588,11 @@ function discard(): void {
                         autocomplete="off"
                         :disabled="saving"
                         :aria-invalid="errorFor('email') !== null"
+                        :aria-describedby="errorId('email')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('email')"
                     />
-                    <span v-if="errorFor('email') !== null" class="text-[var(--color-danger)]" data-testid="customer-form-email-error">
+                    <span v-if="errorFor('email') !== null" :id="errorId('email')" class="text-[var(--color-danger)]" data-testid="customer-form-email-error">
                         {{ errorFor('email') }}
                     </span>
                 </label>
@@ -528,9 +606,14 @@ function discard(): void {
                     v-model="values.notes"
                     rows="4"
                     :disabled="saving"
+                    :aria-invalid="errorFor('notes') !== null"
+                    :aria-describedby="errorId('notes')"
                     class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId('notes')"
                 />
+                <span v-if="errorFor('notes') !== null" :id="errorId('notes')" class="text-[var(--color-danger)]">
+                    {{ errorFor('notes') }}
+                </span>
             </label>
 
             <!-- §5.2's unsaved-change warning. Inside the dialog, because a

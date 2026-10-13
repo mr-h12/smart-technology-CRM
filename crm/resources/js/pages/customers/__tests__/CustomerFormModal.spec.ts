@@ -192,13 +192,13 @@ describe('CustomerFormModal — what it sends', () => {
 
 describe('CustomerFormModal — D-104 the contact person and their title', () => {
     it('names the field «الشخص المتواصل معه» and draws the title box before the name, empty first, in the screen language', () => {
-        for (const [locale, label, mr, mrs] of [['ar', 'الشخص المتواصل معه', 'أستاذ', 'أستاذة'], ['en', 'Contact person', 'Mr.', 'Mrs.']]) {
+        for (const [locale, label, mr, mrs, none] of [['ar', 'الشخص المتواصل معه', 'أستاذ', 'أستاذة', 'بدون لقب'], ['en', 'Contact person', 'Mr.', 'Mrs.', 'No title']]) {
             const view = render(null, locale);
             const box = view.find('[data-testid="customer-form-contact-title"]');
 
             expect(box.element.tagName).toBe('SELECT');
             expect(box.findAll('option').map((option) => [option.attributes('value'), option.text()])).toEqual([
-                ['', ''],
+                ['', none],  // A-50: a prompt, never a blank option
                 ['mr', mr],
                 ['mrs', mrs],
             ]);
@@ -351,5 +351,89 @@ describe('CustomerFormModal — Design System §5.2 unsaved-change warning', () 
 
         expect(view.find('[data-testid="customer-form-unsaved"]').exists()).toBe(true);
         expect(view.emitted('cancel')).toBeUndefined();
+    });
+});
+
+/** F-42 · P4 — A-11, A-50 and A-02 (docs/ux-upgrade/plan.md). */
+describe('CustomerFormModal — F-42 · P4', () => {
+    function attached(editing: Customer | null = null) {
+        return mount(CustomerFormModal, {
+            props: { open: true, editing, sectors: SECTORS, titles: TITLES },
+            global: { plugins: [createAppRouter(), createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } })] },
+            attachTo: document.body,
+        });
+    }
+
+    /** A-11: focus to the first invalid field, a count at the top, each error tied to its field. */
+    it('focuses the first invalid field after a failed save, counts the fields, and ties each error by aria-describedby', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => json(422, {
+            error: {
+                code: 'validation_failed',
+                message: 'The given data was invalid.',
+                details: [
+                    { field: 'email', code: 'invalid_email', message: 'This email address is not valid.' },
+                    { field: 'start_date', code: 'invalid_date', message: 'This date is not valid.' },
+                ],
+            },
+        })));
+
+        const view = attached();
+        await view.find('[data-testid="customer-form-name"]').setValue('Beta Medical');
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        // start_date is drawn before email, so it is the first invalid field.
+        expect(document.activeElement?.id).toBe('customer-form-start_date');
+        expect(view.find('[data-testid="customer-form-error-count"]').text()).toBe('Fix 2 fields before saving.');
+
+        for (const field of ['start-date', 'email']) {
+            const input = view.find(`[data-testid="customer-form-${field}"]`);
+            const describedBy = input.attributes('aria-describedby') ?? '';
+
+            expect(input.attributes('aria-invalid')).toBe('true');
+            expect(describedBy).not.toBe('');
+            expect(view.find(`#${describedBy}`).text()).toBe(view.find(`[data-testid="customer-form-${field}-error"]`).text());
+        }
+
+        view.unmount();
+    });
+
+    /** A-50: one marker — the word, in danger, with aria-required; no "*"; no blank option. */
+    it('marks every required field with the word and aria-required, leaves no "*", and gives every option a label', () => {
+        const view = render();
+        const name = view.find('[data-testid="customer-form-name"]');
+
+        expect(view.find('[data-testid="customer-form-name-required"]').text()).toBe('(required)');
+        expect(name.attributes('aria-required')).toBe('true');
+        expect(view.findAll('[aria-required="true"]')).toHaveLength(1);
+        expect(view.text()).not.toContain('*');
+        expect(view.findAll('option').filter((option) => option.text().trim() === '')).toEqual([]);
+    });
+
+    /** A-02: a create that found similar customers turns the dialog into an edit of the saved row. */
+    it('after a create answered with similar customers, retitles to an edit, focuses the warning, and the next Save patches the new id', async () => {
+        const created = { ...EXISTING, id: 'c7', name: 'Alpha Trading' };
+        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => (init?.method === 'POST'
+            ? json(201, { data: created, meta: { similar_customers: [{ ...EXISTING, id: 'c9', name: 'Alpha Trade' }] } })
+            : json(200, { data: created, meta: {} })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = attached();
+        await view.find('[data-testid="customer-form-name"]').setValue('Alpha Trading');
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('#customer-form-title').text()).toBe('Edit customer “Alpha Trading”');
+        expect(document.activeElement).toBe(view.find('[data-testid="customer-form-similar"]').element);
+
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        const [, second] = fetchMock.mock.calls;
+        expect(second?.[1]?.method).toBe('PATCH');
+        expect(String(second?.[0])).toMatch(/\/customers\/c7$/);
+        expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(1);
+
+        view.unmount();
     });
 });

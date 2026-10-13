@@ -199,6 +199,47 @@ describe('the approvals screen', () => {
         expect(calls(fetchMock, 'PATCH', '/approve')).toHaveLength(1);
     });
 
+    /** A-47 (F-42 · P4): a blank note is said, not silently ignored. */
+    it('says a whitespace-only note is empty, and sends nothing', async () => {
+        const fetchMock = server();
+        const wrapper = await render(fetchMock);
+
+        await wrapper.find('[data-testid="approvals-return"]').trigger('click');
+        await wrapper.find('[data-testid="approvals-return-note"]').setValue('   ');
+        await wrapper.find('[data-testid="approvals-return-dialog"]').trigger('submit');
+        await flushPromises();
+
+        const error = wrapper.find('[data-testid="approvals-return-note-error"]');
+        expect(error.text()).toBe(en.approvals.noteRequired);
+        expect(wrapper.find('[data-testid="approvals-return-note"]').attributes('aria-describedby')).toBe(error.attributes('id'));
+        expect(calls(fetchMock, 'PATCH', '/return')).toHaveLength(0);
+    });
+
+    /** A-47: Reload reads the list again and the stale banner goes with it. */
+    it('clears the conflict banner when Reload reads the list again', async () => {
+        const fetchMock = server({
+            'PATCH /quotations/q1/approve': () => json(409, { error: { code: 'concurrency_conflict', message: 'stale' }, meta: { request_id: 'r1' } }),
+        });
+        const wrapper = await render(fetchMock);
+
+        await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="approvals-conflict-reload"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="approvals-conflict"]').exists()).toBe(false);
+    });
+
+    /** A-47: each employee's rows are their own group, named by a rowgroup header; the code is a link that looks like one. */
+    it('gives each group its own tbody with a rowgroup header, and the code the link style', async () => {
+        const wrapper = await render(server());
+
+        expect(wrapper.findAll('[data-testid="approvals-table"] tbody')).toHaveLength(1);
+        expect(wrapper.find('[data-testid="approvals-group-heading"]').attributes('scope')).toBe('rowgroup');
+        expect(wrapper.find('[data-testid="approvals-code"] a').classes()).toContain('row-link');
+    });
+
     it('closes the note on cancel, and tells any other refusal in the server\'s words', async () => {
         const fetchMock = server({
             'PATCH /quotations/q1/approve': () => json(422, { error: { code: 'validation_failed', message: 'A pending quotation only' }, meta: { request_id: 'r1' } }),

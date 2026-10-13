@@ -30,7 +30,7 @@ function jsonResponse(status: number, body: unknown): Response {
     return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-async function mountLogin(response: Response, locale: 'ar' | 'en' = 'en') {
+async function mountLogin(response: Response, locale: 'ar' | 'en' = 'en', attached = false) {
     vi.resetModules();
     window.localStorage.clear();
     window.history.replaceState({}, '', '/login');
@@ -48,6 +48,7 @@ async function mountLogin(response: Response, locale: 'ar' | 'en' = 'en') {
         global: {
             plugins: [router, createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { ar, en } })],
         },
+        ...(attached ? { attachTo: document.body } : {}),
     });
 
     return { wrapper, router };
@@ -117,14 +118,34 @@ describe('the login screen', () => {
         expect(field.element.value).toBe('');
     });
 
-    it('does not submit an empty form', async () => {
-        const { wrapper } = await mountLogin(jsonResponse(201, { data: {} }));
+    /** A-10 (F-42 · P4): Sign-in stays enabled; an empty submit says what is missing and asks nothing. */
+    it('keeps Sign-in enabled on an empty form, and a submit shows both messages, focuses the email and sends nothing', async () => {
+        const { wrapper } = await mountLogin(jsonResponse(201, { data: {} }), 'en', true);
+
+        expect(wrapper.find('[data-testid="login-submit"]').attributes('disabled')).toBeUndefined();
 
         await wrapper.find('[data-testid="login-form"]').trigger('submit');
         await wrapper.vm.$nextTick();
 
         expect(vi.mocked(fetch)).not.toHaveBeenCalled();
-        expect(wrapper.find('[data-testid="login-submit"]').attributes('disabled')).toBeDefined();
+        expect(wrapper.text()).toContain(en.auth.login.emailRequired);
+        expect(wrapper.text()).toContain(en.auth.login.passwordRequired);
+        expect(document.activeElement).toBe(wrapper.find('[data-testid="login-email"]').element);
+
+        wrapper.unmount();
+    });
+
+    /** A-46 (F-42 · P4): the bar's language switch, on the login card. */
+    it('offers the language switch on the login card, and a click switches to English', async () => {
+        const { wrapper } = await mountLogin(jsonResponse(201, { data: {} }), 'ar');
+        const segment = wrapper.find('[data-testid="login-form"] [data-testid="locale-segment"]');
+
+        expect(segment.exists()).toBe(true);
+
+        await segment.find('[data-locale="en"]').trigger('click');
+
+        expect(document.documentElement.lang).toBe('en');
+        expect(window.localStorage.getItem('crm.locale')).toBe('en');
     });
 
     it('offers no sign-up affordance (SEC-01)', async () => {

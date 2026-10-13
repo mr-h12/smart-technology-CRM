@@ -195,6 +195,22 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         expect(summary.text()).toContain('—');
     });
 
+    /** A-54's links (F-42 · P4): phone, WhatsApp and email open their apps, left to right. */
+    it('draws the phone as tel:, WhatsApp as wa.me and the email as mailto:', async () => {
+        stubDetail(() => ({ ...CUSTOMER, whatsapp: '+20 111 222 3333' }));
+
+        const view = await render();
+        await flushPromises();
+
+        const summary = view.find('[data-testid="customer-summary"]');
+        const phone = summary.find('a[href^="tel:"]');
+
+        expect(phone.attributes('href')).toBe('tel:+201000000000');
+        expect(phone.attributes('dir')).toBe('ltr');
+        expect(summary.find('a[href^="https://wa.me/"]').attributes('href')).toBe('https://wa.me/201112223333');
+        expect(summary.find('a[href^="mailto:"]').attributes('href')).toBe('mailto:mona@alpha.test');
+    });
+
     /** F-19 · 1.1a (`D-83`): the server names the owner; the page prints it for everyone who can view the customer. */
     it('names the sales owner in the summary, a dash when there is none', async () => {
         stubDetail(() => ({ ...CUSTOMER, sales_owner_name: 'Test Indoor Sales' }));

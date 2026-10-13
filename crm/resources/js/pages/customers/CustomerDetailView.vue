@@ -29,10 +29,11 @@
  * shipped), on §3.3's own `assign` row. The name belongs to Identity and
  * arrives from the server with F-19 · 1.1a (`D-83`), not by a lookup here.
  *
- * **No deals and no timeline.** §5.2 wants "related data/timeline second" and
- * for a customer that is Module 5's deals, which do not exist. `D-16` puts the
- * communication history in `notes`, so that is the related section this module
- * can honestly draw today.
+ * **No deals and no timeline yet.** §5.2 wants "related data/timeline second",
+ * and for a customer that is its deals. Module 5 built them, but the deals list
+ * cannot yet filter by customer: the section waits for F-41 · 1.7's filter
+ * (owner's answer to A-54). `D-16` puts the communication history in `notes`,
+ * so that is the related section drawn today.
  *
  * **No "years of dealing".** §4.2 says `start_date` "drives" it, and that is
  * the only mention in the sources: no field on the wire, no definition of a
@@ -88,10 +89,11 @@ const id = computed(() => String(route.params.id ?? ''));
  * The contact person is drawn above them: `D-104` prints it with its title.
  */
 const CONTACT_FIELDS = [
-    { key: 'phone', label: 'customers.column.phone' },
-    { key: 'phone2', label: 'customers.form.phone2' },
-    { key: 'whatsapp', label: 'customers.form.whatsapp' },
-    { key: 'email', label: 'customers.form.email' },
+    { key: 'phone', label: 'customers.column.phone', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}` },
+    { key: 'phone2', label: 'customers.form.phone2', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}` },
+    // wa.me takes the international number as digits only.
+    { key: 'whatsapp', label: 'customers.form.whatsapp', href: (value: string) => `https://wa.me/${value.replace(/\D/g, '')}` },
+    { key: 'email', label: 'customers.form.email', href: (value: string) => `mailto:${value}` },
 ] as const;
 
 async function load(): Promise<void> {
@@ -225,7 +227,7 @@ onMounted(async () => {
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('customers.detail.notFoundMessage') }}</p>
             <RouterLink
                 :to="{ name: 'customers' }"
-                class="row-action min-h-11 rounded-lg px-4 py-2"
+                class="row-action inline-flex min-h-11 items-center rounded-lg px-4 py-2"
                 data-testid="customer-back"
             >
                 {{ t('customers.detail.backToList') }}
@@ -234,7 +236,7 @@ onMounted(async () => {
 
         <!-- A-43: the way back stays above the error, as on the not-found state. -->
         <div v-else-if="failed" class="flex flex-col gap-1">
-            <RouterLink :to="{ name: 'customers' }" class="text-[var(--color-text-muted)]" data-testid="customer-back">
+            <RouterLink :to="{ name: 'customers' }" class="inline-flex min-h-11 items-center self-start text-[var(--color-text-muted)]" data-testid="customer-back">
                 {{ t('customers.detail.backToList') }}
             </RouterLink>
             <ErrorState @retry="load()" />
@@ -245,7 +247,7 @@ onMounted(async () => {
                 <div class="flex flex-col gap-1">
                     <RouterLink
                         :to="{ name: 'customers' }"
-                        class="text-[var(--color-text-muted)]"
+                        class="inline-flex min-h-11 items-center self-start text-[var(--color-text-muted)]"
                         data-testid="customer-back"
                     >
                         {{ t('customers.detail.backToList') }}
@@ -307,7 +309,11 @@ onMounted(async () => {
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
                         <!-- A-07: numbers and addresses keep their order inside Arabic text. -->
-                        <dd class="tabular-nums"><bdi dir="ltr">{{ orDash(customer[field.key]) }}</bdi></dd>
+                        <dd class="tabular-nums">
+                            <!-- A-54: one tap opens the phone, WhatsApp or mail app. -->
+                            <a v-if="customer[field.key]" :href="field.href(customer[field.key] ?? '')" dir="ltr" class="row-link">{{ customer[field.key] }}</a>
+                            <template v-else>—</template>
+                        </dd>
                     </div>
                     <!-- §4.2's order; the name comes from the server (F-19 · 1.1a, `D-83`). -->
                     <div class="flex flex-col">

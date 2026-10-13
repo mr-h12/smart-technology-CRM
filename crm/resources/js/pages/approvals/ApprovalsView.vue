@@ -58,12 +58,16 @@ const approving = ref<QuotationSummary | null>(null);
 /** The row whose Return note is open, if any. */
 const returning = ref<QuotationSummary | null>(null);
 const note = ref('');
+/** A-47: a note of only spaces is said to be empty, not silently ignored. */
+const noteMissing = ref(false);
 const noteField = ref<HTMLTextAreaElement | null>(null);
 const returnDialog = ref<HTMLDialogElement | null>(null);
 
 useModalDialog(returnDialog);
 
 async function load(): Promise<void> {
+    // A-47: a fresh read answers the stale token, so its banner goes with it.
+    conflict.value = false;
     loading.value = true;
     failed.value = false;
     denied.value = false;
@@ -147,6 +151,7 @@ async function approve(): Promise<void> {
 async function openReturn(row: QuotationSummary): Promise<void> {
     returning.value = row;
     note.value = '';
+    noteMissing.value = false;
     actionError.value = '';
     await nextTick();
     noteField.value?.focus();
@@ -163,7 +168,11 @@ function closeReturn(): void {
 async function sendReturn(): Promise<void> {
     const row = returning.value;
 
-    if (row === null || note.value.trim() === '') {
+    noteMissing.value = note.value.trim() === '';
+
+    if (row === null || noteMissing.value) {
+        noteField.value?.focus();
+
         return;
     }
 
@@ -194,7 +203,7 @@ onMounted(load);
                 data-testid="approvals-conflict"
             >
                 <span>{{ t('quotations.detail.conflict') }}</span>
-                <button type="button" class="row-action min-h-11 rounded-lg px-3" @click="load">
+                <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="approvals-conflict-reload" @click="load">
                     {{ t('quotations.detail.reload') }}
                 </button>
             </div>
@@ -232,9 +241,14 @@ onMounted(load);
                             required
                             rows="3"
                             maxlength="2000"
+                            :aria-invalid="noteMissing"
+                            :aria-describedby="noteMissing ? 'approvals-return-note-error' : undefined"
                             class="form-field rounded-lg p-3"
                             data-testid="approvals-return-note"
                         ></textarea>
+                        <span v-if="noteMissing" id="approvals-return-note-error" class="text-[var(--color-danger)]" data-testid="approvals-return-note-error">
+                            {{ t('approvals.noteRequired') }}
+                        </span>
                     </label>
                     <span class="flex justify-end gap-2">
                         <button type="button" class="row-action min-h-11 rounded-lg px-3" :disabled="busy" data-testid="approvals-return-cancel" @click="closeReturn">
@@ -270,43 +284,42 @@ onMounted(load);
                             <th scope="col" class="p-3 text-start">{{ t('approvals.column.actions') }}</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <template v-for="group in groups" :key="group.key ?? ''">
-                            <tr class="group-row">
-                                <th colspan="5" scope="colgroup" class="p-3 text-start font-medium" data-testid="approvals-group-heading">
-                                    {{ group.label }}
-                                </th>
-                            </tr>
-                            <tr v-for="row in group.items" :key="row.id" class="table-row" data-testid="approvals-row">
-                                <td :data-label="t('approvals.column.code')" class="whitespace-nowrap p-3 tabular-nums" data-testid="approvals-code">
-                                    <RouterLink :to="{ name: 'quotation-detail', params: { id: row.id } }" class="underline-offset-2 hover:underline">
-                                        {{ row.code }}
+                    <!-- A-47: each employee's rows are one group, named by a rowgroup header. -->
+                    <tbody v-for="group in groups" :key="group.key ?? ''">
+                        <tr class="group-row">
+                            <th colspan="5" scope="rowgroup" class="p-3 text-start font-medium" data-testid="approvals-group-heading">
+                                {{ group.label }}
+                            </th>
+                        </tr>
+                        <tr v-for="row in group.items" :key="row.id" class="table-row" data-testid="approvals-row">
+                            <td :data-label="t('approvals.column.code')" class="whitespace-nowrap p-3 tabular-nums" data-testid="approvals-code">
+                                <RouterLink :to="{ name: 'quotation-detail', params: { id: row.id } }" class="row-link">
+                                    {{ row.code }}
+                                </RouterLink>
+                            </td>
+                            <td :data-label="t('approvals.column.customer')" class="p-3" data-testid="approvals-customer">{{ customerName(row.customer_id) }}</td>
+                            <td :data-label="t('approvals.column.total')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total"><bdi dir="ltr">{{ displayDecimals(row.final_total) }} {{ row.currency }}</bdi></td>
+                            <td :data-label="t('approvals.column.daysWaiting')" class="whitespace-nowrap p-3 text-end tabular-nums">
+                                <span data-testid="approvals-days-waiting">{{ row.days_waiting ?? '—' }}</span>
+                                <!-- `D-11` in words, not only in red. -->
+                                <span v-if="row.sla_exceeded === true" class="sla-chip ms-2 inline-block rounded-full px-2 py-0.5" data-testid="approvals-sla-exceeded">
+                                    {{ t('approvals.slaExceeded') }}
+                                </span>
+                            </td>
+                            <td :data-label="t('approvals.column.actions')" class="whitespace-nowrap p-3">
+                                <span class="flex flex-wrap gap-2">
+                                    <RouterLink :to="{ name: 'quotation-edit-and-approve', params: { id: row.id } }" class="row-action inline-flex min-h-11 items-center rounded-lg px-3" data-testid="approvals-edit">
+                                        {{ t('approvals.edit') }}
                                     </RouterLink>
-                                </td>
-                                <td :data-label="t('approvals.column.customer')" class="p-3" data-testid="approvals-customer">{{ customerName(row.customer_id) }}</td>
-                                <td :data-label="t('approvals.column.total')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total"><bdi dir="ltr">{{ displayDecimals(row.final_total) }} {{ row.currency }}</bdi></td>
-                                <td :data-label="t('approvals.column.daysWaiting')" class="whitespace-nowrap p-3 text-end tabular-nums">
-                                    <span data-testid="approvals-days-waiting">{{ row.days_waiting ?? '—' }}</span>
-                                    <!-- `D-11` in words, not only in red. -->
-                                    <span v-if="row.sla_exceeded === true" class="sla-chip ms-2 inline-block rounded-full px-2 py-0.5" data-testid="approvals-sla-exceeded">
-                                        {{ t('approvals.slaExceeded') }}
-                                    </span>
-                                </td>
-                                <td :data-label="t('approvals.column.actions')" class="whitespace-nowrap p-3">
-                                    <span class="flex flex-wrap gap-2">
-                                        <RouterLink :to="{ name: 'quotation-edit-and-approve', params: { id: row.id } }" class="row-action inline-flex min-h-11 items-center rounded-lg px-3" data-testid="approvals-edit">
-                                            {{ t('approvals.edit') }}
-                                        </RouterLink>
-                                        <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:opacity-60" :disabled="busy" data-testid="approvals-approve" @click="approving = row">
-                                            {{ t('approvals.approve') }}
-                                        </button>
-                                        <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:opacity-60" :disabled="busy" data-testid="approvals-return" @click="openReturn(row)">
-                                            {{ t('approvals.return') }}
-                                        </button>
-                                    </span>
-                                </td>
-                            </tr>
-                        </template>
+                                    <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:opacity-60" :disabled="busy" data-testid="approvals-approve" @click="approving = row">
+                                        {{ t('approvals.approve') }}
+                                    </button>
+                                    <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:opacity-60" :disabled="busy" data-testid="approvals-return" @click="openReturn(row)">
+                                        {{ t('approvals.return') }}
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

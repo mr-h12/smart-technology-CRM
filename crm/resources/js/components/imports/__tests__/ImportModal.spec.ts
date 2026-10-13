@@ -304,6 +304,15 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
         expect(text).toContain('30');
     });
 
+    /** A-59 (F-42 · P4): once the result is shown there is nothing to cancel. */
+    it('reads Cancel before a result and Close after it', async () => {
+        expect(render().find('[data-testid="import-cancel"]').text()).toBe(en.action.cancel);
+
+        const view = await imported(BATCH);
+
+        expect(view.find('[data-testid="import-cancel"]').text()).toBe(en.action.close);
+    });
+
     it('closes on Escape and on Cancel', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: BATCH })));
 

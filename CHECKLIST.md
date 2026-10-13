@@ -4290,7 +4290,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       > - `deal.view.all`: Manager و CEO.
       > - `deal.view.own`: Indoor Sales و Outdoor Sales.
       > - `quotation.record_customer_response`: Manager و Team Leader و Indoor/Outdoor Sales.
-      > - استعمل «تسجيل الدخول باسم» من حساب Super Admin لكل دور.
+      > - استعمل «الدخول باسمه» من حساب Super Admin لكل دور.
       > **العرض:** «سطح المكتب» = 1280 px، و«الهاتف» = 375 px. عمود «التفاصيل» يظهر من عرض 1024 px فما فوق فقط.
 
       **أ. نافذة «صفقة جديدة» — حقل التفاصيل** — *F-41 · 1.4، 1.5*

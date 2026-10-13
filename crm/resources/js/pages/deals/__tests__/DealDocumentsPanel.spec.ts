@@ -261,6 +261,8 @@ describe('the deal documents and assign panel', () => {
         const wrapper = await render(FULL, fetchMock);
         await flushPromises();
 
+        // A-41: the box is drawn once the employee list has answered.
+        await flushPromises();
         await wrapper.find('[data-testid="deal-assign-owner"]').setValue('u-indoor');
         await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
         await flushPromises();
@@ -274,6 +276,8 @@ describe('the deal documents and assign panel', () => {
         const fetchMock = vi.fn(async () => json(200, envelope({ ...DEAL, owner_id: 'u42' })));
         const wrapper = await render(FULL, fetchMock);
 
+        // A-41: the box is drawn once the employee list has answered.
+        await flushPromises();
         await wrapper.find('[data-testid="deal-assign-owner"]').setValue('u42');
         await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
         await flushPromises();
@@ -289,6 +293,8 @@ describe('the deal documents and assign panel', () => {
         const fetchMock = vi.fn(async () => json(200, envelope(DEAL)));
         const wrapper = await render(FULL, fetchMock);
 
+        // A-41: the box is drawn once the employee list has answered.
+        await flushPromises();
         await wrapper.find('[data-testid="deal-assign-owner"]').setValue('   ');
         await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
         await flushPromises();
@@ -310,11 +316,56 @@ describe('the deal documents and assign panel', () => {
         }));
         const wrapper = await render(FULL, fetchMock);
 
+        // A-41: the box is drawn once the employee list has answered.
+        await flushPromises();
         await wrapper.find('[data-testid="deal-assign-owner"]').setValue('u42');
         await wrapper.find('[data-testid="deal-assign-form"]').trigger('submit');
         await flushPromises();
 
         expect(wrapper.find('[data-testid="deal-assign-owner-error"]').text())
             .toBe('That employee cannot own a deal.');
+    });
+
+    // ─────────────────────────────────────────────── after F-41 (F-42 · P6)
+
+    it('says the upload in a status region present before it (A-31)', async () => {
+        const fetchMock = vi.fn(async () => json(201, envelope(document())));
+        const wrapper = await render(FULL, fetchMock);
+        const region = wrapper.get('[data-testid="deal-documents-status"]');
+
+        expect(region.attributes('role')).toBe('status');
+        expect(region.text()).toBe('');
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deal-documents-status"]').text()).toBe('offer.pdf was attached.');
+    });
+
+    it('draws the shared file control: a labelled button, the allowed types, and the hint tied to it (A-24)', async () => {
+        const wrapper = await render(FULL);
+        const input = wrapper.get('[data-testid="deal-documents-file"]');
+
+        expect(input.classes()).toContain('sr-only');
+        expect(input.attributes('accept')).toBe('.pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx');
+        expect(input.element.closest('label')?.classList.contains('file-pick')).toBe(true);
+        expect(input.element.closest('label')?.textContent).toContain('Choose a file');
+
+        const described = String(input.attributes('aria-describedby')).split(' ');
+        expect(described.map((id) => wrapper.find(`[id="${id}"]`).text())).toEqual([
+            'Choose a file to attach',
+            'No file chosen',
+            'A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB.',
+        ]);
+    });
+
+    it('lets a long file name wrap inside its row (A-52)', async () => {
+        const fetchMock = vi.fn(async () => json(201, envelope(document())));
+        const wrapper = await render(FULL, fetchMock);
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deal-documents-name"]').classes()).toEqual(expect.arrayContaining(['break-words', 'min-w-0']));
     });
 });

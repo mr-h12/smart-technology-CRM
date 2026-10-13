@@ -520,7 +520,10 @@ describe('the deals screen', () => {
     });
 
     it('says something different when a filter is the reason the page is empty', async () => {
-        const fetchMock = respond([]);
+        // A-48: the bar is drawn over rows, so the page starts with one and the filter empties it.
+        const rows = respond() as unknown as (input: string) => Promise<Response>;
+        const none = respond([]) as unknown as (input: string) => Promise<Response>;
+        const fetchMock = vi.fn(async (input: string) => (String(input).includes('filter') ? none(input) : rows(input)));
         const wrapper = await render(fetchMock);
 
         await wrapper.find('[data-testid="deals-filter-status"]').setValue('won');
@@ -759,5 +762,208 @@ describe('the deals screen', () => {
         // counts anything. A counter here would be a number this application
         // cannot produce.
         expect(item?.badge).toBeUndefined();
+    });
+});
+
+describe('the deals screen after F-41 (F-42 · P6)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** Mounted at a real address, so the query the screen writes and reads is the router's. */
+    async function renderAt(fetchMock: ReturnType<typeof vi.fn>, path: string, profile: AuthenticatedUser = USER) {
+        await signIn(profile, fetchMock as unknown as typeof globalThis.fetch);
+        vi.stubGlobal('fetch', fetchMock);
+
+        const router = createAppRouter();
+        await router.push(path);
+        await router.isReady();
+
+        const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
+        const wrapper = mount(DealsView, { global: { plugins: [i18n, router] }, attachTo: document.body });
+        await flushPromises();
+
+        return { wrapper, router };
+    }
+
+    it('folds the filters behind one button carrying the active-filter count (A-19)', async () => {
+        const wrapper = await render(respond());
+        const toggle = wrapper.get('[data-testid="deals-filters-toggle"]');
+        const form = wrapper.get('[data-testid="deals-filters"]');
+
+        expect(toggle.text()).toBe('Filters (0)');
+        expect(toggle.attributes('aria-expanded')).toBe('false');
+        expect(toggle.attributes('aria-controls')).toBe(form.attributes('id'));
+        // Folded below 640 only: the desktop keeps the row of filters.
+        expect(form.classes()).toEqual(expect.arrayContaining(['hidden', 'sm:flex']));
+
+        await form.find('[data-testid="deals-filter-status"]').setValue('won');
+        await flushPromises();
+        await wrapper.get('[data-testid="deals-filters-toggle"]').trigger('click');
+
+        expect(wrapper.get('[data-testid="deals-filters-toggle"]').text()).toBe('Filters (1)');
+        expect(wrapper.get('[data-testid="deals-filters-toggle"]').attributes('aria-expanded')).toBe('true');
+        expect(wrapper.get('[data-testid="deals-filters"]').classes()).not.toContain('hidden');
+    });
+
+    it('keeps the code on one line (A-19)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.get('[data-testid="deals-code"]').classes()).toContain('whitespace-nowrap');
+    });
+
+    it('names the details trigger with the short label, not the details text (A-58)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.get('[data-testid="deals-details-trigger"]').attributes('aria-label')).toBe('Details');
+    });
+
+    it('gives two open rows’ status forms their own label targets (A-29)', async () => {
+        const changer: AuthenticatedUser = { ...USER, permissions: [...USER.permissions, 'deal.change_status.all'] };
+        const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER]), changer);
+
+        for (const start of wrapper.findAll('[data-testid="deal-status-start"]')) {
+            await start.trigger('click');
+        }
+        await flushPromises();
+
+        const forms = wrapper.findAll('[data-testid="deal-status-form"]');
+        expect(forms).toHaveLength(2);
+
+        const targets = forms.map((form) => form.get('label').attributes('for'));
+        expect(new Set(targets).size).toBe(2);
+        forms.forEach((form, index) => expect(form.get('[data-testid="deal-status-target"]').attributes('id')).toBe(targets[index]));
+    });
+
+    it('restores its filters from the address and writes changes back (A-13)', async () => {
+        const fetchMock = respond();
+        const { wrapper, router } = await renderAt(fetchMock, '/deals?status=won&q=pumps');
+
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bstatus%5D=won');
+        expect(dealsUrl(fetchMock)).toContain('q=pumps');
+        expect((wrapper.get('[data-testid="deals-filter-status"]').element as HTMLSelectElement).value).toBe('won');
+
+        await wrapper.get('[data-testid="deals-filter-source"]').setValue('outdoor_visit');
+        await flushPromises();
+
+        expect(router.currentRoute.value.query).toMatchObject({ status: 'won', q: 'pumps', source: 'outdoor_visit' });
+        wrapper.unmount();
+    });
+
+    it('keeps the table on a reload, busy and dimmed, with the focus on the pager (A-14)', async () => {
+        let release: (value: Response) => void = () => {};
+        let reads = 0;
+        const fetchMock = vi.fn(async (input: string) => {
+            if (String(input).includes('/deals/owners')) {
+                return json(200, envelope({ items: [] }));
+            }
+
+            return reads++ === 0
+                ? json(200, envelope([DEAL], { pagination: { ...PAGINATION, total: 60, total_pages: 3, has_next_page: true } }))
+                : new Promise<Response>((resolve) => { release = resolve; });
+        });
+        const { wrapper } = await renderAt(fetchMock, '/deals');
+
+        const next = wrapper.get('[data-testid="deals-next"]');
+        (next.element as HTMLButtonElement).focus();
+        await next.trigger('click');
+
+        expect(wrapper.find('[data-testid="deals-table"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="loading-state"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="deals-table-frame"]').attributes('aria-busy')).toBe('true');
+        expect(wrapper.get('[data-testid="deals-updating"]').text()).toBe('Updating the list…');
+        expect(document.activeElement).toBe(next.element);
+
+        release(json(200, envelope([DEAL], { pagination: { ...PAGINATION, page: 2, total: 60, total_pages: 3, has_previous_page: true, has_next_page: true } })));
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deals-table-frame"]').attributes('aria-busy')).toBe('false');
+        wrapper.unmount();
+    });
+
+    it('draws no filter bar to a refused role, nor over an empty list with no filter (A-48)', async () => {
+        const refused = await render(respond([], 403));
+        expect(refused.find('[data-testid="deals-filters"]').exists()).toBe(false);
+        expect(refused.find('[data-testid="deals-filters-toggle"]').exists()).toBe(false);
+
+        const empty = await render(respond([]));
+        expect(empty.find('[data-testid="deals-filters"]').exists()).toBe(false);
+    });
+
+    it('searches 300 ms after the last key, once, with no Apply button (A-49)', async () => {
+        vi.useFakeTimers();
+        const fetchMock = respond();
+        const wrapper = await render(fetchMock);
+        const before = listReads(fetchMock);
+
+        expect(wrapper.find('[data-testid="deals-filter-apply"]').exists()).toBe(false);
+
+        await wrapper.get('[data-testid="deals-filter-search"]').setValue('pum');
+        vi.advanceTimersByTime(200);
+        await wrapper.get('[data-testid="deals-filter-search"]').setValue('pumps');
+        vi.advanceTimersByTime(299);
+        await flushPromises();
+
+        expect(listReads(fetchMock)).toBe(before);
+
+        vi.advanceTimersByTime(1);
+        await flushPromises();
+
+        expect(listReads(fetchMock)).toBe(before + 1);
+        expect(dealsUrl(fetchMock)).toContain('q=pumps');
+        vi.useRealTimers();
+    });
+
+    it('draws no pager when there is one page (A-67)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="deals-pagination"]').exists()).toBe(false);
+    });
+
+    it('shows the last activity with Western digits in Arabic (A-06)', async () => {
+        await signIn(USER, respond() as unknown as typeof globalThis.fetch);
+        vi.stubGlobal('fetch', respond());
+
+        const i18n = createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { en, ar } });
+        const wrapper = mount(DealsView, { global: { plugins: [i18n, createAppRouter()] } });
+        await flushPromises();
+
+        const activity = wrapper.get('[data-testid="deals-last-activity"]').text();
+        expect(activity).toMatch(/\d/);
+        expect(activity).not.toMatch(/[\u0660-\u0669]/);
+    });
+
+    it('says the save in a status region present from the start (A-32)', async () => {
+        const saved = { ...DEAL, id: 'd3', code: 'DL-2026-0003' };
+        const list = respond() as unknown as (input: string) => Promise<Response>;
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) =>
+            init?.method === 'POST' ? json(201, envelope(saved)) : list(input));
+        const wrapper = await render(fetchMock);
+
+        expect(wrapper.get('[data-testid="deals-saved"]').attributes('role')).toBe('status');
+        expect(wrapper.get('[data-testid="deals-saved"]').text()).toBe('');
+
+        await openFormAndPickCustomer(wrapper);
+        await wrapper.get('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deals-saved"]').text()).toBe('DL-2026-0003 was saved.');
+    });
+
+    it('takes no owner from the address for a role that has no owner filter to show it (A-13, D-108)', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await renderAt(fetchMock, '/deals?owner=u9', EDITOR_WITHOUT_CREATE);
+
+        expect(dealsUrl(fetchMock)).not.toContain('owner');
+        expect(wrapper.get('[data-testid="deals-filters-toggle"]').text()).toBe('Filters (0)');
+        wrapper.unmount();
+    });
+
+    it('scrolls the table sideways below 640 and clips from 640, so nothing is cut off on a phone (A-40, owner 2026-10-14)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.get('[data-testid="deals-table-frame"]').classes()).toEqual(expect.arrayContaining(['overflow-x-auto', 'sm:overflow-x-clip']));
     });
 });

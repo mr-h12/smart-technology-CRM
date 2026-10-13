@@ -141,7 +141,7 @@ dialog:not([open]) {
 /*
  * DS §6.2: the secondary button, with its hover and pressed states (A-51).
  * Unlayered, as the scoped copies it replaces were, so it keeps their
- * precedence over utilities. pages/deals still holds 6 copies until F-42 step 15.
+ * precedence over utilities.
  */
 /*
  * A segmented control: the bar's theme switch and LocaleSegment (A-46). The
@@ -222,8 +222,8 @@ dialog:not([open]) {
 }
 
 /*
- * DS §6.4: one status chip for customers and quotations, the word without a
- * dot (A-55, the owner's answer). pages/deals keeps its copy until F-42 step 15.
+ * DS §6.4: one status chip for customers, deals and quotations, the word
+ * without a dot (A-55, the owner's answer).
  */
 .status-chip {
     background-color: color-mix(in srgb, currentColor 14%, transparent);

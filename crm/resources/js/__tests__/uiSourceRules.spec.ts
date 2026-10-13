@@ -53,22 +53,20 @@ describe('UI source rules (F-42)', () => {
         expect(linesMatching(/outline:\s*2px solid var\(--color-focus-ring\)/)).toEqual([]);
     });
 
-    it('focus rings only for the keyboard (A-64): no focus:outline / focus:ring utility outside pages/deals', () => {
+    it('focus rings only for the keyboard (A-64): no focus:outline / focus:ring utility', () => {
         // A focus: ring also shows on a mouse click; A-34's :focus-visible rule
         // draws the same ring for the keyboard only.
-        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
-        expect(linesMatching(/\bfocus:(outline|ring)/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+        expect(linesMatching(/\bfocus:(outline|ring)/)).toEqual([]);
     });
 
-    it('one secondary button (A-51): app.css holds .row-action with :hover and :active once, and no component outside pages/deals repeats it', () => {
+    it('one secondary button (A-51): app.css holds .row-action with :hover and :active once, and no component repeats it', () => {
         // DS §6.2: every variant has hover and active states.
-        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
         const css = readFileSync('resources/css/app.css', 'utf8');
 
         expect(css.match(/^\.row-action \{/gm)).toHaveLength(1);
         expect(css.match(/^\.row-action:hover/gm)).toHaveLength(1);
         expect(css.match(/^\.row-action:active/gm)).toHaveLength(1);
-        expect(linesMatching(/^\.row-action\b/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+        expect(linesMatching(/^\.row-action\b/)).toEqual([]);
     });
 
     it('action variants (A-33): app.css holds the primary, the filled Danger and the row Danger text once each', () => {
@@ -80,23 +78,21 @@ describe('UI source rules (F-42)', () => {
         expect(css.match(/^\.danger-text \{/gm)).toHaveLength(1);
     });
 
-    it('one status chip (A-55): app.css holds .status-chip once, no component outside pages/deals repeats it, and no chip draws a dot', () => {
-        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+    it('one status chip (A-55): app.css holds .status-chip once, no component repeats it, and no chip draws a dot', () => {
         // Suppliers' and catalog's identical copies are outside A-55's files: a CHECKLIST debt row, the owner's call.
         const css = readFileSync('resources/css/app.css', 'utf8');
-        const later = /^pages\/(deals|suppliers|catalog)\//;
+        const later = /^pages\/(suppliers|catalog)\//;
 
         expect(css.match(/^\.status-chip \{/gm)).toHaveLength(1);
         expect(linesMatching(/^\.status-chip\b/, (_, path) => !later.test(path))).toEqual([]);
         expect(linesMatching(/status-dot/)).toEqual([]);
     });
 
-    it('native dialogs (A-04): no aria-modal div outside pages/deals; every modal opens a <dialog> through useModalDialog', () => {
+    it('native dialogs (A-04): no aria-modal div; every modal opens a <dialog> through useModalDialog', () => {
         // DS §6.6: showModal() traps focus, closes on Escape and makes the page behind inert, with no code of ours.
-        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
-        expect(linesMatching(/aria-modal="true"/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+        expect(linesMatching(/aria-modal="true"/)).toEqual([]);
 
-        const modals = SOURCES.filter(([path, text]) => path.endsWith('.vue') && !path.startsWith('pages/deals/') && /<dialog\b/.test(text)).map(([path]) => path);
+        const modals = SOURCES.filter(([path, text]) => path.endsWith('.vue') && /<dialog\b/.test(text)).map(([path]) => path);
         expect(modals.sort()).toEqual([
             'components/imports/ImportModal.vue',
             'components/profile/EmailChallengeModal.vue',
@@ -108,6 +104,7 @@ describe('UI source rules (F-42)', () => {
             'pages/approvals/ApprovalsView.vue',
             'pages/catalog/CatalogItemFormModal.vue',
             'pages/customers/CustomerFormModal.vue',
+            'pages/deals/DealFormModal.vue',
             'pages/supplier-quotations/SupplierQuotationFormModal.vue',
             'pages/suppliers/SupplierFormModal.vue',
         ]);
@@ -124,25 +121,30 @@ describe('UI source rules (F-42)', () => {
         expect(h1s('pages/ForbiddenView.vue')).toBe(1);
     });
 
-    // ponytail (the three cases below): pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
     it('one date form (A-06): no toLocaleDateString / toLocaleTimeString / toLocaleString outside displayDate.ts', () => {
         // D-70: Western digits in every locale, which only displayDate.ts asks for.
         expect(
-            linesMatching(/\.toLocale(Date|Time)?String\(/, (_, path) => path !== 'domain/displayDate.ts' && !path.startsWith('pages/deals/')),
+            linesMatching(/\.toLocale(Date|Time)?String\(/, (_, path) => path !== 'domain/displayDate.ts'),
         ).toEqual([]);
     });
 
     it('a sticky header that sticks (A-40): no sticky <thead> inside an overflow-x-auto frame', () => {
         // An overflow-x-auto frame is a scroll container, so a sticky header sticks to it and never moves.
-        const framed = SOURCES.filter(([path, text]) => !path.startsWith('pages/deals/') && /\boverflow-x-auto\b/.test(text)).map(([path]) => path);
+        // A frame that scrolls only below 640 (`sm:overflow-x-clip`) still sticks where the header is used:
+        // the deals table stays a table on a phone (A-19), so it scrolls there (owner, 2026-10-14).
+        const framed = SOURCES.filter(([, text]) =>
+            [...text.matchAll(/class="[^"]*\boverflow-x-auto\b[^"]*"/g)].some(([attr]) => !/\bsm:overflow-x-clip\b/.test(attr)),
+        ).map(([path]) => path);
 
         expect(linesMatching(/<thead\b[^>]*\bsticky\b/, (_, path) => framed.includes(path))).toEqual([]);
     });
 
     it('long text stays inside (A-52): every truncate class sits on an element with a title', () => {
         // The whole opening tag, which may span lines, is what must carry the title.
-        const untitled = SOURCES.filter(([path]) => !path.startsWith('pages/deals/')).flatMap(([path, text]) =>
-            [...text.matchAll(/<[a-zA-Z][^>]*\btruncate\b[^>]*>/g)].filter(([tag]) => !/\btitle=/.test(tag)).map(([tag]) => `${path}: ${tag}`),
+        // The one exception is the deals list's details preview: its trigger opens
+        // the whole text in a popover (F-41 · 1.5, A-58), which a title would double.
+        const untitled = SOURCES.flatMap(([path, text]) =>
+            [...text.matchAll(/<[a-zA-Z][^>]*\btruncate\b[^>]*>/g)].filter(([tag]) => !/\btitle=|\bdetails-preview\b/.test(tag)).map(([tag]) => `${path}: ${tag}`),
         );
 
         expect(untitled).toEqual([]);

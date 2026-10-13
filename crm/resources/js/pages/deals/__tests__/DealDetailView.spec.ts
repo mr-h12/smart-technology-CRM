@@ -4,6 +4,7 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import DealDetailView from '@/pages/deals/DealDetailView.vue';
+import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
@@ -201,7 +202,7 @@ describe('the deal detail view', () => {
         expect(wrapper.find('[data-testid="deal-detail-details"]').text()).toBe('—');
     });
 
-    it('falls back to the customer identifier when the name cannot be read', async () => {
+    it('draws — rather than the customer identifier when the name cannot be read (A-18)', async () => {
         const fetchMock = vi.fn(async (input: string) => {
             const url = String(input);
 
@@ -220,7 +221,8 @@ describe('the deal detail view', () => {
 
         const wrapper = await render(fetchMock);
 
-        expect(wrapper.find('[data-testid="deal-detail-customer"]').text()).toBe('c1');
+        expect(wrapper.find('[data-testid="deal-detail-customer"]').text()).toBe('—');
+        expect(wrapper.find('[data-testid="deal-detail-customer"] a').exists()).toBe(false);
         // The page still loaded: a name lookup is not the page.
         expect(wrapper.find('[data-testid="deal-detail-summary"]').exists()).toBe(true);
     });
@@ -235,7 +237,8 @@ describe('the deal detail view', () => {
         expect(entry.exists()).toBe(true);
         expect(wrapper.find('[data-testid="deal-detail-timeline-what"]').text()).toContain('Lead');
         expect(wrapper.find('[data-testid="deal-detail-timeline-what"]').text()).toContain('Contacted');
-        expect(wrapper.find('[data-testid="deal-detail-timeline-who"]').text()).toBe('u9');
+        // A-18: Identity publishes no name here yet (a fix point outside F-42), so «—», never the id.
+        expect(wrapper.find('[data-testid="deal-detail-timeline-who"]').text()).toBe('—');
         expect(wrapper.find('[data-testid="deal-detail-timeline-when"]').text()).not.toBe('');
     });
 
@@ -264,7 +267,10 @@ describe('the deal detail view', () => {
 
         // SEC-10: a history naming only the actor would read identically
         // whether or not somebody else's account was used.
-        expect(wrapper.find('[data-testid="deal-detail-timeline-impersonated"]').text()).toContain('u42');
+        // A-18: the line still says another account was used; it names no identifier.
+        const line = wrapper.find('[data-testid="deal-detail-timeline-impersonated"]').text();
+        expect(line).toBe('Acting as —');
+        expect(line).not.toContain('u42');
     });
 
     it('says the history is empty rather than drawing nothing', async () => {
@@ -395,5 +401,95 @@ describe('the deal detail view', () => {
         // the moment the change succeeds.
         expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/timeline')).length)
             .toBeGreaterThan(before);
+    });
+
+    // ─────────────────────────────────────────────── after F-41 (F-42 · P6)
+
+    it('heads the page with the code, the chip, the request and the customer as a link, under a back link (A-53)', async () => {
+        const wrapper = await render(respond());
+        const header = wrapper.get('[data-testid="deal-detail-header"]');
+
+        expect(header.get('h1').text()).toBe('DL-2026-0001');
+        expect(header.find('[data-testid="deal-detail-status"]').exists()).toBe(true);
+        expect(header.get('[data-testid="deal-detail-request"]').text()).toBe('Twelve pumps');
+
+        const customer = header.get('[data-testid="deal-detail-customer"] a');
+        expect(customer.text()).toBe('Acme Industrial');
+        expect(customer.attributes('href')).toBe('/customers/c1');
+
+        const back = header.get('[data-testid="deal-back"]');
+        expect(back.attributes('href')).toBe('/deals');
+        // Above the h1, as on the customer page.
+        expect(back.element.compareDocumentPosition(header.get('h1').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('gives the not-found state the same back link (A-53)', async () => {
+        const wrapper = await render(respond({ dealStatus: 404 }));
+
+        expect(wrapper.get('[data-testid="deal-back"]').attributes('href')).toBe('/deals');
+    });
+
+    it('keeps the way back above a failed load, with a translated line and a retry (A-43)', async () => {
+        const wrapper = await render(respond({ dealStatus: 500 }));
+
+        expect(wrapper.get('[data-testid="deal-back"]').attributes('href')).toBe('/deals');
+        expect(wrapper.get('[data-testid="error-state"]').text()).toContain('Try again');
+    });
+
+    it('separates the actor from the date (A-18)', async () => {
+        const wrapper = await render(respond());
+        const who = wrapper.get('[data-testid="deal-detail-timeline-who"]');
+
+        expect(who.element.parentElement?.classList.contains('gap-x-2')).toBe(true);
+    });
+
+    it('draws the empty sections with the shared empty state (DC-55)', async () => {
+        const wrapper = await render(respond({ timeline: [], quotations: [] }), { ...USER, permissions: [...USER.permissions, 'quotation.view.all'] });
+
+        expect(wrapper.find('[data-testid="deal-detail-timeline-empty"] h2').text()).toBe('Nothing has happened to this deal yet.');
+        expect(wrapper.find('[data-testid="deal-detail-quotations-empty"] h2').text()).toBe('No quotation has been created for this deal yet.');
+    });
+
+    it('shows the last activity with Western digits in Arabic, to the minute (A-06)', async () => {
+        await signIn(USER, respond() as unknown as typeof globalThis.fetch);
+        vi.stubGlobal('fetch', respond());
+
+        const i18n = createI18n({ legacy: false, locale: 'ar', fallbackLocale: 'en', messages: { en, ar } });
+        const router = createAppRouter();
+        await router.push('/deals/d1');
+        await router.isReady();
+        const wrapper = mount(DealDetailView, { global: { plugins: [i18n, router] } });
+        await flushPromises();
+
+        const activity = wrapper.get('[data-testid="deal-detail-activity"]').text();
+        expect(activity).not.toMatch(/[\u0660-\u0669]/);
+        expect(activity).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+    });
+
+    it('keeps the page on a reload after a change, dimmed and busy (A-14)', async () => {
+        let release: (value: Response) => void = () => {};
+        let dealReads = 0;
+        const base = respond() as unknown as (input: string) => Promise<Response>;
+        const fetchMock = vi.fn(async (input: string) => {
+            const url = String(input);
+
+            if (!url.includes('/timeline') && !url.includes('/customers') && !url.includes('/quotations') && dealReads++ > 0) {
+                return new Promise<Response>((resolve) => { release = resolve; });
+            }
+
+            return base(input);
+        });
+        const wrapper = await render(fetchMock);
+
+        wrapper.findComponent(DealStatusControl).vm.$emit('changed', DEAL);
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="loading-state"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="deal-detail-page"]').attributes('aria-busy')).toBe('true');
+
+        release(json(200, envelope(DEAL)));
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deal-detail-page"]').attributes('aria-busy')).toBe('false');
     });
 });

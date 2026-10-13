@@ -999,7 +999,7 @@
             "source": "Source",
             "sourceAll": "Any source",
             "ownerAll": "Any owner",
-            "apply": "Apply"
+            "toggle": "Filters ({count})"
         },
         "column": {
             "code": "Code",
@@ -1048,7 +1048,11 @@
             "alreadyDecided": "This request has already been decided. Reload to see its current state.",
             "forbidden": "You do not have permission to decide this request.",
             "unreachable": "The server could not be reached. Nothing was decided.",
-            "rejectedByServer": "The decision was not accepted."
+            "rejectedByServer": "The decision was not accepted.",
+            "confirm": {
+                "title": "Approve this request?",
+                "message": "Approve {name}? A decision cannot be changed once it is recorded."
+            }
         },
         "serviceType": {
             "product": "Product",
@@ -1076,7 +1080,6 @@
         "form": {
             "createTitle": "New deal",
             "editTitle": "Edit deal",
-            "required": "(required)",
             "saving": "Saving…",
             "notGiven": "Not given",
             "customerNone": "Choose the customer",
@@ -1093,7 +1096,8 @@
         "quotations": {
             "title": "Previous Quotations",
             "loading": "Loading the deal's quotations…",
-            "empty": "No quotation has been created for this deal yet."
+            "empty": "No quotation has been created for this deal yet.",
+            "emptyMessage": "Quotations created from this deal will appear here."
         },
         "timeline": {
             "title": "Timeline",
@@ -1111,11 +1115,13 @@
                 "DEAL_REASSIGNED": "Owner changed",
                 "DEAL_DOCUMENT_ATTACHED": "Document attached",
                 "DEAL_STATUS_CHANGED": "Status changed"
-            }
+            },
+            "emptyMessage": "Changes to this deal will appear here."
         },
         "detail": {
             "missing": "This deal could not be opened.",
-            "newQuotation": "New quotation"
+            "newQuotation": "New quotation",
+            "backToList": "Back to deals"
         },
         "documents": {
             "title": "Documents",
@@ -1128,7 +1134,8 @@
             "forbidden": "You do not have permission to attach a file to this deal.",
             "rejected": "The file was not accepted.",
             "downloadForbidden": "You do not have permission to download this file.",
-            "downloadRejected": "The file could not be downloaded."
+            "downloadRejected": "The file could not be downloaded.",
+            "attached": "{name} was attached."
         },
         "assign": {
             "title": "Owner",
@@ -1138,7 +1145,8 @@
             "rejected": "The assignment was not accepted.",
             "ownerNone": "Choose the employee",
             "listUnavailable": "The employee list could not be read, so the owner is set by identifier."
-        }
+        },
+        "saved": "{code} was saved."
     },
     "quotations": {
         "title": "Quotations",

@@ -31,20 +31,3 @@ const tone = computed(() => TONES[props.status] ?? 'info');
     </span>
 </template>
 
-<style scoped>
-.status-chip {
-    background-color: color-mix(in srgb, currentColor 14%, transparent);
-}
-
-.status-chip--success {
-    color: var(--color-success);
-}
-
-.status-chip--danger {
-    color: var(--color-danger);
-}
-
-.status-chip--info {
-    color: var(--color-info);
-}
-</style>

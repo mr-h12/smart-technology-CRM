@@ -430,7 +430,9 @@ describe('the deal form dialog', () => {
         const wrapper = await mountModal(DEAL);
 
         await wrapper.find('[data-testid="deal-form-title"]').setValue('Changed');
-        await wrapper.find('[data-testid="deal-form"]').trigger('keydown.escape');
+        // A-04: the browser turns Escape into the <dialog>'s own cancel event.
+        wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
 
         // §6.1: Escape closes dialogs "without discarding silently".
         expect(wrapper.find('[data-testid="deal-form-discard"]').exists()).toBe(true);
@@ -445,13 +447,24 @@ describe('the deal form dialog', () => {
 
         await customer.trigger('focus');
         await flushPromises();
-        await customer.trigger('keydown', { key: 'Escape' });
 
+        // A-04: the open list prevents the key's default, which is what stops
+        // the browser turning it into the dialog's cancel.
+        const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+        customer.element.dispatchEvent(first);
+        await flushPromises();
+
+        expect(first.defaultPrevented).toBe(true);
         expect(customer.attributes('aria-expanded')).toBe('false');
         expect(wrapper.emitted('cancel')).toBeUndefined();
 
-        // The list is closed now, so the next Escape is the dialog's.
-        await customer.trigger('keydown', { key: 'Escape' });
+        // The list is closed now, so the next Escape is left to the dialog.
+        const second = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+        customer.element.dispatchEvent(second);
+        expect(second.defaultPrevented).toBe(false);
+
+        wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
         expect(wrapper.emitted('cancel')).toHaveLength(1);
     });
 
@@ -475,4 +488,40 @@ describe('the deal form dialog', () => {
 
         expect(wrapper.emitted('cancel')).toHaveLength(1);
     });
+
+    // ─────────────────────────────────────────────── after F-41 (F-42 · P6)
+
+    it('opens as a native modal <dialog> named by its title (A-04)', async () => {
+        const wrapper = await mountModal();
+        const dialog = wrapper.get('dialog');
+
+        expect(dialog.attributes('data-testid')).toBe('deal-form-modal');
+        expect(dialog.attributes('aria-labelledby')).toBe('deal-form-title');
+        expect(wrapper.find('[aria-modal="true"]').exists()).toBe(false);
+    });
+
+    it('turns off the browser’s autofill on the request title (DC-69)', async () => {
+        const wrapper = await mountModal();
+
+        expect(wrapper.get('[data-testid="deal-form-title"]').attributes('autocomplete')).toBe('off');
+    });
+
+    it('ties a refused field to its sentence, counts it, and focuses it (A-11)', async () => {
+        const wrapper = await mountModal(null, ASSIGNER, 200);
+        document.body.appendChild(wrapper.element);
+
+        await wrapper.get('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        const error = wrapper.get('[data-testid="deal-form-customer-id-error"]');
+        const field = wrapper.get('[data-testid="deal-form-customer-id"]');
+
+        expect(error.attributes('id')).toBeTruthy();
+        expect(field.attributes('aria-describedby')).toBe(error.attributes('id'));
+        expect(field.attributes('aria-invalid')).toBe('true');
+        expect(wrapper.get('[data-testid="deal-form-error-count"]').text()).toBe('Fix 1 field before saving.');
+        expect(document.activeElement).toBe(field.element);
+        wrapper.unmount();
+    });
+
 });

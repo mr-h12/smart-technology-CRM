@@ -1173,6 +1173,9 @@ describe('CustomersView — F-19 · 1.3 bulk assign', () => {
         for (const row of rows) {
             await boxes[row]!.setValue(true);
         }
+
+        // A-41 (F-42 · P6): the owner picker draws its control once the employee list has answered.
+        await flushPromises();
     }
 
     /** Chooses the employee (none when `ownerId` is ""), then presses the bulk button. */

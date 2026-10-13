@@ -47,6 +47,8 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { focusFirstInvalid } from '@/components/focusFirstInvalid';
+import { useModalDialog } from '@/components/useModalDialog';
 import { createDeal, updateDeal, type Deal } from '@/services/deals';
 import { DEAL_SERVICE_TYPES, DEAL_SOURCES } from '@/services/deals';
 import { useAuth } from '@/stores/auth';
@@ -59,7 +61,7 @@ const props = defineProps<{
     editing: Deal | null;
 }>();
 
-const emit = defineEmits<{ saved: []; cancel: [] }>();
+const emit = defineEmits<{ saved: [Deal]; cancel: [] }>();
 
 const { t } = useI18n();
 const auth = useAuth();
@@ -74,6 +76,12 @@ type Values = Record<Field, string>;
 function blank(): Values {
     return { customer_id: '', owner_id: '', title: '', details: '', source: '', service_type: '' };
 }
+
+/** A-04: the native modal; A-11: the form whose first refused field takes focus. */
+const dialog = ref<HTMLDialogElement | null>(null);
+const form = ref<HTMLFormElement | null>(null);
+
+useModalDialog(dialog);
 
 const values = ref<Values>(blank());
 /** What the form was opened with. The dirty check is against this, not against blank. */
@@ -104,6 +112,14 @@ function fieldId(field: Field): string {
 function testId(field: Field): string {
     return `deal-form-${field.replace(/_/g, '-')}`;
 }
+
+/** A-11: the error's id, for the field's `aria-describedby`; nothing while it is valid. */
+function errorId(field: Field): string | undefined {
+    return errorFor(field) === null ? undefined : `${fieldId(field)}-error`;
+}
+
+/** A-11: the top line counts what needs fixing. */
+const invalidCount = computed(() => FIELDS.filter((field) => errorFor(field) !== null).length);
 
 function errorFor(field: Field): string | null {
     const sentence = serverErrors.value[field];
@@ -189,6 +205,7 @@ async function save(): Promise<void> {
     // The one courtesy check. The server enforces it too.
     if (!isEdit.value && values.value.customer_id === '') {
         errorKeys.value = { customer_id: 'deals.form.customerRequired' };
+        await focusFirstInvalid(form.value);
 
         return;
     }
@@ -196,29 +213,28 @@ async function save(): Promise<void> {
     saving.value = true;
 
     try {
-        if (props.editing === null) {
-            await createDeal({
+        const saved = props.editing === null
+            ? await createDeal({
                 customer_id: values.value.customer_id,
                 owner_id: orNull(values.value.owner_id),
                 title: orNull(values.value.title),
                 details: orNull(values.value.details),
                 source: orNull(values.value.source),
                 service_type: orNull(values.value.service_type),
-            });
-        } else {
+            })
             // No `customer_id`, no `owner_id`: both are `prohibited` on a
             // PATCH, so sending the unchanged value would 422 the save.
-            await updateDeal(props.editing.id, {
+            : await updateDeal(props.editing.id, {
                 title: orNull(values.value.title),
                 details: orNull(values.value.details),
                 source: orNull(values.value.source),
                 service_type: orNull(values.value.service_type),
             });
-        }
 
-        emit('saved');
+        emit('saved', saved);
     } catch (error) {
         applyServerErrors(error);
+        await focusFirstInvalid(form.value);
     } finally {
         saving.value = false;
     }
@@ -247,22 +263,36 @@ function discard(): void {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="deal-form-modal">
-        <div class="modal-scrim absolute inset-0" @click="requestClose()" />
+    <!-- A-04: Escape arrives as the dialog's own `cancel`; prevented, so closing stays `requestClose`'s. -->
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="deal-form-title"
+        data-testid="deal-form-modal"
+        @cancel.prevent="requestClose()"
+    >
+        <div class="dialog-scrim absolute inset-0" @click="requestClose()" />
 
         <form
-            class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="deal-form-title"
+            ref="form"
+            class="dialog-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
             novalidate
             data-testid="deal-form"
             @submit.prevent="save()"
-            @keydown.escape.prevent="requestClose()"
         >
             <h2 id="deal-form-title" class="text-card-title">
                 {{ isEdit ? t('deals.form.editTitle') : t('deals.form.createTitle') }}
             </h2>
+
+            <p
+                v-if="invalidCount > 0"
+                class="form-alert rounded-lg p-3"
+                role="alert"
+                data-testid="deal-form-error-count"
+            >
+                {{ t('form.fixCount', invalidCount) }}
+            </p>
 
             <p
                 v-if="errorKeys._form !== undefined"
@@ -279,7 +309,7 @@ function discard(): void {
                 <span>
                     {{ t('deals.column.customer') }}
                     <!-- §6.3's "explicit required marker": a word, not only a glyph. -->
-                    <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
+                    <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
                 </span>
                 <!-- F-08 (`D-84`): searches the server; no all label, so no
                      clear button — the field is required. -->
@@ -289,10 +319,12 @@ function discard(): void {
                     :placeholder="t('deals.form.customerNone')"
                     :disabled="saving"
                     :aria-invalid="errorFor('customer_id') !== null"
+                    :aria-describedby="errorId('customer_id')"
                     :test-id="testId('customer_id')"
                 />
                 <span
                     v-if="errorFor('customer_id') !== null"
+                    :id="errorId('customer_id')"
                     class="text-[var(--color-danger)]"
                     data-testid="deal-form-customer-id-error"
                 >
@@ -318,6 +350,7 @@ function discard(): void {
 
                 <span
                     v-if="errorFor('owner_id') !== null"
+                    :id="errorId('owner_id')"
                     class="text-[var(--color-danger)]"
                     data-testid="deal-form-owner-id-error"
                 >
@@ -331,12 +364,14 @@ function discard(): void {
                     :id="fieldId('title')"
                     v-model="values.title"
                     type="text"
+                    autocomplete="off"
                     :disabled="saving"
                     :aria-invalid="errorFor('title') !== null"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :aria-describedby="errorId('title')"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('title')"
                 />
-                <span v-if="errorFor('title') !== null" class="text-[var(--color-danger)]" data-testid="deal-form-title-error">
+                <span v-if="errorFor('title') !== null" :id="errorId('title')" class="text-[var(--color-danger)]" data-testid="deal-form-title-error">
                     {{ errorFor('title') }}
                 </span>
             </label>
@@ -352,10 +387,11 @@ function discard(): void {
                     dir="auto"
                     :disabled="saving"
                     :aria-invalid="errorFor('details') !== null"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    :aria-describedby="errorId('details')"
+                    class="form-field rounded-lg px-3 py-2"
                     :data-testid="testId('details')"
                 />
-                <span v-if="errorFor('details') !== null" class="text-[var(--color-danger)]" data-testid="deal-form-details-error">
+                <span v-if="errorFor('details') !== null" :id="errorId('details')" class="text-[var(--color-danger)]" data-testid="deal-form-details-error">
                     {{ errorFor('details') }}
                 </span>
             </label>
@@ -366,7 +402,7 @@ function discard(): void {
                     :id="fieldId('service_type')"
                     v-model="values.service_type"
                     :disabled="saving"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('service_type')"
                 >
                     <option value="">{{ t('deals.form.notGiven') }}</option>
@@ -380,7 +416,7 @@ function discard(): void {
                     :id="fieldId('source')"
                     v-model="values.source"
                     :disabled="saving"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     :data-testid="testId('source')"
                 >
                     <option value="">{{ t('deals.form.notGiven') }}</option>
@@ -420,7 +456,7 @@ function discard(): void {
             <footer class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     :disabled="saving"
                     data-testid="deal-form-cancel"
                     @click="requestClose()"
@@ -429,7 +465,7 @@ function discard(): void {
                 </button>
                 <button
                     type="submit"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                     data-testid="deal-form-submit"
                 >
@@ -437,24 +473,10 @@ function discard(): void {
                 </button>
             </footer>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.modal-scrim {
-    /* There is no `--color-scrim` token — one was invented here and
-       `LogicalPropertiesTest`'s token check caught it. §3.2's set is what a
-       component may consume, so the scrim is mixed from `--color-text` exactly
-       as `SupplierQuotationFormModal` does. */
-    background-color: var(--color-overlay);
-}
-
-.modal-panel {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
-}
-
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
@@ -464,16 +486,5 @@ function discard(): void {
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
 }
 </style>

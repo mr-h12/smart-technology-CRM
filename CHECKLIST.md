@@ -1794,6 +1794,19 @@ would hide them behind `OD-03` indefinitely.
       positioned and its `.table-frame overflow-x-auto` is not `position: relative`, so the span escapes the frame.
       Owed: `relative` on that frame, with a 375 measure, when the owner orders it
 
+- [ ] **Six table and form classes are still copied in each page's scoped style** — *revealed by
+      F-42 · P6's waste audit (2026-10-14, #345); not created by it.* `.form-field` is defined in 21
+      `.vue` files, `.form-alert` 16, `.table-frame`/`.table-head`/`.table-row` 13 each, `.sort-action`
+      6. They could move to `app.css` the way `.row-action` and `.status-chip` did (A-51, A-55).
+      The owner's call.
+- [ ] **`deals.form.ownerCeiling` has no reader** — *revealed by F-42 · P6's waste audit
+      (2026-10-14, #345); already unread on `main`.* Both locale files carry it; nothing in
+      `crm/resources/js` or `crm/app` reads it. Delete it, or say what should print it.
+- [ ] **The shared file control's label shows the default cursor** — *revealed by F-42 · P6's
+      browser check (2026-10-14, #345).* `.file-pick` (A-24) looks like a button but keeps
+      `cursor: default`, on the deal documents and the purchase-order block alike. One line in
+      `app.css`.
+
 ## Agent guide revisions — owner-directed
 
 Changes to `CLAUDE.md` and `AGENTS.md` themselves. They belong to no module, and they are recorded
@@ -4281,7 +4294,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and vitest), joined with 1.7 by the owner, 2026-10-13.
             *(2026-10-13, #343 — `filter[owner]` only narrows the row scope; `GET /deals/owners` returns `data.items` sorted by name, unpaginated; the six filters share one width (owner))*
       - [x] **1.8** The Arabic manual test list; closes F-41.
-            *(2026-10-13 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
+            *(2026-10-13, #344 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
 
       #### قائمة الاختبار اليدوي — F-41 كاملة *(النقطة 1.8، 2026-10-13)*
 
@@ -4519,11 +4532,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.45 A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
             · 5.46 A-66, without its deals items.
       **Step 15 — after F-41 · 1.8.**
-      - [ ] **5.47** A-19 and A-58: the phone deals list and the details trigger.
-      - [ ] **5.48** A-29 and A-53: unique ids per row and the deal header.
-      - [ ] **5.49** A-18's timeline and A-66's deals items (DC-55, DC-69).
-      - [ ] **5.50** The deals-screen part of every `plan.md` §1 row marked "after F-41". Split into its own point
-            list when F-41 · 1.8 closes (about 22 Browser lines), published for approval then.
+      **Regrouped 2026-10-13 (owner): Step 15's 5.47–5.50 run as one point P6; each row keeps its own
+      failing test and its own line in the report. Open with `/next-point f-42 P6`.**
+      - [x] **P6** The deals screens, after F-41.
+            *(2026-10-14, #345 — every `pages/deals` exemption gone from `uiSourceRules`; deals on useModalDialog/useListQuery/usePause/displayDate/EmptyState/ConfirmDialog and app.css's shared classes; filters fold below 640 with a count; header with back link; «—» for ids; Approve asks first; 49 failing tests first. Deals stay a table on a phone (A-19), so the frame scrolls below 640 and clips from 640 (A-40, owner 2026-10-14); `?owner=` is taken from the address only with `deal.view.all`)*
+            · 5.47 A-19 and A-58: the phone deals list and the details trigger.
+            · 5.48 A-29 and A-53: unique ids per row and the deal header.
+            · 5.49 A-18's timeline and A-66's deals items (DC-55, DC-69).
+            · 5.50 The deals-screen part of every `plan.md` §1 row marked "after F-41" (about 22 browser lines).
 
 ## Shell revisions — owner-directed
 

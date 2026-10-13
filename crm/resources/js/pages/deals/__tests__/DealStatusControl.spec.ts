@@ -231,3 +231,49 @@ describe('the deal status control', () => {
             .toBe('A reason is only accepted when a deal is lost.');
     });
 });
+
+describe('the deal status control after F-41 (F-42 · P6)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    async function attached() {
+        await signIn(CHANGER);
+        const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
+
+        return mount(DealStatusControl, { props: { deal: DEAL }, global: { plugins: [i18n] }, attachTo: document.body });
+    }
+
+    it('moves focus into the form it opens, names the form, and gives focus back on Cancel (A-22)', async () => {
+        const wrapper = await attached();
+
+        await wrapper.get('[data-testid="deal-status-start"]').trigger('click');
+        await flushPromises();
+
+        const form = wrapper.get('[data-testid="deal-status-form"]');
+        const name = form.attributes('aria-labelledby');
+        expect(name).toBeTruthy();
+        expect(document.getElementById(String(name))?.textContent?.trim()).toBe('Move this deal to');
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="deal-status-target"]').element);
+
+        await wrapper.get('[data-testid="deal-status-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="deal-status-start"]').element);
+        wrapper.unmount();
+    });
+
+    it('ties the reason’s label to its own field, not a fixed id (A-29)', async () => {
+        const wrapper = await attached();
+
+        await wrapper.get('[data-testid="deal-status-start"]').trigger('click');
+        await wrapper.get('[data-testid="deal-status-target"]').setValue('lost');
+
+        const reason = wrapper.get('[data-testid="deal-status-reason"]');
+        expect(reason.attributes('id')).not.toBe('deal-status-reason');
+        expect(wrapper.find(`label[for="${reason.attributes('id')}"]`).exists()).toBe(true);
+        wrapper.unmount();
+    });
+});

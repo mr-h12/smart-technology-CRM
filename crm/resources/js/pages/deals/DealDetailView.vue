@@ -26,12 +26,13 @@
  * read the deal and not its history sees the summary with a refusal **in the
  * timeline section**, not an error page over a deal that loaded perfectly well.
  *
- * ── The actor is an identifier, honestly ───────────────────────────────────
+ * ── The actor has no name yet, and the screen says «—» ─────────────────────
  *
  * `DealTimelinePayload` sends `actor_id`, never a name: Identity publishes no
  * list this module may resolve one against, and `CLAUDE.md` forbids reading
- * another module's tables. Module 6 Point 6.2 took the same answer for a
- * currency it could not resolve. Owed to a later point, on the debt register.
+ * another module's tables. F-42 · A-18: a raw identifier is not a name either,
+ * so the screen shows «—» until the payload carries one (a fix point outside
+ * F-42, shaped like F-41 · 1.6b's `owner_name`).
  *
  * ── "Previous Quotations" is a third read, and a third refusal ─────────────
  *
@@ -52,6 +53,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 import { ApiError } from '@/api';
+import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -60,6 +62,7 @@ import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import { displayTimestamp } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
 import { listDealTimeline, readDeal, type Deal, type DealTimelineEntry } from '@/services/deals';
 import { readCustomer, type Customer } from '@/services/customers';
@@ -96,9 +99,8 @@ const id = computed(() => String(route.params.id ?? ''));
  * a field cannot be added to §4.3 and drawn in one place only.
  */
 const SUMMARY_FIELDS = [
-    { key: 'code', label: 'deals.column.code' },
-    { key: 'title', label: 'deals.column.title' },
-    // D-109: the server's name, never the identifier.
+    // D-109: the server's name, never the identifier. The code, the request and
+    // the customer head the page instead (A-53).
     { key: 'owner_name', label: 'deals.column.owner' },
 ] as const;
 
@@ -112,9 +114,9 @@ function statusLabel(code: string): string {
     return t(`deals.status.${code}`);
 }
 
-/** `DB-08`: stored UTC, shown in the reader's locale, date and time both. */
+/** `DB-08`: stored UTC, shown in the reader's locale; D-70's digits, to the minute (A-06). */
 function onMoment(value: string): string {
-    return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
+    return displayTimestamp(value, locale.value);
 }
 
 /**
@@ -226,22 +228,54 @@ onMounted(async () => {
 </script>
 
 <template>
-    <section class="flex flex-col gap-4">
-        <LoadingState v-if="loading" label-key="deals.loading" />
+    <!-- A-14: a reload after a decision keeps the page, dimmed and busy; LoadingState is the first load's. -->
+    <section
+        class="flex flex-col gap-4 transition-opacity"
+        :class="{ 'opacity-50': loading && deal !== null }"
+        :aria-busy="loading"
+        data-testid="deal-detail-page"
+    >
+        <LoadingState v-if="loading && deal === null" label-key="deals.loading" />
         <PermissionDeniedState v-else-if="denied" />
-        <ErrorState v-else-if="failed" @retry="refresh" />
+
+        <!-- A-43: the way back stays above the error, as on the not-found state. -->
+        <div v-else-if="failed" class="flex flex-col gap-1">
+            <RouterLink :to="{ name: 'deals' }" class="inline-flex min-h-11 items-center self-start text-[var(--color-text-muted)]" data-testid="deal-back">
+                {{ t('deals.detail.backToList') }}
+            </RouterLink>
+            <ErrorState @retry="refresh" />
+        </div>
 
         <!-- One state, one sentence: never which of the two reasons applies. -->
-        <p v-else-if="missing" class="form-alert rounded-lg p-3" role="alert" data-testid="deal-detail-missing">
-            {{ t('deals.detail.missing') }}
-        </p>
+        <div v-else-if="missing" class="flex flex-col gap-1">
+            <RouterLink :to="{ name: 'deals' }" class="inline-flex min-h-11 items-center self-start text-[var(--color-text-muted)]" data-testid="deal-back">
+                {{ t('deals.detail.backToList') }}
+            </RouterLink>
+            <p class="form-alert rounded-lg p-3" role="alert" data-testid="deal-detail-missing">
+                {{ t('deals.detail.missing') }}
+            </p>
+        </div>
 
         <template v-else-if="deal !== null">
-            <header class="flex flex-wrap items-center justify-between gap-3">
-                <h1 class="text-page-title" data-testid="deal-detail-title">
-                    {{ deal.code }}
-                </h1>
-                <DealStatusChip :status="deal.status" data-testid="deal-detail-status" />
+            <!-- A-53: the code with its chip, the request and the customer under it, the way back above. -->
+            <header class="flex flex-col gap-1" data-testid="deal-detail-header">
+                <RouterLink :to="{ name: 'deals' }" class="inline-flex min-h-11 items-center self-start text-[var(--color-text-muted)]" data-testid="deal-back">
+                    {{ t('deals.detail.backToList') }}
+                </RouterLink>
+                <div class="flex flex-wrap items-center gap-3">
+                    <h1 class="text-page-title tabular-nums" data-testid="deal-detail-title">{{ deal.code }}</h1>
+                    <DealStatusChip :status="deal.status" data-testid="deal-detail-status" />
+                </div>
+                <p dir="auto" data-testid="deal-detail-request">{{ deal.title ?? '—' }}</p>
+                <!-- A-18: the name when it could be read, «—» when not — never the identifier. -->
+                <p class="text-[var(--color-text-muted)]" data-testid="deal-detail-customer">
+                    <RouterLink
+                        v-if="customer !== null"
+                        :to="{ name: 'customer-detail', params: { id: deal.customer_id } }"
+                        class="row-link"
+                    >{{ customer.name }}</RouterLink>
+                    <template v-else>—</template>
+                </p>
             </header>
 
             <!-- §5.2: summary first. -->
@@ -249,13 +283,6 @@ onMounted(async () => {
                 <div v-for="field in SUMMARY_FIELDS" :key="field.key" class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
                     <dd :data-testid="`deal-detail-${field.key}`">{{ summaryValue(field.key) }}</dd>
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <dt class="text-[var(--color-text-muted)]">{{ t('deals.column.customer') }}</dt>
-                    <!-- The name when it could be read, the identifier when it
-                         could not — never a blank. -->
-                    <dd data-testid="deal-detail-customer">{{ customer?.name ?? deal.customer_id }}</dd>
                 </div>
 
                 <div class="flex flex-col gap-1">
@@ -300,9 +327,13 @@ onMounted(async () => {
                 <PermissionDeniedState v-else-if="quotationsDenied" />
                 <ErrorState v-else-if="quotationsFailed" @retry="loadQuotations" />
 
-                <p v-else-if="quotations.length === 0" data-testid="deal-detail-quotations-empty">
-                    {{ t('deals.quotations.empty') }}
-                </p>
+                <!-- DC-55: the shared empty state, not a bare line. -->
+                <EmptyState
+                    v-else-if="quotations.length === 0"
+                    title-key="deals.quotations.empty"
+                    message-key="deals.quotations.emptyMessage"
+                    data-testid="deal-detail-quotations-empty"
+                />
 
                 <div v-else class="table-frame overflow-x-auto rounded-xl">
                     <table class="w-full text-table">
@@ -342,9 +373,12 @@ onMounted(async () => {
                 <PermissionDeniedState v-else-if="timelineDenied" />
                 <ErrorState v-else-if="timelineFailed" @retry="loadTimeline" />
 
-                <p v-else-if="timeline.length === 0" data-testid="deal-detail-timeline-empty">
-                    {{ t('deals.timeline.empty') }}
-                </p>
+                <EmptyState
+                    v-else-if="timeline.length === 0"
+                    title-key="deals.timeline.empty"
+                    message-key="deals.timeline.emptyMessage"
+                    data-testid="deal-detail-timeline-empty"
+                />
 
                 <ol v-else class="flex flex-col gap-2">
                     <li
@@ -354,11 +388,10 @@ onMounted(async () => {
                         data-testid="deal-detail-timeline-entry"
                     >
                         <p data-testid="deal-detail-timeline-what">{{ entryDescription(entry) }}</p>
-                        <p class="text-[var(--color-text-muted)]">
-                            <!-- ⚠️ An identifier: Identity publishes no list this
-                                 module may resolve a name against. -->
+                        <!-- A-18: a gap between who and when; «—» where no name is published. -->
+                        <p class="flex flex-wrap gap-x-2 text-[var(--color-text-muted)]">
                             <span data-testid="deal-detail-timeline-who">
-                                {{ entry.actor_id ?? t('deals.timeline.systemActor') }}
+                                {{ entry.actor_id === null ? t('deals.timeline.systemActor') : '—' }}
                             </span>
                             <span class="tabular-nums" data-testid="deal-detail-timeline-when">
                                 {{ onMoment(entry.occurred_at) }}
@@ -371,7 +404,7 @@ onMounted(async () => {
                             class="text-[var(--color-warning)]"
                             data-testid="deal-detail-timeline-impersonated"
                         >
-                            {{ t('deals.timeline.impersonated', { user: entry.impersonated_user_id }) }}
+                            {{ t('deals.timeline.impersonated', { user: '—' }) }}
                         </p>
                     </li>
                 </ol>
@@ -409,19 +442,8 @@ onMounted(async () => {
     border-block-start: 1px solid var(--color-border);
 }
 
-.row-link {
-    color: var(--color-primary);
-    text-decoration: underline;
-}
-
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
 }
 </style>

@@ -83,8 +83,9 @@ describe('the deal approval controls', () => {
         // §6.4: warning is "amber icon + label"; a chip carrying only a colour
         // is unreadable to anyone who cannot see it.
         expect(badge.exists()).toBe(true);
-        expect(badge.text()).toContain('Pending approval');
-        expect(badge.text()).toContain('⏳');
+        expect(badge.text()).toBe('Pending approval');
+        // A-55: the shared chip in the warning tone; the word carries the meaning, no emoji.
+        expect(badge.classes()).toEqual(expect.arrayContaining(['status-chip', 'status-chip--warning']));
     });
 
     it('draws the rejected badge and the reason beside it', async () => {
@@ -140,6 +141,8 @@ describe('the deal approval controls', () => {
         const wrapper = await render(PENDING, DECIDER, fetchMock);
 
         await wrapper.find('[data-testid="deal-approve"]').trigger('click');
+        await flushPromises();
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -204,6 +207,8 @@ describe('the deal approval controls', () => {
 
         await wrapper.find('[data-testid="deal-approve"]').trigger('click');
         await flushPromises();
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
 
         expect(wrapper.find('[data-testid="deal-approval-error"]').text())
             .toContain('already been decided');
@@ -235,8 +240,60 @@ describe('the deal approval controls', () => {
 
         await wrapper.find('[data-testid="deal-approve"]').trigger('click');
         await flushPromises();
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
 
         expect(wrapper.find('[data-testid="deal-approval-error"]').text())
             .toContain('do not have permission');
+    });
+
+    // ─────────────────────────────────────────────── after F-41 (F-42 · P6)
+
+    it('asks before approving, naming the deal, and writes nothing until confirmed (A-09)', async () => {
+        const fetchMock = vi.fn(async () => json(200, envelope({ ...PENDING, approval_status: 'approved' })));
+        const wrapper = await render(PENDING, DECIDER, fetchMock);
+
+        await wrapper.find('[data-testid="deal-approve"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(wrapper.find('[data-testid="confirm-dialog"]').text()).toContain('DL-2026-0001');
+
+        await wrapper.find('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+    });
+
+    it('draws Reject as row Danger text and its submit as the filled Danger (A-33)', async () => {
+        const wrapper = await render(PENDING, DECIDER);
+        const reject = wrapper.find('[data-testid="deal-reject"]');
+
+        expect(reject.classes()).toContain('danger-text');
+        expect(reject.classes()).not.toContain('row-action');
+
+        await reject.trigger('click');
+
+        expect(wrapper.find('[data-testid="deal-reject-submit"]').classes()).toContain('danger-action');
+    });
+
+    it('draws no emoji on any badge (A-55)', async () => {
+        for (const approval_status of ['pending', 'rejected', 'approved'] as const) {
+            const wrapper = await render({ ...PENDING, approval_status, rejection_reason: 'x' }, NON_DECIDER);
+
+            expect(wrapper.find('[data-testid^="deal-approval-badge-"]').text()).not.toMatch(/\p{Extended_Pictographic}/u);
+            expect(wrapper.find('[data-testid^="deal-approval-badge-"]').classes()).toContain('status-chip');
+        }
+    });
+
+    it('ties the rejection reason’s label to its own field, not a fixed id (A-29)', async () => {
+        const wrapper = await render(PENDING, DECIDER);
+
+        await wrapper.find('[data-testid="deal-reject"]').trigger('click');
+
+        const reason = wrapper.find('[data-testid="deal-reject-reason"]');
+        expect(reason.attributes('id')).not.toBe('deal-reject-reason');
+        expect(wrapper.find(`label[for="${reason.attributes('id')}"]`).exists()).toBe(true);
     });
 });

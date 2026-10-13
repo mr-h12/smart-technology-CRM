@@ -242,6 +242,12 @@ final class DealListEndpointTest extends TestCase
     /** `SEC-09` · §3.12 rule 1 — the negative authorisation case. */
     public function test_that_a_role_without_the_permission_is_refused(): void
     {
+        $this->getJson(self::ENDPOINT, $this->grantlessBearer())->assertStatus(403);
+    }
+
+    /** @return array<string, string> a signed-in user whose role holds no grant at all */
+    private function grantlessBearer(): array
+    {
         $role = new Role;
         $role->fill(['slug' => 'auditor_without_grants', 'name' => 'Auditor', 'is_editable' => true]);
         $role->save();
@@ -264,7 +270,7 @@ final class DealListEndpointTest extends TestCase
 
         self::assertIsString($token);
 
-        $this->getJson(self::ENDPOINT, ['Authorization' => 'Bearer '.$token])->assertStatus(403);
+        return ['Authorization' => 'Bearer '.$token];
     }
 
     // ─────────────────────────────── the detail route
@@ -555,6 +561,87 @@ final class DealListEndpointTest extends TestCase
         // `assertJsonPath(…, null)` would also pass on a missing key.
         self::assertArrayHasKey('owner_name', $data);
         self::assertNull($data['owner_name']);
+    }
+
+    // ─────────────────────────────── the owner filter — D-108, F-41 · 1.6
+
+    /** `D-108`: `filter[owner]` is the current `owner_id`, not `created_by`. */
+    public function test_that_the_owner_filter_narrows_the_list(): void
+    {
+        $indoor = $this->userWith(RoleName::IndoorSales)->id;
+        $outdoor = $this->userWith(RoleName::OutdoorSales)->id;
+        $this->deal('Mine', $indoor, ['created_by' => $outdoor]);
+        $this->deal('Theirs', $outdoor);
+
+        $this->getJson(self::ENDPOINT.'?filter[owner]='.$indoor, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.title', 'Mine');
+    }
+
+    /** `SEC-08` · `D-108` "row scope still applies" — the negative case: a filter never widens `own`. */
+    public function test_that_the_owner_filter_never_widens_an_own_scope(): void
+    {
+        $outdoor = $this->userWith(RoleName::OutdoorSales)->id;
+        $this->deal('Theirs', $outdoor);
+
+        $this->getJson(self::ENDPOINT.'?filter[owner]='.$outdoor, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 0);
+    }
+
+    /** OpenAPI §6.2: a malformed filter value is `400`, never a Postgres `22P02`. */
+    public function test_that_an_owner_filter_that_is_not_a_uuid_is_400(): void
+    {
+        $this->getJson(self::ENDPOINT.'?filter[owner]=not-a-uuid', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.details.0.field', 'filter[owner]')
+            ->assertJsonPath('error.details.0.code', 'not_a_uuid');
+    }
+
+    /**
+     * `D-108`, `D-109`: the filter's choices are the visible deals' owners, each
+     * once and named through Identity — never the hidden Super Admin, a deleted
+     * account, or a deal with no owner.
+     */
+    public function test_that_the_owners_route_names_the_visible_deals_owners(): void
+    {
+        $indoor = $this->userWith(RoleName::IndoorSales);
+        $outdoor = $this->userWith(RoleName::OutdoorSales);
+        $deleted = $this->userWith(RoleName::TeamLeader);
+        $this->deal('Alpha', $outdoor->id);
+        $this->deal('Beta', $indoor->id);
+        $this->deal('Gamma', $indoor->id);
+        $this->deal('Hidden', $this->userWith(RoleName::SuperAdmin)->id);
+        $this->deal('Deleted', $deleted->id);
+        $this->deal('Nobody');
+        $bearer = $this->bearerFor(RoleName::Manager);
+        $deleted->delete();
+
+        $this->getJson(self::ENDPOINT.'/owners', $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.items', [
+                ['id' => $indoor->id, 'name' => $indoor->name],
+                ['id' => $outdoor->id, 'name' => $outdoor->name],
+            ]);
+    }
+
+    /** `SEC-08`: an `own` caller's choices are their own deals' owner — themselves. */
+    public function test_that_the_owners_route_is_row_scoped(): void
+    {
+        $indoor = $this->userWith(RoleName::IndoorSales);
+        $this->deal('Mine', $indoor->id);
+        $this->deal('Theirs', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->getJson(self::ENDPOINT.'/owners', $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items', [['id' => $indoor->id, 'name' => $indoor->name]]);
+    }
+
+    /** `SEC-09` · §3.12 rule 1 — the negative authorisation case for the new route. */
+    public function test_that_the_owners_route_refuses_a_role_without_deal_view(): void
+    {
+        $this->getJson(self::ENDPOINT.'/owners', $this->grantlessBearer())->assertStatus(403);
     }
 
     /** @return object{calls: list<list<string>>} Identity's port, answering every id with its own name and recording each call. */

@@ -542,6 +542,48 @@ describe('the deals screen', () => {
         expect(url).toContain('filter%5Bsource%5D=outdoor_visit');
     });
 
+    // ─────────────────────────── the owner filter — D-108, F-41 · 1.6
+
+    /** `GET /deals/owners` answered beside the list; every other call is `respond()`'s. */
+    function respondWithOwners(): ReturnType<typeof vi.fn> {
+        const list = respond();
+
+        return vi.fn(async (input: string, init?: RequestInit) =>
+            String(input).includes('/deals/owners')
+                ? json(200, envelope({ items: [{ id: 'u9', name: 'Sara Haddad' }] }))
+                : list(input, init));
+    }
+
+    it('offers the owner filter to a deal.view.all user, from the server’s owners, and sends filter[owner]', async () => {
+        const fetchMock = respondWithOwners();
+        const wrapper = await render(fetchMock);
+
+        const select = wrapper.find('[data-testid="deals-filter-owner"]');
+        expect(select.exists()).toBe(true);
+        expect(select.text()).toContain('Sara Haddad');
+
+        await select.setValue('u9');
+        await flushPromises();
+
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bowner%5D=u9');
+    });
+
+    it('neither draws the owner filter nor asks for owners without deal.view.all (D-108)', async () => {
+        const fetchMock = respondWithOwners();
+        const ownScope: AuthenticatedUser = {
+            ...USER,
+            id: 'u5',
+            name: 'Test Indoor Sales',
+            email: 'indoor@example.test',
+            role: { id: 'r5', slug: 'indoor_sales', name: 'Indoor Sales' },
+            permissions: ['deal.view.own', 'deal.create.own', 'deal.edit.own'],
+        };
+        const wrapper = await render(fetchMock, ownScope);
+
+        expect(wrapper.find('[data-testid="deals-filter-owner"]').exists()).toBe(false);
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/deals/owners'))).toBe(false);
+    });
+
     it('does offer a search, and sends it as q', async () => {
         const fetchMock = respond();
         const wrapper = await render(fetchMock);

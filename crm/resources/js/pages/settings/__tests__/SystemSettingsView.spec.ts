@@ -468,6 +468,26 @@ describe('SystemSettingsView', () => {
             .toBe('7.5');
     });
 
+    /** D-112: a stored percentage is offered without its trailing zeros, and is not an edit. */
+    it('shows the default tax without trailing zeros and sends nothing when it is left alone', async () => {
+        const fetchMock = vi.fn(async (input: string, _init?: RequestInit) =>
+            /\/currencies$/.test(String(input))
+                ? json(200, { data: { currencies: [] }, meta: {} })
+                : envelope({ ...SETTINGS, 'defaults.tax_percent': '14.000' }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = await render();
+        await flushPromises();
+
+        expect((view.get('[data-setting-key="defaults.tax_percent"] input').element as HTMLInputElement).value)
+            .toBe('14');
+
+        await view.get('[data-testid="settings-save"]').trigger('submit');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+    });
+
     /** A suggestion list the caller could not load costs the dropdown, not the field. */
     it('keeps the currency field usable when the currencies cannot be read', async () => {
         vi.stubGlobal('fetch', vi.fn(async (input: string) =>

@@ -63,6 +63,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { displayPercent } from '@/domain/displayDecimals';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -220,7 +221,10 @@ const changed = computed(() => {
     return values;
 });
 
-function adopt(settings: SystemSettings): void {
+function adopt(fromServer: SystemSettings): void {
+    // D-112: the default tax is offered without its trailing zeros, and stored
+    // the same way here so leaving it alone is not an edit.
+    const settings: SystemSettings = { ...fromServer, 'defaults.tax_percent': displayPercent(fromServer['defaults.tax_percent'] ?? null) };
     stored.value = settings;
 
     const next: Record<string, string> = {};

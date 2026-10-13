@@ -107,7 +107,7 @@ import {
     type SupplierQuotationDetail,
 } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
-import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
+import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { displayTimestamp } from '@/domain/displayDate';
@@ -335,9 +335,10 @@ const dirty = computed(() => opened.value !== '' && snapshot() !== opened.value)
 function applyDetail(quotation: QuotationDetail): void {
     header.value = {
         currency: quotation.currency,
-        default_margin: quotation.default_margin ?? '',
-        discount_percent: quotation.discount_percent,
-        tax_percent: quotation.tax_percent ?? '',
+        // D-112: a percentage is offered without its trailing zeros — the same number.
+        default_margin: displayPercent(quotation.default_margin) ?? '',
+        discount_percent: displayPercent(quotation.discount_percent),
+        tax_percent: displayPercent(quotation.tax_percent) ?? '',
         quotation_date: quotation.quotation_date ?? '',
         valid_until: quotation.valid_until ?? '',
     };
@@ -347,7 +348,7 @@ function applyDetail(quotation: QuotationDetail): void {
         line_no: line.line_no,
         product_name: line.product_name,
         quantity: line.quantity,
-        margin: line.margin_percent ?? '',
+        margin: displayPercent(line.margin_percent) ?? '',
         unit_cost: line.unit_cost ?? null,
     }));
     blocks.value = [];

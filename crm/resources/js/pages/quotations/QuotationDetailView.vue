@@ -72,7 +72,7 @@ import {
     type QuotationDetail,
     type QuotationWarning,
 } from '@/services/quotations';
-import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
+import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
 import { displayDate, displayTimestamp } from '@/domain/displayDate';
 
@@ -158,7 +158,7 @@ function text(value: string | null | undefined): string {
 }
 
 function percent(value: string | null | undefined): string {
-    return value === null || value === undefined ? '—' : `${value}%`;
+    return value === null || value === undefined ? '—' : `${displayPercent(value)}%`;
 }
 
 async function load(): Promise<void> {
@@ -690,14 +690,14 @@ onMounted(refresh);
                 <dt>{{ t('quotations.detail.subtotal') }}</dt>
                 <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-subtotal">{{ displayDecimals(quotation.subtotal) }} {{ quotation.currency }}</dd>
 
-                <dt>{{ t('quotations.detail.discount', { percent: quotation.discount_percent }) }}</dt>
+                <dt>{{ t('quotations.detail.discount', { percent: displayPercent(quotation.discount_percent) }) }}</dt>
                 <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-discount_amount">{{ displayDecimals(quotation.discount_amount) }} {{ quotation.currency }}</dd>
 
                 <!-- `D-63`: an exempt quotation renders no tax line at all. -->
                 <template v-if="quotation.tax_amount !== null">
                     <dt>{{ t('quotations.detail.taxBase') }}</dt>
                     <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_base">{{ displayDecimals(quotation.tax_base) }} {{ quotation.currency }}</dd>
-                    <dt>{{ t('quotations.detail.tax', { percent: quotation.tax_percent }) }}</dt>
+                    <dt>{{ t('quotations.detail.tax', { percent: displayPercent(quotation.tax_percent) }) }}</dt>
                     <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_amount">{{ displayDecimals(quotation.tax_amount) }} {{ quotation.currency }}</dd>
                 </template>
 

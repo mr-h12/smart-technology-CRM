@@ -88,12 +88,12 @@ async function signIn(profile: AuthenticatedUser, delegate: typeof globalThis.fe
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>, locale: 'en' | 'ar' = 'en') {
+async function render(fetchMock: ReturnType<typeof vi.fn>, locale: 'en' | 'ar' = 'en', attached = false) {
     await signIn(USER, fetchMock as unknown as typeof globalThis.fetch);
     vi.stubGlobal('fetch', fetchMock);
 
     const i18n = createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } });
-    const wrapper = mount(ApprovalsView, { global: { plugins: [i18n, createAppRouter()] } });
+    const wrapper = mount(ApprovalsView, { global: { plugins: [i18n, createAppRouter()] }, ...(attached ? { attachTo: document.body } : {}) });
     await flushPromises();
 
     return wrapper;
@@ -149,6 +149,7 @@ describe('the approvals screen', () => {
         const wrapper = await render(fetchMock);
 
         await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         const [approve] = calls(fetchMock, 'PATCH', '/quotations/q1/approve');
@@ -191,6 +192,7 @@ describe('the approvals screen', () => {
         const wrapper = await render(fetchMock);
 
         await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         expect(wrapper.find('[data-testid="approvals-conflict"]').exists()).toBe(true);
@@ -210,6 +212,7 @@ describe('the approvals screen', () => {
         expect(calls(fetchMock, 'PATCH', '/return')).toHaveLength(0);
 
         await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
         expect(wrapper.find('[data-testid="approvals-action-error"]').text()).toBe('A pending quotation only');
         expect(wrapper.find('[data-testid="approvals-conflict"]').exists()).toBe(false);
@@ -227,6 +230,7 @@ describe('the approvals screen', () => {
         expect(region().text()).toBe('');
 
         await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true);
@@ -250,6 +254,7 @@ describe('the approvals screen', () => {
         const wrapper = await render(fetchMock);
 
         await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         const error = wrapper.find('[data-testid="approvals-action-error"]');
@@ -279,5 +284,38 @@ describe('the approvals screen', () => {
 
         expect(wrapper.text()).not.toMatch(/approvals\./);
         expect(wrapper.find('[data-testid="approvals-sla-exceeded"]').text()).not.toBe('SLA exceeded');
+    });
+
+    /** F-42 · 5.12 (A-09): Approve asks first, naming the record and the consequence; nothing is written before the confirm. */
+    it('asks before approving, naming the record, and writes only on the confirm', async () => {
+        const fetchMock = server();
+        const wrapper = await render(fetchMock);
+
+        await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'PATCH', '/approve')).toHaveLength(0);
+        expect(wrapper.get('[data-testid="confirm-dialog"]').text()).toContain('QT-2026-0001');
+
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+
+        await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'PATCH', '/quotations/q1/approve')).toHaveLength(1);
+    });
+
+    /** F-42 · 5.13 (A-22, the owner's Option B): Return is a named modal dialog, its note field focused. */
+    it('opens Return as a named modal dialog with the note field focused', async () => {
+        const wrapper = await render(server(), 'en', true);
+
+        await wrapper.find('[data-testid="approvals-return"]').trigger('click');
+        await flushPromises();
+
+        const dialog = wrapper.get('[data-testid="approvals-return-modal"]');
+        expect(dialog.element.tagName).toBe('DIALOG');
+        expect(wrapper.get(`#${dialog.attributes('aria-labelledby')}`).text()).toContain('QT-2026-0001');
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="approvals-return-note"]').element);
+        wrapper.unmount();
     });
 });

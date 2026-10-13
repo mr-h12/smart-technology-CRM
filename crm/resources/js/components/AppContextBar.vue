@@ -133,9 +133,10 @@ function localeCode(option: Locale): string {
             </svg>
         </button>
 
-        <h1 class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1">
+        <!-- A-28: a <p>, so each page's own h1 is the only one. -->
+        <p class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1">
             {{ title }}
-        </h1>
+        </p>
 
         <!-- §4.3 "< 640px" (F-21): on one row, the menu button and these
              controls needed 399–410px of the 351 a 375px phone has inside the

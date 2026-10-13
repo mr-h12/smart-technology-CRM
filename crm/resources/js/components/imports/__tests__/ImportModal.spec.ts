@@ -106,7 +106,6 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
         expect(render().find('h2').text()).toBe('Import customers');
     });
 
-
     it('sends the file as multipart on the field the server validates', async () => {
         const sent: Array<{ url: string; body: unknown }> = [];
 
@@ -313,7 +312,7 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
 
         expect(view.emitted('cancel')).toHaveLength(1);
 
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
         await flushPromises();
 
         expect(view.emitted('cancel')).toHaveLength(2);
@@ -329,7 +328,7 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
 
         expect(view.find('[data-testid="import-submit"]').text()).toBe(en.import.submitting);
 
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
         await view.find('.dialog-scrim').trigger('click');
 
         expect(view.emitted('cancel')).toBeUndefined();

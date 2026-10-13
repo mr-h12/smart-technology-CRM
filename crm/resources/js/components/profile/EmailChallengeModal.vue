@@ -28,6 +28,7 @@
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { VERIFICATION_CODE_LENGTH, isVerificationCodeShaped } from '@/domain/passwordPolicy';
 
 const props = defineProps<{
@@ -47,6 +48,9 @@ const props = defineProps<{
 const emit = defineEmits<{ submit: [code: string]; resend: []; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 const code = ref('');
 const codeInput = ref<HTMLInputElement | null>(null);
@@ -107,8 +111,8 @@ const canSubmit = computed(() => !props.busy && !hasExpired.value && isVerificat
 // §6.1: "Escape closes dialogs/menus without discarding silently." Closing this
 // abandons the challenge, not the typed passwords — the form behind it keeps
 // what was entered, and the emailed code stays valid until it expires.
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.open && !props.busy) {
+function onEscape(): void {
+    if (!props.busy) {
         emit('cancel');
     }
 }
@@ -133,12 +137,10 @@ watch(() => props.open, async (open) => {
     if (open) {
         code.value = '';
         startTicking();
-        document.addEventListener('keydown', onKeydown);
         await new Promise((resolve) => setTimeout(resolve, 0));
         codeInput.value?.focus();
     } else {
         stopTicking();
-        document.removeEventListener('keydown', onKeydown);
     }
 }, { immediate: true });
 
@@ -149,26 +151,23 @@ watch(() => props.expiresAt, () => {
     }
 });
 
-onBeforeUnmount(() => {
-    stopTicking();
-    document.removeEventListener('keydown', onKeydown);
-});
+onBeforeUnmount(stopTicking);
 </script>
 
 <template>
-    <div
+    <dialog
         v-if="open"
+        ref="dialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="email-challenge-title"
+        aria-describedby="email-challenge-intro"
         data-testid="email-challenge-modal"
+        @cancel.prevent="onEscape"
     >
         <div class="dialog-scrim absolute inset-0" @click="busy ? null : emit('cancel')" />
 
         <form
             class="dialog-panel relative flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="email-challenge-title"
-            aria-describedby="email-challenge-intro"
             @submit.prevent="onSubmit"
         >
             <h2 id="email-challenge-title" class="text-card-title">
@@ -256,20 +255,10 @@ onBeforeUnmount(() => {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.dialog-scrim {
-    background-color: var(--color-overlay);
-}
-
-.dialog-panel {
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-2);
-}
-
 .challenge-input {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

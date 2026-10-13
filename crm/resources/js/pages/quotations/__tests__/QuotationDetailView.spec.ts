@@ -404,7 +404,7 @@ describe('the quotation detail view', () => {
     });
 
     /** F-42 · 5.8 (A-33): one primary in the action bar; Delete is row Danger text; the filled Danger is the confirm's. */
-    it('draws Submit as the one primary, Delete as danger text, and Delete the draft apart from Keep', async () => {
+    it('draws Submit as the one primary, Delete as danger text, and the confirm\'s Delete the draft as filled Danger', async () => {
         const { wrapper } = await render(respond());
         const bar = wrapper.find('[data-testid="quotation-detail-actions"]');
 
@@ -412,8 +412,9 @@ describe('the quotation detail view', () => {
         expect(wrapper.find('[data-testid="quotation-action-delete"]').classes()).toContain('danger-text');
 
         await wrapper.find('[data-testid="quotation-action-delete"]').trigger('click');
-        expect(wrapper.find('[data-testid="quotation-delete-proceed"]').classes()).toContain('danger-action');
-        expect(wrapper.find('[data-testid="quotation-delete-keep"]').classes()).not.toContain('danger-action');
+        expect(wrapper.get('[data-testid="confirm-accept"]').text()).toBe(en.quotations.detail.deleteProceed);
+        expect(wrapper.get('[data-testid="confirm-accept"]').classes()).toContain('dialog-confirm--danger');
+        expect(wrapper.get('[data-testid="confirm-cancel"]').classes()).not.toContain('dialog-confirm--danger');
     });
 
     it('offers a new version on the statuses `D-08` names, when the caller may edit', async () => {
@@ -470,17 +471,26 @@ describe('the quotation detail view', () => {
         await wrapper.find('[data-testid="quotation-action-delete"]').trigger('click');
         await flushPromises();
         expect(writes(fetchMock)).toHaveLength(0);
-        expect(wrapper.find('[data-testid="quotation-delete-confirm"]').attributes('role')).toBe('alertdialog');
+        expect(wrapper.get('[data-testid="confirm-dialog"]').attributes('role')).toBe('alertdialog');
 
-        await wrapper.find('[data-testid="quotation-delete-keep"]').trigger('click');
-        expect(wrapper.find('[data-testid="quotation-delete-confirm"]').exists()).toBe(false);
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
 
         await wrapper.find('[data-testid="quotation-action-delete"]').trigger('click');
-        await wrapper.find('[data-testid="quotation-delete-proceed"]').trigger('click');
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         expect(writes(fetchMock)).toEqual([{ method: 'DELETE', url: expect.stringContaining('/quotations/q1'), ifMatch: '"v1"', idempotencyKey: null }]);
         expect(router.currentRoute.value.path).toBe('/quotations');
+    });
+
+    /** F-42 · 5.13 (A-22, the owner's Option B): Delete's confirmation is a modal dialog, not a strip in the page. */
+    it('asks Delete in a modal dialog', async () => {
+        const { wrapper } = await render(respond());
+
+        await wrapper.find('[data-testid="quotation-action-delete"]').trigger('click');
+
+        expect(wrapper.get('[data-testid="confirm-dialog"]').element.tagName).toBe('DIALOG');
     });
 
     it('creates a new version with one Idempotency-Key and opens the copy', async () => {
@@ -608,6 +618,22 @@ describe('the quotation detail view', () => {
             expect(respondBody(fetchMock)).toEqual({ response: 'accepted', customer_po_reference: 'CUST-PO-77', po_date: '2026-09-20' });
             expect(wrapper.find('[data-testid="quotation-status"]').text()).toContain('Accepted');
             expect(wrapper.find('[data-testid="quotation-respond-dialog"]').exists()).toBe(false);
+        });
+
+        /** F-42 · 5.13 (A-22): a greyed Record says why, and the button points at that sentence. */
+        it('says why Record is disabled, and nothing once it is enabled', async () => {
+            const { wrapper } = await openDialog('sent');
+            const hint = () => wrapper.find('[data-testid="quotation-respond-hint"]');
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-accepted"]').setValue(true);
+            expect(hint().text()).toBe(en.quotations.detail.recordNeedsPo);
+            expect(wrapper.get('[data-testid="quotation-respond-record"]').attributes('aria-describedby')).toBe(hint().attributes('id'));
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-rejected"]').setValue(true);
+            expect(hint().text()).toBe(en.quotations.detail.recordNeedsReason);
+
+            await wrapper.find('[data-testid="quotation-respond-reason"]').setValue('Too dear');
+            expect(hint().exists()).toBe(false);
         });
 
         // The ring itself is app.css's one :focus-visible rule (A-34), pinned in uiSourceRules.spec.ts.

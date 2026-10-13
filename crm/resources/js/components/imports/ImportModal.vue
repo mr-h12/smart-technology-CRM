@@ -47,8 +47,9 @@
  * It is a **label, not a check** — the server refuses an oversized file with
  * its own sentence, and that sentence is what is shown.
  */
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError, type ImportBatch } from '@/api';
 
 const props = defineProps<{ open: boolean; title: string; upload: (file: File) => Promise<ImportBatch> }>();
@@ -62,6 +63,9 @@ const props = defineProps<{ open: boolean; title: string; upload: (file: File) =
 const emit = defineEmits<{ imported: []; showIncomplete: []; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 const chosen = ref<File | null>(null);
 const batch = ref<ImportBatch | null>(null);
@@ -109,24 +113,18 @@ async function submit(): Promise<void> {
     }
 }
 
-function onKeydown(event: KeyboardEvent): void {
-    // §6.1: "Escape closes dialogs/menus without discarding silently." There is
-    // no entered work to discard — a file selection is one click to remake, and
-    // the result is read before it is dismissed.
-    if (event.key === 'Escape' && props.open) {
-        cancel();
-    }
-}
-
-/** A-30: an upload in flight is not abandoned by a stray key or click. */
+/**
+ * A-30: an upload in flight is not abandoned by a stray key or click.
+ *
+ * §6.1: "Escape closes dialogs/menus without discarding silently." There is no
+ * entered work to discard — a file selection is one click to remake, and the
+ * result is read before it is dismissed.
+ */
 function cancel(): void {
     if (!busy.value) {
         emit('cancel');
     }
 }
-
-onMounted(() => document.addEventListener('keydown', onKeydown));
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 
 watch(() => props.open, (open) => {
     if (open) {
@@ -136,15 +134,17 @@ watch(() => props.open, (open) => {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="import-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="import-title"
+        data-testid="import-modal"
+        @cancel.prevent="cancel"
+    >
         <div class="dialog-scrim absolute inset-0" @click="cancel" />
 
-        <div
-            class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-title"
-        >
+        <div class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6">
             <h2 id="import-title" class="text-card-title">{{ title }}</h2>
 
             <!-- §6.3: allowed formats and the configured size limit, stated
@@ -239,20 +239,10 @@ watch(() => props.open, (open) => {
                 </button>
             </div>
         </div>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.dialog-scrim {
-    background-color: var(--color-overlay);
-}
-
-.dialog-panel {
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-2);
-}
-
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

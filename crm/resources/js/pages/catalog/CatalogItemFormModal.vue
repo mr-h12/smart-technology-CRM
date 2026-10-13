@@ -56,6 +56,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
 import SupplierPicker from '@/components/suppliers/SupplierPicker.vue';
@@ -78,6 +79,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [CatalogItem]; cancel: [] }>();
 
 const { t, locale } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 /** Every box this form can draw. Which of them it *does* draw is `fields` below. */
 const TEXT_FIELDS = [
@@ -379,14 +383,18 @@ function discard(): void {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="catalog-form-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="catalog-form-title"
+        data-testid="catalog-form-modal"
+        @cancel.prevent="requestClose()"
+    >
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="catalog-form-title"
             novalidate
             data-testid="catalog-form"
             @submit.prevent="save()"
@@ -556,7 +564,7 @@ function discard(): void {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

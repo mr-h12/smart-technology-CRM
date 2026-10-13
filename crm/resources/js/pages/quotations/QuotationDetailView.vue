@@ -56,6 +56,7 @@ import QuotationPdfPanel from '@/components/pdf/QuotationPdfPanel.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
@@ -138,6 +139,15 @@ const needsReason = computed(() => outcome.value === 'counter' || outcome.value 
 const canRecord = computed(() =>
     !busy.value && (outcome.value === 'accepted' ? poReference.value.trim() !== '' && poDate.value !== '' : !needsReason.value || reason.value.trim() !== ''),
 );
+
+/** A-22: a greyed Record says what it waits for; busy is said on the page already. */
+const recordHint = computed(() => {
+    if (busy.value || canRecord.value) {
+        return '';
+    }
+
+    return outcome.value === 'accepted' ? t('quotations.detail.recordNeedsPo') : t('quotations.detail.recordNeedsReason');
+});
 
 /** Q7: the line carries the cost keys or it does not; the header follows the first line. */
 const showsCosts = computed(() => quotation.value?.items[0]?.unit_cost !== undefined);
@@ -524,23 +534,18 @@ onMounted(refresh);
                 </button>
             </div>
 
-            <!-- `Design System §6.6`: the consequence, in the page, never a native confirm(). -->
-            <div
-                v-if="confirmingDelete"
-                class="form-alert flex flex-wrap items-center justify-between gap-3 rounded-lg p-3"
-                role="alertdialog"
-                data-testid="quotation-delete-confirm"
-            >
-                <span>{{ t('quotations.detail.deletePrompt') }}</span>
-                <span class="flex gap-2">
-                    <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-delete-keep" @click="confirmingDelete = false">
-                        {{ t('quotations.detail.deleteKeep') }}
-                    </button>
-                    <button type="button" class="danger-action min-h-11 rounded-lg px-3" data-testid="quotation-delete-proceed" @click="remove">
-                        {{ t('quotations.detail.deleteProceed') }}
-                    </button>
-                </span>
-            </div>
+            <!-- `Design System §6.6`: the consequence, never a native confirm(); A-22 (Option B): in a modal dialog. -->
+            <ConfirmDialog
+                :open="confirmingDelete"
+                title-key="quotations.detail.delete"
+                message-key="quotations.detail.deletePrompt"
+                confirm-key="quotations.detail.deleteProceed"
+                :subject="quotation.code"
+                :busy="busy"
+                danger
+                @confirm="remove"
+                @cancel="confirmingDelete = false"
+            />
 
             <!-- `Design System §6.6`: the answer is asked in the page; Escape closes it without writing. -->
             <form
@@ -603,11 +608,15 @@ onMounted(refresh);
                         />
                     </label>
                 </div>
+                <p v-if="recordHint !== ''" id="quotation-respond-hint" class="text-[var(--color-text-muted)]" data-testid="quotation-respond-hint">
+                    {{ recordHint }}
+                </p>
                 <span class="flex gap-2">
                     <button
                         type="submit"
                         class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="!canRecord"
+                        :aria-describedby="recordHint === '' ? undefined : 'quotation-respond-hint'"
                         data-testid="quotation-respond-record"
                     >
                         {{ t('quotations.detail.respondRecord') }}

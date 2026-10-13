@@ -41,6 +41,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
 import { createCustomer, updateCustomer, type Customer, type CustomerDraft } from '@/services/customers';
@@ -63,6 +64,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [Customer, Customer[]]; cancel: [] }>();
 
 const { t, locale } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 /**
  * §4.2's user-entered fields, in the order the form draws them. One list, so a
@@ -259,14 +263,18 @@ function discard(): void {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="customer-form-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="customer-form-title"
+        data-testid="customer-form-modal"
+        @cancel.prevent="requestClose()"
+    >
         <div class="modal-scrim absolute inset-0" @click="requestClose()" />
 
         <form
             class="modal-panel relative flex max-h-[90dvh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="customer-form-title"
             novalidate
             data-testid="customer-form"
             @submit.prevent="save()"
@@ -574,7 +582,7 @@ function discard(): void {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

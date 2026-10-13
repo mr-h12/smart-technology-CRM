@@ -28,6 +28,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { assignableBy } from '@/domain/roleAssignment';
 import type { AdministeredUser, RoleOption } from '@/services/identity';
@@ -45,6 +46,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [AdministeredUser]; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 const name = ref('');
 const email = ref('');
@@ -245,14 +249,18 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="user-form-modal">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        aria-labelledby="user-form-title"
+        data-testid="user-form-modal"
+        @cancel.prevent="emit('cancel')"
+    >
         <div class="modal-scrim absolute inset-0" @click="emit('cancel')" />
 
         <form
             class="modal-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="user-form-title"
             novalidate
             @submit.prevent="save"
         >
@@ -384,7 +392,7 @@ async function save(): Promise<void> {
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

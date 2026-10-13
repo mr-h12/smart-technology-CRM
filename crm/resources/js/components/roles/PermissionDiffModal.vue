@@ -21,8 +21,9 @@
  * and the server owns every refusal — §3.1's immutable role, §3.12 rule 3's
  * forbidden action, and the permission that no longer exists.
  */
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 
 const props = defineProps<{
     open: boolean;
@@ -36,18 +37,18 @@ const props = defineProps<{
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
 const { t } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 const confirmButton = ref<HTMLButtonElement | null>(null);
 
 // §6.1: "Escape closes dialogs/menus without discarding silently." Closing this
 // returns to the staged grid — the changes are still there, unsent.
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.open && !props.busy) {
+function onEscape(): void {
+    if (!props.busy) {
         emit('cancel');
     }
 }
-
-onMounted(() => document.addEventListener('keydown', onKeydown));
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 
 watch(() => props.open, async (open) => {
     if (open) {
@@ -58,20 +59,19 @@ watch(() => props.open, async (open) => {
 </script>
 
 <template>
-    <div
+    <dialog
         v-if="open"
+        ref="dialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        role="alertdialog"
+        aria-labelledby="permission-diff-title"
+        aria-describedby="permission-diff-summary"
         data-testid="permission-diff-modal"
+        @cancel.prevent="onEscape"
     >
         <div class="dialog-scrim absolute inset-0" @click="busy ? null : emit('cancel')" />
 
-        <div
-            class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="permission-diff-title"
-            aria-describedby="permission-diff-summary"
-        >
+        <div class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6">
             <h2 id="permission-diff-title" class="text-card-title">
                 {{ t('roles.diff.title', { role: roleName }) }}
             </h2>
@@ -133,20 +133,10 @@ watch(() => props.open, async (open) => {
                 </button>
             </div>
         </div>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.dialog-scrim {
-    background-color: var(--color-overlay);
-}
-
-.dialog-panel {
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-2);
-}
-
 .diff-heading {
     font-weight: 600;
 }

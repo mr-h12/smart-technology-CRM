@@ -10,8 +10,9 @@
  * prose, so the same dialog serves deactivation and reactivation without either
  * message being written into a component.
  */
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 
 const props = defineProps<{
     open: boolean;
@@ -29,6 +30,9 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
 const { t } = useI18n();
 const confirmButton = ref<HTMLButtonElement | null>(null);
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 /** A-30: while busy the request is in flight, so neither Escape nor the scrim walks away from it. */
 function cancel(): void {
@@ -36,15 +40,6 @@ function cancel(): void {
         emit('cancel');
     }
 }
-
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.open) {
-        cancel();
-    }
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown));
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
 
 // §8's keyboard path: opening a dialog and leaving focus behind it means the
 // next Tab walks the page underneath.
@@ -57,20 +52,20 @@ watch(() => props.open, async (open) => {
 </script>
 
 <template>
-    <div
+    <!-- A-04: Escape arrives as the dialog's own `cancel`; prevented, so `open` stays the parent's to change. -->
+    <dialog
         v-if="open"
+        ref="dialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        role="alertdialog"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
         data-testid="confirm-dialog"
+        @cancel.prevent="cancel"
     >
         <div class="dialog-scrim absolute inset-0" @click="cancel" />
 
-        <div
-            class="dialog-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="confirm-dialog-title"
-            aria-describedby="confirm-dialog-message"
-        >
+        <div class="dialog-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6">
             <h2 id="confirm-dialog-title" class="text-card-title">{{ t(titleKey) }}</h2>
             <p id="confirm-dialog-message" class="text-[var(--color-text-muted)] text-pretty">
                 {{ t(messageKey, { name: subject }) }}
@@ -100,20 +95,10 @@ watch(() => props.open, async (open) => {
                 </button>
             </div>
         </div>
-    </div>
+    </dialog>
 </template>
 
 <style scoped>
-.dialog-scrim {
-    background-color: var(--color-overlay);
-}
-
-.dialog-panel {
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-2);
-}
-
 .dialog-cancel {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

@@ -34,6 +34,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useModalDialog } from '@/components/useModalDialog';
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -52,6 +53,9 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>();
 
 const { t, locale } = useI18n();
+const dialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(dialog);
 
 const user = ref<AdministeredUser | null>(null);
 const sessions = ref<DeviceSession[]>([]);
@@ -155,8 +159,8 @@ function messageFor(error: unknown): string {
     return 'users.details.error.rejected';
 }
 
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.open && !busy.value) {
+function onEscape(): void {
+    if (!busy.value) {
         emit('close');
     }
 }
@@ -165,10 +169,7 @@ watch(() => props.open, async (open) => {
     if (open) {
         user.value = null;
         sessions.value = [];
-        document.addEventListener('keydown', onKeydown);
         await load();
-    } else {
-        document.removeEventListener('keydown', onKeydown);
     }
 }, { immediate: true });
 
@@ -197,15 +198,17 @@ function shortAgent(userAgent: string | null): string {
 </script>
 
 <template>
-    <div v-if="open" class="fixed inset-0 z-40 flex justify-end" data-testid="user-details-drawer">
+    <dialog
+        v-if="open"
+        ref="dialog"
+        class="fixed inset-0 z-40 flex justify-end"
+        aria-labelledby="user-details-title"
+        data-testid="user-details-drawer"
+        @cancel.prevent="onEscape"
+    >
         <div class="drawer-scrim absolute inset-0" @click="busy ? null : emit('close')" />
 
-        <aside
-            class="drawer-panel relative flex h-full w-full max-w-lg flex-col gap-4 overflow-y-auto p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="user-details-title"
-        >
+        <aside class="drawer-panel relative flex h-full w-full max-w-lg flex-col gap-4 overflow-y-auto p-6">
             <header class="flex items-start justify-between gap-3">
                 <h2 id="user-details-title" class="text-section-title">{{ t('users.details.title') }}</h2>
 
@@ -340,7 +343,7 @@ function shortAgent(userAgent: string | null): string {
             @confirm="confirmTermination"
             @cancel="terminating = null"
         />
-    </div>
+    </dialog>
 </template>
 
 <style scoped>

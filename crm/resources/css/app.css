@@ -91,6 +91,41 @@ body {
         outline: 2px solid var(--color-focus-ring);
         outline-offset: 2px;
     }
+
+    /*
+     * A-04: a modal <dialog> is the full-screen frame its scrim and panel sit in,
+     * so the browser's own box, margin and backdrop step aside. The scrim stays
+     * the component's element: a click on it is how the page closes a dialog.
+     */
+    dialog {
+        inline-size: 100%;
+        block-size: 100%;
+        max-inline-size: none;
+        max-block-size: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+    }
+
+    dialog::backdrop {
+        background: transparent;
+    }
+}
+
+/*
+ * DS §6.6: a dialog's scrim and panel (A-04), once. Unlayered, as the scoped
+ * copies they replace were. The form modals' `.modal-*` copies are a debt row.
+ */
+.dialog-scrim {
+    background-color: var(--color-overlay);
+}
+
+.dialog-panel {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-2);
 }
 
 /*

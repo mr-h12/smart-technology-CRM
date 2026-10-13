@@ -128,7 +128,8 @@ onMounted(load);
                 @change="onFileChosen"
             />
         </label>
-        <p v-if="uploading">{{ t('deals.documents.uploading') }}</p>
+        <!-- A-31: present from load and empty; a live region announces what is set into it. -->
+        <p role="status" data-testid="purchase-order-status">{{ uploading ? t('deals.documents.uploading') : '' }}</p>
 
         <LoadingState v-if="loading" label-key="purchaseOrders.loading" />
         <PermissionDeniedState v-else-if="denied" />

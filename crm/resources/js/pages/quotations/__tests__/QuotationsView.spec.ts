@@ -225,16 +225,16 @@ describe('the quotations screen', () => {
         expect(wrapper.findAll('[data-testid="quotations-filter-customer-option-name"]').map((o) => o.text())).toEqual(['Acme Industrial']);
     });
 
-    it('draws the status as a word with an icon beside it, through the dictionary', async () => {
+    it('draws the status as a word in its tone, with no dot, through the dictionary (F-42 · 5.9, A-55)', async () => {
         const wrapper = await render(respond([{ ...QUOTATION, status: 'pending' }]));
 
         const chip = wrapper.find('[data-testid="quotation-status"]');
 
-        // `Design System §6.4`: "never color alone" — the word is the meaning,
-        // the icon is the glance; the class names the tone the token paints.
+        // `Design System §6.4`: "never color alone" — the word is the meaning;
+        // the class names the tone the token paints. A-55: the owner's one chip has no dot.
         expect(chip.text()).toBe('Pending approval');
         expect(chip.classes()).toContain('status-chip--warning');
-        expect(chip.find('[data-testid="quotation-status-dot"]').exists()).toBe(true);
+        expect(chip.find('svg').exists()).toBe(false);
     });
 
     it('maps the nine statuses onto §6.4’s four tones', async () => {

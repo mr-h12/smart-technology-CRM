@@ -318,4 +318,37 @@ describe('ImportModal — Point 4.6, shared at F-09 · 1.5', () => {
 
         expect(view.emitted('cancel')).toHaveLength(2);
     });
+
+    /** F-42 · 5.14 (A-30): a request in flight is not abandoned by a stray key or click. */
+    it('ignores Escape and the scrim while the upload is in flight', async () => {
+        vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
+
+        const view = render();
+        await choose(view, csv());
+        await view.find('[data-testid="import-submit"]').trigger('click');
+
+        expect(view.find('[data-testid="import-submit"]').text()).toBe(en.import.submitting);
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        await view.find('.dialog-scrim').trigger('click');
+
+        expect(view.emitted('cancel')).toBeUndefined();
+    });
+
+    /** F-42 · 5.15 (A-31): a live region announces a change to what it holds, so it exists before the upload. */
+    it('holds an empty status region before the upload and the result after it', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => json(201, { data: BATCH })));
+
+        const view = render();
+        const region = (): ReturnType<typeof view.find> => view.find('[role="status"][data-testid="import-status"]');
+
+        expect(region().exists()).toBe(true);
+        expect(region().text()).toBe('');
+
+        await choose(view, csv());
+        await view.find('[data-testid="import-submit"]').trigger('click');
+        await flushPromises();
+
+        expect(region().find('[data-testid="import-result"]').exists()).toBe(true);
+    });
 });

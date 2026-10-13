@@ -459,7 +459,9 @@ onMounted(refresh);
                 </div>
             </dl>
 
-            <!-- §5.2: "action controls only by permission". -->
+            <!-- §5.2: "action controls only by permission". A-33: the status's one next
+                 step (Submit, Send or Respond) is the primary; Delete is row Danger
+                 text, and the filled Danger is the confirm's. -->
             <div v-if="hasActions" class="flex flex-wrap items-center gap-2" data-testid="quotation-detail-actions">
                 <RouterLink
                     v-if="canEdit"
@@ -472,7 +474,7 @@ onMounted(refresh);
                 <button
                     v-if="canSubmit"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="quotation-action-submit"
                     @click="submit"
@@ -492,7 +494,7 @@ onMounted(refresh);
                 <button
                     v-if="canSend"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="quotation-action-send"
                     @click="send"
@@ -503,7 +505,7 @@ onMounted(refresh);
                     v-if="canRespond"
                     ref="respondButton"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy || responding"
                     data-testid="quotation-action-respond"
                     @click="openResponse"
@@ -513,7 +515,7 @@ onMounted(refresh);
                 <button
                     v-if="canDelete"
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="danger-text min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="quotation-action-delete"
                     @click="confirmingDelete = true"
@@ -534,7 +536,7 @@ onMounted(refresh);
                     <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-delete-keep" @click="confirmingDelete = false">
                         {{ t('quotations.detail.deleteKeep') }}
                     </button>
-                    <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-delete-proceed" @click="remove">
+                    <button type="button" class="danger-action min-h-11 rounded-lg px-3" data-testid="quotation-delete-proceed" @click="remove">
                         {{ t('quotations.detail.deleteProceed') }}
                     </button>
                 </span>

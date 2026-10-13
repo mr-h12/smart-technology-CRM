@@ -122,6 +122,18 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         expect(rows[2]?.text()).toContain('The virus scan has not finished');
     });
 
+    /** F-42 · 5.15 (A-31): the upload's progress is said in a region that is there before it, so a screen reader hears it. */
+    it('keeps an empty status region from load and sets the upload progress into it', async () => {
+        const wrapper = await render(respond({ upload: () => new Promise<Response>(() => {}) as unknown as Response }));
+        const region = (): ReturnType<typeof wrapper.find> => wrapper.find('[role="status"][data-testid="purchase-order-status"]');
+
+        expect(region().text()).toBe('');
+
+        await choose(wrapper, new File(['x'], 'signed.pdf', { type: 'application/pdf' }));
+
+        expect(region().text()).toBe(en.deals.documents.uploading);
+    });
+
     it('says a refused upload in words and keeps the list', async () => {
         const wrapper = await render(respond({ upload: () => json(422, { error: { code: 'validation_failed', message: 'no' }, meta: { request_id: 'r1' } }) }));
 

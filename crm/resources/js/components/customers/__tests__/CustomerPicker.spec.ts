@@ -179,6 +179,14 @@ describe('CustomerPicker', () => {
         expect(all.find('[data-testid="picker-more"]').exists()).toBe(false);
     });
 
+    /** F-42 · 5.16 (A-41): the popup says it is loading, rather than opening as an empty box. */
+    it('shows the loading line while the first answer is on its way', async () => {
+        const wrapper = render(vi.fn(() => new Promise<Response>(() => {})));
+        await open(wrapper);
+
+        expect(wrapper.find('[data-testid="picker-state"]').text()).toBe(en.state.loading);
+    });
+
     it('says the caller may not view customers on a 403', async () => {
         const wrapper = render(server(() => refused(403)));
         await open(wrapper);

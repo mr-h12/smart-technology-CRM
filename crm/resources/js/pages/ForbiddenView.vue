@@ -9,10 +9,19 @@
  * {@see PermissionDeniedState} — deliberately: that component takes no props
  * and names nothing about what was denied, because a denial screen that
  * identifies the resource turns an access boundary into an enumeration oracle.
+ * The way onward is here, not in that component (A-43): Home names nothing.
  */
+import { useI18n } from 'vue-i18n';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+
+const { t } = useI18n();
 </script>
 
 <template>
-    <PermissionDeniedState />
+    <div class="flex flex-col items-center gap-2">
+        <PermissionDeniedState />
+        <RouterLink to="/" class="row-action inline-flex min-h-11 items-center rounded-lg px-4" data-testid="forbidden-home">
+            {{ t('state.denied.home') }}
+        </RouterLink>
+    </div>
 </template>

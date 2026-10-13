@@ -70,4 +70,24 @@ describe('UI source rules (F-42)', () => {
         expect(css.match(/^\.row-action:active/gm)).toHaveLength(1);
         expect(linesMatching(/^\.row-action\b/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
     });
+
+    it('action variants (A-33): app.css holds the primary, the filled Danger and the row Danger text once each', () => {
+        // DS §6.2; the owner's Option B: row Danger is text, the filled Danger lives inside the confirm.
+        const css = readFileSync('resources/css/app.css', 'utf8');
+
+        expect(css.match(/^\.create-action \{/gm)).toHaveLength(1);
+        expect(css.match(/^\.danger-action \{/gm)).toHaveLength(1);
+        expect(css.match(/^\.danger-text \{/gm)).toHaveLength(1);
+    });
+
+    it('one status chip (A-55): app.css holds .status-chip once, no component outside pages/deals repeats it, and no chip draws a dot', () => {
+        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+        // Suppliers' and catalog's identical copies are outside A-55's files: a CHECKLIST debt row, the owner's call.
+        const css = readFileSync('resources/css/app.css', 'utf8');
+        const later = /^pages\/(deals|suppliers|catalog)\//;
+
+        expect(css.match(/^\.status-chip \{/gm)).toHaveLength(1);
+        expect(linesMatching(/^\.status-chip\b/, (_, path) => !later.test(path))).toEqual([]);
+        expect(linesMatching(/status-dot/)).toEqual([]);
+    });
 });

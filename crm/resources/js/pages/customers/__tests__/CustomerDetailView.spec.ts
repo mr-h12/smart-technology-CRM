@@ -225,6 +225,18 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         expect(view.find('select[data-testid="customer-detail-status"]').exists()).toBe(false);
     });
 
+    /** F-42 · 5.9 (A-55): the list's chip and the page's are one recipe — the same classes, no dot. */
+    it('draws the status in the shared chip the customers list uses', async () => {
+        stubDetail(() => CUSTOMER);
+
+        const view = await render();
+        await flushPromises();
+
+        const chip = view.find('[data-testid="customer-detail-status"]');
+        expect(chip.classes()).toEqual(expect.arrayContaining(['status-chip', 'status-chip--neutral']));
+        expect(chip.find('svg').exists()).toBe(false);
+    });
+
     /** `D-16`: notes carry the communication history — §5.2's "related data second". */
     it('shows the notes as the second section, and says so when there are none', async () => {
         stubDetail(() => CUSTOMER);
@@ -291,6 +303,8 @@ describe('CustomerDetailView — OpenAPI §5.1 refusals', () => {
         await flushPromises();
 
         expect(view.find('[data-testid="error-state"]').exists()).toBe(true);
+        // F-42 · 5.17 (A-43): the page keeps its way back above the error, as the not-found state does.
+        expect(view.find('[data-testid="customer-back"]').exists()).toBe(true);
 
         broken = false;
         await view.find('[data-testid="error-retry"]').trigger('click');
@@ -416,7 +430,7 @@ describe('CustomerDetailView — Flow 10 · F-19 · 1.1 assign', () => {
         expect(url).toContain('/customers/c1/assign');
         expect(init.method).toBe('PATCH');
         expect(JSON.parse(String(init.body))).toEqual({ sales_owner_id: 'u-indoor' });
-        expect(view.find('[data-testid="customer-assign-done"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customer-assign-done"]').text()).toBe(en.customers.assign.done);
     });
 
     /**
@@ -592,12 +606,50 @@ describe('CustomerDetailView — Flow 10 · F-19 · 1.1 assign', () => {
         // Accepted: the alert is gone and the confirmation shows.
         await submit();
         expect(shown('customer-assign-error')).toBe(false);
-        expect(shown('customer-assign-done')).toBe(true);
+        expect(view.find('[data-testid="customer-assign-done"]').text()).toBe(en.customers.assign.done);
 
         // Nothing chosen again: the confirmation is withdrawn.
         await view.find('[data-testid="customer-assign-owner"]').setValue('');
         await submit();
-        expect(shown('customer-assign-done')).toBe(false);
+        expect(view.find('[data-testid="customer-assign-done"]').text()).toBe('');
         expect(fieldMessage()).toBe(en.customers.assign.ownerRequired);
+    });
+
+    /** F-42 · 5.15 (A-31): a live region announces only a change to text it already holds, so it is there from load. */
+    it('keeps an empty status region from load and sets the result into it', async () => {
+        stubAssign();
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        const region = (): ReturnType<typeof view.find> => view.find('[data-testid="customer-assign-done"]');
+        expect(region().attributes('role')).toBe('status');
+        expect(region().text()).toBe('');
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(region().text()).toBe(en.customers.assign.done);
+    });
+
+    /** F-42 · 5.14 (A-30): a second click while the first assign is in flight sends nothing. */
+    it('sends one assign however often the button is pressed while it is busy', async () => {
+        let answer: (response: Response) => void = () => {};
+        const fetchMock = stubAssign(() => new Promise<Response>((resolve) => { answer = resolve; }) as unknown as Response);
+        const view = await render(MANAGER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-assign-owner"]').setValue('u-indoor');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+        await view.find('[data-testid="customer-assign-form"]').trigger('submit');
+
+        const button = view.find('[data-testid="customer-assign-submit"]');
+        expect(button.attributes('disabled')).toBeDefined();
+        expect(button.text()).toBe(en.action.saving);
+
+        answer(json(200, { data: { ...CUSTOMER, sales_owner_id: 'u-indoor' }, meta: {} }));
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/assign'))).toHaveLength(1);
     });
 });

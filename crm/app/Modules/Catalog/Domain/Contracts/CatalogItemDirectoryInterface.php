@@ -29,6 +29,14 @@ interface CatalogItemDirectoryInterface
 {
     public function list(CatalogItemListCriteria $criteria): CatalogItemPage;
 
+    /**
+     * `D-111` (F-43): each company with at least one item under the list's
+     * filters, and its count; the items with no company as `null`, last.
+     *
+     * @return list<array{company: string|null, count: int}>
+     */
+    public function companyCounts(CatalogItemListCriteria $criteria): array;
+
     /** Null when the row is absent or soft-deleted. */
     public function find(string $catalogItemId): ?CatalogItemSummary;
 

@@ -77,6 +77,8 @@ export interface CatalogItemListQuery {
     company?: string | null;
     isActive?: boolean | null;
     isIncomplete?: boolean | null;
+    /** `D-111` (F-43): `false` is the «بدون شركة» tile. */
+    hasCompany?: boolean | null;
     /** `D-93` (F-18 · 1.2): this supplier's linked items first. An ordering, not a filter. */
     supplierFirst?: string | null;
 }
@@ -132,9 +134,20 @@ export async function listCatalogItems(query: CatalogItemListQuery = {}): Promis
         parameters.set('filter[is_incomplete]', query.isIncomplete ? 'true' : 'false');
     }
 
+    if (typeof query.hasCompany === 'boolean') {
+        parameters.set('filter[has_company]', query.hasCompany ? 'true' : 'false');
+    }
+
     const suffix = parameters.size === 0 ? '' : `?${parameters.toString()}`;
 
     return collection<CatalogItem>(await apiGet(`/catalog-items${suffix}`));
+}
+
+/** `D-111` (F-43): one tile per company with items on this tab, its count, and `null` (no company) last. */
+export async function listCatalogCompanies(kind: string): Promise<{ company: string | null; count: number }[]> {
+    const query = new URLSearchParams({ 'filter[kind]': kind });
+
+    return (await apiGet<{ items: { company: string | null; count: number }[] }>(`/catalog-items/companies?${query.toString()}`)).data.items;
 }
 
 export async function readCatalogItem(id: string): Promise<CatalogItem> {

@@ -60,7 +60,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { entryLabel, listEntries, type ListEntry } from '@/services/admin';
-import { importCatalogItems, listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
+import { importCatalogItems, listCatalogCompanies, listCatalogItems, type CatalogItem, type Pagination } from '@/services/catalog';
 import ImportModal from '@/components/imports/ImportModal.vue';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
@@ -122,6 +122,16 @@ const companyFilter = ref('');
 const kind = ref<Kind>('product');
 
 /**
+ * `D-111` (F-43): the screen opens on one tile per company with items, and a
+ * tile or any filter shows the table. `NO_COMPANY` is the «بدون شركة» tile's
+ * value in the company select — not a code, since codes have no parentheses —
+ * so the select shows what the table holds and `filtering` counts it.
+ */
+const NO_COMPANY = '(none)';
+const showTiles = ref(true);
+const tiles = ref<{ company: string | null; count: number }[]>([]);
+
+/**
  * Three positions, not two. §10.4 hides a deactivated item from **selection
  * lists** — Modules 6 and 7 — and not from this management screen, and the
  * server's `filter[is_active]` is tri-state for the same reason. A screen that
@@ -164,30 +174,14 @@ const rows = computed(() => items.value.map((item, index) => ({
     startsGroup: index === 0 || items.value[index - 1]?.company !== item.company,
 })));
 
-async function load(): Promise<void> {
+/** The three states every request on this screen shares. */
+async function request(task: () => Promise<void>): Promise<void> {
     loading.value = true;
     failed.value = false;
     denied.value = false;
 
     try {
-        const result = await listCatalogItems({
-            page: page.value,
-            sort: sortParameter.value,
-            // §7.3's "grouped by company/team name", on every load.
-            groupBy: 'company',
-            kind: kind.value,
-            q: search.value === '' ? null : search.value,
-            category: categoryFilter.value === '' ? null : categoryFilter.value,
-            company: companyFilter.value === '' ? null : companyFilter.value,
-            // `null`, never `false`, when unset. An unset select asks nothing
-            // about the column; `false` would ask for the deactivated ones only.
-            isActive: activeFilter.value === '' ? null : activeFilter.value === 'active',
-
-            isIncomplete: incompleteOnly.value ? true : null,
-        });
-
-        items.value = result.items;
-        pagination.value = result.pagination;
+        await task();
     } catch (error) {
         // A 403 and a 500 are different answers and get different screens: one
         // is a boundary and the other is a fault.
@@ -198,8 +192,72 @@ async function load(): Promise<void> {
     }
 }
 
-/** Any change to the question invalidates the page number, for `sortBy`'s reason. */
+async function loadTiles(): Promise<void> {
+    await request(async () => {
+        tiles.value = await listCatalogCompanies(kind.value);
+    });
+}
+
+/** `D-111`: a tile's name is the `DB-05` label, or the code when the list does not name it. */
+function tileLabel(company: string | null): string {
+    if (company === null) {
+        return t('catalog.group.none');
+    }
+
+    const entry = companies.value.find((candidate) => candidate.code === company);
+
+    return entry === undefined ? company : entryLabel(entry, locale.value);
+}
+
+async function openTile(company: string | null): Promise<void> {
+    companyFilter.value = company ?? NO_COMPANY;
+    await applyFilters();
+}
+
+/** «كل الشركات»: every filter cleared, back to the tiles of the tab in view. */
+async function backToTiles(): Promise<void> {
+    search.value = '';
+    categoryFilter.value = '';
+    companyFilter.value = '';
+    activeFilter.value = '';
+    incompleteOnly.value = false;
+    page.value = 1;
+    showTiles.value = true;
+    await loadTiles();
+}
+
+/** Whatever the screen is showing, asked again. */
+async function refresh(): Promise<void> {
+    await (showTiles.value ? loadTiles() : load());
+}
+
+async function load(): Promise<void> {
+    await request(async () => {
+        const result = await listCatalogItems({
+            page: page.value,
+            sort: sortParameter.value,
+            // §7.3's "grouped by company/team name", on every load.
+            groupBy: 'company',
+            kind: kind.value,
+            q: search.value === '' ? null : search.value,
+            category: categoryFilter.value === '' ? null : categoryFilter.value,
+            company: companyFilter.value === '' || companyFilter.value === NO_COMPANY ? null : companyFilter.value,
+            hasCompany: companyFilter.value === NO_COMPANY ? false : null,
+            // `null`, never `false`, when unset. An unset select asks nothing
+            // about the column; `false` would ask for the deactivated ones only.
+            isActive: activeFilter.value === '' ? null : activeFilter.value === 'active',
+
+            isIncomplete: incompleteOnly.value ? true : null,
+        });
+
+        items.value = result.items;
+        pagination.value = result.pagination;
+    });
+}
+
+/** Any change to the question invalidates the page number, for `sortBy`'s reason. `D-111`: and leaves the tiles. */
 async function applyFilters(): Promise<void> {
+    showTiles.value = false;
     page.value = 1;
     await load();
 }
@@ -212,7 +270,7 @@ async function selectKind(next: Kind): Promise<void> {
 
     kind.value = next;
     page.value = 1;
-    await load();
+    await refresh();
 }
 
 /**
@@ -276,15 +334,14 @@ function startEdit(item: CatalogItem): void {
 async function onSaved(): Promise<void> {
     formOpen.value = false;
 
-    await load();
+    await refresh();
 }
 
 async function onShowIncomplete(): Promise<void> {
     importOpen.value = false;
     incompleteOnly.value = true;
-    page.value = 1;
 
-    await load();
+    await applyFilters();
 }
 
 /**
@@ -316,7 +373,7 @@ async function loadLists(): Promise<void> {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadLists()]);
+    await Promise.all([loadTiles(), loadLists()]);
 });
 </script>
 
@@ -326,7 +383,7 @@ onMounted(async () => {
             <h1 class="text-page-title">{{ t('catalog.title') }}</h1>
 
             <p
-                v-if="!loading && !failed && !denied"
+                v-if="!loading && !failed && !denied && !showTiles"
                 data-testid="catalog-total"
                 class="tabular-nums text-[var(--color-text-muted)]"
             >
@@ -423,6 +480,7 @@ onMounted(async () => {
                     @change="applyFilters"
                 >
                     <option value="">{{ t('catalog.filter.companyAll') }}</option>
+                    <option :value="NO_COMPANY">{{ t('catalog.group.none') }}</option>
                     <option v-for="entry in companies" :key="entry.code" :value="entry.code">
                         {{ entryLabel(entry, locale) }}
                     </option>
@@ -458,9 +516,42 @@ onMounted(async () => {
             </label>
         </form>
 
+        <!-- `D-111`: the way back to the tiles, above the table and its states. -->
+        <button
+            v-if="!showTiles"
+            type="button"
+            class="row-action min-h-11 self-start rounded-lg px-4"
+            data-testid="catalog-tiles-back"
+            @click="backToTiles"
+        >
+            {{ t('catalog.tiles.back') }}
+        </button>
+
         <LoadingState v-if="loading" label-key="catalog.loading" />
         <PermissionDeniedState v-else-if="denied" />
-        <ErrorState v-else-if="failed" @retry="load" />
+        <ErrorState v-else-if="failed" @retry="refresh" />
+        <!-- `D-111`: one tile per company with items on this tab, «بدون شركة» last. -->
+        <template v-else-if="showTiles">
+            <EmptyState v-if="tiles.length === 0" title-key="state.empty.title" message-key="state.empty.message" />
+            <ul
+                v-else
+                class="grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-4"
+                :aria-label="t('catalog.tiles.label')"
+                data-testid="catalog-tiles"
+            >
+                <li v-for="tile in tiles" :key="tile.company ?? NO_COMPANY">
+                    <button
+                        type="button"
+                        class="row-action flex min-h-11 w-full items-center justify-between gap-3 rounded-xl p-4 text-start"
+                        data-testid="catalog-tile"
+                        @click="openTile(tile.company)"
+                    >
+                        <span class="font-medium">{{ tileLabel(tile.company) }}</span>
+                        <span class="tabular-nums text-[var(--color-text-muted)]">{{ tile.count }}</span>
+                    </button>
+                </li>
+            </ul>
+        </template>
         <!-- "There are none" and "nothing matched" are different sentences, and
              only one of them is ever true. -->
         <EmptyState
@@ -630,7 +721,7 @@ onMounted(async () => {
             :open="importOpen"
             :title="t('catalog.import.title')"
             :upload="importCatalogItems"
-            @imported="load()"
+            @imported="refresh()"
             @show-incomplete="onShowIncomplete"
             @cancel="importOpen = false"
         />

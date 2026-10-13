@@ -45,6 +45,26 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
 {
     public function __construct(private SearchService $search) {}
 
+    public function companyCounts(CatalogItemListCriteria $criteria): array
+    {
+        $query = CatalogItem::query();
+
+        $this->applyFilters($query, $criteria);
+
+        $counts = [];
+
+        foreach ($query->toBase()->selectRaw('catalog_items.company, count(*) as total')
+            ->groupBy('catalog_items.company')
+            ->orderByRaw('catalog_items.company asc nulls last')
+            ->get() as $row) {
+            // pdo_pgsql hands `count(*)` back as a native int (checked 2026-10-14).
+            assert(is_int($row->total));
+            $counts[] = ['company' => is_string($row->company) ? $row->company : null, 'count' => $row->total];
+        }
+
+        return $counts;
+    }
+
     public function list(CatalogItemListCriteria $criteria): CatalogItemPage
     {
         $query = CatalogItem::query();
@@ -272,6 +292,13 @@ final readonly class EloquentCatalogItemDirectory implements CatalogItemDirector
         // the class comment gives — it does not split the screen in two.
         if ($criteria->company !== null) {
             $query->where('catalog_items.company', $criteria->company);
+        }
+
+        // `D-111` (F-43): the no-company tile.
+        if ($criteria->hasCompany !== null) {
+            $criteria->hasCompany
+                ? $query->whereNotNull('catalog_items.company')
+                : $query->whereNull('catalog_items.company');
         }
 
         // Tri-state: unset lists both. See `CatalogItemListCriteria` for why.

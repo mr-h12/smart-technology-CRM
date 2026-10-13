@@ -72,7 +72,7 @@ final readonly class CatalogItemListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active', 'company', 'is_incomplete'];
+    public const ALLOWED_FILTERS = ['kind', 'category', 'is_active', 'company', 'is_incomplete', 'has_company'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'created_at'];
@@ -98,6 +98,7 @@ final readonly class CatalogItemListCriteria
         public ?bool $isIncomplete = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
         public ?string $supplierFirst = null,
+        public ?bool $hasCompany = null,
     ) {}
 
     /**
@@ -131,6 +132,7 @@ final readonly class CatalogItemListCriteria
             sorts: self::sorts($query['sort'] ?? null),
             isIncomplete: $filters['is_incomplete'],
             supplierFirst: self::uuid($query['supplier_first'] ?? null, 'supplier_first'),
+            hasCompany: $filters['has_company'],
         );
     }
 
@@ -236,13 +238,13 @@ final readonly class CatalogItemListCriteria
     }
 
     /**
-     * @return array{kind: string|null, category: string|null, is_active: bool|null, company: string|null, is_incomplete: bool|null}
+     * @return array{kind: string|null, category: string|null, is_active: bool|null, company: string|null, is_incomplete: bool|null, has_company: bool|null}
      *
      * @throws InvalidCatalogItemListQuery
      */
     private static function filters(mixed $value): array
     {
-        $empty = ['kind' => null, 'category' => null, 'is_active' => null, 'company' => null, 'is_incomplete' => null];
+        $empty = ['kind' => null, 'category' => null, 'is_active' => null, 'company' => null, 'is_incomplete' => null, 'has_company' => null];
 
         if ($value === null) {
             return $empty;
@@ -268,6 +270,8 @@ final readonly class CatalogItemListCriteria
             // written, exactly like `category` above.
             'company' => self::text($value['company'] ?? null, 'filter[company]'),
             'is_incomplete' => self::boolean($value['is_incomplete'] ?? null, 'filter[is_incomplete]'),
+            // `D-111` (F-43): the «بدون شركة» tile, which `company` cannot ask for.
+            'has_company' => self::boolean($value['has_company'] ?? null, 'filter[has_company]'),
         ];
     }
 

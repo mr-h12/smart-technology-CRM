@@ -245,7 +245,7 @@ describe('D-111 (F-43): the company tiles', () => {
     });
 
     it('sends filter[has_company] when told, and nothing about it when not', async () => {
-        const fetchMock = vi.fn(async () => json(200, { data: [], meta: { pagination: PAGINATION } }));
+        const fetchMock = vi.fn(async (_input: string) => json(200, { data: [], meta: { pagination: PAGINATION } }));
         vi.stubGlobal('fetch', fetchMock);
 
         await listCatalogItems({ hasCompany: false });

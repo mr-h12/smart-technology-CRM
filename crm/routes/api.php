@@ -568,6 +568,10 @@ Route::middleware('auth')->prefix('catalog-items')->group(function (): void {
     Route::get('/', [CatalogItemController::class, 'index'])
         ->middleware('permission:catalog.view');
 
+    // `D-111` (F-43): the screen's company tiles. Before `/{catalogItem}`.
+    Route::get('/companies', [CatalogItemController::class, 'companies'])
+        ->middleware('permission:catalog.view');
+
     Route::get('/{catalogItem}', [CatalogItemController::class, 'show'])
         ->middleware('permission:catalog.view');
 

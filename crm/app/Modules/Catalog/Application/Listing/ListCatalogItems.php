@@ -31,6 +31,16 @@ final readonly class ListCatalogItems
         return $this->items->list($criteria);
     }
 
+    /**
+     * `D-111` (F-43): the screen's company tiles.
+     *
+     * @return list<array{company: string|null, count: int}>
+     */
+    public function companies(CatalogItemListCriteria $criteria): array
+    {
+        return $this->items->companyCounts($criteria);
+    }
+
     /** @throws CatalogItemNotFound when the row is absent or soft-deleted */
     public function one(string $catalogItemId): CatalogItemSummary
     {

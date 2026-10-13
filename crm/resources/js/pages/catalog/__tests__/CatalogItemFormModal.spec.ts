@@ -386,7 +386,8 @@ describe('CatalogItemFormModal — §5.2 unsaved changes', () => {
     it('takes the same path on Escape as on Cancel', async () => {
         const view = render(null, 'product');
         await view.find('[data-testid="catalog-form-name"]').setValue('Copper');
-        await view.find('[data-testid="catalog-form"]').trigger('keydown.escape');
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
 
         expect(view.emitted('cancel')).toBeFalsy();
         expect(view.find('[data-testid="catalog-form-unsaved"]').exists()).toBe(true);
@@ -647,12 +648,20 @@ describe('CatalogItemFormModal — the supplier picker (F-10 · 1.8)', () => {
         const search = view.find('[data-testid="catalog-form-supplier-search"]');
         await search.trigger('focus');
         await flushPromises();
-        await search.trigger('keydown', { key: 'Escape' });
+        // A-04: the open list prevents the keydown, so the browser does not turn it into the dialog's close.
+        const first = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        search.element.dispatchEvent(first);
+        await flushPromises();
 
+        expect(first.defaultPrevented).toBe(true);
         expect(search.attributes('aria-expanded')).toBe('false');
         expect(view.emitted('cancel')).toBeFalsy();
 
-        await search.trigger('keydown', { key: 'Escape' });
+        // The list closed, the next Escape is left to the browser, which raises the dialog's cancel.
+        const second = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        search.element.dispatchEvent(second);
+        expect(second.defaultPrevented).toBe(false);
+        view.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
         expect(view.emitted('cancel')).toBeTruthy();
     });
 

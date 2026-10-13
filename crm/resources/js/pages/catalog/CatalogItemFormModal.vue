@@ -398,7 +398,6 @@ function discard(): void {
             novalidate
             data-testid="catalog-form"
             @submit.prevent="save()"
-            @keydown.escape.prevent="requestClose()"
         >
             <h2 id="catalog-form-title" class="text-card-title">
                 {{ t(`catalog.form.${isEdit ? 'editTitle' : 'createTitle'}.${activeKind}`) }}

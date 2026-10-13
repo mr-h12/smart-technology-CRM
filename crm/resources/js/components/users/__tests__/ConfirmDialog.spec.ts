@@ -78,4 +78,23 @@ describe('ConfirmDialog', () => {
         expect(escape.defaultPrevented).toBe(true);
         view.unmount();
     });
+
+    /**
+     * A-04: a second Escape with no user activation in between fires `cancel` uncancelable and the
+     * browser closes the dialog anyway (HTML "request to close", canPreventClose false). A dialog the
+     * component still draws must be modal again, never a painted non-modal ghost.
+     */
+    it('reopens as a modal when the browser closes it while it is still drawn', async () => {
+        const view = render(true);
+        await nextTick();
+        const dialog = view.get('[data-testid="confirm-dialog"]').element as HTMLDialogElement;
+
+        dialog.dispatchEvent(new Event('cancel'));
+        dialog.close();
+        await nextTick();
+
+        expect(dialog.open).toBe(true);
+        expect(view.emitted('cancel')).toBeUndefined();
+        view.unmount();
+    });
 });

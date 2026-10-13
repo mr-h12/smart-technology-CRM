@@ -157,8 +157,6 @@ const acting = ref(false);
 const actionMessage = ref<string | { key: string; count?: number }>('');
 type Question = { kind: 'archive'; customer: Customer } | { kind: 'restore-selected' } | { kind: 'assign-selected' };
 const pending = ref<Question | null>(null);
-/** §6.6: "return focus to the invoking control". */
-let invoker: HTMLElement | null = null;
 
 /** F-19 · 1.3: the employee the ticked rows go to, and why the choice was refused. */
 const bulkOwnerId = ref('');
@@ -360,17 +358,14 @@ function toggleAll(checked: boolean): void {
     selectedIds.value = checked ? [...selectableIds.value] : [];
 }
 
-/** §6.6's focus contract, kept in the caller so Module 1's dialog is not edited. */
+/** §6.6's focus return is ConfirmDialog's own since F-42 · A-04 (`useModalDialog`). */
 function ask(request: Question): void {
-    invoker = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     actionMessage.value = '';
     pending.value = request;
 }
 
 function dismiss(): void {
     pending.value = null;
-    invoker?.focus();
-    invoker = null;
 }
 
 /**

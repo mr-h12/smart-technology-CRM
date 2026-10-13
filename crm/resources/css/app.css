@@ -115,6 +115,14 @@ body {
 }
 
 /*
+ * The browser hides a closed dialog in its own sheet, which a dialog's `flex`
+ * utility outranks; unlayered, this keeps "closed" meaning "not drawn".
+ */
+dialog:not([open]) {
+    display: none;
+}
+
+/*
  * DS §6.6: a dialog's scrim and panel (A-04), once. Unlayered, as the scoped
  * copies they replace were. The form modals' `.modal-*` copies are a debt row.
  */

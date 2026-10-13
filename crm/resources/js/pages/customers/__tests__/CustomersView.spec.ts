@@ -1003,7 +1003,7 @@ describe('CustomersView — Point 4.5, the archive half', () => {
         // a coin flip that lands differently under suite load.
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        // Not decoration: without this half, `invoker.focus()` below would
+        // Not decoration: without this half, the focus return below would
         // "return" focus to a button that never lost it, and the test would
         // pass against a dialog that steals focus and never gives it back.
         expect(document.activeElement).not.toBe(trigger.element);

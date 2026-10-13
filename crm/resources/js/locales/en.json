@@ -39,11 +39,13 @@
         },
         "error": {
             "title": "Something went wrong.",
-            "message": "This data could not be loaded. Try again."
+            "message": "This data could not be loaded. Try again.",
+            "network": "The server could not be reached. Check the connection, then try again."
         },
         "denied": {
             "title": "You do not have access",
-            "message": "You do not have permission to view this content. Contact your system administrator if you believe this is a mistake."
+            "message": "You do not have permission to view this content. Contact your system administrator if you believe this is a mistake.",
+            "home": "Go to the home page"
         }
     },
     "ping": {
@@ -1348,7 +1350,9 @@
         "return": "Return",
         "returnNote": "Note to the seller (required)",
         "returnSend": "Return with note",
-        "returnCancel": "Cancel"
+        "returnCancel": "Cancel",
+        "approved": "{code} was approved.",
+        "returned": "{code} was returned to the seller."
     },
     "pdf": {
         "panel": {

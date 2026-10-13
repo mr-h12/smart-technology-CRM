@@ -48,6 +48,8 @@ const denied = ref(false);
 const busy = ref(false);
 const conflict = ref(false);
 const actionError = ref('');
+/** A-32: the last success, named — the approved row itself leaves the list. */
+const statusLine = ref('');
 /** The row whose Return note is open, if any. */
 const returning = ref<QuotationSummary | null>(null);
 const note = ref('');
@@ -96,22 +98,25 @@ function customerName(id: string): string {
  * then read the list again — the row is gone or it is not, and only the
  * server knows which.
  */
-async function act(id: string, write: (etag: string) => Promise<unknown>): Promise<void> {
+async function act(id: string, write: (etag: string) => Promise<unknown>, done: string): Promise<void> {
     busy.value = true;
     conflict.value = false;
     actionError.value = '';
+    statusLine.value = '';
 
     try {
         const { quotation } = await readQuotation(id);
         await write(quotation.etag);
         returning.value = null;
         note.value = '';
+        statusLine.value = done;
         await load();
     } catch (error) {
         if (error instanceof ApiError && error.status === 409 && error.code === 'concurrency_conflict') {
             conflict.value = true;
         } else {
-            actionError.value = error instanceof Error ? error.message : String(error);
+            // A-43: the server's own sentence, or the cause in words — never a raw "Failed to fetch".
+            actionError.value = error instanceof ApiError ? error.message : t('state.error.network');
         }
     } finally {
         busy.value = false;
@@ -119,7 +124,7 @@ async function act(id: string, write: (etag: string) => Promise<unknown>): Promi
 }
 
 async function approve(row: QuotationSummary): Promise<void> {
-    await act(row.id, (etag) => approveQuotation(row.id, etag));
+    await act(row.id, (etag) => approveQuotation(row.id, etag), t('approvals.approved', { code: row.code }));
 }
 
 function openReturn(row: QuotationSummary): void {
@@ -136,7 +141,7 @@ async function sendReturn(): Promise<void> {
         return;
     }
 
-    await act(row.id, (etag) => returnQuotation(row.id, etag, note.value));
+    await act(row.id, (etag) => returnQuotation(row.id, etag, note.value), t('approvals.returned', { code: row.code }));
 }
 
 onMounted(load);
@@ -145,6 +150,9 @@ onMounted(load);
 <template>
     <div class="flex flex-col gap-4" data-testid="approvals-view">
         <h1 class="text-page-title">{{ t('approvals.title') }}</h1>
+
+        <!-- A-32: present from load, above every state, so it outlives the row it names. -->
+        <p role="status" data-testid="approvals-status">{{ statusLine }}</p>
 
         <PermissionDeniedState v-if="denied" />
         <LoadingState v-else-if="loading" label-key="approvals.loading" />
@@ -165,9 +173,13 @@ onMounted(load);
                 </button>
             </div>
 
-            <p v-else-if="actionError !== ''" class="form-alert rounded-lg p-3" role="alert" data-testid="approvals-action-error">
-                {{ actionError }}
-            </p>
+            <div v-else-if="actionError !== ''" class="form-alert flex flex-wrap items-center justify-between gap-3 rounded-lg p-3" role="alert">
+                <span data-testid="approvals-action-error">{{ actionError }}</span>
+                <!-- A-43, the owner's Option B: the next step is a button under the sentence. -->
+                <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="approvals-action-retry" @click="actionError = ''; load()">
+                    {{ t('state.retry') }}
+                </button>
+            </div>
 
             <!-- Design System §6.6: the note is asked in the page, never by a native prompt(). -->
             <form

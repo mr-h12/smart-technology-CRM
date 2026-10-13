@@ -111,3 +111,54 @@ body {
 .row-action:active:not(:disabled) {
     background-color: var(--color-border);
 }
+
+/*
+ * DS §6.2's other variants (A-33, the owner's Option B). Primary: one per
+ * context. Filled Danger: only inside a confirm. Row Danger: text, no border,
+ * the size of the secondary beside it. Unlayered for the same reason as above.
+ */
+.create-action {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
+}
+
+.danger-action {
+    background-color: var(--color-danger);
+    color: var(--color-text-inverse);
+}
+
+.danger-text {
+    color: var(--color-danger);
+}
+
+.danger-text:hover:not(:disabled) {
+    background-color: var(--color-surface-muted);
+}
+
+/*
+ * DS §6.4: one status chip for customers and quotations, the word without a
+ * dot (A-55, the owner's answer). pages/deals keeps its copy until F-42 step 15.
+ */
+.status-chip {
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.status-chip--success {
+    color: var(--color-success);
+}
+
+.status-chip--warning {
+    color: var(--color-warning);
+}
+
+.status-chip--danger {
+    color: var(--color-danger);
+}
+
+.status-chip--info {
+    color: var(--color-info);
+}
+
+.status-chip--neutral {
+    color: var(--color-status-neutral);
+}

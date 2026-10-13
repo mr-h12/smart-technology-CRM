@@ -30,9 +30,16 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const { t } = useI18n();
 const confirmButton = ref<HTMLButtonElement | null>(null);
 
+/** A-30: while busy the request is in flight, so neither Escape nor the scrim walks away from it. */
+function cancel(): void {
+    if (!props.busy) {
+        emit('cancel');
+    }
+}
+
 function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && props.open) {
-        emit('cancel');
+        cancel();
     }
 }
 
@@ -55,7 +62,7 @@ watch(() => props.open, async (open) => {
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         data-testid="confirm-dialog"
     >
-        <div class="dialog-scrim absolute inset-0" @click="emit('cancel')" />
+        <div class="dialog-scrim absolute inset-0" @click="cancel" />
 
         <div
             class="dialog-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6"
@@ -89,7 +96,7 @@ watch(() => props.open, async (open) => {
                     data-testid="confirm-accept"
                     @click="emit('confirm')"
                 >
-                    {{ t(confirmKey) }}
+                    {{ busy ? t('action.saving') : t(confirmKey) }}
                 </button>
             </div>
         </div>

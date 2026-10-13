@@ -319,6 +319,27 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
     });
 
+    /** F-42 · 5.16 (A-41): a block says it is loading its offer, and an offer that fails says so in the block, not at the page top. */
+    it('shows a loading line in the block while its offer loads, and the block’s own error when it fails', async () => {
+        let answer: (response: Response) => void = () => {};
+        const base = respond();
+        const fetchMock = vi.fn((input: string, init?: RequestInit) =>
+            String(input).includes('/supplier-quotations/sq1') ? new Promise<Response>((resolve) => { answer = resolve; }) : (base as unknown as typeof fetch)(input, init));
+        const { wrapper } = await render(fetchMock);
+
+        await wrapper.find(id('add-supplier')).trigger('click');
+        await wrapper.find(id('supplier-0-pick')).setValue('sq1');
+
+        expect(wrapper.find(id('supplier-0-loading')).text()).toBe(en.state.loading);
+
+        answer(json(500, { error: { code: 'internal_error', message: 'The offer could not be read.' }, meta: { request_id: 'r1' } }));
+        await flushPromises();
+
+        expect(wrapper.find(id('supplier-0-loading')).exists()).toBe(false);
+        expect(wrapper.find(id('supplier-0')).find(id('supplier-0-error')).text()).toBe('The offer could not be read.');
+        expect(wrapper.find(id('form-error')).exists()).toBe(false);
+    });
+
     it('stops at ten suppliers (§6.1)', async () => {
         const { wrapper } = await render(respond());
 

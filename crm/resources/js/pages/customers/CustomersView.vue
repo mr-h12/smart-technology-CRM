@@ -790,7 +790,7 @@ onMounted(async () => {
                         </td>
                         <td class="p-3">
                             <!-- §6.4: never colour alone — the chip carries its own word. -->
-                            <span class="status-chip rounded-full px-2 py-0.5" data-testid="customers-status">
+                            <span class="status-chip status-chip--neutral rounded-full px-2 py-0.5" data-testid="customers-status">
                                 {{ statusLabel(customer.customer_status) }}
                             </span>
                         </td>
@@ -813,12 +813,13 @@ onMounted(async () => {
                                     {{ t('action.edit') }}
                                 </button>
 
-                                <!-- §6.2 puts Archive in the Danger variant.
-                                     Restore is not destructive and is not one. -->
+                                <!-- §6.2 puts Archive in the Danger variant, as
+                                     text in a row (A-33); the filled Danger is the
+                                     confirm's. Restore is not destructive. -->
                                 <button
                                     v-if="canArchive && !customer.is_archived"
                                     type="button"
-                                    class="danger-action min-h-11 rounded-lg px-3"
+                                    class="danger-text min-h-11 rounded-lg px-3"
                                     data-testid="customers-row-archive"
                                     @click="ask({ kind: 'archive', customer })"
                                 >
@@ -947,26 +948,9 @@ onMounted(async () => {
     text-decoration: underline;
 }
 
-/* §6.2's Primary: the one main permitted action on this screen. */
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
-}
-
-/* §6.2's Danger variant: "Archive, deactivate, reject, or irreversible-equivalent". */
-.danger-action {
-    background-color: var(--color-danger);
-    color: var(--color-text-inverse);
-}
-
 .action-message {
     background-color: var(--color-surface-muted);
     color: var(--color-text);
     border: 1px solid var(--color-border);
-}
-
-.status-chip {
-    background-color: color-mix(in srgb, var(--color-status-neutral) 14%, transparent);
-    color: var(--color-status-neutral);
 }
 </style>

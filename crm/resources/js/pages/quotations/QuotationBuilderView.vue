@@ -128,6 +128,9 @@ interface Block {
     /** Per line of `detail.items`, what was typed. Empty means "not on this quotation". */
     quantities: string[];
     margins: string[];
+    /** A-41: the offer is on its way, or why it never came — said in the block, not at the page top. */
+    loading: boolean;
+    error: string;
 }
 
 /** An existing line (edit only): its supplier item, what was typed, and the cost the detail carried (Q7). */
@@ -447,7 +450,7 @@ function addBlock(supplierQuotationId = ''): void {
         return;
     }
 
-    blocks.value.push({ supplierQuotationId, detail: null, quantities: [], margins: [] });
+    blocks.value.push({ supplierQuotationId, detail: null, quantities: [], margins: [], loading: false, error: '' });
 
     if (supplierQuotationId !== '') {
         void pickOffer(blocks.value.length - 1);
@@ -468,10 +471,13 @@ async function pickOffer(index: number): Promise<void> {
     block.detail = null;
     block.quantities = [];
     block.margins = [];
+    block.error = '';
 
     if (block.supplierQuotationId === '') {
         return;
     }
+
+    block.loading = true;
 
     try {
         const detail = await readSupplierQuotation(block.supplierQuotationId);
@@ -480,7 +486,9 @@ async function pickOffer(index: number): Promise<void> {
         block.quantities = detail.items.map(() => '');
         block.margins = detail.items.map(() => '');
     } catch (error) {
-        formError.value = error instanceof ApiError ? error.message : t('quotations.builder.unreachable');
+        block.error = error instanceof ApiError ? error.message : t('state.error.network');
+    } finally {
+        block.loading = false;
     }
 }
 
@@ -884,6 +892,9 @@ onMounted(load);
                                 {{ t('quotations.builder.removeSupplier') }}
                             </button>
                         </div>
+
+                        <p v-if="block.loading" role="status" class="text-[var(--color-text-muted)]" :data-testid="fieldId(`supplier-${b}-loading`)">{{ t('state.loading') }}</p>
+                        <p v-if="block.error !== ''" class="form-alert rounded-lg p-3" role="alert" :data-testid="fieldId(`supplier-${b}-error`)">{{ block.error }}</p>
 
                         <template v-if="block.detail !== null">
                             <p v-if="block.detail.items.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</p>

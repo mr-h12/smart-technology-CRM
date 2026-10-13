@@ -1736,7 +1736,19 @@ would hide them behind `OD-03` indefinitely.
       `QuotationStatusChip`'s shape (a tone map, `?? 'info'`, the same rules) without its dot; Customers,
       Suppliers and Catalog draw `.status-chip` from `--color-status-neutral` instead. `.row-action` is
       copied in about fifteen files and `.ghost-action` is DealsView's alone. Owed: one shared tone chip
-      (word, tone, optional dot), when the owner orders it
+      (word, tone, optional dot), when the owner orders it.
+      *Update, F-42 · P1 (2026-10-13):* `app.css` now holds the one recipe (`.status-chip` + five tones,
+      no dot); customers and quotations use it. Left: `DealStatusChip`/`DealApprovalControls` (step 15),
+      `ApprovalsView`'s tone fill, and Suppliers'/Catalog's scoped neutral copy (identical to
+      `status-chip status-chip--neutral`; exempted in `uiSourceRules.spec.ts`)
+- [ ] **Scoped `.create-action` copies, and `.danger-action` with two meanings** — *revealed by F-42 · P1,
+      2026-10-13 (`waste-auditor`); not fixed there, because the approved files are customers, quotation
+      detail and approvals.* `app.css` now holds `.create-action`; `SuppliersView.vue:550`,
+      `CatalogView.vue:702` and `SupplierQuotationsView.vue:471` repeat it word for word, and five
+      `pages/deals/` files do (step 15). `RolesMatrixView.vue:700`'s scoped `.danger-action` is an outline
+      (its `[data-v]` selector outranks the global filled one, so its look is unchanged), while the global
+      `.danger-action` is DS §6.2's filled Danger for a confirm. Owed: delete the three copies; rename
+      Roles' outline or move it onto `.danger-text`, when the owner orders it
 - [ ] **Two dead `--font-mono` fallbacks** — *revealed by F-42 · 5.1, 2026-10-12 (`waste-auditor`); not
       fixed there, because the approved line is `--shadow-3`.* `PermissionDiffModal.vue:165` and
       `RolesMatrixView.vue:625` write `var(--font-mono, ui-monospace, monospace)`, while `--font-mono` is
@@ -4341,7 +4353,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       **Regrouped 2026-10-13 (owner): the 39 open rows 5.8–5.46 run as five points P1–P5, by surface; each row
       keeps its own failing test and its own line in the report. Step 15 below stays as it was. Open with
       `/next-point f-42 P1`.**
-      - [ ] **P1** Buttons, status and feedback. **Next.**
+      - [x] **P1** Buttons, status and feedback.
+            *(2026-10-13, #338 — `app.css` holds §6.2's primary, filled Danger and row Danger text, and one dot-less `.status-chip`; ConfirmDialog/ImportModal/assign hold while busy; four always-present `role="status"` regions; picker and builder block say "Loading…"; approvals' raw error → a translated line + Retry, /403 → Home; 23 failing tests first. Approvals has no Reject (A-33's is the deal page's, step 15); deals parts all wait for step 15)*
             · 5.8 A-33: one primary per area, row Danger as text.
             · 5.9 A-55: one status chip without the dot; the deal chip after F-41.
             · 5.14 A-30: busy actions.

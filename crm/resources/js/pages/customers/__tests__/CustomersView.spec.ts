@@ -292,6 +292,16 @@ describe('CustomersView — §5.2 table', () => {
         expect(view.find('[data-testid="customers-row"]').text()).not.toContain('deal_not_completed');
     });
 
+    /** F-42 · 5.9 (A-55): the same chip as the customer page — `CustomerDetailView.spec.ts` asserts the same two classes. */
+    it('draws the status in the shared chip recipe', async () => {
+        stubList([page([ROW])]);
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-status"]').classes()).toEqual(expect.arrayContaining(['status-chip', 'status-chip--neutral']));
+    });
+
     it('renders a placeholder for a field the customer has not filled in', async () => {
         stubList([page([{ ...ROW, contact_person: null, phone: null }])]);
 
@@ -803,6 +813,20 @@ describe('CustomersView — Point 4.5, the archive half', () => {
         await flushPromises();
 
         expect(refused.find('[data-testid="customers-row-archive"]').exists()).toBe(false);
+    });
+
+    /** F-42 · 5.8 (A-33, the owner's Option B): row Danger is text only, so 178 rows are not a wall of red. */
+    it('draws the row Archive as danger text with no border, beside one primary', async () => {
+        stubScreen();
+        await signIn({ ...ARCHIVER, permissions: [...ARCHIVER.permissions, 'customer.create.own'] });
+        const view = render();
+        await flushPromises();
+
+        const archive = view.find('[data-testid="customers-row-archive"]');
+        expect(archive.classes()).toContain('danger-text');
+        expect(archive.classes()).not.toContain('danger-action');
+        expect(archive.classes()).not.toContain('row-action');
+        expect(view.findAll('.create-action')).toHaveLength(1);
     });
 
     /**

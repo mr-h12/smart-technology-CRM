@@ -403,6 +403,19 @@ describe('the quotation detail view', () => {
         expect(reader.wrapper.find('[data-testid="quotation-detail-actions"]').exists()).toBe(false);
     });
 
+    /** F-42 · 5.8 (A-33): one primary in the action bar; Delete is row Danger text; the filled Danger is the confirm's. */
+    it('draws Submit as the one primary, Delete as danger text, and Delete the draft apart from Keep', async () => {
+        const { wrapper } = await render(respond());
+        const bar = wrapper.find('[data-testid="quotation-detail-actions"]');
+
+        expect(bar.findAll('.create-action').map((button) => button.attributes('data-testid'))).toEqual(['quotation-action-submit']);
+        expect(wrapper.find('[data-testid="quotation-action-delete"]').classes()).toContain('danger-text');
+
+        await wrapper.find('[data-testid="quotation-action-delete"]').trigger('click');
+        expect(wrapper.find('[data-testid="quotation-delete-proceed"]').classes()).toContain('danger-action');
+        expect(wrapper.find('[data-testid="quotation-delete-keep"]').classes()).not.toContain('danger-action');
+    });
+
     it('offers a new version on the statuses `D-08` names, when the caller may edit', async () => {
         const counter = await render(respond({ quotation: { ...QUOTATION, status: 'counter' } }));
         expect(counter.wrapper.find('[data-testid="quotation-action-new-version"]').exists()).toBe(true);

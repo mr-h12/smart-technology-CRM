@@ -114,6 +114,13 @@ function onKeydown(event: KeyboardEvent): void {
     // no entered work to discard — a file selection is one click to remake, and
     // the result is read before it is dismissed.
     if (event.key === 'Escape' && props.open) {
+        cancel();
+    }
+}
+
+/** A-30: an upload in flight is not abandoned by a stray key or click. */
+function cancel(): void {
+    if (!busy.value) {
         emit('cancel');
     }
 }
@@ -130,7 +137,7 @@ watch(() => props.open, (open) => {
 
 <template>
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="import-modal">
-        <div class="dialog-scrim absolute inset-0" @click="emit('cancel')" />
+        <div class="dialog-scrim absolute inset-0" @click="cancel" />
 
         <div
             class="dialog-panel relative flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl p-6"
@@ -164,46 +171,49 @@ watch(() => props.open, (open) => {
                 {{ errorMessage }}
             </p>
 
-            <div v-if="batch !== null" class="import-result flex flex-col gap-2 rounded-lg p-3" data-testid="import-result">
-                <h3 class="font-semibold">{{ t('import.resultTitle') }}</h3>
+            <!-- A-31: present from load and empty; a live region announces what is set into it. -->
+            <div role="status" data-testid="import-status">
+                <div v-if="batch !== null" class="import-result flex flex-col gap-2 rounded-lg p-3" data-testid="import-result">
+                    <h3 class="font-semibold">{{ t('import.resultTitle') }}</h3>
 
-                <p class="tabular-nums">{{ t('import.rows') }}: {{ batch.row_count }}</p>
-                <p class="tabular-nums">{{ t('import.imported') }}: {{ batch.imported_count }}</p>
-                <!-- `D-31`: these rows were imported. They are not failures. -->
-                <p class="tabular-nums">{{ t('import.incomplete') }}: {{ batch.incomplete_count }}</p>
-                <p class="tabular-nums" data-testid="import-rejected">{{ t('import.rejected') }}: {{ batch.rejected.length }}</p>
-                <ul
-                    v-if="batch.rejected.length > 0"
-                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
-                    tabindex="0"
-                    :aria-label="t('import.rejected')"
-                    data-testid="import-rejected-rows"
-                >
-                    <li v-for="line in batch.rejected" :key="line.row">{{ t('import.row', { row: line.row }) }}: {{ line.message }}</li>
-                </ul>
+                    <p class="tabular-nums">{{ t('import.rows') }}: {{ batch.row_count }}</p>
+                    <p class="tabular-nums">{{ t('import.imported') }}: {{ batch.imported_count }}</p>
+                    <!-- `D-31`: these rows were imported. They are not failures. -->
+                    <p class="tabular-nums">{{ t('import.incomplete') }}: {{ batch.incomplete_count }}</p>
+                    <p class="tabular-nums" data-testid="import-rejected">{{ t('import.rejected') }}: {{ batch.rejected.length }}</p>
+                    <ul
+                        v-if="batch.rejected.length > 0"
+                        class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
+                        tabindex="0"
+                        :aria-label="t('import.rejected')"
+                        data-testid="import-rejected-rows"
+                    >
+                        <li v-for="line in batch.rejected" :key="line.row">{{ t('import.row', { row: line.row }) }}: {{ line.message }}</li>
+                    </ul>
 
-                <p class="tabular-nums" data-testid="import-skipped">{{ t('import.skipped') }}: {{ batch.skipped.length }}</p>
-                <ul
-                    v-if="batch.skipped.length > 0"
-                    class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
-                    tabindex="0"
-                    :aria-label="t('import.skipped')"
-                    data-testid="import-skipped-rows"
-                >
-                    <li v-for="row in batch.skipped" :key="row">{{ t('import.row', { row }) }}</li>
-                </ul>
+                    <p class="tabular-nums" data-testid="import-skipped">{{ t('import.skipped') }}: {{ batch.skipped.length }}</p>
+                    <ul
+                        v-if="batch.skipped.length > 0"
+                        class="import-rows max-h-40 overflow-y-auto rounded-lg px-3 py-2 tabular-nums"
+                        tabindex="0"
+                        :aria-label="t('import.skipped')"
+                        data-testid="import-skipped-rows"
+                    >
+                        <li v-for="row in batch.skipped" :key="row">{{ t('import.row', { row }) }}</li>
+                    </ul>
 
-                <!-- §10: "Flagged 'incomplete' with a dedicated filter." Offered
-                     only when there is something for it to match. -->
-                <button
-                    v-if="batch.incomplete_count > 0"
-                    type="button"
-                    class="row-action min-h-11 self-start rounded-lg px-3"
-                    data-testid="import-show-incomplete"
-                    @click="emit('showIncomplete')"
-                >
-                    {{ t('import.showIncomplete') }}
-                </button>
+                    <!-- §10: "Flagged 'incomplete' with a dedicated filter." Offered
+                         only when there is something for it to match. -->
+                    <button
+                        v-if="batch.incomplete_count > 0"
+                        type="button"
+                        class="row-action min-h-11 self-start rounded-lg px-3"
+                        data-testid="import-show-incomplete"
+                        @click="emit('showIncomplete')"
+                    >
+                        {{ t('import.showIncomplete') }}
+                    </button>
+                </div>
             </div>
 
             <div class="flex flex-wrap justify-end gap-2">

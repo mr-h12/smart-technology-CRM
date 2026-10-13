@@ -215,6 +215,53 @@ describe('the approvals screen', () => {
         expect(wrapper.find('[data-testid="approvals-conflict"]').exists()).toBe(false);
     });
 
+    /** F-42 · 5.15 (A-32): the approved row leaves the list, so the success is said in a region above it, there from load. */
+    it('names the approved and the returned record in a status region that survives the list emptying', async () => {
+        let lists = 0;
+        const fetchMock = server({
+            'GET /quotations': () => json(200, lists++ === 0 ? envelope([GROUP], { pagination: PAGINATION }) : envelope([], { pagination: { ...PAGINATION, total: 0 } })),
+        });
+        const wrapper = await render(fetchMock);
+        const region = (): ReturnType<typeof wrapper.find> => wrapper.find('[role="status"][data-testid="approvals-status"]');
+
+        expect(region().text()).toBe('');
+
+        await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true);
+        expect(region().text()).toBe(en.approvals.approved.replace('{code}', 'QT-2026-0001'));
+
+        lists = 0;
+        const again = await render(server({
+            'GET /quotations': () => json(200, lists++ === 0 ? envelope([GROUP], { pagination: PAGINATION }) : envelope([], { pagination: { ...PAGINATION, total: 0 } })),
+        }));
+        await again.find('[data-testid="approvals-return"]').trigger('click');
+        await again.find('[data-testid="approvals-return-note"]').setValue('Price too high');
+        await again.find('[data-testid="approvals-return-dialog"]').trigger('submit');
+        await flushPromises();
+
+        expect(again.find('[data-testid="approvals-status"]').text()).toBe(en.approvals.returned.replace('{code}', 'QT-2026-0001'));
+    });
+
+    /** F-42 · 5.17 (A-43, the owner's Option B): no raw "Failed to fetch"; the cause in words and a button for the next step. */
+    it('says a lost connection in words, with a button to try again, never the raw message', async () => {
+        const fetchMock = server({ 'PATCH /quotations/q1/approve': () => { throw new TypeError('Failed to fetch'); } });
+        const wrapper = await render(fetchMock);
+
+        await wrapper.find('[data-testid="approvals-approve"]').trigger('click');
+        await flushPromises();
+
+        const error = wrapper.find('[data-testid="approvals-action-error"]');
+        expect(error.text()).toContain(en.state.error.network);
+        expect(error.text()).not.toContain('Failed to fetch');
+
+        await wrapper.find('[data-testid="approvals-action-retry"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'GET', '/quotations?')).toHaveLength(2);
+        expect(wrapper.find('[data-testid="approvals-action-error"]').exists()).toBe(false);
+    });
+
     it('tells a refusal, an empty page and a failure apart', async () => {
         const denied = await render(server({ 'GET /quotations': () => json(403, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } }) }));
         expect(denied.find('[data-testid="permission-denied-state"]').exists()).toBe(true);

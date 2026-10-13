@@ -244,12 +244,14 @@ watch(
             </p>
 
             <p
-                v-if="status === 'forbidden' || status === 'failed' || (status === 'ready' && items.length === 0)"
+                v-if="status === 'loading' || status === 'forbidden' || status === 'failed' || (status === 'ready' && items.length === 0)"
                 class="px-3 py-2 text-sm text-[var(--color-text-muted)]"
                 role="status"
                 :data-testid="`${testId}-state`"
             >
-                <template v-if="status === 'forbidden'">{{ t(keys.forbidden) }}</template>
+                <!-- A-41: said, not an empty box while the query runs. -->
+                <template v-if="status === 'loading'">{{ t('state.loading') }}</template>
+                <template v-else-if="status === 'forbidden'">{{ t(keys.forbidden) }}</template>
                 <template v-else-if="status === 'failed'">{{ t(keys.failed) }}</template>
                 <template v-else-if="searched === ''">{{ t(keys.empty) }}</template>
                 <template v-else>{{ t(keys.noMatch, { query: searched }) }}</template>

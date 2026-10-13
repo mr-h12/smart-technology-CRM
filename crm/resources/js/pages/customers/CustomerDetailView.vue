@@ -67,6 +67,8 @@ const titles = ref<ListEntry[]>([]);
 const formOpen = ref(false);
 const ownerId = ref('');
 const assignDone = ref(false);
+/** A-30: the assign in flight, so a second press sends nothing. */
+const assigning = ref(false);
 /** A flag, not a sentence: the template translates it when drawn, so a language switch reaches it. */
 const ownerMissing = ref(false);
 /** The server's own sentence, already in the language of the request that earned it. */
@@ -171,6 +173,10 @@ async function onSaved(): Promise<void> {
  * The page only asks.
  */
 async function submitAssign(): Promise<void> {
+    if (assigning.value) {
+        return;
+    }
+
     ownerMissing.value = false;
     assignFieldError.value = null;
     assignErrorKey.value = null;
@@ -182,6 +188,8 @@ async function submitAssign(): Promise<void> {
 
         return;
     }
+
+    assigning.value = true;
 
     try {
         // The answer is the page's own shape, so the new owner's name shows at once.
@@ -198,6 +206,8 @@ async function submitAssign(): Promise<void> {
                 ? 'customers.assign.forbidden'
                 : 'customers.assign.rejected';
         }
+    } finally {
+        assigning.value = false;
     }
 }
 
@@ -226,7 +236,13 @@ onMounted(async () => {
             </RouterLink>
         </div>
 
-        <ErrorState v-else-if="failed" @retry="load()" />
+        <!-- A-43: the way back stays above the error, as on the not-found state. -->
+        <div v-else-if="failed" class="flex flex-col gap-1">
+            <RouterLink :to="{ name: 'customers' }" class="text-[var(--color-text-muted)]" data-testid="customer-back">
+                {{ t('customers.detail.backToList') }}
+            </RouterLink>
+            <ErrorState @retry="load()" />
+        </div>
 
         <template v-else-if="customer !== null">
             <header class="flex flex-wrap items-start justify-between gap-3">
@@ -258,7 +274,7 @@ onMounted(async () => {
             <div class="detail-card flex flex-col gap-4 rounded-xl p-4" data-testid="customer-summary">
                 <div class="flex flex-wrap items-center gap-3">
                     <!-- §6.4: never colour alone — the chip carries its own word. -->
-                    <span class="status-chip rounded-full px-2 py-0.5" data-testid="customer-detail-status">
+                    <span class="status-chip status-chip--neutral rounded-full px-2 py-0.5" data-testid="customer-detail-status">
                         {{ t(`customers.status.${customer.customer_status}`) }}
                     </span>
 
@@ -353,15 +369,16 @@ onMounted(async () => {
 
                     <button
                         type="submit"
-                        class="edit-action min-h-11 rounded-lg px-4"
+                        class="edit-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="assigning"
+                        data-testid="customer-assign-submit"
                     >
-                        {{ t('customers.assign.action') }}
+                        {{ assigning ? t('action.saving') : t('customers.assign.action') }}
                     </button>
                 </form>
 
-                <p v-if="assignDone" role="status" aria-live="polite" data-testid="customer-assign-done">
-                    {{ t('customers.assign.done') }}
-                </p>
+                <!-- A-31: present from load and empty; a live region announces a change to what it holds. -->
+                <p role="status" aria-live="polite" data-testid="customer-assign-done">{{ assignDone ? t('customers.assign.done') : '' }}</p>
             </section>
 
             <CustomerFormModal
@@ -380,11 +397,6 @@ onMounted(async () => {
 .detail-card {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
-}
-
-.status-chip {
-    background-color: var(--color-surface-muted);
-    border: 1px solid var(--color-border-strong);
 }
 
 .flag-chip {

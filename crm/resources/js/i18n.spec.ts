@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { LOCALE_STORAGE_KEY, initialLocale, setLocale } from '@/i18n';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { LOCALE_STORAGE_KEY, i18n, initialLocale, setLocale } from '@/i18n';
 import en from '@/locales/en.json';
 import ar from '@/locales/ar.json';
 
@@ -111,5 +111,44 @@ describe('the field explanations', () => {
             expect(text.length, key).toBeGreaterThan(20);
             expect(text.trim().endsWith('.'), `${key} should end in a full stop`).toBe(true);
         }
+    });
+});
+
+/**
+ * F-42 · A-44: Arabic counts take Arabic's six plural forms (CLDR zero, one, two,
+ * few 3–10, many 11–99, other 100+), chosen by the `ar` entry of `pluralRules`.
+ */
+describe('Arabic plurals', () => {
+    beforeEach(() => {
+        i18n.global.locale.value = 'ar';
+    });
+
+    afterEach(() => {
+        i18n.global.locale.value = 'en';
+    });
+
+    const count = (key: string, n: number): string => i18n.global.t(key, { count: n });
+
+    it('names a count in each of the six forms', () => {
+        expect(count('deals.total', 0)).toBe('لا صفقات');
+        expect(count('deals.total', 1)).toBe('صفقة واحدة');
+        expect(count('deals.total', 2)).toBe('صفقتان');
+        expect(count('deals.total', 6)).toBe('6 صفقات');
+        expect(count('deals.total', 11)).toBe('11 صفقة');
+        expect(count('deals.total', 100)).toBe('100 صفقة');
+        expect(count('customers.total', 178)).toBe('178 عميلاً');
+    });
+
+    it('gives every count line all six forms in Arabic', () => {
+        const lines = [ar.customers.total, ar.suppliers.total, ar.deals.total, ar.quotations.total, ar.supplierQuotations.total, ar.catalog.total.product, ar.catalog.total.service];
+
+        expect(lines.map((line) => line.split(' | ').length)).toEqual([6, 6, 6, 6, 6, 6, 6]);
+    });
+
+    it('leaves English on its own rule', () => {
+        i18n.global.locale.value = 'en';
+
+        expect(count('customers.total', 1)).toBe('1 customer');
+        expect(count('customers.total', 2)).toBe('2 customers');
     });
 });

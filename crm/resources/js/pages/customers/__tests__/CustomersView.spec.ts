@@ -1381,3 +1381,84 @@ describe('CustomersView — F-19 · 1.3 bulk assign', () => {
             .toBe(ar.customers.assign.bulkDone.replace('{count}', '2'));
     });
 });
+
+describe('CustomersView — lists and display (F-42 · P3)', () => {
+    // Signed out: an earlier describe's assigner would draw the owner picker, whose request these stubs do not answer.
+    beforeEach(() => {
+        useAuth().forgetSession();
+    });
+
+    it('keeps the table on a reload, busy and dimmed, with the focus on the pager (A-14)', async () => {
+        let release: (value: Response) => void = () => {};
+        let call = 0;
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string) => {
+                if (url.includes('/managed-lists/')) {
+                    return json(200, { data: [], meta: { pagination: PAGINATION } });
+                }
+
+                return call++ === 0
+                    ? json(200, page([ROW], { total: 30, total_pages: 2, has_next_page: true }))
+                    : new Promise<Response>((resolve) => { release = resolve; });
+            }),
+        );
+
+        const view = render('en', { attachTo: document.body });
+        await flushPromises();
+
+        const next = view.get('[data-testid="customers-next"]');
+        (next.element as HTMLButtonElement).focus();
+        await next.trigger('click');
+
+        expect(view.find('[data-testid="customers-table"]').exists()).toBe(true);
+        expect(view.find('[data-testid="loading-state"]').exists()).toBe(false);
+        expect(view.get('[data-testid="customers-table-frame"]').attributes('aria-busy')).toBe('true');
+        expect(view.get('[data-testid="customers-updating"]').text()).toBe('Updating the list…');
+        expect(document.activeElement).toBe(next.element);
+
+        release(json(200, page([ROW], { page: 2, total: 30, total_pages: 2, has_previous_page: true })));
+        await flushPromises();
+
+        expect(view.get('[data-testid="customers-table-frame"]').attributes('aria-busy')).toBe('false');
+        expect(view.get('[data-testid="customers-updating"]').text()).toBe('');
+        view.unmount();
+    });
+
+    it('searches 300 ms after the last key, once, with no Apply button (A-49)', async () => {
+        vi.useFakeTimers();
+        const asked = stubScreen();
+
+        const view = render();
+        await flushPromises();
+
+        expect(view.find('[data-testid="customers-search-submit"]').exists()).toBe(false);
+
+        await view.find('[data-testid="customers-search"]').setValue('Alp');
+        vi.advanceTimersByTime(200);
+        await view.find('[data-testid="customers-search"]').setValue('Alpha');
+        vi.advanceTimersByTime(299);
+        await flushPromises();
+
+        expect(customerCalls(asked)).toHaveLength(1);
+
+        vi.advanceTimersByTime(1);
+        await flushPromises();
+
+        expect(customerCalls(asked)).toHaveLength(2);
+        expect(customerCalls(asked)[1]).toContain('q=Alpha');
+        vi.useRealTimers();
+    });
+
+    it('keeps a phone number’s digits in order in Arabic (A-07)', async () => {
+        stubScreen();
+
+        const view = render('ar');
+        await flushPromises();
+
+        const phone = view.get('[data-testid="customers-phone"] bdi');
+        expect(phone.attributes('dir')).toBe('ltr');
+        expect(phone.text()).toBe('+20 100 000 0000');
+    });
+});

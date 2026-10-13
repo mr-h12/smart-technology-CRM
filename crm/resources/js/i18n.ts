@@ -41,6 +41,21 @@ export function initialLocale(): Locale {
     return isSupported(fromDocument) ? fromDocument : 'ar';
 }
 
+const ARABIC_FORMS: readonly Intl.LDMLPluralRule[] = ['zero', 'one', 'two', 'few', 'many', 'other'];
+
+/**
+ * F-42 · A-44: a six-form Arabic line («لا … | … واحد | …ان | 3–10 | 11–99 | 100+»)
+ * picks its form by CLDR's Arabic rule. A shorter line keeps vue-i18n's own
+ * zero/one/other reading.
+ */
+function arabicPlural(choice: number, choicesLength: number): number {
+    if (choicesLength === ARABIC_FORMS.length) {
+        return ARABIC_FORMS.indexOf(new Intl.PluralRules('ar').select(choice));
+    }
+
+    return choicesLength === 2 ? (choice === 1 ? 0 : 1) : Math.min(Math.abs(choice), 2);
+}
+
 export const i18n = createI18n({
     legacy: false,
     locale: initialLocale(),
@@ -48,6 +63,7 @@ export const i18n = createI18n({
     // Arabic key falls back to English rather than rendering a raw key.
     fallbackLocale: 'en',
     messages: { ar, en },
+    pluralRules: { ar: arabicPlural },
 });
 
 /**

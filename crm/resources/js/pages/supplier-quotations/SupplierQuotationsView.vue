@@ -66,6 +66,7 @@ import { listSupplierQuotations, type Pagination, type SupplierQuotation } from 
 import { listSuppliers, type Supplier } from '@/services/suppliers';
 import { displayDecimals } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
+import { displayDate } from '@/domain/displayDate';
 
 const { t, locale } = useI18n();
 const auth = useAuth();
@@ -202,15 +203,6 @@ function sortIndicator(field: string): string {
     return sortDescending.value ? '▼' : '▲';
 }
 
-/** `DB-08`: stored UTC, shown in the reader's locale. A date-only field has no zone to shift. */
-function onDate(value: string | null): string {
-    if (value === null) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
-}
-
 function startCreate(): void {
     editing.value = null;
     formOpen.value = true;
@@ -324,7 +316,7 @@ onMounted(async () => {
         <div v-else class="flex flex-col gap-3">
             <div class="table-frame overflow-x-auto rounded-xl">
                 <table class="w-full text-table" data-testid="supplier-quotations-table">
-                    <thead class="sticky top-0">
+                    <thead>
                         <tr class="table-head">
                             <th scope="col" class="p-3 text-start">{{ t('supplierQuotations.column.code') }}</th>
                             <th scope="col" class="p-3 text-start">{{ t('supplierQuotations.column.supplier') }}</th>
@@ -368,15 +360,15 @@ onMounted(async () => {
                             <td class="p-3 tabular-nums">{{ offer.code }}</td>
                             <td class="p-3" data-testid="supplier-quotations-supplier">{{ supplierName(offer.supplier_id) }}</td>
 
-                            <!-- The string the server sent, cut after the third decimal (`D-82`) —
+                            <!-- The string the server sent, in money's screen form (`D-110`) —
                                  a string operation: `DB-07` forbids the float a number
                                  conversion would create. The input keeps every digit. -->
                             <td class="p-3 text-end tabular-nums" data-testid="supplier-quotations-total">
                                 {{ displayDecimals(offer.total_price) ?? '—' }}
                             </td>
 
-                            <td class="p-3 tabular-nums">{{ onDate(offer.offer_date) }}</td>
-                            <td class="hidden p-3 tabular-nums md:table-cell">{{ onDate(offer.valid_until) }}</td>
+                            <td class="p-3 tabular-nums">{{ displayDate(offer.offer_date, locale) }}</td>
+                            <td class="hidden p-3 tabular-nums md:table-cell">{{ displayDate(offer.valid_until, locale) }}</td>
                             <td class="hidden p-3 lg:table-cell">
                                 {{ offer.deal_code ?? t('supplierQuotations.deal.none') }}
                             </td>

@@ -52,6 +52,7 @@ import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
+import { displayDate } from '@/domain/displayDate';
 
 const route = useRoute();
 const { t, locale } = useI18n();
@@ -152,11 +153,6 @@ function sectorLabel(code: string | null): string {
 /** Nullable §4.2 columns print an em-dash rather than an empty cell or "null". */
 function orDash(value: string | null): string {
     return value === null || value === '' ? '—' : value;
-}
-
-/** `DB-08` — stored UTC, shown in the reader's own timezone. */
-function addedOn(timestamp: string): string {
-    return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
 async function onSaved(): Promise<void> {
@@ -310,7 +306,8 @@ onMounted(async () => {
                     </div>
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
-                        <dd class="tabular-nums">{{ orDash(customer[field.key]) }}</dd>
+                        <!-- A-07: numbers and addresses keep their order inside Arabic text. -->
+                        <dd class="tabular-nums"><bdi dir="ltr">{{ orDash(customer[field.key]) }}</bdi></dd>
                     </div>
                     <!-- §4.2's order; the name comes from the server (F-19 · 1.1a, `D-83`). -->
                     <div class="flex flex-col">
@@ -325,7 +322,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t('customers.column.added') }}</dt>
-                        <dd class="tabular-nums">{{ addedOn(customer.created_at) }}</dd>
+                        <dd class="tabular-nums">{{ displayDate(customer.created_at, locale) }}</dd>
                     </div>
                 </dl>
             </div>

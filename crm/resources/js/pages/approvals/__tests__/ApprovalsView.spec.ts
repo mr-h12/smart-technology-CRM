@@ -126,7 +126,7 @@ describe('the approvals screen', () => {
         expect(wrapper.find('[data-testid="approvals-group-heading"]').text()).toBe('Sara Sales');
         expect(wrapper.find('[data-testid="approvals-code"]').text()).toBe('QT-2026-0001');
         expect(wrapper.find('[data-testid="approvals-customer"]').text()).toBe('Acme Industrial');
-        expect(wrapper.find('[data-testid="approvals-total"]').text()).toBe('1235.000 EGP');
+        expect(wrapper.find('[data-testid="approvals-total"]').text()).toBe('1,235.00 EGP');
         expect(wrapper.find('[data-testid="approvals-days-waiting"]').text()).toBe('3');
     });
 
@@ -317,5 +317,14 @@ describe('the approvals screen', () => {
         expect(wrapper.get(`#${dialog.attributes('aria-labelledby')}`).text()).toContain('QT-2026-0001');
         expect(document.activeElement).toBe(wrapper.get('[data-testid="approvals-return-note"]').element);
         wrapper.unmount();
+    });
+
+    it('labels every cell for the card form below 640 px, with Approve inside its own row (F-42 · A-39)', async () => {
+        const wrapper = await render(server());
+        const row = wrapper.find('[data-testid="approvals-row"]');
+
+        expect(wrapper.find('[data-testid="approvals-table"]').classes()).toContain('card-table');
+        expect(row.findAll('td').every((cell) => (cell.attributes('data-label') ?? '') !== '')).toBe(true);
+        expect(row.find('[data-testid="approvals-approve"]').exists()).toBe(true);
     });
 });

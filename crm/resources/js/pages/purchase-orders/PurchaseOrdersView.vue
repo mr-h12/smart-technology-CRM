@@ -21,6 +21,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ApiError, type Pagination } from '@/api';
 import EmptyState from '@/components/states/EmptyState.vue';
+import { useListQuery } from '@/components/useListQuery';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -37,12 +38,21 @@ const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
 
-const page = ref(1);
-const search = ref('');
+/** F-42 · A-13: the search and the page come from the address and go back to it. */
+const address = useListQuery();
+const arrivedPage = Number.parseInt(address.arrived('page'), 10);
+const page = ref(arrivedPage > 1 ? arrivedPage : 1);
+const search = ref(address.arrived('q'));
 /** The question the rows on screen answer — not what is typed in the box since. */
-const searched = ref('');
+const searched = ref(search.value);
+
+address.keep(() => ({ q: searched.value, page: page.value > 1 ? page.value : '' }));
 
 const searching = computed(() => searched.value !== '');
+/** A-14: a reload after the first keeps the table, dimmed and busy. */
+const updating = computed(() => loading.value && pagination.value !== null);
+/** A-48: the search shows once there is something to search, and never to a refused caller. */
+const showFilters = computed(() => !denied.value && (orders.value.length > 0 || searching.value));
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -70,7 +80,12 @@ async function applySearch(): Promise<void> {
     await load();
 }
 
+/** The pager stays enabled while a page loads, so the focus stays on it (A-14); a second click waits. */
 async function goToPage(target: number): Promise<void> {
+    if (loading.value) {
+        return;
+    }
+
     page.value = target;
     await load();
 }
@@ -84,7 +99,7 @@ onMounted(load);
             <h1 class="text-page-title">{{ t('purchaseOrders.title') }}</h1>
         </header>
 
-        <form class="flex flex-wrap items-end gap-3" data-testid="purchase-orders-filters" @submit.prevent="applySearch">
+        <form v-if="showFilters" class="flex flex-wrap items-end gap-3" data-testid="purchase-orders-filters" @submit.prevent="applySearch">
             <label class="flex flex-col gap-1">
                 <span>{{ t('purchaseOrders.search') }}</span>
                 <input
@@ -104,7 +119,12 @@ onMounted(load);
             </button>
         </form>
 
-        <LoadingState v-if="loading" label-key="purchaseOrders.loading" />
+        <!-- A-14: present from the start, so the change is announced. -->
+        <p role="status" :class="updating ? 'text-[var(--color-text-muted)]' : 'sr-only'">
+            {{ updating ? t('state.updating') : '' }}
+        </p>
+
+        <LoadingState v-if="loading && pagination === null" label-key="purchaseOrders.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
         <!-- "None are visible to you", never "there are none": the rows are scoped through the deal. -->
@@ -115,7 +135,11 @@ onMounted(load);
         />
 
         <div v-else class="flex flex-col gap-3">
-            <div class="table-frame overflow-x-auto rounded-xl">
+            <div
+                class="table-frame overflow-x-auto rounded-xl transition-opacity"
+                :class="{ 'opacity-50': loading }"
+                :aria-busy="loading"
+            >
                 <table class="w-full text-table" data-testid="purchase-orders-table">
                     <thead>
                         <tr class="table-head">
@@ -130,7 +154,7 @@ onMounted(load);
                     <tbody>
                         <tr v-for="order in orders" :key="order.id" class="table-row" data-testid="purchase-orders-row">
                             <td class="p-3 tabular-nums">{{ order.po_number }}</td>
-                            <td class="p-3">{{ order.customer_po_reference }}</td>
+                            <td class="min-w-0 break-words p-3">{{ order.customer_po_reference }}</td>
                             <td class="p-3 tabular-nums" data-testid="purchase-orders-date">{{ displayDate(order.po_date, locale) }}</td>
                             <td class="p-3">
                                 <RouterLink :to="{ name: 'quotation-detail', params: { id: order.quotation_id } }" class="row-link">
@@ -140,7 +164,7 @@ onMounted(load);
                             <!-- `D-83`: the name when Customers could give one, the identifier otherwise — never a blank. -->
                             <td class="p-3">{{ order.customer_name ?? order.customer_id }}</td>
                             <td class="p-3 text-end tabular-nums" data-testid="purchase-orders-total">
-                                {{ displayDecimals(order.final_total) }} {{ order.currency }}
+                                <bdi dir="ltr">{{ displayDecimals(order.final_total) }} {{ order.currency }}</bdi>
                             </td>
                         </tr>
                     </tbody>
@@ -148,14 +172,14 @@ onMounted(load);
             </div>
 
             <nav
-                v-if="pagination"
+                v-if="pagination !== null && pagination.total_pages > 1"
                 class="flex items-center justify-between gap-3"
                 :aria-label="t('purchaseOrders.pagination.label')"
             >
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!pagination.has_previous_page || loading"
+                    :disabled="!pagination.has_previous_page"
                     data-testid="purchase-orders-previous"
                     @click="goToPage(pagination.page - 1)"
                 >
@@ -169,7 +193,7 @@ onMounted(load);
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!pagination.has_next_page || loading"
+                    :disabled="!pagination.has_next_page"
                     data-testid="purchase-orders-next"
                     @click="goToPage(pagination.page + 1)"
                 >

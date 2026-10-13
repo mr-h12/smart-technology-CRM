@@ -260,7 +260,7 @@ onMounted(load);
             />
 
             <div class="table-frame overflow-x-auto rounded-xl">
-                <table class="w-full text-table" data-testid="approvals-table">
+                <table class="card-table w-full text-table" data-testid="approvals-table">
                     <thead>
                         <tr class="table-head">
                             <th scope="col" class="p-3 text-start">{{ t('approvals.column.code') }}</th>
@@ -278,22 +278,22 @@ onMounted(load);
                                 </th>
                             </tr>
                             <tr v-for="row in group.items" :key="row.id" class="table-row" data-testid="approvals-row">
-                                <td class="whitespace-nowrap p-3 tabular-nums" data-testid="approvals-code">
+                                <td :data-label="t('approvals.column.code')" class="whitespace-nowrap p-3 tabular-nums" data-testid="approvals-code">
                                     <RouterLink :to="{ name: 'quotation-detail', params: { id: row.id } }" class="underline-offset-2 hover:underline">
                                         {{ row.code }}
                                     </RouterLink>
                                 </td>
-                                <td class="p-3" data-testid="approvals-customer">{{ customerName(row.customer_id) }}</td>
-                                <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total">{{ displayDecimals(row.final_total) }} {{ row.currency }}</td>
-                                <td class="whitespace-nowrap p-3 text-end tabular-nums">
+                                <td :data-label="t('approvals.column.customer')" class="p-3" data-testid="approvals-customer">{{ customerName(row.customer_id) }}</td>
+                                <td :data-label="t('approvals.column.total')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="approvals-total"><bdi dir="ltr">{{ displayDecimals(row.final_total) }} {{ row.currency }}</bdi></td>
+                                <td :data-label="t('approvals.column.daysWaiting')" class="whitespace-nowrap p-3 text-end tabular-nums">
                                     <span data-testid="approvals-days-waiting">{{ row.days_waiting ?? '—' }}</span>
                                     <!-- `D-11` in words, not only in red. -->
                                     <span v-if="row.sla_exceeded === true" class="sla-chip ms-2 inline-block rounded-full px-2 py-0.5" data-testid="approvals-sla-exceeded">
                                         {{ t('approvals.slaExceeded') }}
                                     </span>
                                 </td>
-                                <td class="whitespace-nowrap p-3">
-                                    <span class="flex gap-2">
+                                <td :data-label="t('approvals.column.actions')" class="whitespace-nowrap p-3">
+                                    <span class="flex flex-wrap gap-2">
                                         <RouterLink :to="{ name: 'quotation-edit-and-approve', params: { id: row.id } }" class="row-action inline-flex min-h-11 items-center rounded-lg px-3" data-testid="approvals-edit">
                                             {{ t('approvals.edit') }}
                                         </RouterLink>

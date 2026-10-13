@@ -582,12 +582,12 @@ describe('the supplier quotations screen', () => {
     });
 
     /** §6.5: monetary values right-aligned with tabular numerals. */
-    it('renders the total cut after the third decimal (D-82), never parsed', async () => {
+    it('renders the total in D-110’s money form, never parsed', async () => {
         const wrapper = await render(respond());
 
         const cell = wrapper.find('[data-testid="supplier-quotations-total"]');
 
-        expect(cell.text()).toBe('4500.000');
+        expect(cell.text()).toBe('4,500.00');
         expect(cell.classes()).toContain('tabular-nums');
     });
 });
@@ -1359,10 +1359,10 @@ describe('the supplier quotation line editor', () => {
         await flushPromises();
 
         const balance = view.get('[data-testid="supplier-quotation-line-0-balance"]').text();
-        // D-82: the three figures are cut after the third decimal; the input above keeps '3.000' digit for digit.
-        expect(balance).toContain('3.000');
-        expect(balance).toContain('1.000');
-        expect(balance).toContain('2.000');
+        // D-110: the three figures drop their trailing zeros; the input above keeps '3.000' digit for digit.
+        expect(balance).toContain('Recorded 3');
+        expect(balance).toContain('consumed 1');
+        expect(balance).toContain('available 2');
         expect(balance).not.toContain('1.0000');
 
         await view.find('[data-testid="supplier-quotation-form-cancel"]').trigger('click');
@@ -1577,9 +1577,9 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         expect((view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).checked).toBe(true);
         expect((view.get('[data-testid="supplier-quotation-form-total-price"]').element as HTMLInputElement).value).toBe('4560.000000');
         expect((view.get('[data-testid="supplier-quotation-line-0-unit-price"]').element as HTMLInputElement).value).toBe('1710.000000');
-        // D-82: cut after the third decimal, like every other figure on this form.
-        expect(view.get('[data-testid="supplier-quotation-form-total-price-net"]').text()).toContain('4000.000');
-        expect(view.get('[data-testid="supplier-quotation-line-0-unit-price-net"]').text()).toContain('1500.000');
+        // D-110: money's screen form, like every other figure on this form.
+        expect(view.get('[data-testid="supplier-quotation-form-total-price-net"]').text()).toContain('4,000.00');
+        expect(view.get('[data-testid="supplier-quotation-line-0-unit-price-net"]').text()).toContain('1,500.00');
 
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();

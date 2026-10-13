@@ -98,6 +98,22 @@ describe('ConfirmDialog', () => {
         view.unmount();
     });
 
+    /** F-42 · P7: the deal status confirm carries Lost's reason, so the dialog takes a field. */
+    it('draws a field passed in its slot, and opens on the slot\'s autofocus field instead of confirm', async () => {
+        const view = mount(ConfirmDialog, {
+            attachTo: document.body,
+            props: { open: false, titleKey: 'customers.archive.confirmTitle', messageKey: 'customers.archive.confirmMessage', confirmKey: 'customers.archive.confirmAction', subject: 'Alpha Trading', busy: false },
+            slots: { default: '<textarea data-testid="slot-field" autofocus></textarea>' },
+            global: { plugins: [createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } })] },
+        });
+        await view.setProps({ open: true });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const field = view.get('[data-testid="confirm-dialog"] [data-testid="slot-field"]');
+        expect(document.activeElement).toBe(field.element);
+        view.unmount();
+    });
+
     it('A-66 (SH-11): two mounted dialogs each point at their own title and message', () => {
         // One app, as on a page: `useId` is unique within an app.
         const props = { open: true, titleKey: 'customers.archive.confirmTitle', messageKey: 'customers.archive.confirmMessage', confirmKey: 'customers.archive.confirmAction', subject: 'A', busy: false };

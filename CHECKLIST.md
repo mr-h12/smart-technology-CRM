@@ -4540,6 +4540,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.48 A-29 and A-53: unique ids per row and the deal header.
             · 5.49 A-18's timeline and A-66's deals items (DC-55, DC-69).
             · 5.50 The deals-screen part of every `plan.md` §1 row marked "after F-41" (about 22 browser lines).
+      **Owner-directed 2026-10-14 (after `/session-end`), Option A approved in chat:**
+      - [x] **P7** The deal status control in fewer clicks, on the deals list and the deal page.
+            *(2026-10-14, #346 — the `<select>` is the control; a pick opens `ConfirmDialog`, only its confirm calls the server; Lost's reason sits in the dialog's new slot and takes focus; the deal's own status is greyed out, the server still decides the edge (D-67); 20 failing tests first)*
 
 ## Shell revisions — owner-directed
 

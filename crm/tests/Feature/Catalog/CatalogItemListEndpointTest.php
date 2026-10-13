@@ -452,6 +452,90 @@ final class CatalogItemListEndpointTest extends TestCase
         self::assertSame(['Zeta', 'Alpha'], $this->names('?group_by=company'));
     }
 
+    // ───────────────────────────────── `D-111` (F-43): the screen's company tiles
+
+    /** `D-111`: the «بدون شركة» tile asks for the rows with no company, which `filter[company]` cannot. */
+    public function test_that_the_has_company_filter_narrows_both_ways(): void
+    {
+        $this->item('Loose');
+        $this->item('Drill', company: 'zk');
+
+        self::assertSame(['Loose'], $this->names('?filter[has_company]=false'));
+        self::assertSame(['Drill'], $this->names('?filter[has_company]=true'));
+    }
+
+    public function test_that_a_non_boolean_has_company_filter_is_refused(): void
+    {
+        $this->getJson(self::ENDPOINT.'?filter[has_company]=maybe', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.details.0.field', 'filter[has_company]');
+    }
+
+    /**
+     * `D-111`: one tile per company that has items, with its count; the no-company
+     * entry last; soft-deleted rows counted nowhere; active and inactive both,
+     * because the table's default lists both.
+     */
+    public function test_that_the_companies_call_counts_each_company_with_no_company_last(): void
+    {
+        $this->item('Drill', company: 'zk');
+        $this->item('Hammer', company: 'zk', active: false);
+        $this->item('Lock', company: 'hid');
+        $this->item('Loose');
+        $gone = $this->item('Gone', company: 'gone');
+        DB::table('catalog_items')->where('id', $gone)->update(['deleted_at' => now()]);
+
+        $items = $this->getJson(self::ENDPOINT.'/companies', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data.items');
+
+        self::assertSame([
+            ['company' => 'hid', 'count' => 1],
+            ['company' => 'zk', 'count' => 2],
+            ['company' => null, 'count' => 1],
+        ], $items);
+    }
+
+    /** `D-111`: the tiles sit under §7.3's tabs, so the counts follow `filter[kind]`. */
+    public function test_that_the_companies_call_follows_the_kind_tab(): void
+    {
+        $this->item('Drill', company: 'zk');
+        $this->item('Install', kind: 'service', company: 'hid');
+
+        $items = $this->getJson(self::ENDPOINT.'/companies?filter[kind]=service', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data.items');
+
+        self::assertSame([['company' => 'hid', 'count' => 1]], $items);
+    }
+
+    public function test_that_the_companies_call_refuses_an_undeclared_filter(): void
+    {
+        $this->getJson(self::ENDPOINT.'/companies?filter[colour]=red', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400);
+    }
+
+    public function test_that_the_companies_call_refuses_a_guest(): void
+    {
+        $this->getJson(self::ENDPOINT.'/companies')->assertStatus(401);
+    }
+
+    /** The same withdrawn-grant negative test as the list's: `catalog.view` is read from the database. */
+    public function test_that_the_companies_call_refuses_a_role_whose_grant_is_withdrawn(): void
+    {
+        $headers = $this->bearerFor(RoleName::IndoorSales);
+        $this->getJson(self::ENDPOINT.'/companies', $headers)->assertStatus(200);
+
+        $role = Role::query()->where('slug', RoleName::IndoorSales->value)->firstOrFail();
+        $permission = Permission::query()->where('resource', 'catalog')->where('action', 'view')->firstOrFail();
+        DB::table('role_permissions')
+            ->where('role_id', $role->id)
+            ->where('permission_id', $permission->id)
+            ->update(['deleted_at' => now()]);
+
+        $this->getJson(self::ENDPOINT.'/companies', $headers)->assertStatus(403);
+    }
+
     // ─────────────────────────────────────────────────────── search and sorting
 
     /** `D-48` and `OpenAPI §6.2`: `q` always passes through `SearchService`. */

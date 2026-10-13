@@ -78,12 +78,40 @@ const SERVICE = {
     notes: 'Two technicians',
 };
 
-function render(locale = 'en') {
+function mountView(locale = 'en') {
     return mount(CatalogView, {
         global: {
             plugins: [createAppRouter(), createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } })],
         },
     });
+}
+
+/** `D-111` (F-43): the tiles the screen opens on, for the specs that only need to get past them. */
+const TILES = [{ company: 'acme', count: 2 }, { company: null, count: 1 }];
+
+function routeCompanies(response: () => Response): void {
+    const inner = globalThis.fetch;
+
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => (
+        String(input).includes('/catalog-items/companies') ? Promise.resolve(response()) : inner(input, init)
+    )));
+}
+
+/**
+ * `D-111`: the screen opens on the company tiles, and using a filter shows the
+ * table. Every spec written before F-43 is about the table, so it gets there the
+ * way a person does — the search form, submitted — with the tiles call answered
+ * here so the test's own `fetch` sees only the requests it was written about.
+ */
+async function renderTable(locale = 'en') {
+    routeCompanies(() => json(200, { data: { items: TILES } }));
+
+    const view = mountView(locale);
+    await flushPromises();
+    await view.find('[data-testid="catalog-search-form"]').trigger('submit');
+    await flushPromises();
+
+    return view;
 }
 
 /**
@@ -92,7 +120,8 @@ function render(locale = 'en') {
  * — an index that counted them would move every time a list is added.
  */
 function catalogCalls(fetchMock: ReturnType<typeof vi.fn>): unknown[][] {
-    return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/catalog-items'));
+    return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/catalog-items')
+        && !String(call[0]).includes('/catalog-items/companies'));
 }
 
 /** The URL of the nth catalog fetch, so a filter can be read as the server will read it. */
@@ -116,13 +145,13 @@ describe('CatalogView — the four states', () => {
     it('shows the loading state before the first page arrives', () => {
         vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
 
-        expect(render().find('[data-testid="loading-state"]').exists()).toBe(true);
+        expect(mountView().find('[data-testid="loading-state"]').exists()).toBe(true);
     });
 
     it('reports how many items the caller can reach', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT, { ...PRODUCT, id: 'c3' }])));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="catalog-total"]').text()).toContain('2');
@@ -132,7 +161,7 @@ describe('CatalogView — the four states', () => {
     it('shows the empty state when nothing comes back', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([], { total: 0 })));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="empty-state"]').exists()).toBe(true);
@@ -143,7 +172,7 @@ describe('CatalogView — the four states', () => {
         const fetchMock = vi.fn(async () => json(500, { error: { code: 'server_error', message: 'no' } }));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="error-state"]').exists()).toBe(true);
@@ -158,7 +187,7 @@ describe('CatalogView — the four states', () => {
     it('draws a refusal as a refusal, never as an empty list', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => json(403, { error: { code: 'forbidden', message: 'no' } })));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="permission-denied-state"]').exists()).toBe(true);
@@ -172,7 +201,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        render();
+        await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock)).toContain('group_by=company');
@@ -187,7 +216,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        render();
+        await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock)).toContain('filter%5Bkind%5D=product');
@@ -197,7 +226,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
         const fetchMock = vi.fn(async () => page([SERVICE]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-tab-service"]').trigger('click');
@@ -212,7 +241,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
     it('marks the current tab for a screen reader, not only by colour', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="catalog-tab-product"]').attributes('aria-selected')).toBe('true');
@@ -231,7 +260,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
             { ...PRODUCT, id: 'b1', company: 'Borealis' },
         ], { total: 3 })));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         const headings = view.findAll('[data-testid="catalog-group-heading"]');
@@ -248,7 +277,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
             { ...PRODUCT, id: 'z1', company: null },
         ], { total: 2 })));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         const headings = view.findAll('[data-testid="catalog-group-heading"]');
@@ -261,7 +290,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
     it('shows the product fields on one tab and the service fields on the other', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="catalog-column-unit"]').exists()).toBe(true);
@@ -282,7 +311,7 @@ describe('CatalogView — §7.3, the two tabs and the grouping', () => {
     it('shows no price, cost or margin anywhere', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT, SERVICE])));
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.text()).not.toMatch(/price|cost|margin/i);
@@ -294,7 +323,7 @@ describe('CatalogView — the declared filters and sorts', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-search"]').setValue('cable');
@@ -308,7 +337,7 @@ describe('CatalogView — the declared filters and sorts', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-filter-category"]').setValue('wiring');
@@ -327,7 +356,7 @@ describe('CatalogView — the declared filters and sorts', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock)).not.toContain('is_active');
@@ -342,7 +371,7 @@ describe('CatalogView — the declared filters and sorts', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock)).toContain('sort=name');
@@ -358,7 +387,7 @@ describe('CatalogView — the declared filters and sorts', () => {
         const fetchMock = vi.fn(async () => page([PRODUCT], { total: 60, total_pages: 3, has_next_page: true }));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-next"]').trigger('click');
@@ -375,7 +404,7 @@ describe('CatalogView — both languages', () => {
     it('renders its own title in Arabic', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
 
-        const view = render('ar');
+        const view = await renderTable('ar');
         await flushPromises();
 
         expect(/[؀-ۿ]/.test(view.text())).toBe(true);
@@ -435,7 +464,7 @@ describe('CatalogView — §3.7 write controls', () => {
     it('offers the create button to a holder of catalog.manage and to nobody else', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(PROCUREMENT);
-        const permitted = render();
+        const permitted = await renderTable();
         await flushPromises();
 
         expect(permitted.find('[data-testid="catalog-create"]').exists()).toBe(true);
@@ -443,7 +472,7 @@ describe('CatalogView — §3.7 write controls', () => {
         vi.restoreAllMocks();
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(CEO);
-        const refused = render();
+        const refused = await renderTable();
         await flushPromises();
 
         expect(refused.find('[data-testid="catalog-create"]').exists()).toBe(false);
@@ -452,7 +481,7 @@ describe('CatalogView — §3.7 write controls', () => {
     it('offers Edit on the row under the same permission, and no second one', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(PROCUREMENT);
-        const permitted = render();
+        const permitted = await renderTable();
         await flushPromises();
 
         expect(permitted.find('[data-testid="catalog-row-edit"]').exists()).toBe(true);
@@ -460,7 +489,7 @@ describe('CatalogView — §3.7 write controls', () => {
         vi.restoreAllMocks();
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(CEO);
-        const refused = render();
+        const refused = await renderTable();
         await flushPromises();
 
         expect(refused.find('[data-testid="catalog-row-edit"]').exists()).toBe(false);
@@ -473,7 +502,7 @@ describe('CatalogView — §3.7 write controls', () => {
     it('starts a create in the tab the person is standing on', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(PROCUREMENT);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-create"]').trigger('click');
@@ -492,7 +521,7 @@ describe('CatalogView — §3.7 write controls', () => {
     it('opens an edit with the row already in the boxes', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => page([PRODUCT])));
         await signIn(PROCUREMENT);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(view.find('[data-testid="catalog-form-modal"]').exists()).toBe(false);
@@ -509,7 +538,7 @@ describe('CatalogView — §3.7 write controls', () => {
             : page([PRODUCT])));
         vi.stubGlobal('fetch', fetchMock);
         await signIn(PROCUREMENT);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         const before = fetchMock.mock.calls.length;
@@ -542,7 +571,7 @@ describe('CatalogView — DB-05 fills the form (Point 6.4)', () => {
         vi.stubGlobal('fetch', fetchMock);
         await signIn(PROCUREMENT);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         const asked = fetchMock.mock.calls.map((call) => String(call[0]));
@@ -581,7 +610,7 @@ describe('CatalogView — filtering by company (Point 6.5)', () => {
         const fetchMock = listing();
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock)).not.toContain('filter%5Bcompany%5D');
@@ -599,7 +628,7 @@ describe('CatalogView — filtering by company (Point 6.5)', () => {
             : page([], { total: 0 })));
         vi.stubGlobal('fetch', fetchMock);
 
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
         await view.find('[data-testid="catalog-filter-company"]').setValue('acme');
         await flushPromises();
@@ -649,7 +678,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
     it('offers the import to a holder of catalog.import and not to catalog.manage alone', async () => {
         vi.stubGlobal('fetch', serving());
         await signIn(MANAGER);
-        const permitted = render();
+        const permitted = await renderTable();
         await flushPromises();
 
         expect(permitted.find('[data-testid="catalog-import"]').exists()).toBe(true);
@@ -657,7 +686,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
         vi.restoreAllMocks();
         vi.stubGlobal('fetch', serving());
         await signIn(PROCUREMENT);
-        const refused = render();
+        const refused = await renderTable();
         await flushPromises();
 
         expect(refused.find('[data-testid="catalog-import"]').exists()).toBe(false);
@@ -667,7 +696,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
         const fetchMock = serving();
         vi.stubGlobal('fetch', fetchMock);
         await signIn(MANAGER);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-import"]').trigger('click');
@@ -692,7 +721,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
         const fetchMock = serving();
         vi.stubGlobal('fetch', fetchMock);
         await signIn(MANAGER);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         await view.find('[data-testid="catalog-import"]').trigger('click');
@@ -707,7 +736,7 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
     it('sends filter[is_incomplete]=true when ticked, and nothing about it when not', async () => {
         const fetchMock = serving();
         vi.stubGlobal('fetch', fetchMock);
-        const view = render();
+        const view = await renderTable();
         await flushPromises();
 
         expect(urlOf(fetchMock, 0)).not.toContain(encodeURIComponent('filter[is_incomplete]'));
@@ -723,12 +752,203 @@ describe('CatalogView — the import and the incomplete flag (F-10 · 1.8)', () 
             { ...PRODUCT, is_incomplete: true },
             { ...PRODUCT, id: 'c9', name: 'Copper lug', is_incomplete: false },
         ])));
-        const view = render('ar');
+        const view = await renderTable('ar');
         await flushPromises();
 
         const rows = view.findAll('[data-testid="catalog-row"]');
 
         expect(rows[0]!.find('[data-testid="catalog-incomplete"]').text()).toBe(ar.catalog.incomplete);
         expect(rows[1]!.find('[data-testid="catalog-incomplete"]').exists()).toBe(false);
+    });
+});
+
+/**
+ * `D-111` (F-43, owner 2026-10-14) — the catalog opens on one tile per company
+ * that has items, each with its count, and a last «بدون شركة» tile. A tile, or
+ * any filter, shows the table as it was; «كل الشركات» returns to the tiles.
+ */
+describe('CatalogView — D-111, the company tiles', () => {
+    const ACME = { code: 'acme', label_en: 'Acme Industrial', label_ar: 'أكمي الصناعية', position: 1 };
+
+    function routed(companies: () => Response = () => json(200, { data: { items: TILES } })): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string) => {
+            const url = String(input);
+
+            if (url.includes('/catalog-items/companies')) {
+                return companies();
+            }
+
+            return url.includes('/managed-lists/companies')
+                ? json(200, { data: [ACME], meta: { pagination: PAGINATION } })
+                : page([PRODUCT]);
+        });
+    }
+
+    function companyCalls(fetchMock: ReturnType<typeof vi.fn>): string[] {
+        return fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/catalog-items/companies'));
+    }
+
+    it('opens on the tiles, asks for the product counts, and does not ask for the table', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+
+        expect(companyCalls(fetchMock)).toHaveLength(1);
+        expect(companyCalls(fetchMock)[0]).toContain('filter%5Bkind%5D=product');
+        expect(catalogCalls(fetchMock)).toHaveLength(0);
+        expect(view.find('[data-testid="catalog-table"]').exists()).toBe(false);
+
+        const tiles = view.findAll('[data-testid="catalog-tile"]');
+
+        expect(tiles).toHaveLength(2);
+        expect(tiles[0]?.text()).toContain('Acme Industrial');
+        expect(tiles[0]?.text()).toContain('2');
+        expect(tiles[1]?.text()).toContain(en.catalog.group.none);
+        expect(tiles[1]?.text()).toContain('1');
+    });
+
+    it('falls back to the code when the company list does not name it', async () => {
+        vi.stubGlobal('fetch', routed(() => json(200, { data: { items: [{ company: 'zk', count: 8 }] } })));
+
+        const view = mountView();
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-tile"]').text()).toContain('zk');
+    });
+
+    it('opens one company as the table, asking the server for exactly that company', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+        await view.findAll('[data-testid="catalog-tile"]')[0]?.trigger('click');
+        await flushPromises();
+
+        expect(urlOf(fetchMock)).toContain('filter%5Bcompany%5D=acme');
+        expect(urlOf(fetchMock)).not.toContain('has_company');
+        expect(view.find('[data-testid="catalog-table"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-tile"]').exists()).toBe(false);
+    });
+
+    it('opens the no-company tile as filter[has_company]=false', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+        await view.findAll('[data-testid="catalog-tile"]')[1]?.trigger('click');
+        await flushPromises();
+
+        expect(urlOf(fetchMock)).toContain('filter%5Bhas_company%5D=false');
+        expect(urlOf(fetchMock)).not.toContain('filter%5Bcompany%5D');
+    });
+
+    it('leaves the tiles for the table as soon as a filter is used', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+        await view.find('[data-testid="catalog-filter-active"]').setValue('inactive');
+        await flushPromises();
+
+        expect(urlOf(fetchMock)).toContain('filter%5Bis_active%5D=false');
+        expect(view.find('[data-testid="catalog-table"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-tile"]').exists()).toBe(false);
+    });
+
+    it('has no way back on the tiles, and «all companies» on the table clears the filters and returns', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-tiles-back"]').exists()).toBe(false);
+
+        await view.findAll('[data-testid="catalog-tile"]')[1]?.trigger('click');
+        await flushPromises();
+        await view.find('[data-testid="catalog-filter-active"]').setValue('inactive');
+        await flushPromises();
+        await view.find('[data-testid="catalog-tiles-back"]').trigger('click');
+        await flushPromises();
+
+        expect(view.findAll('[data-testid="catalog-tile"]')).toHaveLength(2);
+        expect(view.find('[data-testid="catalog-table"]').exists()).toBe(false);
+        expect(companyCalls(fetchMock)).toHaveLength(2);
+        expect((view.find('[data-testid="catalog-filter-active"]').element as HTMLSelectElement).value).toBe('');
+
+        // The cleared no-company tile does not leak into the next table.
+        await view.find('[data-testid="catalog-search-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(urlOf(fetchMock, catalogCalls(fetchMock).length - 1)).not.toContain('has_company');
+    });
+
+    it('asks for the service counts when the Service tab is chosen on the tiles', async () => {
+        const fetchMock = routed();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const view = mountView();
+        await flushPromises();
+        await view.find('[data-testid="catalog-tab-service"]').trigger('click');
+        await flushPromises();
+
+        expect(companyCalls(fetchMock).at(-1)).toContain('filter%5Bkind%5D=service');
+        expect(catalogCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('shows the empty state when the tab has no items at all', async () => {
+        vi.stubGlobal('fetch', routed(() => json(200, { data: { items: [] } })));
+
+        const view = mountView();
+        await flushPromises();
+
+        expect(view.find('[data-testid="empty-state"]').exists()).toBe(true);
+        expect(view.find('[data-testid="catalog-tile"]').exists()).toBe(false);
+    });
+
+    it('draws a refused tiles call as a refusal, and a failed one as an error that retries the tiles', async () => {
+        vi.stubGlobal('fetch', routed(() => json(403, { error: { code: 'forbidden', message: 'no' } })));
+
+        const refused = mountView();
+        await flushPromises();
+
+        expect(refused.find('[data-testid="permission-denied-state"]').exists()).toBe(true);
+
+        const fetchMock = routed(() => json(500, { error: { code: 'server_error', message: 'no' } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const failed = mountView();
+        await flushPromises();
+
+        expect(failed.find('[data-testid="error-state"]').exists()).toBe(true);
+
+        await failed.find('[data-testid="error-retry"]').trigger('click');
+        await flushPromises();
+
+        expect(companyCalls(fetchMock)).toHaveLength(2);
+        expect(catalogCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('names the tiles and the way back in Arabic', async () => {
+        vi.stubGlobal('fetch', routed());
+
+        const view = mountView('ar');
+        await flushPromises();
+
+        const tiles = view.findAll('[data-testid="catalog-tile"]');
+
+        expect(tiles[0]?.text()).toContain('أكمي الصناعية');
+        expect(tiles[1]?.text()).toContain('بدون شركة');
+        expect(view.find('[data-testid="catalog-tiles"]').attributes('aria-label')).toBe(ar.catalog.tiles.label);
+
+        await tiles[0]?.trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="catalog-tiles-back"]').text()).toBe('كل الشركات');
     });
 });

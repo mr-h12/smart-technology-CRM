@@ -59,4 +59,15 @@ describe('UI source rules (F-42)', () => {
         // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
         expect(linesMatching(/\bfocus:(outline|ring)/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
     });
+
+    it('one secondary button (A-51): app.css holds .row-action with :hover and :active once, and no component outside pages/deals repeats it', () => {
+        // DS §6.2: every variant has hover and active states.
+        // ponytail: pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+        const css = readFileSync('resources/css/app.css', 'utf8');
+
+        expect(css.match(/^\.row-action \{/gm)).toHaveLength(1);
+        expect(css.match(/^\.row-action:hover/gm)).toHaveLength(1);
+        expect(css.match(/^\.row-action:active/gm)).toHaveLength(1);
+        expect(linesMatching(/^\.row-action\b/, (_, path) => !path.startsWith('pages/deals/'))).toEqual([]);
+    });
 });

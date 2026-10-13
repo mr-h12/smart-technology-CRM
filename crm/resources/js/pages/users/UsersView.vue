@@ -414,12 +414,6 @@ onMounted(async () => {
     color: var(--color-primary-text);
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

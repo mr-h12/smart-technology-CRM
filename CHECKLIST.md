@@ -4336,7 +4336,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **5.6** A-08: the picker's active-option bar.
             *(2026-10-13, #335 — `SearchCombobox`: 4 px `border-s` in `--color-focus-ring` + weight 600 on the arrow-key option; every row reserves the 4 px (owner's yes); `border-transparent` only on the other rows, since it compiles after the bar colour and hid it — the spec now fails on that)*
       **Step 3 — buttons and status.**
-      - [ ] **5.7** A-51: hover and pressed states.
+      - [x] **5.7** A-51: hover and pressed states.
+            *(2026-10-13, #336 — one unlayered `.row-action` in `app.css` (hover `surface-muted`, pressed `border`) replaces 16 scoped copies; the 6 `pages/deals/` copies wait for step 15 (owner's yes); picker Retry is now a secondary button, options fill on mouse hover)*
       - [ ] **5.8** A-33: one primary per area, row Danger as text.
       - [ ] **5.9** A-55: one status chip without the dot; the deal chip after F-41.
       **Step 4 — the dialog shell.**

@@ -290,14 +290,4 @@ onBeforeUnmount(() => {
 .primary-action:hover:not(:disabled) {
     background-color: var(--color-primary-hover);
 }
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
-.row-action:hover:not(:disabled) {
-    background-color: var(--color-surface-muted);
-}
 </style>

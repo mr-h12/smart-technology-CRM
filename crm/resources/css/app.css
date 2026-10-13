@@ -92,3 +92,22 @@ body {
         outline-offset: 2px;
     }
 }
+
+/*
+ * DS §6.2: the secondary button, with its hover and pressed states (A-51).
+ * Unlayered, as the scoped copies it replaces were, so it keeps their
+ * precedence over utilities. pages/deals still holds 6 copies until F-42 step 15.
+ */
+.row-action {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+
+.row-action:hover:not(:disabled) {
+    background-color: var(--color-surface-muted);
+}
+
+.row-action:active:not(:disabled) {
+    background-color: var(--color-border);
+}

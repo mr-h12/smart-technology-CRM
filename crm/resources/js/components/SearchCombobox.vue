@@ -216,7 +216,7 @@ watch(
                     :key="option === null ? '' : option.id"
                     role="option"
                     :aria-selected="(option === null ? leading?.selected : selected(option)) ? 'true' : 'false'"
-                    class="cursor-pointer border-s-4 px-3 py-2"
+                    class="cursor-pointer border-s-4 px-3 py-2 hover:bg-[var(--color-surface-muted)]"
                     :class="[
                         { 'flex items-start gap-2': multiple },
                         // A-08: a start-edge bar and weight, not the fill alone (1.03–1.12:1); every row reserves the 4px.
@@ -258,7 +258,7 @@ watch(
             <button
                 v-if="status === 'failed'"
                 type="button"
-                class="mx-3 mb-2 min-h-11 rounded-lg px-3"
+                class="row-action mx-3 mb-2 min-h-11 rounded-lg px-3"
                 :data-testid="`${testId}-retry`"
                 @click="search"
             >

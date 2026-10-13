@@ -628,10 +628,4 @@ onMounted(async () => {
     color: var(--color-primary);
     text-decoration: underline;
 }
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
 </style>

@@ -249,12 +249,6 @@ watch(() => props.open, (open) => {
     color: var(--color-text);
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .submit-action {
     background-color: var(--color-primary);
     color: var(--color-primary-text);

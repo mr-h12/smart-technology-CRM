@@ -653,12 +653,6 @@ onMounted(async () => {
     color: var(--color-primary-text);
 }
 
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .table-frame {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);

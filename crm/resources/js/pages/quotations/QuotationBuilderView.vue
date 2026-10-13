@@ -1298,10 +1298,10 @@ onMounted(load);
                         <p id="quotation-builder-unsaved-title">{{ t('quotations.builder.unsaved') }}</p>
                         <div class="mt-2 flex flex-wrap gap-2">
                             <button ref="keepEditingButton" type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-keep-editing" @click="leaving = null">
-                                {{ t('supplierQuotations.form.keepEditing') }}
+                                {{ t('quotations.builder.keepEditing') }}
                             </button>
                             <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-discard" @click="discardChanges">
-                                {{ t('supplierQuotations.form.discard') }}
+                                {{ t('quotations.builder.discard') }}
                             </button>
                         </div>
                     </div>

@@ -4544,10 +4544,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **P7** The deal status control in fewer clicks, on the deals list and the deal page.
             *(2026-10-14, #346 — the `<select>` is the control; a pick opens `ConfirmDialog`, only its confirm calls the server; Lost's reason sits in the dialog's new slot and takes focus; the deal's own status is greyed out, the server still decides the edge (D-67); 20 failing tests first)*
 
-- [ ] **F-43** The catalog opens on company tiles (`D-111`). Requested by the owner, 2026-10-14, ahead of F-42 Phase 6;
+- [x] **F-43** The catalog opens on company tiles (`D-111`). Requested by the owner, 2026-10-14, ahead of F-42 Phase 6;
       the owner's rulings of the same day: one point; a tile only for a company with items; the name and its count; a
       «كل الشركات» button above the table returns to the tiles. Using any filter shows today's table.
-      - [ ] **1** `filter[has_company]` and `GET /catalog-items/companies`; the tiles screen; D-111 and `OpenAPI` (one PR).
+      - [x] **1** `filter[has_company]` and `GET /catalog-items/companies`; the tiles screen; D-111 and `OpenAPI` (one PR).
+            *(2026-10-14, #347 — counts reuse the list's own criteria and filters, no company last; the «بدون شركة» tile is a `(none)` option in the company select too)*
 
 ## Shell revisions — owner-directed
 

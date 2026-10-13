@@ -137,7 +137,11 @@ final class NoHardCodedTextTest extends TestCase
                 // `ImportModal.vue` at F-09 · 1.5 (`D-85`); every sentence is
                 // an `import.*` key and the title is its caller's.
                 'ImportModal.vue',
-                'LoadingState.vue', 'LoginView.vue',
+                'LoadingState.vue',
+                // F-42 · P4 (A-46): the language switch shared by the bar and
+                // the login card; the codes are `toUpperCase()` of the locale.
+                'LocaleSegment.vue',
+                'LoginView.vue',
                 // Module 2 Point 5.4 — `DB-05`'s managed lists, on the same
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',

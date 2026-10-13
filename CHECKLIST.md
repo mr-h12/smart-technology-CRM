@@ -1776,6 +1776,12 @@ would hide them behind `OD-03` indefinitely.
       contact links (A-54) instead of adding two more.* `CustomersView`, `PurchaseOrdersView`, `QuotationsView`,
       `QuotationDetailView`, `QuotationBuilderView`, `DealsView` and `DealDetailView` still hold the same two
       lines in their `<style scoped>`. Owed: delete the seven copies (deals at step 15), when the owner orders it
+      — *F-42 · P5 (A-66 SH-44) made `PurchaseOrdersView`'s copy `--color-link`; the shared rule in `app.css`
+      still says `--color-primary`, so a merge must first pick the token (owner's call).*
+- [ ] **`/supplier-quotations` overflows 11 px at 375 px** — *revealed by F-42 · P5's browser check, 2026-10-13
+      (`rtl-ui-verifier`), not created by it.* The Edit column's `<span class="sr-only">` sits `position:absolute`
+      inside a static `.table-frame overflow-x-auto`, so it escapes the frame (scrollWidth 386 / clientWidth 375,
+      ar and en). Owed: `relative` on the frame, with a 375 px measure, when the owner orders it.
 - [ ] **Five per-screen "(required)" keys beside `form.required`** — *revealed by F-42 · P4, 2026-10-13
       (`waste-auditor`); A-50 added `form.required` for the login and the builder, which had no key.*
       `customers.form.required`, `suppliers.form.required`, `catalog.form.requiredMarker`,
@@ -4422,7 +4428,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.36 A-02: no second create.
             · 5.37 A-57, A-59 and A-54's links: the bulk panel when needed, Close after an import, tappable contacts.
             · 5.38 A-47: four approvals fixes.
-      - [ ] **P5** Quotations, the builder and polish.
+      - [x] **P5** Quotations, the builder and polish.
+            *(2026-10-13, #342 — the builder resets and reloads per route, moves focus on add/remove, removes at once with a 6 s Undo (an offer change too), names each Remove, steps on Enter, asks in the page before leaving, keeps Save in a sticky bar with the "total after saving" line; A-27's clipping was measured (329/523 px out of reach) and the catalog picker opens in flow; the quotation page shows the total in its header, «—» and "Open the deal" for ids, and a refused PDF read as one muted line; A-66's 12 items (Q-42 not built, DC-55/DC-69 at step 15))*
             · 5.39 A-01 and A-17: the builder follows the route; focus follows add and remove.
             · 5.40 A-35: remove at once, with Undo.
             · 5.41 A-16, A-36, A-37 and A-60: the builder's line inputs.

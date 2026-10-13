@@ -644,10 +644,12 @@ onMounted(async () => {
     background-color: var(--color-surface-muted);
 }
 
+/* The six filters only: one width, so the row reads as one set (owner, 2026-10-13). */
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+    inline-size: 14rem;
 }
 
 .sort-action {

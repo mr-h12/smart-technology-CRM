@@ -4274,11 +4274,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
             *(2026-10-12, #311 — `DealStatusChip` in `QuotationStatusChip`'s shape without its dot (owner); approval badges filled; «—» for a `null` owner)*
-      - [ ] **1.6** The owner filter, end to end: `filter[owner]` on `GET /deals` under row scope, and
+      - [x] **1.6** The owner filter, end to end: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`
             (reuses 1.6b's owner-name read, the owner, 2026-10-12); both in the OpenAPI contract; the filter
             in the SPA, shown only for `deal.view.all`. Tests first (PHP with a negative authorization case,
             and vitest), joined with 1.7 by the owner, 2026-10-13.
+            *(2026-10-13, #343 — `filter[owner]` only narrows the row scope; `GET /deals/owners` returns `data.items` sorted by name, unpaginated; the six filters share one width (owner))*
       - [ ] **1.8** The Arabic manual test list; closes F-41.
 
 - [ ] **F-42** UI/UX upgrade, UI layer only: no business logic, calculation, permission, API or route

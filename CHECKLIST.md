@@ -1617,11 +1617,12 @@ would hide them behind `OD-03` indefinitely.
       `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
       `Throwable` is covered generically rather than module by module. Owed: both comments
       rewritten to say what the renderer covers now, in a docs point, when the owner orders it
-- [ ] **A list query's UUID check is written out in three Domain criteria** — *created and revealed
+- [ ] **A list query's UUID check is written out in four Domain criteria** — *created and revealed
       by F-18 · 1.2, 2026-09-24; kept, because a Domain layer depends on nothing
       (`deptrac.layers.yaml` gives it no ruleset) and the approved line is the product picker.*
       `SupplierQuotationListCriteria::id()` (`:241`), `QuotationListCriteria` (`:244`) and now
-      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code;
+      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code, and
+      F-41 · 1.6 (2026-10-13) added `DealListCriteria::id()` for `filter[owner]` on the same terms;
       `StoragePath::UUID` is a fourth spelling. Owed: one shared domain value (a narrow
       `SharedContracts` prefix Domain may reach), when the owner orders it
 - [ ] **The employee picker reads only the first 25 active employees** — *revealed by F-19 · 1.1,

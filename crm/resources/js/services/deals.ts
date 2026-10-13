@@ -93,6 +93,8 @@ export interface DealListQuery {
     serviceType?: string | null;
     source?: string | null;
     approvalStatus?: string | null;
+    /** `D-108`: the current owner's id. */
+    owner?: string | null;
 }
 
 /**
@@ -174,6 +176,7 @@ export async function listDeals(query: DealListQuery = {}): Promise<Page<DealRow
         ['filter[service_type]', query.serviceType],
         ['filter[source]', query.source],
         ['filter[approval_status]', query.approvalStatus],
+        ['filter[owner]', query.owner],
     ] as const) {
         if (typeof value === 'string' && value !== '') {
             parameters.set(key, value);
@@ -183,6 +186,11 @@ export async function listDeals(query: DealListQuery = {}): Promise<Page<DealRow
     const suffix = parameters.size === 0 ? '' : `?${parameters.toString()}`;
 
     return collection<DealRow>(await apiGet(`/deals${suffix}`));
+}
+
+/** `D-108`: the owner filter's choices — the visible deals' owners, named and sorted by the server. */
+export async function listDealOwners(): Promise<{ id: string; name: string }[]> {
+    return (await apiGet<{ items: { id: string; name: string }[] }>('/deals/owners')).data.items;
 }
 
 export async function readDeal(id: string): Promise<Deal> {

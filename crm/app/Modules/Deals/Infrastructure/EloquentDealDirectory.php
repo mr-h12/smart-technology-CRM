@@ -81,6 +81,12 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         return new DealPage($items, $total, $criteria->page, $criteria->perPage);
     }
 
+    public function ownerIds(DealRowScope $scope): array
+    {
+        /** @var list<string> */
+        return $this->scoped($scope)?->whereNotNull('deals.owner_id')->distinct()->pluck('deals.owner_id')->all() ?? [];
+    }
+
     public function find(string $dealId, DealRowScope $scope): ?DealSummary
     {
         $query = $this->scoped($scope);
@@ -257,6 +263,10 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
 
         if ($criteria->approvalStatus !== null) {
             $query->where('deals.approval_status', $criteria->approvalStatus);
+        }
+
+        if ($criteria->ownerId !== null) {
+            $query->where('deals.owner_id', $criteria->ownerId);
         }
 
         if ($criteria->q !== null) {

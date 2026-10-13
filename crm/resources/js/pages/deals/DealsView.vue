@@ -74,6 +74,7 @@ import {
     DEAL_SERVICE_TYPES,
     DEAL_SOURCES,
     DEAL_STATUSES,
+    listDealOwners,
     listDeals,
     type Deal,
     type DealRow,
@@ -97,6 +98,8 @@ const auth = useAuth();
  */
 const canCreate = computed(() => auth.hasPermission('deal.create'));
 const canEdit = computed(() => auth.hasPermission('deal.edit'));
+/** `D-108`: offered at `all` only (Manager, CEO); the server's row scope applies to anyone who sends it. */
+const canFilterOwner = computed(() => auth.hasPermission('deal.view.all'));
 
 const formOpen = ref(false);
 const editing = ref<Deal | null>(null);
@@ -116,6 +119,8 @@ const statusFilter = ref('');
 const serviceTypeFilter = ref('');
 const sourceFilter = ref('');
 const approvalFilter = ref('');
+const ownerFilter = ref('');
+const owners = ref<{ id: string; name: string }[]>([]);
 
 const sortField = ref<SortField>('last_activity_at');
 /** The server's own default is `-last_activity_at`: newest activity first. */
@@ -134,7 +139,8 @@ const filtering = computed(
         statusFilter.value !== '' ||
         serviceTypeFilter.value !== '' ||
         sourceFilter.value !== '' ||
-        approvalFilter.value !== '',
+        approvalFilter.value !== '' ||
+        ownerFilter.value !== '',
 );
 
 /**
@@ -166,6 +172,7 @@ async function load(): Promise<void> {
             serviceType: serviceTypeFilter.value === '' ? null : serviceTypeFilter.value,
             source: sourceFilter.value === '' ? null : sourceFilter.value,
             approvalStatus: approvalFilter.value === '' ? null : approvalFilter.value,
+            owner: ownerFilter.value === '' ? null : ownerFilter.value,
         });
 
         deals.value = result.items;
@@ -308,7 +315,15 @@ async function onSaved(): Promise<void> {
     await load();
 }
 
-onMounted(load);
+onMounted(async () => {
+    // The choices are a convenience beside the list: if they fail, the select
+    // stays hidden and the list still answers on its own.
+    if (canFilterOwner.value) {
+        listDealOwners().then((rows) => (owners.value = rows), () => undefined);
+    }
+
+    await load();
+});
 </script>
 
 <template>
@@ -362,6 +377,19 @@ onMounted(load);
                 >
                     <option value="">{{ t('deals.filter.statusAll') }}</option>
                     <option v-for="code in statuses" :key="code" :value="code">{{ statusLabel(code) }}</option>
+                </select>
+            </label>
+
+            <label v-if="canFilterOwner && owners.length > 0" class="flex flex-col gap-1">
+                <span>{{ t('deals.column.owner') }}</span>
+                <select
+                    v-model="ownerFilter"
+                    class="form-field min-h-11 rounded-lg px-3"
+                    data-testid="deals-filter-owner"
+                    @change="applyFilters"
+                >
+                    <option value="">{{ t('deals.filter.ownerAll') }}</option>
+                    <option v-for="owner in owners" :key="owner.id" :value="owner.id">{{ owner.name }}</option>
                 </select>
             </label>
 
@@ -616,10 +644,12 @@ onMounted(load);
     background-color: var(--color-surface-muted);
 }
 
+/* The six filters only: one width, so the row reads as one set (owner, 2026-10-13). */
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text);
+    inline-size: 14rem;
 }
 
 .sort-action {

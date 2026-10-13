@@ -1617,11 +1617,12 @@ would hide them behind `OD-03` indefinitely.
       `render` callbacks today, and since F-17 · 1.1 and 1.3 every `HttpException` and every other
       `Throwable` is covered generically rather than module by module. Owed: both comments
       rewritten to say what the renderer covers now, in a docs point, when the owner orders it
-- [ ] **A list query's UUID check is written out in three Domain criteria** — *created and revealed
+- [ ] **A list query's UUID check is written out in four Domain criteria** — *created and revealed
       by F-18 · 1.2, 2026-09-24; kept, because a Domain layer depends on nothing
       (`deptrac.layers.yaml` gives it no ruleset) and the approved line is the product picker.*
       `SupplierQuotationListCriteria::id()` (`:241`), `QuotationListCriteria` (`:244`) and now
-      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code;
+      `CatalogItemListCriteria::uuid()` carry the same regex and the same `not_a_uuid` code, and
+      F-41 · 1.6 (2026-10-13) added `DealListCriteria::id()` for `filter[owner]` on the same terms;
       `StoragePath::UUID` is a fourth spelling. Owed: one shared domain value (a narrow
       `SharedContracts` prefix Domain may reach), when the owner orders it
 - [ ] **The employee picker reads only the first 25 active employees** — *revealed by F-19 · 1.1,
@@ -4273,11 +4274,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1.6c** The owner's name on the list and the deal page; status and approval chips; customer +
             request in one cell; Ghost edit. Vitest first.
             *(2026-10-12, #311 — `DealStatusChip` in `QuotationStatusChip`'s shape without its dot (owner); approval badges filled; «—» for a `null` owner)*
-      - [ ] **1.6** The owner filter, backend: `filter[owner]` on `GET /deals` under row scope, and
+      - [x] **1.6** The owner filter, end to end: `filter[owner]` on `GET /deals` under row scope, and
             `GET /deals/owners` (`deal.view`) naming the visible deals' owners through `UserFactsInterface`
-            (reuses 1.6b's owner-name read, the owner, 2026-10-12);
-            both in the OpenAPI contract. Tests first, with a negative authorization case.
-      - [ ] **1.7** The owner filter in the SPA, shown only for `deal.view.all`. Vitest first.
+            (reuses 1.6b's owner-name read, the owner, 2026-10-12); both in the OpenAPI contract; the filter
+            in the SPA, shown only for `deal.view.all`. Tests first (PHP with a negative authorization case,
+            and vitest), joined with 1.7 by the owner, 2026-10-13.
+            *(2026-10-13, #343 — `filter[owner]` only narrows the row scope; `GET /deals/owners` returns `data.items` sorted by name, unpaginated; the six filters share one width (owner))*
       - [ ] **1.8** The Arabic manual test list; closes F-41.
 
 - [ ] **F-42** UI/UX upgrade, UI layer only: no business logic, calculation, permission, API or route

@@ -210,6 +210,7 @@ GET    /api/v1/customers/{customer_id}
 PATCH  /api/v1/customers/{customer_id}
 
 GET    /api/v1/deals
+GET    /api/v1/deals/owners
 POST   /api/v1/deals
 GET    /api/v1/deals/{deal_id}
 PATCH  /api/v1/deals/{deal_id}
@@ -231,6 +232,8 @@ Use matching resource structures for suppliers, catalog items, supplier quotatio
 A deal carries `details` — optional internal free text, `null` or at most 2000 characters (a `422` past that), written by `POST /deals` and `PATCH /deals/{id}` (`null` erases it, audited like `title`) and returned by `GET /deals` and `GET /deals/{id}`; it never reaches a customer PDF (`D-108`).
 
 `GET /deals` rows and `GET /deals/{id}` also carry `owner_name` — the current owner's name, read once per page through Identity's contract — or `null` when the deal has no owner or its owner is the hidden Super Admin or a deleted account; never the identifier, which `owner_id` still carries. The write answers (`POST /deals`, `PATCH /deals/{id}` and its `/assign`, `/approve`, `/reject` and `/status`) do not carry it (`D-109`).
+
+**Owner filter** (`D-108`; F-41 · 1.6): `GET /deals?filter[owner]={user_id}` returns the deals whose current `owner_id` is that user — not `created_by` — under the caller's row scope, so an `own` caller asking for another owner gets an empty page, never a `403`. A value that is not a UUID is `400 invalid_request` with detail `not_a_uuid` on `filter[owner]`. `GET /deals/owners`, under `deal.view` and the same row scope, answers `data.items`: `[{ "id": uuid, "name": string }]`, each owner of a visible deal once, sorted by name and unpaginated; an owner Identity does not name (the hidden Super Admin, a deleted account) and a deal with no owner are left out. The SPA offers the filter only at `deal.view.all`.
 
 A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10). The list takes `page`, `per_page`, `q` and `sort` only — `po_date`, `po_number`, `created_at`, default `-created_at` — and never carries cost, margin or suppliers; the detail adds who recorded it and when, `documents` (its files, oldest first — each `{id, original_name, mime_type, size_bytes, scan_status, created_at}`, the upload's own answer; Module 10 · 2.3), the deal and its owner, the quotation's status and its totals, with no tax keys when the quotation is exempt (`D-63`). `POST /purchase-orders/{id}/documents` takes one multipart `document` per call, several per order, and answers `201` with that file; the order is reached before the file is read, so an order out of reach is a `404` with nothing stored. `GET /quotations/{id}` always carries `purchase_order` — `{id, po_number, customer_po_reference, po_date}`, or `null` (Module 10 · 2.2).
 

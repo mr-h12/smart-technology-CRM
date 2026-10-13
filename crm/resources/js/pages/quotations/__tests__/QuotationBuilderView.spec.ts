@@ -62,14 +62,14 @@ const QUOTATION = {
     id: 'q1', code: 'QT-2026-0001', status: 'draft', customer_id: 'c1', deal_id: 'd1', currency_id: 'cur-egp', currency: 'EGP',
     final_total: '1150.000000', quotation_date: '2026-09-13', valid_until: '2026-10-13', submitted_at: null, version: 1, parent_id: null,
     created_at: '2026-09-13T09:00:00+00:00', updated_at: '2026-09-13T09:00:00+00:00',
-    default_margin: '25.00', discount_percent: '10.00', tax_percent: '14.00', rounding_unit: '1.000000', rounding_enabled: true,
+    default_margin: '25.000', discount_percent: '10.000', tax_percent: '14.000', rounding_unit: '1.000000', rounding_enabled: true,
     subtotal: '1000.000000', additional_total: '100.000000', discount_amount: '100.000000', tax_base: '900.000000', tax_amount: '126.000000',
     net_amount: '1026.000000', total_before_round: '1126.000000', rounding_diff: '24.000000',
     // D-103: the quotation's own terms, in their order; this one deleted its ready warranty.
     terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
     rejection_reason: null, sent_at: null, is_self_approved: false, etag: '"v1"',
     items: [
-        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.00' },
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.000' },
         { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', product_name: null, quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', margin_percent: null },
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
@@ -661,16 +661,16 @@ describe('the quotation builder (edit)', () => {
         expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
         expect(wrapper.find(id('customer')).text()).toBe('Acme Industrial');
         expect((wrapper.find(id('currency')).element as HTMLInputElement).value).toBe('EGP');
-        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25.00');
-        expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10.00');
-        expect((wrapper.find(id('tax_percent')).element as HTMLInputElement).value).toBe('14.00');
+        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25');
+        expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10');
+        expect((wrapper.find(id('tax_percent')).element as HTMLInputElement).value).toBe('14');
         expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
         // D-103: the quotation's own terms in their order — the deleted warranty stays deleted.
         expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
         expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Ex works');
         expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
         expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
-        expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25.00');
+        expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25');
         // D-106: the field is an extra on top of the quotation margin, and says so.
         expect(wrapper.find(id('existing-0-margin_percent')).element.closest('label')?.textContent).toContain('Extra line margin % (optional)');
         // D-106 (a): a negative extra must be typeable — a phone's decimal pad has no minus key.
@@ -709,14 +709,14 @@ describe('the quotation builder (edit)', () => {
         expect(save?.idempotencyKey).toBeNull();
         expect(save?.body).toEqual({
             currency: 'EGP',
-            default_margin: '25.00',
-            discount_percent: '10.00',
-            tax_percent: '14.00',
+            default_margin: '25',
+            discount_percent: '10',
+            tax_percent: '14',
             quotation_date: '2026-09-13',
             valid_until: '2026-10-13',
             terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
             lines: [
-                { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25.00' },
+                { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25' },
                 { supplier_quotation_item_id: 'sqi1', quantity: '4' },
             ],
             additional_items: [{ description: 'Delivery', amount: '100.000000' }],
@@ -852,7 +852,7 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         const { wrapper, router } = await render(respond({ quotations: [PENDING] }), APPROVE, 'en', APPROVER);
 
         expect(router.currentRoute.value.path).toBe(APPROVE);
-        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25.00');
+        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25');
         expect(wrapper.find(id('save')).text()).toBe('Edit & approve');
     });
 
@@ -877,7 +877,7 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         expect(save?.path).toBe('/quotations/q1/edit-and-approve');
         expect(save?.ifMatch).toBe('"v1"');
         expect(save?.idempotencyKey).toBeNull();
-        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.000', margin_percent: '25.00' }, { supplier_quotation_item_id: 'sqi2', quantity: '1.000' }], additional_items: [{ description: 'Delivery', amount: '100.000000' }] });
+        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.000', margin_percent: '25' }, { supplier_quotation_item_id: 'sqi2', quantity: '1.000' }], additional_items: [{ description: 'Delivery', amount: '100.000000' }] });
         expect(save?.body).not.toHaveProperty('deal_id');
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
+import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
 
 /**
  * D-110 (amending D-82 for screens, F-42 · A-26): a screen shows money in D-99's
@@ -48,5 +48,19 @@ describe('displayQuantity', () => {
 
     it('passes null through', () => {
         expect(displayQuantity(null)).toBeNull();
+    });
+});
+
+/** D-112: a percentage drops its trailing zeros, on screen and in a pre-filled input. */
+describe('displayPercent', () => {
+    it('drops trailing zeros and keeps a zero a zero', () => {
+        expect(displayPercent('15.000')).toBe('15');
+        expect(displayPercent('12.500')).toBe('12.5');
+        expect(displayPercent('0.000')).toBe('0');
+        expect(displayPercent('100')).toBe('100');
+    });
+
+    it('passes null through', () => {
+        expect(displayPercent(null)).toBeNull();
     });
 });

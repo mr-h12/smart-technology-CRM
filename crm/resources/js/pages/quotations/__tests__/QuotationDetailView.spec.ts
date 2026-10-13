@@ -40,8 +40,8 @@ const QUOTATION = {
     parent_id: null,
     created_at: '2026-09-13T09:00:00+00:00',
     updated_at: '2026-09-13T09:00:00+00:00',
-    discount_percent: '10.00',
-    tax_percent: '14.00',
+    discount_percent: '10.000',
+    tax_percent: '14.000',
     rounding_unit: '1.000000',
     rounding_enabled: true,
     subtotal: '1000.000000',
@@ -78,8 +78,8 @@ const COSTED_LINE = {
     unit_cost_currency: 'EGP',
     unit_cost_fx_rate_at_time: '1.000000',
     unit_cost_base: '400.000000',
-    margin_percent: '5.00',
-    effective_margin_percent: '25.00',
+    margin_percent: '5.000',
+    effective_margin_percent: '25.500',
     line_cost: '800.000000',
 };
 
@@ -270,8 +270,8 @@ describe('the quotation detail view', () => {
         expect(totals.find('[data-testid="quotation-total-rounding_diff"]').text()).toBe('24.00 EGP');
         expect(totals.find('[data-testid="quotation-total-final_total"]').text()).toBe('1,150.00 EGP');
         // The percentages ride on their labels.
-        expect(totals.text()).toContain('10.00%');
-        expect(totals.text()).toContain('14.00%');
+        expect(totals.text()).toContain('Discount (10%)');
+        expect(totals.text()).toContain('Tax (14%)');
         // The rounding unit on its label is a money figure, not a percentage, so it takes
         // the diff's form beside it (owner's ruling 2026-09-21; D-110's form).
         expect(totals.text()).toContain('Rounding (to 1.00)');
@@ -296,12 +296,12 @@ describe('the quotation detail view', () => {
         expect(bare.wrapper.find('[data-testid="quotation-line-unit_cost"]').exists()).toBe(false);
         expect(bare.wrapper.find('[data-testid="quotation-lines"]').text()).not.toContain('Cost');
 
-        const costed = await render(respond({ quotation: { ...QUOTATION, default_margin: '25.00', items: [COSTED_LINE] } }));
+        const costed = await render(respond({ quotation: { ...QUOTATION, default_margin: '20.000', items: [COSTED_LINE] } }));
         expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.00');
         // D-106, the owner's ruling (b): the column is the line's whole margin as
         // the server computed it, never the line's own extra (5.00).
-        expect(costed.wrapper.find('[data-testid="quotation-line-effective_margin_percent"]').text()).toBe('25.00%');
-        expect(costed.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('25.00%');
+        expect(costed.wrapper.find('[data-testid="quotation-line-effective_margin_percent"]').text()).toBe('25.5%');
+        expect(costed.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('20%');
     });
 
     it('lists the additional items and the line’s quantity and price', async () => {

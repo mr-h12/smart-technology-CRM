@@ -81,119 +81,148 @@ describe('the deal status control', () => {
         window.localStorage.clear();
     });
 
+    /** F-42 · P7 (owner, 2026-10-14): the list is the control — one pick, then the confirm. */
+    async function pick(wrapper: Awaited<ReturnType<typeof render>>, code: string): Promise<void> {
+        await wrapper.find('[data-testid="deal-status-target"]').setValue(code);
+        await flushPromises();
+    }
+
+    async function accept(wrapper: Awaited<ReturnType<typeof render>>): Promise<void> {
+        await wrapper.find('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+    }
+
     it('is drawn only for a role §3.4 grants change_status', async () => {
-        expect((await render(CHANGER)).find('[data-testid="deal-status-start"]').exists()).toBe(true);
-        expect((await render(READER)).find('[data-testid="deal-status-start"]').exists()).toBe(false);
+        expect((await render(CHANGER)).find('[data-testid="deal-status-target"]').exists()).toBe(true);
+        expect((await render(READER)).find('[data-testid="deal-status-target"]').exists()).toBe(false);
+    });
+
+    it('is the list itself: no button to open it first, and named for what it does (F-42 · P7)', async () => {
+        const wrapper = await render(CHANGER);
+        const select = wrapper.get('[data-testid="deal-status-target"]');
+
+        expect(select.element.tagName).toBe('SELECT');
+        expect(select.attributes('aria-label')).toBe('Change status');
+        expect(wrapper.find('[data-testid="deal-status-start"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="deal-status-form"]').exists()).toBe(false);
     });
 
     it('offers §4.4’s whole vocabulary, not a reachable set', async () => {
         const wrapper = await render(CHANGER);
-
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-
         const options = wrapper.find('[data-testid="deal-status-target"]').findAll('option');
 
-        // Twelve statuses plus the empty prompt. Narrowing this list here would
-        // put §4.4's graph in a second place, and the copy is the one that rots.
+        // Twelve statuses plus the prompt. Narrowing this list here would put
+        // §4.4's graph in a second place, and the copy is the one that rots.
         expect(options).toHaveLength(13);
         expect(options.map((o) => o.attributes('value'))).toContain('delivery_complete');
     });
 
-    it('offers delivery_complete even though a second permission gates it', async () => {
+    it('greys out only the status the deal already has (F-42 · P7)', async () => {
         const wrapper = await render(CHANGER);
+        const disabled = wrapper.find('[data-testid="deal-status-target"]').findAll('option')
+            .filter((o) => (o.element as HTMLOptionElement).disabled)
+            .map((o) => o.attributes('value'));
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-
-        // `D-14`'s `mark_delivery_complete` is a different set of four roles,
-        // and which permission applies depends on the body — so the server
-        // decides. Hiding the option would be the SPA guessing at that.
-        expect(wrapper.find('[data-testid="deal-status-target"]').findAll('option')
-            .map((o) => o.attributes('value'))).toContain('delivery_complete');
+        // The prompt cannot be picked back, and `lead` is where DEAL already is.
+        expect(disabled).toEqual(['', 'lead']);
     });
 
-    it('sends the target and no reason on an ordinary status', async () => {
+    it('asks before it changes anything: a pick calls no API until the confirm (F-42 · P7)', async () => {
         const fetchMock = vi.fn(async () => json(200, envelope({ ...DEAL, status: 'contacted' })));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('contacted');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await pick(wrapper, 'contacted');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        const dialog = wrapper.get('[data-testid="confirm-dialog"]');
+        expect(dialog.text()).toContain('Contacted');
+    });
+
+    it('sends the target and no reason on an ordinary status, after the confirm', async () => {
+        const fetchMock = vi.fn(async () => json(200, envelope({ ...DEAL, status: 'contacted' })));
+        const wrapper = await render(CHANGER, fetchMock);
+
+        await pick(wrapper, 'contacted');
+        await accept(wrapper);
 
         // `reason` is `prohibited` on every status but `lost`, so absent and
         // not null: a null would 422.
         expect(bodyOf(fetchMock)).toEqual({ status: 'contacted' });
         expect(wrapper.emitted('changed')).toHaveLength(1);
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
     });
 
-    it('asks for a reason only when the target is lost', async () => {
+    it('puts the list back and calls nothing on Cancel or Escape (F-42 · P7)', async () => {
+        const fetchMock = vi.fn(async () => json(200, envelope(DEAL)));
+        const wrapper = await render(CHANGER, fetchMock);
+        const select = wrapper.get('[data-testid="deal-status-target"]');
+
+        await pick(wrapper, 'won');
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect((select.element as HTMLSelectElement).value).toBe('');
+
+        await pick(wrapper, 'won');
+        // happy-dom does not turn Escape into the dialog's cancel; the browser does.
+        wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }));
+        await flushPromises();
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect((select.element as HTMLSelectElement).value).toBe('');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('asks for a reason, inside the confirm, only when the target is lost', async () => {
         const wrapper = await render(CHANGER);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
+        await pick(wrapper, 'won');
         expect(wrapper.find('[data-testid="deal-status-reason"]').exists()).toBe(false);
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
 
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('lost');
-        expect(wrapper.find('[data-testid="deal-status-reason"]').exists()).toBe(true);
-
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('won');
-        expect(wrapper.find('[data-testid="deal-status-reason"]').exists()).toBe(false);
+        await pick(wrapper, 'lost');
+        expect(wrapper.get('[data-testid="confirm-dialog"]').find('[data-testid="deal-status-reason"]').exists()).toBe(true);
     });
 
     it('sends the reason with a loss', async () => {
         const fetchMock = vi.fn(async () => json(200, envelope({ ...DEAL, status: 'lost' })));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('lost');
+        await pick(wrapper, 'lost');
         await wrapper.find('[data-testid="deal-status-reason"]').setValue('Lost on price');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await accept(wrapper);
 
         expect(bodyOf(fetchMock)).toEqual({ status: 'lost', reason: 'Lost on price' });
     });
 
-    it('refuses a blank loss reason without asking the server', async () => {
+    it('refuses a blank loss reason without asking the server, and keeps the confirm open', async () => {
         const fetchMock = vi.fn(async () => json(200, envelope(DEAL)));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('lost');
+        await pick(wrapper, 'lost');
         await wrapper.find('[data-testid="deal-status-reason"]').setValue('   ');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await accept(wrapper);
 
         // §4.4's table: "Lost | Sales (mandatory reason)". The server applies
         // `regex:/\S/`; this is the same check where it can still be fixed.
         expect(fetchMock).not.toHaveBeenCalled();
         expect(wrapper.find('[data-testid="deal-status-reason-error"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true);
     });
 
-    it('refuses to submit with no target chosen', async () => {
-        const fetchMock = vi.fn(async () => json(200, envelope(DEAL)));
-        const wrapper = await render(CHANGER, fetchMock);
-
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
-
-        expect(fetchMock).not.toHaveBeenCalled();
-        expect(wrapper.find('[data-testid="deal-status-error"]').exists()).toBe(true);
-    });
-
-    it('renders an undocumented edge as the server’s refusal, not as a hidden option', async () => {
+    it('renders an undocumented edge as the server’s refusal, inside the confirm', async () => {
         const fetchMock = vi.fn(async () => json(409, {
             error: { code: 'state_transition_invalid' }, meta: { request_id: 'r1' },
         }));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('delivery_complete');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await pick(wrapper, 'delivery_complete');
+        await accept(wrapper);
 
         // The edge was offered, tried and refused — which is what §7.1 asks
         // for, and is honest about where the rule lives.
-        expect(wrapper.find('[data-testid="deal-status-error"]').text()).toContain('not allowed');
+        expect(wrapper.get('[data-testid="confirm-dialog"]').find('[data-testid="deal-status-error"]').text())
+            .toContain('not allowed');
         expect(wrapper.emitted('changed')).toBeUndefined();
     });
 
@@ -201,10 +230,8 @@ describe('the deal status control', () => {
         const fetchMock = vi.fn(async () => json(403, { error: { code: 'forbidden' }, meta: { request_id: 'r1' } }));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('delivery_complete');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await pick(wrapper, 'delivery_complete');
+        await accept(wrapper);
 
         // The one edge needing `mark_delivery_complete` answers 403 for a role
         // holding only `change_status` — a different answer from the 409 above.
@@ -221,18 +248,16 @@ describe('the deal status control', () => {
         }));
         const wrapper = await render(CHANGER, fetchMock);
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('lost');
+        await pick(wrapper, 'lost');
         await wrapper.find('[data-testid="deal-status-reason"]').setValue('Lost on price');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
-        await flushPromises();
+        await accept(wrapper);
 
         expect(wrapper.find('[data-testid="deal-status-reason-error"]').text())
             .toBe('A reason is only accepted when a deal is lost.');
     });
 });
 
-describe('the deal status control after F-41 (F-42 · P6)', () => {
+describe('the deal status control after F-41 (F-42 · P6, P7)', () => {
     beforeEach(() => {
         vi.unstubAllGlobals();
         useAuth().forgetSession();
@@ -246,30 +271,36 @@ describe('the deal status control after F-41 (F-42 · P6)', () => {
         return mount(DealStatusControl, { props: { deal: DEAL }, global: { plugins: [i18n] }, attachTo: document.body });
     }
 
-    it('moves focus into the form it opens, names the form, and gives focus back on Cancel (A-22)', async () => {
+    it('gives focus back to the list when the confirm is cancelled (A-22)', async () => {
+        const wrapper = await attached();
+        const select = wrapper.get('[data-testid="deal-status-target"]');
+
+        (select.element as HTMLSelectElement).focus();
+        await select.setValue('won');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(document.activeElement).toBe(select.element);
+        wrapper.unmount();
+    });
+
+    it('puts focus in the reason field when the confirm asks for one', async () => {
         const wrapper = await attached();
 
-        await wrapper.get('[data-testid="deal-status-start"]').trigger('click');
+        await wrapper.get('[data-testid="deal-status-target"]').setValue('lost');
         await flushPromises();
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const form = wrapper.get('[data-testid="deal-status-form"]');
-        const name = form.attributes('aria-labelledby');
-        expect(name).toBeTruthy();
-        expect(document.getElementById(String(name))?.textContent?.trim()).toBe('Move this deal to');
-        expect(document.activeElement).toBe(wrapper.get('[data-testid="deal-status-target"]').element);
-
-        await wrapper.get('[data-testid="deal-status-cancel"]').trigger('click');
-        await flushPromises();
-
-        expect(document.activeElement).toBe(wrapper.get('[data-testid="deal-status-start"]').element);
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="deal-status-reason"]').element);
         wrapper.unmount();
     });
 
     it('ties the reason’s label to its own field, not a fixed id (A-29)', async () => {
         const wrapper = await attached();
 
-        await wrapper.get('[data-testid="deal-status-start"]').trigger('click');
         await wrapper.get('[data-testid="deal-status-target"]').setValue('lost');
+        await flushPromises();
 
         const reason = wrapper.get('[data-testid="deal-status-reason"]');
         expect(reason.attributes('id')).not.toBe('deal-status-reason');

@@ -315,7 +315,7 @@ describe('the deal detail view', () => {
         const wrapper = await render(respond());
 
         expect(wrapper.find('[data-testid="deal-approval"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="deal-status-start"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deal-status-target"]').exists()).toBe(true);
     });
 
     it('links to the quotation builder for a role that may create one (Design System §2.1)', async () => {
@@ -392,9 +392,10 @@ describe('the deal detail view', () => {
 
         const before = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/timeline')).length;
 
-        await wrapper.find('[data-testid="deal-status-start"]').trigger('click');
+        // F-42 · P7: one pick, then the confirm.
         await wrapper.find('[data-testid="deal-status-target"]').setValue('negotiations');
-        await wrapper.find('[data-testid="deal-status-form"]').trigger('submit');
+        await flushPromises();
+        await wrapper.find('[data-testid="deal-status-control"] [data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         // A transition writes a new audit row, so the history in hand is stale

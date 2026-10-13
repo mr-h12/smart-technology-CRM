@@ -820,21 +820,17 @@ describe('the deals screen after F-41 (F-42 · P6)', () => {
         expect(wrapper.get('[data-testid="deals-details-trigger"]').attributes('aria-label')).toBe('Details');
     });
 
-    it('gives two open rows’ status forms their own label targets (A-29)', async () => {
+    it('gives every row its own status list, picked in one step, with no shared id (A-29, F-42 · P7)', async () => {
         const changer: AuthenticatedUser = { ...USER, permissions: [...USER.permissions, 'deal.change_status.all'] };
         const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER]), changer);
 
-        for (const start of wrapper.findAll('[data-testid="deal-status-start"]')) {
-            await start.trigger('click');
-        }
-        await flushPromises();
+        const lists = wrapper.findAll('[data-testid="deal-status-target"]');
+        expect(lists).toHaveLength(2);
+        lists.forEach((list) => expect(list.attributes('aria-label')).toBe('Change status'));
+        expect(wrapper.find('[data-testid="deal-status-start"]').exists()).toBe(false);
 
-        const forms = wrapper.findAll('[data-testid="deal-status-form"]');
-        expect(forms).toHaveLength(2);
-
-        const targets = forms.map((form) => form.get('label').attributes('for'));
-        expect(new Set(targets).size).toBe(2);
-        forms.forEach((form, index) => expect(form.get('[data-testid="deal-status-target"]').attributes('id')).toBe(targets[index]));
+        const ids = wrapper.findAll('[id]').map((node) => node.attributes('id'));
+        expect(new Set(ids).size).toBe(ids.length);
     });
 
     it('restores its filters from the address and writes changes back (A-13)', async () => {

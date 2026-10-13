@@ -332,6 +332,22 @@ final class CatalogItemWriteEndpointTest extends TestCase
             'Three spellings of one company are one entry — R-03, and the reason 5.1 made this a list.');
     }
 
+    /** `D-113`: an entry already listed is found by either label too, so a label never becomes a second company. */
+    public function test_that_a_listed_company_is_found_by_its_label(): void
+    {
+        DB::table('enum_lists')->insert(['id' => (string) \Illuminate\Support\Str::uuid7(), 'list' => 'companies', 'code' => 'zk',
+            'label_en' => 'ZK Group', 'label_ar' => 'زد كي', 'position' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        foreach (['zk group', 'زد كي'] as $label) {
+            $this->postJson(self::ENDPOINT, ['kind' => 'product', 'name' => 'Cable', 'unit' => 'piece', 'company' => $label], $bearer)
+                ->assertStatus(201)
+                ->assertJsonPath('data.company', 'zk');
+        }
+
+        self::assertSame(1, DB::table('enum_lists')->where('list', 'companies')->count());
+    }
+
     /**
      * **The permission question this point had to answer.** Writing a managed
      * list carries `admin.system_settings` (Super Admin), while a catalog write

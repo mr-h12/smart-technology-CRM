@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
@@ -212,7 +213,10 @@ async function signIn(profile: AuthenticatedUser, delegate: typeof globalThis.fe
     await useAuth().login(profile.email, 'Passw0rd123');
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/new?deal=d1', locale: 'en' | 'ar' = 'en', user = USER) {
+/** Mounted into the document only where focus is asserted — a detached element is never `document.activeElement`. */
+const attached: Array<{ unmount: () => void }> = [];
+
+async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/new?deal=d1', locale: 'en' | 'ar' = 'en', user = USER, attach = false) {
     await signIn(user, fetchMock as unknown as typeof globalThis.fetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -224,7 +228,14 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, path = '/quotations/n
 
     // Through `<RouterView>`, not mounted directly: `onBeforeRouteLeave` binds
     // to the route record the view renders, and a direct mount has none.
-    const wrapper = mount({ components: { QuotationBuilderView }, template: '<RouterView />' }, { global: { plugins: [i18n, router] } });
+    const wrapper = mount({ components: { QuotationBuilderView }, template: '<RouterView />' }, {
+        global: { plugins: [i18n, router] },
+        ...(attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
+    });
+
+    if (attach) {
+        attached.push(wrapper);
+    }
 
     await flushPromises();
 
@@ -314,8 +325,8 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('available quantity 3');
         expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('5.000');
         expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('3.0000');
-        // F-04 + F-05: the placeholder is the available balance, without trailing zeros (D-110).
-        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('3');
+        // A-16: the balance is said once, in the line above; the box itself stays empty.
+        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBeUndefined();
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
     });
 
@@ -786,29 +797,37 @@ describe('the quotation builder (edit)', () => {
         expect(saves(fetchMock).map((call) => call.method)).toEqual(['PATCH', 'PATCH']);
     });
 
-    it('asks before leaving with unsaved changes, and not otherwise (Design System §5.2)', async () => {
-        // happy-dom ships no `confirm`; the stub is the whole dialog.
-        const confirm = vi.fn().mockReturnValue(false);
+    it('asks in the page before leaving with unsaved changes, and not otherwise (Design System §5.2, A-61)', async () => {
+        // A-61: never `window.confirm` — it is neither translated nor RTL.
+        const confirm = vi.fn().mockReturnValue(true);
         vi.stubGlobal('confirm', confirm);
 
         const { wrapper, router } = await render(respond(), EDIT);
 
         await router.push('/quotations/q1');
-        expect(confirm).not.toHaveBeenCalled();
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
 
         await router.push(EDIT);
         await flushPromises();
         await wrapper.find(id('existing-0-quantity')).setValue('3');
         await router.push('/quotations/q1');
+        await flushPromises();
 
-        expect(confirm).toHaveBeenCalledTimes(1);
+        expect(router.currentRoute.value.path).toBe(EDIT);
+        expect(wrapper.find(id('unsaved')).attributes('role')).toBe('alertdialog');
+        expect(wrapper.find(id('unsaved')).text()).toContain(en.quotations.builder.unsaved);
+
+        await wrapper.find(id('keep-editing')).trigger('click');
+        expect(wrapper.find(id('unsaved')).exists()).toBe(false);
         expect(router.currentRoute.value.path).toBe(EDIT);
 
-        confirm.mockReturnValue(true);
         await router.push('/quotations/q1');
+        await flushPromises();
+        await wrapper.find(id('discard')).trigger('click');
+        await flushPromises();
 
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
+        expect(confirm).not.toHaveBeenCalled();
     });
 });
 
@@ -1332,14 +1351,194 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
     });
 
     it('counts a changed term as an unsaved change', async () => {
-        const confirm = vi.fn().mockReturnValue(false);
-        vi.stubGlobal('confirm', confirm);
-
         const { wrapper, router } = await render(respond(), '/quotations/q1/edit');
 
         await wrapper.find(id('term-1-title')).setValue('Shipping');
         await router.push('/quotations/q1');
+        await flushPromises();
 
-        expect(confirm).toHaveBeenCalledTimes(1);
+        expect(wrapper.find(id('unsaved')).exists()).toBe(true);
+        expect(router.currentRoute.value.path).toBe('/quotations/q1/edit');
+    });
+});
+
+/**
+ * F-42 · P5 (docs/ux-upgrade/plan.md): the builder follows its route (A-01),
+ * moves focus on add and remove (A-17), removes at once with Undo (A-35),
+ * names each Remove (A-36), keeps Enter from saving mid-entry (A-37), and says
+ * the edit route's refusal and the missing total in words (A-03, A-15).
+ */
+describe('the quotation builder (F-42 · P5)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        attached.splice(0).forEach((wrapper) => wrapper.unmount());
+    });
+
+    const EDIT = '/quotations/q1/edit';
+    const DEAL_2 = { ...DEAL, id: 'd2', code: 'DL-2026-0002' };
+
+    /** `respond()`, with a second deal and whatever `extra` answers first. */
+    function respondWith(extra: (url: string) => Response | null = () => null): ReturnType<typeof vi.fn> {
+        const base = respond() as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+
+        return vi.fn(async (input: string, init?: RequestInit) => {
+            const url = String(input);
+
+            if (url.includes('/deals/d2')) {
+                return json(200, envelope(DEAL_2));
+            }
+
+            return extra(url) ?? base(input, init);
+        });
+    }
+
+    const active = (): string | null => document.activeElement?.getAttribute('data-testid') ?? null;
+
+    it('A-01: reloads when the route moves to another deal, and an edit then a create starts clean', async () => {
+        const { wrapper, router } = await render(respondWith());
+
+        await router.push('/quotations/new?deal=d2');
+        await flushPromises();
+
+        expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0002');
+
+        await router.push(EDIT);
+        await flushPromises();
+        expect(wrapper.find(id('existing-0-quantity')).exists()).toBe(true);
+
+        await router.push('/quotations/new?deal=d1');
+        await flushPromises();
+
+        expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
+        expect(wrapper.find('h1').text()).toBe(en.quotations.builder.title);
+        expect(wrapper.find(id('existing-0-quantity')).exists()).toBe(false);
+        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('');
+    });
+
+    it('A-17: Add item focuses the new row’s first field; a removed last row hands focus to Add once Undo expires', async () => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await wrapper.find(id('add-item')).trigger('click');
+        await flushPromises();
+        expect(active()).toBe('quotation-builder-item-0-description');
+
+        await wrapper.find(id('add-supplier')).trigger('click');
+        await flushPromises();
+        expect(active()).toBe('quotation-builder-supplier-0-pick');
+
+        await wrapper.find(id('add-term')).trigger('click');
+        await flushPromises();
+        expect(active()).toBe('quotation-builder-term-3-title');
+
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await wrapper.find(id('item-0-remove')).trigger('click');
+        await nextTick();
+        expect(active()).toBe('quotation-builder-undo');
+
+        vi.runAllTimers();
+        await nextTick();
+        await nextTick();
+        expect(active()).toBe('quotation-builder-add-item');
+    });
+
+    it('A-35: Remove takes the line at once; Undo brings it back with what was typed, and expiry moves focus to the next line', async () => {
+        const { wrapper } = await render(respond(), EDIT, 'en', USER, true);
+
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await wrapper.find(id('existing-0-quantity')).setValue('7');
+        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await nextTick();
+
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1.000');
+        expect(wrapper.find(id('existing-1-quantity')).exists()).toBe(false);
+        expect(wrapper.find(id('undo-bar')).attributes('role')).toBe('status');
+
+        await wrapper.find(id('undo')).trigger('click');
+        await nextTick();
+
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('7');
+        expect(wrapper.find(id('existing-1-quantity')).exists()).toBe(true);
+        expect(wrapper.find(id('undo')).exists()).toBe(false);
+
+        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await nextTick();
+        vi.runAllTimers();
+        await nextTick();
+        await nextTick();
+
+        expect(wrapper.find(id('undo')).exists()).toBe(false);
+        expect(active()).toBe('quotation-builder-existing-0-quantity');
+    });
+
+    it('A-35: changing a block’s offer clears its typed values, and Undo brings them back', async () => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await pickFirstLine(wrapper, '2');
+        await wrapper.find(id('supplier-0-pick')).setValue('');
+        await flushPromises();
+
+        expect(wrapper.find(id('line-0-0-quantity')).exists()).toBe(false);
+
+        await wrapper.find(id('undo')).trigger('click');
+        await flushPromises();
+
+        expect((wrapper.find(id('supplier-0-pick')).element as HTMLSelectElement).value).toBe('sq1');
+        expect((wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).value).toBe('2');
+    });
+
+    it('A-36: each Remove names its row — lines by number, a block by its supplier', async () => {
+        const { wrapper } = await render(respond(), EDIT);
+
+        expect(wrapper.find(id('existing-0-remove')).attributes('aria-label')).toBe('Remove line 1');
+        expect(wrapper.find(id('existing-1-remove')).attributes('aria-label')).toBe('Remove line 2');
+        expect(wrapper.find(id('item-0-remove')).attributes('aria-label')).toBe('Remove item 1');
+        expect(wrapper.find(id('term-0-remove')).attributes('aria-label')).toBe('Remove term 1');
+
+        await wrapper.find(id('add-supplier')).trigger('click');
+        expect(wrapper.find(id('supplier-0-remove')).attributes('aria-label')).toBe('Remove supplier 1');
+
+        await wrapper.find(id('supplier-0-pick')).setValue('sq1');
+        await flushPromises();
+        expect(wrapper.find(id('supplier-0-remove')).attributes('aria-label')).toBe('Remove Nile Pumps Co');
+    });
+
+    it('A-37: Enter in a line field moves to the next field and sends nothing', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock, undefined, 'en', USER, true);
+
+        await fillHeader(wrapper);
+        await pickFirstLine(wrapper, '2');
+        (wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).focus();
+        await wrapper.find(id('line-0-0-quantity')).trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+
+        expect(saves(fetchMock)).toEqual([]);
+        expect(active()).toBe('quotation-builder-line-0-0-margin_percent');
+    });
+
+    it('A-62: a block line’s margin keeps the full keyboard, so a minus can be typed (D-106)', async () => {
+        const { wrapper } = await render(respond());
+
+        await pickFirstLine(wrapper);
+
+        expect(wrapper.find(id('line-0-0-margin_percent')).attributes('inputmode')).toBeUndefined();
+    });
+
+    it('A-03: a refused edit says the quotation cannot be edited, not that a deal is missing', async () => {
+        const { wrapper } = await render(respondWith((url) => (url.endsWith('/quotations/q1') ? refusal(404, 'not_found') : null)), EDIT);
+
+        expect(wrapper.find(id('missing')).text()).toBe(en.quotations.builder.missingEdit);
+    });
+
+    it('A-15: one muted line under Save says the total appears after saving', async () => {
+        const { wrapper } = await render(respond(), undefined, 'ar');
+
+        expect(wrapper.find(id('total-note')).text()).toBe(ar.quotations.builder.totalAfterSave);
     });
 });

@@ -147,10 +147,13 @@ describe('the customer PDF on its quotation (Module 9 · 5.1)', () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('shows the refused state when the API refuses the read (Procurement, Q2)', async () => {
+    it('keeps its title and says one muted line when the API refuses the read (Procurement, Q2, A-21)', async () => {
         const wrapper = await render(server([refusal(403)]));
 
-        expect(wrapper.find('[data-testid="permission-denied-state"]').exists()).toBe(true);
+        // A-21: a section of a page the person may read — no lock, no admin prompt, no heading of its own.
+        expect(wrapper.find('h2').text()).toBe(en.pdf.panel.title);
+        expect(wrapper.find('[data-testid="pdf-unavailable"]').text()).toBe(en.pdf.panel.unavailable);
+        expect(wrapper.find('[data-testid="permission-denied-state"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="pdf-generate"]').exists()).toBe(false);
     });
 

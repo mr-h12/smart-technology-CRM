@@ -17,7 +17,9 @@
             "passwordRequired": "Enter your password.",
             "submit": "Sign in",
             "submitting": "Signing in…",
-            "noSignUp": "There is no self sign-up. Ask your manager or the system administrator for an account."
+            "noSignUp": "There is no self sign-up. Ask your manager or the system administrator for an account.",
+            "showPassword": "Show",
+            "hidePassword": "Hide"
         },
         "error": {
             "invalidCredentials": "These credentials do not match our records.",
@@ -1254,7 +1256,8 @@
             "tax": "Tax ({percent}%)",
             "additionalTotal": "Additional items",
             "rounding": "Rounding (to {unit})",
-            "finalTotal": "Final total"
+            "finalTotal": "Final total",
+            "openDeal": "Open the deal"
         },
         "builder": {
             "title": "New quotation",
@@ -1297,7 +1300,19 @@
             "conflict": "This quotation was changed by someone else — their version totals {total} {currency} ({at}). Reload to edit that version; your changes here are discarded.",
             "unsaved": "You have unsaved changes. Leave without saving?",
             "currencyNone": "Choose a currency",
-            "supplierQuotationNone": "Choose a supplier offer"
+            "supplierQuotationNone": "Choose a supplier offer",
+            "removeLine": "Remove line {no}",
+            "removeItemNo": "Remove item {no}",
+            "removeTermNo": "Remove term {no}",
+            "removeSupplierNo": "Remove supplier {no}",
+            "removeNamed": "Remove {name}",
+            "removed": "Removed.",
+            "cleared": "The values typed for that offer were cleared.",
+            "undo": "Undo",
+            "missingEdit": "This quotation cannot be edited.",
+            "totalAfterSave": "The total appears after saving.",
+            "keepEditing": "Keep editing",
+            "discard": "Discard changes"
         },
         "terms": {
             "heading": "Terms and conditions",
@@ -1316,7 +1331,7 @@
         "title": "Purchase Orders",
         "loading": "Loading the purchase orders…",
         "search": "Search",
-        "searchPlaceholder": "PO number or the customer's reference",
+        "searchPlaceholder": "PO number or the customer's reference, e.g. PO-2026-0001…",
         "apply": "Search",
         "column": {
             "poNumber": "PO number",
@@ -1387,7 +1402,8 @@
             "downloading": "Downloading…",
             "generateForbidden": "You do not have permission to generate this quotation's PDF.",
             "generateFailed": "The PDF could not be requested. Try again.",
-            "downloadFailed": "The PDF could not be downloaded. Try again."
+            "downloadFailed": "The PDF could not be downloaded. Try again.",
+            "unavailable": "This section is not available to you."
         }
     }
 }

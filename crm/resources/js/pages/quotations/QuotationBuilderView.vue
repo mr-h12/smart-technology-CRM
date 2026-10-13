@@ -75,9 +75,9 @@
  * quotations are each read as one page of 100. The delivery terms are one page
  * of 25, as the catalog's lists are.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter, type RouteLocationNormalized } from 'vue-router';
 import { ApiError, collection, type Page } from '@/api';
 import { entryLabel, listCurrencies, listEntries, type Currency, type ListEntry } from '@/services/admin';
 import SearchCombobox from '@/components/SearchCombobox.vue';
@@ -166,16 +166,21 @@ const failed = ref(false);
 const denied = ref(false);
 const missing = ref(false);
 
-const header = ref<Record<HeaderField, string>>({
-    currency: '', default_margin: '', discount_percent: '0', tax_percent: '',
-    quotation_date: '', valid_until: '',
-});
+function blankHeader(): Record<HeaderField, string> {
+    return { currency: '', default_margin: '', discount_percent: '0', tax_percent: '', quotation_date: '', valid_until: '' };
+}
+
+const header = ref<Record<HeaderField, string>>(blankHeader());
 /** The three ready terms' keys; Point 6.8's recent terms are read per key, and a chip copies one into that term's text. */
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 /** `D-103`'s cap. */
 const MAX_TERMS = 15;
 /** `D-103`: the terms as typed, in their printed order; a new quotation opens on the three ready ones. */
-const terms = ref<Array<{ key: TermField | null; title: string; body: string }>>(TERM_FIELDS.map((key) => ({ key, title: '', body: '' })));
+function readyTerms(): Array<{ key: TermField | null; title: string; body: string }> {
+    return TERM_FIELDS.map((key) => ({ key, title: '', body: '' }));
+}
+
+const terms = ref(readyTerms());
 const suggestions = ref<Record<TermField, string[]>>({ payment_terms: [], warranty: [], delivery_terms: [] });
 
 /** F-32 — the registered delivery terms (`DB-05`); empty when none exist or the list could not be read. */
@@ -271,6 +276,15 @@ function catalogLabel(id: string): string {
     const item = catalog.value.find((candidate) => candidate.id === id);
 
     return item?.name ?? item?.service_type ?? id;
+}
+
+/** A-36: a block's Remove names its supplier once an offer is picked, its number before. */
+function removeBlockLabel(block: Block, b: number): string {
+    const offer = offers.value.find((candidate) => candidate.id === block.supplierQuotationId);
+
+    return offer === undefined
+        ? t('quotations.builder.removeSupplierNo', { no: b + 1 })
+        : t('quotations.builder.removeNamed', { name: supplierName(offer.supplier_id) });
 }
 
 function offerLabel(offer: SupplierQuotation): string {
@@ -443,12 +457,66 @@ async function loadOffers(): Promise<void> {
     }
 }
 
+/** A-17: focus the first of these fields that exists, once the DOM has caught up. */
+async function focusField(...keys: string[]): Promise<void> {
+    await nextTick();
+
+    for (const key of keys) {
+        const field = form.value?.querySelector<HTMLElement>(`#${fieldId(key)}`);
+
+        if (field) {
+            field.focus();
+
+            return;
+        }
+    }
+}
+
+/** A-35: how long a removal can be undone. */
+const UNDO_MS = 6000;
+
+/** A-35: the last removal; a newer one makes the older final. `next` and `fallback` are A-17's focus rule. */
+const undo = ref<{ message: string; restore: () => void; next: string; fallback: string } | null>(null);
+let undoTimer: ReturnType<typeof setTimeout> | undefined;
+
+function removed(message: string, restore: () => void, next: string, fallback: string): void {
+    clearTimeout(undoTimer);
+    undo.value = { message, restore, next, fallback };
+    undoTimer = setTimeout(expireUndo, UNDO_MS);
+    void focusField('undo');
+}
+
+function expireUndo(): void {
+    const pending = undo.value;
+    // A-17 only while focus is still on the bar: a person who moved on keeps their place.
+    const onBar = document.activeElement?.closest('[data-testid="quotation-builder-undo-bar"]') != null;
+
+    undo.value = null;
+
+    if (pending !== null && onBar) {
+        void focusField(pending.next, pending.fallback);
+    }
+}
+
+function restoreRemoved(): void {
+    const pending = undo.value;
+
+    clearTimeout(undoTimer);
+    undo.value = null;
+
+    if (pending !== null) {
+        pending.restore();
+        void focusField(pending.next);
+    }
+}
+
 function addBlock(supplierQuotationId = ''): void {
     if (!canAddSupplier.value) {
         return;
     }
 
     blocks.value.push({ supplierQuotationId, detail: null, quantities: [], margins: [], loading: false, error: '' });
+    void focusField(`supplier-${blocks.value.length - 1}-pick`);
 
     if (supplierQuotationId !== '') {
         void pickOffer(blocks.value.length - 1);
@@ -456,7 +524,9 @@ function addBlock(supplierQuotationId = ''): void {
 }
 
 function removeBlock(index: number): void {
-    blocks.value.splice(index, 1);
+    const [block] = blocks.value.splice(index, 1);
+
+    removed('quotations.builder.removed', () => { blocks.value.splice(index, 0, block as Block); }, `supplier-${index}-pick`, 'add-supplier');
 }
 
 async function pickOffer(index: number): Promise<void> {
@@ -464,6 +534,15 @@ async function pickOffer(index: number): Promise<void> {
 
     if (block === undefined) {
         return;
+    }
+
+    const before = { detail: block.detail, quantities: block.quantities, margins: block.margins };
+
+    // A-35: an offer change drops what was typed against the old one, so it can be undone too.
+    if (before.detail !== null && [...before.quantities, ...before.margins].some((value) => value.trim() !== '')) {
+        removed('quotations.builder.cleared', () => {
+            Object.assign(block, { supplierQuotationId: before.detail?.id ?? '', ...before });
+        }, `supplier-${index}-pick`, 'add-supplier');
     }
 
     block.detail = null;
@@ -499,10 +578,24 @@ function onOfferSaved(offer: SupplierQuotation): void {
 
 function addItem(): void {
     items.value.push({ description: '', amount: '' });
+    void focusField(`item-${items.value.length - 1}-description`);
 }
 
 function removeItem(index: number): void {
-    items.value.splice(index, 1);
+    const [item] = items.value.splice(index, 1);
+
+    removed('quotations.builder.removed', () => { items.value.splice(index, 0, item as { description: string; amount: string }); }, `item-${index}-description`, 'add-item');
+}
+
+function addTerm(): void {
+    terms.value.push({ key: null, title: '', body: '' });
+    void focusField(`term-${terms.value.length - 1}-title`);
+}
+
+function removeTerm(index: number): void {
+    const [term] = terms.value.splice(index, 1);
+
+    removed('quotations.builder.removed', () => { terms.value.splice(index, 0, term as (typeof terms.value)[number]); }, `term-${index}-title`, 'add-term');
 }
 
 function termError(index: number): string | null {
@@ -517,7 +610,24 @@ function orNull(value: string): string | null {
 }
 
 function removeExisting(index: number): void {
-    existing.value.splice(index, 1);
+    const [line] = existing.value.splice(index, 1);
+
+    removed('quotations.builder.removed', () => { existing.value.splice(index, 0, line as ExistingLine); }, `existing-${index}-quantity`, 'add-supplier');
+}
+
+/** A-37: Enter in a line's field steps to the next field; only Save submits. */
+function nextField(event: KeyboardEvent): void {
+    const target = event.target;
+
+    if (!(target instanceof HTMLInputElement) || target.closest('.line-grid') === null) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const fields = [...(form.value?.querySelectorAll<HTMLElement>('input, select, textarea, button:not([disabled])') ?? [])];
+
+    fields[fields.indexOf(target) + 1]?.focus();
 }
 
 function draft(): QuotationDraft {
@@ -665,8 +775,74 @@ async function save(): Promise<void> {
     }
 }
 
-/** `Design System §5.2`: leaving a builder with unsaved changes asks first. */
-onBeforeRouteLeave(() => !dirty.value || window.confirm(t('quotations.builder.unsaved')));
+/**
+ * `Design System §5.2`: leaving a builder with unsaved changes asks first —
+ * A-61: in the page, as the supplier dialog asks, because `window.confirm` is
+ * neither translated nor RTL. The route waits in `leaving` until the answer.
+ */
+const leaving = ref<string | null>(null);
+const keepEditingButton = ref<HTMLButtonElement | null>(null);
+
+function guardLeave(to: RouteLocationNormalized): boolean {
+    if (!dirty.value) {
+        return true;
+    }
+
+    leaving.value = to.fullPath;
+    void nextTick(() => keepEditingButton.value?.focus());
+
+    return false;
+}
+
+onBeforeRouteLeave(guardLeave);
+onBeforeRouteUpdate(guardLeave);
+
+async function discardChanges(): Promise<void> {
+    const to = leaving.value;
+
+    leaving.value = null;
+    opened.value = '';
+
+    if (to !== null) {
+        await router.push(to);
+    }
+}
+
+/**
+ * A-01: one instance serves all three builder routes (the router reuses it), so
+ * a move between them starts from blank, as a fresh page would.
+ */
+const BUILDER_ROUTES = ['quotation-new', 'quotation-edit', 'quotation-edit-and-approve'];
+
+function reset(): void {
+    dealId.value = String(route.query.deal ?? '');
+    deal.value = null;
+    customer.value = null;
+    header.value = blankHeader();
+    terms.value = readyTerms();
+    existing.value = [];
+    blocks.value = [];
+    items.value = [];
+    etag.value = '';
+    quotationCode.value = '';
+    conflict.value = null;
+    opened.value = '';
+    saved.value = null;
+    createdId.value = null;
+    formError.value = '';
+    fieldErrors.value = new Map();
+    lineWarnings.value = new Map();
+    idempotencyKey = crypto.randomUUID();
+    clearTimeout(undoTimer);
+    undo.value = null;
+}
+
+watch(() => route.fullPath, () => {
+    if (BUILDER_ROUTES.includes(String(route.name))) {
+        reset();
+        void load();
+    }
+});
 
 function onBeforeUnload(event: BeforeUnloadEvent): void {
     if (dirty.value) {
@@ -675,7 +851,10 @@ function onBeforeUnload(event: BeforeUnloadEvent): void {
 }
 
 window.addEventListener('beforeunload', onBeforeUnload);
-onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload));
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    clearTimeout(undoTimer);
+});
 
 function fieldId(field: string): string {
     return `quotation-builder-${field}`;
@@ -692,10 +871,10 @@ onMounted(load);
 
         <!-- One state, one sentence: never which of the two reasons applies. -->
         <p v-else-if="missing" class="form-alert rounded-lg p-3" role="alert" data-testid="quotation-builder-missing">
-            {{ t('quotations.builder.missing') }}
+            {{ t(editing ? 'quotations.builder.missingEdit' : 'quotations.builder.missing') }}
         </p>
 
-        <form v-else-if="deal !== null" ref="form" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save">
+        <form v-else-if="deal !== null" ref="form" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save" @keydown.enter="nextField">
             <header class="flex flex-wrap items-center justify-between gap-3">
                 <h1 class="text-page-title">{{ editing ? t('quotations.builder.editTitle', { code: quotationCode }) : t('quotations.builder.title') }}</h1>
                 <p class="flex flex-wrap items-center gap-2">
@@ -833,6 +1012,7 @@ onMounted(load);
                         </label>
                         <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-margin_percent`)">
                             <span>{{ t('quotations.builder.lineMargin') }}</span>
+                            <!-- A-62: text with no inputmode — a margin may be negative (D-106), and a decimal keypad has no minus on iOS. -->
                             <input
                                 :id="fieldId(`existing-${i}-margin_percent`)"
                                 v-model="line.margin"
@@ -843,7 +1023,7 @@ onMounted(load);
                                 :data-testid="fieldId(`existing-${i}-margin_percent`)"
                             />
                         </label>
-                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`existing-${i}-remove`)" @click="removeExisting(i)">
+                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeLine', { no: line.line_no })" :data-testid="fieldId(`existing-${i}-remove`)" @click="removeExisting(i)">
                             {{ t('quotations.builder.removeItem') }}
                         </button>
                         <p v-if="lineError(`existing-${i}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`existing-${i}-error`)" :data-testid="fieldId(`existing-${i}-error`)">
@@ -874,6 +1054,7 @@ onMounted(load);
                                 class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                                 :disabled="!canAddSupplier"
                                 :title="canAddSupplier ? undefined : t('quotations.builder.supplierCap', { max: MAX_SUPPLIERS })"
+                                :id="fieldId('add-supplier')"
                                 data-testid="quotation-builder-add-supplier"
                                 @click="addBlock()"
                             >
@@ -899,7 +1080,7 @@ onMounted(load);
                                     <option v-for="offer in offers" :key="offer.id" :value="offer.id">{{ offerLabel(offer) }}</option>
                                 </select>
                             </label>
-                            <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`supplier-${b}-remove`)" @click="removeBlock(b)">
+                            <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="removeBlockLabel(block, b)" :data-testid="fieldId(`supplier-${b}-remove`)" @click="removeBlock(b)">
                                 {{ t('quotations.builder.removeSupplier') }}
                             </button>
                         </div>
@@ -927,7 +1108,6 @@ onMounted(load);
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        :placeholder="displayQuantity(item.available_quantity)"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
                                         :aria-describedby="lineError(`line-${b}-${l}`) !== null ? fieldId(`line-${b}-${l}-error`) : undefined"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
@@ -936,6 +1116,7 @@ onMounted(load);
                                 </label>
                                 <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-margin_percent`)">
                                     <span>{{ t('quotations.builder.lineMargin') }}</span>
+                                    <!-- A-62: as on an existing line — no inputmode, so a minus can be typed. -->
                                     <input
                                         :id="fieldId(`line-${b}-${l}-margin_percent`)"
                                         v-model="block.margins[l]"
@@ -962,7 +1143,7 @@ onMounted(load);
                 <section class="flex flex-col gap-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
-                        <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
+                        <button :id="fieldId('add-item')" type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
                             + {{ t('quotations.builder.addItem') }}
                         </button>
                     </div>
@@ -996,7 +1177,7 @@ onMounted(load);
                                 :data-testid="fieldId(`item-${i}-amount`)"
                             />
                         </label>
-                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
+                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeItemNo', { no: i + 1 })" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
                             {{ t('quotations.builder.removeItem') }}
                         </button>
                         <p v-if="itemError(i) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
@@ -1015,8 +1196,9 @@ onMounted(load);
                             type="button"
                             class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                             :disabled="terms.length >= MAX_TERMS"
+                            :id="fieldId('add-term')"
                             :data-testid="fieldId('add-term')"
-                            @click="terms.push({ key: null, title: '', body: '' })"
+                            @click="addTerm"
                         >
                             + {{ t('quotations.terms.add') }}
                         </button>
@@ -1039,7 +1221,7 @@ onMounted(load);
                                     :data-testid="fieldId(`term-${i}-title`)"
                                 />
                             </label>
-                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :data-testid="fieldId(`term-${i}-remove`)" @click="terms.splice(i, 1)">
+                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTermNo', { no: i + 1 })" :data-testid="fieldId(`term-${i}-remove`)" @click="removeTerm(i)">
                                 {{ t('quotations.builder.removeItem') }}
                             </button>
                         </div>
@@ -1099,21 +1281,49 @@ onMounted(load);
                     </div>
                 </section>
 
-                <div v-if="!frozen" class="flex flex-wrap gap-2">
-                    <button
-                        type="submit"
-                        class="save-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
-                        :disabled="saving"
-                        data-testid="quotation-builder-save"
-                    >
-                        {{ saving ? t('quotations.builder.saving') : t(approving ? 'quotations.builder.editAndApprove' : editing ? 'quotations.builder.update' : 'quotations.builder.save') }}
-                    </button>
-                    <RouterLink
-                        :to="editing ? { name: 'quotation-detail', params: { id: quotationId } } : { name: 'deal-detail', params: { id: deal.id } }"
-                        class="row-action inline-flex min-h-11 items-center rounded-lg px-3"
-                    >
-                        {{ editing ? t('quotations.builder.cancelEdit') : t('quotations.builder.cancel') }}
-                    </RouterLink>
+                <!-- A-20: Save stays in view on a long draft. -->
+                <div class="action-bar flex flex-col gap-2 py-3" data-testid="quotation-builder-actions">
+                    <!-- A-35: always present, so the removal is announced when its words arrive. -->
+                    <div role="status" class="empty:hidden" data-testid="quotation-builder-undo-bar">
+                        <p v-if="undo !== null" class="flex flex-wrap items-center gap-3">
+                            <span>{{ t(undo.message) }}</span>
+                            <button :id="fieldId('undo')" type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-undo" @click="restoreRemoved">
+                                {{ t('quotations.builder.undo') }}
+                            </button>
+                        </p>
+                    </div>
+
+                    <!-- A-61: the unsaved-change question, in the page's language and direction. -->
+                    <div v-if="leaving !== null" class="form-alert rounded-lg p-3" role="alertdialog" aria-labelledby="quotation-builder-unsaved-title" data-testid="quotation-builder-unsaved">
+                        <p id="quotation-builder-unsaved-title">{{ t('quotations.builder.unsaved') }}</p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button ref="keepEditingButton" type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-keep-editing" @click="leaving = null">
+                                {{ t('quotations.builder.keepEditing') }}
+                            </button>
+                            <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-discard" @click="discardChanges">
+                                {{ t('quotations.builder.discard') }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="!frozen" class="flex flex-wrap gap-2">
+                        <button
+                            type="submit"
+                            class="save-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="saving"
+                            data-testid="quotation-builder-save"
+                        >
+                            {{ saving ? t('quotations.builder.saving') : t(approving ? 'quotations.builder.editAndApprove' : editing ? 'quotations.builder.update' : 'quotations.builder.save') }}
+                        </button>
+                        <RouterLink
+                            :to="editing ? { name: 'quotation-detail', params: { id: quotationId } } : { name: 'deal-detail', params: { id: deal.id } }"
+                            class="row-action inline-flex min-h-11 items-center rounded-lg px-3"
+                        >
+                            {{ editing ? t('quotations.builder.cancelEdit') : t('quotations.builder.cancel') }}
+                        </RouterLink>
+                    </div>
+                    <!-- A-15: the server prices the draft (D-67); nothing here computes a figure. -->
+                    <p v-if="!frozen" class="text-[var(--color-text-muted)]" data-testid="quotation-builder-total-note">{{ t('quotations.builder.totalAfterSave') }}</p>
                 </div>
             </fieldset>
         </form>
@@ -1136,11 +1346,11 @@ onMounted(load);
     border: 1px solid var(--color-border);
 }
 
-/* One line: label, quantity, margin; its note spans the row. `§4.3`: one column under 640px. */
+/* One line: label, quantity, margin, Remove (A-60); its note spans the row. `§4.3`: one column under 640px. */
 .line-grid {
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: minmax(10rem, 2fr) minmax(7rem, 1fr) minmax(7rem, 1fr);
+    grid-template-columns: minmax(10rem, 2fr) minmax(7rem, 1fr) minmax(7rem, 1fr) auto;
     align-items: end;
 }
 
@@ -1186,6 +1396,19 @@ onMounted(load);
 .row-link {
     color: var(--color-primary);
     text-decoration: underline;
+}
+
+/* A-20: sticky at the viewport's foot; the page's scroll padding keeps a focused field above it. */
+.action-bar {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 10;
+    background-color: var(--color-canvas);
+    border-block-start: 1px solid var(--color-border);
+}
+
+:global(html:has([data-testid='quotation-builder-actions'])) {
+    scroll-padding-block-end: 10rem;
 }
 
 .save-action {

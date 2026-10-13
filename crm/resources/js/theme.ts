@@ -28,11 +28,20 @@ export function applyTheme(theme: Theme): void {
         // §3.1 again: the default is :root, so choosing it means removing the
         // attribute rather than setting it to a value tokens.css never matches.
         document.documentElement.removeAttribute('data-theme');
-
-        return;
+    } else {
+        document.documentElement.setAttribute('data-theme', theme);
     }
 
-    document.documentElement.setAttribute('data-theme', theme);
+    syncThemeColor();
+}
+
+/** A-66 (SH-48): the phone's browser bar takes the surface the context bar draws, from tokens.css. */
+export function syncThemeColor(): void {
+    const surface = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim();
+
+    if (surface !== '') {
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', surface);
+    }
 }
 
 export function currentTheme(): Theme {

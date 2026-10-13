@@ -122,6 +122,7 @@ function onBackdrop(): void {
     </Transition>
 
     <aside
+        id="app-sidebar"
         :class="[
             'app-sidebar z-40 flex shrink-0 flex-col border-e bg-[var(--color-surface)]',
             'border-[var(--color-border)] shadow-[var(--shadow-2)] lg:shadow-none',
@@ -184,14 +185,16 @@ function onBackdrop(): void {
         <!-- ── Navigation ────────────────────────────────────────────────── -->
         <nav class="app-sidebar__scroll flex-1 overflow-y-auto px-2 py-3">
             <div v-for="group in groups" :key="group.labelKey" class="mb-5 last:mb-0">
+                <!-- A-66 (SH-52): the list carries the group's name; the visible label is its echo. -->
                 <p
                     v-if="!props.collapsed"
+                    aria-hidden="true"
                     class="app-sidebar__group px-3 pb-2 text-start text-table text-[var(--color-text-muted)] uppercase"
                 >
                     {{ t(group.labelKey) }}
                 </p>
 
-                <ul class="flex flex-col gap-1">
+                <ul class="flex flex-col gap-1" :aria-label="t(group.labelKey)">
                     <li v-for="item in group.items" :key="item.name">
                         <RouterLink
                             :to="{ name: item.name }"

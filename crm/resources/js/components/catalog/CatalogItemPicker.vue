@@ -13,6 +13,9 @@
  * empties the choice, and the form shows its name box. The label is a model of
  * its own because the form's rows are keyed by index, so the name lives on the
  * line, not in this instance. Attributes fall through to the input.
+ *
+ * A-27: the list opens in the flow, not floated — its one caller is the supplier
+ * dialog, and a dialog that scrolls clipped the floating list (measured 2026-10-13).
  */
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -68,7 +71,6 @@ function picked(item: Option | null): void {
         :leading="{ label: t('catalog.picker.byName'), selected: model === '' }"
         :display="display"
         :placeholder="t('catalog.picker.placeholder')"
-        floating
         @pick="picked"
     >
         <template #option="{ item }">{{ item.name }}</template>

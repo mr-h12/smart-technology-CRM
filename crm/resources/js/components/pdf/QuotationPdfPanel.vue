@@ -16,7 +16,6 @@ import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
-import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { downloadFile } from '@/services/files';
 import { readQuotationPdf, requestQuotationPdf, type PdfLocale, type QuotationPdfState } from '@/services/pdf';
 import { useAuth } from '@/stores/auth';
@@ -174,7 +173,8 @@ onBeforeUnmount(() => {
         <h2 class="text-card-title">{{ t('pdf.panel.title') }}</h2>
 
         <LoadingState v-if="loading" label-key="pdf.panel.loading" />
-        <PermissionDeniedState v-else-if="denied" />
+        <!-- A-21: a section of a page the person may read — one muted line, no lock, no heading of its own. -->
+        <p v-else-if="denied" class="text-[var(--color-text-muted)]" data-testid="pdf-unavailable">{{ t('pdf.panel.unavailable') }}</p>
         <ErrorState v-else-if="failed" @retry="load" />
 
         <template v-else>

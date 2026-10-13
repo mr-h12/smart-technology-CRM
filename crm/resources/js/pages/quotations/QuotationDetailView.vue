@@ -352,6 +352,8 @@ onMounted(refresh);
                     </span>
                     <QuotationStatusChip :status="quotation.status" />
                     <SelfApprovedBadge v-if="quotation.is_self_approved" />
+                    <!-- A-56: the final total beside the code; the totals block below stays the full account. -->
+                    <span class="whitespace-nowrap font-semibold tabular-nums" data-testid="quotation-detail-header-total">{{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}</span>
                 </p>
             </header>
 
@@ -387,7 +389,8 @@ onMounted(refresh);
             <dl class="detail-grid rounded-xl p-4" data-testid="quotation-detail-summary">
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.column.customer') }}</dt>
-                    <dd data-testid="quotation-detail-customer">{{ customer?.name ?? quotation.customer_id }}</dd>
+                    <!-- A-18: a name or «—», never the uuid. -->
+                    <dd data-testid="quotation-detail-customer">{{ text(customer?.name) }}</dd>
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.deal') }}</dt>
@@ -397,7 +400,7 @@ onMounted(refresh);
                             class="row-link"
                             data-testid="quotation-detail-deal"
                         >
-                            {{ quotation.deal_id }}
+                            {{ t('quotations.detail.openDeal') }}
                         </RouterLink>
                     </dd>
                 </div>

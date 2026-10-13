@@ -306,3 +306,20 @@ describe('AppSidebar — the closed drawer', () => {
         expect(aside.attributes('inert') !== undefined).toBe(inert);
     });
 });
+
+describe('AppSidebar landmarks (A-66)', () => {
+    beforeEach(() => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('{"data":{}}', { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    });
+
+    it.each([true, false])('SH-52: names each group’s list by its label when collapsed is %s', (collapsed) => {
+        const lists = mountSidebar(collapsed).findAll('nav ul');
+
+        expect(lists.length).toBeGreaterThan(0);
+        expect(lists.filter((list) => (list.attributes('aria-label') ?? '').trim() === '')).toEqual([]);
+    });
+
+    it('SH-24: the drawer carries the id the menu button controls', () => {
+        expect(mountSidebar(false).find('aside').attributes('id')).toBe('app-sidebar');
+    });
+});

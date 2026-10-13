@@ -4281,7 +4281,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and vitest), joined with 1.7 by the owner, 2026-10-13.
             *(2026-10-13, #343 — `filter[owner]` only narrows the row scope; `GET /deals/owners` returns `data.items` sorted by name, unpaginated; the six filters share one width (owner))*
       - [x] **1.8** The Arabic manual test list; closes F-41.
-            *(2026-10-13 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
+            *(2026-10-13, #344 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
 
       #### قائمة الاختبار اليدوي — F-41 كاملة *(النقطة 1.8، 2026-10-13)*
 
@@ -4519,11 +4519,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.45 A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
             · 5.46 A-66, without its deals items.
       **Step 15 — after F-41 · 1.8.**
-      - [ ] **5.47** A-19 and A-58: the phone deals list and the details trigger.
-      - [ ] **5.48** A-29 and A-53: unique ids per row and the deal header.
-      - [ ] **5.49** A-18's timeline and A-66's deals items (DC-55, DC-69).
-      - [ ] **5.50** The deals-screen part of every `plan.md` §1 row marked "after F-41". Split into its own point
-            list when F-41 · 1.8 closes (about 22 Browser lines), published for approval then.
+      **Regrouped 2026-10-13 (owner): Step 15's 5.47–5.50 run as one point P6; each row keeps its own
+      failing test and its own line in the report. Open with `/next-point f-42 P6`.**
+      - [ ] **P6** The deals screens, after F-41.
+            · 5.47 A-19 and A-58: the phone deals list and the details trigger.
+            · 5.48 A-29 and A-53: unique ids per row and the deal header.
+            · 5.49 A-18's timeline and A-66's deals items (DC-55, DC-69).
+            · 5.50 The deals-screen part of every `plan.md` §1 row marked "after F-41" (about 22 browser lines).
 
 ## Shell revisions — owner-directed
 

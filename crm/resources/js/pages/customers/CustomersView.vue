@@ -28,13 +28,12 @@
  * addresses a different set of rows, so keeping it shows the user a page they
  * never asked for.
  *
- * ── Two date columns, formatted two different ways, deliberately ───────────
+ * ── Two date columns, one form ─────────────────────────────────────────────
  *
- * `created_at` is a UTC timestamp and `DB-08` says timestamps are stored in UTC
- * and displayed in the user's timezone — hence `toLocaleDateString`.
- * `start_date` is a calendar date (§4.2, "First engagement"), which has no
- * timezone: passing it through a `Date` would place it at UTC midnight and show
- * the day before to anyone west of Greenwich. It is printed as it was stored.
+ * `created_at` is a UTC timestamp, shown in the reader's timezone (`DB-08`);
+ * `start_date` is a calendar date (§4.2, "First engagement") with no timezone,
+ * which must never shift a day. `displayDate` tells the two apart and draws
+ * both in one day-first form with Western digits (F-42 · A-06).
  *
  * ── Three roles will see the empty state, and that is the backend's ────────
  *
@@ -68,6 +67,9 @@ import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue
 import { listEntries, type ListEntry } from '@/services/admin';
 import { archiveCustomer, assignCustomers, contactLine, importCustomers, listCustomers, restoreCustomer, type Customer, type Pagination } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
+import { useListQuery } from '@/components/useListQuery';
+import { usePause } from '@/components/usePause';
+import { displayDate } from '@/domain/displayDate';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 // ponytail: reused where it lives. It is already generic and text-driven — its
 // own docblock says so — and moving it to a shared folder would edit Module 1's
@@ -106,15 +108,20 @@ const denied = ref(false);
 const sectors = ref<ListEntry[]>([]);
 const titles = ref<ListEntry[]>([]);
 
-const page = ref(1);
-const search = ref('');
-const statusFilter = ref('');
-const sectorFilter = ref('');
-const incompleteOnly = ref(false);
-const ownerInactiveOnly = ref(false);
-/** `CustomerListCriteria::DEFAULT_SORT`. */
-const sortField = ref<string>('name');
-const sortDescending = ref(false);
+/** F-42 · A-13: every control below starts from the address and writes back to it. */
+const address = useListQuery();
+const arrivedPage = Number.parseInt(address.arrived('page'), 10);
+const page = ref(arrivedPage > 1 ? arrivedPage : 1);
+const search = ref(address.arrived('q'));
+const statusFilter = ref(address.arrived('status'));
+const sectorFilter = ref(address.arrived('sector'));
+const incompleteOnly = ref(address.arrived('incomplete') === 'true');
+const ownerInactiveOnly = ref(address.arrived('owner_inactive') === 'true');
+/** `CustomerListCriteria::DEFAULT_SORT`; an undeclared field from the address would be a 400. */
+const arrivedSort = address.arrived('sort');
+const arrivedField = ['name', 'start_date', 'created_at'].find((field) => field === arrivedSort.replace(/^-/, ''));
+const sortField = ref<string>(arrivedField ?? 'name');
+const sortDescending = ref(arrivedField !== undefined && arrivedSort.startsWith('-'));
 
 const auth = useAuth();
 
@@ -132,7 +139,7 @@ const editing = ref<Customer | null>(null);
  * reads `$filters['is_archived'] ?? false`, so absence *is* `false` and there
  * is no "show me both" for a third position to ask for.
  */
-const archivedFilter = ref<'active' | 'archived'>('active');
+const archivedFilter = ref<'active' | 'archived'>(address.arrived('archived') === 'true' ? 'archived' : 'active');
 const archivedOnly = computed(() => archivedFilter.value === 'archived');
 
 /** §3.3 writes `archive / restore` as one merged row — one permission, both directions. */
@@ -205,6 +212,26 @@ const filtering = computed(
 /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
 const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortField.value}`);
 
+address.keep(() => ({
+    q: search.value,
+    status: statusFilter.value,
+    sector: sectorFilter.value,
+    incomplete: incompleteOnly.value,
+    owner_inactive: ownerInactiveOnly.value,
+    archived: archivedOnly.value,
+    sort: sortParameter.value === 'name' ? '' : sortParameter.value,
+    page: page.value > 1 ? page.value : '',
+}));
+
+/** A-49: the search box applies after the pickers' pause; the other controls on change. */
+const pause = usePause(() => void applyFilters());
+
+/** A-14: a reload after the first keeps the table, dimmed and busy. */
+const updating = computed(() => loading.value && pagination.value !== null);
+
+/** A-48: the filters show once there is something to filter, and never to a refused caller. */
+const showFilters = computed(() => !denied.value && (customers.value.length > 0 || filtering.value));
+
 async function load(): Promise<void> {
     loading.value = true;
     failed.value = false;
@@ -273,6 +300,7 @@ async function loadTitles(): Promise<void> {
 
 /** Any change to the question invalidates the page number, for `sortBy`'s reason. */
 async function applyFilters(): Promise<void> {
+    pause.cancel();
     page.value = 1;
     actionMessage.value = '';
     await load();
@@ -295,7 +323,12 @@ async function sortBy(field: string): Promise<void> {
     await load();
 }
 
+/** The pager stays enabled while a page loads, so the focus stays on it (A-14); a second click waits. */
 async function goToPage(target: number): Promise<void> {
+    if (loading.value) {
+        return;
+    }
+
     page.value = target;
     await load();
 }
@@ -326,11 +359,6 @@ function statusLabel(code: string): string {
     const key = `customers.status.${code}`;
 
     return te(key) ? t(key) : code;
-}
-
-/** `DB-08` — stored UTC, shown in the reader's own timezone. */
-function addedOn(timestamp: string): string {
-    return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
 function startCreate(): void {
@@ -541,7 +569,7 @@ onMounted(async () => {
 
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a
              declared parameter and nothing narrows anything in the browser. -->
-        <form class="flex flex-wrap items-end gap-3" data-testid="customers-search-form" @submit.prevent="applyFilters">
+        <form v-if="showFilters" class="flex flex-wrap items-end gap-3" data-testid="customers-search-form" @submit.prevent="applyFilters">
             <label class="flex flex-col gap-1.5">
                 <span>{{ t('customers.filter.search') }}</span>
                 <input
@@ -549,16 +577,9 @@ onMounted(async () => {
                     type="search"
                     class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="customers-search"
+                    @input="pause.restart()"
                 />
             </label>
-
-            <button
-                type="submit"
-                class="row-action min-h-11 rounded-lg px-3"
-                data-testid="customers-search-submit"
-            >
-                {{ t('customers.filter.searchAction') }}
-            </button>
 
             <label class="flex flex-col gap-1.5">
                 <span>{{ t('customers.filter.status') }}</span>
@@ -639,7 +660,12 @@ onMounted(async () => {
             {{ typeof actionMessage === 'string' ? actionMessage : t(actionMessage.key, { count: actionMessage.count }) }}
         </p>
 
-        <LoadingState v-if="loading" label-key="customers.loading" />
+        <!-- A-14: present from the start, so the change is announced. -->
+        <p role="status" :class="updating ? 'text-[var(--color-text-muted)]' : 'sr-only'" data-testid="customers-updating">
+            {{ updating ? t('state.updating') : '' }}
+        </p>
+
+        <LoadingState v-if="loading && pagination === null" label-key="customers.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
         <!-- "You have no customers" and "nothing matched" are different
@@ -694,11 +720,16 @@ onMounted(async () => {
                 </template>
             </div>
 
-            <div class="table-frame overflow-x-auto rounded-xl">
+            <div
+                class="table-frame overflow-x-clip rounded-xl transition-opacity"
+                :class="{ 'opacity-50': loading }"
+                :aria-busy="loading"
+                data-testid="customers-table-frame"
+            >
             <table class="w-full text-table" data-testid="customers-table">
                 <!-- §6.5: a sticky header on long lists. The block axis does not
                      mirror, so `top` is correct in both directions. -->
-                <thead class="sticky top-0">
+                <thead class="sticky-head">
                     <tr class="table-head">
                         <!-- Flow 7 gives select-all to *Restore*, so the column
                              exists only where there is something to restore. -->
@@ -771,7 +802,7 @@ onMounted(async () => {
                                 data-testid="customers-select-row"
                             />
                         </td>
-                        <td class="p-3">
+                        <td class="min-w-0 break-words p-3">
                             <!-- Point 4.4 registered the detail route, so the
                                  name resolves. `navigation.ts`'s rule is why it
                                  was plain text until then. -->
@@ -793,9 +824,13 @@ onMounted(async () => {
                         <td class="hidden p-3 md:table-cell" data-testid="customers-contact">{{ contactLine(customer, titles, locale, t('customers.contactTitleShort')) }}</td>
                         <!-- D-70: Inter draws Western digits in both locales;
                              tabular-nums keeps a column of figures aligned. -->
-                        <td class="hidden p-3 tabular-nums md:table-cell">{{ customer.phone ?? '—' }}</td>
-                        <td class="hidden p-3 tabular-nums lg:table-cell">{{ customer.start_date ?? '—' }}</td>
-                        <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(customer.created_at) }}</td>
+                        <!-- A-07: a phone keeps its digit order inside Arabic text. -->
+                        <td class="hidden p-3 tabular-nums md:table-cell" data-testid="customers-phone">
+                            <bdi v-if="customer.phone" dir="ltr">{{ customer.phone }}</bdi>
+                            <template v-else>—</template>
+                        </td>
+                        <td class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(customer.start_date, locale) }}</td>
+                        <td class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(customer.created_at, locale) }}</td>
                         <td v-if="canEdit || canArchive" class="p-3">
                             <div class="flex flex-wrap gap-2">
                                 <button
@@ -852,7 +887,7 @@ onMounted(async () => {
             <button
                 type="button"
                 class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!pagination.has_previous_page || loading"
+                :disabled="!pagination.has_previous_page"
                 data-testid="customers-previous"
                 @click="goToPage(pagination.page - 1)"
             >
@@ -866,7 +901,7 @@ onMounted(async () => {
             <button
                 type="button"
                 class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!pagination.has_next_page || loading"
+                :disabled="!pagination.has_next_page"
                 data-testid="customers-next"
                 @click="goToPage(pagination.page + 1)"
             >

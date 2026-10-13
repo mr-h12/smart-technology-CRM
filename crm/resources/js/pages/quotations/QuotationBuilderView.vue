@@ -107,8 +107,9 @@ import {
     type SupplierQuotationDetail,
 } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
-import { displayDecimals } from '@/domain/displayDecimals';
+import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
+import { displayTimestamp } from '@/domain/displayDate';
 
 const route = useRoute();
 const router = useRouter();
@@ -268,11 +269,6 @@ function catalogLabel(id: string): string {
     const item = catalog.value.find((candidate) => candidate.id === id);
 
     return item?.name ?? item?.service_type ?? id;
-}
-
-/** `DB-08`: a moment in the reader's locale — 6.5's helper. */
-function onMoment(value: string): string {
-    return new Date(value).toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
 }
 
 function offerLabel(offer: SupplierQuotation): string {
@@ -709,7 +705,7 @@ onMounted(load);
 
             <!-- `API-12`: the newer version's figures and a reload; nothing is merged or retried. -->
             <div v-if="conflict !== null" class="form-alert flex flex-wrap items-center justify-between gap-3 rounded-lg p-3" role="alert" data-testid="quotation-builder-conflict">
-                <span>{{ t('quotations.builder.conflict', { total: displayDecimals(conflict.final_total), currency: conflict.currency, at: onMoment(conflict.updated_at) }) }}</span>
+                <span>{{ t('quotations.builder.conflict', { total: displayDecimals(conflict.final_total), currency: conflict.currency, at: displayTimestamp(conflict.updated_at, locale) }) }}</span>
                 <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="quotation-builder-conflict-reload" @click="reload">
                     {{ t('quotations.detail.reload') }}
                 </button>
@@ -905,7 +901,7 @@ onMounted(load);
                                     <!-- The supplier's own figures — internal cost, never a customer price (§7.2).
                                          The quantity is what is left of the offer, not what it recorded (D-81). -->
                                     <span class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`line-${b}-${l}-recorded`)">
-                                        {{ t('quotations.builder.recorded', { price: displayDecimals(item.unit_price), quantity: displayDecimals(item.available_quantity) }) }}
+                                        {{ t('quotations.builder.recorded', { price: displayDecimals(item.unit_price), quantity: displayQuantity(item.available_quantity) }) }}
                                     </span>
                                 </p>
                                 <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-quantity`)">
@@ -916,7 +912,7 @@ onMounted(load);
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        :placeholder="displayDecimals(item.available_quantity)"
+                                        :placeholder="displayQuantity(item.available_quantity)"
                                         :aria-invalid="lineError(`line-${b}-${l}`) !== null"
                                         class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                                         :data-testid="fieldId(`line-${b}-${l}-quantity`)"

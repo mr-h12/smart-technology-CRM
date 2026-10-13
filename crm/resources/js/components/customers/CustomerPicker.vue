@@ -19,7 +19,7 @@
  * Attributes such as `id`, `disabled` and `aria-invalid` fall through to the
  * input, so a `<label for>` and a form's saving and 422 states reach it.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { listCustomers, type Customer } from '@/services/customers';
@@ -51,13 +51,15 @@ const KEYS = {
  * ponytail: no screen starts with a customer chosen today; add a
  * `readCustomer` lookup when one does.
  */
-const pickedName = ref('');
+/** The chosen customer's name, two-way so a list can restore it from its address (F-42 · A-13). */
+const pickedName = defineModel<string>('name', { default: '' });
 
 const display = computed(() => (model.value === '' ? '' : pickedName.value || model.value));
 
 /** Whichever of region, contact person and phone the row has (D-84), in that order. */
 function detail(customer: Customer): string {
-    return [customer.region, customer.contact_person, customer.phone]
+    // A-07: the phone is isolated left-to-right, so its digits keep their order in Arabic.
+    return [customer.region, customer.contact_person, customer.phone ? `\u2066${customer.phone}\u2069` : null]
         .filter((part): part is string => typeof part === 'string' && part !== '')
         .join(t('customers.picker.detailSeparator'));
 }

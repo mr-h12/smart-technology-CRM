@@ -248,3 +248,35 @@ describe('safeRedirect', () => {
         expect(safeRedirect(value)).toBeNull();
     });
 });
+
+/** F-42 · A-12: the tab names the page, and a detail page names itself rather than its list. */
+describe('the tab title', () => {
+    it('names the page after a navigation', async () => {
+        const router = await freshRouter({ ...PROFILE, permissions: ['customer.view.own', 'quotation.view.own'] });
+        const { i18n } = await import('@/i18n');
+
+        await router.push('/customers');
+
+        expect(document.title).toBe(`${i18n.global.t('customers.title')} · ${i18n.global.t('app.name')}`);
+    });
+
+    it('renames the tab when the language changes in place', async () => {
+        const router = await freshRouter({ ...PROFILE, permissions: ['customer.view.own'] });
+        const { i18n, setLocale } = await import('@/i18n');
+        const { nextTick } = await import('vue');
+
+        await router.push('/customers');
+        setLocale(i18n.global.locale.value === 'ar' ? 'en' : 'ar');
+        await nextTick();
+
+        expect(document.title).toBe(`${i18n.global.t('customers.title')} · ${i18n.global.t('app.name')}`);
+    });
+
+    it('gives each detail route a title of its own', async () => {
+        const router = await freshRouter(PROFILE);
+        const titleOf = (name: string): unknown => router.getRoutes().find((route) => route.name === name)?.meta.titleKey;
+
+        expect(titleOf('quotation-detail')).not.toBe(titleOf('quotations'));
+        expect(titleOf('customer-detail')).not.toBe(titleOf('customers'));
+    });
+});

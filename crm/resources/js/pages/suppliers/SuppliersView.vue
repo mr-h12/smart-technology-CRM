@@ -63,6 +63,7 @@ import SupplierRatingChip from '@/components/suppliers/SupplierRatingChip.vue';
 import { importSuppliers, listSuppliers, type Pagination, type Supplier } from '@/services/suppliers';
 import SupplierFormModal from '@/pages/suppliers/SupplierFormModal.vue';
 import { useAuth } from '@/stores/auth';
+import { displayDate } from '@/domain/displayDate';
 
 /**
  * §7.1's colour meanings and its two types, restated here because both are a
@@ -192,11 +193,6 @@ function ariaSort(field: string): 'ascending' | 'descending' | 'none' {
 /** The arrow beside the active column. `aria-hidden`, because `aria-sort` already says it. */
 function sortIndicator(field: string): string {
     return sortField.value === field ? (sortDescending.value ? '▼' : '▲') : '';
-}
-
-/** `DB-08` — stored UTC, shown in the reader's own timezone. */
-function addedOn(timestamp: string): string {
-    return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
 function startCreate(): void {
@@ -362,9 +358,8 @@ onMounted(load);
         <div v-else class="flex flex-col gap-3">
             <div class="table-frame overflow-x-auto rounded-xl">
                 <table class="w-full text-table" data-testid="suppliers-table">
-                    <!-- §6.5: a sticky header on long lists. The block axis does
-                         not mirror, so `top` is correct in both directions. -->
-                    <thead class="sticky top-0">
+                    <!-- ponytail: no sticky header inside this scrolling frame (it never stuck; F-42 · A-40 fixed Customers and Quotations only). -->
+                    <thead>
                         <tr class="table-head">
                             <th
                                 scope="col"
@@ -448,7 +443,7 @@ onMounted(load);
                                     {{ supplier.is_active ? t('suppliers.status.active') : t('suppliers.status.inactive') }}
                                 </span>
                             </td>
-                            <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(supplier.created_at) }}</td>
+                            <td class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(supplier.created_at, locale) }}</td>
 
                             <td v-if="canManage" class="p-3">
                                 <button

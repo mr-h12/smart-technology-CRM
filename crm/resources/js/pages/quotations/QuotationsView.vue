@@ -65,6 +65,8 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ApiError, type Pagination } from '@/api';
 import CustomerPicker from '@/components/customers/CustomerPicker.vue';
+import { useListQuery } from '@/components/useListQuery';
+import { usePause } from '@/components/usePause';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -77,12 +79,15 @@ import {
     type QuotationGroup,
 } from '@/services/quotations';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import { displayDate } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 
 const { t, locale } = useI18n();
+const address = useListQuery();
 
-type SortField = 'code' | 'quotation_date' | 'updated_at' | 'final_total';
+const SORT_FIELDS = ['code', 'quotation_date', 'updated_at', 'final_total'] as const;
+type SortField = (typeof SORT_FIELDS)[number];
 
 const VIEWS = ['employee', 'customer', 'flat'] as const;
 type View = (typeof VIEWS)[number];
@@ -112,27 +117,36 @@ interface Panel {
     denied: boolean;
 }
 
-function emptyPanel(): Panel {
-    return { groups: [], pagination: null, page: 1, loading: true, failed: false, denied: false };
+/** A bucket's page comes back from the address (A-13); anything else is page 1. */
+function emptyPanel(bucket: Bucket): Panel {
+    const page = Number.parseInt(address.arrived(`${bucket}_page`), 10);
+
+    return { groups: [], pagination: null, page: page > 1 ? page : 1, loading: true, failed: false, denied: false };
 }
 
 const view = ref<View>(storedView());
-const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel(), incomplete: emptyPanel(), history: emptyPanel() });
+const panels = ref<Record<Bucket, Panel>>({ active: emptyPanel('active'), incomplete: emptyPanel('incomplete'), history: emptyPanel('history') });
 
 const loading = computed(() => BUCKETS.some((bucket) => panels.value[bucket].loading));
 const denied = computed(() => BUCKETS.some((bucket) => panels.value[bucket].denied));
 const failed = computed(() => BUCKETS.some((bucket) => panels.value[bucket].failed));
-const statusFilter = ref('');
-const customerFilter = ref('');
-const fromFilter = ref('');
-const toFilter = ref('');
-const currencyFilter = ref('');
-const amountMinFilter = ref('');
-const amountMaxFilter = ref('');
+/** A-14: a reload after the first keeps the table, dimmed and busy. */
+const updating = computed(() => BUCKETS.some((bucket) => panels.value[bucket].loading && panels.value[bucket].pagination !== null));
+const statusFilter = ref(address.arrived('status'));
+const customerFilter = ref(address.arrived('customer'));
+const customerName = ref(address.arrived('customer_name'));
+const fromFilter = ref(address.arrived('from'));
+const toFilter = ref(address.arrived('to'));
+const currencyFilter = ref(address.arrived('currency'));
+const amountMinFilter = ref(address.arrived('amount_min'));
+const amountMaxFilter = ref(address.arrived('amount_max'));
 
-const sortField = ref<SortField>(QUOTATION_DEFAULT_SORT);
+/** An undeclared field from the address would be a 400, so it falls back to the default. */
+const arrivedSort = address.arrived('sort');
+const arrivedField = SORT_FIELDS.find((field) => field === arrivedSort.replace(/^-/, ''));
+const sortField = ref<SortField>(arrivedField ?? QUOTATION_DEFAULT_SORT);
 /** The server's own default is `-updated_at`: the last touched first. */
-const sortDescending = ref(true);
+const sortDescending = ref(arrivedField === undefined || arrivedSort.startsWith('-'));
 
 const statuses = QUOTATION_STATUSES;
 
@@ -145,6 +159,23 @@ const columnCount = 8;
 const currencyCode = computed(() => currencyFilter.value.trim().toUpperCase());
 const hasCurrency = computed(() => /^[A-Z]{3}$/.test(currencyCode.value));
 const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortField.value}`);
+
+address.keep(() => ({
+    status: statusFilter.value,
+    customer: customerFilter.value,
+    customer_name: customerFilter.value === '' ? '' : customerName.value,
+    from: fromFilter.value,
+    to: toFilter.value,
+    currency: hasCurrency.value ? currencyCode.value : '',
+    amount_min: hasCurrency.value ? amountMinFilter.value : '',
+    amount_max: hasCurrency.value ? amountMaxFilter.value : '',
+    sort: sortParameter.value === `-${QUOTATION_DEFAULT_SORT}` ? '' : sortParameter.value,
+    ...Object.fromEntries(BUCKETS.map((bucket) => [`${bucket}_page`, panels.value[bucket].page > 1 ? panels.value[bucket].page : ''])),
+}));
+
+/** A-49: the typed boxes apply after the pickers' pause; the selects and dates on change. */
+const pause = usePause(() => void applyFilters());
+
 const filtering = computed(
     () =>
         statusFilter.value !== '' ||
@@ -218,6 +249,8 @@ async function chooseView(next: View): Promise<void> {
 
 /** Any change to the question invalidates the page number. */
 async function applyFilters(): Promise<void> {
+    pause.cancel();
+
     // A total sort without a currency is the 400 Step 5 Q3 describes; fall
     // back to the default rather than ask a question the server refuses.
     if (sortField.value === 'final_total' && !hasCurrency.value) {
@@ -239,7 +272,12 @@ async function sortBy(field: SortField): Promise<void> {
     await load();
 }
 
+/** The pager stays enabled while a page loads, so the focus stays on it (A-14); a second click waits. */
 async function goToPage(bucket: Bucket, target: number): Promise<void> {
+    if (panels.value[bucket].loading) {
+        return;
+    }
+
     panels.value[bucket].page = target;
     await loadBucket(bucket);
 }
@@ -260,17 +298,9 @@ function sortIndicator(field: SortField): string {
     return sortDescending.value ? '▼' : '▲';
 }
 
-/** `DB-08`: stored UTC, shown in the reader's locale. A date-only field is shown as it was stored. */
-function onDate(value: string | null): string {
-    if (value === null) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
-}
-
+/** Each bucket from the page the address named (A-13). */
 onMounted(async () => {
-    await load();
+    await Promise.all(BUCKETS.map(loadBucket));
 });
 </script>
 
@@ -306,6 +336,7 @@ onMounted(async () => {
                 <span>{{ t('quotations.filter.customer') }}</span>
                 <CustomerPicker
                     v-model="customerFilter"
+                    v-model:name="customerName"
                     :all-label="t('quotations.filter.customerAll')"
                     test-id="quotations-filter-customer"
                     @update:model-value="applyFilters"
@@ -347,6 +378,7 @@ onMounted(async () => {
                     class="form-field min-h-11 w-24 rounded-lg px-3 uppercase"
                     :placeholder="t('quotations.filter.currencyPlaceholder')"
                     data-testid="quotations-filter-currency"
+                    @input="pause.restart()"
                 />
             </label>
 
@@ -359,6 +391,7 @@ onMounted(async () => {
                     class="form-field min-h-11 w-32 rounded-lg px-3 tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!hasCurrency"
                     data-testid="quotations-filter-amount-min"
+                    @input="pause.restart()"
                 />
             </label>
 
@@ -371,16 +404,9 @@ onMounted(async () => {
                     class="form-field min-h-11 w-32 rounded-lg px-3 tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!hasCurrency"
                     data-testid="quotations-filter-amount-max"
+                    @input="pause.restart()"
                 />
             </label>
-
-            <button
-                type="submit"
-                class="row-action min-h-11 rounded-lg px-3"
-                data-testid="quotations-filter-apply"
-            >
-                {{ t('quotations.filter.apply') }}
-            </button>
 
             <!-- Why the pair and the total sort are off: said once, in words,
                  rather than hidden in a tooltip a keyboard never reaches. -->
@@ -405,6 +431,11 @@ onMounted(async () => {
             </button>
         </div>
 
+        <!-- A-14: present from the start, so the change is announced. -->
+        <p role="status" :class="updating ? 'text-[var(--color-text-muted)]' : 'sr-only'">
+            {{ updating ? t('state.updating') : '' }}
+        </p>
+
         <!-- One refusal, not two: the permission is the same for both buckets. -->
         <PermissionDeniedState v-if="denied" />
 
@@ -417,7 +448,7 @@ onMounted(async () => {
         >
             <h2 class="text-section-title">{{ t(`quotations.bucket.${bucket}`) }}</h2>
 
-            <LoadingState v-if="panels[bucket].loading" label-key="quotations.loading" />
+            <LoadingState v-if="panels[bucket].loading && panels[bucket].pagination === null" label-key="quotations.loading" />
             <ErrorState v-else-if="panels[bucket].failed" @retry="loadBucket(bucket)" />
             <EmptyState
                 v-else-if="panels[bucket].groups.length === 0"
@@ -426,9 +457,13 @@ onMounted(async () => {
             />
 
             <div v-else class="flex flex-col gap-3">
-            <div class="table-frame overflow-x-auto rounded-xl">
-                <table class="w-full text-table" data-testid="quotations-table">
-                    <thead class="sticky top-0">
+            <div
+                class="table-frame overflow-x-clip rounded-xl transition-opacity"
+                :class="{ 'opacity-50': panels[bucket].loading }"
+                :aria-busy="panels[bucket].loading"
+            >
+                <table class="card-table w-full text-table" data-testid="quotations-table">
+                    <thead class="sticky-head">
                         <tr class="table-head">
                             <th scope="col" class="p-3 text-start" :aria-sort="ariaSort('code')" data-testid="quotations-column-code">
                                 <button
@@ -501,7 +536,7 @@ onMounted(async () => {
                         <tr v-for="quotation in group.items" :key="quotation.id" class="table-row" data-testid="quotations-row">
                             <!-- §4.7's `QT-2026-0001`, exactly as allocated — the way into the
                                  quotation's own page (Point 6.5). -->
-                            <td class="whitespace-nowrap p-3 tabular-nums" data-testid="quotations-code">
+                            <td :data-label="t('quotations.column.code')" class="whitespace-nowrap p-3 tabular-nums" data-testid="quotations-code">
                                 <RouterLink
                                     :to="{ name: 'quotation-detail', params: { id: quotation.id } }"
                                     class="row-link"
@@ -510,24 +545,24 @@ onMounted(async () => {
                                     {{ quotation.code }}
                                 </RouterLink>
                             </td>
-                            <td class="p-3 tabular-nums" data-testid="quotations-version">
+                            <td :data-label="t('quotations.column.version')" class="p-3 tabular-nums" data-testid="quotations-version">
                                 {{ t('quotations.version', { version: quotation.version }) }}
                             </td>
-                            <td class="p-3">
+                            <td :data-label="t('quotations.column.status')" class="p-3">
                                 <span class="flex flex-wrap items-center gap-1.5">
                                     <QuotationStatusChip :status="quotation.status" />
                                     <SelfApprovedBadge v-if="quotation.is_self_approved" />
                                 </span>
                             </td>
-                            <td class="p-3" data-testid="quotations-customer">{{ quotation.customer_name }}</td>
+                            <td :data-label="t('quotations.column.customer')" class="p-3" data-testid="quotations-customer">{{ quotation.customer_name }}</td>
                             <!-- `Design System §6.3`: amount and currency visibly paired. The figure
                                  is the server's string — `DB-07` has no client-side exception. -->
-                            <td class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="quotations-total">
-                                {{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}
+                            <td :data-label="t('quotations.column.total')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="quotations-total">
+                                <bdi dir="ltr">{{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}</bdi>
                             </td>
-                            <td class="hidden p-3 tabular-nums md:table-cell">{{ onDate(quotation.quotation_date) }}</td>
-                            <td class="hidden p-3 tabular-nums lg:table-cell">{{ onDate(quotation.valid_until) }}</td>
-                            <td class="hidden p-3 tabular-nums lg:table-cell">{{ onDate(quotation.updated_at) }}</td>
+                            <td :data-label="t('quotations.column.quotationDate')" class="hidden p-3 tabular-nums md:table-cell">{{ displayDate(quotation.quotation_date, locale) }}</td>
+                            <td :data-label="t('quotations.column.validUntil')" class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(quotation.valid_until, locale) }}</td>
+                            <td :data-label="t('quotations.column.updatedAt')" class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(quotation.updated_at, locale) }}</td>
                         </tr>
                         </template>
                     </tbody>
@@ -542,7 +577,7 @@ onMounted(async () => {
             </p>
 
             <nav
-                v-if="panels[bucket].pagination"
+                v-if="(panels[bucket].pagination?.total_pages ?? 0) > 1"
                 class="flex items-center justify-between gap-3"
                 :aria-label="t('quotations.pagination.label')"
                 data-testid="quotations-pagination"
@@ -550,7 +585,7 @@ onMounted(async () => {
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!panels[bucket].pagination?.has_previous_page || panels[bucket].loading"
+                    :disabled="!panels[bucket].pagination?.has_previous_page"
                     data-testid="quotations-previous"
                     @click="goToPage(bucket, panels[bucket].page - 1)"
                 >
@@ -564,7 +599,7 @@ onMounted(async () => {
                 <button
                     type="button"
                     class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="!panels[bucket].pagination?.has_next_page || panels[bucket].loading"
+                    :disabled="!panels[bucket].pagination?.has_next_page"
                     data-testid="quotations-next"
                     @click="goToPage(bucket, panels[bucket].page + 1)"
                 >

@@ -64,6 +64,7 @@ import { importCatalogItems, listCatalogItems, type CatalogItem, type Pagination
 import ImportModal from '@/components/imports/ImportModal.vue';
 import CatalogItemFormModal from '@/pages/catalog/CatalogItemFormModal.vue';
 import { useAuth } from '@/stores/auth';
+import { displayDate } from '@/domain/displayDate';
 
 /** §7.3's two tabs, which are `CatalogItemDraft::KINDS` on the server. */
 const KINDS = ['product', 'service'] as const;
@@ -254,11 +255,6 @@ function cell(item: CatalogItem, column: string): string {
     const value = item[column as keyof CatalogItem];
 
     return typeof value === 'string' && value !== '' ? value : '—';
-}
-
-/** `DB-08` — stored UTC, shown in the reader's own timezone. */
-function addedOn(timestamp: string): string {
-    return new Date(timestamp).toLocaleDateString(locale.value);
 }
 
 function startCreate(): void {
@@ -476,9 +472,8 @@ onMounted(async () => {
         <div v-else class="flex flex-col gap-3">
             <div class="table-frame overflow-x-auto rounded-xl">
                 <table class="w-full text-table" data-testid="catalog-table">
-                    <!-- §6.5: a sticky header on long lists. The block axis does
-                         not mirror, so `top` is correct in both directions. -->
-                    <thead class="sticky top-0">
+                    <!-- ponytail: no sticky header inside this scrolling frame (it never stuck; F-42 · A-40 fixed Customers and Quotations only). -->
+                    <thead>
                         <tr class="table-head">
                             <th
                                 scope="col"
@@ -570,7 +565,7 @@ onMounted(async () => {
 
                                 <!-- D-70: Inter draws Western digits in both locales;
                                      tabular-nums keeps a column of figures aligned. -->
-                                <td class="hidden p-3 tabular-nums lg:table-cell">{{ addedOn(row.item.created_at) }}</td>
+                                <td class="hidden p-3 tabular-nums lg:table-cell">{{ displayDate(row.item.created_at, locale) }}</td>
 
                                 <td v-if="canManage" class="p-3">
                                     <button

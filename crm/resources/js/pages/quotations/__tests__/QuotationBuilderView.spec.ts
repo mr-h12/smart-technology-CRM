@@ -308,14 +308,14 @@ describe('the quotation builder (create)', () => {
         await flushPromises();
 
         expect(wrapper.find(id('line-0-0-label')).text()).toBe('Pump 5HP');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('1000.000');
+        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00');
         expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('1000.000000');
         // F-05 (D-81): the figure beside the price is what is left of the offer, not what it recorded.
-        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('3.000');
+        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('available quantity 3');
         expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('5.000');
         expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('3.0000');
-        // F-04 + F-05: the placeholder is the available balance; D-82 cuts it after the third decimal.
-        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('3.000');
+        // F-04 + F-05: the placeholder is the available balance, without trailing zeros (D-110).
+        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBe('3');
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
     });
 
@@ -666,7 +666,7 @@ describe('the quotation builder (edit)', () => {
         expect(wrapper.find(id('existing-0-margin_percent')).attributes('inputmode')).not.toBe('decimal');
         // Design System §3 l.128: a negative extra reads "-20", never "20-", inside an RTL page.
         expect(wrapper.find(id('existing-0-margin_percent')).attributes('dir')).toBe('ltr');
-        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.000');
+        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.00');
         expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('400.000000');
         expect(wrapper.find(id('existing-0-product')).text()).toBe('Split unit 1.5HP');
         expect(wrapper.find(id('existing-1-product')).exists()).toBe(false);
@@ -738,8 +738,8 @@ describe('the quotation builder (edit)', () => {
         await flushPromises();
 
         expect(router.currentRoute.value.path).toBe(EDIT);
-        expect(wrapper.find(id('conflict')).text()).toContain('2000.000');
-        expect(wrapper.find(id('conflict')).text()).not.toContain('2000.000000'); // D-82
+        expect(wrapper.find(id('conflict')).text()).toContain('2,000.00');
+        expect(wrapper.find(id('conflict')).text()).not.toContain('2000.000000'); // D-110
         expect(saves(fetchMock)).toHaveLength(1);
 
         await wrapper.find(id('conflict-reload')).trigger('click');

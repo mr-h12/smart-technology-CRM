@@ -72,8 +72,9 @@ import {
     type QuotationDetail,
     type QuotationWarning,
 } from '@/services/quotations';
-import { displayDecimals } from '@/domain/displayDecimals';
+import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
+import { displayDate, displayTimestamp } from '@/domain/displayDate';
 
 const route = useRoute();
 const router = useRouter();
@@ -151,15 +152,6 @@ const recordHint = computed(() => {
 
 /** Q7: the line carries the cost keys or it does not; the header follows the first line. */
 const showsCosts = computed(() => quotation.value?.items[0]?.unit_cost !== undefined);
-
-/** `DB-08`: a date-only field is shown as stored; a moment in the reader's locale. */
-function onDate(value: string | null): string {
-    return value === null ? '—' : new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
-}
-
-function onMoment(value: string | null): string {
-    return value === null ? '—' : new Date(value).toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
-}
 
 function text(value: string | null | undefined): string {
     return value === null || value === undefined || value === '' ? '—' : value;
@@ -411,11 +403,11 @@ onMounted(refresh);
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.column.quotationDate') }}</dt>
-                    <dd class="tabular-nums">{{ onDate(quotation.quotation_date) }}</dd>
+                    <dd class="tabular-nums">{{ displayDate(quotation.quotation_date, locale) }}</dd>
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.column.validUntil') }}</dt>
-                    <dd class="tabular-nums">{{ onDate(quotation.valid_until) }}</dd>
+                    <dd class="tabular-nums">{{ displayDate(quotation.valid_until, locale) }}</dd>
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.filter.currency') }}</dt>
@@ -427,11 +419,11 @@ onMounted(refresh);
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.submittedAt') }}</dt>
-                    <dd class="tabular-nums">{{ onMoment(quotation.submitted_at) }}</dd>
+                    <dd class="tabular-nums">{{ displayTimestamp(quotation.submitted_at, locale) }}</dd>
                 </div>
                 <div class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.sentAt') }}</dt>
-                    <dd class="tabular-nums">{{ onMoment(quotation.sent_at) }}</dd>
+                    <dd class="tabular-nums">{{ displayTimestamp(quotation.sent_at, locale) }}</dd>
                 </div>
                 <div v-if="quotation.parent_id !== null" class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.parent') }}</dt>
@@ -642,7 +634,7 @@ onMounted(refresh);
             <section class="flex flex-col gap-2" data-testid="quotation-lines">
                 <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
                 <div class="table-frame overflow-x-auto rounded-xl">
-                    <table class="w-full text-table">
+                    <table class="card-table w-full text-table">
                         <thead>
                             <tr class="table-head">
                                 <th scope="col" class="p-3 text-start">#</th>
@@ -656,13 +648,13 @@ onMounted(refresh);
                         </thead>
                         <tbody>
                             <tr v-for="line in quotation.items" :key="line.id" class="table-row">
-                                <td class="p-3 tabular-nums">{{ line.line_no }}</td>
-                                <td class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayDecimals(line.quantity) }}</td>
-                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(displayDecimals(line.unit_cost)) }}</td>
-                                <td v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent">{{ percent(line.effective_margin_percent) }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
-                                <td class="p-3 text-end tabular-nums">{{ displayDecimals(line.line_total) }}</td>
+                                <td data-label="#" class="p-3 tabular-nums">{{ line.line_no }}</td>
+                                <td :data-label="t('quotations.detail.product')" class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
+                                <td :data-label="t('quotations.detail.quantity')" class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayQuantity(line.quantity) }}</td>
+                                <td :data-label="t('quotations.detail.unitCost')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost">{{ text(displayDecimals(line.unit_cost)) }}</td>
+                                <td :data-label="t('quotations.detail.margin')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent">{{ percent(line.effective_margin_percent) }}</td>
+                                <td :data-label="t('quotations.detail.unitPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
+                                <td :data-label="t('quotations.detail.lineTotal')" class="p-3 text-end tabular-nums">{{ displayDecimals(line.line_total) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -673,7 +665,7 @@ onMounted(refresh);
             <section v-if="quotation.additional_items.length > 0" class="flex flex-col gap-2">
                 <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
                 <div class="table-frame overflow-x-auto rounded-xl">
-                    <table class="w-full text-table">
+                    <table class="card-table w-full text-table">
                         <thead>
                             <tr class="table-head">
                                 <th scope="col" class="p-3 text-start">{{ t('quotations.detail.description') }}</th>
@@ -682,8 +674,8 @@ onMounted(refresh);
                         </thead>
                         <tbody>
                             <tr v-for="item in quotation.additional_items" :key="item.id" class="table-row">
-                                <td class="p-3" data-testid="quotation-additional-description">{{ item.description }}</td>
-                                <td class="p-3 text-end tabular-nums" data-testid="quotation-additional-amount">{{ displayDecimals(item.amount) }}</td>
+                                <td :data-label="t('quotations.detail.description')" class="p-3" data-testid="quotation-additional-description">{{ item.description }}</td>
+                                <td :data-label="t('quotations.detail.amount')" class="p-3 text-end tabular-nums" data-testid="quotation-additional-amount">{{ displayDecimals(item.amount) }}</td>
                             </tr>
                         </tbody>
                     </table>

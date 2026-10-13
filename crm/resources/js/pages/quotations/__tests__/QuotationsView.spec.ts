@@ -182,7 +182,7 @@ describe('the quotations screen', () => {
         expect(wrapper.find('[data-testid="quotations-version"]').text()).toBe('v1');
         // `Design System §6.3`: "Keep amount and currency visibly paired". The
         // figure is the server's string, digit for digit — never a `Number`.
-        expect(wrapper.find('[data-testid="quotations-total"]').text()).toBe('1235.000 EGP');
+        expect(wrapper.find('[data-testid="quotations-total"]').text()).toBe('1,235.00 EGP');
     });
 
     /**
@@ -565,5 +565,76 @@ describe('the quotations screen', () => {
         expect(item?.permission).toBe('quotation.view');
         // §5.1's *My Quotations* counter — `GET /badges` (Module 8 · 2.3), drawn since 3.3.
         expect(item?.badge).toBe('my_quotations');
+    });
+});
+
+describe('the quotations screen — lists and display (F-42 · P3)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** Mounted at a real address, so the query the screen writes and reads is the router's. */
+    async function renderAt(fetchMock: ReturnType<typeof vi.fn>, path: string) {
+        await signIn(USER, fetchMock as unknown as typeof globalThis.fetch);
+        vi.stubGlobal('fetch', fetchMock);
+
+        const router = createAppRouter();
+        await router.push(path);
+        await router.isReady();
+
+        const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
+        const wrapper = mount(QuotationsView, { global: { plugins: [i18n, router] } });
+        await flushPromises();
+
+        return { wrapper, router };
+    }
+
+    it('keeps its filters and sort in the address, so Back and a shared link restore them (A-13)', async () => {
+        const fetchMock = respond();
+        const { wrapper, router } = await renderAt(fetchMock, '/quotations?status=pending&sort=code');
+
+        expect(listUrl(fetchMock)).toContain('filter%5Bstatus%5D=pending');
+        expect(listUrl(fetchMock)).toContain('sort=code');
+        expect((wrapper.find('[data-testid="quotations-filter-status"]').element as HTMLSelectElement).value).toBe('pending');
+
+        await wrapper.find('[data-testid="quotations-filter-status"]').setValue('approved');
+        await flushPromises();
+
+        expect(router.currentRoute.value.query).toMatchObject({ status: 'approved', sort: 'code' });
+    });
+
+    it('writes a sort click into the address too (A-13)', async () => {
+        const fetchMock = respond();
+        const { wrapper, router } = await renderAt(fetchMock, '/quotations');
+
+        await wrapper.find('[data-testid="quotations-sort-code"]').trigger('click');
+        await flushPromises();
+
+        expect(router.currentRoute.value.query).toMatchObject({ sort: '-code' });
+    });
+
+    it('keeps the amount and its currency in one left-to-right run, so Arabic does not put the code first (A-26)', async () => {
+        const wrapper = await render(respond(), 'ar');
+        const run = wrapper.get('[data-testid="quotations-total"] bdi');
+
+        expect(run.attributes('dir')).toBe('ltr');
+        expect(run.text()).toBe('1,235.00 EGP');
+    });
+
+    it('draws no pager for a single page (A-67)', async () => {
+        const wrapper = await render(respond());
+
+        expect(wrapper.find('[data-testid="quotations-pagination"]').exists()).toBe(false);
+    });
+
+    it('labels every cell for the card form below 640 px, and keeps the row’s link inside the row (A-39)', async () => {
+        const wrapper = await render(respond());
+        const row = wrapper.find('[data-testid="quotations-row"]');
+
+        expect(wrapper.find('[data-testid="quotations-table"]').classes()).toContain('card-table');
+        expect(row.findAll('td').every((cell) => (cell.attributes('data-label') ?? '') !== '')).toBe(true);
+        expect(row.find('[data-testid="quotations-row-link"]').exists()).toBe(true);
     });
 });

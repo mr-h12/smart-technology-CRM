@@ -134,7 +134,7 @@ function localeCode(option: Locale): string {
         </button>
 
         <!-- A-28: a <p>, so each page's own h1 is the only one. -->
-        <p class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1">
+        <p class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1" :title="title">
             {{ title }}
         </p>
 
@@ -228,7 +228,7 @@ function localeCode(option: Locale): string {
                         <path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.5c-3 0-5.5 1.6-5.5 3.6V17h11v-1.9c0-2-2.5-3.6-5.5-3.6z" />
                     </svg>
                 </span>
-                <span class="min-w-0 truncate">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
+                <span class="min-w-0 truncate" :title="auth.user.value?.name ?? t('user.signedOut')">{{ auth.user.value?.name ?? t('user.signedOut') }}</span>
             </RouterLink>
 
             <!-- Signed out, the same chip is inert text: a link to a screen that
@@ -238,7 +238,7 @@ function localeCode(option: Locale): string {
                 class="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--color-border)] ps-2 pe-3 text-table text-[var(--color-text-muted)] md:inline-flex"
                 data-testid="user-context"
             >
-                <span class="min-w-0 truncate">{{ t('user.signedOut') }}</span>
+                <span class="min-w-0 truncate" :title="t('user.signedOut')">{{ t('user.signedOut') }}</span>
             </span>
 
             <!-- SEC-05's force-logout, applied by the person themselves. Present

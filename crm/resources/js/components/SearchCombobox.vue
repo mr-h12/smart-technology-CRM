@@ -30,6 +30,7 @@
 import { computed, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError, type Page } from '@/api';
+import { usePause } from '@/components/usePause';
 
 defineOptions({ inheritAttrs: false });
 
@@ -50,7 +51,6 @@ const { t } = useI18n();
 
 /** 20 is small enough to scan and large enough that two letters usually find the row. */
 const PAGE = 20;
-const PAUSE_MS = 300;
 
 const listboxId = useId();
 const optionId = (index: number): string => `${listboxId}-option-${index}`;
@@ -58,6 +58,10 @@ const optionId = (index: number): string => `${listboxId}-option-${index}`;
 const open = ref(false);
 const text = ref('');
 const searched = ref('');
+const pause = usePause(() => {
+    searched.value = text.value.trim();
+    void search();
+});
 const items = shallowRef<T[]>([]);
 const total = ref(0);
 const status = ref<'idle' | 'loading' | 'ready' | 'forbidden' | 'failed'>('idle');
@@ -70,7 +74,6 @@ const options = computed<(T | null)[]>(() => [
 ]);
 
 let sequence = 0;
-let pause: ReturnType<typeof setTimeout> | undefined;
 
 async function search(): Promise<void> {
     const mine = ++sequence;
@@ -103,11 +106,7 @@ function typed(): void {
     open.value = true;
     active.value = -1;
     emit('typed', text.value);
-    clearTimeout(pause);
-    pause = setTimeout(() => {
-        searched.value = text.value.trim();
-        void search();
-    }, PAUSE_MS);
+    pause.restart();
 }
 
 function pick(item: T | null): void {

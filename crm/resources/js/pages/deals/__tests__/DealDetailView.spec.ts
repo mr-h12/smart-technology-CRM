@@ -353,8 +353,8 @@ describe('the deal detail view', () => {
             expect(rows.map((row) => row.find('[data-testid="deal-detail-quotation-version"]').text())).toEqual(['v1', 'v2', 'v1']);
             expect(rows[1]?.text()).toContain('QT-2026-0001');
             expect(rows[1]?.find('[data-testid="quotation-status"]').text()).toContain('Draft');
-            // `D-82`: the server's string, cut after the third decimal — never a Number.
-            expect(rows[1]?.find('[data-testid="deal-detail-quotation-total"]').text()).toBe('1080.500 EGP');
+            // `D-110`: the server's string in money's screen form — never a Number.
+            expect(rows[1]?.find('[data-testid="deal-detail-quotation-total"]').text()).toBe('1,080.50 EGP');
         });
 
         it('says when the deal has no quotations', async () => {

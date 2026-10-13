@@ -1,20 +1,29 @@
 /**
- * D-82: what a person **sees** of a money or quantity figure is the server's
- * string cut after its third decimal. Storage stays `D-68` (scale 6 money,
- * scale 4 quantities) and the API publishes it as stored; every input keeps
- * and sends the full string (Design System §6.3 "format only for display").
+ * D-110 (amending D-82 for screens): what a person **sees** of a money figure is
+ * D-99's form — two places, rounded half-up — the same value the PDF prints,
+ * grouped by thousands on screen only (the PDF prints no separators). Storage
+ * stays `D-68` and the API publishes it as stored; every input keeps and sends
+ * the full string (Design System §6.3 "format only for display").
  *
- * A string operation on purpose: no `Number()` (`DB-07`), no rounding
- * (`D-06` — `5219.3049` shows as `5219.304`), no arithmetic (`D-67`, the SPA
- * never owns a calculation). Fewer than three decimals are left as they are;
- * no digit is invented. Percentages and FX rates never come here.
+ * String and `BigInt` work on purpose: no float (`DB-07`), and no arithmetic on
+ * a price (`D-67`) — this only rounds what is drawn. Percentages and FX rates
+ * never come here.
  */
-export function displayDecimals<T extends string | null | undefined>(value: T): T {
+export function displayDecimals<T extends string | null | undefined>(value: T): T | string {
     if (typeof value !== 'string') {
         return value;
     }
 
-    const dot = value.indexOf('.');
+    const negative = value.startsWith('-');
+    const [whole = '0', fraction = ''] = value.replace(/^[-+]/, '').split('.');
+    const cents = BigInt(whole + fraction.padEnd(3, '0').slice(0, 2)) + (fraction.charAt(2) >= '5' ? 1n : 0n);
+    const digits = cents.toString().padStart(3, '0');
+    const grouped = digits.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-    return (dot === -1 ? value : value.slice(0, dot + 4)) as T;
+    return `${negative && cents > 0n ? '-' : ''}${grouped}.${digits.slice(-2)}`;
+}
+
+/** D-99's quantity: the stored string without its trailing zeros (`10.000` → `10`). */
+export function displayQuantity<T extends string | null | undefined>(value: T): T | string {
+    return typeof value === 'string' ? value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : value;
 }

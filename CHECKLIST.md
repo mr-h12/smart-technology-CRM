@@ -1761,6 +1761,16 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **An unqueried `data-testid="sidebar-backdrop"`** — *revealed by F-42 · 5.2, 2026-10-12 (`waste-auditor`);
       pre-existing, not fixed there.* `AppSidebar.vue:94` carries it and no spec or test reads it. Owed: a spec
       that clicks the backdrop to close the drawer, or drop the attribute
+- [ ] **Four `Intl.DateTimeFormat` copies outside `displayDate.ts`** — *revealed by F-42 · P3, 2026-10-13
+      (`waste-auditor`); not fixed there, because A-06's files are the nine list and quotation pages.*
+      `UserDetailsDrawer.vue:187`, `CurrenciesView.vue:302`, `AccountSecurityView.vue:298` and `Ping.vue:79` format
+      with `dateStyle: 'medium'` and no `-u-nu-latn`, so Arabic may draw Arabic-Indic digits (`D-70`); A-06's
+      source scan catches `toLocale*` only. Owed: route them through `displayDate`/`displayTimestamp` and widen
+      the scan to `Intl.DateTimeFormat`, when the owner orders it
+- [ ] **Apply and Search buttons left on four lists** — *revealed by F-42 · P3, 2026-10-13 (`waste-auditor`);
+      A-49's files are Customers and Quotations (Deals at step 15).* `SuppliersView.vue`, `CatalogView.vue`,
+      `SupplierQuotationsView.vue` and `PurchaseOrdersView.vue` still apply their typed box on a button.
+      Owed: the same `usePause` line on each and the button removed, when the owner orders it
 
 ## Agent guide revisions — owner-directed
 
@@ -4374,7 +4384,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             · 5.13 A-22: Return and Delete-confirm become dialogs; the other inline forms move focus.
             · 5.33 A-05 and A-23: the closed drawer is inert; collapsed rail links keep their name.
             · 5.34 A-28: one h1 per page.
-      - [ ] **P3** Lists and display.
+      - [x] **P3** Lists and display.
+            *(2026-10-13, #340 — Customers, Quotations and POs keep filters, sort and page in the URL (`useListQuery`) and reload in place (dimmed, `aria-busy`, a «جارٍ تحديث القائمة…» status line, focus kept on the pager); one pager rule and the bar only when useful; Customers and Quotations filter live on one shared 300 ms pause (`usePause`, also the pickers'); Quotations, Approvals and the quotation page are cards below 640; Customers and Quotations headers stick under the bar (71/123 px measured); one `displayDate`/`displayTimestamp` with Western digits; phones `dir="ltr"`; money in D-110's form (2 dp half-up, grouped on screen) and quantities without trailing zeros; every `truncate` titled; six Arabic plural forms; tab title per route and language, focus to the page. D-110's row awaits the owner's shell write. Deal parts wait for step 15)*
             · 5.18 A-13: filters, sort and page in the URL.
             · 5.19 A-14: reload without losing the table.
             · 5.20 A-39 and A-40: cards below 640 px and a sticky header that sticks.

@@ -213,7 +213,7 @@ function onBackdrop(): void {
                                 <path :d="item.icon" />
                             </svg>
 
-                            <span v-if="!props.collapsed" class="min-w-0 truncate">{{ t(item.labelKey) }}</span>
+                            <span v-if="!props.collapsed" class="min-w-0 truncate" :title="t(item.labelKey)">{{ t(item.labelKey) }}</span>
                             <span
                                 v-if="item.badge !== undefined && (badges[item.badge] ?? 0) > 0"
                                 class="app-sidebar__badge ms-auto rounded-full px-2 py-0.5 text-table tabular-nums"

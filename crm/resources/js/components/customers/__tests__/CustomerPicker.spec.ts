@@ -158,7 +158,7 @@ describe('CustomerPicker', () => {
         const options = wrapper.findAll('[data-testid="picker-option"]');
         expect(options).toHaveLength(2);
         expect(options[0]?.find('[data-testid="picker-option-name"]').text()).toBe('Nisco');
-        expect(options[0]?.find('[data-testid="picker-option-detail"]').text()).toBe('Mr.Naser Fadl · 01090907185');
+        expect(options[0]?.find('[data-testid="picker-option-detail"]').text()).toBe('Mr.Naser Fadl · \u206601090907185\u2069');
         expect(options[1]?.find('[data-testid="picker-option-detail"]').text()).toBe('القاهرة');
     });
 

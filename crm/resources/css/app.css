@@ -205,3 +205,68 @@ dialog:not([open]) {
 .status-chip--neutral {
     color: var(--color-status-neutral);
 }
+
+/*
+ * DS §6.5: a long list's header stays under the context bar (A-40) — 71 px
+ * tall, 123 px where it wraps below 640 (measured in the browser, F-42 · P3).
+ * Its frame clips (`overflow-x-clip`) rather than scrolls, because a scroll
+ * container is what a sticky header sticks to. In the components layer, before
+ * the card rules, so a card table's hidden header wins below 640.
+ *
+ * DS §5.2: below 640 px a `.card-table` row is a card of labelled lines (A-39),
+ * each label from its cell's `data-label`. A column's own `hidden` utility
+ * still folds it away, because utilities outrank this layer.
+ *
+ * ponytail: the two heights are the bar's today; a bar that changes height
+ * needs them re-measured (or a ResizeObserver writing a custom property).
+ */
+@layer components {
+    .sticky-head {
+        position: sticky;
+        top: 71px;
+        z-index: 10;
+    }
+
+    @media (width < 640px) {
+        .sticky-head {
+            top: 123px;
+        }
+
+        .card-table,
+        .card-table tbody {
+            display: block;
+        }
+
+        .card-table thead {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+        }
+
+        .card-table td {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.25rem 1rem;
+            padding-block: 0.375rem;
+        }
+
+        .card-table td[data-label]::before {
+            content: attr(data-label);
+            color: var(--color-text-muted);
+        }
+    }
+}
+
+/*
+ * A-39's row, outside the layer: the pages' rows carry `table-row`, which is
+ * also Tailwind's `display: table-row` utility and would outrank the layer.
+ */
+@media (width < 640px) {
+    .card-table tr {
+        display: block;
+    }
+}

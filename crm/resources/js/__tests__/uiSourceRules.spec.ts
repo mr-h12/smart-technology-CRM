@@ -123,4 +123,28 @@ describe('UI source rules (F-42)', () => {
         expect(h1s('pages/Ping.vue')).toBe(1);
         expect(h1s('pages/ForbiddenView.vue')).toBe(1);
     });
+
+    // ponytail (the three cases below): pages/deals waits for F-42 step 15 (after F-41 · 1.8, plan §3); drop the exemption there.
+    it('one date form (A-06): no toLocaleDateString / toLocaleTimeString / toLocaleString outside displayDate.ts', () => {
+        // D-70: Western digits in every locale, which only displayDate.ts asks for.
+        expect(
+            linesMatching(/\.toLocale(Date|Time)?String\(/, (_, path) => path !== 'domain/displayDate.ts' && !path.startsWith('pages/deals/')),
+        ).toEqual([]);
+    });
+
+    it('a sticky header that sticks (A-40): no sticky <thead> inside an overflow-x-auto frame', () => {
+        // An overflow-x-auto frame is a scroll container, so a sticky header sticks to it and never moves.
+        const framed = SOURCES.filter(([path, text]) => !path.startsWith('pages/deals/') && /\boverflow-x-auto\b/.test(text)).map(([path]) => path);
+
+        expect(linesMatching(/<thead\b[^>]*\bsticky\b/, (_, path) => framed.includes(path))).toEqual([]);
+    });
+
+    it('long text stays inside (A-52): every truncate class sits on an element with a title', () => {
+        // The whole opening tag, which may span lines, is what must carry the title.
+        const untitled = SOURCES.filter(([path]) => !path.startsWith('pages/deals/')).flatMap(([path, text]) =>
+            [...text.matchAll(/<[a-zA-Z][^>]*\btruncate\b[^>]*>/g)].filter(([tag]) => !/\btitle=/.test(tag)).map(([tag]) => `${path}: ${tag}`),
+        );
+
+        expect(untitled).toEqual([]);
+    });
 });

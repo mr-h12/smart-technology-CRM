@@ -31,6 +31,7 @@
         }
     },
     "state": {
+        "updating": "Updating the list…",
         "loading": "Loading…",
         "retry": "Try again",
         "empty": {
@@ -608,7 +609,6 @@
         },
         "filter": {
             "search": "Search",
-            "searchAction": "Search",
             "status": "Status",
             "statusAll": "Any status",
             "sector": "Sector",
@@ -1143,8 +1143,7 @@
             "currencyPlaceholder": "EGP",
             "amountMin": "Total from",
             "amountMax": "Total to",
-            "amountNeedsCurrency": "Choose a currency first — totals in different currencies cannot be compared.",
-            "apply": "Apply"
+            "amountNeedsCurrency": "Choose a currency first — totals in different currencies cannot be compared."
         },
         "column": {
             "code": "Code",
@@ -1196,6 +1195,7 @@
             "continues": "A group may continue on the next page — pages count quotations, not groups."
         },
         "detail": {
+            "title": "Quotation",
             "loading": "Loading the quotation…",
             "missing": "This quotation could not be opened.",
             "deal": "Deal",

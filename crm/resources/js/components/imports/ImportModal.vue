@@ -162,7 +162,7 @@ watch(() => props.open, (open) => {
                 />
             </label>
 
-            <p class="text-[var(--color-text-muted)]" data-testid="import-file-name">
+            <p class="min-w-0 break-words text-[var(--color-text-muted)]" data-testid="import-file-name">
                 {{ chosen === null ? t('import.noFile') : chosen.name }}
             </p>
 

@@ -96,8 +96,8 @@ describe('the purchase orders list (Module 10 · 3.3)', () => {
         expect(row.text()).toContain('PO-2026-0001');
         expect(row.text()).toContain('4500123987');
         expect(row.text()).toContain('Acme Industrial');
-        // `D-82`: the server's string, cut after the third decimal.
-        expect(row.find('[data-testid="purchase-orders-total"]').text()).toBe('1150.123 EGP');
+        // `D-110`: the server's string in money's screen form.
+        expect(row.find('[data-testid="purchase-orders-total"]').text()).toBe('1,150.12 EGP');
         // `DB-08`: a date-only field is the calendar day stored, in the reader's locale.
         expect(row.find('[data-testid="purchase-orders-date"]').text()).toBe('20/09/2026');
         // Q-B: the order lives on its quotation.
@@ -140,15 +140,23 @@ describe('the purchase orders list (Module 10 · 3.3)', () => {
         expect(wrapper.find('[data-testid="purchase-orders-previous"]').attributes('disabled')).toBeDefined();
     });
 
-    it('says none are visible rather than drawing an empty table, and a different sentence after a search', async () => {
+    it('says none are visible rather than drawing an empty table, with nothing to search (A-48)', async () => {
         const wrapper = await render(respond({ orders: [] }));
         expect(wrapper.find('[data-testid="purchase-orders-table"]').exists()).toBe(false);
         expect(wrapper.text()).toContain('No purchase orders are visible to you');
+        expect(wrapper.find('[data-testid="purchase-orders-search"]').exists()).toBe(false);
+    });
+
+    it('says something different when a search empties the list, and keeps the search box', async () => {
+        let asked = 0;
+        const fetchMock = vi.fn(async () => json(200, { data: asked++ === 0 ? [ORDER] : [], meta: { request_id: 'r1', pagination: PAGINATION } }));
+        const wrapper = await render(fetchMock);
 
         await wrapper.find('[data-testid="purchase-orders-search"]').setValue('nothing');
         await wrapper.find('[data-testid="purchase-orders-filters"]').trigger('submit');
         await flushPromises();
         expect(wrapper.text()).toContain('Nothing matches this search');
+        expect(wrapper.find('[data-testid="purchase-orders-search"]').exists()).toBe(true);
     });
 
     it('draws a 403 as a refusal and a 500 as a fault — never as an empty list', async () => {
@@ -158,5 +166,11 @@ describe('the purchase orders list (Module 10 · 3.3)', () => {
         const broken = await render(respond({ status: 500 }));
         expect(broken.find('[data-testid="error-state"]').exists()).toBe(true);
         expect(broken.text()).not.toContain('No purchase orders are visible to you');
+    });
+
+    it('draws no search box for a refused caller (F-42 · A-48)', async () => {
+        const wrapper = await render(respond({ status: 403 }));
+
+        expect(wrapper.find('[data-testid="purchase-orders-search"]').exists()).toBe(false);
     });
 });

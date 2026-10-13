@@ -62,7 +62,7 @@ import { listSuppliers, readSupplier, type Supplier } from '@/services/suppliers
 import { listDeals, type DealListQuery, type DealRow } from '@/services/deals';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
-import { displayDecimals } from '@/domain/displayDecimals';
+import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
 import CatalogItemPicker from '@/components/catalog/CatalogItemPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -414,7 +414,7 @@ async function loadLines(record: SupplierQuotation | null): Promise<void> {
             unit_price: line.entered_unit_price ?? line.unit_price,
             ...(line.entered_unit_price === null ? {} : { net: { of: line.entered_unit_price, is: displayDecimals(line.unit_price) } }),
             quantity: line.quantity,
-            balance: { recorded: displayDecimals(line.quantity), consumed: displayDecimals(line.consumed_quantity), available: displayDecimals(line.available_quantity) },
+            balance: { recorded: displayQuantity(line.quantity), consumed: displayQuantity(line.consumed_quantity), available: displayQuantity(line.available_quantity) },
         }));
         openedLines.value = JSON.stringify(lines.value);
         linesState.value = 'ready';

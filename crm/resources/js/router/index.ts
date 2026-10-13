@@ -10,8 +10,10 @@
  * has always been. The guards exist so that the *normal* path does not show
  * someone a screen full of empty error states they were never meant to open.
  */
+import { nextTick, watch } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw, Router, RouteLocationNormalized, RouteLocationRaw } from 'vue-router';
+import { i18n } from '@/i18n';
 import { useAuth } from '@/stores/auth';
 import Ping from '@/pages/Ping.vue';
 import LoginView from '@/pages/auth/LoginView.vue';
@@ -253,7 +255,7 @@ export const routes: RouteRecordRaw[] = [
         path: '/quotations/:id',
         name: 'quotation-detail',
         component: QuotationDetailView,
-        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.title' },
+        meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'quotations.detail.title' },
     },
     {
         // §8's *Catalog* screen — §7.3's two tabs, on the same `catalog.view`
@@ -448,6 +450,31 @@ export function createAppRouter(): Router {
     const router = createRouter({ history: createWebHistory(), routes });
 
     router.beforeEach((to) => resolveNavigation(to, (name) => router.hasRoute(name)));
+
+    // F-42 · A-12: the tab names the page, and a new page takes the focus so a
+    // screen reader announces it. A query-only change (a list's filter, A-13)
+    // keeps the focus where the person is typing; the first load keeps the browser's.
+    // ponytail: a detail page draws its h1 after its fetch, so the focus lands on
+    // `#page-content` there.
+    const nameTab = (): void => {
+        const key = router.currentRoute.value.meta.titleKey;
+        document.title = `${key === undefined ? '' : `${i18n.global.t(key)} · `}${i18n.global.t('app.name')}`;
+    };
+
+    watch(i18n.global.locale, nameTab);
+
+    router.afterEach(async (to, from) => {
+        nameTab();
+
+        if (from.matched.length === 0 || to.path === from.path) {
+            return;
+        }
+
+        await nextTick();
+        const target = document.querySelector<HTMLElement>('#page-content h1') ?? document.getElementById('page-content');
+        target?.setAttribute('tabindex', '-1');
+        target?.focus({ preventScroll: true });
+    });
 
     return router;
 }

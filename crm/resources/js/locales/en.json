@@ -998,6 +998,7 @@
             "serviceTypeAll": "Any type",
             "source": "Source",
             "sourceAll": "Any source",
+            "ownerAll": "Any owner",
             "apply": "Apply"
         },
         "column": {

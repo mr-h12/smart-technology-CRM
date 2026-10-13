@@ -28,6 +28,13 @@ interface DealDirectoryInterface
 {
     public function list(DealListCriteria $criteria, DealRowScope $scope): DealPage;
 
+    /**
+     * `D-108`: the distinct owners of the deals this scope reaches — the owner filter's choices.
+     *
+     * @return list<string>
+     */
+    public function ownerIds(DealRowScope $scope): array;
+
     /** Null when the row is absent **or** outside the scope — the caller cannot tell, by design. */
     public function find(string $dealId, DealRowScope $scope): ?DealSummary;
 

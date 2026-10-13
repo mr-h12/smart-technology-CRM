@@ -35,7 +35,7 @@ final readonly class DealListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status'];
+    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status', 'owner'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['code', 'created_at', 'last_activity_at'];
@@ -55,6 +55,7 @@ final readonly class DealListCriteria
         public ?string $source = null,
         public ?string $approvalStatus = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => true]],
+        public ?string $ownerId = null,
     ) {}
 
     /**
@@ -83,6 +84,7 @@ final readonly class DealListCriteria
             source: $filters['source'],
             approvalStatus: $filters['approval_status'],
             sorts: self::sorts($query['sort'] ?? null),
+            ownerId: $filters['owner'],
         );
     }
 
@@ -161,7 +163,7 @@ final readonly class DealListCriteria
     }
 
     /**
-     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null}
+     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null, owner: string|null}
      *
      * @throws InvalidDealListQuery
      */
@@ -172,6 +174,7 @@ final readonly class DealListCriteria
             'service_type' => null,
             'source' => null,
             'approval_status' => null,
+            'owner' => null,
         ];
 
         if ($value === null) {
@@ -193,7 +196,28 @@ final readonly class DealListCriteria
             'service_type' => self::slug($value['service_type'] ?? null, 'filter[service_type]'),
             'source' => self::slug($value['source'] ?? null, 'filter[source]'),
             'approval_status' => self::slug($value['approval_status'] ?? null, 'filter[approval_status]'),
+            // `D-108`: the current `owner_id`; row scope still applies, so an `own` caller asking for
+            // another owner gets nothing rather than a refusal that would confirm the owner exists.
+            'owner' => self::id($value['owner'] ?? null, 'filter[owner]'),
         ];
+    }
+
+    /**
+     * An id, checked for shape rather than for existence — `QuotationListCriteria::id()`.
+     *
+     * @throws InvalidDealListQuery
+     */
+    private static function id(mixed $value, string $parameter): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iD', $value) !== 1) {
+            throw InvalidDealListQuery::of($parameter, 'not_a_uuid');
+        }
+
+        return $value;
     }
 
     /** @throws InvalidDealListQuery */

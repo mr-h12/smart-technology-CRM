@@ -157,6 +157,11 @@ function respond(deals: unknown = [DEAL], status = 200, pagination = PAGINATION)
             return json(200, envelope([CUSTOMER], { pagination: { ...PAGINATION, per_page: 20 } }));
         }
 
+        // F-41 · 1.6 (`D-108`): the owner filter's choices, read beside the list.
+        if (String(input).includes('/deals/owners')) {
+            return json(200, envelope({ items: [] }));
+        }
+
         return json(
             status,
             status === 200
@@ -193,13 +198,18 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, profile: Authenticate
 function dealsUrl(fetchMock: ReturnType<typeof vi.fn>): string {
     const call = [...fetchMock.mock.calls]
         .reverse()
-        .find((c) => String(c[0]).includes('/deals'));
+        .find((c) => isListRead(String(c[0])));
 
     return String(call?.[0] ?? '');
 }
 
 function listReads(fetchMock: ReturnType<typeof vi.fn>): number {
-    return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/deals')).length;
+    return fetchMock.mock.calls.filter((call) => isListRead(String(call[0]))).length;
+}
+
+/** A read of the list itself — not the owner filter's choices beside it. */
+function isListRead(url: string): boolean {
+    return url.includes('/deals') && !url.includes('/deals/owners');
 }
 
 /** Open the create form, focus its customer picker and take the row the server answered. */
@@ -546,7 +556,7 @@ describe('the deals screen', () => {
 
     /** `GET /deals/owners` answered beside the list; every other call is `respond()`'s. */
     function respondWithOwners(): ReturnType<typeof vi.fn> {
-        const list = respond();
+        const list = respond() as unknown as (input: string, init?: RequestInit) => Promise<Response>;
 
         return vi.fn(async (input: string, init?: RequestInit) =>
             String(input).includes('/deals/owners')

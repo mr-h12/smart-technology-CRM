@@ -44,6 +44,12 @@ final class DealController
         return ApiEnvelope::collection($request, DealPayload::many($page), DealPayload::pagination($page));
     }
 
+    /** `D-108`: the owner filter's choices, under the caller's row scope. */
+    public function owners(Request $request, ListDeals $deals): JsonResponse
+    {
+        return ApiEnvelope::single($request, ['items' => $deals->owners(self::heldScopes($request), self::actorId($request))]);
+    }
+
     public function show(Request $request, string $deal, ListDeals $deals): JsonResponse
     {
         $record = $deals->one($deal, self::heldScopes($request), self::actorId($request));

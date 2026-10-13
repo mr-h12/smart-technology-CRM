@@ -44,6 +44,26 @@ final readonly class ListDeals
     }
 
     /**
+     * `D-108`: the owner filter's choices — the visible deals' owners, named
+     * through Identity and sorted by name. One the contract does not name (the
+     * hidden Super Admin, a soft-deleted account) is left out, as `D-109` leaves
+     * its name out of a row.
+     *
+     * ponytail: unpaginated — bounded by the number of users who own a visible
+     * deal; page it if that ever outgrows one select.
+     *
+     * @param  list<string>  $heldScopes
+     * @return list<array{id: string, name: string}>
+     */
+    public function owners(array $heldScopes, string $actorId): array
+    {
+        $names = $this->users->namesOf($this->deals->ownerIds(DealRowScope::resolve($heldScopes, $actorId)));
+        asort($names);
+
+        return array_map(static fn (string $id, string $name): array => ['id' => $id, 'name' => $name], array_keys($names), array_values($names));
+    }
+
+    /**
      * @param  list<string>  $heldScopes
      *
      * @throws DealNotFound when the row is absent **or** outside the caller's reach

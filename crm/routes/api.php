@@ -614,6 +614,10 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     Route::get('/', [DealController::class, 'index'])
         ->middleware('permission:deal.view');
 
+    // `D-108`: the owner filter's choices, scoped like the list they filter.
+    Route::get('/owners', [DealController::class, 'owners'])
+        ->middleware('permission:deal.view');
+
     Route::get('/{deal}', [DealController::class, 'show'])
         ->middleware('permission:deal.view');
 

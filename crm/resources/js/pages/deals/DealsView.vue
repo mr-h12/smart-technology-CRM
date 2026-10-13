@@ -65,6 +65,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ApiError } from '@/api';
+import { useListQuery } from '@/components/useListQuery';
+import { usePause } from '@/components/usePause';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -84,6 +86,7 @@ import DealApprovalControls from '@/pages/deals/DealApprovalControls.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
+import { displayDate } from '@/domain/displayDate';
 import { useAuth } from '@/stores/auth';
 
 const { t, locale } = useI18n();
@@ -104,7 +107,13 @@ const canFilterOwner = computed(() => auth.hasPermission('deal.view.all'));
 const formOpen = ref(false);
 const editing = ref<Deal | null>(null);
 
-type SortField = 'code' | 'created_at' | 'last_activity_at';
+const SORT_FIELDS = ['code', 'created_at', 'last_activity_at'] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+/** The server's own default is `-last_activity_at`: newest activity first. */
+const DEFAULT_SORT = '-last_activity_at';
+
+/** A-13: filters, sort and page live in the address, so Back and a shared link restore them. */
+const address = useListQuery();
 
 const deals = ref<DealRow[]>([]);
 const pagination = ref<Pagination | null>(null);
@@ -113,18 +122,26 @@ const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
 
-const page = ref(1);
-const search = ref('');
-const statusFilter = ref('');
-const serviceTypeFilter = ref('');
-const sourceFilter = ref('');
-const approvalFilter = ref('');
-const ownerFilter = ref('');
+const arrivedPage = Number.parseInt(address.arrived('page'), 10);
+const page = ref(arrivedPage > 1 ? arrivedPage : 1);
+const search = ref(address.arrived('q'));
+const statusFilter = ref(address.arrived('status'));
+const serviceTypeFilter = ref(address.arrived('type'));
+const sourceFilter = ref(address.arrived('source'));
+const approvalFilter = ref(address.arrived('approval'));
+// D-108: only a role offered the owner filter takes one from a shared link; elsewhere it would narrow the list unseen.
+const ownerFilter = ref(canFilterOwner.value ? address.arrived('owner') : '');
 const owners = ref<{ id: string; name: string }[]>([]);
 
-const sortField = ref<SortField>('last_activity_at');
-/** The server's own default is `-last_activity_at`: newest activity first. */
-const sortDescending = ref(true);
+const arrivedSort = address.arrived('sort');
+const arrivedField = SORT_FIELDS.find((field) => field === arrivedSort.replace(/^-/, ''));
+const sortField = ref<SortField>(arrivedField ?? 'last_activity_at');
+const sortDescending = ref(arrivedField === undefined || arrivedSort.startsWith('-'));
+
+/** A-32: the save, said in a status region present from the start. */
+const savedLine = ref('');
+/** A-19: below 640 the filters fold behind one button. */
+const filtersOpen = ref(false);
 
 const statuses = DEAL_STATUSES;
 const sources = DEAL_SOURCES;
@@ -133,15 +150,31 @@ const approvalStatuses = DEAL_APPROVAL_STATUSES;
 
 const total = computed(() => pagination.value?.total ?? 0);
 const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortField.value}`);
-const filtering = computed(
-    () =>
-        search.value !== '' ||
-        statusFilter.value !== '' ||
-        serviceTypeFilter.value !== '' ||
-        sourceFilter.value !== '' ||
-        approvalFilter.value !== '' ||
-        ownerFilter.value !== '',
+/** A-19: how many filters are set, for the folded button's count. */
+const activeFilters = computed(
+    () => [search, statusFilter, serviceTypeFilter, sourceFilter, approvalFilter, ownerFilter].filter((filter) => filter.value !== '').length,
 );
+const filtering = computed(() => activeFilters.value > 0);
+
+address.keep(() => ({
+    q: search.value,
+    status: statusFilter.value,
+    owner: ownerFilter.value,
+    approval: approvalFilter.value,
+    type: serviceTypeFilter.value,
+    source: sourceFilter.value,
+    sort: sortParameter.value === DEFAULT_SORT ? '' : sortParameter.value,
+    page: page.value > 1 ? page.value : '',
+}));
+
+/** A-49: the search box applies after the pickers' pause; the other controls on change. */
+const pause = usePause(() => void applyFilters());
+
+/** A-14: a reload after the first keeps the table, dimmed and busy. */
+const updating = computed(() => loading.value && pagination.value !== null);
+
+/** A-48: the filters show once there is something to filter, and never to a refused caller. */
+const showFilters = computed(() => !denied.value && (deals.value.length > 0 || filtering.value));
 
 /**
  * A stored code rendered through the dictionary — never a server-side label.
@@ -190,7 +223,9 @@ async function load(): Promise<void> {
 
 /** Any change to the question invalidates the page number. */
 async function applyFilters(): Promise<void> {
+    pause.cancel();
     page.value = 1;
+    savedLine.value = '';
     await load();
 }
 
@@ -227,14 +262,6 @@ function sortIndicator(field: string): string {
     return sortDescending.value ? '▼' : '▲';
 }
 
-/** `DB-08`: stored UTC, shown in the reader's locale. */
-function onDate(value: string | null): string {
-    if (value === null) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-GB');
-}
 
 /**
  * F-41 · 1.5 (the owner, 2026-10-11): hover shows a deal's whole details, a click
@@ -309,8 +336,9 @@ async function onDecided(): Promise<void> {
     await load();
 }
 
-async function onSaved(): Promise<void> {
+async function onSaved(deal: Deal): Promise<void> {
     formOpen.value = false;
+    savedLine.value = t('deals.saved', { code: deal.code });
 
     await load();
 }
@@ -345,7 +373,7 @@ onMounted(async () => {
             <button
                 v-if="canCreate"
                 type="button"
-                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="create-action min-h-11 rounded-lg px-4"
                 data-testid="deals-create"
                 @click="startCreate()"
             >
@@ -353,7 +381,27 @@ onMounted(async () => {
             </button>
         </header>
 
-        <form class="flex flex-wrap items-end gap-3" data-testid="deals-filters" @submit.prevent="applyFilters">
+        <!-- A-19: below 640 the filters fold behind one button that counts them; A-48: never to a refused caller. -->
+        <button
+            v-if="showFilters"
+            type="button"
+            class="row-action min-h-11 self-start rounded-lg px-3 sm:hidden"
+            :aria-expanded="filtersOpen"
+            aria-controls="deals-filters"
+            data-testid="deals-filters-toggle"
+            @click="filtersOpen = !filtersOpen"
+        >
+            {{ t('deals.filter.toggle', { count: activeFilters }) }}
+        </button>
+
+        <form
+            v-if="showFilters"
+            id="deals-filters"
+            class="flex-wrap items-end gap-3"
+            :class="filtersOpen ? 'flex' : 'hidden sm:flex'"
+            data-testid="deals-filters"
+            @submit.prevent="applyFilters"
+        >
             <!-- Unlike Module 6's list, a search box is a control with a server
                  behind it: `SearchIndex::Deals` indexes §4.3's `title`. -->
             <label class="flex flex-col gap-1">
@@ -364,6 +412,7 @@ onMounted(async () => {
                     class="form-field min-h-11 rounded-lg px-3"
                     :placeholder="t('deals.filter.searchPlaceholder')"
                     data-testid="deals-filter-search"
+                    @input="pause.restart()"
                 />
             </label>
 
@@ -431,17 +480,17 @@ onMounted(async () => {
                     <option v-for="code in sources" :key="code" :value="code">{{ t(`deals.source.${code}`) }}</option>
                 </select>
             </label>
-
-            <button
-                type="submit"
-                class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
-                data-testid="deals-filter-apply"
-            >
-                {{ t('deals.filter.apply') }}
-            </button>
         </form>
 
-        <LoadingState v-if="loading" label-key="deals.loading" />
+        <!-- A-32: present from the start, so the save is announced. -->
+        <p role="status" :class="savedLine === '' ? 'sr-only' : ''" data-testid="deals-saved">{{ savedLine }}</p>
+
+        <!-- A-14: present from the start, so the reload is announced. -->
+        <p role="status" :class="updating ? 'text-[var(--color-text-muted)]' : 'sr-only'" data-testid="deals-updating">
+            {{ updating ? t('state.updating') : '' }}
+        </p>
+
+        <LoadingState v-if="loading && pagination === null" label-key="deals.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
         <!-- ⚠️ "None are visible to you", never "there are none": `Team`, `Out`
@@ -454,9 +503,15 @@ onMounted(async () => {
         />
 
         <div v-else class="flex flex-col gap-3">
-            <div class="table-frame overflow-x-auto rounded-xl">
+            <!-- A-40: the frame clips rather than scrolls, so the header sticks under the bar. -->
+            <div
+                class="table-frame overflow-x-clip rounded-xl transition-opacity"
+                :class="{ 'opacity-50': loading }"
+                :aria-busy="loading"
+                data-testid="deals-table-frame"
+            >
                 <table class="w-full text-table" data-testid="deals-table">
-                    <thead class="sticky top-0">
+                    <thead class="sticky-head">
                         <tr class="table-head">
                             <th
                                 scope="col"
@@ -466,7 +521,7 @@ onMounted(async () => {
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="deals-sort-code"
                                     @click="sortBy('code')"
                                 >
@@ -481,13 +536,13 @@ onMounted(async () => {
 
                             <th
                                 scope="col"
-                                class="p-3 text-start"
+                                class="hidden p-3 text-start sm:table-cell"
                                 :aria-sort="ariaSort('last_activity_at')"
                                 data-testid="deals-column-last_activity_at"
                             >
                                 <button
                                     type="button"
-                                    class="sort-action min-h-11 rounded-lg px-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="sort-action min-h-11 rounded-lg px-2"
                                     data-testid="deals-sort-last_activity_at"
                                     @click="sortBy('last_activity_at')"
                                 >
@@ -512,7 +567,7 @@ onMounted(async () => {
                                  route and never a built path — `LogicalPropertiesTest`
                                  fails if a nav item names a route `app.ts` does not
                                  register, and the same discipline applies here. -->
-                            <td class="p-3 tabular-nums" data-testid="deals-code">
+                            <td class="whitespace-nowrap p-3 tabular-nums" data-testid="deals-code">
                                 <RouterLink
                                     :to="{ name: 'deal-detail', params: { id: deal.id } }"
                                     class="row-link"
@@ -531,13 +586,14 @@ onMounted(async () => {
                                 <template v-if="deal.details !== null">
                                     <button
                                         type="button"
-                                        class="details-trigger rounded text-start focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                        class="details-trigger rounded text-start"
+                                        :aria-label="t('deals.column.details')"
                                         data-testid="deals-details-trigger"
                                         @mouseenter="openDetails($event)"
                                         @mouseleave="closeDetails($event, deal.id)"
                                         @click="pinDetails($event, deal.id)"
                                     >
-                                        <span class="block max-w-32 truncate" dir="auto">{{ deal.details }}</span>
+                                        <span class="details-preview block max-w-32 truncate" dir="auto">{{ deal.details }}</span>
                                     </button>
                                     <div
                                         popover="auto"
@@ -559,7 +615,7 @@ onMounted(async () => {
                                 <span v-if="deal.approval_status === null">{{ approvalLabel(null) }}</span>
                                 <DealApprovalControls v-else :deal="deal" @decided="onDecided" />
                             </td>
-                            <td class="p-3 tabular-nums">{{ onDate(deal.last_activity_at) }}</td>
+                            <td class="hidden p-3 tabular-nums sm:table-cell" data-testid="deals-last-activity">{{ displayDate(deal.last_activity_at, locale) }}</td>
                             <td class="hidden p-3 md:table-cell">
                                 {{ deal.service_type === null ? '—' : t(`deals.serviceType.${deal.service_type}`) }}
                             </td>
@@ -570,7 +626,7 @@ onMounted(async () => {
                             <td v-if="canEdit" class="p-3">
                                 <button
                                     type="button"
-                                    class="ghost-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                                    class="ghost-action min-h-11 rounded-lg px-3"
                                     data-testid="deals-row-edit"
                                     @click="startEdit(deal)"
                                 >
@@ -582,15 +638,16 @@ onMounted(async () => {
                 </table>
             </div>
 
+            <!-- A-67: no pager for a single page, as on every list. -->
             <nav
-                v-if="pagination"
+                v-if="pagination !== null && pagination.total_pages > 1"
                 class="flex items-center justify-between gap-3"
                 :aria-label="t('deals.pagination.label')"
                 data-testid="deals-pagination"
             >
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_previous_page || loading"
                     data-testid="deals-previous"
                     @click="goToPage(pagination.page - 1)"
@@ -604,7 +661,7 @@ onMounted(async () => {
 
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="!pagination.has_next_page || loading"
                     data-testid="deals-next"
                     @click="goToPage(pagination.page + 1)"
@@ -656,26 +713,15 @@ onMounted(async () => {
     color: inherit;
 }
 
-.row-link {
-    color: var(--color-primary);
-    text-decoration: underline;
-}
-
 .details-trigger {
     color: inherit;
-    cursor: help;
+    cursor: pointer;
 }
 
 .details-popover {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-1);
-    color: var(--color-text);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
     color: var(--color-text);
 }
 
@@ -686,10 +732,5 @@ onMounted(async () => {
 
 .ghost-action:hover {
     background-color: var(--color-surface);
-}
-
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
 }
 </style>

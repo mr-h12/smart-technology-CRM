@@ -57,6 +57,8 @@ const { t } = useI18n();
 
 const employees = ref<AdministeredUser[]>([]);
 const unavailable = ref(false);
+/** A-41: until the list answers, a line says so; the identifier box is only for a refusal. */
+const loading = ref(true);
 
 const hasList = computed(() => employees.value.length > 0);
 
@@ -74,17 +76,23 @@ onMounted(async () => {
     } catch {
         employees.value = [];
         unavailable.value = true;
+    } finally {
+        loading.value = false;
     }
 });
 </script>
 
 <template>
+    <span v-if="loading" role="status" class="text-[var(--color-text-muted)]" :data-testid="`${testId}-loading`">
+        {{ t('state.loading') }}
+    </span>
+
     <select
-        v-if="hasList"
+        v-else-if="hasList"
         :id="fieldId"
         v-model="chosen"
         :disabled="disabled"
-        class="form-field min-h-11 max-w-full rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+        class="form-field min-h-11 max-w-full rounded-lg px-3 py-2"
         :data-testid="testId"
     >
         <option value="">{{ t('deals.assign.ownerNone') }}</option>
@@ -93,7 +101,7 @@ onMounted(async () => {
         </option>
     </select>
 
-    <!-- ⚠️ The `v-else` must stay adjacent to the `v-if` above: an element
+    <!-- ⚠️ The `v-else` must stay adjacent to the `v-else-if` above: an element
          between them severs the chain and this never renders, which is exactly
          what happened when the sentence below was first written inline. -->
     <input
@@ -103,7 +111,7 @@ onMounted(async () => {
         type="text"
         :disabled="disabled"
         :placeholder="t('deals.form.ownerPlaceholder')"
-        class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+        class="form-field min-h-11 rounded-lg px-3 py-2"
         :data-testid="testId"
     />
 

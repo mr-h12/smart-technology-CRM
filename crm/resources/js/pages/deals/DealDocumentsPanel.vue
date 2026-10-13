@@ -54,7 +54,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { assignDeal, attachDealDocument, type Deal, type DealDocument } from '@/services/deals';
-import { downloadFile } from '@/services/files';
+import { downloadFile, FILE_ACCEPT } from '@/services/files';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -71,6 +71,8 @@ const canAssign = computed(() => auth.hasPermission('deal.assign_owner'));
 const uploaded = ref<DealDocument[]>([]);
 const uploading = ref(false);
 const uploadErrorKey = ref<string | null>(null);
+/** A-31: what the status region says — set when the answer arrives, cleared by the next action. */
+const uploadStatus = ref('');
 const downloadingId = ref<string | null>(null);
 
 const assigning = ref(false);
@@ -88,13 +90,18 @@ async function onFileChosen(event: Event): Promise<void> {
 
     uploadErrorKey.value = null;
     uploading.value = true;
+    uploadStatus.value = t('deals.documents.uploading');
 
     try {
-        uploaded.value = [await attachDealDocument(props.deal.id, file), ...uploaded.value];
+        const document = await attachDealDocument(props.deal.id, file);
+
+        uploaded.value = [document, ...uploaded.value];
+        uploadStatus.value = t('deals.documents.attached', { name: document.original_name });
     } catch (error) {
         uploadErrorKey.value = error instanceof ApiError && error.status === 403
             ? 'deals.documents.forbidden'
             : 'deals.documents.rejected';
+        uploadStatus.value = '';
     } finally {
         uploading.value = false;
         // So the same file can be chosen again after a failure.
@@ -165,19 +172,28 @@ async function submitAssign(): Promise<void> {
                 {{ t(uploadErrorKey) }}
             </p>
 
-            <label v-if="canUpload" class="flex flex-col gap-1.5" for="deal-document-file">
-                <span>{{ t('deals.documents.choose') }}</span>
-                <input
-                    id="deal-document-file"
-                    type="file"
-                    :disabled="uploading"
-                    class="form-field rounded-lg px-3 py-2"
-                    data-testid="deal-documents-file"
-                    @change="onFileChosen"
-                />
-            </label>
+            <!-- A-24: the shared file control, as on the purchase order. -->
+            <div v-if="canUpload" class="flex flex-col gap-1.5">
+                <span id="deal-document-file-title">{{ t('deals.documents.choose') }}</span>
+                <label class="file-pick row-action inline-flex min-h-11 items-center self-start rounded-lg px-4" for="deal-document-file">
+                    {{ t('files.choose') }}
+                    <input
+                        id="deal-document-file"
+                        type="file"
+                        :accept="FILE_ACCEPT"
+                        :disabled="uploading"
+                        class="sr-only"
+                        aria-describedby="deal-document-file-title deal-document-file-name deal-document-file-hint"
+                        data-testid="deal-documents-file"
+                        @change="onFileChosen"
+                    />
+                </label>
+                <p id="deal-document-file-name" class="text-[var(--color-text-muted)]">{{ t('files.noFile') }}</p>
+                <p id="deal-document-file-hint" class="text-[var(--color-text-muted)]">{{ t('files.hint') }}</p>
+            </div>
 
-            <p v-if="uploading" data-testid="deal-documents-uploading">{{ t('deals.documents.uploading') }}</p>
+            <!-- A-31: present from load and empty; a live region announces what is set into it. -->
+            <p role="status" data-testid="deal-documents-status">{{ uploadStatus }}</p>
 
             <ul v-if="uploaded.length > 0" class="flex flex-col gap-2">
                 <li
@@ -186,7 +202,7 @@ async function submitAssign(): Promise<void> {
                     class="document-row flex flex-wrap items-center justify-between gap-2 rounded-lg p-3"
                     data-testid="deal-documents-row"
                 >
-                    <span>{{ document.original_name }}</span>
+                    <span class="min-w-0 break-words" data-testid="deal-documents-name">{{ document.original_name }}</span>
 
                     <!-- SEC-15 gates on the scan, so its state is a fact worth
                          showing rather than a silently broken button. -->
@@ -203,7 +219,7 @@ async function submitAssign(): Promise<void> {
                     <button
                         v-else
                         type="button"
-                        class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                        class="row-action min-h-11 rounded-lg px-3"
                         :disabled="downloadingId === document.id"
                         data-testid="deal-documents-download"
                         @click="download(document)"
@@ -225,7 +241,7 @@ async function submitAssign(): Promise<void> {
                 <label class="flex flex-col gap-1.5" for="deal-assign-owner">
                     <span>
                         {{ t('deals.column.owner') }}
-                        <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
+                        <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
                     </span>
                     <DealOwnerPicker
                         v-model="ownerId"
@@ -241,7 +257,7 @@ async function submitAssign(): Promise<void> {
 
                 <button
                     type="submit"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="assigning"
                     data-testid="deal-assign-submit"
                 >
@@ -258,25 +274,8 @@ async function submitAssign(): Promise<void> {
     border: 1px solid var(--color-border);
 }
 
-.form-field {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
 }
 </style>

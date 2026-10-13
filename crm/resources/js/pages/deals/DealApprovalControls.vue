@@ -17,10 +17,10 @@
  *
  * ── The badge is a state, not a colour ─────────────────────────────────────
  *
- * §6.4: pending is a **warning** — "amber icon + label", never colour alone —
- * and rejected is **danger** with its "mandatory reason/action clear". Each
- * badge therefore carries an icon, a word and a token-defined colour, and the
- * reason is rendered beside the rejected one rather than hidden behind it.
+ * §6.4: pending is a **warning**, never colour alone — and rejected is
+ * **danger** with its "mandatory reason/action clear". Each badge is the shared
+ * status chip (A-55): the word carries the meaning in its tone, with no emoji,
+ * and the reason is rendered beside the rejected one rather than hidden behind it.
  *
  * ── Null is not pending ────────────────────────────────────────────────────
  *
@@ -36,9 +36,10 @@
  * that inline rather than swallowing it: the row in hand is stale, and the
  * honest instruction is to reload.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import { approveDeal, rejectDeal, type Deal } from '@/services/deals';
 import { useAuth } from '@/stores/auth';
 
@@ -49,6 +50,10 @@ const { t } = useI18n();
 const auth = useAuth();
 
 const rejecting = ref(false);
+/** A-09: Approve names the deal and asks before anything is written. */
+const confirming = ref(false);
+/** A-29: one control per row, so the reason's id is its own. */
+const reasonId = useId();
 const reason = ref('');
 const busy = ref(false);
 const errorKey = ref<string | null>(null);
@@ -85,6 +90,7 @@ async function approve(): Promise<void> {
         errorKey.value = refusalKey(error);
     } finally {
         busy.value = false;
+        confirming.value = false;
     }
 }
 
@@ -125,21 +131,10 @@ async function submitRejection(): Promise<void> {
 
 <template>
     <div class="flex flex-col gap-2" data-testid="deal-approval">
-        <!-- §6.4: icon **and** label, never colour alone. -->
-        <p v-if="isPending" class="badge badge-warning" data-testid="deal-approval-badge-pending">
-            <span aria-hidden="true">⏳</span>
-            {{ t('deals.approval.pending') }}
-        </p>
-
-        <p v-else-if="isRejected" class="badge badge-danger" data-testid="deal-approval-badge-rejected">
-            <span aria-hidden="true">⛔</span>
-            {{ t('deals.approval.rejected') }}
-        </p>
-
-        <p v-else-if="isApproved" class="badge badge-success" data-testid="deal-approval-badge-approved">
-            <span aria-hidden="true">✓</span>
-            {{ t('deals.approval.approved') }}
-        </p>
+        <!-- §6.4: the word, never colour alone; A-55: the shared chip, no emoji. -->
+        <p v-if="isPending" class="status-chip status-chip--warning w-fit whitespace-nowrap rounded-full px-2 py-0.5" data-testid="deal-approval-badge-pending">{{ t('deals.approval.pending') }}</p>
+        <p v-else-if="isRejected" class="status-chip status-chip--danger w-fit whitespace-nowrap rounded-full px-2 py-0.5" data-testid="deal-approval-badge-rejected">{{ t('deals.approval.rejected') }}</p>
+        <p v-else-if="isApproved" class="status-chip status-chip--success w-fit whitespace-nowrap rounded-full px-2 py-0.5" data-testid="deal-approval-badge-approved">{{ t('deals.approval.approved') }}</p>
 
         <!-- The reason is shown to whoever can see the deal — §4.3 makes it
              mandatory on rejection precisely so the employee can read it. -->
@@ -158,16 +153,17 @@ async function submitRejection(): Promise<void> {
         <div v-if="canDecide && isPending && !rejecting" class="flex flex-wrap gap-2">
             <button
                 type="button"
-                class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="busy"
                 data-testid="deal-approve"
-                @click="approve()"
+                @click="confirming = true"
             >
                 {{ t('deals.approval.approveAction') }}
             </button>
+            <!-- A-33: Reject is row Danger, text only; the filled Danger is its submit. -->
             <button
                 type="button"
-                class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                class="danger-text min-h-11 rounded-lg px-4"
                 :disabled="busy"
                 data-testid="deal-reject"
                 @click="rejecting = true"
@@ -178,18 +174,18 @@ async function submitRejection(): Promise<void> {
 
         <!-- §6.6: "collect mandatory reasons before submission". -->
         <form v-if="rejecting" class="flex flex-col gap-2" data-testid="deal-reject-form" @submit.prevent="submitRejection()">
-            <label class="flex flex-col gap-1.5" for="deal-reject-reason">
+            <label class="flex flex-col gap-1.5" :for="reasonId">
                 <span>
                     {{ t('deals.approval.reasonPrompt') }}
-                    <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
+                    <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
                 </span>
                 <textarea
-                    id="deal-reject-reason"
+                    :id="reasonId"
                     v-model="reason"
                     rows="3"
                     :disabled="busy"
                     :aria-invalid="reasonError !== null"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="deal-reject-reason"
                 ></textarea>
                 <span v-if="reasonError !== null" class="text-[var(--color-danger)]" data-testid="deal-reject-reason-error">
@@ -200,7 +196,7 @@ async function submitRejection(): Promise<void> {
             <div class="flex flex-wrap gap-2">
                 <button
                     type="submit"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="danger-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="deal-reject-submit"
                 >
@@ -208,7 +204,7 @@ async function submitRejection(): Promise<void> {
                 </button>
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     :disabled="busy"
                     data-testid="deal-reject-cancel"
                     @click="rejecting = false"
@@ -217,36 +213,21 @@ async function submitRejection(): Promise<void> {
                 </button>
             </div>
         </form>
+
+        <ConfirmDialog
+            :open="confirming"
+            title-key="deals.approval.confirm.title"
+            message-key="deals.approval.confirm.message"
+            confirm-key="deals.approval.approveAction"
+            :subject="deal.code"
+            :busy="busy"
+            @confirm="approve"
+            @cancel="confirming = false"
+        />
     </div>
 </template>
 
 <style scoped>
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    border-radius: 999px;
-    padding-block: 0.125rem;
-    padding-inline: 0.625rem;
-    width: fit-content;
-    white-space: nowrap;
-    /* D-109: a chip filled with its own tone, as `QuotationStatusChip`. */
-    background-color: color-mix(in srgb, currentColor 14%, transparent);
-}
-
-/* §6.4's four types, each carrying an icon and a word beside the colour. */
-.badge-warning {
-    color: var(--color-warning);
-}
-
-.badge-danger {
-    color: var(--color-danger);
-}
-
-.badge-success {
-    color: var(--color-success);
-}
-
 .form-field {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);
@@ -256,16 +237,5 @@ async function submitRejection(): Promise<void> {
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
 }
 </style>

@@ -35,7 +35,7 @@
  * hiding `delivery_complete` from a role that might hold the second grant would
  * be the SPA guessing at an authorization decision.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { DEAL_STATUSES, changeDealStatus, type Deal } from '@/services/deals';
@@ -56,6 +56,11 @@ const reasonError = ref<string | null>(null);
 
 const statuses = DEAL_STATUSES;
 
+/** A-29: one control per row, so its ids are its own (`SearchCombobox`'s `useId`). */
+const ids = { title: useId(), target: useId(), reason: useId() };
+const form = ref<HTMLFormElement | null>(null);
+const startButton = ref<HTMLButtonElement | null>(null);
+
 const canChange = computed(() => auth.hasPermission('deal.change_status'));
 
 /** §4.4: only `lost` carries a reason, and it is mandatory. */
@@ -74,16 +79,21 @@ function refusalKey(error: unknown): string {
     return error.status === 409 ? 'deals.status.notAllowed' : 'deals.status.rejectedByServer';
 }
 
-function start(): void {
+/** A-22: an inline form takes the focus it opens with, and gives it back on Cancel. */
+async function start(): Promise<void> {
     open.value = true;
     target.value = '';
     reason.value = '';
     errorKey.value = null;
     reasonError.value = null;
+    await nextTick();
+    form.value?.querySelector('select')?.focus();
 }
 
-function cancel(): void {
+async function cancel(): Promise<void> {
     open.value = false;
+    await nextTick();
+    startButton.value?.focus();
 }
 
 async function submit(): Promise<void> {
@@ -136,22 +146,30 @@ async function submit(): Promise<void> {
     <div class="flex flex-col gap-2" data-testid="deal-status-control">
         <button
             v-if="canChange && !open"
+            ref="startButton"
             type="button"
-            class="row-action min-h-11 rounded-lg px-3 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+            class="row-action min-h-11 self-start rounded-lg px-3"
             data-testid="deal-status-start"
             @click="start()"
         >
             {{ t('deals.status.changeAction') }}
         </button>
 
-        <form v-if="open" class="flex flex-col gap-2" data-testid="deal-status-form" @submit.prevent="submit()">
-            <label class="flex flex-col gap-1.5" for="deal-status-target">
-                <span>{{ t('deals.status.targetPrompt') }}</span>
+        <form
+            v-if="open"
+            ref="form"
+            class="flex flex-col gap-2"
+            :aria-labelledby="ids.title"
+            data-testid="deal-status-form"
+            @submit.prevent="submit()"
+        >
+            <label class="flex flex-col gap-1.5" :for="ids.target">
+                <span :id="ids.title">{{ t('deals.status.targetPrompt') }}</span>
                 <select
-                    id="deal-status-target"
+                    :id="ids.target"
                     v-model="target"
                     :disabled="busy"
-                    class="form-field min-h-11 rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field min-h-11 rounded-lg px-3 py-2"
                     data-testid="deal-status-target"
                 >
                     <option value="">{{ t('deals.status.targetNone') }}</option>
@@ -161,18 +179,18 @@ async function submit(): Promise<void> {
                 </select>
             </label>
 
-            <label v-if="needsReason" class="flex flex-col gap-1.5" for="deal-status-reason">
+            <label v-if="needsReason" class="flex flex-col gap-1.5" :for="ids.reason">
                 <span>
                     {{ t('deals.status.reasonPrompt') }}
-                    <span class="text-[var(--color-danger)]">{{ t('deals.form.required') }}</span>
+                    <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span>
                 </span>
                 <textarea
-                    id="deal-status-reason"
+                    :id="ids.reason"
                     v-model="reason"
                     rows="3"
                     :disabled="busy"
                     :aria-invalid="reasonError !== null"
-                    class="form-field rounded-lg px-3 py-2 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="form-field rounded-lg px-3 py-2"
                     data-testid="deal-status-reason"
                 ></textarea>
                 <span v-if="reasonError !== null" class="text-[var(--color-danger)]" data-testid="deal-status-reason-error">
@@ -187,7 +205,7 @@ async function submit(): Promise<void> {
             <div class="flex flex-wrap gap-2">
                 <button
                     type="submit"
-                    class="create-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="busy"
                     data-testid="deal-status-submit"
                 >
@@ -195,7 +213,7 @@ async function submit(): Promise<void> {
                 </button>
                 <button
                     type="button"
-                    class="row-action min-h-11 rounded-lg px-4 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-focus-ring)]"
+                    class="row-action min-h-11 rounded-lg px-4"
                     :disabled="busy"
                     data-testid="deal-status-cancel"
                     @click="cancel()"
@@ -217,16 +235,5 @@ async function submit(): Promise<void> {
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
-}
-
-.row-action {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-}
-
-.create-action {
-    background-color: var(--color-primary);
-    color: var(--color-primary-text);
 }
 </style>

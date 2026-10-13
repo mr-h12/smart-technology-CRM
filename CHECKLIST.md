@@ -4281,7 +4281,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             and vitest), joined with 1.7 by the owner, 2026-10-13.
             *(2026-10-13, #343 — `filter[owner]` only narrows the row scope; `GET /deals/owners` returns `data.items` sorted by name, unpaginated; the six filters share one width (owner))*
       - [x] **1.8** The Arabic manual test list; closes F-41.
-            *(2026-10-13 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
+            *(2026-10-13, #344 — 31 checks over 1.2–1.6, roles from the dev `role_permissions`; Team Leader, Procurement and Outdoor Supervisor named as gaps)*
 
       #### قائمة الاختبار اليدوي — F-41 كاملة *(النقطة 1.8، 2026-10-13)*
 

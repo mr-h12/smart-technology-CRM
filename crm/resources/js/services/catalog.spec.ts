@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCatalogItem, importCatalogItems, listCatalogItems, readCatalogItem, updateCatalogItem } from '@/services/catalog';
+import {
+    createCatalogItem,
+    importCatalogItems,
+    listCatalogCompanies,
+    listCatalogItems,
+    readCatalogItem,
+    updateCatalogItem,
+} from '@/services/catalog';
 
 /**
  * Module 4, Point 4.0 — the API catalogue for the four routes Step 3 built.
@@ -220,5 +227,31 @@ describe('the catalog import and links', () => {
         await updateCatalogItem(ITEM.id, { supplier_ids: [] });
 
         expect(JSON.parse(String(calledWith(fetchMock).init.body))).toEqual({ supplier_ids: [] });
+    });
+});
+
+describe('D-111 (F-43): the company tiles', () => {
+    it('asks for the per-tab counts and reads data.items', async () => {
+        const items = [{ company: 'zk', count: 8 }, { company: null, count: 311 }];
+        const fetchMock = vi.fn(async () => json(200, { data: { items } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        expect(await listCatalogCompanies('product')).toEqual(items);
+
+        const { url } = calledWith(fetchMock);
+
+        expect(url).toContain('/catalog-items/companies?');
+        expect(url).toContain(`${encodeURIComponent('filter[kind]')}=product`);
+    });
+
+    it('sends filter[has_company] when told, and nothing about it when not', async () => {
+        const fetchMock = vi.fn(async (_input: string) => json(200, { data: [], meta: { pagination: PAGINATION } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await listCatalogItems({ hasCompany: false });
+        await listCatalogItems({});
+
+        expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`${encodeURIComponent('filter[has_company]')}=false`);
+        expect(String(fetchMock.mock.calls[1]?.[0])).not.toContain('has_company');
     });
 });

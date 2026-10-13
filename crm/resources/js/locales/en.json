@@ -841,6 +841,10 @@
             "active": "Active",
             "inactive": "Inactive"
         },
+        "tiles": {
+            "label": "Companies",
+            "back": "All companies"
+        },
         "group": {
             "none": "No company"
         },

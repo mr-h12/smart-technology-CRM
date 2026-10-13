@@ -40,6 +40,12 @@ final class CatalogItemController
         return ApiEnvelope::collection($request, CatalogItemPayload::many($page), CatalogItemPayload::pagination($page));
     }
 
+    /** `D-111` (F-43): the list's own query contract, so `filter[kind]` and its 400s come with it. */
+    public function companies(Request $request, ListCatalogItems $items): JsonResponse
+    {
+        return ApiEnvelope::single($request, ['items' => $items->companies(CatalogItemListCriteria::fromQuery($request->query()))]);
+    }
+
     public function show(Request $request, string $catalogItem, ListCatalogItems $items): JsonResponse
     {
         return ApiEnvelope::single($request, CatalogItemPayload::of($items->one($catalogItem), $items->suppliersOf($catalogItem)));

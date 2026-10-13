@@ -6,8 +6,8 @@
  * the full string (Design System §6.3 "format only for display").
  *
  * String and `BigInt` work on purpose: no float (`DB-07`), and no arithmetic on
- * a price (`D-67`) — this only rounds what is drawn. Percentages and FX rates
- * never come here.
+ * a price (`D-67`) — this only rounds what is drawn. Percentages ({@link displayPercent})
+ * and FX rates never come here.
  */
 export function displayDecimals<T extends string | null | undefined>(value: T): T | string {
     if (typeof value !== 'string') {
@@ -27,3 +27,6 @@ export function displayDecimals<T extends string | null | undefined>(value: T): 
 export function displayQuantity<T extends string | null | undefined>(value: T): T | string {
     return typeof value === 'string' ? value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : value;
 }
+
+/** D-112: a percentage loses its trailing zeros the same way (`15.000` → `15`), on screen and in a pre-filled input. */
+export const displayPercent = displayQuantity;

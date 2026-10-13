@@ -107,6 +107,14 @@ describe('the deal status control', () => {
         expect(wrapper.find('[data-testid="deal-status-form"]').exists()).toBe(false);
     });
 
+    it('draws its own 44 px box, because Safari ignores min-height on a native select (owner, 2026-10-14)', async () => {
+        const classes = (await render(CHANGER)).get('[data-testid="deal-status-target"]').classes();
+
+        // The buttons beside it are `min-h-11`; a select keeps that height in
+        // every engine only with its native look turned off and a fixed height.
+        expect(classes).toEqual(expect.arrayContaining(['appearance-none', 'h-11']));
+    });
+
     it('offers §4.4’s whole vocabulary, not a reachable set', async () => {
         const wrapper = await render(CHANGER);
         const options = wrapper.find('[data-testid="deal-status-target"]').findAll('option');

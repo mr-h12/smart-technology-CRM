@@ -136,20 +136,27 @@ async function submit(): Promise<void> {
 
 <template>
     <div v-if="canChange" data-testid="deal-status-control">
-        <select
-            v-model="target"
-            :disabled="busy"
-            :aria-label="t('deals.status.changeAction')"
-            class="form-field min-h-11 rounded-lg px-3 py-2"
-            data-testid="deal-status-target"
-        >
-            <option value="" disabled>{{ t('deals.status.changeAction') }}</option>
-            <!-- The whole vocabulary, not a reachable set: §7.1 leaves
-                 the allowed transition to the server. -->
-            <option v-for="code in statuses" :key="code" :value="code" :disabled="code === deal.status">
-                {{ t(`deals.status.${code}`) }}
-            </option>
-        </select>
+        <!-- Safari ignores min-height on a native select, so the box is drawn here:
+             the same 44 px as the buttons beside it, with the arrow at the end side. -->
+        <span class="relative inline-flex">
+            <select
+                v-model="target"
+                :disabled="busy"
+                :aria-label="t('deals.status.changeAction')"
+                class="form-field h-11 appearance-none rounded-lg ps-3 pe-9"
+                data-testid="deal-status-target"
+            >
+                <option value="" disabled>{{ t('deals.status.changeAction') }}</option>
+                <!-- The whole vocabulary, not a reachable set: §7.1 leaves
+                     the allowed transition to the server. -->
+                <option v-for="code in statuses" :key="code" :value="code" :disabled="code === deal.status">
+                    {{ t(`deals.status.${code}`) }}
+                </option>
+            </select>
+            <svg viewBox="0 0 20 20" class="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-text-muted)]" aria-hidden="true" fill="currentColor">
+                <path d="M5.2 7.6a.75.75 0 0 1 1.06 0L10 11.34l3.74-3.74a.75.75 0 1 1 1.06 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0L5.2 8.66a.75.75 0 0 1 0-1.06z" />
+            </svg>
+        </span>
 
         <ConfirmDialog
             :open="target !== ''"

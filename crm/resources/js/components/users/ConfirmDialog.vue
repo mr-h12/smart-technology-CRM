@@ -48,7 +48,8 @@ function cancel(): void {
 watch(() => props.open, async (open) => {
     if (open) {
         await new Promise((resolve) => setTimeout(resolve, 0));
-        confirmButton.value?.focus();
+        // F-42 · P7: a field passed in the slot is what the dialog asks for, so it takes focus first.
+        (dialog.value?.querySelector<HTMLElement>('[autofocus]') ?? confirmButton.value)?.focus();
     }
 });
 </script>
@@ -72,6 +73,7 @@ watch(() => props.open, async (open) => {
             <p :id="ids.message" class="text-[var(--color-text-muted)] text-pretty">
                 {{ t(messageKey, { name: subject }) }}
             </p>
+            <slot />
 
             <div class="flex flex-wrap justify-end gap-2">
                 <button

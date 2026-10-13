@@ -4338,59 +4338,53 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       **Step 3 — buttons and status.**
       - [x] **5.7** A-51: hover and pressed states.
             *(2026-10-13, #336 — one unlayered `.row-action` in `app.css` (hover `surface-muted`, pressed `border`) replaces 16 scoped copies; the 6 `pages/deals/` copies wait for step 15 (owner's yes); picker Retry is now a secondary button, options fill on mouse hover)*
-      - [ ] **5.8** A-33: one primary per area, row Danger as text.
-      - [ ] **5.9** A-55: one status chip without the dot; the deal chip after F-41.
-      **Step 4 — the dialog shell.**
-      - [ ] **5.10** A-04, first part: `ConfirmDialog` on native `<dialog>`, with its new spec.
-      - [ ] **5.11** A-04, second part: the other 11 dialogs; the deal dialog after F-41. The drawer's `inert` is 5.33's
-            (`plan.md` names it under both rows).
-      - [ ] **5.12** A-09: Approve asks first.
-      - [ ] **5.13** A-22: Return and Delete-confirm become dialogs; the other inline forms move focus.
-      - [ ] **5.14** A-30: busy actions.
-      **Step 5 — feedback and states.**
-      - [ ] **5.15** A-31 and A-32: one always-present `role="status"` region for results and successes.
-      - [ ] **5.16** A-41: loading made visible.
-      - [ ] **5.17** A-43: errors with a cause and a next step.
-      **Step 6 — list primitives.**
-      - [ ] **5.18** A-13: filters, sort and page in the URL.
-      - [ ] **5.19** A-14: reload without losing the table.
-      - [ ] **5.20** A-39 and A-40: cards below 640 px and a sticky header that sticks.
-      - [ ] **5.21** A-48 and A-67: when the filter bar and the pager show.
-      - [ ] **5.22** A-49: every filter live.
-      **Step 7 — display, plurals, title and focus.**
-      - [ ] **5.23** A-06: D-70 digits and one date form.
-      - [ ] **5.24** A-07: phones keep their order.
-      - [ ] **5.25** A-26: D-99's display form on screen. Opens with the proposed D-xx amending D-82, a shell write
-            to `CRM_Documentation_EN.md` with the owner's yes.
-      - [ ] **5.26** A-52: long text stays inside.
-      - [ ] **5.27** A-44: Arabic plurals.
-      - [ ] **5.28** A-12: the tab title and focus on navigation.
-      **Step 8 — form fields.**
-      - [ ] **5.29** A-11: errors on a failed save.
-      - [ ] **5.30** A-24: the file control.
-      - [ ] **5.31** A-38: 44 px targets.
-      - [ ] **5.32** A-50: one required marker.
-      **Step 9 — the shell.**
-      - [ ] **5.33** A-05 and A-23: the closed drawer is inert; collapsed rail links keep their name.
-      - [ ] **5.34** A-28: one h1 per page.
-      **Step 10 — login.**
-      - [ ] **5.35** A-10 and A-46: Sign-in stays enabled; a language switch on the login card.
-      **Step 11 — customers.**
-      - [ ] **5.36** A-02: no second create.
-      - [ ] **5.37** A-57, A-59 and A-54's links: the bulk panel when needed, Close after an import, tappable contacts.
-      **Step 12 — approvals.**
-      - [ ] **5.38** A-47: four approvals fixes.
-      **Step 13 — quotations and the builder.**
-      - [ ] **5.39** A-01 and A-17: the builder follows the route; focus follows add and remove.
-      - [ ] **5.40** A-35: remove at once, with Undo.
-      - [ ] **5.41** A-16, A-36, A-37 and A-60: the builder's line inputs.
-      - [ ] **5.42** A-61 and A-62: an in-app discard prompt; margin keeps its minus sign.
-      - [ ] **5.43** A-27: a browser check first; the in-flow list only if the clipping is confirmed, otherwise the
-            measure closes it with no code.
-      - [ ] **5.44** A-20: a sticky Save.
-      - [ ] **5.45** A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
-      **Step 14 — polish.**
-      - [ ] **5.46** A-66, without its deals items.
+      **Regrouped 2026-10-13 (owner): the 39 open rows 5.8–5.46 run as five points P1–P5, by surface; each row
+      keeps its own failing test and its own line in the report. Step 15 below stays as it was. Open with
+      `/next-point f-42 P1`.**
+      - [ ] **P1** Buttons, status and feedback. **Next.**
+            · 5.8 A-33: one primary per area, row Danger as text.
+            · 5.9 A-55: one status chip without the dot; the deal chip after F-41.
+            · 5.14 A-30: busy actions.
+            · 5.15 A-31 and A-32: one always-present `role="status"` region for results and successes.
+            · 5.16 A-41: loading made visible.
+            · 5.17 A-43: errors with a cause and a next step.
+      - [ ] **P2** Dialogs and the shell.
+            · 5.10 A-04, first part: `ConfirmDialog` on native `<dialog>`, with its new spec.
+            · 5.11 A-04, second part: the other 11 dialogs; the deal dialog after F-41. The drawer's `inert` is 5.33's (`plan.md` names it under both rows).
+            · 5.12 A-09: Approve asks first.
+            · 5.13 A-22: Return and Delete-confirm become dialogs; the other inline forms move focus.
+            · 5.33 A-05 and A-23: the closed drawer is inert; collapsed rail links keep their name.
+            · 5.34 A-28: one h1 per page.
+      - [ ] **P3** Lists and display.
+            · 5.18 A-13: filters, sort and page in the URL.
+            · 5.19 A-14: reload without losing the table.
+            · 5.20 A-39 and A-40: cards below 640 px and a sticky header that sticks.
+            · 5.21 A-48 and A-67: when the filter bar and the pager show.
+            · 5.22 A-49: every filter live.
+            · 5.23 A-06: D-70 digits and one date form.
+            · 5.24 A-07: phones keep their order.
+            · 5.25 A-26: D-99's display form on screen. Opens with the proposed D-xx amending D-82, a shell write to `CRM_Documentation_EN.md` with the owner's yes.
+            · 5.26 A-52: long text stays inside.
+            · 5.27 A-44: Arabic plurals.
+            · 5.28 A-12: the tab title and focus on navigation.
+      - [ ] **P4** Forms, login, customers and approvals.
+            · 5.29 A-11: errors on a failed save.
+            · 5.30 A-24: the file control.
+            · 5.31 A-38: 44 px targets.
+            · 5.32 A-50: one required marker.
+            · 5.35 A-10 and A-46: Sign-in stays enabled; a language switch on the login card.
+            · 5.36 A-02: no second create.
+            · 5.37 A-57, A-59 and A-54's links: the bulk panel when needed, Close after an import, tappable contacts.
+            · 5.38 A-47: four approvals fixes.
+      - [ ] **P5** Quotations, the builder and polish.
+            · 5.39 A-01 and A-17: the builder follows the route; focus follows add and remove.
+            · 5.40 A-35: remove at once, with Undo.
+            · 5.41 A-16, A-36, A-37 and A-60: the builder's line inputs.
+            · 5.42 A-61 and A-62: an in-app discard prompt; margin keeps its minus sign.
+            · 5.43 A-27: a browser check first; the in-flow list only if the clipping is confirmed, otherwise the measure closes it with no code.
+            · 5.44 A-20: a sticky Save.
+            · 5.45 A-03, A-15, A-21, A-56 and A-18's quotation part: the quotation page.
+            · 5.46 A-66, without its deals items.
       **Step 15 — after F-41 · 1.8.**
       - [ ] **5.47** A-19 and A-58: the phone deals list and the details trigger.
       - [ ] **5.48** A-29 and A-53: unique ids per row and the deal header.

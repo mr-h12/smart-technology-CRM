@@ -130,7 +130,11 @@ describe('UI source rules (F-42)', () => {
 
     it('a sticky header that sticks (A-40): no sticky <thead> inside an overflow-x-auto frame', () => {
         // An overflow-x-auto frame is a scroll container, so a sticky header sticks to it and never moves.
-        const framed = SOURCES.filter(([, text]) => /\boverflow-x-auto\b/.test(text)).map(([path]) => path);
+        // A frame that scrolls only below 640 (`sm:overflow-x-clip`) still sticks where the header is used:
+        // the deals table stays a table on a phone (A-19), so it scrolls there (owner, 2026-10-14).
+        const framed = SOURCES.filter(([, text]) =>
+            [...text.matchAll(/class="[^"]*\boverflow-x-auto\b[^"]*"/g)].some(([attr]) => !/\bsm:overflow-x-clip\b/.test(attr)),
+        ).map(([path]) => path);
 
         expect(linesMatching(/<thead\b[^>]*\bsticky\b/, (_, path) => framed.includes(path))).toEqual([]);
     });

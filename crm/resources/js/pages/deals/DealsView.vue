@@ -503,9 +503,10 @@ onMounted(async () => {
         />
 
         <div v-else class="flex flex-col gap-3">
-            <!-- A-40: the frame clips rather than scrolls, so the header sticks under the bar. -->
+            <!-- A-40: from 640 the frame clips, so the header sticks under the bar; below 640 the
+                 table stays a table (A-19) and scrolls sideways, or its last columns are cut off (owner, 2026-10-14). -->
             <div
-                class="table-frame overflow-x-clip rounded-xl transition-opacity"
+                class="table-frame overflow-x-auto rounded-xl transition-opacity sm:overflow-x-clip"
                 :class="{ 'opacity-50': loading }"
                 :aria-busy="loading"
                 data-testid="deals-table-frame"

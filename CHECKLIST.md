@@ -4554,7 +4554,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       2026-10-14, ahead of F-42 Phase 6; two points, the plan approved in chat the same day. The owner's rulings: the
       percentages change on screen **and** in pre-filled inputs; a sector is added by whoever may add a customer
       (`customer.create`/`customer.update`), typed as one name for both labels, the code derived on the server.
-      - [ ] **1** Percentages without trailing zeros (`15.000` ⇒ `15`) on screen and in pre-filled inputs (`D-112`).
+      - [x] **1** Percentages without trailing zeros (`15.000` ⇒ `15`) on screen and in pre-filled inputs (`D-112`).
+            *(2026-10-14, #348 — `displayPercent` is `displayQuantity` under a percent name; the settings page trims `stored` too, so an untouched tax is not sent)*
       - [ ] **2** A sector typed in the customer form is added to the `sectors` managed list and offered again (`D-113`).
 
 ## Shell revisions — owner-directed

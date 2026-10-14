@@ -24,7 +24,7 @@ use RuntimeException;
  * Module 10 · 1.4 — `sent → partial|counter` (`OpenAPI §7.2`) and the new
  * `draft` version in the same transaction (§6.3, `D-08`, Q7), through
  * {@see CreateQuotationVersion::copyOf()} — the copy `new-version` makes.
- * The deal does not move (Q2).
+ * The deal moves to `negotiations` (`D-119`, amending Q2).
  *
  * Module 10 · 1.5 — `sent|expired → rejected` (Q8), no copy. The deal goes
  * `lost` with the reason (Q2) only when none of its quotations is live
@@ -34,8 +34,8 @@ use RuntimeException;
  *
  * Module 10 · 1.6 — `sent → accepted`: every line drawn from its supplier
  * line once, keyed by the line's id (`D-81`, F-05 · 1.5), and the purchase
- * order written (§4.6, Q5), all in the one transaction. The deal does not
- * move (Q2).
+ * order written (§4.6, Q5), all in the one transaction. The deal moves to
+ * `won` (`D-119`, amending Q2).
  *
  * `counter` and `rejected` need a reason (§6.3), stored on the answered row
  * only. The deal's id comes only from the quotation
@@ -129,6 +129,13 @@ final readonly class RespondToQuotation
                     'customer_po_reference' => $order->customerPoReference,
                     'po_date' => $order->poDate,
                 ]);
+            }
+
+            // D-119: the answer moves the deal, inside this transaction.
+            if ($accepted) {
+                $this->deals->quotationAccepted($before->dealId, $actorId);
+            } elseif (! $rejected) {
+                $this->deals->quotationNegotiated($before->dealId, $actorId);
             }
 
             $dealLost = null;

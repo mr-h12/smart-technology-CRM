@@ -96,8 +96,8 @@ final class QuotationRespondEndpointTest extends TestCase
 
         self::assertSame('partial', $this->statusOf('quotations', $id));
         self::assertNull(DB::table('quotations')->where('id', $id)->value('rejection_reason'));
-        self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
-        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
+        self::assertSame('negotiations', $this->statusOf('deals', $deal));   // D-119
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
     }
 
     public function test_counter_stores_its_reason_on_the_parent_only(): void
@@ -114,7 +114,19 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame('Asks 10% off', DB::table('quotations')->where('id', $id)->value('rejection_reason'));
         self::assertNull(DB::table('quotations')->where('id', $copyId)->value('rejection_reason'));
         self::assertSame('draft', $this->statusOf('quotations', $copyId));
-        self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
+        self::assertSame('negotiations', $this->statusOf('deals', $deal));   // D-119
+    }
+
+    /** D-119: a deal already negotiating stays where it is — no second line. */
+    public function test_a_second_negotiating_answer_adds_no_line(): void
+    {
+        $deal = $this->deal(null, 'negotiations');
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'partial'])->assertStatus(200);
+
+        self::assertSame('negotiations', $this->statusOf('deals', $deal));
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
     }
 
     /** @return array<string, array{array<string, string>}> */
@@ -405,6 +417,31 @@ final class QuotationRespondEndpointTest extends TestCase
 
         self::assertSame('5.0000', $this->consumed());
         self::assertSame('accepted', $this->statusOf('quotations', $id));
+        self::assertSame('won', $this->statusOf('deals', $deal));   // D-119
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
+        self::assertSame('customer', DB::table('customers')->where('id', $this->customerId)->value('customer_status'));   // D-49 rule 1
+    }
+
+    /** D-119: Accept wins a negotiating deal too (`negotiations → won`, §4.4). */
+    public function test_acceptance_from_negotiations_makes_the_deal_won(): void
+    {
+        $deal = $this->deal(null, 'negotiations');
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, RoleName::Manager, self::PO_BODY)->assertStatus(200);
+
+        self::assertSame('won', $this->statusOf('deals', $deal));
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $deal)->count());
+    }
+
+    /** A refused answer (stale `If-Match`) moves nothing: the deal move is inside the response's transaction. */
+    public function test_a_stale_acceptance_leaves_the_deal_where_it_was(): void
+    {
+        $deal = $this->deal(null);
+        [$id] = $this->sent($deal);
+
+        $this->respond($id, 'quotation:'.$id.':0', RoleName::Manager, self::PO_BODY)->assertStatus(409);
+
         self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
         self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
     }

@@ -449,7 +449,7 @@
             "hint": {
                 "from": "The currency you are converting from. Three letters, such as USD.",
                 "to": "The currency you are converting to. It has to be a different one.",
-                "rate": "The number used to convert between the two. Use a dot for decimals, and it must be greater than zero. Recording a new rate never changes a price quote that already used an older one."
+                "rate": "How much 1 of the first currency is worth in the second. Example: USD to EGP at 50 means 1 USD = 50 EGP, and the same rate also converts the other way, so there is no need to enter it twice. Use a dot for decimals, and it must be greater than zero. Recording a new rate never changes a price quote that already used an older one."
             }
         },
         "pagination": {

@@ -647,7 +647,7 @@
             "whatsapp": "WhatsApp",
             "email": "Email",
             "notes": "Notes",
-            "sectorNone": "No sector",
+            "sectorHint": "Pick a sector or type a new one",
             "nameRequired": "A name is required.",
             "statusIsDerived": "The status is calculated from this customer's deals and cannot be edited.",
             "similarTitle": "A similar customer already exists",

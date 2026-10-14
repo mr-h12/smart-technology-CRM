@@ -1806,6 +1806,11 @@ would hide them behind `OD-03` indefinitely.
       browser check (2026-10-14, #345).* `.file-pick` (A-24) looks like a button but keeps
       `cursor: default`, on the deal documents and the purchase-order block alike. One line in
       `app.css`.
+- [ ] **`sectorLabel` is written three times beside a shared `entryLabel`** — *revealed by F-44 · 2's
+      waste audit (2026-10-14, #349); already on `main`.* `CustomerFormModal.vue` and `CustomersView.vue`
+      each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
+      `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
+      Replace the three with `entryLabel` plus one code→name lookup.
 
 ## Agent guide revisions — owner-directed
 
@@ -4550,13 +4555,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1** `filter[has_company]` and `GET /catalog-items/companies`; the tiles screen; D-111 and `OpenAPI` (one PR).
             *(2026-10-14, #347 — counts reuse the list's own criteria and filters, no company last; the «بدون شركة» tile is a `(none)` option in the company select too)*
 
-- [ ] **F-44** Percentages without trailing zeros; a new sector from inside the customer form. Requested by the owner,
+- [x] **F-44** Percentages without trailing zeros; a new sector from inside the customer form. Requested by the owner,
       2026-10-14, ahead of F-42 Phase 6; two points, the plan approved in chat the same day. The owner's rulings: the
       percentages change on screen **and** in pre-filled inputs; a sector is added by whoever may add a customer
       (`customer.create`/`customer.update`), typed as one name for both labels, the code derived on the server.
       - [x] **1** Percentages without trailing zeros (`15.000` ⇒ `15`) on screen and in pre-filled inputs (`D-112`).
             *(2026-10-14, #348 — `displayPercent` is `displayQuantity` under a percent name; the settings page trims `stored` too, so an untouched tax is not sent)*
-      - [ ] **2** A sector typed in the customer form is added to the `sectors` managed list and offered again (`D-113`).
+      - [x] **2** A sector typed in the customer form is added to the `sectors` managed list and offered again (`D-113`).
+            *(2026-10-14, #349 — `AddListEntry::codeForTyped` matches code, then either label, else adds; catalog companies share it; the list column names the sector; both screens reread the sectors after a save)*
 
 ## Shell revisions — owner-directed
 

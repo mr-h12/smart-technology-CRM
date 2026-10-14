@@ -11,6 +11,7 @@ use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -72,6 +73,39 @@ final readonly class AddListEntry
     }
 
     /**
+     * `D-113`: the code for words a person typed into a form — a sector in the
+     * customer form, a company in the catalog form. An entry whose code, or
+     * whose English or Arabic label, equals the text (trimmed, case-insensitive)
+     * is used as it is; otherwise the text joins the list as both labels, under
+     * a code derived from it, and a Super Admin relabels it on the lists screen.
+     *
+     * Label matching is what keeps «طبي» from becoming a second Medical: the
+     * seeded sectors carry English codes, so the derived code would not find them.
+     */
+    public function codeForTyped(ManagedList $list, string $typed): string
+    {
+        $typed = trim($typed);
+        $code = self::codeFor($typed);
+        $listed = $this->lists->entriesFor($list);
+
+        foreach ($listed as $entry) {
+            if ($entry->code() === $code
+                || in_array(mb_strtolower($typed), array_map(mb_strtolower(...), [$entry->code(), $entry->labelEn(), $entry->labelAr()]), true)) {
+                return $entry->code();
+            }
+        }
+
+        try {
+            $this->handle($list, new ListEntry($code, $typed, $typed, self::nextPosition($listed)));
+        } catch (ValidationException) {
+            // A duplicate code: somebody added the same words between the read
+            // above and this write — the state this method wanted anyway.
+        }
+
+        return $code;
+    }
+
+    /**
      * The row's UUID, read back after the insert.
      *
      * `ListEntry` deliberately has no identifier — it is a value object about a
@@ -89,5 +123,57 @@ final readonly class AddListEntry
             ->value('id');
 
         return is_string($id) ? $id : '';
+    }
+
+    /**
+     * A `code` for words a person typed, matching `^[a-z][a-z0-9_]*$`.
+     *
+     * **Measured rather than assumed** (2026-08-31): `Str::slug` transliterates
+     * Arabic — `شركة ألفا` becomes `shrk_alfa` — which is ugly but stable, and
+     * the code is internal ("a short internal name … never shown to anyone",
+     * §13's own hint) while both labels carry the real text. Two cases it does
+     * **not** answer, and both are handled here rather than left to fail
+     * validation at the boundary:
+     *
+     * - `3M` slugs to `3m`, which the pattern refuses for its leading digit.
+     * - A name of nothing but punctuation slugs to the empty string. `company`
+     *   is `required` with `regex:/\S/`, so `"..."` reaches here and would
+     *   otherwise produce no code at all — and every such name would collide on
+     *   one, filing unrelated companies together. A digest keeps them apart and
+     *   keeps the same name mapping to the same code every time.
+     *
+     * ⚠️ Ceiling: two names longer than 64 characters that agree on their first
+     * 64 share a code. `code` is `max:64` and that is the column's own limit.
+     */
+    private static function codeFor(string $typed): string
+    {
+        $slug = Str::slug($typed, '_');
+
+        if ($slug === '') {
+            return 'c_'.substr(md5($typed), 0, 8);
+        }
+
+        if (preg_match('/^[a-z]/', $slug) !== 1) {
+            $slug = 'c_'.$slug;
+        }
+
+        return substr($slug, 0, 64);
+    }
+
+    /**
+     * The end of the list. `position` is a sort key and `AddListEntryRequest`
+     * requires at least 1, so an empty list starts at 1 rather than 0.
+     *
+     * @param  list<ListEntry>  $listed
+     */
+    private static function nextPosition(array $listed): int
+    {
+        $highest = 0;
+
+        foreach ($listed as $entry) {
+            $highest = max($highest, $entry->position());
+        }
+
+        return $highest + 1;
     }
 }

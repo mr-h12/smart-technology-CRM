@@ -453,6 +453,18 @@ describe('CustomersView — §5.2 filters and search', () => {
         expect(view.find('[data-testid="customers-filter-sector"]').text()).toContain('طبي');
     });
 
+    /** `D-113`: a row names its sector in the caller's language; a code the list no longer names shows as itself. */
+    it('shows each row\'s sector by name, not by code', async () => {
+        stubScreen();
+
+        const view = render('ar');
+        await flushPromises();
+
+        const table = view.find('table');
+        expect(table.text()).toContain('طبي');
+        expect(table.text()).not.toContain('medical');
+    });
+
     it('sends the words a person typed as `q`, and drops them again when the box is cleared', async () => {
         const asked = stubScreen();
 
@@ -691,6 +703,25 @@ describe('CustomersView — §3.3 write controls', () => {
         expect(view.find('[data-testid="customer-form"]').exists()).toBe(false);
         // The list was asked again, so the new row can appear.
         expect(asked.filter((url) => url.includes('/customers?')).length).toBeGreaterThan(listCallsBefore);
+    });
+
+    /** `D-113`: a sector typed into the form joins the list, so the filter and the next form must see it. */
+    it('reads the sectors again after a save', async () => {
+        const asked = stubScreen();
+        await signIn(SALES);
+
+        const view = render();
+        await flushPromises();
+
+        const sectorCallsBefore = asked.filter((url) => url.includes('/managed-lists/sectors')).length;
+
+        await view.find('[data-testid="customers-create"]').trigger('click');
+        await view.find('[data-testid="customer-form-name"]').setValue('Zeta Industrial');
+        await view.find('[data-testid="customer-form-sector"]').setValue('مقاولات');
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(asked.filter((url) => url.includes('/managed-lists/sectors')).length).toBeGreaterThan(sectorCallsBefore);
     });
 });
 

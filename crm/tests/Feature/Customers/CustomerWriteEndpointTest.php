@@ -157,7 +157,7 @@ final class CustomerWriteEndpointTest extends TestCase
         $data = $body['data'];
         self::assertIsArray($data);
         self::assertSame('Alpha Trading', $data['name']);
-        self::assertSame('Commercial', $data['sector']);
+        self::assertSame('commercial', $data['sector']);
 
         self::assertIsString($data['id']);
         self::assertDatabaseHas('customers', ['id' => $data['id'], 'name' => 'Alpha Trading']);

@@ -162,7 +162,8 @@ async function onSaved(): Promise<void> {
 
     // Re-read rather than patch the object in hand: the server owns the record,
     // and `is_incomplete` in particular is its calculation, not the form's.
-    await load();
+    // `D-113`: the save may have added a typed sector to the list.
+    await Promise.all([load(), loadSectors()]);
 }
 
 /**

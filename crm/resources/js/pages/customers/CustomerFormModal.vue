@@ -95,6 +95,9 @@ const values = ref<Record<Field, string>>(blank());
 /** What the form was opened with. The dirty check is against this, not against blank. */
 const opened = ref<Record<Field, string>>(blank());
 
+/** `D-113`: the code behind `opened.sector`'s label, sent back while the box is untouched. */
+const openedSector = ref('');
+
 const saving = ref(false);
 const confirmingDiscard = ref(false);
 
@@ -162,10 +165,15 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
         for (const field of FIELDS) {
             next[field] = record[field] ?? '';
         }
+
+        // The box shows the sector's words; a code the list no longer names shows as itself.
+        const entry = props.sectors.find((sector) => sector.code === record.sector);
+        next.sector = entry === undefined ? next.sector : sectorLabel(entry);
     }
 
     values.value = { ...next };
     opened.value = { ...next };
+    openedSector.value = record?.sector ?? '';
     errorKeys.value = {};
     serverErrors.value = {};
     similar.value = [];
@@ -227,7 +235,11 @@ function draft(): CustomerDraft {
             continue;
         }
 
-        const value = values.value[field].trim();
+        // `D-113`: a typed sector goes as typed and the server finds or adds it;
+        // an untouched one goes back as the code it was opened with.
+        const value = field === 'sector' && values.value.sector === opened.value.sector
+            ? openedSector.value
+            : values.value[field].trim();
 
         payload[field] = value === '' ? null : value;
     }
@@ -253,6 +265,7 @@ async function save(): Promise<void> {
 
         similar.value = written.similar;
         opened.value = { ...values.value };
+        openedSector.value = written.customer.sector ?? '';
 
         if (record === null && written.similar.length > 0) {
             created.value = written.customer;
@@ -418,18 +431,23 @@ function discard(): void {
 
                 <label class="flex flex-col gap-1.5" :for="fieldId('sector')">
                     <span>{{ t('customers.column.sector') }}</span>
-                    <select
+                    <!-- `D-113`: suggestions, not a restriction — a new sector joins the list on save. -->
+                    <input
                         :id="fieldId('sector')"
                         v-model="values.sector"
+                        type="text"
+                        maxlength="128"
+                        list="customer-form-sector-options"
+                        :placeholder="t('customers.form.sectorHint')"
                         :disabled="saving"
                         :aria-invalid="errorFor('sector') !== null"
                         :aria-describedby="errorId('sector')"
                         class="form-field min-h-11 rounded-lg px-3 py-2"
                         :data-testid="testId('sector')"
                     >
-                        <option value="">{{ t('customers.form.sectorNone') }}</option>
-                        <option v-for="entry in sectors" :key="entry.code" :value="entry.code">{{ sectorLabel(entry) }}</option>
-                    </select>
+                    <datalist id="customer-form-sector-options">
+                        <option v-for="entry in sectors" :key="entry.code" :value="sectorLabel(entry)">{{ sectorLabel(entry) }}</option>
+                    </datalist>
                     <span v-if="errorFor('sector') !== null" :id="errorId('sector')" class="text-[var(--color-danger)]" data-testid="customer-form-sector-error">
                         {{ errorFor('sector') }}
                     </span>

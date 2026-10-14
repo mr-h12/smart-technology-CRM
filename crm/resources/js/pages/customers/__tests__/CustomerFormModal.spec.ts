@@ -437,3 +437,41 @@ describe('CustomerFormModal — F-42 · P4', () => {
         view.unmount();
     });
 });
+
+/** `D-113` (F-44 · 2): the sector is typed, with the list as suggestions; the server turns it into a code. */
+describe('CustomerFormModal — a typed sector', () => {
+    it('offers the sectors as suggestions in the screen language, not as a closed list', () => {
+        const view = render(null, 'ar');
+        const field = view.find('[data-testid="customer-form-sector"]');
+
+        expect(field.element.tagName).toBe('INPUT');
+        const list = view.find(`datalist#${field.attributes('list')}`);
+        expect(list.exists()).toBe(true);
+        expect(list.findAll('option').map((option) => option.attributes('value'))).toEqual(['تجاري', 'طبي']);
+    });
+
+    it('opens an edit on the sector\'s label, and on the code itself when the list no longer names it', () => {
+        expect((render(EXISTING, 'ar').find('[data-testid="customer-form-sector"]').element as HTMLInputElement).value).toBe('تجاري');
+        expect((render({ ...EXISTING, sector: 'retired' }, 'en').find('[data-testid="customer-form-sector"]').element as HTMLInputElement).value)
+            .toBe('retired');
+    });
+
+    it('sends a typed sector as typed, and an untouched one as its stored code', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => json(200, { data: EXISTING, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const creating = render(null, 'ar');
+        await creating.find('[data-testid="customer-form-name"]').setValue('Delta Build');
+        await creating.find('[data-testid="customer-form-sector"]').setValue('مقاولات');
+        await creating.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        const editing = render(EXISTING, 'ar');
+        await editing.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        const [created, edited] = sentBodies(fetchMock);
+        expect(created?.sector).toBe('مقاولات');
+        expect(edited?.sector ?? 'commercial').toBe('commercial');
+    });
+});

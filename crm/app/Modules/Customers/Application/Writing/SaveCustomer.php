@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Customers\Application\Writing;
 
+use App\Modules\Admin\Application\Reference\AddListEntry;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Audit\Domain\AuditEvent;
@@ -69,6 +70,7 @@ final readonly class SaveCustomer
         private UserDirectoryInterface $users,
         private ConnectionInterface $connection,
         private ManagedListRepositoryInterface $lists,
+        private AddListEntry $sectors,
     ) {}
 
     /**
@@ -80,11 +82,12 @@ final readonly class SaveCustomer
         $scope = CustomerRowScope::resolve($heldScopes, $actorId);
         $this->assertListedTitle($validated);
 
-        $draft = CustomerDraft::forCreate(
-            $this->ownedWithinScope($validated, $scope, $actorId),
-        );
+        $validated = $this->ownedWithinScope($validated, $scope, $actorId);
 
-        $customer = $this->connection->transaction(function () use ($draft, $actorId): CustomerSummary {
+        // `D-113`: the typed sector joins its list inside this transaction, so a
+        // save that fails adds no sector.
+        [$customer, $draft] = $this->connection->transaction(function () use ($validated, $actorId): array {
+            $draft = CustomerDraft::forCreate($this->withListedSector($validated));
             $customer = $this->customers->create($draft, $actorId);
 
             // No old values: `AuditRecorderInterface` documents them as "absent
@@ -98,7 +101,7 @@ final readonly class SaveCustomer
                 $draft->attributes,
             );
 
-            return $customer;
+            return [$customer, $draft];
         });
 
         return new CustomerWriteResult($customer, $this->similarTo($draft, $scope, $customer));
@@ -115,9 +118,8 @@ final readonly class SaveCustomer
     {
         $scope = CustomerRowScope::resolve($heldScopes, $actorId);
         $this->assertListedTitle($validated);
-        $draft = CustomerDraft::forUpdate($validated);
 
-        $customer = $this->connection->transaction(function () use ($customerId, $draft, $scope, $actorId): CustomerSummary {
+        [$customer, $draft] = $this->connection->transaction(function () use ($customerId, $validated, $scope, $actorId): array {
             // Read inside the transaction, and through the same scope the write
             // uses: the old values `AUD-02` requires must be the ones this write
             // actually replaced, not the ones some earlier read happened to see.
@@ -126,6 +128,10 @@ final readonly class SaveCustomer
             if (! $before instanceof CustomerSummary) {
                 throw CustomerNotFound::of($customerId);
             }
+
+            // `D-113`: after the scoped read, so a caller who cannot reach the row
+            // never writes to the list at all.
+            $draft = CustomerDraft::forUpdate($this->withListedSector($validated));
 
             // `D-87`: an edit that leaves every `EXPECTED` field filled clears
             // the importer's flag. Clear only — a row the importer did not
@@ -153,10 +159,28 @@ final readonly class SaveCustomer
                 );
             }
 
-            return $after;
+            return [$after, $draft];
         });
 
         return new CustomerWriteResult($customer, $this->similarTo($draft, $scope, $customer));
+    }
+
+    /**
+     * `D-113`: a typed sector becomes its code on the `sectors` list, joining
+     * the list when it is new. Absent or blank asks nothing.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function withListedSector(array $validated): array
+    {
+        $typed = $validated['sector'] ?? null;
+
+        if (is_string($typed) && trim($typed) !== '') {
+            $validated['sector'] = $this->sectors->codeForTyped(ManagedList::Sectors, $typed);
+        }
+
+        return $validated;
     }
 
     /**

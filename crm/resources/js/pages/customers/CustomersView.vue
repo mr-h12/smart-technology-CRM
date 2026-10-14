@@ -311,6 +311,13 @@ function sectorLabel(entry: ListEntry): string {
     return locale.value.startsWith('ar') ? entry.label_ar : entry.label_en;
 }
 
+/** `D-113`: a row's sector by name; a code the list no longer names shows as itself. */
+function sectorName(code: string | null): string {
+    const entry = sectors.value.find((sector) => sector.code === code);
+
+    return entry === undefined ? (code ?? '—') : sectorLabel(entry);
+}
+
 async function sortBy(field: string): Promise<void> {
     if (sortField.value === field) {
         sortDescending.value = !sortDescending.value;
@@ -379,7 +386,8 @@ function startEdit(customer: Customer): void {
 async function onSaved(_customer: Customer, similar: Customer[]): Promise<void> {
     formOpen.value = similar.length > 0;
 
-    await load();
+    // `D-113`: the save may have added a typed sector to the list.
+    await Promise.all([load(), loadSectors()]);
 }
 
 function toggleAll(checked: boolean): void {
@@ -826,7 +834,7 @@ onMounted(async () => {
                                 {{ statusLabel(customer.customer_status) }}
                             </span>
                         </td>
-                        <td class="hidden p-3 md:table-cell">{{ customer.sector ?? '—' }}</td>
+                        <td class="hidden p-3 md:table-cell">{{ sectorName(customer.sector) }}</td>
                         <td class="hidden p-3 md:table-cell" data-testid="customers-contact">{{ contactLine(customer, titles, locale, t('customers.contactTitleShort')) }}</td>
                         <!-- D-70: Inter draws Western digits in both locales;
                              tabular-nums keeps a column of figures aligned. -->

@@ -223,7 +223,8 @@ final class CustomerQuotationHtmlTest extends TestCase
 
     public function test_that_the_totals_are_d107s_rows_in_order(): void
     {
-        // Total Amount Excl. VAT · Discount (no percentage) · VAT n% · Total
+        // Total Amount Excl. VAT · Discount · VAT · Total — neither label
+        // carries a percentage (D-107, D-118)
         // with the currency after the figure.
         foreach (['ar', 'en'] as $locale) {
             $row = static fn (string $label, string $value): string => '<td[^>]*>\s*'.preg_quote(e($label), '/').'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>';
@@ -231,7 +232,7 @@ final class CustomerQuotationHtmlTest extends TestCase
 
             self::assertMatchesRegularExpression(
                 '/'.$row($t('excl_vat'), '35104.10').'.*?'.$row($t('discount'), '1742.71')
-                .'.*?'.$row($t('tax', ['percent' => '14']), '4635.59').'.*?class="final".*?'.$row($t('final'), '37996.98 EGP').'/su',
+                .'.*?'.$row($t('tax'), '4635.59').'.*?class="final".*?'.$row($t('final'), '37996.98 EGP').'/su',
                 $this->html(locale: $locale),
                 "The {$locale} totals are missing a row or out of D-107's order.",
             );
@@ -240,14 +241,26 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertStringNotContainsString(':percent', (string) Lang::get('pdf.totals.discount', [], 'en'), 'D-107: the discount label carries no percentage.');
     }
 
-    public function test_that_the_percentages_come_from_the_quotation_and_not_from_the_label(): void
+    public function test_that_the_tax_row_says_vat_with_no_percentage(): void
+    {
+        // D-118: one line, «VAT» / «ضريبة القيمة المضافة», whatever the rates sum to.
+        foreach (['en' => 'VAT', 'ar' => 'ضريبة القيمة المضافة'] as $locale => $label) {
+            $html = $this->html(locale: $locale, taxPercent: '19');
+
+            self::assertMatchesRegularExpression('/<tr id="tax-row"><td class="h">'.preg_quote(e($label), '/').'<\/td>/u', $html, "The {$locale} tax row is not the bare label.");
+            self::assertDoesNotMatchRegularExpression('/<tr id="tax-row">[^\n]*%/u', $html, "The {$locale} tax row prints a percentage.");
+        }
+    }
+
+    public function test_that_the_arabic_tax_included_term_is_d118s_wording(): void
+    {
+        self::assertStringContainsString(e('السعر شامل الضريبة.'), $this->html(locale: 'ar'));
+    }
+
+    public function test_that_no_percentage_is_written_into_the_template(): void
     {
         // The defect found against the source document on 2026-09-13: P-01's
         // dictionaries carried "Discount 5%" and "14% VAT" as literal strings.
-        $html = $this->html(taxPercent: '10');
-
-        self::assertStringContainsString(e((string) Lang::get('pdf.totals.tax', ['percent' => '10'], 'en')), $html);
-
         $source = (string) file_get_contents(base_path(self::TEMPLATE));
         self::assertStringNotContainsString('5%', $source);
         self::assertStringNotContainsString('14%', $source);
@@ -713,9 +726,9 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
-    public function test_that_quantities_and_percentages_drop_their_trailing_zeros(): void
+    public function test_that_quantities_drop_their_trailing_zeros(): void
     {
-        // D-99: `1.0000` → `1`, `2.5000` → `2.5`, `14.000` → `14`. Only zeros
+        // D-99: `1.0000` → `1`, `2.5000` → `2.5`. Only zeros
         // after a point go: `10.0000` keeps its `10`, and a value with no point
         // is left alone — `20` is not `2`. No additional item, whose quantity
         // `1` would pass for a line's. The lines carry their VAT: a taxed page
@@ -736,8 +749,6 @@ final class CustomerQuotationHtmlTest extends TestCase
             foreach (['1', '2.5', '10', '20'] as $quantity) {
                 self::assertMatchesRegularExpression('/<td[^>]*>\s*—\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($quantity, '/').'\s*<\/td>/', $html, "The quantity {$quantity} on the {$locale} page kept its trailing zeros or lost a digit.");
             }
-
-            self::assertStringContainsString(e((string) Lang::get('pdf.totals.tax', ['percent' => '14'], $locale)), $html, "The {$locale} tax percentage kept its trailing zeros.");
         }
     }
 

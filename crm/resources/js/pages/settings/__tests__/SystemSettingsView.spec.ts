@@ -26,11 +26,8 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
  * not built — a control that cannot be used is a promise the product has not
  * made.
  *
- * ── `DB-07` reaches the screen ─────────────────────────────────────────────
- *
- * `defaults.tax_percent` is a decimal **string** end to end. A number input
- * that handed `12.5` back to the API as a JavaScript float would be the one
- * place in this product where a float touches a money-adjacent value.
+ * `D-118` removed the one decimal field, `defaults.tax_percent`: a quotation's
+ * and a supplier offer's rates are typed on them.
  */
 
 const SETTINGS = {
@@ -38,7 +35,6 @@ const SETTINGS = {
     'company.address': null,
     'company.phones': null,
     'defaults.currency': 'EGP',
-    'defaults.tax_percent': '14',
     'locale.language': 'ar',
     'locale.timezone': 'Africa/Cairo',
     'locale.date_format': 'd/m/Y',
@@ -134,7 +130,7 @@ describe('SystemSettingsView', () => {
         expect(view.find('[data-testid="loading-state"]').exists()).toBe(true);
     });
 
-    it('renders the nine fields the API exposes, and no more', async () => {
+    it('renders the eight fields the API exposes, and no more', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
         const view = await render();
@@ -148,7 +144,6 @@ describe('SystemSettingsView', () => {
             'company.name',
             'company.phones',
             'defaults.currency',
-            'defaults.tax_percent',
             'locale.date_format',
             'locale.language',
             'locale.timezone',
@@ -262,27 +257,6 @@ describe('SystemSettingsView', () => {
         expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
     });
 
-    /** `DB-07`: the tax percentage leaves as a decimal string, never a float. */
-    it('sends the tax percentage as a string', async () => {
-        const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
-            init?.method === 'PATCH' ? envelope({ ...SETTINGS, 'defaults.tax_percent': '12.5' }) : envelope(SETTINGS),
-        );
-        vi.stubGlobal('fetch', fetchMock);
-
-        const view = await render();
-        await flushPromises();
-
-        await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('12.5');
-        await view.get('[data-testid="settings-save"]').trigger('submit');
-        await flushPromises();
-
-        const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
-        const body = JSON.parse(patch![1]?.body as string);
-
-        expect(body.settings['defaults.tax_percent']).toBe('12.5');
-        expect(typeof body.settings['defaults.tax_percent']).toBe('string');
-    });
-
     it('confirms the save and adopts what the server returned', async () => {
         vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
             init?.method === 'PATCH'
@@ -310,7 +284,7 @@ describe('SystemSettingsView', () => {
                     error: {
                         code: 'validation_failed',
                         message: 'The given data was invalid.',
-                        details: [{ field: 'settings.defaults.tax_percent', code: 'invalid', message: 'Not a number.' }],
+                        details: [{ field: 'settings.company.email', code: 'invalid', message: 'Not an address.' }],
                     },
                 })
                 : envelope(SETTINGS),
@@ -319,12 +293,12 @@ describe('SystemSettingsView', () => {
         const view = await render();
         await flushPromises();
 
-        await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('lots');
+        await view.get('[data-setting-key="company.email"] input').setValue('lots');
         await view.get('[data-testid="settings-save"]').trigger('submit');
         await flushPromises();
 
         expect(view.find('[data-testid="settings-saved"]').exists()).toBe(false);
-        expect(view.get('[data-setting-key="defaults.tax_percent"]').text()).toContain('Not a number.');
+        expect(view.get('[data-setting-key="company.email"]').text()).toContain('Not an address.');
     });
 
     it('keeps the edit on screen when the save is refused', async () => {
@@ -423,28 +397,22 @@ describe('SystemSettingsView', () => {
         expect(field.get('input').attributes('list')).toBe('options-locale.timezone');
     });
 
-    it('suggests date formats and tax percentages without closing either set', async () => {
+    it('suggests date formats without closing the set', async () => {
         vi.stubGlobal('fetch', WITH_CURRENCIES);
 
         const view = await render();
         await flushPromises();
 
         const dateField = view.get('[data-setting-key="locale.date_format"]');
-        const taxField = view.get('[data-setting-key="defaults.tax_percent"]');
 
         expect(dateField.findAll('datalist option').map((o) => o.attributes('value')))
             .toEqual(['d/m/Y', 'Y-m-d', 'd-m-Y']);
-        expect(taxField.findAll('datalist option').map((o) => o.attributes('value')))
-            .toEqual(['0', '14']);
 
         // Attached, not merely present — see the time-zone case above.
         expect(dateField.get('input').attributes('list')).toBe('options-locale.date_format');
-        expect(taxField.get('input').attributes('list')).toBe('options-defaults.tax_percent');
 
-        // Still text controls, still typeable — and `DB-07` on the tax.
+        // Still a text control, still typeable.
         expect(dateField.get('input').attributes('type')).toBe('text');
-        expect(taxField.get('input').attributes('type')).toBe('text');
-        expect(taxField.get('input').attributes('inputmode')).toBe('decimal');
     });
 
     /**
@@ -457,35 +425,13 @@ describe('SystemSettingsView', () => {
         vi.stubGlobal('fetch', vi.fn(async (input: string) =>
             /\/currencies$/.test(String(input))
                 ? json(200, { data: { currencies: [] }, meta: {} })
-                : envelope({ ...SETTINGS, 'locale.timezone': 'Mars/Olympus_Mons', 'defaults.tax_percent': '7.5' })));
+                : envelope({ ...SETTINGS, 'locale.timezone': 'Mars/Olympus_Mons' })));
 
         const view = await render();
         await flushPromises();
 
         expect((view.get('[data-setting-key="locale.timezone"] input').element as HTMLInputElement).value)
             .toBe('Mars/Olympus_Mons');
-        expect((view.get('[data-setting-key="defaults.tax_percent"] input').element as HTMLInputElement).value)
-            .toBe('7.5');
-    });
-
-    /** D-112: a stored percentage is offered without its trailing zeros, and is not an edit. */
-    it('shows the default tax without trailing zeros and sends nothing when it is left alone', async () => {
-        const fetchMock = vi.fn(async (input: string, _init?: RequestInit) =>
-            /\/currencies$/.test(String(input))
-                ? json(200, { data: { currencies: [] }, meta: {} })
-                : envelope({ ...SETTINGS, 'defaults.tax_percent': '14.000' }));
-        vi.stubGlobal('fetch', fetchMock);
-
-        const view = await render();
-        await flushPromises();
-
-        expect((view.get('[data-setting-key="defaults.tax_percent"] input').element as HTMLInputElement).value)
-            .toBe('14');
-
-        await view.get('[data-testid="settings-save"]').trigger('submit');
-        await flushPromises();
-
-        expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
     });
 
     /** A suggestion list the caller could not load costs the dropdown, not the field. */
@@ -547,7 +493,7 @@ describe('SystemSettingsView', () => {
                 ? json(422, {
                     error: {
                         code: 'validation_failed',
-                        details: [{ field: 'settings.defaults.tax_percent', code: 'invalid', message: 'Not a number.' }],
+                        details: [{ field: 'settings.company.email', code: 'invalid', message: 'Not an address.' }],
                     },
                 })
                 : envelope(SETTINGS)));
@@ -559,13 +505,13 @@ describe('SystemSettingsView', () => {
 
         expect(clean.attributes('aria-describedby')).toBe('hint-company.name');
 
-        await view.get('[data-setting-key="defaults.tax_percent"] input').setValue('lots');
+        await view.get('[data-setting-key="company.email"] input').setValue('lots');
         await view.get('[data-testid="settings-save"]').trigger('submit');
         await flushPromises();
 
         // Both, and the hint first: the explanation before the complaint.
-        expect(view.get('[data-setting-key="defaults.tax_percent"] input').attributes('aria-describedby'))
-            .toBe('hint-defaults.tax_percent error-defaults.tax_percent');
+        expect(view.get('[data-setting-key="company.email"] input').attributes('aria-describedby'))
+            .toBe('hint-company.email error-company.email');
     });
 
     it('writes the explanations in Arabic too', async () => {

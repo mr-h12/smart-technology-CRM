@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
-use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -405,10 +403,9 @@ final class SupplierQuotationReadEndpointTest extends TestCase
     /** D-105: the detail reads back the flag, the captured rate, and each amount both ways. */
     public function test_that_a_tax_inclusive_offer_reads_back_the_net_and_what_was_entered(): void
     {
-        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
-
         $id = $this->postJson(self::ENDPOINT, $this->payload([
             'prices_include_tax' => true,
+            'included_tax_percents' => ['14'],
             'total_price' => '1140',
             'items' => [['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10']],
         ]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
@@ -418,6 +415,7 @@ final class SupplierQuotationReadEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
             ->assertJsonPath('data.prices_include_tax', true)
+            ->assertJsonPath('data.included_tax_percents', ['14.000'])
             ->assertJsonPath('data.included_tax_percent', '14.000')
             ->assertJsonPath('data.total_price', '1000.000000')
             ->assertJsonPath('data.entered_total_price', '1140.000000')

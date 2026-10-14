@@ -4585,7 +4585,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
 - [ ] **F-47** An attached file opens inside the system without downloading it (`D-116`). Requested by the owner,
       2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: an in-page viewer dialog;
       PDF and images only — DOCX/XLSX stay download-only; started before F-46 · 3.
-      - [ ] **1** `fetchFileUrl` + `VIEWABLE_TYPES` + `FileViewerDialog.vue` + lang + `D-116`, red first.
+      - [x] **1** `fetchFileUrl` + `VIEWABLE_TYPES` + `FileViewerDialog.vue` + lang + `D-116`, red first.
+            *(2026-10-14, #356 — the viewer fetches through the same permission-checked route as a download and revokes its object URL on close; no screen opens it until · 2)*
       - [ ] **2** «عرض» in the four callers, per `mime_type`; vitest per caller and `rtl-ui-verifier`.
       - [ ] **3** The Arabic manual test list (closes F-47).
 

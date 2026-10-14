@@ -140,6 +140,46 @@ final class DealOutcomeTest extends TestCase
         self::assertSame(0, $this->audits($deal));
     }
 
+    /** @return array<string, array{string, string}> */
+    public static function withNoEdgeForTheAnswer(): array
+    {
+        $cases = [];
+        foreach (['supplier_quotation', 'won', 'purchasing', 'delivery', 'delivery_complete', 'lost'] as $s) {
+            $cases["accepted at {$s}"] = ['quotationAccepted', $s];
+        }
+        foreach (['supplier_quotation', 'negotiations', 'won', 'purchasing', 'delivery', 'delivery_complete', 'lost'] as $s) {
+            $cases["negotiated at {$s}"] = ['quotationNegotiated', $s];
+        }
+
+        return $cases;
+    }
+
+    /** D-119, on D-90 rule b's shape: a deal with no edge to the answer's status is left alone. */
+    #[DataProvider('withNoEdgeForTheAnswer')]
+    public function test_an_answer_leaves_a_deal_with_no_edge_alone(string $method, string $status): void
+    {
+        $deal = $this->dealAt($status);
+
+        $this->outcome()->{$method}($deal, $this->actorId);
+
+        self::assertSame($status, $this->statusOf($deal));
+        self::assertSame(0, $this->audits($deal));
+    }
+
+    public function test_accepted_reads_the_deal_under_a_row_lock(): void
+    {
+        $deal = $this->dealAt('quotation_sent');
+        DB::enableQueryLog();
+
+        $this->outcome()->quotationAccepted($deal, $this->actorId);
+
+        self::assertNotEmpty(array_filter(
+            DB::getQueryLog(),
+            static fn (array $q): bool => str_contains($q['query'], '"deals"') && str_contains($q['query'], 'for update'),
+        ));
+        self::assertSame('won', $this->statusOf($deal));
+    }
+
     /** D-119: the status is read under a row lock, so two quotations created at once cannot both walk the deal. */
     public function test_created_reads_the_deal_under_a_row_lock(): void
     {

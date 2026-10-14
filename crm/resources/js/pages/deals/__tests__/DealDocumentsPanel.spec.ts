@@ -3,9 +3,12 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
 import DealDocumentsPanel from '@/pages/deals/DealDocumentsPanel.vue';
 import type { Deal } from '@/services/deals';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
+
+vi.mock('@/services/files', async (original) => ({ ...(await original<object>()), fetchFileUrl: vi.fn(async () => 'about:blank') }));
 
 /**
  * Module 5, Point 6.7 — §17's upload and §3.4's assign, on the deal's page.
@@ -175,6 +178,53 @@ describe('the deal documents and assign panel', () => {
         // `SEC-15` gates the download on the scan, not on ownership.
         expect(wrapper.find('[data-testid="deal-documents-pending"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="deal-documents-download"]').exists()).toBe(false);
+    });
+
+    /** F-47 · 2 (D-116): what a browser draws opens in the viewer; Word/Excel stay download-only. */
+    it.each([
+        ['application/pdf', true],
+        ['image/jpeg', true],
+        ['image/png', true],
+        ['image/webp', true],
+        ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', false],
+        ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', false],
+    ])('offers View for a clean %s: %s', async (mimeType, offered) => {
+        const fetchMock = vi.fn(async () => json(201, envelope({ ...(document() as object), mime_type: mimeType })));
+        const wrapper = await render(FULL, fetchMock);
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="deal-documents-view"]').exists()).toBe(offered);
+        expect(wrapper.find('[data-testid="deal-documents-download"]').exists()).toBe(true);
+    });
+
+    it('offers no View for a file whose scan is not clean', async () => {
+        const fetchMock = vi.fn(async () => json(201, envelope(document('pending'))));
+        const wrapper = await render(FULL, fetchMock);
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="deal-documents-view"]').exists()).toBe(false);
+    });
+
+    it('opens the viewer with the file whose View was pressed', async () => {
+        const fetchMock = vi.fn(async () => json(201, envelope(document())));
+        const wrapper = await render(FULL, fetchMock);
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+        // The row spreads its children (justify-between), so the two actions share one group or View lands mid-row.
+        const actions = wrapper.get('[data-testid="deal-documents-view"]').element.parentElement;
+        expect(actions).toBe(wrapper.get('[data-testid="deal-documents-download"]').element.parentElement);
+        expect(actions?.matches('[data-testid="deal-documents-row"]')).toBe(false);
+
+        await wrapper.get('[data-testid="deal-documents-view"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.getComponent(FileViewerDialog).props('file')).toEqual({ id: 'f1', name: 'offer.pdf', mimeType: 'application/pdf' });
+        wrapper.unmount();
     });
 
     it('shows an infected file as refused, to the person who uploaded it', async () => {

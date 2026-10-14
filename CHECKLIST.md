@@ -4587,7 +4587,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       PDF and images only — DOCX/XLSX stay download-only; started before F-46 · 3.
       - [x] **1** `fetchFileUrl` + `VIEWABLE_TYPES` + `FileViewerDialog.vue` + lang + `D-116`, red first.
             *(2026-10-14, #356 — the viewer fetches through the same permission-checked route as a download and revokes its object URL on close; no screen opens it until · 2)*
-      - [ ] **2** «عرض» in the four callers, per `mime_type`; vitest per caller and `rtl-ui-verifier`.
+      - [x] **2** «عرض» in the four callers, per `mime_type`; vitest per caller and `rtl-ui-verifier`.
+            *(2026-10-14, #357 — only a clean PDF or image gets «عرض»; it sits beside «تنزيل» in one `ms-auto` group at the row's end (owner); «حذف» approved as · 3–· 4, `D-117`)*
       - [ ] **3** The Arabic manual test list (closes F-47).
 
 ## Shell revisions — owner-directed

@@ -3,11 +3,12 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
 import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vue';
 import { downloadFile } from '@/services/files';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
-vi.mock('@/services/files', async (original) => ({ ...(await original<object>()), downloadFile: vi.fn(async () => undefined) }));
+vi.mock('@/services/files', async (original) => ({ ...(await original<object>()), downloadFile: vi.fn(async () => undefined), fetchFileUrl: vi.fn(async () => 'about:blank') }));
 
 /**
  * Module 10 · 3.3 — the purchase order on its quotation (Q-B: there is no PO
@@ -168,6 +169,26 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         await flushPromises();
 
         expect(downloadFile).toHaveBeenCalledWith('f1', 'order.pdf');
+    });
+
+    /** F-47 · 2 (D-116): a clean PDF or image opens in the viewer; Word/Excel and an unscanned file do not. */
+    it('offers View only for a clean PDF or image, and opens the viewer with that file', async () => {
+        const sheet = { ...OLDER, id: 'f4', original_name: 'prices.xlsx', mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+        const wrapper = await render(respond({ documents: [OLDER, sheet, UPLOADED] }), VIEWER);
+        const rows = wrapper.findAll('[data-testid="purchase-order-document"]');
+
+        expect(rows.map((row) => row.find('[data-testid="purchase-order-view"]').exists())).toEqual([true, false, false]);
+
+        // The row spreads its children (justify-between), so the two actions share one group or View lands mid-row.
+        const actions = rows[0]?.get('[data-testid="purchase-order-view"]').element.parentElement;
+        expect(actions).toBe(rows[0]?.get('[data-testid="purchase-order-download"]').element.parentElement);
+        expect(actions?.matches('[data-testid="purchase-order-document"]')).toBe(false);
+
+        await rows[0]?.get('[data-testid="purchase-order-view"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.getComponent(FileViewerDialog).props('file')).toEqual({ id: 'f1', name: 'order.pdf', mimeType: 'application/pdf' });
+        wrapper.unmount();
     });
 
     it('contains a refusal or a fault on the files inside the block, the reference still shown', async () => {

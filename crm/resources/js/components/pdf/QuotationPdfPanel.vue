@@ -14,6 +14,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import { downloadFile } from '@/services/files';
@@ -47,6 +48,8 @@ const failed = ref(false);
 
 const requesting = ref(false);
 const downloading = ref(false);
+/** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
+const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
 const errorKey = ref<string | null>(null);
 // 3.5's 422 names what is missing, already in the screen's language.
 const errorText = ref<string | null>(null);
@@ -253,6 +256,16 @@ onBeforeUnmount(() => {
                 <button
                     v-if="pdf?.latest_file_id"
                     type="button"
+                    class="row-action inline-flex min-h-11 items-center justify-center rounded-lg px-4"
+                    data-testid="pdf-view"
+                    @click="viewing = { id: pdf.latest_file_id, name: `${quotationCode}.pdf`, mimeType: 'application/pdf' }"
+                >
+                    {{ t('files.view') }}
+                </button>
+
+                <button
+                    v-if="pdf?.latest_file_id"
+                    type="button"
                     class="row-action inline-flex min-h-11 items-center justify-center rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="downloading"
                     data-testid="pdf-download"
@@ -262,6 +275,7 @@ onBeforeUnmount(() => {
                 </button>
             </div>
         </template>
+        <FileViewerDialog :file="viewing" @close="viewing = null" />
     </section>
 </template>
 

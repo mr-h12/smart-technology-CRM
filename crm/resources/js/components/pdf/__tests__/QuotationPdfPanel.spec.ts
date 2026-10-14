@@ -3,11 +3,12 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
 import QuotationPdfPanel from '@/components/pdf/QuotationPdfPanel.vue';
 import { downloadFile } from '@/services/files';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
-vi.mock('@/services/files', () => ({ downloadFile: vi.fn(async () => undefined) }));
+vi.mock('@/services/files', () => ({ downloadFile: vi.fn(async () => undefined), fetchFileUrl: vi.fn(async () => 'about:blank') }));
 
 /**
  * Module 9 · 5.1 — the customer PDF on its quotation. *Generate* under
@@ -288,6 +289,19 @@ describe('the customer PDF on its quotation (Module 9 · 5.1)', () => {
         await flushPromises();
 
         expect(wrapper.get('[data-testid="pdf-error"]').text()).toBe(en.pdf.panel.downloadFailed);
+    });
+
+    /** F-47 · 2 (D-116): the generated PDF opens in the in-page viewer, under the quotation's code. */
+    it('opens the generated PDF in the viewer', async () => {
+        const wrapper = await render(server([state(COMPLETED)]), CEO);
+
+        expect(wrapper.getComponent(FileViewerDialog).props('file')).toBeNull();
+
+        await wrapper.get('[data-testid="pdf-view"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.getComponent(FileViewerDialog).props('file')).toEqual({ id: 'f2', name: 'QT-2026-0007.pdf', mimeType: 'application/pdf' });
+        wrapper.unmount();
     });
 
     it('speaks Arabic on an Arabic screen', async () => {

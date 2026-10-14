@@ -1811,6 +1811,11 @@ would hide them behind `OD-03` indefinitely.
       each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
       `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
       Replace the three with `entryLabel` plus one code→name lookup.
+- [ ] **Two screens print `ApiError.message` raw, so a proxy error page reads as a request line** —
+      *revealed by F-47 · 4's waste audit (2026-10-14); already on `main`.* `QuotationPdfPanel.vue:128`
+      and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it
+      `"<METHOD> <path> failed with <status>"`. `serverSentence()` in `@/services/files` (F-47 · 4)
+      already returns null there; route both through it with a lang-file fallback.
 
 ## Agent guide revisions — owner-directed
 

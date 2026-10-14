@@ -29,11 +29,11 @@
  * shipped), on §3.3's own `assign` row. The name belongs to Identity and
  * arrives from the server with F-19 · 1.1a (`D-83`), not by a lookup here.
  *
- * **No deals and no timeline yet.** §5.2 wants "related data/timeline second",
- * and for a customer that is its deals. Module 5 built them, but the deals list
- * cannot yet filter by customer: the section waits for F-41 · 1.7's filter
- * (owner's answer to A-54). `D-16` puts the communication history in `notes`,
- * so that is the related section drawn today.
+ * **Its requests and quotations** (`D-114`, F-45 · 2) are §5.2's "related data
+ * second": each list under its own view row (§3.4, §3.5), the rows scoped by the
+ * server, the page only naming the customer. «New request» opens the deal form
+ * with the customer fixed, and a save goes to the new deal. `D-16` puts the
+ * communication history in `notes`, drawn after them.
  *
  * **No "years of dealing".** §4.2 says `start_date` "drives" it, and that is
  * the only mention in the sources: no field on the wire, no definition of a
@@ -43,7 +43,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -53,9 +53,16 @@ import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
+import DealFormModal from '@/pages/deals/DealFormModal.vue';
+import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
+import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import { listDeals, type Deal, type DealRow } from '@/services/deals';
+import { listQuotations, type QuotationSummary } from '@/services/quotations';
 import { displayDate } from '@/domain/displayDate';
+import { displayDecimals } from '@/domain/displayDecimals';
 
 const route = useRoute();
+const router = useRouter();
 const { t, locale } = useI18n();
 const auth = useAuth();
 
@@ -80,6 +87,17 @@ const assignErrorKey = ref<string | null>(null);
 const canEdit = computed(() => auth.hasPermission('customer.edit'));
 /** §3.3's own `assign` row, never `edit`: two roles hold it where five hold `edit`. */
 const canAssign = computed(() => auth.hasPermission('customer.assign'));
+/** `D-114`: each list under its own view row, the button under §3.4's `create`. */
+const canSeeDeals = computed(() => auth.hasPermission('deal.view'));
+const canSeeQuotations = computed(() => auth.hasPermission('quotation.view'));
+const canCreateDeal = computed(() => auth.hasPermission('deal.create'));
+
+/** Null while loading; a failure costs that list, not the page. */
+const deals = ref<DealRow[] | null>(null);
+const quotations = ref<QuotationSummary[] | null>(null);
+const dealsFailed = ref(false);
+const quotationsFailed = ref(false);
+const dealFormOpen = ref(false);
 
 const id = computed(() => String(route.params.id ?? ''));
 
@@ -210,8 +228,24 @@ async function submitAssign(): Promise<void> {
     }
 }
 
+// ponytail: the first 100 rows of each list (§6.1's ceiling), no pager; add one when a customer outgrows it.
+async function loadHistory(): Promise<void> {
+    await Promise.all([
+        canSeeDeals.value && listDeals({ customer: id.value, perPage: 100 })
+            .then((page) => { deals.value = page.items; }, () => { dealsFailed.value = true; }),
+        canSeeQuotations.value && listQuotations({ customerId: id.value, perPage: 100 })
+            .then((page) => { quotations.value = page.items; }, () => { quotationsFailed.value = true; }),
+    ]);
+}
+
+/** `D-114`: a new request opens on its own page. */
+async function onDealSaved(deal: Deal): Promise<void> {
+    dealFormOpen.value = false;
+    await router.push({ name: 'deal-detail', params: { id: deal.id } });
+}
+
 onMounted(async () => {
-    await Promise.all([load(), loadSectors(), loadTitles()]);
+    await Promise.all([load(), loadSectors(), loadTitles(), loadHistory()]);
 });
 </script>
 
@@ -334,6 +368,56 @@ onMounted(async () => {
                 </dl>
             </div>
 
+            <!-- `D-114`: the customer's requests, §3.4's `view` row. -->
+            <section v-if="canSeeDeals" class="detail-card flex flex-col gap-2 rounded-xl p-4" data-testid="customer-deals">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-card-title">{{ t('deals.title') }}</h2>
+                    <button
+                        v-if="canCreateDeal"
+                        type="button"
+                        class="edit-action min-h-11 rounded-lg px-4"
+                        data-testid="customer-new-deal"
+                        @click="dealFormOpen = true"
+                    >
+                        {{ t('customers.detail.newDeal') }}
+                    </button>
+                </div>
+
+                <p v-if="dealsFailed" class="text-[var(--color-danger)]" role="alert">{{ t('customers.detail.historyFailed') }}</p>
+                <p v-else-if="deals === null" class="text-[var(--color-text-muted)]">{{ t('deals.loading') }}</p>
+                <p v-else-if="deals.length === 0" class="text-[var(--color-text-muted)]" data-testid="customer-deals-empty">{{ t('customers.detail.dealsEmpty') }}</p>
+                <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                    <li v-for="deal in deals" :key="deal.id">
+                        <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                            <bdi dir="ltr" class="font-medium tabular-nums">{{ deal.code }}</bdi>
+                            <span class="min-w-0 flex-1 text-pretty">{{ orDash(deal.title) }}</span>
+                            <DealStatusChip :status="deal.status" />
+                            <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(deal.last_activity_at, locale) }}</span>
+                        </RouterLink>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- `D-114`: the customer's quotations, §3.5's `view` row (the Outdoor Supervisor has none). -->
+            <section v-if="canSeeQuotations" class="detail-card flex flex-col gap-2 rounded-xl p-4" data-testid="customer-quotations">
+                <h2 class="text-card-title">{{ t('quotations.title') }}</h2>
+
+                <p v-if="quotationsFailed" class="text-[var(--color-danger)]" role="alert">{{ t('customers.detail.historyFailed') }}</p>
+                <p v-else-if="quotations === null" class="text-[var(--color-text-muted)]">{{ t('quotations.loading') }}</p>
+                <p v-else-if="quotations.length === 0" class="text-[var(--color-text-muted)]" data-testid="customer-quotations-empty">{{ t('customers.detail.quotationsEmpty') }}</p>
+                <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                    <li v-for="quotation in quotations" :key="quotation.id">
+                        <RouterLink :to="{ name: 'quotation-detail', params: { id: quotation.id } }" class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                            <bdi dir="ltr" class="font-medium tabular-nums">{{ quotation.code }}</bdi>
+                            <span class="tabular-nums text-[var(--color-text-muted)]">{{ t('quotations.version', { version: quotation.version }) }}</span>
+                            <QuotationStatusChip :status="quotation.status" />
+                            <!-- The server's total, drawn as the quotations list draws it (`D-110`); never computed here (`D-67`). -->
+                            <bdi dir="ltr" class="ms-auto tabular-nums">{{ displayDecimals(quotation.final_total) }} {{ quotation.currency }}</bdi>
+                        </RouterLink>
+                    </li>
+                </ul>
+            </section>
+
             <!-- §5.2's "related data/timeline second". `D-16` puts the
                  communication history in the notes field. -->
             <section class="detail-card flex flex-col gap-2 rounded-xl p-4">
@@ -392,6 +476,14 @@ onMounted(async () => {
                 :titles="titles"
                 @saved="onSaved"
                 @cancel="formOpen = false"
+            />
+
+            <DealFormModal
+                :open="dealFormOpen"
+                :editing="null"
+                :customer="{ id: customer.id, name: customer.name }"
+                @saved="onDealSaved"
+                @cancel="dealFormOpen = false"
             />
         </template>
     </section>

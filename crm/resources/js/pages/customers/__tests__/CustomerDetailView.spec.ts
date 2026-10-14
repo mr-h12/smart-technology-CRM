@@ -716,7 +716,7 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
         return json(200, { data: items, meta: { pagination: { ...PAGINATION, total: items.length } } });
     }
 
-    function stubHistory(deals: unknown[] = [DEAL_ROW], quotations: unknown[] = [QUOTATION_ROW]): ReturnType<typeof vi.fn> {
+    function stubHistory(deals: unknown[] = [DEAL_ROW], quotations: unknown[] = [QUOTATION_ROW], dealsStatus = 200): ReturnType<typeof vi.fn> {
         const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
             const path = String(url);
 
@@ -729,7 +729,7 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
             }
 
             if (/\/deals\?/.test(path)) {
-                return page(deals);
+                return dealsStatus === 200 ? page(deals) : json(dealsStatus, { error: { code: 'x', message: 'no' } });
             }
 
             if (/\/quotations\?/.test(path)) {
@@ -771,8 +771,8 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
         const row = view.find('[data-testid="customer-quotations"] a');
         expect(row.attributes('href')).toBe('/quotations/q1');
         expect(row.text()).toContain('QT-2026-0003');
-        // The server's own total and currency, never a figure the page made (`D-67`).
-        expect(row.text()).toContain('1250.00');
+        // The server's own total and currency, never a figure the page made (`D-67`), drawn as `D-110` draws it.
+        expect(row.text()).toContain('1,250.00');
         expect(row.text()).toContain('EGP');
     });
 
@@ -794,6 +794,17 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
 
         expect(view.find('[data-testid="customer-deals-empty"]').exists()).toBe(true);
         expect(view.find('[data-testid="customer-quotations-empty"]').exists()).toBe(true);
+    });
+
+    it('a list that cannot be read says so, and costs that list only', async () => {
+        stubHistory([DEAL_ROW], [QUOTATION_ROW], 500);
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-deals"] [role="alert"]').text()).toBe('This list could not be loaded. Reload the page to try again.');
+        expect(view.find('[data-testid="customer-quotations"] a').exists()).toBe(true);
+        expect(view.text()).toContain('Alpha Trading');
     });
 
     it('shows «New request» only with deal.create', async () => {

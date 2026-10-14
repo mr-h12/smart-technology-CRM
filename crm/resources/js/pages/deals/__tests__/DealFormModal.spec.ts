@@ -126,7 +126,7 @@ async function mountModal(
     const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
 
     const wrapper = mount(DealFormModal, {
-        props: { open: true, editing, customer },
+        props: { open: true, editing, ...(customer === undefined ? {} : { customer }) },
         global: { plugins: [i18n] },
     });
 

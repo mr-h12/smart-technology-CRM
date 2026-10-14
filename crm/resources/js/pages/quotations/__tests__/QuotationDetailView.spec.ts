@@ -867,3 +867,90 @@ describe('the quotation status chip (A-66, Q-41)', () => {
         expect(wrapper.find('[data-testid="quotation-status"]').attributes('title')).toBeUndefined();
     });
 });
+
+/**
+ * F-49 · 1.4a (`D-119`): the quotation page shows its deal's status and the
+ * manual move. The deal is read best-effort through `GET /deals/{id}`, the way
+ * the page reads its customer — every `change_status` holder also holds
+ * `deal.view` (§3.4), so whoever may see the control can read the deal.
+ */
+describe('the deal status on the quotation page (F-49 · 1.4a, D-119)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const DEAL = {
+        id: 'd1', code: 'DL-2026-0007', customer_id: 'c1', title: 'Twelve pumps', details: null,
+        source: 'employee_entry', service_type: 'product', status: 'won', owner_id: 'u1',
+        approval_status: null, rejection_reason: null, lost_reason: null,
+        last_activity_at: '2026-10-01T09:00:00+00:00', created_at: '2026-10-01T09:00:00+00:00', updated_at: '2026-10-01T09:00:00+00:00',
+    };
+
+    const DEAL_VIEWER: AuthenticatedUser = { ...USER, permissions: [...USER.permissions, 'deal.view.own'] };
+    const CHANGER: AuthenticatedUser = { ...USER, permissions: [...DEAL_VIEWER.permissions, 'deal.change_status.own'] };
+
+    /** `respond()` plus the deal: `GET /deals/d1` answers with `dealStatus`, and the move answers `purchasing`. */
+    function withDeal(dealStatus = 200): ReturnType<typeof vi.fn> {
+        const base = respond({
+            action: (url) => (/\/deals\/d1\/status$/.test(url) ? json(200, envelope({ ...DEAL, status: 'purchasing' })) : null),
+        }) as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+
+        return vi.fn(async (input: string, init?: RequestInit) =>
+            /\/deals\/d1$/.test(String(input))
+                ? (dealStatus === 200
+                    ? json(200, envelope(DEAL))
+                    : json(dealStatus, { error: { code: 'forbidden', message: 'no' }, meta: { request_id: 'r1' } }))
+                : base(input, init));
+    }
+
+    function askedForDeal(fetchMock: ReturnType<typeof vi.fn>): boolean {
+        return fetchMock.mock.calls.some((c) => /\/deals\/d1$/.test(String(c[0])));
+    }
+
+    it('shows the deal’s status beside its link, and the next manual move from won onward', async () => {
+        const { wrapper } = await render(withDeal(), CHANGER);
+
+        expect(wrapper.get('[data-testid="quotation-detail-deal-status"]').text()).toBe('Won');
+        expect(wrapper.get('[data-testid="deal-status-next"]').text()).toBe('Move to Purchasing');
+        expect(wrapper.find('[data-testid="quotation-detail-deal"]').exists()).toBe(true);
+    });
+
+    it('a confirmed move redraws the chip with the server’s new status', async () => {
+        const fetchMock = withDeal();
+        const { wrapper } = await render(fetchMock, CHANGER);
+
+        await wrapper.get('[data-testid="deal-status-next"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((c) => /\/deals\/d1\/status$/.test(String(c[0])))).toBe(true);
+        expect(wrapper.get('[data-testid="quotation-detail-deal-status"]').text()).toBe('Purchasing');
+        expect(wrapper.get('[data-testid="deal-status-next"]').text()).toBe('Move to Delivery');
+    });
+
+    it('shows the chip without the control to a deal viewer who cannot change status', async () => {
+        const { wrapper } = await render(withDeal(), DEAL_VIEWER);
+
+        expect(wrapper.get('[data-testid="quotation-detail-deal-status"]').text()).toBe('Won');
+        expect(wrapper.find('[data-testid="deal-status-next"]').exists()).toBe(false);
+    });
+
+    it('draws neither when the deal cannot be read, and the rest of the page stands', async () => {
+        const { wrapper } = await render(withDeal(403), CHANGER);
+
+        expect(wrapper.find('[data-testid="quotation-detail-deal-status"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="deal-status-next"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="quotation-detail-deal"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="quotation-total-final_total"]').exists()).toBe(true);
+    });
+
+    it('does not ask for the deal without deal.view', async () => {
+        const fetchMock = withDeal();
+        await render(fetchMock, USER);
+
+        expect(askedForDeal(fetchMock)).toBe(false);
+    });
+});

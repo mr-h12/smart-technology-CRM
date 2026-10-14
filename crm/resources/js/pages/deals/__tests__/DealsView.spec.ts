@@ -820,14 +820,15 @@ describe('the deals screen after F-41 (F-42 · P6)', () => {
         expect(wrapper.get('[data-testid="deals-details-trigger"]').attributes('aria-label')).toBe('Details');
     });
 
-    it('gives every row its own status list, picked in one step, with no shared id (A-29, F-42 · P7)', async () => {
+    it('gives every row with a manual move left its own button, with no shared id (A-29, D-119)', async () => {
         const changer: AuthenticatedUser = { ...USER, permissions: [...USER.permissions, 'deal.change_status.all'] };
-        const wrapper = await render(respond([DEAL, SECOND_DEAL_SAME_CUSTOMER]), changer);
+        const wrapper = await render(respond([
+            { ...DEAL, status: 'won' },
+            { ...SECOND_DEAL_SAME_CUSTOMER, status: 'purchasing' },
+        ]), changer);
 
-        const lists = wrapper.findAll('[data-testid="deal-status-target"]');
-        expect(lists).toHaveLength(2);
-        lists.forEach((list) => expect(list.attributes('aria-label')).toBe('Change status'));
-        expect(wrapper.find('[data-testid="deal-status-start"]').exists()).toBe(false);
+        const buttons = wrapper.findAll('[data-testid="deal-status-next"]');
+        expect(buttons.map((button) => button.text())).toEqual(['Move to Purchasing', 'Move to Delivery']);
 
         const ids = wrapper.findAll('[id]').map((node) => node.attributes('id'));
         expect(new Set(ids).size).toBe(ids.length);

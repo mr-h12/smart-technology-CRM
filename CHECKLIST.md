@@ -1853,6 +1853,15 @@ would hide them behind `OD-03` indefinitely.
       script without the nginx hash is blocked in the browser and caught only by that script. No PHP test can
       see it: `docker/` is not mounted in the php container.
 
+- [ ] **`allowed_transitions` on `DealPayload`, carried from Module 5's frozen register** — *revealed
+      by F-49 · 1.3's waste audit (2026-10-15); the row lived only in `checklist/module-05.md:966`.*
+      Its premise changed: the status control no longer offers §4.4's whole vocabulary. Since `D-119`
+      it is one button naming the next of `won → purchasing → delivery → delivery_complete`, from a
+      three-entry map in `DealStatusControl.vue` (a `ponytail:` ceiling copying `DealStatusTransition`'s
+      last three edges). Publishing the reachable manual moves on the payload removes the copy; a
+      backend point. **The cost, stated:** a fourth manual status, or a changed edge, needs the map
+      edited beside the PHP graph; the server still refuses a wrong edge (409), so nothing is moved wrongly.
+
 ## Agent guide revisions — owner-directed
 
 Changes to `CLAUDE.md` and `AGENTS.md` themselves. They belong to no module, and they are recorded
@@ -4659,7 +4668,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #366 — the walk is `allowedFrom`'s next edge through `ChangeDealStatus`, read `FOR UPDATE`; a blocked save rolls it back; D-90 rule a now guards only pre-D-119 quotations)*
       - [x] **1.2** The customer's answer: Accept → «ناجحة», Partial and Counter → «تفاوض».
             *(2026-10-15, #367 — one locked `moveIfAllowed` for Accept, Partial/Counter and Reject; no §4.4 edge, no move; a refused answer moves nothing)*
-      - [ ] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
+      - [x] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
+            *(2026-10-15, #368 — 422 on every other status, `reason` prohibited, 403 before 422; the control is one button naming the next of the three, from `won` onward)*
       - [ ] **1.4** The status control on the customer page's deals list and on the quotation page; the load test
             (`ab`, 50 at once on one deal, then a database check for duplicate lines).
 

@@ -123,7 +123,7 @@ final class DealController
         return ApiEnvelope::single($request, DealPayload::of($deals->handle(
             $deal,
             $request->status(),
-            $request->reason(),
+            null,
             self::heldScopes($request),
             self::actorId($request),
         )));

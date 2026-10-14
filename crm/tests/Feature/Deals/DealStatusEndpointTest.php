@@ -17,6 +17,11 @@ use Tests\TestCase;
 /**
  * Module 5, Point 2.6 — `PATCH /deals/{id}/status`, §4.4's transition graph.
  *
+ * F-49 · 1.3 (`D-119`): by hand only `purchasing`, `delivery` and
+ * `delivery_complete` are chosen, and the manual `lost` is withdrawn — every
+ * other status is reached on its own (creation, a quotation, the customer's
+ * answer), so the boundary refuses it with 422 before §4.4's graph is asked.
+ *
  * §3.4 grants `change_status` the same five roles and scopes as `view`/`edit`
  * — `Team`/`Out`/`Asgn` still have no mechanism (Point 2.1). `Delivery →
  * Delivery Complete` additionally needs `mark_delivery_complete` (`D-14`'s
@@ -126,42 +131,84 @@ final class DealStatusEndpointTest extends TestCase
     #[DataProvider('rolesWithoutChangeStatus')]
     public function test_that_a_role_without_the_permission_cannot_change_status(RoleName $role): void
     {
-        $id = $this->deal();
+        $id = $this->deal(overrides: ['status' => 'won']);
 
-        $this->patchJson($this->statusUrl($id), ['status' => 'contacted'], $this->bearerFor($role))
+        $this->patchJson($this->statusUrl($id), ['status' => 'purchasing'], $this->bearerFor($role))
             ->assertStatus(403);
+    }
+
+    /** The route's permission answers before the body is read: a 422 would tell a grantless caller which statuses exist. */
+    public function test_that_a_role_without_the_permission_gets_403_before_any_validation(): void
+    {
+        $id = $this->deal(overrides: ['status' => 'negotiations']);
+        $bearer = $this->bearerFor(RoleName::Ceo);
+
+        foreach ([['status' => 'lost', 'reason' => 'x'], ['status' => 'won'], ['status' => 'purchasing', 'reason' => 'x']] as $body) {
+            $this->patchJson($this->statusUrl($id), $body, $bearer)->assertStatus(403);
+        }
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => 'negotiations']);
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function ownScopeMoves(): array
+    {
+        return ['purchasing' => ['won', 'purchasing'], 'delivery complete' => ['delivery', 'delivery_complete']];
+    }
+
+    /** `Own` reaches only the caller's deals: another owner's is 404 (OpenAPI §5.1), moved nothing, audited nothing. */
+    #[DataProvider('ownScopeMoves')]
+    public function test_that_an_own_scope_holder_cannot_move_another_owners_deal(string $from, string $to): void
+    {
+        $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id, ['status' => $from]);
+
+        $this->patchJson($this->statusUrl($id), ['status' => $to], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => $from]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id)->count());
     }
 
     /** The visible cost of the unbacked `team` scope, not a decision about §4.4. */
     public function test_that_a_team_leader_can_change_nothing_while_team_is_unbacked(): void
     {
-        $id = $this->deal();
+        $id = $this->deal(overrides: ['status' => 'won']);
 
-        $this->patchJson($this->statusUrl($id), ['status' => 'contacted'], $this->bearerFor(RoleName::TeamLeader))
+        $this->patchJson($this->statusUrl($id), ['status' => 'purchasing'], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
     }
 
     // ─────────────────────────────── §4.4's graph
 
-    public function test_that_a_documented_edge_is_accepted(): void
+    /** @return array<string, array{string, string}> */
+    public static function manualEdges(): array
+    {
+        return [
+            'won to purchasing' => ['won', 'purchasing'],
+            'purchasing to delivery' => ['purchasing', 'delivery'],
+        ];
+    }
+
+    #[DataProvider('manualEdges')]
+    public function test_that_a_manual_edge_is_accepted(string $from, string $to): void
     {
         $owner = $this->userWith(RoleName::IndoorSales);
-        $id = $this->deal($owner->id, ['status' => 'lead']);
+        $id = $this->deal($owner->id, ['status' => $from]);
 
-        $this->patchJson($this->statusUrl($id), ['status' => 'contacted'], $this->bearerFor(RoleName::Manager))
+        $this->patchJson($this->statusUrl($id), ['status' => $to], $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.status', 'contacted');
+            ->assertJsonPath('data.status', $to);
     }
 
     /** @return array<string, array{string, string}> */
     public static function undocumentedEdges(): array
     {
         return [
-            'lead cannot skip to won' => ['lead', 'won'],
-            'lead cannot skip straight to negotiations' => ['lead', 'negotiations'],
-            'won cannot return to lead' => ['won', 'lead'],
+            'won cannot skip to delivery' => ['won', 'delivery'],
+            'lead cannot skip to purchasing' => ['lead', 'purchasing'],
+            'negotiations is not yet won' => ['negotiations', 'purchasing'],
             'delivery complete is terminal' => ['delivery_complete', 'delivery'],
-            'lost is terminal' => ['lost', 'lead'],
+            'lost is terminal' => ['lost', 'purchasing'],
         ];
     }
 
@@ -179,43 +226,59 @@ final class DealStatusEndpointTest extends TestCase
             ->assertJsonPath('error.code', 'state_transition_invalid');
     }
 
-    public function test_that_quotation_sent_may_go_to_won_negotiations_or_lost(): void
+    // ─────────────────────────────── D-119: the manual list is the three
+
+    /** @return array<string, array{string, string}> */
+    public static function withdrawnStatuses(): array
     {
-        $bearer = $this->bearerFor(RoleName::Manager);
-
-        foreach (['won', 'negotiations'] as $target) {
-            $id = $this->deal(overrides: ['status' => 'quotation_sent']);
-
-            $this->patchJson($this->statusUrl($id), ['status' => $target], $bearer)
-                ->assertStatus(200);
-        }
-
-        $id = $this->deal(overrides: ['status' => 'quotation_sent']);
-
-        $this->patchJson($this->statusUrl($id), ['status' => 'lost', 'reason' => 'Chose a competitor'], $bearer)
-            ->assertStatus(200)
-            ->assertJsonPath('data.lost_reason', 'Chose a competitor');
+        // Each from a status §4.4 *would* let it leave by, so a 409 cannot
+        // stand in for the 422: only the boundary's narrowed list refuses it.
+        return [
+            'lead' => ['lead', 'lead'],
+            'contacted' => ['lead', 'contacted'],
+            'waiting_customer_request' => ['contacted', 'waiting_customer_request'],
+            'supplier_rfq' => ['waiting_customer_request', 'supplier_rfq'],
+            'supplier_quotation' => ['supplier_rfq', 'supplier_quotation'],
+            'quotation_sent' => ['supplier_quotation', 'quotation_sent'],
+            'negotiations' => ['quotation_sent', 'negotiations'],
+            'won' => ['negotiations', 'won'],
+            'lost' => ['quotation_sent', 'lost'],
+        ];
     }
 
-    // ─────────────────────────────── §4.4's mandatory Lost reason
-
-    public function test_that_moving_to_lost_without_a_reason_is_refused(): void
+    #[DataProvider('withdrawnStatuses')]
+    public function test_that_a_withdrawn_manual_status_is_refused_with_422(string $from, string $to): void
     {
-        $id = $this->deal(overrides: ['status' => 'negotiations']);
+        $id = $this->deal(overrides: ['status' => $from]);
+        $body = $to === 'lost' ? ['status' => 'lost', 'reason' => 'Chose a competitor'] : ['status' => $to];
 
-        $this->patchJson($this->statusUrl($id), ['status' => 'lost'], $this->bearerFor(RoleName::Manager))
-            ->assertStatus(422);
+        $this->patchJson($this->statusUrl($id), $body, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'status');
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => $from]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id)->count());
     }
 
-    public function test_that_a_reason_on_a_non_lost_transition_is_refused(): void
+    /** @return array<string, array{string, string}> */
+    public static function threeManualEdges(): array
     {
-        $id = $this->deal(overrides: ['status' => 'lead']);
+        return self::manualEdges() + ['delivery to delivery complete' => ['delivery', 'delivery_complete']];
+    }
+
+    #[DataProvider('threeManualEdges')]
+    public function test_that_a_reason_is_prohibited_on_every_status(string $from, string $to): void
+    {
+        $id = $this->deal(overrides: ['status' => $from]);
 
         $this->patchJson(
             $this->statusUrl($id),
-            ['status' => 'contacted', 'reason' => 'Not applicable here'],
+            ['status' => $to, 'reason' => 'Not applicable here'],
             $this->bearerFor(RoleName::Manager),
-        )->assertStatus(422);
+        )->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'reason');
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => $from]);
     }
 
     // ─────────────────────────────── D-14's second permission
@@ -267,9 +330,9 @@ final class DealStatusEndpointTest extends TestCase
 
     public function test_that_a_status_change_writes_an_audit_entry(): void
     {
-        $id = $this->deal(overrides: ['status' => 'lead']);
+        $id = $this->deal(overrides: ['status' => 'won']);
 
-        $this->patchJson($this->statusUrl($id), ['status' => 'contacted'], $this->bearerFor(RoleName::Manager))
+        $this->patchJson($this->statusUrl($id), ['status' => 'purchasing'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(200);
 
         self::assertSame(
@@ -280,7 +343,7 @@ final class DealStatusEndpointTest extends TestCase
 
     public function test_that_an_unknown_deal_is_404(): void
     {
-        $this->patchJson($this->statusUrl((string) Str::uuid7()), ['status' => 'contacted'], $this->bearerFor(RoleName::Manager))
+        $this->patchJson($this->statusUrl((string) Str::uuid7()), ['status' => 'purchasing'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(404);
     }
 

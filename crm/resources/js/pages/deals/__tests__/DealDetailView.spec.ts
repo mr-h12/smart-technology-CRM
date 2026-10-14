@@ -312,10 +312,11 @@ describe('the deal detail view', () => {
     // ──────────────────────────────────────── §5.2: controls only by permission
 
     it('draws the approval and status controls for a role that holds them', async () => {
-        const wrapper = await render(respond());
+        // D-119: the status control is drawn only where a manual move is left (from `won`).
+        const wrapper = await render(respond({ deal: { ...DEAL, status: 'won' } }));
 
         expect(wrapper.find('[data-testid="deal-approval"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="deal-status-target"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="deal-status-next"]').exists()).toBe(true);
     });
 
     it('links to the quotation builder for a role that may create one (Design System §2.1)', async () => {
@@ -387,13 +388,13 @@ describe('the deal detail view', () => {
     });
 
     it('reloads the deal and its history after a status change', async () => {
-        const fetchMock = respond();
+        const fetchMock = respond({ deal: { ...DEAL, status: 'won' } });
         const wrapper = await render(fetchMock);
 
         const before = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/timeline')).length;
 
-        // F-42 · P7: one pick, then the confirm.
-        await wrapper.find('[data-testid="deal-status-target"]').setValue('negotiations');
+        // D-119: one button to the next status, then the confirm.
+        await wrapper.find('[data-testid="deal-status-next"]').trigger('click');
         await flushPromises();
         await wrapper.find('[data-testid="deal-status-control"] [data-testid="confirm-accept"]').trigger('click');
         await flushPromises();

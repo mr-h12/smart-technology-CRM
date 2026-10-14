@@ -6,6 +6,7 @@ namespace Tests\Feature\Deals;
 
 use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemLimit;
+use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
@@ -124,11 +125,6 @@ final class CustomerStatusRecomputeTest extends TestCase
         return $id;
     }
 
-    private function statusUrl(string $dealId): string
-    {
-        return self::DEALS.'/'.$dealId.'/status';
-    }
-
     // ─────────────────────────────── rule 5 and the create-time trigger
 
     public function test_that_a_brand_new_customers_first_deal_leaves_status_prospect(): void
@@ -150,8 +146,8 @@ final class CustomerStatusRecomputeTest extends TestCase
         $customerId = $this->customer();
         $dealId = $this->seedDeal($customerId, ['status' => 'quotation_sent']);
 
-        $this->patchJson($this->statusUrl($dealId), ['status' => 'won'], $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200);
+        // D-119: `won` is no longer chosen by hand; the customer's Accept moves it.
+        app(DealOutcomeInterface::class)->quotationAccepted($dealId, $this->userWith(RoleName::Manager)->id);
 
         self::assertSame('customer', $this->customerStatus($customerId));
 
@@ -171,11 +167,8 @@ final class CustomerStatusRecomputeTest extends TestCase
         $customerId = $this->customer();
         $dealId = $this->seedDeal($customerId, ['status' => 'quotation_sent']);
 
-        $this->patchJson(
-            $this->statusUrl($dealId),
-            ['status' => 'lost', 'reason' => 'Customer chose a competitor'],
-            $this->bearerFor(RoleName::Manager),
-        )->assertStatus(200);
+        // D-119: the manual `lost` is withdrawn; a recorded rejection moves it (D-90 rule b).
+        self::assertTrue(app(DealOutcomeInterface::class)->quotationRejected($dealId, 'Customer chose a competitor', $this->userWith(RoleName::Manager)->id));
 
         self::assertSame('deal_not_completed', $this->customerStatus($customerId));
     }
@@ -214,11 +207,8 @@ final class CustomerStatusRecomputeTest extends TestCase
         // recompute without touching the stale deal above.
         $secondDealId = $this->seedDeal($customerId, ['status' => 'quotation_sent']);
 
-        $this->patchJson(
-            $this->statusUrl($secondDealId),
-            ['status' => 'lost', 'reason' => 'Went silent'],
-            $this->bearerFor(RoleName::Manager),
-        )->assertStatus(200);
+        // D-119: the manual `lost` is withdrawn; a recorded rejection moves it (D-90 rule b).
+        self::assertTrue(app(DealOutcomeInterface::class)->quotationRejected($secondDealId, 'Went silent', $this->userWith(RoleName::Manager)->id));
 
         self::assertSame('no_response', $this->customerStatus($customerId));
     }
@@ -236,11 +226,8 @@ final class CustomerStatusRecomputeTest extends TestCase
 
         $secondDealId = $this->seedDeal($customerId, ['status' => 'quotation_sent']);
 
-        $this->patchJson(
-            $this->statusUrl($secondDealId),
-            ['status' => 'lost', 'reason' => 'Went silent'],
-            $this->bearerFor(RoleName::Manager),
-        )->assertStatus(200);
+        // D-119: the manual `lost` is withdrawn; a recorded rejection moves it (D-90 rule b).
+        self::assertTrue(app(DealOutcomeInterface::class)->quotationRejected($secondDealId, 'Went silent', $this->userWith(RoleName::Manager)->id));
 
         self::assertSame('prospect', $this->customerStatus($customerId));
     }

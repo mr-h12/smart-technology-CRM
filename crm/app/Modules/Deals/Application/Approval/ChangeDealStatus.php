@@ -39,12 +39,12 @@ use Illuminate\Database\ConnectionInterface;
  * inventing authorisation the matrix does not grant — the same restraint
  * every row-scope class in this module already exercises.
  *
- * ── `lost_reason` is validated at the boundary, on `RejectDealRequest`'s
- * precedent ──
+ * ── `lost_reason` comes only from a recorded rejection ──
  *
- * `ChangeDealStatusRequest` refuses a blank reason on the `lost` transition
- * as a 422 before this ever runs; the table's own CHECK (Point 2.6) would
- * catch it too, but as a 500.
+ * `D-119` withdrew the manual `lost`, so the reason arrives from
+ * `RecordQuotationOutcome::quotationRejected` (D-90 rule b), carrying the
+ * quotation's own mandatory rejection reason; the table's CHECK (Point 2.6)
+ * would refuse a missing one as a 500.
  */
 final readonly class ChangeDealStatus
 {

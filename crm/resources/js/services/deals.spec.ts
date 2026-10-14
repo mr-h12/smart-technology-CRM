@@ -231,22 +231,18 @@ describe('the deal API catalogue', () => {
 
     // ─────────────────────────────────────────────────────────── §4.4's transition
 
-    it('sends the reason only when the target is lost', async () => {
+    it('sends only the status: D-119 withdrew the manual lost, and the server prohibits a reason', async () => {
         fetchMock.mockResolvedValue(json(200, envelope(DEAL)));
 
-        await changeDealStatus(DEAL.id, 'lost', 'Lost on price');
+        await changeDealStatus(DEAL.id, 'purchasing');
 
-        expect(await bodyOf()).toEqual({ status: 'lost', reason: 'Lost on price' });
+        expect(requestFor().url).toContain(`/deals/${DEAL.id}/status`);
+        expect(await bodyOf()).toEqual({ status: 'purchasing' });
     });
 
-    it('never sends a reason on any other status, because the server prohibits it', async () => {
-        fetchMock.mockResolvedValue(json(200, envelope(DEAL)));
-
-        // A null would be a 422 on every status but `lost` — `prohibited`
-        // means absent, not empty.
-        await changeDealStatus(DEAL.id, 'contacted', 'ignored');
-
-        expect(await bodyOf()).toEqual({ status: 'contacted' });
+    it('takes no reason at all (D-119)', () => {
+        // An id and a status: the optional `reason` parameter is gone with the manual `lost`.
+        expect(changeDealStatus.length).toBe(2);
     });
 
     // ───────────────────────────────────────────────────────────── §17's upload

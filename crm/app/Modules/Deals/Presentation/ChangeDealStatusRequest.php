@@ -10,16 +10,16 @@ use RuntimeException;
 /**
  * The boundary for `PATCH /deals/{deal}/status`.
  *
- * `status` is checked against §4.4's twelve states — not against
- * `DealStatusTransition`'s edges, which need the deal's *current* status and
- * are checked in `ChangeDealStatus` instead. A Form Request answers "is this
- * a real status" (400-shaped as a validation concern); "is this reachable
- * from here" is `409 state_transition_invalid`, `OpenAPI §6.1`'s distinction
- * between a malformed request and one that does not fit the workflow.
+ * `D-119`: by hand only `purchasing`, `delivery` and `delivery_complete` are
+ * chosen. Every other status is reached on its own — creation, a quotation,
+ * the customer's answer, a recorded rejection — through `ChangeDealStatus`
+ * directly, never through this request; so a withdrawn status is a 422 here,
+ * before §4.4's graph is asked. Whether the edge is reachable from the deal's
+ * current status is still `ChangeDealStatus`'s `409 state_transition_invalid`
+ * (`OpenAPI §6.1`), and `delivery_complete`'s `D-14` permission its 403.
  *
- * `reason` is `required` only when `status` is `lost` — §4.4: "Lost | Sales
- * (mandatory reason)" — on `RejectDealRequest`'s `regex:/\S/`-beside-`required`
- * reading of a mandatory reason field.
+ * `reason` is `prohibited` on every status: it belonged to the manual `lost`,
+ * which `D-119` withdrew.
  */
 final class ChangeDealStatusRequest extends FormRequest
 {
@@ -27,10 +27,8 @@ final class ChangeDealStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', 'in:'.implode(',', $this->knownStatuses())],
-            'reason' => $this->input('status') === 'lost'
-                ? ['required', 'string', 'regex:/\S/']
-                : ['prohibited'],
+            'status' => ['required', 'string', 'in:purchasing,delivery,delivery_complete'],
+            'reason' => ['prohibited'],
         ];
     }
 
@@ -43,15 +41,6 @@ final class ChangeDealStatusRequest extends FormRequest
         ];
     }
 
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'reason.regex' => (string) __('deals.validation.reason_not_blank'),
-            'reason.prohibited' => (string) __('deals.validation.reason_only_on_lost'),
-        ];
-    }
-
     public function status(): string
     {
         $status = $this->validated('status');
@@ -61,25 +50,5 @@ final class ChangeDealStatusRequest extends FormRequest
         }
 
         return $status;
-    }
-
-    public function reason(): ?string
-    {
-        $reason = $this->validated('reason');
-
-        return is_string($reason) ? $reason : null;
-    }
-
-    /** @return list<string> */
-    private function knownStatuses(): array
-    {
-        // Every status that has an outgoing edge, plus the two terminal ones
-        // §4.4 still names: `DealStatusTransition::allowedFrom()` on its own
-        // would silently accept a typo that happens to match no known state
-        // rather than a real one, because an unknown $from and a genuinely
-        // terminal one both answer with an empty list.
-        return ['lead', 'contacted', 'waiting_customer_request', 'supplier_rfq',
-            'supplier_quotation', 'quotation_sent', 'negotiations', 'won',
-            'purchasing', 'delivery', 'delivery_complete', 'lost'];
     }
 }

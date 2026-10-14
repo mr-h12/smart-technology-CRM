@@ -4636,8 +4636,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       owner, 2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: rates add on
       one base (14 + 5 = 19 %); one VAT line carrying the total; percentages only, no names; the default tax
       setting goes; no Arabic manual test list.
-      - [ ] **1** Customer quotation: `tax_percents` (jsonb, the rates as entered) beside `tax_percent` (their sum);
+      - [x] **1** Customer quotation: `tax_percents` (jsonb, the rates as entered) beside `tax_percent` (their sum);
             the request takes the list (≤ 5, each > 0) and refuses the old field; the builder adds a rate with «+».
+            *(2026-10-14, #363 — `tax_percent` is the BCMath sum §5 reads, so no formula changed; a rate past 3 decimals or a sum ≥ 1000 is a 422, not a 500)*
       - [ ] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
             `defaults.tax_percent` leaves the settings, the seeder and the settings screen.
       - [ ] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.

@@ -4589,7 +4589,10 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #356 — the viewer fetches through the same permission-checked route as a download and revokes its object URL on close; no screen opens it until · 2)*
       - [x] **2** «عرض» in the four callers, per `mime_type`; vitest per caller and `rtl-ui-verifier`.
             *(2026-10-14, #357 — only a clean PDF or image gets «عرض»; it sits beside «تنزيل» in one `ms-auto` group at the row's end (owner); «حذف» approved as · 3–· 4, `D-117`)*
-      - [ ] **3** The Arabic manual test list (closes F-47).
+      - [ ] **3** Backend: `DELETE` for deal, supplier-quotation and PO documents — whoever may upload may delete;
+            the file is soft-deleted, audited, and its download becomes 404 (`D-117`; added by the owner 2026-10-14).
+      - [ ] **4** «حذف» beside «عرض»/«تنزيل» in the three screens, behind `ConfirmDialog`; vitest and `rtl-ui-verifier`.
+      - [ ] **5** The Arabic manual test list (closes F-47).
 
 ## Shell revisions — owner-directed
 

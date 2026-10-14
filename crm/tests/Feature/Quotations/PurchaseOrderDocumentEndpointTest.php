@@ -475,4 +475,73 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
 
         return ['Authorization' => 'Bearer '.$token];
     }
+
+    // ------------------------------------------------------- remove (F-47 · 3, D-117)
+
+    /** @return TestResponse<\Symfony\Component\HttpFoundation\Response> */
+    private function remove(string $purchaseOrderId, string $fileId, RoleName $role = RoleName::Manager): TestResponse
+    {
+        return $this->deleteJson(self::ENDPOINT.'/'.$purchaseOrderId.'/documents/'.$fileId, [], $this->bearerFor($role));
+    }
+
+    private function uploadedId(string $purchaseOrderId): string
+    {
+        $fileId = $this->upload($purchaseOrderId, $this->uploadedPdf(self::pdfBytes()))->assertStatus(201)->json('data.id');
+        self::assertIsString($fileId);
+
+        return $fileId;
+    }
+
+    private function isRemoved(string $fileId): bool
+    {
+        return DB::table('files')->where('id', $fileId)->whereNotNull('deleted_at')->exists();
+    }
+
+    /** D-117: a PO file is removable whenever the order exists, under the upload's own grant. */
+    public function test_the_recorder_removes_a_file_and_it_leaves_the_list_the_audit_and_the_download(): void
+    {
+        $order = $this->accepted($this->deal(null), 'REF-1');
+        $fileId = $this->uploadedId($order['id']);
+
+        $this->remove($order['id'], $fileId)->assertNoContent();
+
+        self::assertTrue($this->isRemoved($fileId));
+        self::assertSame([], $this->show($order['id'])->assertStatus(200)->json('data.documents'));
+        self::assertSame(1, DB::table('audit_log')->where('event', 'PURCHASE_ORDER_DOCUMENT_REMOVED')->where('entity_id', $order['id'])->count());
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearerFor(RoleName::Manager))->assertNotFound();
+    }
+
+    public function test_a_role_without_the_grant_cannot_remove(): void
+    {
+        $order = $this->accepted($this->deal(null), 'REF-1');
+        $fileId = $this->uploadedId($order['id']);
+
+        $this->remove($order['id'], $fileId, RoleName::Ceo)->assertForbidden();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_an_order_out_of_reach_cannot_have_a_file_removed(): void
+    {
+        $order = $this->accepted($this->deal($this->userWith(RoleName::OutdoorSales)->id), 'REF-1');
+        $fileId = $this->uploadedId($order['id']);
+
+        // Indoor Sales holds `record_customer_response.own` and does not own this deal.
+        $this->remove($order['id'], $fileId, RoleName::IndoorSales)->assertNotFound();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_a_file_of_another_order_or_already_removed_is_a_404(): void
+    {
+        $order = $this->accepted($this->deal(null), 'REF-1');
+        $other = $this->accepted($this->deal(null), 'REF-2');
+        $fileId = $this->uploadedId($order['id']);
+
+        $this->remove($other['id'], $fileId)->assertNotFound();
+        self::assertFalse($this->isRemoved($fileId));
+
+        $this->remove($order['id'], $fileId)->assertNoContent();
+        $this->remove($order['id'], $fileId)->assertNotFound();
+    }
 }

@@ -96,16 +96,16 @@ final readonly class PriceQuotation
                 throw QuotationNotPriceable::priceMissing($itemId, $index + 1);
             }
 
-            // `D-09`: the rate is captured at creation. No rate for the pair
-            // means the line cannot be converted, so it cannot be priced.
+            // `D-09`: the rate is captured at creation. No rate for the pair in
+            // either direction (`D-115`) means the line cannot be converted, so
+            // it cannot be priced.
             $rate = $this->fxRates->effectiveRate($supplierCurrency->code(), $currency->code(), $at);
             if ($rate === null) {
                 throw QuotationNotPriceable::fxRateMissing($itemId, $index + 1);
             }
 
             $priced = PricedLine::from(
-                Decimal::of($price->unitPrice, 'unit_cost'),
-                $rate->rate(),
+                $rate->convert(Decimal::of($price->unitPrice, 'unit_cost'), PricedLine::SCALE),
                 $lineMargin,
                 $defaultMargin,
                 $quantity,

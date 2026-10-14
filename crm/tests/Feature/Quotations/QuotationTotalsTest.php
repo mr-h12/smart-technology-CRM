@@ -26,8 +26,7 @@ final class QuotationTotalsTest extends TestCase
     private static function lineTotalling(string $amount): PricedLine
     {
         return PricedLine::from(
-            unitCost: $amount,
-            fxRateAtTime: '1',
+            unitCostBase: $amount,
             marginPercent: '0',
             defaultMargin: '0',
             quantity: '1',

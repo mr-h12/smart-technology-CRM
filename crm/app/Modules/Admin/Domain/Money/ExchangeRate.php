@@ -15,7 +15,8 @@ namespace App\Modules\Admin\Domain\Money;
  * exists to complain when one goes stale.
  *
  * A decimal string at `D-68`'s FX scale. `DB-07` forbids float, and a rate is
- * the multiplier that reaches every line of every converted quotation.
+ * the multiplier that reaches every line of every converted quotation (or,
+ * reversed, the divisor — `D-115`).
  */
 final readonly class ExchangeRate
 {
@@ -28,11 +29,15 @@ final readonly class ExchangeRate
      */
     public const SCALE = 8;
 
-    /** @param numeric-string $rate */
+    /**
+     * @param  numeric-string  $rate
+     * @param  numeric-string|null  $divisor  the recorded rate this one reverses (`D-115`); null for a recorded direction
+     */
     private function __construct(
         private CurrencyCode $from,
         private CurrencyCode $to,
         private string $rate,
+        private ?string $divisor = null,
     ) {}
 
     public static function of(CurrencyCode $from, CurrencyCode $to, string $rate): self
@@ -50,6 +55,31 @@ final readonly class ExchangeRate
     public static function identity(CurrencyCode $code): self
     {
         return self::of($code, $code, '1');
+    }
+
+    /**
+     * `D-115`: a recorded `from→to = r` also prices `to→from`. Its rate is 1/r at
+     * this scale, but {@see convert()} divides by r itself, so 30000 at 30 is
+     * exactly 1000 rather than 30000 × 0.03333333.
+     */
+    public static function inverseOf(self $recorded): self
+    {
+        return new self($recorded->to, $recorded->from, bcdiv('1', $recorded->rate, self::SCALE), $recorded->rate);
+    }
+
+    /**
+     * An amount in `from`, in `to` — truncated at `$scale`, never rounded
+     * (owner's ruling 2026-09-07). Multiplies by a recorded rate, divides by the
+     * one an inverse reverses (`D-115`).
+     *
+     * @param  numeric-string  $amount
+     * @return numeric-string
+     */
+    public function convert(string $amount, int $scale): string
+    {
+        return $this->divisor === null
+            ? bcmul($amount, $this->rate, $scale)
+            : bcdiv($amount, $this->divisor, $scale);
     }
 
     public function from(): CurrencyCode

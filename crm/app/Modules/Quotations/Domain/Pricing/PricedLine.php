@@ -8,7 +8,7 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * One quotation line, priced. §5.1's four formulas and nothing else.
  *
  * ```
- * unit_cost_base = unit_cost × fx_rate_at_time                     (D-09)
+ * unit_cost_base = unit_cost converted at fx_rate_at_time         (D-09, D-115)
  * margin_percent = the line's margin; if absent, the quotation's   (D-03)
  * unit_price     = unit_cost_base × (1 + margin_percent / 100)     (D-04)
  * line_total     = unit_price × quantity
@@ -56,15 +56,14 @@ final readonly class PricedLine
     ) {}
 
     /**
-     * @param  numeric-string  $unitCost  the supplier's price, in the supplier's currency
-     * @param  numeric-string  $fxRateAtTime  the rate captured on this line at creation (§5.6)
+     * @param  numeric-string  $unitCostBase  the supplier's price already in the quotation's currency, converted
+     *                                        by `ExchangeRate::convert()` at the rate captured on the line (§5.6, `D-115`)
      * @param  numeric-string|null  $marginPercent  the line's extra margin, added to the quotation's; null adds nothing (`D-106`)
      * @param  numeric-string  $defaultMargin  the quotation's margin
      * @param  numeric-string  $quantity
      */
     public static function from(
-        string $unitCost,
-        string $fxRateAtTime,
+        string $unitCostBase,
         ?string $marginPercent,
         string $defaultMargin,
         string $quantity,
@@ -85,7 +84,7 @@ final readonly class PricedLine
         // break Point 1.2's additive CHECKs by a millionth. The owner's ruling
         // of 2026-09-07 pins truncation; §5 does not say, so this is a decision
         // rather than a reading.
-        $unitCostBase = bcmul($unitCost, $fxRateAtTime, self::SCALE);
+        $unitCostBase = bcadd($unitCostBase, '0', self::SCALE);
         $unitPrice = bcmul($unitCostBase, $multiplier, self::SCALE);
 
         // Both line figures multiply the **quantized** values above, not the

@@ -724,6 +724,10 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
                 return page([]);
             }
 
+            if (/\/deals\/[^/]+\/status$/.test(path) && init?.method === 'PATCH') {
+                return json(200, { data: { ...DEAL_ROW, status: 'purchasing' }, meta: {} });
+            }
+
             if (/\/deals(\?|$)/.test(path) && init?.method === 'POST') {
                 return json(201, { data: { ...DEAL_ROW, id: 'd-new' }, meta: {} });
             }
@@ -836,5 +840,63 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
         await flushPromises();
 
         expect(view.vm.$router.currentRoute.value.fullPath).toBe('/deals/d-new');
+    });
+
+    // ───────────────── F-49 · 1.4a (D-119): the manual move, on the customer's list
+
+    const CHANGER: AuthenticatedUser = { ...SELLER, permissions: [...SELLER.permissions, 'deal.change_status.own'] };
+    const WON = { ...DEAL_ROW, status: 'won' };
+
+    it('draws the status control beside a won deal\'s link, not inside it', async () => {
+        stubHistory([WON]);
+
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        const row = view.get('[data-testid="customer-deals"] li');
+        expect(row.find('[data-testid="deal-status-next"]').text()).toBe('Move to Purchasing');
+        // A button inside an <a> is invalid HTML and its click would open the deal.
+        expect(row.get('a').find('[data-testid="deal-status-next"]').exists()).toBe(false);
+    });
+
+    it('a click on the control asks first and does not open the deal', async () => {
+        stubHistory([WON]);
+
+        const view = await render(CHANGER);
+        await flushPromises();
+        await view.get('[data-testid="deal-status-next"]').trigger('click');
+        await flushPromises();
+
+        expect(view.vm.$router.currentRoute.value.fullPath).toBe('/customers/c1');
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(true);
+    });
+
+    it('a confirmed move redraws that row with the server\'s new status', async () => {
+        const fetchMock = stubHistory([WON]);
+
+        const view = await render(CHANGER);
+        await flushPromises();
+        await view.get('[data-testid="deal-status-next"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(asked(fetchMock, /\/deals\/d1\/status$/)).toBeDefined();
+        const row = view.get('[data-testid="customer-deals"] li');
+        expect(row.text()).toContain('Purchasing');
+        expect(row.get('[data-testid="deal-status-next"]').text()).toBe('Move to Delivery');
+    });
+
+    it('draws no control on a deal before won, nor without change_status', async () => {
+        stubHistory([DEAL_ROW]);
+        const early = await render(CHANGER);
+        await flushPromises();
+        expect(early.find('[data-testid="deal-status-next"]').exists()).toBe(false);
+
+        useAuth().forgetSession();
+        stubHistory([WON]);
+        const reader = await render(SELLER);
+        await flushPromises();
+        expect(reader.find('[data-testid="deal-status-next"]').exists()).toBe(false);
     });
 });

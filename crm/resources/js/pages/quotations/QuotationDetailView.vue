@@ -57,10 +57,13 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
+import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
+import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
 import { readCustomer, type Customer } from '@/services/customers';
+import { readDeal, type Deal } from '@/services/deals';
 import {
     createQuotationVersion,
     deleteQuotation,
@@ -84,6 +87,8 @@ const { hasPermission } = useAuth();
 const quotation = ref<QuotationDetail | null>(null);
 const warnings = ref<QuotationWarning[]>([]);
 const customer = ref<Customer | null>(null);
+/** F-49 · 1.4a: the deal's status and its manual move; `null` when it is not, or cannot be, read. */
+const deal = ref<Deal | null>(null);
 
 const loading = ref(true);
 const failed = ref(false);
@@ -193,6 +198,19 @@ async function loadCustomer(customerId: string): Promise<void> {
     }
 }
 
+/** Best-effort, like the customer; asked only with `deal.view`, so a role without it sees no 403. */
+async function loadDeal(dealId: string): Promise<void> {
+    if (!hasPermission('deal.view')) {
+        return;
+    }
+
+    try {
+        deal.value = await readDeal(dealId);
+    } catch {
+        deal.value = null;
+    }
+}
+
 async function refresh(): Promise<void> {
     conflict.value = false;
     actionError.value = '';
@@ -203,7 +221,8 @@ async function refresh(): Promise<void> {
     await load();
 
     if (quotation.value !== null) {
-        await loadCustomer(quotation.value.customer_id);
+        // A response may have moved the deal (D-119), so it is read again with the quotation.
+        await Promise.all([loadCustomer(quotation.value.customer_id), loadDeal(quotation.value.deal_id)]);
     }
 }
 
@@ -402,6 +421,10 @@ onMounted(refresh);
                         >
                             {{ t('quotations.detail.openDeal') }}
                         </RouterLink>
+                        <span v-if="deal !== null" class="mt-1 flex flex-wrap items-center gap-2">
+                            <DealStatusChip :status="deal.status" data-testid="quotation-detail-deal-status" />
+                            <DealStatusControl :deal="deal" @changed="deal = $event" />
+                        </span>
                     </dd>
                 </div>
                 <div class="flex flex-col gap-1">

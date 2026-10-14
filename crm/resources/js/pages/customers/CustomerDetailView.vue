@@ -55,6 +55,7 @@ import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
+import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import { listDeals, type Deal, type DealRow } from '@/services/deals';
 import { listQuotations, type QuotationSummary } from '@/services/quotations';
@@ -238,6 +239,11 @@ async function loadHistory(): Promise<void> {
     ]);
 }
 
+/** F-49 · 1.4a: a manual move redraws its row from the server's deal; the row keeps its own `customer_name`. */
+function onDealChanged(changed: Deal): void {
+    deals.value = deals.value?.map((deal) => (deal.id === changed.id ? { ...deal, ...changed } : deal)) ?? null;
+}
+
 /** `D-114`: a new request opens on its own page. */
 async function onDealSaved(deal: Deal): Promise<void> {
     dealFormOpen.value = false;
@@ -387,13 +393,15 @@ onMounted(async () => {
                 <p v-else-if="deals === null" class="text-[var(--color-text-muted)]">{{ t('deals.loading') }}</p>
                 <p v-else-if="deals.length === 0" class="text-[var(--color-text-muted)]" data-testid="customer-deals-empty">{{ t('customers.detail.dealsEmpty') }}</p>
                 <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
-                    <li v-for="deal in deals" :key="deal.id">
-                        <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                    <!-- F-49 · 1.4a: the status control sits beside the link — a button inside an <a> is invalid and its click would open the deal. -->
+                    <li v-for="deal in deals" :key="deal.id" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="flex min-h-11 min-w-0 flex-[1_1_16rem] flex-wrap items-center gap-x-3 gap-y-1 py-2">
                             <bdi dir="ltr" class="font-medium tabular-nums">{{ deal.code }}</bdi>
                             <span class="min-w-0 flex-1 text-pretty">{{ orDash(deal.title) }}</span>
                             <DealStatusChip :status="deal.status" />
                             <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(deal.last_activity_at, locale) }}</span>
                         </RouterLink>
+                        <DealStatusControl :deal="deal" @changed="onDealChanged" />
                     </li>
                 </ul>
             </section>

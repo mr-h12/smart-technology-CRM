@@ -6,6 +6,7 @@ namespace App\Modules\Quotations\Presentation;
 
 use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -30,8 +31,8 @@ use Illuminate\Validation\Rule;
  * ── The table's CHECKs, mirrored ───────────────────────────────────────────
  *
  * Every bound below repeats a constraint Points 1.1–1.4 put on the tables, so
- * the database never answers a bad request with a 500: `tax_percent IS NULL OR
- * > 0` (`D-63` — no tax is null, zero is not a rate), `discount_percent` in
+ * the database never answers a bad request with a 500: each `tax_percents` rate
+ * > 0 (`D-63`, `D-118` — no tax is an empty list, zero is not a rate), `discount_percent` in
  * `[0, 100)`, `valid_until >= quotation_date`, `quantity > 0`, `amount >= 0`,
  * a non-blank additional description of at most 255.
  *
@@ -66,7 +67,19 @@ final class SaveQuotationRequest extends FormRequest
             'currency' => ['required', Rule::enum(CurrencyCode::class)],
             'default_margin' => self::decimal('required'),
             'discount_percent' => self::decimal('required', 'gte:0', 'lt:100'),
-            'tax_percent' => self::decimal('nullable', 'gt:0'),
+            // D-118: the rates as entered, summed on one base; none is no tax (D-63).
+            // The old single field is refused, not ignored — ignoring it would drop a tax.
+            'tax_percent' => ['prohibited'],
+            // Each rate at the percent scale (a finer one would be cut, `0.0004` to a
+            // refused zero), and the sum within `tax_percent`'s NUMERIC(6,3).
+            'tax_percents' => ['sometimes', 'array', 'max:5', static function (string $attribute, mixed $rates, Closure $fail): void {
+                $valid = is_array($rates) ? array_filter($rates, static fn (mixed $rate): bool => is_string($rate) && is_numeric($rate)) : [];
+
+                if (bccomp(array_reduce($valid, static fn (string $sum, string $rate): string => bcadd($sum, $rate, 3), '0'), '1000', 3) >= 0) {
+                    $fail(__('validation.lt.numeric', ['value' => '1000']));
+                }
+            }],
+            'tax_percents.*' => self::decimal('required', 'gt:0', 'regex:/^\d+(\.\d{1,3})?$/'),
             'quotation_date' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date', 'after_or_equal:quotation_date'],
             // D-103: at most 15 terms, each `{key, title, body}`; `key` marks
@@ -112,6 +125,8 @@ final class SaveQuotationRequest extends FormRequest
             'terms.*.title' => (string) __('quotations.attributes.term_name'),
             'additional_items.*.description' => (string) __('quotations.attributes.additional_item_description'),
             'additional_items.*.amount' => (string) __('quotations.attributes.additional_item_amount'),
+            'tax_percents' => (string) __('quotations.attributes.tax_percents'),
+            'tax_percents.*' => (string) __('quotations.attributes.tax_percent_item'),
         ];
     }
 

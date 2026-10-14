@@ -76,7 +76,7 @@ final class CreateQuotationTest extends TestCase
                 ['supplier_quotation_item_id' => $line2, 'quantity' => '3', 'margin_percent' => '30'],
             ],
             additional: [['description' => 'Delivery', 'amount' => '1000']],
-            overrides: ['default_margin' => '20', 'discount_percent' => '10', 'tax_percent' => '14'],
+            overrides: ['default_margin' => '20', 'discount_percent' => '10', 'tax_percents' => ['14']],
         ));
 
         self::assertSame([], $result->quantityWarnings);
@@ -137,12 +137,50 @@ final class CreateQuotationTest extends TestCase
         $result = $this->create($this->payload(
             lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
             additional: [],
-            overrides: ['customer_id' => $exempt, 'deal_id' => $deal, 'tax_percent' => '14'],
+            overrides: ['customer_id' => $exempt, 'deal_id' => $deal, 'tax_percents' => ['14']],
         ));
 
         $row = $this->stored($result->quotation->id);
         self::assertNull($row->tax_percent);
         self::assertNull($row->tax_amount);
+        self::assertSame([], $this->taxPercents($row->id));
+    }
+
+    // ────────────────────────────────────────────────────────────────── D-118
+
+    /** `D-118`: two rates add on the one base — 14 + 5 = 19% of (subtotal − discount). */
+    public function test_that_several_rates_are_summed_on_the_same_base(): void
+    {
+        $line = $this->supplierLine('1000', '1', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [['description' => 'Delivery', 'amount' => '100']],
+            overrides: ['default_margin' => '0', 'discount_percent' => '10', 'tax_percents' => ['14', '5']],
+        ));
+
+        $row = $this->stored($result->quotation->id);
+        self::assertSame('19.000', $row->tax_percent);
+        self::assertSame('900.000000', $row->tax_base);      // 1000 − 100 (D-64); delivery untaxed (D-62)
+        self::assertSame('171.000000', $row->tax_amount);    // 900 × 19%
+        self::assertSame(['14.000', '5.000'], $this->taxPercents($row->id));
+    }
+
+    /** `D-118` + `D-63`: an empty list is no tax — no line at all, not a zero. */
+    public function test_that_an_empty_rate_list_is_no_tax(): void
+    {
+        $line = $this->supplierLine('1000', '1', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: ['tax_percents' => []],
+        ));
+
+        $row = $this->stored($result->quotation->id);
+        self::assertNull($row->tax_percent);
+        self::assertNull($row->tax_amount);
+        self::assertSame([], $this->taxPercents($row->id));
     }
 
     // ────────────────────────────────────────────────────────────── D-65 rounding
@@ -554,6 +592,18 @@ final class CreateQuotationTest extends TestCase
     private function create(array $validated, array $heldScopes = ['all']): QuotationCreated
     {
         return $this->app->make(CreateQuotation::class)->create($validated, $heldScopes, $this->actorId);
+    }
+
+    /** @return list<string> */
+    private function taxPercents(string $id): array
+    {
+        $raw = DB::table('quotations')->where('id', $id)->value('tax_percents');
+        self::assertIsString($raw);
+        $list = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsList($list);
+        self::assertContainsOnlyString($list);
+
+        return $list;
     }
 
     private function stored(string $id): Quotation

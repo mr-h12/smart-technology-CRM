@@ -56,6 +56,7 @@ const DETAIL = {
     ...SUMMARY,
     discount_percent: '0.00',
     tax_percent: null,
+    tax_percents: [],
     rounding_unit: '1.00',
     rounding_enabled: true,
     subtotal: '1234.67',
@@ -93,7 +94,7 @@ const DRAFT = {
     currency: 'EGP',
     default_margin: '20',
     discount_percent: '0',
-    tax_percent: null,
+    tax_percents: [],
     lines: [{ supplier_quotation_item_id: '0192f000-0000-7000-8000-000000000601', quantity: '2', margin_percent: null }],
     additional_items: [],
 };

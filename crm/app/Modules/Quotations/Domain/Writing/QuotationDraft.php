@@ -59,7 +59,6 @@ final readonly class QuotationDraft
         'currency_id',
         'default_margin',
         'discount_percent',
-        'tax_percent',
         'rounding_unit',
         'rounding_enabled',
         'subtotal',

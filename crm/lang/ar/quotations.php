@@ -10,6 +10,8 @@ return [
         'term_name' => 'اسم الشرط',
         'additional_item_description' => 'وصف البند الإضافي',
         'additional_item_amount' => 'مبلغ البند الإضافي',
+        'tax_percents' => 'مجموع نسب الضريبة',
+        'tax_percent_item' => 'نسبة الضريبة',
     ],
     'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 

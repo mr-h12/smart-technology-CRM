@@ -120,7 +120,10 @@ const { hasPermission } = useAuth();
 /** §6.2's cap. */
 const MAX_SUPPLIERS = 10;
 
-const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'tax_percent', 'quotation_date', 'valid_until'] as const;
+const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'quotation_date', 'valid_until'] as const;
+
+/** D-118: up to five rates, summed on one base by the server. */
+const MAX_TAXES = 5;
 
 type HeaderField = (typeof HEADER_FIELDS)[number];
 
@@ -167,10 +170,12 @@ const denied = ref(false);
 const missing = ref(false);
 
 function blankHeader(): Record<HeaderField, string> {
-    return { currency: '', default_margin: '', discount_percent: '0', tax_percent: '', quotation_date: '', valid_until: '' };
+    return { currency: '', default_margin: '', discount_percent: '0', quotation_date: '', valid_until: '' };
 }
 
 const header = ref<Record<HeaderField, string>>(blankHeader());
+/** D-118: the tax rates as typed; an empty field is no rate, and none at all is no tax (D-63). */
+const taxes = ref<string[]>(['']);
 /** The three ready terms' keys; Point 6.8's recent terms are read per key, and a chip copies one into that term's text. */
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 /** `D-103`'s cap. */
@@ -338,10 +343,10 @@ function applyDetail(quotation: QuotationDetail): void {
         // D-112: a percentage is offered without its trailing zeros — the same number.
         default_margin: displayPercent(quotation.default_margin) ?? '',
         discount_percent: displayPercent(quotation.discount_percent),
-        tax_percent: displayPercent(quotation.tax_percent) ?? '',
         quotation_date: quotation.quotation_date ?? '',
         valid_until: quotation.valid_until ?? '',
     };
+    taxes.value = quotation.tax_percents.length > 0 ? quotation.tax_percents.map((rate) => displayPercent(rate) ?? rate) : [''];
     terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
     existing.value = quotation.items.map((line) => ({
         supplier_quotation_item_id: line.supplier_quotation_item_id,
@@ -577,6 +582,10 @@ function onOfferSaved(offer: SupplierQuotation): void {
     addBlock(offer.id);
 }
 
+/** D-118: the first refusal among the rates — the list's own, or one rate's. */
+const taxError = computed(() => fieldErrors.value.get('tax_percents')
+    ?? taxes.value.map((_, i) => fieldErrors.value.get(`tax_percents.${i}`)).find((message) => message !== undefined));
+
 function addItem(): void {
     items.value.push({ description: '', amount: '' });
     void focusField(`item-${items.value.length - 1}-description`);
@@ -668,7 +677,7 @@ function draft(): QuotationDraft {
         currency: header.value.currency.trim().toUpperCase(),
         default_margin: header.value.default_margin,
         discount_percent: header.value.discount_percent,
-        tax_percent: orNull(header.value.tax_percent),
+        tax_percents: taxes.value.map((rate) => rate.trim()).filter((rate) => rate !== ''),
         quotation_date: orNull(header.value.quotation_date),
         valid_until: orNull(header.value.valid_until),
         // The owner, 2026-10-08: an empty ready term is kept, its body null.
@@ -948,25 +957,48 @@ onMounted(load);
                         </span>
                     </label>
 
-                    <label v-for="field in (['default_margin', 'discount_percent', 'tax_percent'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
-                        <span>{{ t(`quotations.builder.${field}`) }}<template v-if="field !== 'tax_percent'"> <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></template></span>
+                    <label v-for="field in (['default_margin', 'discount_percent'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
+                        <span>{{ t(`quotations.builder.${field}`) }} <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></span>
                         <input
                             :id="fieldId(field)"
                             v-model="header[field]"
                             type="text"
                             inputmode="decimal"
                             autocomplete="off"
-                            :required="field !== 'tax_percent'"
+                            required
                             :aria-invalid="fieldErrors.has(field)"
-                            :aria-describedby="[field === 'tax_percent' ? fieldId('tax_percent-help') : '', fieldErrors.has(field) ? fieldId(`${field}-error`) : ''].join(' ').trim() || undefined"
+                            :aria-describedby="fieldErrors.has(field) ? fieldId(`${field}-error`) : undefined"
                             class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
                             :data-testid="fieldId(field)"
                         />
-                        <span v-if="field === 'tax_percent'" :id="fieldId('tax_percent-help')" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.taxExempt') }}</span>
                         <span v-if="fieldErrors.has(field)" :id="fieldId(`${field}-error`)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
                         </span>
                     </label>
+
+                    <div class="flex flex-col gap-1.5" role="group" :aria-labelledby="fieldId('tax-label')">
+                        <span :id="fieldId('tax-label')">{{ t('quotations.builder.tax_percent') }}</span>
+                        <div v-for="(_, i) in taxes" :key="i" class="flex gap-2">
+                            <input
+                                :id="fieldId(`tax-${i}`)"
+                                v-model="taxes[i]"
+                                type="text"
+                                inputmode="decimal"
+                                autocomplete="off"
+                                :aria-label="t('quotations.builder.taxNo', { no: i + 1 })"
+                                :aria-invalid="fieldErrors.has(`tax_percents.${i}`)"
+                                :aria-describedby="fieldId('tax-help')"
+                                class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2 tabular-nums"
+                                :data-testid="fieldId(`tax-${i}`)"
+                            />
+                            <button v-if="taxes.length > 1" type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTaxNo', { no: i + 1 })" :data-testid="fieldId(`tax-${i}-remove`)" @click="taxes.splice(i, 1)">
+                                {{ t('quotations.builder.removeItem') }}
+                            </button>
+                        </div>
+                        <button v-if="taxes.length < MAX_TAXES" type="button" class="row-action min-h-11 min-w-11 self-start rounded-lg px-3" :aria-label="t('quotations.builder.addTax')" :data-testid="fieldId('add-tax')" @click="taxes.push('')">+</button>
+                        <span :id="fieldId('tax-help')" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.taxExempt') }}</span>
+                        <span v-if="taxError" class="text-[var(--color-danger)]">{{ taxError }}</span>
+                    </div>
 
                     <label v-for="field in (['quotation_date', 'valid_until'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
                         <span>{{ t(`quotations.builder.${field}`) }}</span>

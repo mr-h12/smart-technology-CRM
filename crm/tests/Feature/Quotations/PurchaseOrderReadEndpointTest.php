@@ -306,7 +306,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
     {
         $owner = $this->userWith(RoleName::IndoorSales);
         $deal = $this->deal($owner->id);
-        $order = $this->accepted($deal, '4500123987', '2026-09-20', ['discount_percent' => '10', 'tax_percent' => '14']);
+        $order = $this->accepted($deal, '4500123987', '2026-09-20', ['discount_percent' => '10', 'tax_percents' => ['14']]);
 
         $data = $this->show($order['id'])->assertStatus(200)->json('data');
         self::assertIsArray($data);
@@ -416,7 +416,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
      * A `sent` quotation accepted through 1.6's endpoint — the order is
      * written the one way the module writes it.
      *
-     * @param  array<string, string>  $quotation  extra fields for the draft
+     * @param  array<string, string|list<string>>  $quotation  extra fields for the draft
      * @return array{id: string, po_number: string, quotation_id: string}
      */
     private function accepted(string $dealId, string $reference, string $poDate = '2026-09-23', array $quotation = []): array
@@ -438,7 +438,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
     /**
      * A draft through Point 3.4's endpoint, then set `sent` in place.
      *
-     * @param  array<string, string>  $extra
+     * @param  array<string, string|list<string>>  $extra
      * @return array{string, string} id and etag
      */
     private function sent(string $dealId, array $extra = []): array

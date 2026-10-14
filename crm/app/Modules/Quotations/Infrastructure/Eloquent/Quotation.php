@@ -60,6 +60,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $default_margin
  * @property string $discount_percent
  * @property string|null $tax_percent
+ * @property list<string> $tax_percents
  * @property string $rounding_unit
  * @property bool $rounding_enabled
  * @property string $subtotal
@@ -100,6 +101,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'default_margin',
     'discount_percent',
     'tax_percent',
+    'tax_percents',
     'rounding_unit',
     'rounding_enabled',
     'subtotal',
@@ -137,6 +139,7 @@ class Quotation extends Model
             'final_total' => Precision::CAST_MONEY,
             'rounding_diff' => Precision::CAST_MONEY,
             'terms' => 'array',
+            'tax_percents' => 'array',
             // Point 4.2 gives it a writer, so it gets its cast (see `sent_at` above).
             'submitted_at' => 'datetime',
             // Module 8 Point 1.2's writer, the same reason.

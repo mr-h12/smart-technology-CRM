@@ -117,6 +117,7 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             defaultMargin: $row->default_margin,
             discountPercent: $row->discount_percent,
             taxPercent: $row->tax_percent,
+            taxPercents: $row->tax_percents,
             roundingUnit: $row->rounding_unit,
             roundingEnabled: $row->rounding_enabled,
             subtotal: $row->subtotal,
@@ -156,9 +157,11 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         // against the committed token 4 and match nothing.
         $attributes = $draft->attributes;
 
-        // A builder `update()` applies no cast, so the list is encoded here.
-        if (array_key_exists('terms', $attributes)) {
-            $attributes['terms'] = json_encode($attributes['terms'], JSON_THROW_ON_ERROR);
+        // A builder `update()` applies no cast, so the lists are encoded here.
+        foreach (['terms', 'tax_percents'] as $list) {
+            if (array_key_exists($list, $attributes)) {
+                $attributes[$list] = json_encode($attributes[$list], JSON_THROW_ON_ERROR);
+            }
         }
 
         $matched = $this->lockedRow($quotationId, $expectedToken)

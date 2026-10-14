@@ -12,6 +12,7 @@ use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
@@ -299,16 +300,66 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['discount_percent' => 0], 'discount_percent');
     }
 
-    /** `D-63`: no tax is `null`; zero is not a tax rate, and the CHECK refuses it. */
-    public function test_that_a_zero_tax_percent_is_refused(): void
+    /** `D-63` + `D-118`: no tax is an empty list; zero or a negative is not a rate. */
+    public function test_that_a_zero_or_negative_tax_rate_is_refused(): void
     {
-        $this->post422(['tax_percent' => '0'], 'tax_percent');
+        $this->post422(['tax_percents' => ['0']], 'tax_percents.0');
+        $this->post422(['tax_percents' => ['14', '-5']], 'tax_percents.1');
     }
 
-    public function test_that_a_null_tax_percent_is_accepted(): void
+    /** `D-118` + D-68: a rate has at most three decimals — a finer one would be cut, `0.0004` to a refused zero. */
+    public function test_that_a_rate_finer_than_the_percent_scale_is_refused(): void
     {
-        $this->postJson(self::ENDPOINT, $this->payload(['tax_percent' => null]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201);
+        $this->post422(['tax_percents' => ['0.0004']], 'tax_percents.0');
+    }
+
+    /** `D-118`: the sum fits `tax_percent`'s NUMERIC(6,3) — 999.999 at most — so the database never answers 500. */
+    public function test_that_rates_summing_past_the_column_are_refused(): void
+    {
+        $this->post422(['tax_percents' => ['500', '500']], 'tax_percents');
+    }
+
+    /** `D-118`: up to five rates. */
+    public function test_that_more_than_five_tax_rates_are_refused(): void
+    {
+        $this->post422(['tax_percents' => ['1', '1', '1', '1', '1', '1']], 'tax_percents');
+    }
+
+    public function test_that_an_empty_tax_rate_list_is_accepted_and_returned(): void
+    {
+        $this->readBack(['tax_percents' => []])
+            ->assertJsonPath('data.tax_percents', [])
+            ->assertJsonPath('data.tax_percent', null);
+    }
+
+    /** `D-118`: the rates come back as entered, beside their sum. */
+    public function test_that_the_tax_rates_are_returned_beside_their_sum(): void
+    {
+        $this->readBack(['tax_percents' => ['14', '5']])
+            ->assertJsonPath('data.tax_percents', ['14.000', '5.000'])
+            ->assertJsonPath('data.tax_percent', '19.000');
+    }
+
+    /** `D-118`: the old single field is refused, not silently dropped with its tax. */
+    public function test_that_the_old_single_tax_percent_is_refused(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['tax_percent' => '14']), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'tax_percent']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
+     */
+    private function readBack(array $overrides): TestResponse
+    {
+        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        return $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200);
     }
 
     /** CHECK `discount_percent >= 0 AND < 100`. */

@@ -120,7 +120,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percent' => '14']), RoleName::Manager)->assertStatus(403);
+        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
         self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'));
     }
 
@@ -253,7 +253,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percent' => '14']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.tax_percent', '14.000');
 
@@ -266,7 +266,9 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         self::assertIsArray($old);
         self::assertIsArray($new);
         self::assertNull($old['tax_percent'] ?? null);
-        self::assertSame('14', $new['tax_percent'] ?? null);
+        self::assertSame('14.000', $new['tax_percent'] ?? null);  // D-118: the sum, at the percent scale
+        self::assertSame([], $old['tax_percents'] ?? null);
+        self::assertSame(['14.000'], $new['tax_percents'] ?? null);
     }
 
     public function test_that_an_unknown_id_is_a_404(): void

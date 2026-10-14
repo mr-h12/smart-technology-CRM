@@ -62,7 +62,7 @@ const QUOTATION = {
     id: 'q1', code: 'QT-2026-0001', status: 'draft', customer_id: 'c1', deal_id: 'd1', currency_id: 'cur-egp', currency: 'EGP',
     final_total: '1150.000000', quotation_date: '2026-09-13', valid_until: '2026-10-13', submitted_at: null, version: 1, parent_id: null,
     created_at: '2026-09-13T09:00:00+00:00', updated_at: '2026-09-13T09:00:00+00:00',
-    default_margin: '25.000', discount_percent: '10.000', tax_percent: '14.000', rounding_unit: '1.000000', rounding_enabled: true,
+    default_margin: '25.000', discount_percent: '10.000', tax_percent: '14.000', tax_percents: ['14.000'], rounding_unit: '1.000000', rounding_enabled: true,
     subtotal: '1000.000000', additional_total: '100.000000', discount_amount: '100.000000', tax_base: '900.000000', tax_amount: '126.000000',
     net_amount: '1026.000000', total_before_round: '1126.000000', rounding_diff: '24.000000',
     // D-103: the quotation's own terms, in their order; this one deleted its ready warranty.
@@ -394,7 +394,9 @@ describe('the quotation builder (create)', () => {
         const { wrapper, router } = await render(fetchMock);
 
         await fillHeader(wrapper);
-        await wrapper.find(id('tax_percent')).setValue('14');
+        await wrapper.find(id('tax-0')).setValue('14');
+        await wrapper.find(id('add-tax')).trigger('click');
+        await wrapper.find(id('tax-1')).setValue('5');
         await wrapper.find(id('quotation_date')).setValue('2026-09-14');
         await wrapper.find(id('valid_until')).setValue('2026-10-14');
         await wrapper.find(id('term-0-body')).setValue('50% advance');
@@ -415,7 +417,7 @@ describe('the quotation builder (create)', () => {
             currency: 'EGP',
             default_margin: '25',
             discount_percent: '10',
-            tax_percent: '14',
+            tax_percents: ['14', '5'],
             quotation_date: '2026-09-14',
             valid_until: '2026-10-14',
             // D-103: the three ready terms, unnamed; an empty one is kept, its body null (the owner, 2026-10-08).
@@ -431,7 +433,7 @@ describe('the quotation builder (create)', () => {
         expect(router.currentRoute.value.path).toBe('/quotations/q9');
     });
 
-    it('sends no tax when the field is empty — exempt is null, not zero (D-63)', async () => {
+    it('sends no tax when the field is empty — an empty list, not a zero (D-63, D-118)', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock);
 
@@ -440,7 +442,22 @@ describe('the quotation builder (create)', () => {
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
-        expect((saves(fetchMock)[0]?.body as { tax_percent: unknown }).tax_percent).toBeNull();
+        expect((saves(fetchMock)[0]?.body as { tax_percents: unknown }).tax_percents).toEqual([]);
+    });
+
+    it('adds a tax rate with «+» and removes one, never below a single field (D-118)', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock);
+
+        expect(wrapper.find(id('tax-0-remove')).exists()).toBe(false);
+        await wrapper.find(id('add-tax')).trigger('click');
+        await wrapper.find(id('tax-0')).setValue('14');
+        await wrapper.find(id('tax-1')).setValue('5');
+        await wrapper.find(id('tax-0-remove')).trigger('click');
+
+        expect(wrapper.find(id('tax-1')).exists()).toBe(false);
+        expect((wrapper.find(id('tax-0')).element as HTMLInputElement).value).toBe('5');
+        expect(wrapper.find(id('tax-0-remove')).exists()).toBe(false);
     });
 
     it('reuses the Idempotency-Key on a retry (OpenAPI §9.1)', async () => {
@@ -663,7 +680,7 @@ describe('the quotation builder (edit)', () => {
         expect((wrapper.find(id('currency')).element as HTMLInputElement).value).toBe('EGP');
         expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25');
         expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10');
-        expect((wrapper.find(id('tax_percent')).element as HTMLInputElement).value).toBe('14');
+        expect((wrapper.find(id('tax-0')).element as HTMLInputElement).value).toBe('14');
         expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
         // D-103: the quotation's own terms in their order — the deleted warranty stays deleted.
         expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
@@ -711,7 +728,7 @@ describe('the quotation builder (edit)', () => {
             currency: 'EGP',
             default_margin: '25',
             discount_percent: '10',
-            tax_percent: '14',
+            tax_percents: ['14'],
             quotation_date: '2026-09-13',
             valid_until: '2026-10-13',
             terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],

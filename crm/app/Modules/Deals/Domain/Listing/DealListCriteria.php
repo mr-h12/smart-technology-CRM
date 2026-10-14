@@ -35,7 +35,7 @@ final readonly class DealListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status', 'owner'];
+    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status', 'owner', 'customer'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['code', 'created_at', 'last_activity_at'];
@@ -56,6 +56,7 @@ final readonly class DealListCriteria
         public ?string $approvalStatus = null,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => true]],
         public ?string $ownerId = null,
+        public ?string $customerId = null,
     ) {}
 
     /**
@@ -85,6 +86,7 @@ final readonly class DealListCriteria
             approvalStatus: $filters['approval_status'],
             sorts: self::sorts($query['sort'] ?? null),
             ownerId: $filters['owner'],
+            customerId: $filters['customer'],
         );
     }
 
@@ -163,7 +165,7 @@ final readonly class DealListCriteria
     }
 
     /**
-     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null, owner: string|null}
+     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null, owner: string|null, customer: string|null}
      *
      * @throws InvalidDealListQuery
      */
@@ -175,6 +177,7 @@ final readonly class DealListCriteria
             'source' => null,
             'approval_status' => null,
             'owner' => null,
+            'customer' => null,
         ];
 
         if ($value === null) {
@@ -199,6 +202,8 @@ final readonly class DealListCriteria
             // `D-108`: the current `owner_id`; row scope still applies, so an `own` caller asking for
             // another owner gets nothing rather than a refusal that would confirm the owner exists.
             'owner' => self::id($value['owner'] ?? null, 'filter[owner]'),
+            // `D-114`: the customer page's requests, under the same row scope.
+            'customer' => self::id($value['customer'] ?? null, 'filter[customer]'),
         ];
     }
 

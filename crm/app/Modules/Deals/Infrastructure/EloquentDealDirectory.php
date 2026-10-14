@@ -269,6 +269,10 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
             $query->where('deals.owner_id', $criteria->ownerId);
         }
 
+        if ($criteria->customerId !== null) {
+            $query->where('deals.customer_id', $criteria->customerId);
+        }
+
         if ($criteria->q !== null) {
             $query->whereIn('deals.id', $this->search->search(SearchIndex::Deals, $criteria->q));
         }

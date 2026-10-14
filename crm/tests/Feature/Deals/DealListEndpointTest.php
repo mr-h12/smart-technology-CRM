@@ -599,6 +599,48 @@ final class DealListEndpointTest extends TestCase
             ->assertJsonPath('error.details.0.code', 'not_a_uuid');
     }
 
+    // ─────────────────────────────── the customer filter — D-114, F-45 · 1
+
+    /** `D-114`: the customer page's requests; a soft-deleted deal stays out (`DB-01`). */
+    public function test_that_the_customer_filter_narrows_the_list(): void
+    {
+        $customer = $this->customerId('Acme');
+        $this->deal('Acme deal', null, ['customer_id' => $customer]);
+        $gone = $this->deal('Acme gone', null, ['customer_id' => $customer]);
+        DB::table('deals')->where('id', $gone)->update(['deleted_at' => now()]);
+        $this->deal('Other customer');
+
+        $this->getJson(self::ENDPOINT.'?filter[customer]='.$customer, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.title', 'Acme deal');
+    }
+
+    /** `SEC-08` · `D-114` "under §3.4's scope" — the negative case: a filter never widens `own`. */
+    public function test_that_the_customer_filter_never_widens_an_own_scope(): void
+    {
+        $customer = $this->customerId('Acme');
+        $this->deal('Theirs', $this->userWith(RoleName::OutdoorSales)->id, ['customer_id' => $customer]);
+
+        $this->getJson(self::ENDPOINT.'?filter[customer]='.$customer, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 0);
+
+        // The control: the same filter does find it for its owner, so the zero above is the scope's.
+        $this->getJson(self::ENDPOINT.'?filter[customer]='.$customer, $this->bearerFor(RoleName::OutdoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1);
+    }
+
+    /** OpenAPI §6.2: a malformed filter value is `400`, never a Postgres `22P02`. */
+    public function test_that_a_customer_filter_that_is_not_a_uuid_is_400(): void
+    {
+        $this->getJson(self::ENDPOINT.'?filter[customer]=not-a-uuid', $this->bearerFor(RoleName::Manager))
+            ->assertStatus(400)
+            ->assertJsonPath('error.details.0.field', 'filter[customer]')
+            ->assertJsonPath('error.details.0.code', 'not_a_uuid');
+    }
+
     /**
      * `D-108`, `D-109`: the filter's choices are the visible deals' owners, each
      * once and named through Identity — never the hidden Super Admin, a deleted

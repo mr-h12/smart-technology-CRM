@@ -4563,6 +4563,14 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #348 — `displayPercent` is `displayQuantity` under a percent name; the settings page trims `stored` too, so an untouched tax is not sent)*
       - [x] **2** A sector typed in the customer form is added to the `sectors` managed list and offered again (`D-113`).
             *(2026-10-14, #349 — `AddListEntry::codeForTyped` matches code, then either label, else adds; catalog companies share it; the list column names the sector; both screens reread the sectors after a save)*
+- [ ] **F-45** A customer's page lists its requests and quotations; a new request from there (`D-114`). Requested by
+      the owner, 2026-10-14, ahead of F-42 Phase 6; three points, the plan approved in chat the same day. The owner's
+      rulings: each list under its existing view scope (§3.4, §3.5 — 'own' is the current `owner_id`); saving a new
+      request opens it.
+      - [x] **1** `GET /deals?filter[customer]={customer_id}`, under the caller's row scope; `D-114` and OpenAPI.
+            *(2026-10-14, #350 — one `where` after `scoped()`, so an `own` caller asking for another seller's customer gets an empty page; non-UUID is `400 not_a_uuid`)*
+      - [ ] **2** The customer page: its requests and quotations, each row opening its own page, and «طلب جديد» with the customer fixed.
+      - [ ] **3** The Arabic manual test list (closes F-45).
 
 ## Shell revisions — owner-directed
 

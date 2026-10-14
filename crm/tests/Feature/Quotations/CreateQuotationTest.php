@@ -343,11 +343,12 @@ final class CreateQuotationTest extends TestCase
         ));
 
         self::assertSame('supplier_quotation', DB::table('deals')->where('id', $this->dealId)->value('status'));
-        self::assertSame(
-            ['waiting_customer_request', 'supplier_rfq', 'supplier_quotation'],
+        // jsonb text, compared as stored; order-free, since UUIDv7 ids made in one
+        // millisecond are not proven ordered — each step passed EDGES anyway.
+        self::assertEqualsCanonicalizing(
+            ['{"status": "waiting_customer_request"}', '{"status": "supplier_rfq"}', '{"status": "supplier_quotation"}'],
             DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $this->dealId)
-                ->orderBy('id')->pluck('new_values')
-                ->map(static fn (mixed $v): mixed => json_decode((string) $v, true)['status'] ?? null)->all(),
+                ->pluck('new_values')->all(),
         );
     }
 

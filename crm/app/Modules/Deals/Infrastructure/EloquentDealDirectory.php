@@ -87,7 +87,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         return $this->scoped($scope)?->whereNotNull('deals.owner_id')->distinct()->pluck('deals.owner_id')->all() ?? [];
     }
 
-    public function find(string $dealId, DealRowScope $scope): ?DealSummary
+    public function find(string $dealId, DealRowScope $scope, bool $forUpdate = false): ?DealSummary
     {
         $query = $this->scoped($scope);
 
@@ -95,7 +95,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
             return null;
         }
 
-        $row = $query->whereKey($dealId)->first();
+        $row = $query->whereKey($dealId)->when($forUpdate, static fn ($q) => $q->lockForUpdate())->first();
 
         return $row === null ? null : self::hydrate($row);
     }

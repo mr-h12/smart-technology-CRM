@@ -177,6 +177,9 @@ final class QuotationSendEndpointTest extends TestCase
     {
         $deal = $this->deal(null, 'supplier_rfq');
         [$id, $etag] = $this->approved($deal);
+        // D-119 walks the deal to `supplier_quotation` on creation; rule a now
+        // guards a quotation created before D-119, on a deal still behind it.
+        DB::table('deals')->where('id', $deal)->update(['status' => 'supplier_rfq']);
 
         $this->send($id, $etag, RoleName::Manager)
             ->assertStatus(422)
@@ -250,7 +253,8 @@ final class QuotationSendEndpointTest extends TestCase
     public function test_that_a_send_refused_inside_the_transaction_announces_nothing(): void
     {
         Event::fake([QuotationSent::class]);
-        [$id, $etag] = $this->approved($this->deal(null, 'supplier_rfq'));
+        [$id, $etag] = $this->approved($deal = $this->deal(null, 'supplier_rfq'));
+        DB::table('deals')->where('id', $deal)->update(['status' => 'supplier_rfq']);   // as above: pre-D-119 data
 
         $this->send($id, $etag, RoleName::Manager)->assertStatus(422);
 

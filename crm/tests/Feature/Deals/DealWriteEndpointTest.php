@@ -161,10 +161,10 @@ final class DealWriteEndpointTest extends TestCase
 
         self::assertSame('contacted', DB::table('deals')->where('id', $id)->value('status'));
 
-        $lines = DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id)->get(['old_values', 'new_values']);
-        self::assertCount(1, $lines);
-        self::assertSame(['status' => 'lead'], json_decode((string) $lines[0]->old_values, true));
-        self::assertSame(['status' => 'contacted'], json_decode((string) $lines[0]->new_values, true));
+        // jsonb text, compared as stored.
+        $lines = DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id);
+        self::assertSame(['{"status": "lead"}'], (clone $lines)->pluck('old_values')->all());
+        self::assertSame(['{"status": "contacted"}'], $lines->pluck('new_values')->all());
     }
 
     public function test_that_a_customer_id_is_required(): void

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } from '@/api';
 
 /**
  * Module 5's ten endpoints, and nothing else.
@@ -252,6 +252,11 @@ export async function attachDealDocument(id: string, file: File): Promise<DealDo
     form.append('document', file);
 
     return (await apiUpload<DealDocument>(`/deals/${id}/documents`, form)).data;
+}
+
+/** D-117: under the upload's grant; the server soft-deletes and audits it. */
+export async function removeDealDocument(id: string, fileId: string): Promise<void> {
+    await apiDelete(`/deals/${id}/documents/${fileId}`);
 }
 
 /**

@@ -418,4 +418,94 @@ describe('the deal documents and assign panel', () => {
 
         expect(wrapper.get('[data-testid="deal-documents-name"]').classes()).toEqual(expect.arrayContaining(['break-words', 'min-w-0']));
     });
+    // ─────────────────────────────────────────────── F-47 · 4 (D-117) — «حذف»
+
+    /** Uploads one clean file, then answers the DELETE with `deleteResponse`. */
+    function withDelete(deleteResponse: () => Response): ReturnType<typeof vi.fn> {
+        return vi.fn(async (_input: string, init?: RequestInit) => (init?.method === 'DELETE'
+            ? deleteResponse()
+            : json(201, envelope(document()))));
+    }
+
+    async function withOneRow(profile: AuthenticatedUser, fetchMock: ReturnType<typeof vi.fn>) {
+        const wrapper = await render(profile, fetchMock);
+
+        await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
+        await flushPromises();
+
+        return wrapper;
+    }
+
+    it('draws «Delete» beside View and Download for whoever may upload (D-117)', async () => {
+        const wrapper = await withOneRow(EDITOR_ONLY, withDelete(() => new Response(null, { status: 204 })));
+        const group = wrapper.get('[data-testid="deal-documents-delete"]').element.parentElement;
+
+        expect(wrapper.get('[data-testid="deal-documents-delete"]').text()).toBe('Delete');
+        expect(group?.querySelector('[data-testid="deal-documents-download"]')).not.toBeNull();
+    });
+
+    it('asks before deleting, and cancelling sends nothing', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const wrapper = await withOneRow(FULL, fetchMock);
+
+        await wrapper.get('[data-testid="deal-documents-delete"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="confirm-dialog"]').text()).toContain('offer.pdf');
+
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE')).toBe(false);
+        expect(wrapper.findAll('[data-testid="deal-documents-row"]')).toHaveLength(1);
+    });
+
+    it('deletes through the deal’s own route on confirm, drops the row and says so', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const wrapper = await withOneRow(FULL, fetchMock);
+
+        await wrapper.get('[data-testid="deal-documents-delete"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        const deletes = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE');
+        expect(deletes).toHaveLength(1);
+        expect(String(deletes[0]?.[0])).toContain('/deals/d1/documents/f1');
+        expect(wrapper.findAll('[data-testid="deal-documents-row"]')).toHaveLength(0);
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="deal-documents-status"]').text()).toBe('offer.pdf was deleted.');
+    });
+
+    it('keeps the row and shows the server’s sentence when the delete is refused', async () => {
+        const wrapper = await withOneRow(FULL, withDelete(() => json(403, {
+            error: { code: 'permission_denied', message: 'You may not change this deal.' }, meta: { request_id: 'r1' },
+        })));
+
+        await wrapper.get('[data-testid="deal-documents-delete"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="deal-documents-row"]')).toHaveLength(1);
+        expect(wrapper.get('[data-testid="deal-documents-error"]').text()).toBe('You may not change this deal.');
+    });
+
+    it('says a plain sentence, not the request line, when the failure has no body', async () => {
+        const wrapper = await withOneRow(FULL, withDelete(() => new Response('<html>', { status: 502 })));
+
+        await wrapper.get('[data-testid="deal-documents-delete"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="deal-documents-error"]').text()).toBe('The file could not be deleted. Try again.');
+    });
+
+    it('draws no «Delete» on a file that is not clean', async () => {
+        const fetchMock = vi.fn(async () => json(201, envelope(document('pending'))));
+        const wrapper = await withOneRow(FULL, fetchMock);
+
+        expect(wrapper.find('[data-testid="deal-documents-delete"]').exists()).toBe(false);
+    });
 });

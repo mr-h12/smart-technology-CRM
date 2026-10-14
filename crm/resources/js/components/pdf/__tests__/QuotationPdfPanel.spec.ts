@@ -304,6 +304,16 @@ describe('the customer PDF on its quotation (Module 9 · 5.1)', () => {
         wrapper.unmount();
     });
 
+    /** F-47 · 4 (D-117): a generated quotation PDF is never deletable, so its panel draws no «Delete». */
+    it('draws no «Delete» beside the generated PDF', async () => {
+        const wrapper = await render(server([state(COMPLETED)]), CEO);
+
+        expect(wrapper.find('[data-testid="pdf-view"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="pdf-delete"]').exists()).toBe(false);
+        expect(wrapper.findAll('button').map((b) => b.text())).not.toContain(en.files.delete);
+        wrapper.unmount();
+    });
+
     it('speaks Arabic on an Arabic screen', async () => {
         const wrapper = await render(server([state(QUEUED)]), MANAGER, 'ar');
 

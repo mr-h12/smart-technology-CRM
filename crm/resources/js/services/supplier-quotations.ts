@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, collection, type Pagination } from '@/api';
 
 /**
  * Module 6's five routes, and nothing else.
@@ -186,4 +186,9 @@ export async function attachSupplierQuotationDocument(id: string, file: File): P
     form.append('document', file);
 
     return (await apiUpload<SupplierQuotationDocument>(`/supplier-quotations/${id}/documents`, form)).data;
+}
+
+/** D-117: under `upload_attachment`; the server soft-deletes and audits it. */
+export async function removeSupplierQuotationDocument(id: string, fileId: string): Promise<void> {
+    await apiDelete(`/supplier-quotations/${id}/documents/${fileId}`);
 }

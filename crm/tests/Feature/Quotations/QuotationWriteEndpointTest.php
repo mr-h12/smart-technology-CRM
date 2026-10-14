@@ -336,7 +336,10 @@ final class QuotationWriteEndpointTest extends TestCase
             ->assertJsonFragment(['field' => 'tax_percent']);
     }
 
-    /** @param array<string, mixed> $overrides */
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
+     */
     private function readBack(array $overrides): TestResponse
     {
         $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))

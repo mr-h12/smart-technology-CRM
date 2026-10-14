@@ -600,9 +600,10 @@ final class CreateQuotationTest extends TestCase
         $raw = DB::table('quotations')->where('id', $id)->value('tax_percents');
         self::assertIsString($raw);
         $list = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        self::assertIsArray($list);
+        self::assertIsList($list);
+        self::assertContainsOnlyString($list);
 
-        return array_values(array_map(strval(...), $list));
+        return $list;
     }
 
     private function stored(string $id): Quotation

@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
 import SupplierQuotationsView from '@/pages/supplier-quotations/SupplierQuotationsView.vue';
 import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
@@ -1816,6 +1817,40 @@ describe('the supplier quotation attachments', () => {
         await flushPromises();
 
         expect(fetchMock.mock.calls.some((c) => String(c[0]) === '/api/v1/files/d1/download')).toBe(true);
+    });
+
+    /** F-47 · 2 (D-116): a clean PDF opens in the viewer over the offer's dialog. */
+    it('offers View for a clean PDF, and opens the viewer with it', async () => {
+        vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'about:blank'), revokeObjectURL: vi.fn() }));
+
+        const view = await render(respond());
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+        await view.get('[data-testid="supplier-quotation-attachment-0-view"]').trigger('click');
+        await flushPromises();
+
+        expect(view.getComponent(FileViewerDialog).props('file')).toEqual({ id: 'd1', name: 'offer.pdf', mimeType: 'application/pdf' });
+        view.unmount();
+    });
+
+    /** D-116: Word and Excel stay download-only. */
+    it('offers only Download for a clean Word file', async () => {
+        const base = respond();
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) => (String(input).includes('/documents')
+            ? json(201, envelope({ id: 'd1', original_name: 'terms.docx', mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size_bytes: 8, scan_status: 'clean', created_at: '2026-09-05T00:00:00+00:00' }))
+            : base(input, init)));
+        const view = await render(fetchMock);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view, 'terms.docx');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-download"]').exists()).toBe(true);
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-view"]').exists()).toBe(false);
     });
 
     /** `SEC-15`: not clean is not servable, and the endpoint answers 404 — so no control is drawn. */

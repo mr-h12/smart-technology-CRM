@@ -32,6 +32,7 @@
     <title>{{ config('app.name') }}</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 
     {{-- Design System §3.1: "The selected theme must apply before the main
          application shell paints, avoiding a visible flash of another theme."

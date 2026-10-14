@@ -48,7 +48,8 @@ import { useModalDialog } from '@/components/useModalDialog';
 import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { ApiError } from '@/api';
 import { listCurrencies, type Currency } from '@/services/admin';
-import { downloadFile, FILE_ACCEPT } from '@/services/files';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
+import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
 import {
     attachSupplierQuotationDocument,
     createSupplierQuotation,
@@ -199,6 +200,8 @@ const attachments = ref<SupplierQuotationDocument[]>([]);
 
 const uploading = ref(false);
 const downloadingId = ref<string | null>(null);
+/** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
+const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
 
 /** A key when this screen has one, the server's own sentence when it sent one. */
 const attachmentErrorKey = ref<string | null>(null);
@@ -1154,6 +1157,16 @@ function discard(): void {
                             <!-- `SEC-15`: only a clean file is servable, so only
                                  a clean file gets a control. -->
                             <button
+                                v-if="document_.scan_status === 'clean' && VIEWABLE_TYPES.includes(document_.mime_type)"
+                                type="button"
+                                class="row-action min-h-11 rounded-lg px-3"
+                                :data-testid="`supplier-quotation-attachment-${index}-view`"
+                                @click="viewing = { id: document_.id, name: document_.original_name, mimeType: document_.mime_type }"
+                            >
+                                {{ t('files.view') }}
+                            </button>
+
+                            <button
                                 v-if="document_.scan_status === 'clean'"
                                 type="button"
                                 class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1267,6 +1280,7 @@ function discard(): void {
                 </button>
             </div>
         </form>
+        <FileViewerDialog :file="viewing" @close="viewing = null" />
     </dialog>
 </template>
 

@@ -21,7 +21,8 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDate } from '@/domain/displayDate';
 import type { DealDocument } from '@/services/deals';
-import { downloadFile, FILE_ACCEPT } from '@/services/files';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
+import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
 import { attachPurchaseOrderDocument, readPurchaseOrder, type PurchaseOrderReference } from '@/services/quotations';
 import { useAuth } from '@/stores/auth';
 
@@ -40,6 +41,8 @@ const failed = ref(false);
 const uploading = ref(false);
 const errorKey = ref<string | null>(null);
 const downloadingId = ref<string | null>(null);
+/** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
+const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -161,18 +164,29 @@ onMounted(load);
                 <span v-else-if="document.scan_status === 'infected'" class="text-[var(--color-danger)]">
                     {{ t('deals.documents.scanInfected') }}
                 </span>
-                <button
-                    v-else
-                    type="button"
-                    class="row-action min-h-11 rounded-lg px-3"
-                    :disabled="downloadingId === document.id"
-                    data-testid="purchase-order-download"
-                    @click="download(document)"
-                >
-                    {{ t('deals.documents.download') }}
-                </button>
+                <template v-else>
+                    <button
+                        v-if="VIEWABLE_TYPES.includes(document.mime_type)"
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-3"
+                        data-testid="purchase-order-view"
+                        @click="viewing = { id: document.id, name: document.original_name, mimeType: document.mime_type }"
+                    >
+                        {{ t('files.view') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-3"
+                        :disabled="downloadingId === document.id"
+                        data-testid="purchase-order-download"
+                        @click="download(document)"
+                    >
+                        {{ t('deals.documents.download') }}
+                    </button>
+                </template>
             </li>
         </ul>
+        <FileViewerDialog :file="viewing" @close="viewing = null" />
     </section>
 </template>
 

@@ -573,6 +573,7 @@
         "choose": "Choose a file",
         "noFile": "No file chosen",
         "hint": "A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB.",
+        "view": "View",
         "download": "Download",
         "viewFailed": "The file could not be opened. Try again, or download it."
     },

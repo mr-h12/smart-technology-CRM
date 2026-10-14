@@ -54,7 +54,8 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
 import { assignDeal, attachDealDocument, type Deal, type DealDocument } from '@/services/deals';
-import { downloadFile, FILE_ACCEPT } from '@/services/files';
+import FileViewerDialog from '@/components/FileViewerDialog.vue';
+import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -74,6 +75,8 @@ const uploadErrorKey = ref<string | null>(null);
 /** A-31: what the status region says — set when the answer arrives, cleared by the next action. */
 const uploadStatus = ref('');
 const downloadingId = ref<string | null>(null);
+/** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
+const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
 
 const assigning = ref(false);
 const ownerId = ref('');
@@ -216,16 +219,26 @@ async function submitAssign(): Promise<void> {
                     >
                         {{ t('deals.documents.scanInfected') }}
                     </span>
-                    <button
-                        v-else
-                        type="button"
-                        class="row-action min-h-11 rounded-lg px-3"
-                        :disabled="downloadingId === document.id"
-                        data-testid="deal-documents-download"
-                        @click="download(document)"
-                    >
-                        {{ t('deals.documents.download') }}
-                    </button>
+                    <template v-else>
+                        <button
+                            v-if="VIEWABLE_TYPES.includes(document.mime_type)"
+                            type="button"
+                            class="row-action min-h-11 rounded-lg px-3"
+                            data-testid="deal-documents-view"
+                            @click="viewing = { id: document.id, name: document.original_name, mimeType: document.mime_type }"
+                        >
+                            {{ t('files.view') }}
+                        </button>
+                        <button
+                            type="button"
+                            class="row-action min-h-11 rounded-lg px-3"
+                            :disabled="downloadingId === document.id"
+                            data-testid="deal-documents-download"
+                            @click="download(document)"
+                        >
+                            {{ t('deals.documents.download') }}
+                        </button>
+                    </template>
                 </li>
             </ul>
         </section>
@@ -265,6 +278,7 @@ async function submitAssign(): Promise<void> {
                 </button>
             </form>
         </section>
+        <FileViewerDialog :file="viewing" @close="viewing = null" />
     </div>
 </template>
 

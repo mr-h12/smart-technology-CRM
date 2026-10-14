@@ -1838,7 +1838,7 @@ describe('the supplier quotation attachments', () => {
 
     /** D-116: Word and Excel stay download-only. */
     it('offers only Download for a clean Word file', async () => {
-        const base = respond();
+        const base = respond() as unknown as typeof globalThis.fetch;
         const fetchMock = vi.fn(async (input: string, init?: RequestInit) => (String(input).includes('/documents')
             ? json(201, envelope({ id: 'd1', original_name: 'terms.docx', mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size_bytes: 8, scan_status: 'clean', created_at: '2026-09-05T00:00:00+00:00' }))
             : base(input, init)));
@@ -1868,6 +1868,8 @@ describe('the supplier quotation attachments', () => {
 
         expect(view.find(`[data-testid="${testid}"]`).exists()).toBe(true);
         expect(view.find('[data-testid="supplier-quotation-attachment-0-download"]').exists()).toBe(false);
+        // F-47 · 2 (D-116): the viewer reads the same route, so it is refused the same way.
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-view"]').exists()).toBe(false);
     });
 
     it('draws a refusal when the upload is forbidden', async () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, setBearerTokenProvider } from '@/api';
-import { downloadFile } from '@/services/files';
+import { downloadFile, fetchFileUrl, VIEWABLE_TYPES } from '@/services/files';
 
 /**
  * Module 6, Point 6.5 — §17's one file route, exercised as transport.
@@ -82,5 +82,37 @@ describe('downloadFile', () => {
 
         await expect(downloadFile('f1', 'a.pdf')).rejects.toBeInstanceOf(ApiError);
         expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+});
+
+/** F-47 · 1 (D-116): the viewer reads through the same route; the caller revokes the URL on close. */
+describe('fetchFileUrl', () => {
+    it('asks §17’s route with the bearer token and returns an object URL it does not revoke', async () => {
+        const fetchMock = vi.fn(async (_input: string, _init?: RequestInit) => new Response('%PDF-1.4', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await expect(fetchFileUrl('f1')).resolves.toBe('blob:test');
+
+        const call = fetchMock.mock.calls[0];
+        expect(String(call?.[0])).toBe('/api/v1/files/f1/download');
+        expect((call?.[1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('throws rather than making a URL when the server refuses', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(
+            JSON.stringify({ error: { code: 'resource_not_found', message: 'no' } }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } },
+        )));
+
+        await expect(fetchFileUrl('f1')).rejects.toBeInstanceOf(ApiError);
+        expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+});
+
+/** D-116: PDF and images open in the viewer; DOCX/XLSX stay download-only. */
+describe('VIEWABLE_TYPES', () => {
+    it('is the browser-renderable subset of AllowedFileType', () => {
+        expect([...VIEWABLE_TYPES].sort()).toEqual(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
     });
 });

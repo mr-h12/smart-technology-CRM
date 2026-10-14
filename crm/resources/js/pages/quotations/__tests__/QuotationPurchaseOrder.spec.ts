@@ -179,6 +179,11 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
 
         expect(rows.map((row) => row.find('[data-testid="purchase-order-view"]').exists())).toEqual([true, false, false]);
 
+        // The row spreads its children (justify-between), so the two actions share one group or View lands mid-row.
+        const actions = rows[0]?.get('[data-testid="purchase-order-view"]').element.parentElement;
+        expect(actions).toBe(rows[0]?.get('[data-testid="purchase-order-download"]').element.parentElement);
+        expect(actions?.matches('[data-testid="purchase-order-document"]')).toBe(false);
+
         await rows[0]?.get('[data-testid="purchase-order-view"]').trigger('click');
         await flushPromises();
 

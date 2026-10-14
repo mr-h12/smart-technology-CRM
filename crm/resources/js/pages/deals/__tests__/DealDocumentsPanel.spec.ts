@@ -215,6 +215,11 @@ describe('the deal documents and assign panel', () => {
 
         await chooseFile(wrapper, new File(['x'], 'offer.pdf', { type: 'application/pdf' }));
         await flushPromises();
+        // The row spreads its children (justify-between), so the two actions share one group or View lands mid-row.
+        const actions = wrapper.get('[data-testid="deal-documents-view"]').element.parentElement;
+        expect(actions).toBe(wrapper.get('[data-testid="deal-documents-download"]').element.parentElement);
+        expect(actions?.matches('[data-testid="deal-documents-row"]')).toBe(false);
+
         await wrapper.get('[data-testid="deal-documents-view"]').trigger('click');
         await flushPromises();
 

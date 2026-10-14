@@ -1827,6 +1827,11 @@ would hide them behind `OD-03` indefinitely.
       `LOG_LEVEL=debug`; F-26 · 1.3 changed the template, not those two defaults. `crm/.env.testing.example:37-39`
       still says `single`/`debug` (it bites only a child artisan run with `--env=testing`). Change both
       fallbacks to `daily`/`info` and the testing template with them, if the owner wants the code to match.
+- [ ] **The deal-code test fixtures collide about 1 time in 65,536** — *revealed by #360's CI (2026-10-14, run
+      38517296061).* `QuotationPdfStateEndpointTest:187` failed on `deals_code_unique` (`DL-2026-f555`), unrelated
+      to #360's diff. `tests/Feature/Pdf/InsertsQuotationRows.php:31` and 16 more fixtures build the code as
+      `'DL-2026-'.substr(<uuid>, -4)`, which is 4 random hex digits, so two deals in one test can collide. One shared
+      helper with the UUID's last 12 hex digits fits `deals.code`'s `string(20)` exactly.
 
 ## Agent guide revisions — owner-directed
 

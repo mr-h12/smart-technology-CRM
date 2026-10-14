@@ -501,6 +501,24 @@ describe('the explanations', () => {
         expect(hint).toBe(ar.currencies.rates.hint.rate);
         expect(hint).not.toBe(en.currencies.rates.hint.rate);
     });
+
+    // F-46 · 2, `D-115`: `from → to = r` reads as 1 `from` = r `to`, and the one
+    // rate also converts the other way — the hint says both, with an example.
+    it('says which way the rate reads and that it serves both directions', async () => {
+        const { wrapper: arabic } = await mountCurrencies(MANAGER, [RATES_OK], 'ar');
+        const arHint = arabic.findAll('[data-testid="rate-hint"]')[2]?.text();
+
+        // Isolated left-to-right (U+2066 … U+2069): inside an RTL paragraph the
+        // bidi algorithm otherwise draws it as "USD = 50 EGP 1".
+        expect(arHint).toContain('⁦1 USD = 50 EGP⁩');
+        expect(arHint).toContain('الاتجاه المعاكس');
+
+        const { wrapper: english } = await mountCurrencies(MANAGER, [RATES_OK]);
+        const enHint = english.findAll('[data-testid="rate-hint"]')[2]?.text();
+
+        expect(enHint).toContain('1 USD = 50 EGP');
+        expect(enHint).toContain('the other way');
+    });
 });
 
 // ── §14.2 ──────────────────────────────────────────────────────────────────

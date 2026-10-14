@@ -1853,6 +1853,15 @@ would hide them behind `OD-03` indefinitely.
       script without the nginx hash is blocked in the browser and caught only by that script. No PHP test can
       see it: `docker/` is not mounted in the php container.
 
+- [ ] **`allowed_transitions` on `DealPayload`, carried from Module 5's frozen register** — *revealed
+      by F-49 · 1.3's waste audit (2026-10-15); the row lived only in `checklist/module-05.md:966`.*
+      Its premise changed: the status control no longer offers §4.4's whole vocabulary. Since `D-119`
+      it is one button naming the next of `won → purchasing → delivery → delivery_complete`, from a
+      three-entry map in `DealStatusControl.vue` (a `ponytail:` ceiling copying `DealStatusTransition`'s
+      last three edges). Publishing the reachable manual moves on the payload removes the copy; a
+      backend point. **The cost, stated:** a fourth manual status, or a changed edge, needs the map
+      edited beside the PHP graph; the server still refuses a wrong edge (409), so nothing is moved wrongly.
+
 ## Agent guide revisions — owner-directed
 
 Changes to `CLAUDE.md` and `AGENTS.md` themselves. They belong to no module, and they are recorded

@@ -137,6 +137,38 @@ final class DealStatusEndpointTest extends TestCase
             ->assertStatus(403);
     }
 
+    /** The route's permission answers before the body is read: a 422 would tell a grantless caller which statuses exist. */
+    public function test_that_a_role_without_the_permission_gets_403_before_any_validation(): void
+    {
+        $id = $this->deal(overrides: ['status' => 'negotiations']);
+        $bearer = $this->bearerFor(RoleName::Ceo);
+
+        foreach ([['status' => 'lost', 'reason' => 'x'], ['status' => 'won'], ['status' => 'purchasing', 'reason' => 'x']] as $body) {
+            $this->patchJson($this->statusUrl($id), $body, $bearer)->assertStatus(403);
+        }
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => 'negotiations']);
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function ownScopeMoves(): array
+    {
+        return ['purchasing' => ['won', 'purchasing'], 'delivery complete' => ['delivery', 'delivery_complete']];
+    }
+
+    /** `Own` reaches only the caller's deals: another owner's is 404 (OpenAPI §5.1), moved nothing, audited nothing. */
+    #[DataProvider('ownScopeMoves')]
+    public function test_that_an_own_scope_holder_cannot_move_another_owners_deal(string $from, string $to): void
+    {
+        $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id, ['status' => $from]);
+
+        $this->patchJson($this->statusUrl($id), ['status' => $to], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('deals', ['id' => $id, 'status' => $from]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id)->count());
+    }
+
     /** The visible cost of the unbacked `team` scope, not a decision about §4.4. */
     public function test_that_a_team_leader_can_change_nothing_while_team_is_unbacked(): void
     {

@@ -227,9 +227,8 @@ export async function rejectDeal(id: string, reason: string): Promise<Deal> {
 }
 
 /**
- * §4.4's transition. `reason` is required when the target is `lost` and
- * **prohibited** otherwise, so it is omitted rather than sent null — a null
- * would be a 422 on every other status.
+ * §4.4's manual moves (`D-119`): only `purchasing`, `delivery` and
+ * `delivery_complete`, and never a reason — the server prohibits one.
  */
 export async function changeDealStatus(id: string, status: string): Promise<Deal> {
     return (await apiPatch<Deal>(`/deals/${id}/status`, { status })).data;

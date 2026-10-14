@@ -10,8 +10,9 @@
 
     Every word comes from `lang/{ar,en}/pdf.php` through `$t`, which is bound to
     one locale for the whole render — the document's language is the customer's,
-    not whoever pressed the button. The percentage is a placeholder, never part
-    of a label (the defect found against P-01 on 2026-09-13).
+    not whoever pressed the button. No label prints a percentage (`D-107`,
+    `D-118`), and none is ever written into one (the defect found against P-01
+    on 2026-09-13).
 
     Nothing here is fetched: the faces and the logo arrive as `data:` URIs from
     `PdfAssetsInterface` (Point 2.2), because the renderer runs on the `pdf`
@@ -190,7 +191,7 @@
     <tr><td class="h">{{ $t('totals.excl_vat') }}</td><td>{{ $money($view->totalExcludingVat) }}</td></tr>
     <tr><td class="h">{{ $t('totals.discount') }}</td><td>{{ $money($view->discountAmount) }}</td></tr>
     @if ($taxed)
-        <tr id="tax-row"><td class="h">{{ $t('totals.tax', ['percent' => $plain($view->taxPercent)]) }}</td><td>{{ $money($view->taxAmount) }}</td></tr>
+        <tr id="tax-row"><td class="h">{{ $t('totals.tax') }}</td><td>{{ $money($view->taxAmount) }}</td></tr>
     @endif
     {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. --}}
     @if ($money($view->roundingDiff) !== '0.00')

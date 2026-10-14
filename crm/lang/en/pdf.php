@@ -5,8 +5,8 @@ declare(strict_types=1);
 /*
  * Module 9 — every word the customer's PDF says (§14.6, `D-89`).
  *
- * The percentages are placeholders, never part of the label: `discount_percent`
- * and `tax_percent` are per-quotation fields, and a label reading "Discount 5%"
+ * No label carries a percentage (`D-107`, `D-118`): `discount_percent` and
+ * `tax_percent` are per-quotation fields, and a label reading "Discount 5%"
  * is wrong on the first quotation that discounts anything else.
  */
 return [
@@ -49,7 +49,7 @@ return [
     'totals' => [
         'excl_vat' => 'Total Amount Excl. VAT',
         'discount' => 'Discount',
-        'tax' => 'VAT :percent%',
+        'tax' => 'VAT',
         'rounding' => 'Rounding',
         'final' => 'Total',
     ],

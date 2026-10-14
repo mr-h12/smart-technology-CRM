@@ -328,7 +328,7 @@ final class CreateSupplierQuotationTest extends TestCase
         self::assertNotNull($line);
         self::assertTrue($header->prices_include_tax);
         self::assertSame('14.000', $header->included_tax_percent, 'D-118: the sum of the typed rates is captured on the offer.');
-        self::assertSame(['14.000'], json_decode($header->included_tax_percents, true), 'D-118: the rates as entered.');
+        self::assertSame('["14.000"]', $header->included_tax_percents, 'D-118: the rates as entered.');
         self::assertSame('1000.000000', $header->total_price, 'D-105: the header total is stored net.');
         self::assertSame('1140.000000', $header->entered_total_price);
         self::assertSame('100.000000', $line->unit_price, 'D-105: the line price is stored net.');
@@ -365,7 +365,7 @@ final class CreateSupplierQuotationTest extends TestCase
         self::assertNotNull($header);
         self::assertFalse($header->prices_include_tax);
         self::assertNull($header->included_tax_percent);
-        self::assertSame([], json_decode($header->included_tax_percents, true));
+        self::assertSame('[]', $header->included_tax_percents);
         self::assertNull($header->entered_total_price);
         self::assertSame('4500.000000', $header->total_price);
         self::assertNull(DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->value('entered_unit_price'));

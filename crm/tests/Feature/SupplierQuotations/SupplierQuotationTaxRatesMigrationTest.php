@@ -57,7 +57,7 @@ final class SupplierQuotationTaxRatesMigrationTest extends TestCase
     {
         $id = $this->insert(['prices_include_tax' => true, 'included_tax_percent' => '19.000', 'included_tax_percents' => '["14.000", "5.000"]']);
 
-        self::assertSame(['14.000', '5.000'], json_decode((string) DB::table('supplier_quotations')->where('id', $id)->value('included_tax_percents'), true));
+        self::assertSame('["14.000", "5.000"]', DB::table('supplier_quotations')->where('id', $id)->value('included_tax_percents'));
     }
 
     /** An offer flagged before F-48 · 2 keeps its one captured rate as a one-rate list. */
@@ -69,7 +69,7 @@ final class SupplierQuotationTaxRatesMigrationTest extends TestCase
         $id = $this->insert(['prices_include_tax' => true, 'included_tax_percent' => '14.000']);
 
         self::assertSame(0, Artisan::call('migrate', ['--path' => self::MIGRATION, '--force' => true]));
-        self::assertSame(['14.000'], json_decode((string) DB::table('supplier_quotations')->where('id', $id)->value('included_tax_percents'), true));
+        self::assertSame('["14.000"]', DB::table('supplier_quotations')->where('id', $id)->value('included_tax_percents'));
     }
 
     /** @param array<string, mixed> $overrides */

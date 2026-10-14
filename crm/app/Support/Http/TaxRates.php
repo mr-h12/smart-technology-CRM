@@ -21,6 +21,7 @@ final class TaxRates
     public static function listRules(): array
     {
         return ['sometimes', 'array', 'max:5', static function (string $attribute, mixed $rates, Closure $fail): void {
+            /** @var list<numeric-string> $valid decimal text, which is numeric */
             $valid = is_array($rates)
                 ? array_values(array_filter($rates, static fn (mixed $rate): bool => is_string($rate) && preg_match(self::DECIMAL, $rate) === 1))
                 : [];

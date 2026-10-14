@@ -219,7 +219,7 @@ final class UpdateSupplierQuotationTest extends TestCase
         $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
 
         self::assertNotNull($header);
-        self::assertSame(['10.000', '4.000'], json_decode($header->included_tax_percents, true));
+        self::assertSame('["10.000", "4.000"]', $header->included_tax_percents);
         self::assertSame('14.000', $header->included_tax_percent);
         self::assertSame('1000.000000', $header->total_price, 'D-118: stripped twice, or by a single rate.');
         self::assertSame('100.000000', $this->liveLine($offer->id)->unit_price);
@@ -237,7 +237,7 @@ final class UpdateSupplierQuotationTest extends TestCase
         $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
 
         self::assertNotNull($header);
-        self::assertSame(['10.000', '4.000'], json_decode($header->included_tax_percents, true));
+        self::assertSame('["10.000", "4.000"]', $header->included_tax_percents);
         self::assertSame('1000.000000', $header->total_price);
     }
 
@@ -285,7 +285,7 @@ final class UpdateSupplierQuotationTest extends TestCase
         self::assertNotNull($header);
         self::assertFalse($header->prices_include_tax);
         self::assertNull($header->included_tax_percent);
-        self::assertSame([], json_decode($header->included_tax_percents, true));
+        self::assertSame('[]', $header->included_tax_percents);
         self::assertNull($header->entered_total_price);
         self::assertSame('1140.000000', $header->total_price);
         self::assertSame('114.000000', $line->unit_price);

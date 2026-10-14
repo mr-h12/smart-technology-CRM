@@ -4569,7 +4569,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       request opens it.
       - [x] **1** `GET /deals?filter[customer]={customer_id}`, under the caller's row scope; `D-114` and OpenAPI.
             *(2026-10-14, #350 — one `where` after `scoped()`, so an `own` caller asking for another seller's customer gets an empty page; non-UUID is `400 not_a_uuid`)*
-      - [ ] **2** The customer page: its requests and quotations, each row opening its own page, and «طلب جديد» with the customer fixed.
+      - [x] **2** The customer page: its requests and quotations, each row opening its own page, and «طلب جديد» with the customer fixed.
+            *(2026-10-14, #351 — each list under its own view row, the first 100 rows, no pager; `DealFormModal` takes an optional fixed `customer`; a save goes to the new deal)*
       - [ ] **3** The Arabic manual test list (closes F-45).
 
 ## Shell revisions — owner-directed

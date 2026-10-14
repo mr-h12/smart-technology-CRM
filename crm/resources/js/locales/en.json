@@ -572,7 +572,9 @@
     "files": {
         "choose": "Choose a file",
         "noFile": "No file chosen",
-        "hint": "A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB."
+        "hint": "A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB.",
+        "download": "Download",
+        "viewFailed": "The file could not be opened. Try again, or download it."
     },
     "import": {
         "hint": "CSV files only, up to 30 MB.",

@@ -131,6 +131,8 @@ final class NoHardCodedTextTest extends TestCase
                 'DealStatusControl.vue',
                 'DealsView.vue',
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
+                // F-47 · 1 (`D-116`) — the in-page file viewer; the file's own name is data.
+                'FileViewerDialog.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue',
                 // Module 3 Point 4.6's `CustomerImportModal.vue`, shared as

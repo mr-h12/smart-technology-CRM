@@ -572,7 +572,9 @@
     "files": {
         "choose": "اختر ملفاً",
         "noFile": "لم يُختر ملف",
-        "hint": "ملف PDF أو صورة (JPG أو PNG أو WebP) أو Word أو Excel، حتى 30 ميغابايت."
+        "hint": "ملف PDF أو صورة (JPG أو PNG أو WebP) أو Word أو Excel، حتى 30 ميغابايت.",
+        "download": "تنزيل",
+        "viewFailed": "تعذّر فتح الملف. حاول مرة أخرى، أو نزّله."
     },
     "import": {
         "hint": "ملفات CSV فقط، حتى 30 ميغابايت.",

@@ -4645,8 +4645,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1** Customer quotation: `tax_percents` (jsonb, the rates as entered) beside `tax_percent` (their sum);
             the request takes the list (≤ 5, each > 0) and refuses the old field; the builder adds a rate with «+».
             *(2026-10-14, #363 — `tax_percent` is the BCMath sum §5 reads, so no formula changed; a rate past 3 decimals or a sum ≥ 1000 is a 422, not a 500)*
-      - [ ] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
+      - [x] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
             `defaults.tax_percent` leaves the settings, the seeder and the settings screen.
+            *(2026-10-14, #364 — the rule and the sum shared in `TaxRates`; new rates without the amounts they strip are a 422; the setting row archived, `down()` restores it)*
       - [ ] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.
 
 ## Shell revisions — owner-directed

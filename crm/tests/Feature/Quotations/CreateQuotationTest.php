@@ -328,6 +328,51 @@ final class CreateQuotationTest extends TestCase
         self::assertSame(0, DB::table('quotations')->count());
     }
 
+    // ─────────────────────────────────────────────────────────────────── D-119
+
+    /** A quotation walks its deal up to `supplier_quotation`, one status line per edge passed. */
+    public function test_that_a_quotation_walks_its_deal_to_supplier_quotation_one_line_per_step(): void
+    {
+        DB::table('deals')->where('id', $this->dealId)->update(['status' => 'contacted']);
+        $line = $this->supplierLine('100', '1', $this->egpId);
+
+        $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: [],
+        ));
+
+        self::assertSame('supplier_quotation', DB::table('deals')->where('id', $this->dealId)->value('status'));
+        // jsonb text, compared as stored; order-free, since UUIDv7 ids made in one
+        // millisecond are not proven ordered — each step passed EDGES anyway.
+        self::assertEqualsCanonicalizing(
+            ['{"status": "waiting_customer_request"}', '{"status": "supplier_rfq"}', '{"status": "supplier_quotation"}'],
+            DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $this->dealId)
+                ->pluck('new_values')->all(),
+        );
+    }
+
+    /** A blocked save rolls the walk back with it: `DealOutcomeInterface` runs inside the caller's transaction. */
+    public function test_that_a_blocked_quotation_leaves_its_deal_where_it_was(): void
+    {
+        DB::table('deals')->where('id', $this->dealId)->update(['status' => 'contacted']);
+        $line = $this->supplierLine('100', '1', $this->egpId);
+        DB::table('supplier_quotation_items')->where('id', $line)->update(['deleted_at' => now()]);
+
+        try {
+            $this->create($this->payload(
+                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+                additional: [],
+                overrides: [],
+            ));
+            self::fail('A missing supplier price must block the save (§5.6).');
+        } catch (QuotationNotPriceable) {
+        }
+
+        self::assertSame('contacted', DB::table('deals')->where('id', $this->dealId)->value('status'));
+        self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
+    }
+
     // ────────────────────────────────────────────────────────────── §5.6 block
 
     /** A supplier line whose price is gone blocks the whole save — nothing is written. */

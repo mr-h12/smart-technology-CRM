@@ -12,7 +12,7 @@ use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 
 /**
- * `D-90`'s two deal moves, through {@see ChangeDealStatus} so the audit row
+ * `D-90`'s two deal moves and `D-119`'s walk on creation, through {@see ChangeDealStatus} so the audit row
  * and the customer-status recompute (§4.5) happen exactly as for a person's
  * move. Unrestricted scope: the caller already authorised the quotation
  * action, and §3.5's send / record-response grants are a subset of §3.4's
@@ -29,6 +29,18 @@ final readonly class RecordQuotationOutcome implements DealOutcomeInterface
         private DealDirectoryInterface $deals,
         private ChangeDealStatus $changeStatus,
     ) {}
+
+    public function quotationCreated(string $dealId, string $actorId): void
+    {
+        // Locked read: a second quotation created at once waits here, then sees
+        // the status this walk left, and walks nothing (D-119).
+        $status = $this->statusOf($dealId, $actorId, forUpdate: true);
+
+        // Each of the four has one forward edge, so §4.4's own next step is walked.
+        while (in_array($status, self::NOT_READY, true)) {
+            $status = $this->changeStatus->handle($dealId, DealStatusTransition::allowedFrom($status)[0], null, self::ALL, $actorId)->status;
+        }
+    }
 
     public function quotationSent(string $dealId, string $actorId): void
     {
@@ -54,8 +66,8 @@ final readonly class RecordQuotationOutcome implements DealOutcomeInterface
         return true;
     }
 
-    private function statusOf(string $dealId, string $actorId): string
+    private function statusOf(string $dealId, string $actorId, bool $forUpdate = false): string
     {
-        return ($this->deals->find($dealId, DealRowScope::resolve(self::ALL, $actorId)) ?? throw DealNotFound::of($dealId))->status;
+        return ($this->deals->find($dealId, DealRowScope::resolve(self::ALL, $actorId), $forUpdate) ?? throw DealNotFound::of($dealId))->status;
     }
 }

@@ -74,7 +74,8 @@ final readonly class ChangeDealStatus
         $scope = DealRowScope::resolve($heldScopes, $actorId);
 
         return $this->connection->transaction(function () use ($dealId, $newStatus, $lostReason, $scope, $actorId): DealSummary {
-            $before = $this->deals->find($dealId, $scope);
+            // D-119: locked, so a concurrent move waits and then reads the status this one left.
+            $before = $this->deals->find($dealId, $scope, forUpdate: true);
 
             if (! $before instanceof DealSummary) {
                 throw DealNotFound::of($dealId);

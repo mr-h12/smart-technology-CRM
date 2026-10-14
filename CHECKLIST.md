@@ -4638,7 +4638,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **4** «حذف» beside «عرض»/«تنزيل» in the three screens, behind `ConfirmDialog`; vitest and `rtl-ui-verifier`.
             *(2026-10-14, #359 — clean files only, under the upload grant; the server's sentence on refusal; checked in the browser by the owner, `rtl-ui-verifier` could not sign in)*
       - [~] **5** The Arabic manual test list (closes F-47). — **withdrawn by the owner, 2026-10-14.**
-- [ ] **F-48** Several tax rates typed by hand; the PDF says «VAT» with no percentage (`D-118`). Requested by the
+- [x] **F-48** Several tax rates typed by hand; the PDF says «VAT» with no percentage (`D-118`). Requested by the
       owner, 2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: rates add on
       one base (14 + 5 = 19 %); one VAT line carrying the total; percentages only, no names; the default tax
       setting goes; no Arabic manual test list.
@@ -4648,7 +4648,19 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
             `defaults.tax_percent` leaves the settings, the seeder and the settings screen.
             *(2026-10-14, #364 — the rule and the sum shared in `TaxRates`; new rates without the amounts they strip are a 422; the setting row archived, `down()` restores it)*
-      - [ ] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.
+      - [x] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.
+            *(2026-10-14, #365 — the tax row is the bare label in both languages; «السعر شامل الضريبة» is the Arabic term, on a taxed quotation only; ticked in F-49 · 1.1's first commit, the PR merged first)*
+- [ ] **F-49** The deal's status follows its progress (`D-119`). Requested by the owner, 2026-10-14; four
+      points, each checked on screen; the plan approved in chat the same day. The owner's rulings: a customer
+      quotation's creation is the trigger for «عرض المورّد»; one timeline line per status passed; by hand only
+      «شراء», «توريد», «اكتمل التوريد»; a load test instead of the Arabic manual test list.
+      - [x] **1.1** A new deal is «تم التواصل»; a customer quotation walks its deal to «عرض المورّد», one line per
+            step, under a row lock; `D-119` written.
+            *(2026-10-15, #366 — the walk is `allowedFrom`'s next edge through `ChangeDealStatus`, read `FOR UPDATE`; a blocked save rolls it back; D-90 rule a now guards only pre-D-119 quotations)*
+      - [ ] **1.2** The customer's answer: Accept → «ناجحة», Partial and Counter → «تفاوض».
+      - [ ] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
+      - [ ] **1.4** The status control on the customer page's deals list and on the quotation page; the load test
+            (`ab`, 50 at once on one deal, then a database check for duplicate lines).
 
 ## Shell revisions — owner-directed
 

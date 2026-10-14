@@ -341,7 +341,7 @@ class AppServiceProvider extends ServiceProvider
             fn (): EloquentDealFacts => $this->app->make(DealFactsInterface::class),
         );
 
-        // Module 10 · 1.2 (`D-90`): the two deal moves a quotation causes.
+        // Module 10 · 1.2 (`D-90`), F-49 (`D-119`): the deal moves a quotation causes.
         $this->app->bind(DealOutcomeInterface::class, RecordQuotationOutcome::class);
 
         // Module 7 Point 6.4 (Step 6 Q2). The name behind a deal owner's id for

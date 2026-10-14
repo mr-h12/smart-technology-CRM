@@ -140,12 +140,31 @@ final class DealWriteEndpointTest extends TestCase
         self::assertIsArray($data);
         self::assertSame('Bulk cement order', $data['title']);
         self::assertSame($customerId, $data['customer_id']);
-        self::assertSame('lead', $data['status']);
+        self::assertSame('contacted', $data['status']);   // D-119: a new deal is contacted
         self::assertIsString($data['code']);
         self::assertStringStartsWith('DL-', $data['code']);
 
         self::assertIsString($data['id']);
         self::assertDatabaseHas('deals', ['id' => $data['id'], 'customer_id' => $customerId]);
+    }
+
+    /** D-119: creation moves `lead → contacted`, one timeline line through `ChangeDealStatus`. */
+    public function test_that_a_created_deal_is_contacted_with_one_status_line(): void
+    {
+        $id = $this->postJson(self::ENDPOINT, [
+            'customer_id' => $this->customerId(),
+            'title' => 'Auto status',
+            'source' => 'employee_entry',
+            'service_type' => 'product',
+        ], $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        self::assertIsString($id);
+
+        self::assertSame('contacted', DB::table('deals')->where('id', $id)->value('status'));
+
+        // jsonb text, compared as stored.
+        $lines = DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id);
+        self::assertSame(['{"status": "lead"}'], (clone $lines)->pluck('old_values')->all());
+        self::assertSame(['{"status": "contacted"}'], $lines->pluck('new_values')->all());
     }
 
     public function test_that_a_customer_id_is_required(): void

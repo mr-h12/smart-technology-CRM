@@ -35,8 +35,11 @@ interface DealDirectoryInterface
      */
     public function ownerIds(DealRowScope $scope): array;
 
-    /** Null when the row is absent **or** outside the scope — the caller cannot tell, by design. */
-    public function find(string $dealId, DealRowScope $scope): ?DealSummary;
+    /**
+     * Null when the row is absent **or** outside the scope — the caller cannot tell, by design.
+     * `$forUpdate` locks the row until the caller's transaction ends (D-119: a status is read, then moved).
+     */
+    public function find(string $dealId, DealRowScope $scope, bool $forUpdate = false): ?DealSummary;
 
     /**
      * Point 2.3.

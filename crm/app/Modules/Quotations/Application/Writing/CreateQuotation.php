@@ -7,6 +7,7 @@ namespace App\Modules\Quotations\Application\Writing;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
@@ -53,6 +54,7 @@ final readonly class CreateQuotation
         private QuotationDirectoryInterface $quotations,
         private PriceQuotation $pricer,
         private DealFactsInterface $deals,
+        private DealOutcomeInterface $dealOutcome,
         private AuditRecorderInterface $audit,
         private TermSuggestions $terms,
         private ConnectionInterface $connection,
@@ -68,6 +70,9 @@ final readonly class CreateQuotation
 
         return $this->connection->transaction(function () use ($validated, $scope, $actorId): QuotationCreated {
             $this->guardDeal($validated, $scope);
+
+            // D-119: the deal walks to `supplier_quotation`; a blocked save below rolls it back.
+            $this->dealOutcome->quotationCreated(self::string($validated['deal_id'] ?? null, 'deal_id'), $actorId);
 
             $priced = $this->pricer->price(
                 $validated,

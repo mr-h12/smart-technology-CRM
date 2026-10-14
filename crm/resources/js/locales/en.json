@@ -385,7 +385,6 @@
             "company_phones": "Phone numbers",
             "company_email": "E-mail",
             "defaults_currency": "Default currency",
-            "defaults_tax_percent": "Default tax (%)",
             "locale_language": "Language",
             "locale_timezone": "Time zone",
             "locale_date_format": "Date format"
@@ -400,7 +399,6 @@
             "company_phones": "One or more phone numbers people can reach you on.",
             "company_email": "The address printed in the quotation PDF's footer.",
             "defaults_currency": "The currency the system uses unless someone picks another one. Choose from the list, or type a three-letter code such as EGP.",
-            "defaults_tax_percent": "The tax percentage the system suggests by default. It can still be changed on each price quote. Write the number only — 14, not 14%.",
             "locale_language": "The language the system opens in. Each person can still switch it for themselves afterwards.",
             "locale_timezone": "The city or region whose clock times should be shown in. Times are stored the same way for everyone and shown in this zone.",
             "locale_date_format": "How dates should look. d is the day, m the month and Y the year — so d/m/Y shows the 9th of March 2026 as 09/03/2026."

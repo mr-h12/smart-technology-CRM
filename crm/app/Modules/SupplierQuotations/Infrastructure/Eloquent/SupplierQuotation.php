@@ -42,6 +42,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $valid_until
  * @property string|null $notes
  * @property bool $prices_include_tax
+ * @property list<string> $included_tax_percents
  * @property string|null $included_tax_percent
  * @property string|null $entered_total_price
  * @property string|null $created_by
@@ -50,7 +51,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  */
-#[Fillable(['supplier_id', 'deal_id', 'total_price', 'currency_id', 'offer_date', 'valid_until', 'notes', 'prices_include_tax', 'included_tax_percent', 'entered_total_price'])]
+#[Fillable(['supplier_id', 'deal_id', 'total_price', 'currency_id', 'offer_date', 'valid_until', 'notes', 'prices_include_tax', 'included_tax_percents', 'included_tax_percent', 'entered_total_price'])]
 class SupplierQuotation extends Model
 {
     use HasUuids, SoftDeletes;
@@ -58,12 +59,13 @@ class SupplierQuotation extends Model
     protected $table = 'supplier_quotations';
 
     /**
-     * The column's default (`D-105`, off), mirrored: a saved model does not
-     * read database defaults back, and a summary hydrated from it needs a bool.
+     * The columns' defaults (`D-105`, off; `D-118`, no rates), mirrored: a saved
+     * model does not read database defaults back, and a summary hydrated from it
+     * needs a bool and a list.
      *
      * @var array<string, mixed>
      */
-    protected $attributes = ['prices_include_tax' => false];
+    protected $attributes = ['prices_include_tax' => false, 'included_tax_percents' => '[]'];
 
     /** @return array<string, string> */
     protected function casts(): array
@@ -71,6 +73,7 @@ class SupplierQuotation extends Model
         return [
             'total_price' => Precision::CAST_MONEY,
             'prices_include_tax' => 'boolean',
+            'included_tax_percents' => 'array',
             'included_tax_percent' => Precision::CAST_PERCENT,
             'entered_total_price' => Precision::CAST_MONEY,
         ];

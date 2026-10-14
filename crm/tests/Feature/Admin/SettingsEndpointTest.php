@@ -191,43 +191,19 @@ final class SettingsEndpointTest extends TestCase
         self::assertSame(0, DB::table('settings')->count());
     }
 
-    /** §13 names a "default tax"; §5 makes a tax a percentage, not a sentence. */
-    public function test_that_a_decimal_field_refuses_a_word(): void
+    /** D-118: "the system setting `defaults.tax_percent` is removed" — no longer listed, and refused like any unnamed key. */
+    public function test_that_the_default_tax_is_no_longer_a_setting(): void
     {
-        $this->patchJson(
-            self::ENDPOINT,
-            ['settings' => [SystemSetting::DefaultTaxPercent->value => 'fourteen']],
-            $this->bearerFor(RoleName::SuperAdmin),
-        )->assertStatus(422);
-    }
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
 
-    public function test_that_a_decimal_field_accepts_a_decimal_string(): void
-    {
-        $this->patchJson(
-            self::ENDPOINT,
-            ['settings' => [SystemSetting::DefaultTaxPercent->value => '14.000']],
-            $this->bearerFor(RoleName::SuperAdmin),
-        )->assertStatus(200);
+        $settings = $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200)->json('data.settings');
 
-        self::assertSame(
-            'decimal',
-            DB::scalar('select value_type from settings where key = ?', [SystemSetting::DefaultTaxPercent->value]),
-        );
-    }
+        self::assertIsArray($settings);
+        self::assertArrayNotHasKey('defaults.tax_percent', $settings);
 
-    /** `DB-07` again: a percentage is stored as a string, never as a float. */
-    public function test_that_a_decimal_field_keeps_every_digit_it_was_given(): void
-    {
-        $this->patchJson(
-            self::ENDPOINT,
-            ['settings' => [SystemSetting::DefaultTaxPercent->value => '14.005']],
-            $this->bearerFor(RoleName::SuperAdmin),
-        )->assertStatus(200);
+        $this->patchJson(self::ENDPOINT, ['settings' => ['defaults.tax_percent' => '14']], $bearer)->assertStatus(422);
 
-        self::assertSame(
-            '14.005',
-            DB::scalar('select value from settings where key = ?', [SystemSetting::DefaultTaxPercent->value]),
-        );
+        self::assertSame(0, DB::table('settings')->count());
     }
 
     /** `AUD-01`: an administrator changing the company's own configuration is recorded. */
@@ -270,14 +246,15 @@ final class SettingsEndpointTest extends TestCase
      *
      * **Measured with Point 5.1**, which is the screen that shows it: without
      * `attributes()` the message read *"The settings.defaults.tax percent field
-     * must be a number."* The machine code beside it is unchanged and still
+     * must be a number."* (that field left with `D-118`; the e-mail stands in).
+     * The machine code beside it is unchanged and still
      * English — a client matches on that, not on this sentence.
      */
     public function test_that_a_refusal_names_the_field_in_words_a_person_reads(): void
     {
         $response = $this->patchJson(
             self::ENDPOINT,
-            ['settings' => ['defaults.tax_percent' => 'lots']],
+            ['settings' => ['company.email' => 'lots']],
             $this->bearerFor(RoleName::SuperAdmin),
         )->assertStatus(422);
 
@@ -285,8 +262,8 @@ final class SettingsEndpointTest extends TestCase
 
         self::assertIsString($message);
         self::assertStringNotContainsString('settings.', $message);
-        self::assertStringContainsString('default tax', $message);
-        self::assertSame('settings.defaults.tax_percent', $response->json('error.details.0.field'));
+        self::assertStringContainsString('company e-mail', $message);
+        self::assertSame('settings.company.email', $response->json('error.details.0.field'));
     }
 
     /** `D-107`: the customer PDF's footer prints the company's e-mail from here. */

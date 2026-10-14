@@ -15,6 +15,7 @@ use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use App\Support\Database\Precision;
+use App\Support\Http\TaxRates;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -160,9 +161,7 @@ final readonly class PriceQuotation
             }
         }
 
-        $taxPercent = $taxPercents === []
-            ? null
-            : array_reduce($taxPercents, static fn (string $sum, string $rate): string => bcadd($sum, $rate, Precision::PERCENT_SCALE), '0');
+        $taxPercent = TaxRates::sum($taxPercents);
 
         $totals = QuotationTotals::from(
             $pricedLines,

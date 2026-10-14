@@ -46,6 +46,7 @@ final class SupplierQuotationPayload
             // `D-105`: `total_price` is the net; the amount as entered and the
             // rate captured on the offer beside it, `null` when taken as recorded.
             'prices_include_tax' => $quotation->pricesIncludeTax,
+            'included_tax_percents' => $quotation->includedTaxPercents,
             'included_tax_percent' => $quotation->includedTaxPercent,
             'entered_total_price' => $quotation->enteredTotalPrice,
         ];

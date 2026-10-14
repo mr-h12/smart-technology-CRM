@@ -9,6 +9,7 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
+use App\Support\Http\TaxRates;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -60,7 +61,6 @@ final readonly class CreateSupplierQuotation
         private ResolveLineProducts $products,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
-        private IncludedTaxRate $taxRate,
     ) {}
 
     /** @param  array<string, mixed>  $validated  already validated at the boundary */
@@ -68,15 +68,16 @@ final readonly class CreateSupplierQuotation
     {
         $draft = SupplierQuotationDraft::forCreate($validated);
 
-        // `D-105`: read before the transaction — an empty setting is a 422 with nothing to roll back.
-        $rate = filter_var($validated['prices_include_tax'] ?? false, FILTER_VALIDATE_BOOLEAN) ? $this->taxRate->current() : null;
+        // `D-118`: before the transaction — a flag without rates is a 422 with nothing to roll back.
+        $rates = IncludedTaxRate::rates(filter_var($validated['prices_include_tax'] ?? false, FILTER_VALIDATE_BOOLEAN), $validated, []);
 
-        if ($rate !== null) {
+        if ($rates !== []) {
             IncludedTaxRate::checkEntered($draft);
         }
 
-        return $this->connection->transaction(function () use ($draft, $rate, $actorId): SupplierQuotationSummary {
-            $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId))->withIncludedTax($rate);
+        return $this->connection->transaction(function () use ($draft, $rates, $actorId): SupplierQuotationSummary {
+            $draft = $draft->withItems($this->products->resolve($draft->items ?? [], $actorId))
+                ->withIncludedTax($rates, TaxRates::sum($rates));
 
             // §5.6, before the write: nothing to roll back for a refusal the
             // merged draft already shows.

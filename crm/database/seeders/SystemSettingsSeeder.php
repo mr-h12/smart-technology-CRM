@@ -6,7 +6,6 @@ namespace Database\Seeders;
 
 use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Settings\SystemLimit;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Support\Seeding\GuardedSeeder;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +17,8 @@ use Illuminate\Support\Str;
  *
  * **Two rows, and the emptiness around them is the point.** §13 screen 6
  * names five limits and §13 screen 4 names ten settings; the documentation
- * gives a value to **one** of the limits, and `D-105` to one setting —
- * `defaults.tax_percent`, 14, seeded since F-39 · 1.3. `D-17` says the stale-deal threshold is
+ * gives a value to **one** of the limits and to none of the settings
+ * (`D-105`'s seeded tax rate left with the setting, `D-118`). `D-17` says the stale-deal threshold is
  * "configurable in settings" and stops. §11 says deadlines and SLAs "come from
  * settings" and stops. A seeded default for any of those would be a business
  * rule nobody wrote, arriving as configuration and read as fact — the same
@@ -67,23 +66,6 @@ final class SystemSettingsSeeder extends GuardedSeeder
 
         if (! $configured) {
             $this->insertSimilarityThreshold();
-        }
-
-        // `D-105` (F-39 · 1.3): the one setting the documentation gives a value.
-        // Never overwritten — the rate is the owner's to change.
-        $taxed = DB::table('settings')
-            ->where('key', SystemSetting::DefaultTaxPercent->value)
-            ->exists();
-
-        if (! $taxed) {
-            DB::table('settings')->insert([
-                'id' => Str::uuid7()->toString(),
-                'key' => SystemSetting::DefaultTaxPercent->value,
-                'value' => '14',
-                'value_type' => SystemSetting::DefaultTaxPercent->valueType(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
         }
 
         // ⚠️ **Unconditional, and after the write** (Point 4.2). `PRF-08`'s

@@ -5,12 +5,20 @@ declare(strict_types=1);
 return [
     'not_found' => 'This supplier quotation was not found.',
 
+    // D-118: the two rate fields, named inside a validation message.
+    'attributes' => [
+        'included_tax_percents' => 'tax rates',
+        'included_tax_percent_item' => 'tax rate',
+    ],
+
     // OpenAPI §5's envelope message for a 400. Every module carries its own
     // `errors.invalid_request`; the specific cause is in `details`, below.
     'errors' => [
         'lines_need_currency' => 'An offer with priced lines must name their currency (and its total).',
         'not_decimal_text' => 'A tax-inclusive price must be a plain decimal number, such as 114 or 114.50.',
-        'no_tax_rate' => 'Prices cannot be entered tax-inclusive until the default tax percent is set in the system settings.',
+        'no_tax_rate' => 'Type at least one tax rate for prices that include tax.',
+        'rates_need_flag' => 'Tax rates are typed only when the prices include tax.',
+        'rates_need_amounts' => 'Send the total and the line prices with the tax rates they include.',
         'invalid_request' => 'This request could not be understood.',
     ],
 

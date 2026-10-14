@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Modules\Admin\Domain\Settings\SystemLimit;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Application\Authentication\AuthenticateUser;
 use App\Support\Settings\SettingReader;
 use Database\Seeders\SystemSettingsSeeder;
@@ -22,8 +21,8 @@ use Tests\TestCase;
  * §13 screen 6's other four limits have names and no values: `D-17` says the
  * stale threshold is *"configurable in settings"* without saying what it is,
  * and §11 says deadlines and SLAs *"come from settings"* the same way. §13
- * screen 4's ten settings fields are the same case, but for `defaults.tax_percent`,
- * which `D-105` seeds at 14 (F-39 · 1.3). Seeding a plausible number
+ * screen 4's settings fields are the same case (`D-105`'s seeded tax rate left
+ * with the setting, `D-118`). Seeding a plausible number
  * would be a business rule nobody wrote, arriving as configuration and read as
  * fact — the rule `ManagedLists` applies to delivery terms and `Currencies` to
  * exchange rates.
@@ -104,33 +103,12 @@ final class SystemSettingsSeedingTest extends TestCase
         );
     }
 
-    /**
-     * §13 screen 4 names ten fields, and the documentation gives one of them a
-     * value: `D-105` seeds `defaults.tax_percent` at 14 (F-39 · 1.3). The other
-     * nine stay unseeded — the same bar as the limits above.
-     */
-    public function test_that_settings_holds_only_the_tax_percent_d_105_seeds(): void
+    /** D-118 removed the one setting the documentation gave a value; no other is invented. */
+    public function test_that_no_setting_is_seeded(): void
     {
         $this->seed(SystemSettingsSeeder::class);
 
-        self::assertSame(
-            [['key' => SystemSetting::DefaultTaxPercent->value, 'value' => '14', 'value_type' => 'decimal']],
-            DB::table('settings')->get(['key', 'value', 'value_type'])->map(static fn (object $row): array => (array) $row)->all(),
-            'A setting the documentation gives no value was invented.',
-        );
-    }
-
-    /** The rate is the owner's to change; a deployment may not change it back. */
-    public function test_that_a_second_run_keeps_an_administrators_tax_percent(): void
-    {
-        $this->seed(SystemSettingsSeeder::class);
-
-        DB::table('settings')->where('key', SystemSetting::DefaultTaxPercent->value)->update(['value' => '15']);
-
-        $this->seed(SystemSettingsSeeder::class);
-
-        self::assertSame(1, DB::table('settings')->count());
-        self::assertSame('15', DB::table('settings')->where('key', SystemSetting::DefaultTaxPercent->value)->value('value'));
+        self::assertSame(0, DB::table('settings')->count(), 'A setting the documentation gives no value was invented.');
     }
 
     public function test_that_a_second_run_changes_nothing(): void

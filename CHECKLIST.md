@@ -1822,6 +1822,12 @@ would hide them behind `OD-03` indefinitely.
       (`Audit/Domain/AuditEvent.php:50`) has no caller in `crm/app`; a tax edit is audited only inside
       the quotation's `QUOTATION_UPDATED` old/new values (now with `tax_percents`). CLAUDE.md lists tax
       changes among the always-audited events: emit it where `UpdateQuotation` decides `$taxMoved`.
+- [ ] **The tax-rate list is written twice: the builder's and the supplier offer's** — *created by F-48 · 2
+      (2026-10-14), registered rather than fixed because the fix reopens the builder F-48 · 1 merged (#363).*
+      `SupplierQuotationFormModal.vue`'s rate block (inputs, «إزالة», «+», `taxes` state and its load from
+      `displayPercent`) repeats `QuotationBuilderView.vue`'s almost line for line; the limit is already shared
+      (`@/domain/taxRates`). One `TaxRatesField.vue` (`v-model`, an id prefix, an error) removes both; the
+      supplier form also reads the builder's five `quotations.builder.*` tax keys, which that component would own.
 - [ ] **Two screens print `ApiError.message` raw, so a proxy error page reads as a request line** —
       *revealed by F-47 · 4's waste audit (2026-10-14); already on `main`.* `QuotationPdfPanel.vue:128`
       and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it
@@ -4639,8 +4645,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **1** Customer quotation: `tax_percents` (jsonb, the rates as entered) beside `tax_percent` (their sum);
             the request takes the list (≤ 5, each > 0) and refuses the old field; the builder adds a rate with «+».
             *(2026-10-14, #363 — `tax_percent` is the BCMath sum §5 reads, so no formula changed; a rate past 3 decimals or a sum ≥ 1000 is a 422, not a 500)*
-      - [ ] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
+      - [x] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
             `defaults.tax_percent` leaves the settings, the seeder and the settings screen.
+            *(2026-10-14, #364 — the rule and the sum shared in `TaxRates`; new rates without the amounts they strip are a 422; the setting row archived, `down()` restores it)*
       - [ ] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.
 
 ## Shell revisions — owner-directed

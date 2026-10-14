@@ -108,6 +108,7 @@ import {
 } from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
 import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
+import { MAX_TAXES } from '@/domain/taxRates';
 import { useAuth } from '@/stores/auth';
 import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { displayTimestamp } from '@/domain/displayDate';
@@ -121,9 +122,6 @@ const { hasPermission } = useAuth();
 const MAX_SUPPLIERS = 10;
 
 const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'quotation_date', 'valid_until'] as const;
-
-/** D-118: up to five rates, summed on one base by the server. */
-const MAX_TAXES = 5;
 
 type HeaderField = (typeof HEADER_FIELDS)[number];
 

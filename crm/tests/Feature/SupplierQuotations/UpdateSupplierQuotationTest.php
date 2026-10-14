@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\SupplierQuotations;
 
-use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
-use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
@@ -15,6 +12,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 use Tests\TestCase;
@@ -209,51 +207,95 @@ final class UpdateSupplierQuotationTest extends TestCase
             ->count(), 'DB-11: the original line was removed by an edit that failed.');
     }
 
-    // ─────────────────────────────────────── D-105: an offer entered tax-inclusive
+    // ─────────────────────────────── D-105, D-118: an offer entered tax-inclusive
 
-    /**
-     * D-105: "a later change to the setting never alters a saved offer", and
-     * the edit sends the amounts as entered, so it never strips twice.
-     */
-    public function test_that_an_edit_strips_with_the_captured_rate_not_the_current_setting(): void
+    /** D-118: an edit that types new rates strips by their sum, from the amounts as entered — never twice. */
+    public function test_that_an_edit_strips_with_the_rates_it_types(): void
     {
-        $settings = app(SettingsRepositoryInterface::class);
-        $settings->put(SystemSetting::DefaultTaxPercent, '14');
         $offer = $this->create($this->taxInclusive());
 
-        // `put()` writes underneath `PRF-08`'s cache; the Admin use case that
-        // backs the settings screen is what forgets it, so this test does too.
-        $settings->put(SystemSetting::DefaultTaxPercent, '15');
-        app(SettingsCacheInterface::class)->forgetSettings();
-        $this->update($offer->id, $this->taxInclusive());
+        $this->update($offer->id, array_merge($this->taxInclusive(), ['included_tax_percents' => ['10', '4']]));
 
         $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
 
         self::assertNotNull($header);
-        self::assertSame('14.000', $header->included_tax_percent, 'D-105: the captured rate moved with the setting.');
-        self::assertSame('1000.000000', $header->total_price, 'D-105: stripped twice, or with the new rate.');
+        self::assertSame('["10.000", "4.000"]', $header->included_tax_percents);
+        self::assertSame('14.000', $header->included_tax_percent);
+        self::assertSame('1000.000000', $header->total_price, 'D-118: stripped twice, or by a single rate.');
         self::assertSame('100.000000', $this->liveLine($offer->id)->unit_price);
     }
 
-    /** An offer flagged on an edit captures the rate in force at that save. */
-    public function test_that_flagging_an_offer_on_edit_captures_the_current_rate(): void
+    /** An edit of a flagged offer that types no rates keeps the ones captured on it (D-105's captured rate). */
+    public function test_that_an_edit_without_rates_keeps_the_captured_ones(): void
+    {
+        $offer = $this->create(array_merge($this->taxInclusive(), ['included_tax_percents' => ['10', '4']]));
+
+        $edit = $this->taxInclusive();
+        unset($edit['included_tax_percents']);
+        $this->update($offer->id, $edit);
+
+        $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
+
+        self::assertNotNull($header);
+        self::assertSame('["10.000", "4.000"]', $header->included_tax_percents);
+        self::assertSame('1000.000000', $header->total_price);
+    }
+
+    /** An offer flagged on an edit is stripped by the rates that edit types. */
+    public function test_that_flagging_an_offer_on_edit_takes_the_typed_rates(): void
     {
         $offer = $this->create();
 
-        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
         $this->update($offer->id, $this->taxInclusive());
 
         self::assertSame('14.000', DB::table('supplier_quotations')->where('id', $offer->id)->value('included_tax_percent'));
         self::assertSame('100.000000', $this->liveLine($offer->id)->unit_price);
     }
 
-    /** Unflagging returns the offer to D-62: taken as recorded, no rate and no entered amounts. */
-    public function test_that_unflagging_an_offer_on_edit_takes_it_as_recorded(): void
+    /** D-118: flagging on an edit with no rates typed is refused on the list — there is no setting to fall back to. */
+    public function test_that_flagging_an_offer_on_edit_without_rates_is_refused(): void
     {
-        app(SettingsRepositoryInterface::class)->put(SystemSetting::DefaultTaxPercent, '14');
+        $offer = $this->create();
+
+        $edit = $this->taxInclusive();
+        unset($edit['included_tax_percents']);
+
+        try {
+            $this->update($offer->id, $edit);
+            self::fail('A flagged offer with no rate was saved.');
+        } catch (ValidationException $refused) {
+            self::assertArrayHasKey('included_tax_percents', $refused->errors());
+        }
+
+        self::assertFalse(DB::table('supplier_quotations')->where('id', $offer->id)->value('prices_include_tax'));
+    }
+
+    /**
+     * Pricing review, F-48 · 2: rates sent without the amounts they strip would
+     * store a new sum beside prices stripped at the old one. Refused instead.
+     */
+    public function test_that_new_rates_without_the_amounts_are_refused(): void
+    {
         $offer = $this->create($this->taxInclusive());
 
-        $this->update($offer->id, array_merge($this->taxInclusive(), ['prices_include_tax' => false]));
+        try {
+            $this->update($offer->id, ['included_tax_percents' => ['5']]);
+            self::fail('Rates were changed without the amounts they strip.');
+        } catch (ValidationException $refused) {
+            self::assertArrayHasKey('included_tax_percents', $refused->errors());
+        }
+
+        self::assertSame('14.000', DB::table('supplier_quotations')->where('id', $offer->id)->value('included_tax_percent'));
+    }
+
+    /** Unflagging returns the offer to D-62: taken as recorded, no rates and no entered amounts. */
+    public function test_that_unflagging_an_offer_on_edit_takes_it_as_recorded(): void
+    {
+        $offer = $this->create($this->taxInclusive());
+
+        $edit = array_merge($this->taxInclusive(), ['prices_include_tax' => false]);
+        unset($edit['included_tax_percents']);
+        $this->update($offer->id, $edit);
 
         $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
         $line = $this->liveLine($offer->id);
@@ -261,6 +303,7 @@ final class UpdateSupplierQuotationTest extends TestCase
         self::assertNotNull($header);
         self::assertFalse($header->prices_include_tax);
         self::assertNull($header->included_tax_percent);
+        self::assertSame('[]', $header->included_tax_percents);
         self::assertNull($header->entered_total_price);
         self::assertSame('1140.000000', $header->total_price);
         self::assertSame('114.000000', $line->unit_price);
@@ -269,12 +312,13 @@ final class UpdateSupplierQuotationTest extends TestCase
 
     // ───────────────────────────────────────────────────────────────── helpers
 
-    /** @return array<string, mixed> 114 a unit, 1140 in all, entered tax-inclusive. */
+    /** @return array<string, mixed> 114 a unit, 1140 in all, entered tax-inclusive at 14 %. */
     private function taxInclusive(): array
     {
         return [
             'supplier_id' => $this->supplierId,
             'prices_include_tax' => true,
+            'included_tax_percents' => ['14'],
             'total_price' => '1140',
             'currency_id' => $this->currencyId,
             'items' => [

@@ -66,7 +66,8 @@ import { listSuppliers, readSupplier, type Supplier } from '@/services/suppliers
 import { listDeals, type DealListQuery, type DealRow } from '@/services/deals';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
-import { displayDecimals, displayQuantity } from '@/domain/displayDecimals';
+import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
+import { MAX_TAXES } from '@/domain/taxRates';
 import CatalogItemPicker from '@/components/catalog/CatalogItemPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -98,6 +99,11 @@ function blank(): Values {
 }
 
 const values = ref<Values>(blank());
+
+/** D-118: the rates typed beside the flag, as the builder's. */
+const taxes = ref<string[]>(['']);
+const openedTaxes = ref('[""]');
+const taxError = ref<string | null>(null);
 
 /** What the form was opened with. The dirty check is against this, not against blank. */
 const opened = ref<Values>(blank());
@@ -226,7 +232,8 @@ const totalNet = computed(() => {
 });
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
-    || JSON.stringify(lines.value) !== openedLines.value);
+    || JSON.stringify(lines.value) !== openedLines.value
+    || JSON.stringify(taxes.value) !== openedTaxes.value);
 
 function lineTestId(index: number, suffix: string): string {
     return `supplier-quotation-line-${index}-${suffix}`;
@@ -272,7 +279,8 @@ function errorId(field: Field): string | undefined {
 }
 
 /** A-11: how many fields the last save was refused on, said once at the top. */
-const invalidCount = computed(() => FIELDS.filter((field) => errorFor(field) !== null).length + lineErrors.value.size);
+const invalidCount = computed(() => FIELDS.filter((field) => errorFor(field) !== null).length + lineErrors.value.size
+    + (taxError.value === null ? 0 : 1));
 
 /** The server's sentence when it sent one for this field, otherwise ours. */
 function errorFor(field: Field): string | null {
@@ -375,6 +383,11 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
         next.currency_id = record.currency_id ?? '';
     }
 
+    taxes.value = record !== null && record.included_tax_percents.length > 0
+        ? record.included_tax_percents.map((rate) => displayPercent(rate) ?? rate)
+        : [''];
+    openedTaxes.value = JSON.stringify(taxes.value);
+    taxError.value = null;
     values.value = { ...next };
     opened.value = { ...next };
     errorKeys.value = {};
@@ -472,6 +485,7 @@ function applyServerErrors(error: unknown): void {
     if (!(error instanceof ApiError)) {
         errorKeys.value = { _form: 'supplierQuotations.form.unreachable' };
         serverErrors.value = {};
+        taxError.value = null;
 
         return;
     }
@@ -503,7 +517,12 @@ function applyServerErrors(error: unknown): void {
 
     lineErrors.value = lineSentences;
 
-    errorKeys.value = Object.keys(sentences).length === 0 && lineSentences.size === 0
+    // D-118: the list's own refusal, or the first rate's.
+    taxError.value = error.messageFor('included_tax_percents')
+        ?? taxes.value.map((_, i) => error.messageFor(`included_tax_percents.${i}`)).find((message) => message !== null)
+        ?? null;
+
+    errorKeys.value = Object.keys(sentences).length === 0 && lineSentences.size === 0 && taxError.value === null
         ? { _form: error.status === 403 ? 'supplierQuotations.form.forbidden' : 'supplierQuotations.form.rejected' }
         : {};
 
@@ -549,6 +568,10 @@ function draft(): SupplierQuotationDraft {
         // Always named, with every amount beside it: a bare flag would leave
         // the stored amounts meaning something else (F-39 · 1.3's debt row).
         prices_include_tax: current.prices_include_tax,
+        // D-118: the rates go only with the flag; the server sums and strips them.
+        ...(current.prices_include_tax
+            ? { included_tax_percents: taxes.value.map((rate) => rate.trim()).filter((rate) => rate !== '') }
+            : {}),
     };
 
     // The whole reason `linesState` exists. `items: []` from an editor that
@@ -566,6 +589,7 @@ async function save(): Promise<void> {
 
     saving.value = true;
     serverErrors.value = {};
+    taxError.value = null;
     lineErrors.value = new Map();
 
     try {
@@ -841,6 +865,30 @@ function discard(): void {
                 >
                     {{ errorFor('prices_include_tax') }}
                 </span>
+                <!-- D-118: the rates it strips, typed by hand, «+» for another (the builder's list). -->
+                <div v-if="values.prices_include_tax" class="flex flex-col gap-1.5" role="group" aria-labelledby="supplier-quotation-form-tax-label">
+                    <span id="supplier-quotation-form-tax-label">{{ t('quotations.builder.tax_percent') }}</span>
+                    <div v-for="(_, i) in taxes" :key="i" class="flex gap-2">
+                        <input
+                            :id="`supplier-quotation-form-tax-${i}`"
+                            v-model="taxes[i]"
+                            type="text"
+                            inputmode="decimal"
+                            autocomplete="off"
+                            :disabled="saving"
+                            :aria-label="t('quotations.builder.taxNo', { no: i + 1 })"
+                            :aria-invalid="taxError !== null"
+                            :aria-describedby="taxError === null ? undefined : 'supplier-quotation-form-tax-error'"
+                            class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2 tabular-nums"
+                            :data-testid="`supplier-quotation-form-tax-${i}`"
+                        />
+                        <button v-if="taxes.length > 1" type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTaxNo', { no: i + 1 })" :data-testid="`supplier-quotation-form-tax-${i}-remove`" @click="taxes.splice(i, 1)">
+                            {{ t('quotations.builder.removeItem') }}
+                        </button>
+                    </div>
+                    <button v-if="taxes.length < MAX_TAXES" type="button" class="row-action min-h-11 min-w-11 self-start rounded-lg px-3" :aria-label="t('quotations.builder.addTax')" data-testid="supplier-quotation-form-add-tax" @click="taxes.push('')">+</button>
+                    <span v-if="taxError !== null" id="supplier-quotation-form-tax-error" class="text-[var(--color-danger)]" data-testid="supplier-quotation-form-tax-error">{{ taxError }}</span>
+                </div>
             </div>
 
             <!-- §7.2's total and currency — one pair; the server says when one

@@ -164,7 +164,7 @@ onMounted(load);
                 <span v-else-if="document.scan_status === 'infected'" class="text-[var(--color-danger)]">
                     {{ t('deals.documents.scanInfected') }}
                 </span>
-                <template v-else>
+                <div v-else class="ms-auto flex flex-wrap gap-2">
                     <button
                         v-if="VIEWABLE_TYPES.includes(document.mime_type)"
                         type="button"
@@ -183,7 +183,7 @@ onMounted(load);
                     >
                         {{ t('deals.documents.download') }}
                     </button>
-                </template>
+                </div>
             </li>
         </ul>
         <FileViewerDialog :file="viewing" @close="viewing = null" />

@@ -48,6 +48,8 @@ export interface SupplierQuotation {
     notes: string | null;
     /** D-105: when true, `total_price` is the net and `entered_total_price` what was typed. */
     prices_include_tax: boolean;
+    /** D-118: the rates as typed; `included_tax_percent` is their sum. */
+    included_tax_percents: string[];
     included_tax_percent: string | null;
     entered_total_price: string | null;
 }
@@ -123,6 +125,7 @@ export interface SupplierQuotationDraft {
     notes?: string | null;
     /** D-105: the amounts below are sent as typed; the server strips the tax. */
     prices_include_tax?: boolean;
+    included_tax_percents?: string[];
     items?: SupplierQuotationLineDraft[];
 }
 

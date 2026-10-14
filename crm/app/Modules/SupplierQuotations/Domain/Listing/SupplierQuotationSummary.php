@@ -30,6 +30,8 @@ final readonly class SupplierQuotationSummary
         public ?string $validUntil,
         public ?string $notes,
         public bool $pricesIncludeTax,
+        /** @var list<string> `D-118`: the rates as typed; `includedTaxPercent` is their sum. */
+        public array $includedTaxPercents,
         public ?string $includedTaxPercent,
         public ?string $enteredTotalPrice,
     ) {}

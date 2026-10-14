@@ -37,7 +37,6 @@ return [
             'company_phones' => 'phone numbers',
             'company_email' => 'company e-mail',
             'defaults_currency' => 'default currency',
-            'defaults_tax_percent' => 'default tax',
             'locale_language' => 'language',
             'locale_timezone' => 'time zone',
             'locale_date_format' => 'date format',

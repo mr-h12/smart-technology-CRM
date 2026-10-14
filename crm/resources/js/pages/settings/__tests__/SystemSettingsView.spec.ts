@@ -466,7 +466,7 @@ describe('SystemSettingsView', () => {
 
         const fields = view.findAll('[data-setting-key]');
 
-        expect(fields).toHaveLength(9);
+        expect(fields).toHaveLength(8);
 
         const hints: Record<string, string> = en.settings.hint;
 

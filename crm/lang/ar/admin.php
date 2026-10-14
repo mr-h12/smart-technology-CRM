@@ -32,7 +32,6 @@ return [
             'company_phones' => 'أرقام الهاتف',
             'company_email' => 'البريد الإلكتروني للشركة',
             'defaults_currency' => 'العملة الافتراضيّة',
-            'defaults_tax_percent' => 'الضريبة الافتراضيّة',
             'locale_language' => 'اللغة',
             'locale_timezone' => 'المنطقة الزمنيّة',
             'locale_date_format' => 'صيغة التاريخ',

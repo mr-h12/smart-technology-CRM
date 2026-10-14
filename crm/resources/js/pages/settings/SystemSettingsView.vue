@@ -45,12 +45,8 @@
  * a 403 renders {@link PermissionDeniedState} because the request came back
  * refused, not because this component decided anything.
  *
- * ── `DB-07` reaches the screen ─────────────────────────────────────────────
- *
- * `defaults.tax_percent` is a decimal **string** end to end. Every input here is
- * `type="text"` — a `type="number"` binds to a JavaScript number, and a
- * JavaScript number is a float. `inputmode="decimal"` gets the phone keypad
- * without the type conversion.
+ * Every field here is text: `defaults.tax_percent`, the one number, left with
+ * `D-118` (F-48 · 2) — a quotation's and a supplier offer's rates are typed on them.
  *
  * ── Only what changed is sent ──────────────────────────────────────────────
  *
@@ -63,7 +59,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
-import { displayPercent } from '@/domain/displayDecimals';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
@@ -100,12 +95,6 @@ const saveError = ref<string | null>(null);
 /** Keyed by setting key — the server's sentence for that field (§5.1). */
 const fieldErrors = ref<Record<string, string>>({});
 
-/**
- * `type="text"` on all of them, `DB-07`. The distinction below is the keypad a
- * phone offers, not the type the value travels as.
- */
-const NUMERIC_KEYS = new Set(['defaults.tax_percent']);
-
 // ── S-02.2 / S-02.3: assisted input ────────────────────────────────────────
 //
 // One `<select>` and four suggestion lists, and the split is not cosmetic.
@@ -115,8 +104,8 @@ const NUMERIC_KEYS = new Set(['defaults.tax_percent']);
 // in, so `locale.language` is a real choice between two known values.
 //
 // **Everything else stays typeable**, because nothing closes those sets — the
-// server least of all: `SystemSetting::rule()` is `numeric` for the tax and
-// `string` for the rest, so the API accepts any value. A `<select>` there would
+// server least of all: `SystemSetting::rule()` is `string` (an address for the
+// e-mail), so the API accepts any value. A `<select>` there would
 // be the client inventing a constraint the product has not made, and worse, a
 // stored value outside the list would vanish from the control that is supposed
 // to be showing it. `<datalist>` gives the dropdown without the lie: Safari
@@ -132,16 +121,10 @@ const LANGUAGES = [
  * Suggestions, not rules. Owner decision of 2026-08-29: *suggest, and keep it
  * typeable*.
  *
- * `defaults.tax_percent` offers `14` because `D-105` makes it the documented
- * default — seeded since F-39 · 1.3, the rate a tax-inclusive supplier offer
- * is stripped at — and `0` because an exempt default is the other end of it
- * (`D-63`).
- *
  * `locale.date_format` offers three PHP format strings. No document names one;
  * these are spellings, not business values, and the field accepts any string.
  */
 const DATE_FORMATS = ['d/m/Y', 'Y-m-d', 'd-m-Y'];
-const TAX_SUGGESTIONS = ['0', '14'];
 
 /**
  * The IANA zone list, from the platform rather than from a list written here.
@@ -198,10 +181,6 @@ function suggestionsFor(key: string): string[] {
         return DATE_FORMATS;
     }
 
-    if (key === 'defaults.tax_percent') {
-        return TAX_SUGGESTIONS;
-    }
-
     return [];
 }
 
@@ -222,17 +201,14 @@ const changed = computed(() => {
 });
 
 function adopt(fromServer: SystemSettings): void {
-    // D-112: the default tax is offered without its trailing zeros, and stored
-    // the same way here so leaving it alone is not an edit.
-    const settings: SystemSettings = { ...fromServer, 'defaults.tax_percent': displayPercent(fromServer['defaults.tax_percent'] ?? null) };
-    stored.value = settings;
+    stored.value = fromServer;
 
     const next: Record<string, string> = {};
 
     for (const key of SETTING_KEYS) {
         // Null is "never set" and renders as an empty control — never as the
         // word "null", which is what a template interpolation would print.
-        next[key] = settings[key] ?? '';
+        next[key] = fromServer[key] ?? '';
     }
 
     draft.value = next;
@@ -386,15 +362,12 @@ onMounted(async () => {
                         >{{ t(language.labelKey) }}</option>
                     </select>
 
-                    <!-- type="text" on every one of them: DB-07. A number input
-                         binds to a JavaScript float, which is the one thing a
-                         tax percentage may never become. `list` turns the same
-                         control into a dropdown without closing the set. -->
+                    <!-- `list` turns the text control into a dropdown without
+                         closing the set. -->
                     <input
                         v-else
                         v-model="draft[key]"
                         type="text"
-                        :inputmode="NUMERIC_KEYS.has(key) ? 'decimal' : undefined"
                         :list="suggestionsFor(key).length > 0 ? `options-${key}` : undefined"
                         :aria-invalid="fieldErrors[key] !== undefined"
                         :aria-describedby="describedBy(key)"

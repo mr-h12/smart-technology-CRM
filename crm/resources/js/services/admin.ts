@@ -11,8 +11,8 @@
  *
  * ── Every value is a string, and that is `DB-07` ───────────────────────────
  *
- * `defaults.tax_percent` is a percentage and `rounding_unit` is an amount; both
- * travel as decimal strings because a JavaScript number is a float, and a float
+ * `rounding_unit` is an amount; it travels as a decimal string because a
+ * JavaScript number is a float, and a float
  * is what `DB-07` forbids anywhere near money. The server sends strings and
  * this file never parses one — a screen that wants to compare two of them has
  * the same obligation.
@@ -52,7 +52,6 @@ export const SETTING_KEYS = [
     'company.phones',
     'company.email',
     'defaults.currency',
-    'defaults.tax_percent',
     'locale.language',
     'locale.timezone',
     'locale.date_format',

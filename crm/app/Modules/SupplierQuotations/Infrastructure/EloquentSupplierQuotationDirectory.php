@@ -310,6 +310,7 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
             validUntil: $row->valid_until,
             notes: $row->notes,
             pricesIncludeTax: $row->prices_include_tax,
+            includedTaxPercents: $row->included_tax_percents,
             includedTaxPercent: $row->included_tax_percent,
             enteredTotalPrice: $row->entered_total_price,
         );

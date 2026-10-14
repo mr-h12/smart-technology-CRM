@@ -4,41 +4,52 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Application\Writing;
 
-use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
+use App\Support\Database\Precision;
 use Illuminate\Validation\ValidationException;
 
 /**
- * `D-105`: the rate a tax-inclusive offer is stripped at — the system setting
- * `defaults.tax_percent` (`AP-08`). "Saving with the flag on while the setting
- * is empty is refused with a validation error", on `prices_include_tax`,
- * `PricedLinesNeedCurrency`'s shape.
+ * `D-118` (amending `D-105`): the rates a tax-inclusive offer is stripped by —
+ * typed on the offer, never a system setting. The boundary checks each rate
+ * (`TaxRates`); only here are the flag and the stored rates both known, so the
+ * pairing is checked here, on `PricedLinesNeedCurrency`'s shape.
  */
 final readonly class IncludedTaxRate
 {
-    /** A percent that fits `included_tax_percent`, NUMERIC(6,3), and divides: no sign, no exponent. */
-    private const PERCENT = '/^\d{1,3}(\.\d{1,3})?$/D';
-
     /** The amounts a flagged offer divides — `DB-07`: decimal text or an integer, never a float. */
     private const AMOUNT = '/^\d+(\.\d+)?$/D';
 
-    public function __construct(private SettingsRepositoryInterface $settings) {}
-
-    /** @return numeric-string */
-    public function current(): string
+    /**
+     * The rates this save leaves on the offer: the ones typed, else — on an
+     * edit that typed none — the ones already captured. None when unflagged.
+     *
+     * @param  array<string, mixed>  $validated
+     * @param  list<string>  $stored
+     * @return list<numeric-string>
+     */
+    public static function rates(bool $flagged, array $validated, array $stored): array
     {
-        $rate = $this->settings->all()[SystemSetting::DefaultTaxPercent->value] ?? null;
+        $typed = $validated['included_tax_percents'] ?? null;
 
-        // A stored value that is no percent is treated as no setting at all:
-        // `-100` would divide by zero, and `1e2` is not decimal text.
-        if (! is_string($rate) || preg_match(self::PERCENT, $rate) !== 1 || ! is_numeric($rate)) {
-            throw ValidationException::withMessages([
-                'prices_include_tax' => __('supplier_quotations.errors.no_tax_rate'),
-            ]);
+        if (! $flagged) {
+            if (is_array($typed) && $typed !== []) {
+                throw ValidationException::withMessages(['included_tax_percents' => __('supplier_quotations.errors.rates_need_flag')]);
+            }
+
+            return [];
         }
 
-        return $rate;
+        $rates = array_map(
+            static fn (mixed $rate): string => bcadd(Decimal::of(is_string($rate) ? $rate : '', 'included_tax_percents'), '0', Precision::PERCENT_SCALE),
+            array_values(is_array($typed) ? $typed : $stored),
+        );
+
+        if ($rates === []) {
+            throw ValidationException::withMessages(['included_tax_percents' => __('supplier_quotations.errors.no_tax_rate')]);
+        }
+
+        return $rates;
     }
 
     /**

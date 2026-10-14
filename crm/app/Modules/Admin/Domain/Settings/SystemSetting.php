@@ -24,10 +24,9 @@ namespace App\Modules\Admin\Domain\Settings;
  *
  * Both are owed, and named in `CHECKLIST.md` rather than quietly dropped.
  *
- * **The types are read, not invented.** `default tax` is a percentage because
- * §5.2 computes `tax_base × tax_percent / 100`; everything else §13 names is
- * text on a form. `DB-07` is why the percentage travels as a decimal string and
- * never as a float.
+ * **The types are read, not invented.** Everything §13 names here is text on
+ * a form. `default tax`, the one percentage, left with `D-118` (F-48 · 2): a
+ * quotation's and a supplier offer's rates are typed on them.
  */
 enum SystemSetting: string
 {
@@ -45,9 +44,6 @@ enum SystemSetting: string
 
     /** §13/4 "default currency". §5.3's three are the values; the row holds the code. */
     case DefaultCurrency = 'defaults.currency';
-
-    /** §13/4 "default tax". `D-63` lets a quotation override it and a customer be exempt. */
-    case DefaultTaxPercent = 'defaults.tax_percent';
 
     /** §13/4 "language". `§14.2`'s two, and what `SetLocaleFromRequest` falls back to. */
     case Language = 'locale.language';
@@ -68,23 +64,15 @@ enum SystemSetting: string
      */
     public function valueType(): string
     {
-        return match ($this) {
-            self::DefaultTaxPercent => 'decimal',
-            default => 'string',
-        };
+        return 'string';
     }
 
     /**
      * The validation rule the boundary applies, beyond "is a string".
-     *
-     * `numeric` and not `decimal:` — the value arrives as a string and stays
-     * one (`DB-07`), so what is checked is that it *reads* as a number, not
-     * that PHP can turn it into a float.
      */
     public function rule(): string
     {
         return match ($this) {
-            self::DefaultTaxPercent => 'numeric',
             self::CompanyEmail => 'email',
             default => 'string',
         };

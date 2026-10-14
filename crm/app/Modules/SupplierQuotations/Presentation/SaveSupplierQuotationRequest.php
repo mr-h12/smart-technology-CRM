@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Presentation;
 
+use App\Support\Http\TaxRates;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
@@ -80,8 +81,12 @@ final class SaveSupplierQuotationRequest extends FormRequest
             // Both `required_with`s together are what makes the pair symmetric.
             'currency_id' => ['nullable', 'uuid', 'required_with:total_price', $this->alive('currencies')],
 
-            // `D-105`: one flag for the whole offer, off unless sent.
+            // `D-105`: one flag for the whole offer, off unless sent. `D-118`: the
+            // rates it strips are typed beside it, on the quotation's bounds; the
+            // pairing with the flag is `IncludedTaxRate`'s, which knows the stored one.
             'prices_include_tax' => ['sometimes', 'boolean'],
+            'included_tax_percents' => TaxRates::listRules(),
+            'included_tax_percents.*' => TaxRates::rateRules(),
 
             'offer_date' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date'],
@@ -128,6 +133,21 @@ final class SaveSupplierQuotationRequest extends FormRequest
             ],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+        ];
+    }
+
+    /**
+     * `D-118`'s two rate fields only: shown under the rates on the form, where
+     * `included_tax_percents.0` would read as a path. The module's other fields
+     * keep their wire names (the debt row on `items.*`).
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'included_tax_percents' => (string) __('supplier_quotations.attributes.included_tax_percents'),
+            'included_tax_percents.*' => (string) __('supplier_quotations.attributes.included_tax_percent_item'),
         ];
     }
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\SupplierQuotations\Application\Writing;
 
-use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierQuotationDirectoryInterface;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
+use App\Support\Http\TaxRates;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -56,7 +56,6 @@ final readonly class UpdateSupplierQuotation
         private ResolveLineProducts $products,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
-        private IncludedTaxRate $taxRate,
     ) {}
 
     /**
@@ -69,7 +68,7 @@ final readonly class UpdateSupplierQuotation
         $draft = SupplierQuotationDraft::forUpdate($validated);
         $flag = array_key_exists('prices_include_tax', $validated) ? filter_var($validated['prices_include_tax'], FILTER_VALIDATE_BOOLEAN) : null;
 
-        return $this->connection->transaction(function () use ($quotationId, $draft, $flag, $actorId): SupplierQuotationSummary {
+        return $this->connection->transaction(function () use ($quotationId, $validated, $draft, $flag, $actorId): SupplierQuotationSummary {
             // Read inside the transaction: `AUD-02`'s old values must be the
             // ones this write actually replaced, not the ones an earlier read
             // happened to see.
@@ -89,21 +88,17 @@ final readonly class UpdateSupplierQuotation
                 $draft = $draft->withItems($this->products->resolve($draft->items, $actorId));
             }
 
-            // `D-105` on an edit that touches the flag or an amount: the rate
-            // captured when the offer was flagged, never the current setting,
-            // which is read only when the offer becomes flagged on this save.
-            if ($flag !== null || array_key_exists('total_price', $draft->attributes) || $draft->items !== null) {
-                $rate = match (true) {
-                    ! ($flag ?? $before->header->pricesIncludeTax) => null,
-                    $before->header->includedTaxPercent !== null => Decimal::of($before->header->includedTaxPercent, 'included_tax_percent'),
-                    default => $this->taxRate->current(),
-                };
+            // `D-118` on an edit that touches the flag, the rates or an amount:
+            // the rates it types, else the ones captured on the offer.
+            if ($flag !== null || array_key_exists('included_tax_percents', $validated)
+                || array_key_exists('total_price', $draft->attributes) || $draft->items !== null) {
+                $rates = IncludedTaxRate::rates($flag ?? $before->header->pricesIncludeTax, $validated, $before->header->includedTaxPercents);
 
-                if ($rate !== null) {
+                if ($rates !== []) {
                     IncludedTaxRate::checkEntered($draft);
                 }
 
-                $draft = $draft->withIncludedTax($rate);
+                $draft = $draft->withIncludedTax($rates, TaxRates::sum($rates));
             }
 
             // §5.6 on the offer this edit leaves behind: the header field the
@@ -158,6 +153,7 @@ final readonly class UpdateSupplierQuotation
             'valid_until' => $before->validUntil,
             'notes' => $before->notes,
             'prices_include_tax' => $before->pricesIncludeTax,
+            'included_tax_percents' => $before->includedTaxPercents,
             'included_tax_percent' => $before->includedTaxPercent,
             'entered_total_price' => $before->enteredTotalPrice,
         ];

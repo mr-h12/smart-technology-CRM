@@ -144,7 +144,8 @@ final readonly class SupplierQuotationDraft
 
     /**
      * `D-105`: a copy whose prices are read as tax-inclusive at `$rate`, or —
-     * `null` — taken as recorded (`D-62`).
+     * `null` — taken as recorded (`D-62`). `D-118`: `$rate` is the sum of the
+     * `$rates` typed on the offer, kept beside it as entered.
      *
      * With a rate, `total_price` and every line's `unit_price` become the net,
      * `entered ÷ (1 + rate / 100)`, truncated at money scale as `PricedLine`
@@ -159,11 +160,17 @@ final readonly class SupplierQuotationDraft
      * The form always resends both (F-39 · 1.4); refuse the bare toggle if a
      * caller other than the form ever sends one.
      *
+     * @param  list<numeric-string>  $rates  none when `$rate` is null
      * @param  numeric-string|null  $rate
      */
-    public function withIncludedTax(?string $rate): self
+    public function withIncludedTax(array $rates, ?string $rate): self
     {
-        $attributes = [...$this->attributes, 'prices_include_tax' => $rate !== null, 'included_tax_percent' => $rate];
+        $attributes = [
+            ...$this->attributes,
+            'prices_include_tax' => $rate !== null,
+            'included_tax_percents' => $rates,
+            'included_tax_percent' => $rate,
+        ];
 
         if ($rate === null) {
             $attributes['entered_total_price'] = null;

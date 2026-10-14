@@ -4684,7 +4684,8 @@ built in Module 1's Step 5 and are used by every module after it.
       words. ⚠️ **The FX rate hint deliberately does not say which way the multiplier goes** —
       `ExchangeRate` calls it *"the multiplier that reaches every line of every converted
       quotation"* and no document says whether `from → to` multiplies or divides. Nothing converts
-      anything yet (Module 7), so the sentence describes the field and stops. **Owner question.**
+      anything yet (Module 7), so the sentence describes the field and stops. **Owner question** — *answered by
+      `D-115` (2026-10-14, F-46): `from → to = r` means 1 `from` = r `to`; it multiplies one way and divides the other.*
       **321 frontend tests · 1330 backend · three deliberate breaks:** the hint keys pointed one
       letter off · the association helper returning the error id alone · one rate hint dropped.
       ⚠️ **Break 1 caught a weak assertion of mine, again the same shape as the last one.** The loop

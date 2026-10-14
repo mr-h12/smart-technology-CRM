@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Modules\Admin\Domain\Money\ExchangeRate;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Support\Database\Precision;
 use PHPUnit\Framework\TestCase;
@@ -27,8 +29,7 @@ final class PricedLineTest extends TestCase
     {
         // Acceptance row 1, and `D-04` itself.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: null,
             defaultMargin: '20.000',
             quantity: '1',
@@ -43,8 +44,7 @@ final class PricedLineTest extends TestCase
         // Acceptance row 2, as `D-106` amends it: the line margin is an extra
         // on top of the quotation's, summed and applied once — 20 + 10 → 30%.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: '10.000',
             defaultMargin: '20.000',
             quantity: '1',
@@ -60,8 +60,7 @@ final class PricedLineTest extends TestCase
         // cannot reach this calculation because the number arrives as an
         // argument, not as a lookup.
         $line = PricedLine::from(
-            unitCost: '100',
-            fxRateAtTime: '48.50000000',
+            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48.5')->convert('100', PricedLine::SCALE),
             marginPercent: null,
             defaultMargin: '20.000',
             quantity: '2',
@@ -78,8 +77,7 @@ final class PricedLineTest extends TestCase
     public function test_an_absent_line_margin_inherits_the_quotation_margin(): void
     {
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: null,
             defaultMargin: '20.000',
             quantity: '1',
@@ -92,8 +90,7 @@ final class PricedLineTest extends TestCase
     {
         // `D-106`: an extra of 0 is no extra — the quotation margin alone.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: '0',
             defaultMargin: '20.000',
             quantity: '1',
@@ -107,8 +104,7 @@ final class PricedLineTest extends TestCase
         // The owner's ruling of 2026-10-09 under `D-106`: selling one line at
         // cost is a line margin of minus the quotation margin.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: '-20.000',
             defaultMargin: '20.000',
             quantity: '1',
@@ -121,8 +117,7 @@ final class PricedLineTest extends TestCase
     {
         // The request's floor (`D-106`) stops exactly here: `unit_price >= 0`.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: '-120.000',
             defaultMargin: '20.000',
             quantity: '1',
@@ -146,8 +141,7 @@ final class PricedLineTest extends TestCase
         // purpose, while `unit_price >= 0` still binds. The engine must not
         // invent a refusal the schema declined to make.
         $line = PricedLine::from(
-            unitCost: '1000',
-            fxRateAtTime: '1',
+            unitCostBase: '1000',
             marginPercent: '-30.000',
             defaultMargin: '20.000',
             quantity: '1',
@@ -164,8 +158,7 @@ final class PricedLineTest extends TestCase
         // `quantity` is NUMERIC(14,4), a different scale from money, and both
         // products are taken against the already-quantized unit values.
         $line = PricedLine::from(
-            unitCost: '10.5',
-            fxRateAtTime: '1',
+            unitCostBase: '10.5',
             marginPercent: '10.000',
             defaultMargin: '20.000',
             quantity: '2.5000',
@@ -186,8 +179,7 @@ final class PricedLineTest extends TestCase
         // half-up; the owner's ruling of 2026-09-07 pins truncation, so the
         // engine must reach scale 6 itself rather than letting the column do it.
         $line = PricedLine::from(
-            unitCost: '1',
-            fxRateAtTime: '1.23456789',
+            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '1.23456789')->convert('1', PricedLine::SCALE),
             marginPercent: '0',
             defaultMargin: '20.000',
             quantity: '1',

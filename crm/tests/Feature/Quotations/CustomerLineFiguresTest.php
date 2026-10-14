@@ -71,7 +71,7 @@ final class CustomerLineFiguresTest extends TestCase
 
         $row = QuotationTotals::from(
             array_map(static fn (string $amount): PricedLine => PricedLine::from(
-                unitCost: $amount, fxRateAtTime: '1', marginPercent: '0', defaultMargin: '0', quantity: '1',
+                unitCostBase: $amount, marginPercent: '0', defaultMargin: '0', quantity: '1',
             ), $lines),
             [],
             '0',

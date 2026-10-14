@@ -124,21 +124,26 @@ final readonly class EloquentFxRateRepository implements FxRateRepositoryInterfa
             return null;
         }
 
-        // `fx_rates_pair_recent` (Point 1.2) is this query: the pair, newest
-        // effective_from first, capped at the moment. `SoftDeletes` drops a
-        // withdrawn rate without a `where` of its own.
+        // `D-115`: the pair in either direction, newest effective_from first,
+        // capped at the moment — each direction is `fx_rates_pair_recent`
+        // (Point 1.2). `SoftDeletes` drops a withdrawn rate without a `where`
+        // of its own. `created_at` breaks a tie between the two directions.
         $row = FxRateRow::query()
-            ->where('from_currency_id', $fromId)
-            ->where('to_currency_id', $toId)
+            ->where(static fn ($q) => $q
+                ->where(static fn ($p) => $p->where('from_currency_id', $fromId)->where('to_currency_id', $toId))
+                ->orWhere(static fn ($p) => $p->where('from_currency_id', $toId)->where('to_currency_id', $fromId)))
             ->where('effective_from', '<=', $at)
             ->orderByDesc('effective_from')
+            ->orderByDesc('created_at')
             ->first();
 
         if (! $row instanceof FxRateRow) {
             return null;
         }
 
-        return ExchangeRate::of($from, $to, $row->rate);
+        return $row->from_currency_id === $fromId
+            ? ExchangeRate::of($from, $to, $row->rate)
+            : ExchangeRate::inverseOf(ExchangeRate::of($to, $from, $row->rate));
     }
 
     /** @return array<string, CurrencyCode> */

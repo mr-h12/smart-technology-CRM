@@ -44,10 +44,10 @@ interface FxRateRepositoryInterface
      * rule untouched. `§5.1`'s `fx_rate_at_time` and `D-09` are why the moment is
      * a parameter and not `now()`: a quotation captures the rate that was in
      * force when it was created, and a rate recorded to start later is not yet
-     * that rate. Only the exact directional pair is consulted; an inverse rate
-     * is never divided into one, because a rate is a number the business enters
-     * (§5.6) and inverting it at another scale would invent precision `D-68`
-     * did not record.
+     * that rate. `D-115`: the pair is read in both directions and the newest
+     * row wins; a row recorded the other way comes back as
+     * {@see ExchangeRate::inverseOf()}, which converts by dividing by the
+     * recorded number rather than multiplying by an inverse `D-68` never stored.
      */
     public function effectiveRate(CurrencyCode $from, CurrencyCode $to, DateTimeImmutable $at): ?ExchangeRate;
 }

@@ -4582,6 +4582,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
             *(2026-10-14, #354 — lang text only, «1 USD = 50 EGP» example; the Arabic example is an LTR isolate, U+2066…U+2069, or it reads "USD = 50 EGP 1")*
       - [ ] **3** The Arabic manual test list (closes F-46).
+- [ ] **F-47** An attached file opens inside the system without downloading it (`D-116`). Requested by the owner,
+      2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: an in-page viewer dialog;
+      PDF and images only — DOCX/XLSX stay download-only; started before F-46 · 3.
+      - [x] **1** `fetchFileUrl` + `VIEWABLE_TYPES` + `FileViewerDialog.vue` + lang + `D-116`, red first.
+            *(2026-10-14, #356 — the viewer fetches through the same permission-checked route as a download and revokes its object URL on close; no screen opens it until · 2)*
+      - [ ] **2** «عرض» in the four callers, per `mime_type`; vitest per caller and `rtl-ui-verifier`.
+      - [ ] **3** The Arabic manual test list (closes F-47).
 
 ## Shell revisions — owner-directed
 

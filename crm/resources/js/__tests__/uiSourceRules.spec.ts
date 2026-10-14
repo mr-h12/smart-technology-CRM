@@ -94,6 +94,7 @@ describe('UI source rules (F-42)', () => {
 
         const modals = SOURCES.filter(([path, text]) => path.endsWith('.vue') && /<dialog\b/.test(text)).map(([path]) => path);
         expect(modals.sort()).toEqual([
+            'components/FileViewerDialog.vue',
             'components/imports/ImportModal.vue',
             'components/profile/EmailChallengeModal.vue',
             'components/roles/PermissionDiffModal.vue',

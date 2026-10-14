@@ -21,14 +21,21 @@ import { apiDownload } from '@/api';
  */
 export const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx';
 
-export async function downloadFile(fileId: string, filename: string): Promise<void> {
-    const blob = await apiDownload(`/files/${fileId}/download`);
+/** D-116: what a browser draws in the viewer. DOCX/XLSX stay download-only. */
+export const VIEWABLE_TYPES: readonly string[] = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 
-    // The credential is a header, so the file arrives as bytes in memory rather
-    // than as a navigation. An object URL is what gives those bytes an address
-    // a save gesture can point at; it is revoked immediately, because it pins
-    // the blob in memory for the life of the document otherwise.
-    const url = URL.createObjectURL(blob);
+/**
+ * The credential is a header, so the file arrives as bytes in memory rather
+ * than as a navigation. An object URL is what gives those bytes an address; it
+ * pins the blob for the life of the document, so the caller revokes it.
+ */
+export async function fetchFileUrl(fileId: string): Promise<string> {
+    return URL.createObjectURL(await apiDownload(`/files/${fileId}/download`));
+}
+
+export async function downloadFile(fileId: string, filename: string): Promise<void> {
+    // Revoked as soon as the save gesture has it.
+    const url = await fetchFileUrl(fileId);
 
     try {
         const anchor = document.createElement('a');

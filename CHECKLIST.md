@@ -4579,7 +4579,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       additional items stay in the quotation currency.
       - [x] **1** Backend: the newest rate from either direction wins; the inverse divides by the recorded rate; `D-115`.
             *(2026-10-14, #353 — `ExchangeRate::convert()` is the one conversion; the inverse divides by the recorded rate, so 30000 EGP at 30 is 1000 USD exactly)*
-      - [ ] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
+      - [x] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
+            *(2026-10-14, #354 — lang text only, «1 USD = 50 EGP» example; the Arabic example is an LTR isolate, U+2066…U+2069, or it reads "USD = 50 EGP 1")*
       - [ ] **3** The Arabic manual test list (closes F-46).
 
 ## Shell revisions — owner-directed

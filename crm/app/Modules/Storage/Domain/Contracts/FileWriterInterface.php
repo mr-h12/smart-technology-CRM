@@ -31,4 +31,13 @@ interface FileWriterInterface
 
     /** One D-71 pivot row: `$fileId` now hangs from `$parent`/`$parentId`. */
     public function attach(AttachmentParent $parent, string $parentId, string $fileId): void;
+
+    /**
+     * D-117: soft-deletes `$fileId` (DB-01) when it hangs from `$parent`/`$parentId`
+     * and is not already removed. A removed file drops out of every read and
+     * download, because both already filter `files.deleted_at`.
+     *
+     * @return string|null the file's original name, for the audit entry; null when nothing was removed
+     */
+    public function remove(AttachmentParent $parent, string $parentId, string $fileId, string $actorId): ?string;
 }

@@ -7,6 +7,7 @@ namespace App\Modules\Quotations\Presentation;
 use App\Modules\Identity\Domain\Rbac\AuthorizationAttribute;
 use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Modules\Quotations\Application\Documents\AttachPurchaseOrderDocument;
+use App\Modules\Quotations\Application\Documents\RemovePurchaseOrderDocument;
 use App\Modules\Quotations\Application\Listing\ApprovalWaiting;
 use App\Modules\Quotations\Application\Listing\BadgeCounts;
 use App\Modules\Quotations\Application\Listing\ListQuotations;
@@ -224,6 +225,14 @@ final class QuotationController
             self::heldScopes($request),
             self::actorId($request),
         )), 201);
+    }
+
+    /** F-47 · 3 (D-117) — `204`: nothing to serialise once the file is gone. */
+    public function removePurchaseOrderDocument(Request $request, string $purchaseOrder, string $file, RemovePurchaseOrderDocument $documents): Response
+    {
+        $documents->handle($purchaseOrder, $file, self::heldScopes($request), self::actorId($request));
+
+        return response()->noContent();
     }
 
     /** Module 10 · 2.2 — `GET /purchase-orders/{id}`; the 404 and the scope are `ReadPurchaseOrders::one()`'s. */

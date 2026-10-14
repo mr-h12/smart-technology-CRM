@@ -216,6 +216,7 @@ GET    /api/v1/deals/{deal_id}
 PATCH  /api/v1/deals/{deal_id}
 GET    /api/v1/deals/{deal_id}/timeline
 POST   /api/v1/deals/{deal_id}/documents
+DELETE /api/v1/deals/{deal_id}/documents/{file_id}
 
 GET    /api/v1/quotations
 POST   /api/v1/quotations
@@ -225,6 +226,7 @@ PATCH  /api/v1/quotations/{quotation_id}
 GET    /api/v1/purchase-orders
 GET    /api/v1/purchase-orders/{purchase_order_id}
 POST   /api/v1/purchase-orders/{purchase_order_id}/documents
+DELETE /api/v1/purchase-orders/{purchase_order_id}/documents/{file_id}
 ```
 
 Use matching resource structures for suppliers, catalog items, supplier quotations, purchase orders, negotiations, visits, reports, users, roles, permissions, currencies, FX rates, settings, and permitted administration resources.
@@ -241,7 +243,7 @@ A deal carries `details` — optional internal free text, `null` or at most 2000
 
 **Typed list values** (`D-113`; F-44 · 2): `POST /customers` and `PATCH /customers/{id}` accept `sector` as typed text (max 128), as `POST`/`PATCH /catalog-items` accept `company`. The server answers with the **code**: an existing `sectors` (or `companies`) entry whose code, Arabic label or English label equals the text — trimmed, case-insensitive — or, failing that, a new entry added in the same transaction with the text as both labels (`LIST_ENTRY_ADDED`). No list permission is asked beyond the save's own.
 
-A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10). The list takes `page`, `per_page`, `q` and `sort` only — `po_date`, `po_number`, `created_at`, default `-created_at` — and never carries cost, margin or suppliers; the detail adds who recorded it and when, `documents` (its files, oldest first — each `{id, original_name, mime_type, size_bytes, scan_status, created_at}`, the upload's own answer; Module 10 · 2.3), the deal and its owner, the quotation's status and its totals, with no tax keys when the quotation is exempt (`D-63`). `POST /purchase-orders/{id}/documents` takes one multipart `document` per call, several per order, and answers `201` with that file; the order is reached before the file is read, so an order out of reach is a `404` with nothing stored. `GET /quotations/{id}` always carries `purchase_order` — `{id, po_number, customer_po_reference, po_date}`, or `null` (Module 10 · 2.2).
+A purchase order has no `POST /purchase-orders`: it is written by `respond` with `accepted` (§7.2; `D-12`, `D-53`). It carries no permission of its own — it is read by whoever may view its quotation, scoped through the deal, and its documents are attached under `quotation.record_customer_response` (`D-38`). `q` searches both `po_number` and `customer_po_reference` (Module 10). The list takes `page`, `per_page`, `q` and `sort` only — `po_date`, `po_number`, `created_at`, default `-created_at` — and never carries cost, margin or suppliers; the detail adds who recorded it and when, `documents` (its files, oldest first — each `{id, original_name, mime_type, size_bytes, scan_status, created_at}`, the upload's own answer; Module 10 · 2.3), the deal and its owner, the quotation's status and its totals, with no tax keys when the quotation is exempt (`D-63`). `POST /purchase-orders/{id}/documents` takes one multipart `document` per call, several per order, and answers `201` with that file; the order is reached before the file is read, so an order out of reach is a `404` with nothing stored. `DELETE …/documents/{file_id}` on a deal, a supplier quotation or a purchase order removes one file under the upload's own permission (`D-117`): `204`, the file soft-deleted and audited, its download a `404` thereafter; a file absent, already removed, or hanging from another record is the parent's own `404`. `GET /quotations/{id}` always carries `purchase_order` — `{id, po_number, customer_po_reference, po_date}`, or `null` (Module 10 · 2.2).
 
 ### 7.2 Domain actions
 

@@ -370,4 +370,83 @@ final class DealDocumentUploadTest extends TestCase
         $this->post(sprintf(self::DOCUMENTS_URL, $dealId), ['document' => $this->uploadedPdf(self::pdfBytes())])
             ->assertUnauthorized();
     }
+
+    // ------------------------------------------------------- remove (F-47 · 3, D-117)
+
+    /** @return TestResponse<\Illuminate\Http\Response> */
+    private function remove(string $dealId, string $fileId, RoleName $role): TestResponse
+    {
+        return $this->deleteJson(sprintf(self::DOCUMENTS_URL, $dealId).'/'.$fileId, [], $this->bearerFor($role));
+    }
+
+    private function uploadedId(string $dealId): string
+    {
+        $fileId = $this->upload($dealId, $this->uploadedPdf(self::pdfBytes()), RoleName::Manager)->assertStatus(201)->json('data.id');
+        self::assertIsString($fileId);
+
+        return $fileId;
+    }
+
+    private function isRemoved(string $fileId): bool
+    {
+        return DB::table('files')->where('id', $fileId)->whereNotNull('deleted_at')->exists();
+    }
+
+    public function test_that_a_removed_document_is_soft_deleted_audited_and_no_longer_downloadable(): void
+    {
+        $dealId = $this->seedDeal($this->customer());
+        $fileId = $this->uploadedId($dealId);
+
+        $this->remove($dealId, $fileId, RoleName::Manager)->assertNoContent();
+
+        // DB-01: the row stays, only marked; who removed it is recorded.
+        self::assertTrue($this->isRemoved($fileId));
+        self::assertSame($this->userWith(RoleName::Manager)->id, DB::table('files')->where('id', $fileId)->value('updated_by'));
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_DOCUMENT_REMOVED')->where('entity_id', $dealId)->count());
+        $this->get("/api/v1/files/{$fileId}/download", $this->bearerFor(RoleName::Manager))->assertNotFound();
+    }
+
+    /** D-117: whoever may upload may remove — the CEO reads deals (§3.4) and holds no `deal.edit`. */
+    public function test_that_removing_without_deal_edit_is_forbidden(): void
+    {
+        $dealId = $this->seedDeal($this->customer());
+        $fileId = $this->uploadedId($dealId);
+
+        $this->remove($dealId, $fileId, RoleName::Ceo)->assertForbidden();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_that_removing_outside_the_callers_reach_is_not_found(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $dealId = $this->seedDeal($this->customer(), ['owner_id' => $manager->id]);
+        $fileId = $this->uploadedId($dealId);
+
+        // Indoor Sales holds `deal.edit.own` and does not own this deal.
+        $this->remove($dealId, $fileId, RoleName::IndoorSales)->assertNotFound();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_that_a_file_attached_to_another_deal_cannot_be_removed_through_this_one(): void
+    {
+        $customerId = $this->customer();
+        $fileId = $this->uploadedId($this->seedDeal($customerId));
+
+        $this->remove($this->seedDeal($customerId), $fileId, RoleName::Manager)->assertNotFound();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_that_a_removed_document_cannot_be_removed_again(): void
+    {
+        $dealId = $this->seedDeal($this->customer());
+        $fileId = $this->uploadedId($dealId);
+
+        $this->remove($dealId, $fileId, RoleName::Manager)->assertNoContent();
+        $this->remove($dealId, $fileId, RoleName::Manager)->assertNotFound();
+
+        self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_DOCUMENT_REMOVED')->where('entity_id', $dealId)->count());
+    }
 }

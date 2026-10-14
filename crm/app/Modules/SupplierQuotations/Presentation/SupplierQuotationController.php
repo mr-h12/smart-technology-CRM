@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SupplierQuotations\Presentation;
 
 use App\Modules\SupplierQuotations\Application\Documents\AttachSupplierQuotationDocument;
+use App\Modules\SupplierQuotations\Application\Documents\RemoveSupplierQuotationDocument;
 use App\Modules\SupplierQuotations\Application\Listing\ListSupplierQuotations;
 use App\Modules\SupplierQuotations\Application\Writing\CreateSupplierQuotation;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
@@ -12,6 +13,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use RuntimeException;
 
 /**
@@ -128,6 +130,14 @@ final class SupplierQuotationController
             $file->getClientOriginalName(),
             self::actorId($request),
         )), 201);
+    }
+
+    /** F-47 · 3 (D-117) — `204`: nothing to serialise once the file is gone. */
+    public function removeDocument(Request $request, string $supplierQuotation, string $file, RemoveSupplierQuotationDocument $documents): Response
+    {
+        $documents->handle($supplierQuotation, $file, self::actorId($request));
+
+        return response()->noContent();
     }
 
     /**

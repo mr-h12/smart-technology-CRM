@@ -472,4 +472,60 @@ final class SupplierQuotationDocumentUploadEndpointTest extends TestCase
 
         return ['Authorization' => 'Bearer '.$token];
     }
+
+    // ------------------------------------------------------- remove (F-47 · 3, D-117)
+
+    /** @return TestResponse<\Illuminate\Http\Response> */
+    private function remove(string $offerId, string $fileId, RoleName $role = RoleName::Manager): TestResponse
+    {
+        return $this->deleteJson(self::ENDPOINT.'/'.$offerId.'/documents/'.$fileId, [], $this->bearerFor($role));
+    }
+
+    private function uploadedId(string $offerId): string
+    {
+        $fileId = $this->upload($offerId, RoleName::Manager)->assertStatus(201)->json('data.id');
+        self::assertIsString($fileId);
+
+        return $fileId;
+    }
+
+    private function isRemoved(string $fileId): bool
+    {
+        return DB::table('files')->where('id', $fileId)->whereNotNull('deleted_at')->exists();
+    }
+
+    public function test_that_a_removed_attachment_is_soft_deleted_audited_and_no_longer_downloadable(): void
+    {
+        $offerId = $this->created();
+        $fileId = $this->uploadedId($offerId);
+
+        $this->remove($offerId, $fileId)->assertNoContent();
+
+        self::assertTrue($this->isRemoved($fileId));
+        self::assertSame(1, DB::table('audit_log')->where('event', 'SUPPLIER_QUOTATION_DOCUMENT_REMOVED')->where('entity_id', $offerId)->count());
+        $this->get("/api/v1/files/{$fileId}/download", $this->bearerFor(RoleName::Manager))->assertNotFound();
+    }
+
+    /** D-117: the read-only CEO may not upload, so may not remove. */
+    public function test_that_the_read_only_ceo_cannot_remove(): void
+    {
+        $offerId = $this->created();
+        $fileId = $this->uploadedId($offerId);
+
+        $this->remove($offerId, $fileId, RoleName::Ceo)->assertForbidden();
+
+        self::assertFalse($this->isRemoved($fileId));
+    }
+
+    public function test_that_a_file_of_another_offer_or_already_removed_is_a_404(): void
+    {
+        $offerId = $this->created();
+        $fileId = $this->uploadedId($offerId);
+
+        $this->remove($this->created(), $fileId)->assertNotFound();
+        self::assertFalse($this->isRemoved($fileId));
+
+        $this->remove($offerId, $fileId)->assertNoContent();
+        $this->remove($offerId, $fileId)->assertNotFound();
+    }
 }

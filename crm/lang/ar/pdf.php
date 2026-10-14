@@ -49,7 +49,7 @@ return [
     'totals' => [
         'excl_vat' => 'الإجمالي غير شامل الضريبة',
         'discount' => 'الخصم',
-        'tax' => 'ضريبة القيمة المضافة :percent%',
+        'tax' => 'ضريبة القيمة المضافة',
         'rounding' => 'التقريب',
         'final' => 'الإجمالي النهائي',
     ],
@@ -59,7 +59,7 @@ return [
         'term' => ':name: :body',
         'validity' => 'صلاحية العرض: حتى تاريخ :date.',
         // D-107: the last term, on a taxed quotation only.
-        'vat_included' => 'السعر يشمل ضريبة القيمة المضافة.',
+        'vat_included' => 'السعر شامل الضريبة.',
     ],
 
     'footer' => [

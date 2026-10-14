@@ -49,7 +49,7 @@ return [
     'totals' => [
         'excl_vat' => 'Total Amount Excl. VAT',
         'discount' => 'Discount',
-        'tax' => 'VAT :percent%',
+        'tax' => 'VAT',
         'rounding' => 'Rounding',
         'final' => 'Total',
     ],

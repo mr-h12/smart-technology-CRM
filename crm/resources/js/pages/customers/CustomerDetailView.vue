@@ -395,7 +395,7 @@ onMounted(async () => {
                 <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
                     <!-- F-49 · 1.4a: the status control sits beside the link — a button inside an <a> is invalid and its click would open the deal. -->
                     <li v-for="deal in deals" :key="deal.id" class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                        <RouterLink :to="{ name: 'deal-detail', params: { id: deal.id } }" class="flex min-h-11 min-w-0 flex-[1_1_16rem] flex-wrap items-center gap-x-3 gap-y-1 py-2">
                             <bdi dir="ltr" class="font-medium tabular-nums">{{ deal.code }}</bdi>
                             <span class="min-w-0 flex-1 text-pretty">{{ orDash(deal.title) }}</span>
                             <DealStatusChip :status="deal.status" />

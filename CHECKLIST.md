@@ -4670,8 +4670,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #367 — one locked `moveIfAllowed` for Accept, Partial/Counter and Reject; no §4.4 edge, no move; a refused answer moves nothing)*
       - [x] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
             *(2026-10-15, #368 — 422 on every other status, `reason` prohibited, 403 before 422; the control is one button naming the next of the three, from `won` onward)*
-      - [ ] **1.4a** The status control on the customer page's deals list and on the quotation page (the quotation
+      - [x] **1.4a** The status control on the customer page's deals list and on the quotation page (the quotation
             page reads its deal through `GET /deals/{id}`, no backend change). *(split from 1.4 by the owner, 2026-10-15)*
+            *(2026-10-15, #369 — the control beside the row's link, never inside it; the quotation page asks for the deal only with `deal.view`; a 16rem link basis drops the button to its own line on a phone)*
       - [ ] **1.4b** The load test (`ab`, 50 at once on one deal, then a database check for duplicate lines).
 
 ## Shell revisions — owner-directed

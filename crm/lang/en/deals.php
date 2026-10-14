@@ -32,7 +32,6 @@ return [
         'customer_is_fixed_at_creation' => 'A deal\'s customer is set when it is created and cannot be changed here.',
         'assign_has_its_own_action' => 'Transferring a deal to another owner is a separate action, not a field on this form.',
         'reason_not_blank' => 'A rejection reason cannot be only spaces.',
-        'reason_only_on_lost' => 'A reason is only accepted when the new status is Lost.',
     ],
 
     // Point 2.5 — `PATCH /deals/{id}/approve` and `/reject`.

@@ -104,7 +104,7 @@ describe('the deal status control', () => {
     it.each([
         ['won', 'Purchasing'],
         ['purchasing', 'Delivery'],
-        ['delivery', 'Delivery Complete'],
+        ['delivery', 'Delivery complete'],
     ])('from %s it is one button naming the next status, %s (D-119)', async (status, label) => {
         const wrapper = await render(CHANGER, undefined, { ...DEAL, status });
 

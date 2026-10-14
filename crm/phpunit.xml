@@ -23,6 +23,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- F-26 · 1.3: the suite's deliberate refusals are not the app's log. -->
+        <env name="LOG_CHANNEL" value="null"/>
         <!-- Tests run against PostgreSQL, not sqlite.
 
              The skeleton ships DB_CONNECTION=sqlite with :memory:, which would

@@ -244,6 +244,12 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.
+- [ ] **Log rotation and log disk on the server** — *F-26 · 1.3 (2026-10-14).* The template now writes
+      `laravel-YYYY-MM-DD.log` at `info` and keeps 7 days (`LOG_STACK=daily`, `LOG_DAILY_DAYS=7`; the owner).
+      Owed on the server: confirm the rotation deletes the 8th day; delete the old single `laravel.log` once by
+      hand (2.34 GB on dev, 1.44 GB at the QA; the client PC's too) and set its `.env` to the template's three
+      `LOG_*` values; size the disk for `audit-*.log`, which `D-30` keeps forever (457 MB on dev by 2026-10-14) —
+      part of `OD-03`
 
 ---
 

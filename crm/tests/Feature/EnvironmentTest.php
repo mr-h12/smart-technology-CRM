@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\NullHandler;
+use Monolog\Logger as Monolog;
 use Tests\TestCase;
 
 /**
@@ -115,7 +119,11 @@ final class EnvironmentTest extends TestCase
         self::assertSame('info', $template['LOG_LEVEL'] ?? null);
 
         // The suite's deliberate refusals log ERRORs; they are not the app's.
-        self::assertSame('null', config('logging.default'));
+        $logger = Log::driver();
+        self::assertInstanceOf(Logger::class, $logger);
+        $monolog = $logger->getLogger();
+        self::assertInstanceOf(Monolog::class, $monolog);
+        self::assertInstanceOf(NullHandler::class, $monolog->getHandlers()[0] ?? null);
     }
 
     /** @return array<string, string> */

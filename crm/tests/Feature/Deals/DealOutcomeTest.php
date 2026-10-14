@@ -124,6 +124,39 @@ final class DealOutcomeTest extends TestCase
     }
 
     /** @return array<string, array{string}> */
+    public static function atSupplierQuotationOrLater(): array
+    {
+        return ['supplier_quotation' => ['supplier_quotation'], ...self::atQuotationSentOrLater()];
+    }
+
+    #[DataProvider('atSupplierQuotationOrLater')]
+    public function test_created_leaves_a_deal_at_supplier_quotation_or_later_untouched(string $status): void
+    {
+        $deal = $this->dealAt($status);
+
+        $this->outcome()->quotationCreated($deal, $this->actorId);
+
+        self::assertSame($status, $this->statusOf($deal));
+        self::assertSame(0, $this->audits($deal));
+    }
+
+    /** D-119: the status is read under a row lock, so two quotations created at once cannot both walk the deal. */
+    public function test_created_reads_the_deal_under_a_row_lock(): void
+    {
+        $deal = $this->dealAt('contacted');
+        DB::enableQueryLog();
+
+        $this->outcome()->quotationCreated($deal, $this->actorId);
+
+        $locked = array_filter(
+            DB::getQueryLog(),
+            static fn (array $q): bool => str_contains($q['query'], '"deals"') && str_contains($q['query'], 'for update'),
+        );
+        self::assertNotEmpty($locked);
+        self::assertSame('supplier_quotation', $this->statusOf($deal));
+    }
+
+    /** @return array<string, array{string}> */
     public static function beforeSupplierQuotation(): array
     {
         return array_combine(

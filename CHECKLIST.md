@@ -4567,7 +4567,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       the owner, 2026-10-14, ahead of F-42 Phase 6; three points, the plan approved in chat the same day. The owner's
       rulings: each list under its existing view scope (§3.4, §3.5 — 'own' is the current `owner_id`); saving a new
       request opens it.
-      - [ ] **1** `GET /deals?filter[customer]={customer_id}`, under the caller's row scope; `D-114` and OpenAPI.
+      - [x] **1** `GET /deals?filter[customer]={customer_id}`, under the caller's row scope; `D-114` and OpenAPI.
+            *(2026-10-14, #350 — one `where` after `scoped()`, so an `own` caller asking for another seller's customer gets an empty page; non-UUID is `400 not_a_uuid`)*
       - [ ] **2** The customer page: its requests and quotations, each row opening its own page, and «طلب جديد» with the customer fixed.
       - [ ] **3** The Arabic manual test list (closes F-45).
 

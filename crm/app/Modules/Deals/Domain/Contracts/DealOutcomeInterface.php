@@ -27,6 +27,12 @@ interface DealOutcomeInterface
      */
     public function quotationSent(string $dealId, string $actorId): void;
 
+    /** `D-119`: the customer's Accept moves the deal to `won`; a deal with no `won` edge is left where it is. */
+    public function quotationAccepted(string $dealId, string $actorId): void;
+
+    /** `D-119`: Partial or Counter moves the deal to `negotiations`; a deal with no such edge (already there, or past it) is left where it is. */
+    public function quotationNegotiated(string $dealId, string $actorId): void;
+
     /**
      * The deal goes `lost` with the reason. Returns false, and changes
      * nothing, when its status has no `lost` edge (rule b).

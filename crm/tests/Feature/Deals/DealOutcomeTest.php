@@ -173,10 +173,11 @@ final class DealOutcomeTest extends TestCase
 
         $this->outcome()->quotationAccepted($deal, $this->actorId);
 
-        self::assertNotEmpty(array_filter(
-            DB::getQueryLog(),
-            static fn (array $q): bool => str_contains($q['query'], '"deals"') && str_contains($q['query'], 'for update'),
-        ));
+        // The *first* read is the locked one: an unlocked read would let a second
+        // answer at once see the old status and hit a 409 instead of a no-op.
+        $reads = array_values(array_filter(DB::getQueryLog(), static fn (array $q): bool => str_contains($q['query'], 'from "deals"')));
+        self::assertNotEmpty($reads);
+        self::assertStringContainsString('for update', $reads[0]['query']);
         self::assertSame('won', $this->statusOf($deal));
     }
 

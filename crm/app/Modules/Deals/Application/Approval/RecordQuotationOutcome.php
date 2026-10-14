@@ -12,7 +12,7 @@ use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 
 /**
- * `D-90`'s two deal moves and `D-119`'s walk on creation, through {@see ChangeDealStatus} so the audit row
+ * `D-90`'s and `D-119`'s deal moves, through {@see ChangeDealStatus} so the audit row
  * and the customer-status recompute (§4.5) happen exactly as for a person's
  * move. Unrestricted scope: the caller already authorised the quotation
  * action, and §3.5's send / record-response grants are a subset of §3.4's
@@ -55,13 +55,29 @@ final readonly class RecordQuotationOutcome implements DealOutcomeInterface
         }
     }
 
+    public function quotationAccepted(string $dealId, string $actorId): void
+    {
+        $this->moveIfAllowed($dealId, 'won', null, $actorId);
+    }
+
+    public function quotationNegotiated(string $dealId, string $actorId): void
+    {
+        $this->moveIfAllowed($dealId, 'negotiations', null, $actorId);
+    }
+
     public function quotationRejected(string $dealId, string $reason, string $actorId): bool
     {
-        if (! DealStatusTransition::isAllowed($this->statusOf($dealId, $actorId), 'lost')) {
+        return $this->moveIfAllowed($dealId, 'lost', $reason, $actorId);
+    }
+
+    /** Locked read, then the move only when §4.4 has the edge (D-90 rule b's shape, D-119). */
+    private function moveIfAllowed(string $dealId, string $to, ?string $reason, string $actorId): bool
+    {
+        if (! DealStatusTransition::isAllowed($this->statusOf($dealId, $actorId, forUpdate: true), $to)) {
             return false;
         }
 
-        $this->changeStatus->handle($dealId, 'lost', $reason, self::ALL, $actorId);
+        $this->changeStatus->handle($dealId, $to, $reason, self::ALL, $actorId);
 
         return true;
     }

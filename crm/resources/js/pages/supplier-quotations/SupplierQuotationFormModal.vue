@@ -48,10 +48,12 @@ import { useModalDialog } from '@/components/useModalDialog';
 import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { ApiError } from '@/api';
 import { listCurrencies, type Currency } from '@/services/admin';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import FileViewerDialog from '@/components/FileViewerDialog.vue';
-import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
+import { downloadFile, FILE_ACCEPT, serverSentence, VIEWABLE_TYPES } from '@/services/files';
 import {
     attachSupplierQuotationDocument,
+    removeSupplierQuotationDocument,
     createSupplierQuotation,
     readSupplierQuotation,
     updateSupplierQuotation,
@@ -206,6 +208,11 @@ const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null)
 /** A key when this screen has one, the server's own sentence when it sent one. */
 const attachmentErrorKey = ref<string | null>(null);
 const attachmentError = ref<string | null>(null);
+/** F-47 · 4: what the status region says once a removal is done. */
+const attachmentStatus = ref('');
+/** F-47 · 4 (D-117): the file the confirmation asks about, or null. */
+const removing = ref<SupplierQuotationDocument | null>(null);
+const removeBusy = ref(false);
 
 const isEdit = computed(() => props.editing !== null);
 
@@ -379,6 +386,7 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     attachments.value = [];
     attachmentErrorKey.value = null;
     attachmentError.value = null;
+    attachmentStatus.value = '';
     uploading.value = false;
     downloadingId.value = null;
 
@@ -603,6 +611,7 @@ async function upload(event: Event): Promise<void> {
     uploading.value = true;
     attachmentErrorKey.value = null;
     attachmentError.value = null;
+    attachmentStatus.value = '';
 
     try {
         attachments.value.push(await attachSupplierQuotationDocument(record.id, file));
@@ -642,6 +651,30 @@ async function download(document_: SupplierQuotationDocument): Promise<void> {
             : 'supplierQuotations.form.attachmentRejected';
     } finally {
         downloadingId.value = null;
+    }
+}
+
+async function remove(): Promise<void> {
+    const document_ = removing.value;
+    const record = props.editing;
+
+    if (document_ === null || record === null) {
+        return;
+    }
+
+    attachmentErrorKey.value = null;
+    attachmentError.value = null;
+    removeBusy.value = true;
+
+    try {
+        await removeSupplierQuotationDocument(record.id, document_.id);
+        attachments.value = attachments.value.filter((row) => row.id !== document_.id);
+        attachmentStatus.value = t('files.deleted', { name: document_.original_name });
+    } catch (error) {
+        attachmentError.value = serverSentence(error) ?? t('files.deleteFailed');
+    } finally {
+        removeBusy.value = false;
+        removing.value = null;
     }
 }
 
@@ -1192,6 +1225,16 @@ function discard(): void {
                             >
                                 {{ t('supplierQuotations.form.scanPending') }}
                             </span>
+
+                            <button
+                                v-if="canUpload && document_.scan_status === 'clean'"
+                                type="button"
+                                class="row-action min-h-11 rounded-lg px-3"
+                                :data-testid="`supplier-quotation-attachment-${index}-delete`"
+                                @click="removing = document_"
+                            >
+                                {{ t('files.delete') }}
+                            </button>
                         </li>
                     </ul>
 
@@ -1203,6 +1246,7 @@ function discard(): void {
                     >
                         {{ attachmentError ?? t(attachmentErrorKey ?? '') }}
                     </p>
+                    <p role="status" data-testid="supplier-quotation-form-attachment-status">{{ attachmentStatus }}</p>
 
                     <!-- §3.6's third grant. Hidden here **and** enforced at the
                          API — `SEC-09` requires the second, not instead of the
@@ -1281,6 +1325,17 @@ function discard(): void {
             </div>
         </form>
         <FileViewerDialog :file="viewing" @close="viewing = null" />
+        <ConfirmDialog
+            :open="removing !== null"
+            title-key="files.deleteTitle"
+            message-key="files.deleteMessage"
+            confirm-key="files.delete"
+            :subject="removing?.original_name ?? ''"
+            :busy="removeBusy"
+            danger
+            @confirm="remove"
+            @cancel="removing = null"
+        />
     </dialog>
 </template>
 

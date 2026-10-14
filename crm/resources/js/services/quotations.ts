@@ -402,6 +402,11 @@ export async function attachPurchaseOrderDocument(id: string, file: File): Promi
     return (await apiUpload<DealDocument>(`/purchase-orders/${id}/documents`, form)).data;
 }
 
+/** D-117: under `record_customer_response`; the server soft-deletes and audits it. */
+export async function removePurchaseOrderDocument(id: string, fileId: string): Promise<void> {
+    await apiDelete(`/purchase-orders/${id}/documents/${fileId}`);
+}
+
 /** `D-08`'s full copy as a new Draft (Point 4.3). Answers the copy's `id`, `code` and `version` — read it for the rest. */
 export async function createQuotationVersion(
     id: string,

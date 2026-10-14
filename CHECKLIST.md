@@ -1811,6 +1811,11 @@ would hide them behind `OD-03` indefinitely.
       each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
       `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
       Replace the three with `entryLabel` plus one code→name lookup.
+- [ ] **Two screens print `ApiError.message` raw, so a proxy error page reads as a request line** —
+      *revealed by F-47 · 4's waste audit (2026-10-14); already on `main`.* `QuotationPdfPanel.vue:128`
+      and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it
+      `"<METHOD> <path> failed with <status>"`. `serverSentence()` in `@/services/files` (F-47 · 4)
+      already returns null there; route both through it with a lang-file fallback.
 
 ## Agent guide revisions — owner-directed
 
@@ -4573,7 +4578,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #351 — each list under its own view row, the first 100 rows, no pager; `DealFormModal` takes an optional fixed `customer`; a save goes to the new deal)*
       - [x] **3** The Arabic manual test list (closes F-45).
             *(2026-10-14, #352 — 32 checks by role in the PR description; Team Leader, Procurement and Outdoor Supervisor see no customer at all, since `team`/`asgn`/`out` fail closed)*
-- [ ] **F-46** One recorded exchange rate serves both directions (`D-115`). Requested by the owner, 2026-10-14
+- [x] **F-46** One recorded exchange rate serves both directions (`D-115`). Requested by the owner, 2026-10-14
       («1 USD = 50 EGP» must also price an EGP supplier cost on a USD quotation); three points, the plan approved in
       chat the same day. The owner's rulings: one rate for both directions; only the supplier cost converts —
       additional items stay in the quotation currency.
@@ -4581,8 +4586,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #353 — `ExchangeRate::convert()` is the one conversion; the inverse divides by the recorded rate, so 30000 EGP at 30 is 1000 USD exactly)*
       - [x] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
             *(2026-10-14, #354 — lang text only, «1 USD = 50 EGP» example; the Arabic example is an LTR isolate, U+2066…U+2069, or it reads "USD = 50 EGP 1")*
-      - [ ] **3** The Arabic manual test list (closes F-46).
-- [ ] **F-47** An attached file opens inside the system without downloading it (`D-116`). Requested by the owner,
+      - [~] **3** The Arabic manual test list (closes F-46). — **withdrawn by the owner, 2026-10-14.**
+- [x] **F-47** An attached file opens inside the system without downloading it (`D-116`). Requested by the owner,
       2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: an in-page viewer dialog;
       PDF and images only — DOCX/XLSX stay download-only; started before F-46 · 3.
       - [x] **1** `fetchFileUrl` + `VIEWABLE_TYPES` + `FileViewerDialog.vue` + lang + `D-116`, red first.
@@ -4592,8 +4597,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **3** Backend: `DELETE` for deal, supplier-quotation and PO documents — whoever may upload may delete;
             the file is soft-deleted, audited, and its download becomes 404 (`D-117`; added by the owner 2026-10-14).
             *(2026-10-14, #358 — `FileWriterInterface::remove()` marks only a file hanging from that record's pivot, so a generated quotation PDF is never removable; one 404 for every miss)*
-      - [ ] **4** «حذف» beside «عرض»/«تنزيل» in the three screens, behind `ConfirmDialog`; vitest and `rtl-ui-verifier`.
-      - [ ] **5** The Arabic manual test list (closes F-47).
+      - [x] **4** «حذف» beside «عرض»/«تنزيل» in the three screens, behind `ConfirmDialog`; vitest and `rtl-ui-verifier`.
+            *(2026-10-14, #359 — clean files only, under the upload grant; the server's sentence on refusal; checked in the browser by the owner, `rtl-ui-verifier` could not sign in)*
+      - [~] **5** The Arabic manual test list (closes F-47). — **withdrawn by the owner, 2026-10-14.**
 
 ## Shell revisions — owner-directed
 

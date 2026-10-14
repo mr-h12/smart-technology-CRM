@@ -575,7 +575,12 @@
         "hint": "A PDF, an image (JPG, PNG or WebP), Word or Excel, up to 30 MB.",
         "view": "View",
         "download": "Download",
-        "viewFailed": "The file could not be opened. Try again, or download it."
+        "viewFailed": "The file could not be opened. Try again, or download it.",
+        "delete": "Delete",
+        "deleteTitle": "Delete this file?",
+        "deleteMessage": "{name} will be removed from this record and can no longer be opened or downloaded.",
+        "deleted": "{name} was deleted.",
+        "deleteFailed": "The file could not be deleted. Try again."
     },
     "import": {
         "hint": "CSV files only, up to 30 MB.",

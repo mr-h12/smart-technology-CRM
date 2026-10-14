@@ -306,7 +306,7 @@ final class PurchaseOrderReadEndpointTest extends TestCase
     {
         $owner = $this->userWith(RoleName::IndoorSales);
         $deal = $this->deal($owner->id);
-        $order = $this->accepted($deal, '4500123987', '2026-09-20', ['discount_percent' => '10', 'tax_percent' => '14']);
+        $order = $this->accepted($deal, '4500123987', '2026-09-20', ['discount_percent' => '10', 'tax_percents' => ['14']]);
 
         $data = $this->show($order['id'])->assertStatus(200)->json('data');
         self::assertIsArray($data);

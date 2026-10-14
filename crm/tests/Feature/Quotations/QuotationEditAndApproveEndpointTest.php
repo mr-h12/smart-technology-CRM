@@ -120,7 +120,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percent' => '14']), RoleName::Manager)->assertStatus(403);
+        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
         self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'));
     }
 
@@ -253,7 +253,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percent' => '14']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.tax_percent', '14.000');
 

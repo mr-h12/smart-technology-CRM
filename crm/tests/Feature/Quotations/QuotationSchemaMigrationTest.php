@@ -197,6 +197,41 @@ final class QuotationSchemaMigrationTest extends TestCase
         self::assertSame('14.000', $this->storedValue('tax_percent'));
     }
 
+    // ─────────────────────────────────────────────────────────── `D-118`'s rates
+
+    private const TAX_PERCENTS_MIGRATION = 'database/migrations/2026_10_14_000000_add_tax_percents_to_quotations.php';
+
+    /** `D-118`: the rates as entered, an empty list when there is no tax. */
+    public function test_that_tax_percents_is_a_jsonb_list_defaulting_to_empty(): void
+    {
+        $this->insert();
+
+        self::assertSame('[]', DB::table('quotations')->value('tax_percents'));
+    }
+
+    /** `D-118`: a rate listed but no tax charged is the one row no save may leave. */
+    public function test_that_rates_without_a_tax_percent_are_refused(): void
+    {
+        self::assertSame(
+            self::CHECK_VIOLATION,
+            $this->refusedWith(fn () => $this->insert(['tax_percent' => null, 'tax_percents' => '["14"]'])),
+        );
+    }
+
+    /** `D-118` + DEV-03: an existing rate becomes a one-rate list; down() drops the column. */
+    public function test_that_the_tax_percents_migration_backfills_and_rolls_back(): void
+    {
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::TAX_PERCENTS_MIGRATION, '--force' => true]));
+        self::assertFalse(Schema::hasColumn('quotations', 'tax_percents'), 'down() left `quotations.tax_percents` behind (DEV-03).');
+
+        $taxed = $this->insert(['tax_percent' => '14', 'tax_amount' => '0']);
+        $untaxed = $this->insert(['tax_percent' => null]);
+
+        self::assertSame(0, Artisan::call('migrate', ['--path' => self::TAX_PERCENTS_MIGRATION, '--force' => true]));
+        self::assertSame('["14.000"]', DB::table('quotations')->where('id', $taxed)->value('tax_percents'));
+        self::assertSame('[]', DB::table('quotations')->where('id', $untaxed)->value('tax_percents'));
+    }
+
     // ──────────────────────────────────────────────────────────── §10's ranges
 
     public function test_that_a_full_discount_is_refused(): void

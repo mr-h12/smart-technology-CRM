@@ -184,8 +184,21 @@ final class QuotationUpdateEndpointTest extends TestCase
         [$id, $etag] = $this->quotation($this->deal(null));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->edit($id, $etag, $this->payload(['tax_percent' => '14']), RoleName::Manager)->assertStatus(403);
+        $this->edit($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
         $this->edit($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200);
+    }
+
+    /** `D-118`: `edit tax` guards the sum — the same rates in another order are not a change. */
+    public function test_that_reordering_the_tax_rates_needs_no_edit_tax_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        $etag = $this->edit($id, $etag, $this->payload(['tax_percents' => ['14', '5']]), RoleName::Manager)->assertStatus(200)->json('data.etag');
+        self::assertIsString($etag);
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
+
+        $this->edit($id, $etag, $this->payload(['tax_percents' => ['5', '14']]), RoleName::Manager)
+            ->assertStatus(200)
+            ->assertJsonPath('data.tax_percents', ['5.000', '14.000']);
     }
 
     // ─────────────────────────────────────────────────────── optimistic lock
@@ -263,7 +276,7 @@ final class QuotationUpdateEndpointTest extends TestCase
         $this->edit($id, $etag, $this->payload([
             'default_margin' => '25',
             'discount_percent' => '10',
-            'tax_percent' => '14',
+            'tax_percents' => ['14'],
             'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '3']],
             'additional_items' => [['description' => 'Installation', 'amount' => '7']],
             'terms' => [['key' => 'payment_terms', 'title' => null, 'body' => '30 days']],

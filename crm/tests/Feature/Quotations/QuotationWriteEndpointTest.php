@@ -299,16 +299,34 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['discount_percent' => 0], 'discount_percent');
     }
 
-    /** `D-63`: no tax is `null`; zero is not a tax rate, and the CHECK refuses it. */
-    public function test_that_a_zero_tax_percent_is_refused(): void
+    /** `D-63` + `D-118`: no tax is an empty list; zero or a negative is not a rate. */
+    public function test_that_a_zero_or_negative_tax_rate_is_refused(): void
     {
-        $this->post422(['tax_percent' => '0'], 'tax_percent');
+        $this->post422(['tax_percents' => ['0']], 'tax_percents.0');
+        $this->post422(['tax_percents' => ['14', '-5']], 'tax_percents.1');
     }
 
-    public function test_that_a_null_tax_percent_is_accepted(): void
+    /** `D-118`: up to five rates. */
+    public function test_that_more_than_five_tax_rates_are_refused(): void
     {
-        $this->postJson(self::ENDPOINT, $this->payload(['tax_percent' => null]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201);
+        $this->post422(['tax_percents' => ['1', '1', '1', '1', '1', '1']], 'tax_percents');
+    }
+
+    public function test_that_an_empty_tax_rate_list_is_accepted_and_returned(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['tax_percents' => []]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->assertJsonPath('data.tax_percents', [])
+            ->assertJsonPath('data.tax_percent', null);
+    }
+
+    /** `D-118`: the rates come back as entered, beside their sum. */
+    public function test_that_the_tax_rates_are_returned_beside_their_sum(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['tax_percents' => ['14', '5']]), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->assertJsonPath('data.tax_percents', ['14.000', '5.000'])
+            ->assertJsonPath('data.tax_percent', '19.000');
     }
 
     /** CHECK `discount_percent >= 0 AND < 100`. */

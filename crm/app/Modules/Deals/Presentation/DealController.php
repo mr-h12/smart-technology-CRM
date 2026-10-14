@@ -8,6 +8,7 @@ use App\Modules\Deals\Application\Approval\ChangeDealStatus;
 use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Documents\AttachDealDocument;
+use App\Modules\Deals\Application\Documents\RemoveDealDocument;
 use App\Modules\Deals\Application\Listing\ListDeals;
 use App\Modules\Deals\Application\Listing\ListDealTimeline;
 use App\Modules\Deals\Application\Writing\SaveDeal;
@@ -18,6 +19,7 @@ use App\Modules\Identity\Domain\Rbac\PermissionDecision;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use RuntimeException;
 
 /**
@@ -139,6 +141,14 @@ final class DealController
             self::heldScopes($request),
             self::actorId($request),
         )), 201);
+    }
+
+    /** F-47 · 3 (D-117) — `204`: nothing to serialise once the file is gone. */
+    public function removeDocument(Request $request, string $deal, string $file, RemoveDealDocument $documents): Response
+    {
+        $documents->handle($deal, $file, self::heldScopes($request), self::actorId($request));
+
+        return response()->noContent();
     }
 
     /**

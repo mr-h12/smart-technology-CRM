@@ -9,6 +9,7 @@ use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
 use App\Modules\Storage\Domain\ScanStatus;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Str;
 
 /**
  * {@see FileWriterInterface} over `files` and the D-71 pivots.
@@ -52,5 +53,36 @@ final readonly class DatabaseFileWriter implements FileWriterInterface
             $parent->value.'_id' => $parentId,
             'file_id' => $fileId,
         ]);
+    }
+
+    public function remove(AttachmentParent $parent, string $parentId, string $fileId, string $actorId): ?string
+    {
+        // A malformed id is a file that does not exist here, not a database error.
+        if (! Str::isUuid($fileId)) {
+            return null;
+        }
+
+        $pivot = $parent->pivotTable();
+
+        $name = $this->connection->table('files')
+            ->join($pivot, $pivot.'.file_id', '=', 'files.id')
+            ->where($pivot.'.'.$parent->value.'_id', $parentId)
+            ->where('files.id', $fileId)
+            ->whereNull('files.deleted_at')
+            ->value('files.original_name');
+
+        if (! is_string($name)) {
+            return null;
+        }
+
+        $now = now();
+
+        // DB-01: the row is marked, never deleted; the pivot stays as the record of where it hung.
+        $removed = $this->connection->table('files')
+            ->where('id', $fileId)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => $now, 'updated_by' => $actorId, 'updated_at' => $now]);
+
+        return $removed === 1 ? $name : null;
     }
 }

@@ -12,6 +12,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
@@ -543,5 +544,29 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
 
         $this->remove($order['id'], $fileId)->assertNoContent();
         $this->remove($order['id'], $fileId)->assertNotFound();
+    }
+
+    /** D-117: a generated quotation PDF hangs from `quotation_files`, never from an order, so no route removes it. */
+    public function test_the_orders_quotation_pdf_cannot_be_removed_through_the_order(): void
+    {
+        $order = $this->accepted($this->deal(null), 'REF-1');
+        $pdfId = (string) Str::uuid7();
+
+        DB::table('files')->insert([
+            'id' => $pdfId,
+            'original_name' => 'QT-2026-0001.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 9,
+            'storage_path' => 'quotation/'.$pdfId.'.pdf',
+            'scan_status' => 'clean',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('quotation_files')->insert(['quotation_id' => $order['quotation_id'], 'file_id' => $pdfId]);
+
+        $this->remove($order['id'], $pdfId)->assertNotFound();
+        $this->remove($order['id'], 'not-a-uuid')->assertNotFound();
+
+        self::assertFalse($this->isRemoved($pdfId));
     }
 }

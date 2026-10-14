@@ -678,6 +678,10 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // choosing over inventing a new grant nothing in §3 asks for.
     Route::post('/{deal}/documents', [DealController::class, 'uploadDocument'])
         ->middleware('permission:deal.edit');
+
+    // F-47 · 3 (D-117): whoever may upload may remove — the upload's own grant.
+    Route::delete('/{deal}/documents/{file}', [DealController::class, 'removeDocument'])
+        ->middleware('permission:deal.edit');
 });
 
 // §3.6 Supplier Quotations — Module 6 Point 2.2.
@@ -743,6 +747,10 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
     // Here the row exists, so it is the one the route carries, and the CEO —
     // `view` as `All`, no cell under `upload_attachment` — is refused.
     Route::post('/{supplierQuotation}/documents', [SupplierQuotationController::class, 'uploadDocument'])
+        ->middleware('permission:supplier_quotation.upload_attachment');
+
+    // F-47 · 3 (D-117): whoever may upload may remove — the upload's own grant.
+    Route::delete('/{supplierQuotation}/documents/{file}', [SupplierQuotationController::class, 'removeDocument'])
         ->middleware('permission:supplier_quotation.upload_attachment');
 });
 
@@ -823,6 +831,10 @@ Route::middleware('auth')->prefix('purchase-orders')->group(function (): void {
     // Module 10 · 2.3 — §17's upload flow. `OpenAPI §7.1` line 231: a PO's
     // documents are attached under `quotation.record_customer_response` (`D-38`).
     Route::post('/{purchaseOrder}/documents', [QuotationController::class, 'uploadPurchaseOrderDocument'])
+        ->middleware('permission:quotation.record_customer_response');
+
+    // F-47 · 3 (D-117): whoever may upload may remove — the upload's own grant.
+    Route::delete('/{purchaseOrder}/documents/{file}', [QuotationController::class, 'removePurchaseOrderDocument'])
         ->middleware('permission:quotation.record_customer_response');
 });
 

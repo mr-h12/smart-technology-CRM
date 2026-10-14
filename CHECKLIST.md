@@ -1817,6 +1817,11 @@ would hide them behind `OD-03` indefinitely.
       each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
       `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
       Replace the three with `entryLabel` plus one code→name lookup.
+- [ ] **`TAX_CHANGED` is defined and never recorded** — *revealed while restating F-48 · 1 (2026-10-14);
+      already on `main`; the owner chose a debt row over widening the point.* `AuditEvent::taxChanged()`
+      (`Audit/Domain/AuditEvent.php:50`) has no caller in `crm/app`; a tax edit is audited only inside
+      the quotation's `QUOTATION_UPDATED` old/new values (now with `tax_percents`). CLAUDE.md lists tax
+      changes among the always-audited events: emit it where `UpdateQuotation` decides `$taxMoved`.
 - [ ] **Two screens print `ApiError.message` raw, so a proxy error page reads as a request line** —
       *revealed by F-47 · 4's waste audit (2026-10-14); already on `main`.* `QuotationPdfPanel.vue:128`
       and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it
@@ -4627,6 +4632,15 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [x] **4** «حذف» beside «عرض»/«تنزيل» in the three screens, behind `ConfirmDialog`; vitest and `rtl-ui-verifier`.
             *(2026-10-14, #359 — clean files only, under the upload grant; the server's sentence on refusal; checked in the browser by the owner, `rtl-ui-verifier` could not sign in)*
       - [~] **5** The Arabic manual test list (closes F-47). — **withdrawn by the owner, 2026-10-14.**
+- [ ] **F-48** Several tax rates typed by hand; the PDF says «VAT» with no percentage (`D-118`). Requested by the
+      owner, 2026-10-14; three points, the plan approved in chat the same day. The owner's rulings: rates add on
+      one base (14 + 5 = 19 %); one VAT line carrying the total; percentages only, no names; the default tax
+      setting goes; no Arabic manual test list.
+      - [ ] **1** Customer quotation: `tax_percents` (jsonb, the rates as entered) beside `tax_percent` (their sum);
+            the request takes the list (≤ 5, each > 0) and refuses the old field; the builder adds a rate with «+».
+      - [ ] **2** Supplier offer: «السعر شامل الضريبة» takes the rates typed by hand (≥ 1), stripped by their sum;
+            `defaults.tax_percent` leaves the settings, the seeder and the settings screen.
+      - [ ] **3** PDF: «VAT» / «ضريبة القيمة المضافة» with no percentage; «السعر شامل الضريبة» in the terms only when taxed.
 
 ## Shell revisions — owner-directed
 

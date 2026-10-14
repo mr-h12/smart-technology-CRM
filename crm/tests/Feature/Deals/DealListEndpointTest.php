@@ -625,6 +625,11 @@ final class DealListEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'?filter[customer]='.$customer, $this->bearerFor(RoleName::IndoorSales))
             ->assertStatus(200)
             ->assertJsonPath('meta.pagination.total', 0);
+
+        // The control: the same filter does find it for its owner, so the zero above is the scope's.
+        $this->getJson(self::ENDPOINT.'?filter[customer]='.$customer, $this->bearerFor(RoleName::OutdoorSales))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1);
     }
 
     /** OpenAPI §6.2: a malformed filter value is `400`, never a Postgres `22P02`. */

@@ -4563,7 +4563,7 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #348 — `displayPercent` is `displayQuantity` under a percent name; the settings page trims `stored` too, so an untouched tax is not sent)*
       - [x] **2** A sector typed in the customer form is added to the `sectors` managed list and offered again (`D-113`).
             *(2026-10-14, #349 — `AddListEntry::codeForTyped` matches code, then either label, else adds; catalog companies share it; the list column names the sector; both screens reread the sectors after a save)*
-- [ ] **F-45** A customer's page lists its requests and quotations; a new request from there (`D-114`). Requested by
+- [x] **F-45** A customer's page lists its requests and quotations; a new request from there (`D-114`). Requested by
       the owner, 2026-10-14, ahead of F-42 Phase 6; three points, the plan approved in chat the same day. The owner's
       rulings: each list under its existing view scope (§3.4, §3.5 — 'own' is the current `owner_id`); saving a new
       request opens it.
@@ -4571,7 +4571,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #350 — one `where` after `scoped()`, so an `own` caller asking for another seller's customer gets an empty page; non-UUID is `400 not_a_uuid`)*
       - [x] **2** The customer page: its requests and quotations, each row opening its own page, and «طلب جديد» with the customer fixed.
             *(2026-10-14, #351 — each list under its own view row, the first 100 rows, no pager; `DealFormModal` takes an optional fixed `customer`; a save goes to the new deal)*
-      - [ ] **3** The Arabic manual test list (closes F-45).
+      - [x] **3** The Arabic manual test list (closes F-45).
+            *(2026-10-14, #352 — 32 checks by role in the PR description; Team Leader, Procurement and Outdoor Supervisor see no customer at all, since `team`/`asgn`/`out` fail closed)*
 
 ## Shell revisions — owner-directed
 

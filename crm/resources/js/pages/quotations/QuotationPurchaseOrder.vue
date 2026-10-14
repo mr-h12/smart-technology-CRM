@@ -21,9 +21,10 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDate } from '@/domain/displayDate';
 import type { DealDocument } from '@/services/deals';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import FileViewerDialog from '@/components/FileViewerDialog.vue';
-import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
-import { attachPurchaseOrderDocument, readPurchaseOrder, type PurchaseOrderReference } from '@/services/quotations';
+import { downloadFile, FILE_ACCEPT, serverSentence, VIEWABLE_TYPES } from '@/services/files';
+import { attachPurchaseOrderDocument, readPurchaseOrder, removePurchaseOrderDocument, type PurchaseOrderReference } from '@/services/quotations';
 import { useAuth } from '@/stores/auth';
 
 const props = defineProps<{ order: PurchaseOrderReference }>();
@@ -40,9 +41,16 @@ const failed = ref(false);
 
 const uploading = ref(false);
 const errorKey = ref<string | null>(null);
+/** F-47 · 4: a refused removal in the server's own words. */
+const errorText = ref<string | null>(null);
+/** F-47 · 4: what the status region says once a removal is done. */
+const statusText = ref('');
 const downloadingId = ref<string | null>(null);
 /** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
 const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
+/** F-47 · 4 (D-117): the file the confirmation asks about, or null. */
+const removing = ref<DealDocument | null>(null);
+const removeBusy = ref(false);
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -68,6 +76,8 @@ async function onFileChosen(event: Event): Promise<void> {
     }
 
     errorKey.value = null;
+    errorText.value = null;
+    statusText.value = '';
     uploading.value = true;
 
     try {
@@ -83,6 +93,7 @@ async function onFileChosen(event: Event): Promise<void> {
 
 async function download(document: DealDocument): Promise<void> {
     errorKey.value = null;
+    errorText.value = null;
     downloadingId.value = document.id;
 
     try {
@@ -91,6 +102,29 @@ async function download(document: DealDocument): Promise<void> {
         errorKey.value = error instanceof ApiError && error.status === 403 ? 'deals.documents.downloadForbidden' : 'deals.documents.downloadRejected';
     } finally {
         downloadingId.value = null;
+    }
+}
+
+async function remove(): Promise<void> {
+    const document = removing.value;
+
+    if (document === null) {
+        return;
+    }
+
+    errorKey.value = null;
+    errorText.value = null;
+    removeBusy.value = true;
+
+    try {
+        await removePurchaseOrderDocument(props.order.id, document.id);
+        documents.value = documents.value.filter((row) => row.id !== document.id);
+        statusText.value = t('files.deleted', { name: document.original_name });
+    } catch (error) {
+        errorText.value = serverSentence(error) ?? t('files.deleteFailed');
+    } finally {
+        removeBusy.value = false;
+        removing.value = null;
     }
 }
 
@@ -116,8 +150,8 @@ onMounted(load);
             </div>
         </dl>
 
-        <p v-if="errorKey !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="purchase-order-error">
-            {{ t(errorKey) }}
+        <p v-if="errorKey !== null || errorText !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="purchase-order-error">
+            {{ errorText ?? t(errorKey ?? '') }}
         </p>
 
         <!-- A-24: a button in the page's language over a focusable input; the types and the limit are said beside it. -->
@@ -140,7 +174,7 @@ onMounted(load);
             <p id="purchase-order-file-hint" class="text-[var(--color-text-muted)]">{{ t('files.hint') }}</p>
         </div>
         <!-- A-31: present from load and empty; a live region announces what is set into it. -->
-        <p role="status" data-testid="purchase-order-status">{{ uploading ? t('deals.documents.uploading') : '' }}</p>
+        <p role="status" data-testid="purchase-order-status">{{ uploading ? t('deals.documents.uploading') : statusText }}</p>
 
         <LoadingState v-if="loading" label-key="purchaseOrders.loading" />
         <PermissionDeniedState v-else-if="denied" />
@@ -183,10 +217,30 @@ onMounted(load);
                     >
                         {{ t('deals.documents.download') }}
                     </button>
+                    <button
+                        v-if="canUpload"
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-3"
+                        data-testid="purchase-order-delete"
+                        @click="removing = document"
+                    >
+                        {{ t('files.delete') }}
+                    </button>
                 </div>
             </li>
         </ul>
         <FileViewerDialog :file="viewing" @close="viewing = null" />
+        <ConfirmDialog
+            :open="removing !== null"
+            title-key="files.deleteTitle"
+            message-key="files.deleteMessage"
+            confirm-key="files.delete"
+            :subject="removing?.original_name ?? ''"
+            :busy="removeBusy"
+            danger
+            @confirm="remove"
+            @cancel="removing = null"
+        />
     </section>
 </template>
 

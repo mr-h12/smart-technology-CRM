@@ -1918,7 +1918,7 @@ describe('the supplier quotation attachments', () => {
 
     /** `respond()`, with the DELETE answered by `deleteResponse`. */
     function withDelete(deleteResponse: () => Response): ReturnType<typeof vi.fn> {
-        const base = respond();
+        const base = respond() as unknown as typeof globalThis.fetch;
 
         return vi.fn(async (input: string, init?: RequestInit) => (init?.method === 'DELETE'
             ? deleteResponse()
@@ -1979,7 +1979,7 @@ describe('the supplier quotation attachments', () => {
         await flushPromises();
 
         expect(deletesOf(fetchMock)).toHaveLength(1);
-        expect(String(deletesOf(fetchMock)[0][0])).toBe('/api/v1/supplier-quotations/q1/documents/d1');
+        expect(String(deletesOf(fetchMock)[0]?.[0])).toBe('/api/v1/supplier-quotations/q1/documents/d1');
         expect(view.find('[data-testid="supplier-quotation-attachment-0-name"]').exists()).toBe(false);
         expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
 

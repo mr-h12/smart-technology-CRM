@@ -53,9 +53,10 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
-import { assignDeal, attachDealDocument, type Deal, type DealDocument } from '@/services/deals';
+import { assignDeal, attachDealDocument, removeDealDocument, type Deal, type DealDocument } from '@/services/deals';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import FileViewerDialog from '@/components/FileViewerDialog.vue';
-import { downloadFile, FILE_ACCEPT, VIEWABLE_TYPES } from '@/services/files';
+import { downloadFile, FILE_ACCEPT, serverSentence, VIEWABLE_TYPES } from '@/services/files';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -72,11 +73,16 @@ const canAssign = computed(() => auth.hasPermission('deal.assign_owner'));
 const uploaded = ref<DealDocument[]>([]);
 const uploading = ref(false);
 const uploadErrorKey = ref<string | null>(null);
+/** F-47 · 4: a refused removal in the server's own words. */
+const uploadErrorText = ref<string | null>(null);
 /** A-31: what the status region says — set when the answer arrives, cleared by the next action. */
 const uploadStatus = ref('');
 const downloadingId = ref<string | null>(null);
 /** F-47 · 2 (D-116): the file open in the in-page viewer, or null. */
 const viewing = ref<{ id: string; name: string; mimeType: string } | null>(null);
+/** F-47 · 4 (D-117): the file the confirmation asks about, or null. */
+const removing = ref<DealDocument | null>(null);
+const removeBusy = ref(false);
 
 const assigning = ref(false);
 const ownerId = ref('');
@@ -92,6 +98,7 @@ async function onFileChosen(event: Event): Promise<void> {
     }
 
     uploadErrorKey.value = null;
+    uploadErrorText.value = null;
     uploading.value = true;
     uploadStatus.value = t('deals.documents.uploading');
 
@@ -114,6 +121,7 @@ async function onFileChosen(event: Event): Promise<void> {
 
 async function download(document: DealDocument): Promise<void> {
     uploadErrorKey.value = null;
+    uploadErrorText.value = null;
     downloadingId.value = document.id;
 
     try {
@@ -124,6 +132,29 @@ async function download(document: DealDocument): Promise<void> {
             : 'deals.documents.downloadRejected';
     } finally {
         downloadingId.value = null;
+    }
+}
+
+async function remove(): Promise<void> {
+    const document = removing.value;
+
+    if (document === null) {
+        return;
+    }
+
+    uploadErrorKey.value = null;
+    uploadErrorText.value = null;
+    removeBusy.value = true;
+
+    try {
+        await removeDealDocument(props.deal.id, document.id);
+        uploaded.value = uploaded.value.filter((row) => row.id !== document.id);
+        uploadStatus.value = t('files.deleted', { name: document.original_name });
+    } catch (error) {
+        uploadErrorText.value = serverSentence(error) ?? t('files.deleteFailed');
+    } finally {
+        removeBusy.value = false;
+        removing.value = null;
     }
 }
 
@@ -171,8 +202,8 @@ async function submitAssign(): Promise<void> {
                 {{ t('deals.documents.ceiling') }}
             </p>
 
-            <p v-if="uploadErrorKey !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="deal-documents-error">
-                {{ t(uploadErrorKey) }}
+            <p v-if="uploadErrorKey !== null || uploadErrorText !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="deal-documents-error">
+                {{ uploadErrorText ?? t(uploadErrorKey ?? '') }}
             </p>
 
             <!-- A-24: the shared file control, as on the purchase order. -->
@@ -238,6 +269,15 @@ async function submitAssign(): Promise<void> {
                         >
                             {{ t('deals.documents.download') }}
                         </button>
+                        <button
+                            v-if="canUpload"
+                            type="button"
+                            class="row-action min-h-11 rounded-lg px-3"
+                            data-testid="deal-documents-delete"
+                            @click="removing = document"
+                        >
+                            {{ t('files.delete') }}
+                        </button>
                     </div>
                 </li>
             </ul>
@@ -279,6 +319,17 @@ async function submitAssign(): Promise<void> {
             </form>
         </section>
         <FileViewerDialog :file="viewing" @close="viewing = null" />
+        <ConfirmDialog
+            :open="removing !== null"
+            title-key="files.deleteTitle"
+            message-key="files.deleteMessage"
+            confirm-key="files.delete"
+            :subject="removing?.original_name ?? ''"
+            :busy="removeBusy"
+            danger
+            @confirm="remove"
+            @cancel="removing = null"
+        />
     </div>
 </template>
 

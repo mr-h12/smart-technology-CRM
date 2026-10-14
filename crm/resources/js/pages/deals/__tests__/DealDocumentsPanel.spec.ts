@@ -471,7 +471,7 @@ describe('the deal documents and assign panel', () => {
 
         const deletes = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE');
         expect(deletes).toHaveLength(1);
-        expect(String(deletes[0][0])).toContain('/deals/d1/documents/f1');
+        expect(String(deletes[0]?.[0])).toContain('/deals/d1/documents/f1');
         expect(wrapper.findAll('[data-testid="deal-documents-row"]')).toHaveLength(0);
         expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
         expect(wrapper.get('[data-testid="deal-documents-status"]').text()).toBe('offer.pdf was deleted.');

@@ -203,7 +203,7 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
 
     /** The read as `respond()` answers it, and the DELETE as `deleteResponse`. */
     function withDelete(deleteResponse: () => Response): ReturnType<typeof vi.fn> {
-        const read = respond();
+        const read = respond() as unknown as typeof globalThis.fetch;
 
         return vi.fn(async (input: string, init?: RequestInit) => (init?.method === 'DELETE'
             ? deleteResponse()
@@ -218,8 +218,8 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         const buttons = wrapper.findAll('[data-testid="purchase-order-delete"]');
 
         expect(buttons).toHaveLength(2);
-        expect(buttons[0].text()).toBe('Delete');
-        expect(buttons[0].element.parentElement?.querySelector('[data-testid="purchase-order-download"]')).not.toBeNull();
+        expect(buttons[0]?.text()).toBe('Delete');
+        expect(buttons[0]?.element.parentElement?.querySelector('[data-testid="purchase-order-download"]')).not.toBeNull();
     });
 
     it('draws no «Delete» without the upload grant', async () => {
@@ -239,7 +239,7 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         const fetchMock = withDelete(() => new Response(null, { status: 204 }));
         const wrapper = await render(fetchMock);
 
-        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1].trigger('click');
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1]?.trigger('click');
         await flushPromises();
 
         expect(wrapper.get('[data-testid="confirm-dialog"]').text()).toContain('stamp.png');
@@ -255,13 +255,13 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         const fetchMock = withDelete(() => new Response(null, { status: 204 }));
         const wrapper = await render(fetchMock);
 
-        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1].trigger('click');
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1]?.trigger('click');
         await flushPromises();
         await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
 
         expect(deletesOf(fetchMock)).toHaveLength(1);
-        expect(String(deletesOf(fetchMock)[0][0])).toContain('/purchase-orders/po1/documents/f2');
+        expect(String(deletesOf(fetchMock)[0]?.[0])).toContain('/purchase-orders/po1/documents/f2');
         expect(wrapper.findAll('[data-testid="purchase-order-document"]').map((row) => row.text()))
             .toEqual([expect.stringContaining('order.pdf')]);
         expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
@@ -273,7 +273,7 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
             error: { code: 'not_found', message: 'That purchase order was not found.' }, meta: { request_id: 'r1' },
         })));
 
-        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0].trigger('click');
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0]?.trigger('click');
         await flushPromises();
         await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();
@@ -285,7 +285,7 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
     it('says a plain sentence, not the request line, when the failure has no body', async () => {
         const wrapper = await render(withDelete(() => new Response('<html>', { status: 502 })));
 
-        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0].trigger('click');
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0]?.trigger('click');
         await flushPromises();
         await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
         await flushPromises();

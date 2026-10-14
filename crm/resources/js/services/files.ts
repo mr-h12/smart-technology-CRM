@@ -1,4 +1,4 @@
-import { apiDownload } from '@/api';
+import { ApiError, apiDownload } from '@/api';
 
 /**
  * §17's one file route, and it belongs to **Storage**, not to any module.
@@ -52,4 +52,13 @@ export async function downloadFile(fileId: string, filename: string): Promise<vo
     } finally {
         URL.revokeObjectURL(url);
     }
+}
+
+/**
+ * D-117: the server's sentence for a failed removal, or null when no envelope
+ * came back (a proxy's error page) — `ApiError`'s fallback there is the
+ * request line, which is not a sentence for a person.
+ */
+export function serverSentence(error: unknown): string | null {
+    return error instanceof ApiError && error.code !== 'unknown_error' ? error.message : null;
 }

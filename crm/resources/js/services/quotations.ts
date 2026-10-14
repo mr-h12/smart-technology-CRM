@@ -85,6 +85,8 @@ export interface QuotationDetail extends QuotationSummary {
     default_margin?: string;
     discount_percent: string;
     tax_percent: string | null;
+    /** D-118: the rates as entered; `tax_percent` is their sum. */
+    tax_percents: string[];
     rounding_unit: string;
     rounding_enabled: boolean;
     subtotal: string;
@@ -185,7 +187,8 @@ export interface QuotationDraft {
     currency: string;
     default_margin: string;
     discount_percent: string;
-    tax_percent: string | null;
+    /** D-118: empty is no tax (D-63). */
+    tax_percents: string[];
     quotation_date?: string | null;
     valid_until?: string | null;
     /** `SaveQuotationRequest`'s `sometimes`: an omitted list is not sent, as the old term fields were. */

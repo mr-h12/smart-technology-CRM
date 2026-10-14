@@ -14,6 +14,7 @@ use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
+use App\Support\Database\Precision;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -148,12 +149,20 @@ final readonly class PriceQuotation
             ];
         }
 
-        // `D-63`: exempt forces no tax line; else the request's per-quotation rate.
-        $taxPercent = $this->customerTax->isExempt($customerId)
+        // `D-63`: exempt forces no tax line. `D-118`: else the rates as entered,
+        // summed on the one base — `tax_percent` is the sum §5 reads.
+        $taxPercents = [];
+        $submittedRates = $validated['tax_percents'] ?? [];
+
+        if (is_array($submittedRates) && ! $this->customerTax->isExempt($customerId)) {
+            foreach ($submittedRates as $rate) {
+                $taxPercents[] = bcadd(self::decimal($rate, 'tax_percents'), '0', Precision::PERCENT_SCALE);
+            }
+        }
+
+        $taxPercent = $taxPercents === []
             ? null
-            : (array_key_exists('tax_percent', $validated) && $validated['tax_percent'] !== null
-                ? self::decimal($validated['tax_percent'], 'tax_percent')
-                : null);
+            : array_reduce($taxPercents, static fn (string $sum, string $rate): string => bcadd($sum, $rate, Precision::PERCENT_SCALE), '0');
 
         $totals = QuotationTotals::from(
             $pricedLines,
@@ -168,6 +177,7 @@ final readonly class PriceQuotation
             computed: [
                 'currency_id' => $currency->id(),
                 'tax_percent' => $taxPercent,
+                'tax_percents' => $taxPercents,
                 'rounding_unit' => $currency->rounding()->unit(),
                 'rounding_enabled' => $currency->rounding()->isEnabled(),
                 'subtotal' => $totals->subtotal(),

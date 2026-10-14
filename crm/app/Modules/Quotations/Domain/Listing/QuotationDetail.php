@@ -39,6 +39,8 @@ final readonly class QuotationDetail
         public string $defaultMargin,
         public string $discountPercent,
         public ?string $taxPercent,
+        /** @var list<string> D-118: the rates as entered; `taxPercent` is their sum */
+        public array $taxPercents,
         public string $roundingUnit,
         public bool $roundingEnabled,
         public string $subtotal,

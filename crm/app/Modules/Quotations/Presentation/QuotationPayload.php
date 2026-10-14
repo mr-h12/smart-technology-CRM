@@ -157,6 +157,7 @@ final class QuotationPayload
             ...($withCosts ? ['default_margin' => $quotation->defaultMargin] : []),
             'discount_percent' => $quotation->discountPercent,
             'tax_percent' => $quotation->taxPercent,
+            'tax_percents' => $quotation->taxPercents,
             'rounding_unit' => $quotation->roundingUnit,
             'rounding_enabled' => $quotation->roundingEnabled,
             'subtotal' => $quotation->subtotal,

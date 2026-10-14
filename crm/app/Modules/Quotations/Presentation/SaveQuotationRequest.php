@@ -30,8 +30,8 @@ use Illuminate\Validation\Rule;
  * ── The table's CHECKs, mirrored ───────────────────────────────────────────
  *
  * Every bound below repeats a constraint Points 1.1–1.4 put on the tables, so
- * the database never answers a bad request with a 500: `tax_percent IS NULL OR
- * > 0` (`D-63` — no tax is null, zero is not a rate), `discount_percent` in
+ * the database never answers a bad request with a 500: each `tax_percents` rate
+ * > 0 (`D-63`, `D-118` — no tax is an empty list, zero is not a rate), `discount_percent` in
  * `[0, 100)`, `valid_until >= quotation_date`, `quantity > 0`, `amount >= 0`,
  * a non-blank additional description of at most 255.
  *
@@ -66,7 +66,11 @@ final class SaveQuotationRequest extends FormRequest
             'currency' => ['required', Rule::enum(CurrencyCode::class)],
             'default_margin' => self::decimal('required'),
             'discount_percent' => self::decimal('required', 'gte:0', 'lt:100'),
-            'tax_percent' => self::decimal('nullable', 'gt:0'),
+            // D-118: the rates as entered, summed on one base; none is no tax (D-63).
+            // The old single field is refused, not ignored — ignoring it would drop a tax.
+            'tax_percent' => ['prohibited'],
+            'tax_percents' => ['sometimes', 'array', 'max:5'],
+            'tax_percents.*' => self::decimal('required', 'gt:0'),
             'quotation_date' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date', 'after_or_equal:quotation_date'],
             // D-103: at most 15 terms, each `{key, title, body}`; `key` marks

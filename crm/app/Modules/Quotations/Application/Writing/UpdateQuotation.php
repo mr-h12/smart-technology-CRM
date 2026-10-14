@@ -170,6 +170,7 @@ final readonly class UpdateQuotation
             'default_margin' => $before->defaultMargin,
             'discount_percent' => $before->discountPercent,
             'tax_percent' => $before->taxPercent,
+            'tax_percents' => $before->taxPercents,
             'rounding_unit' => $before->roundingUnit,
             'rounding_enabled' => $before->roundingEnabled,
             'subtotal' => $before->subtotal,

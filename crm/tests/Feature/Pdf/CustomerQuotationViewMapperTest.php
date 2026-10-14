@@ -635,6 +635,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             defaultMargin: self::DEFAULT_MARGIN,
             discountPercent: '5',
             taxPercent: $taxPercent,
+            taxPercents: $taxPercent === null ? [] : [$taxPercent],
             roundingUnit: '1',
             roundingEnabled: false,
             subtotal: '34854.10',

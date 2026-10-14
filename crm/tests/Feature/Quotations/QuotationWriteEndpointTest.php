@@ -12,6 +12,7 @@ use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
@@ -314,8 +315,7 @@ final class QuotationWriteEndpointTest extends TestCase
 
     public function test_that_an_empty_tax_rate_list_is_accepted_and_returned(): void
     {
-        $this->postJson(self::ENDPOINT, $this->payload(['tax_percents' => []]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201)
+        $this->readBack(['tax_percents' => []])
             ->assertJsonPath('data.tax_percents', [])
             ->assertJsonPath('data.tax_percent', null);
     }
@@ -323,10 +323,28 @@ final class QuotationWriteEndpointTest extends TestCase
     /** `D-118`: the rates come back as entered, beside their sum. */
     public function test_that_the_tax_rates_are_returned_beside_their_sum(): void
     {
-        $this->postJson(self::ENDPOINT, $this->payload(['tax_percents' => ['14', '5']]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201)
+        $this->readBack(['tax_percents' => ['14', '5']])
             ->assertJsonPath('data.tax_percents', ['14.000', '5.000'])
             ->assertJsonPath('data.tax_percent', '19.000');
+    }
+
+    /** `D-118`: the old single field is refused, not silently dropped with its tax. */
+    public function test_that_the_old_single_tax_percent_is_refused(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['tax_percent' => '14']), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(422)
+            ->assertJsonFragment(['field' => 'tax_percent']);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function readBack(array $overrides): TestResponse
+    {
+        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+
+        return $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200);
     }
 
     /** CHECK `discount_percent >= 0 AND < 100`. */

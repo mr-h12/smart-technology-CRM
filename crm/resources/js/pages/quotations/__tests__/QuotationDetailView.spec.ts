@@ -42,6 +42,7 @@ const QUOTATION = {
     updated_at: '2026-09-13T09:00:00+00:00',
     discount_percent: '10.000',
     tax_percent: '14.000',
+    tax_percents: ['14.000'],
     rounding_unit: '1.000000',
     rounding_enabled: true,
     subtotal: '1000.000000',

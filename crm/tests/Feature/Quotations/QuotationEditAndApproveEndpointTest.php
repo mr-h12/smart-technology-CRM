@@ -266,7 +266,9 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         self::assertIsArray($old);
         self::assertIsArray($new);
         self::assertNull($old['tax_percent'] ?? null);
-        self::assertSame('14', $new['tax_percent'] ?? null);
+        self::assertSame('14.000', $new['tax_percent'] ?? null);  // D-118: the sum, at the percent scale
+        self::assertSame([], $old['tax_percents'] ?? null);
+        self::assertSame(['14.000'], $new['tax_percents'] ?? null);
     }
 
     public function test_that_an_unknown_id_is_a_404(): void

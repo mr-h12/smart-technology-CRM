@@ -307,6 +307,18 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['tax_percents' => ['14', '-5']], 'tax_percents.1');
     }
 
+    /** `D-118` + D-68: a rate has at most three decimals — a finer one would be cut, `0.0004` to a refused zero. */
+    public function test_that_a_rate_finer_than_the_percent_scale_is_refused(): void
+    {
+        $this->post422(['tax_percents' => ['0.0004']], 'tax_percents.0');
+    }
+
+    /** `D-118`: the sum fits `tax_percent`'s NUMERIC(6,3) — 999.999 at most — so the database never answers 500. */
+    public function test_that_rates_summing_past_the_column_are_refused(): void
+    {
+        $this->post422(['tax_percents' => ['500', '500']], 'tax_percents');
+    }
+
     /** `D-118`: up to five rates. */
     public function test_that_more_than_five_tax_rates_are_refused(): void
     {

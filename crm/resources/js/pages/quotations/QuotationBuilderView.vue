@@ -995,9 +995,9 @@ onMounted(load);
                                 {{ t('quotations.builder.removeItem') }}
                             </button>
                         </div>
-                        <button v-if="taxes.length < MAX_TAXES" type="button" class="row-action min-h-11 self-start rounded-lg px-3" :aria-label="t('quotations.builder.addTax')" :data-testid="fieldId('add-tax')" @click="taxes.push('')">+</button>
+                        <button v-if="taxes.length < MAX_TAXES" type="button" class="row-action min-h-11 min-w-11 self-start rounded-lg px-3" :aria-label="t('quotations.builder.addTax')" :data-testid="fieldId('add-tax')" @click="taxes.push('')">+</button>
                         <span :id="fieldId('tax-help')" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.taxExempt') }}</span>
-                        <span v-if="taxError" class="text-[var(--color-danger)]" :data-testid="fieldId('tax-error')">{{ taxError }}</span>
+                        <span v-if="taxError" class="text-[var(--color-danger)]">{{ taxError }}</span>
                     </div>
 
                     <label v-for="field in (['quotation_date', 'valid_until'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">

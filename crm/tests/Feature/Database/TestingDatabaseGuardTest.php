@@ -272,6 +272,9 @@ final class TestingDatabaseGuardTest extends TestCase
             'DB_PORT' => false,
             'DB_USERNAME' => false,
             'DB_PASSWORD' => false,
+            // F-26 · 1.3: phpunit.xml's `null` is only honoured under unit tests; a child
+            // artisan reading it fails to build its logger and writes an EMERGENCY instead.
+            'LOG_CHANNEL' => false,
         ]);
         $process->setTimeout(120);
         $process->run();

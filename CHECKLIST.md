@@ -244,6 +244,12 @@ every "are we ready to ship" conversation — not at the end.
 - [ ] **Image hardening** — the official `php:*-fpm-bookworm` base ships `gcc`, `make` and
       `autoconf`. Harmless in development, but a compiler inside a production container is
       avoidable attack surface. Strip it in the production image build.
+- [ ] **Log rotation and log disk on the server** — *F-26 · 1.3 (2026-10-14).* The template now writes
+      `laravel-YYYY-MM-DD.log` at `info` and keeps 7 days (`LOG_STACK=daily`, `LOG_DAILY_DAYS=7`; the owner).
+      Owed on the server: confirm the rotation deletes the 8th day; delete the old single `laravel.log` once by
+      hand (2.34 GB on dev, 1.44 GB at the QA; the client PC's too) and set its `.env` to the template's three
+      `LOG_*` values; size the disk for `audit-*.log`, which `D-30` keeps forever (457 MB on dev by 2026-10-14) —
+      part of `OD-03`
 
 ---
 
@@ -1816,6 +1822,16 @@ would hide them behind `OD-03` indefinitely.
       and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it
       `"<METHOD> <path> failed with <status>"`. `serverSentence()` in `@/services/files` (F-47 · 4)
       already returns null there; route both through it with a lang-file fallback.
+- [ ] **A `.env` without the `LOG_*` keys still logs to one file at `debug`** — *revealed by F-26 · 1.3's
+      waste audit (2026-10-14).* `config/logging.php:59` falls back to `LOG_STACK=single` and the channels to
+      `LOG_LEVEL=debug`; F-26 · 1.3 changed the template, not those two defaults. `crm/.env.testing.example:37-39`
+      still says `single`/`debug` (it bites only a child artisan run with `--env=testing`). Change both
+      fallbacks to `daily`/`info` and the testing template with them, if the owner wants the code to match.
+- [ ] **The deal-code test fixtures collide about 1 time in 65,536** — *revealed by #360's CI (2026-10-14, run
+      38517296061).* `QuotationPdfStateEndpointTest:187` failed on `deals_code_unique` (`DL-2026-f555`), unrelated
+      to #360's diff. `tests/Feature/Pdf/InsertsQuotationRows.php:31` and 16 more fixtures build the code as
+      `'DL-2026-'.substr(<uuid>, -4)`, which is 4 random hex digits, so two deals in one test can collide. One shared
+      helper with the UUID's last 12 hex digits fits `deals.code`'s `string(20)` exactly.
 
 ## Agent guide revisions — owner-directed
 
@@ -3676,8 +3692,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `Referrer-Policy`, and a CSP that fits the Vite build.
       - [ ] **1.2** CORS limited to the application's origin. There is no `config/cors.php`, so
             Laravel's built-in default applies.
-      - [ ] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
+      - [x] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
             the `daily` channel replaces it, with the deployment-debt register updated.
+            *(2026-10-14, #360 — `daily`, 7 days, `info` (the owner); `phpunit.xml` logs nowhere; existing `.env` files and the old `laravel.log` change by hand — deployment-debt row)*
 - [ ] **F-27** Deals (E2-11, E2-12).
       - [ ] **1.1** The owner's name, and each timeline event's actor, instead of their ids.
             `DealPayload` and `DealTimelinePayload` send the id on purpose, because Deals reads no

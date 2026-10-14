@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\NullHandler;
+use Monolog\Logger as Monolog;
 use Tests\TestCase;
 
 /**
@@ -101,6 +105,25 @@ final class EnvironmentTest extends TestCase
         // checkout.
         self::assertSame('', $template['DB_PASSWORD'] ?? null);
         self::assertSame('', $template['REDIS_PASSWORD'] ?? null);
+    }
+
+    public function test_the_env_template_rotates_the_application_log(): void
+    {
+        // F-26 · 1.3: `single` at `debug` grew laravel.log to 1.44 GB during the
+        // 2026-09-23 QA. A day per file, seven days kept (the owner, 2026-10-14);
+        // the audit channel is separate and kept forever (D-30).
+        $template = self::parseEnvFile('.env.example');
+
+        self::assertSame('daily', $template['LOG_STACK'] ?? null);
+        self::assertSame('7', $template['LOG_DAILY_DAYS'] ?? null);
+        self::assertSame('info', $template['LOG_LEVEL'] ?? null);
+
+        // The suite's deliberate refusals log ERRORs; they are not the app's.
+        $logger = Log::driver();
+        self::assertInstanceOf(Logger::class, $logger);
+        $monolog = $logger->getLogger();
+        self::assertInstanceOf(Monolog::class, $monolog);
+        self::assertInstanceOf(NullHandler::class, $monolog->getHandlers()[0] ?? null);
     }
 
     /** @return array<string, string> */

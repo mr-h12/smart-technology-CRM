@@ -1914,6 +1914,105 @@ describe('the supplier quotation attachments', () => {
         expect(view.find('[data-testid="supplier-quotation-form-attachment-file"]').exists()).toBe(false);
     });
 
+    // ─────────────────────────────────────────────── F-47 · 4 (D-117) — «حذف»
+
+    /** `respond()`, with the DELETE answered by `deleteResponse`. */
+    function withDelete(deleteResponse: () => Response): ReturnType<typeof vi.fn> {
+        const base = respond();
+
+        return vi.fn(async (input: string, init?: RequestInit) => (init?.method === 'DELETE'
+            ? deleteResponse()
+            : base(input, init)));
+    }
+
+    const deletesOf = (fetchMock: ReturnType<typeof vi.fn>) =>
+        fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE');
+
+    async function withOneAttachment(fetchMock: ReturnType<typeof vi.fn>, profile?: AuthenticatedUser) {
+        const view = await render(fetchMock, profile);
+
+        await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
+        await flushPromises();
+        await attach(view);
+        await flushPromises();
+
+        return view;
+    }
+
+    it('draws «Delete» beside Download on a clean attachment (D-117)', async () => {
+        const view = await withOneAttachment(withDelete(() => new Response(null, { status: 204 })));
+        const button = view.get('[data-testid="supplier-quotation-attachment-0-delete"]');
+
+        expect(button.text()).toBe('Delete');
+        expect(button.element.parentElement?.querySelector('[data-testid="supplier-quotation-attachment-0-download"]')).not.toBeNull();
+    });
+
+    it.each(['pending', 'infected'])('draws no «Delete» on a %s attachment', async (status) => {
+        const view = await withOneAttachment(respond(undefined, 200, undefined, status));
+
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-delete"]').exists()).toBe(false);
+    });
+
+    it('asks before deleting, and cancelling sends nothing', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const view = await withOneAttachment(fetchMock);
+
+        await view.get('[data-testid="supplier-quotation-attachment-0-delete"]').trigger('click');
+        await flushPromises();
+
+        expect(view.get('[data-testid="confirm-dialog"]').text()).toContain('offer.pdf');
+
+        await view.get('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(deletesOf(fetchMock)).toHaveLength(0);
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-name"]').exists()).toBe(true);
+    });
+
+    it('deletes through the offer’s own route on confirm, drops the row and says so', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const view = await withOneAttachment(fetchMock);
+
+        await view.get('[data-testid="supplier-quotation-attachment-0-delete"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(deletesOf(fetchMock)).toHaveLength(1);
+        expect(String(deletesOf(fetchMock)[0][0])).toBe('/api/v1/supplier-quotations/q1/documents/d1');
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-name"]').exists()).toBe(false);
+        expect(view.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+
+        const region = view.get('[data-testid="supplier-quotation-form-attachment-status"]');
+        expect(region.attributes('role')).toBe('status');
+        expect(region.text()).toBe('offer.pdf was deleted.');
+    });
+
+    it('keeps the row and shows the server’s sentence when the delete is refused', async () => {
+        const view = await withOneAttachment(withDelete(() => json(403, {
+            error: { code: 'permission_denied', message: 'You may not change this offer.' }, meta: { request_id: 'r1' },
+        })));
+
+        await view.get('[data-testid="supplier-quotation-attachment-0-delete"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="supplier-quotation-attachment-0-name"]').exists()).toBe(true);
+        expect(view.get('[data-testid="supplier-quotation-form-attachment-error"]').text()).toBe('You may not change this offer.');
+    });
+
+    it('says a plain sentence, not the request line, when the failure has no body', async () => {
+        const view = await withOneAttachment(withDelete(() => new Response('<html>', { status: 502 })));
+
+        await view.get('[data-testid="supplier-quotation-attachment-0-delete"]').trigger('click');
+        await flushPromises();
+        await view.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(view.get('[data-testid="supplier-quotation-form-attachment-error"]').text()).toBe('The file could not be deleted. Try again.');
+    });
+
     /** The panel is honest about what it cannot know — see the ceiling above. */
     it('says that only this session’s attachments are listed', async () => {
         const view = await render(respond());

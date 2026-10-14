@@ -199,4 +199,97 @@ describe('the purchase order on its quotation (Module 10 · 3.3)', () => {
         const broken = await render(respond({ readStatus: 500 }));
         expect(broken.find('[data-testid="error-state"]').exists()).toBe(true);
     });
+    // ─────────────────────────────────────────────── F-47 · 4 (D-117) — «حذف»
+
+    /** The read as `respond()` answers it, and the DELETE as `deleteResponse`. */
+    function withDelete(deleteResponse: () => Response): ReturnType<typeof vi.fn> {
+        const read = respond();
+
+        return vi.fn(async (input: string, init?: RequestInit) => (init?.method === 'DELETE'
+            ? deleteResponse()
+            : read(input, init)));
+    }
+
+    const deletesOf = (fetchMock: ReturnType<typeof vi.fn>) =>
+        fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE');
+
+    it('draws «Delete» on each clean file for whoever may upload, beside Download (D-117)', async () => {
+        const wrapper = await render(withDelete(() => new Response(null, { status: 204 })));
+        const buttons = wrapper.findAll('[data-testid="purchase-order-delete"]');
+
+        expect(buttons).toHaveLength(2);
+        expect(buttons[0].text()).toBe('Delete');
+        expect(buttons[0].element.parentElement?.querySelector('[data-testid="purchase-order-download"]')).not.toBeNull();
+    });
+
+    it('draws no «Delete» without the upload grant', async () => {
+        const wrapper = await render(withDelete(() => new Response(null, { status: 204 })), VIEWER);
+
+        expect(wrapper.findAll('[data-testid="purchase-order-document"]')).toHaveLength(2);
+        expect(wrapper.find('[data-testid="purchase-order-delete"]').exists()).toBe(false);
+    });
+
+    it('draws no «Delete» on a file that is not clean', async () => {
+        const wrapper = await render(respond({ documents: [UPLOADED] }));
+
+        expect(wrapper.find('[data-testid="purchase-order-delete"]').exists()).toBe(false);
+    });
+
+    it('asks before deleting, and cancelling sends nothing', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const wrapper = await render(fetchMock);
+
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1].trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="confirm-dialog"]').text()).toContain('stamp.png');
+
+        await wrapper.get('[data-testid="confirm-cancel"]').trigger('click');
+        await flushPromises();
+
+        expect(deletesOf(fetchMock)).toHaveLength(0);
+        expect(wrapper.findAll('[data-testid="purchase-order-document"]')).toHaveLength(2);
+    });
+
+    it('deletes through the PO’s own route on confirm, drops only that row and says so', async () => {
+        const fetchMock = withDelete(() => new Response(null, { status: 204 }));
+        const wrapper = await render(fetchMock);
+
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[1].trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(deletesOf(fetchMock)).toHaveLength(1);
+        expect(String(deletesOf(fetchMock)[0][0])).toContain('/purchase-orders/po1/documents/f2');
+        expect(wrapper.findAll('[data-testid="purchase-order-document"]').map((row) => row.text()))
+            .toEqual([expect.stringContaining('order.pdf')]);
+        expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="purchase-order-status"]').text()).toBe('stamp.png was deleted.');
+    });
+
+    it('keeps the row and shows the server’s sentence when the delete is refused', async () => {
+        const wrapper = await render(withDelete(() => json(404, {
+            error: { code: 'not_found', message: 'That purchase order was not found.' }, meta: { request_id: 'r1' },
+        })));
+
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0].trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="purchase-order-document"]')).toHaveLength(2);
+        expect(wrapper.get('[data-testid="purchase-order-error"]').text()).toBe('That purchase order was not found.');
+    });
+
+    it('says a plain sentence, not the request line, when the failure has no body', async () => {
+        const wrapper = await render(withDelete(() => new Response('<html>', { status: 502 })));
+
+        await wrapper.findAll('[data-testid="purchase-order-delete"]')[0].trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="confirm-accept"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get('[data-testid="purchase-order-error"]').text()).toBe('The file could not be deleted. Try again.');
+    });
 });

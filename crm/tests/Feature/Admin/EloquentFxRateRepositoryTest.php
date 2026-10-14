@@ -100,16 +100,68 @@ final class EloquentFxRateRepositoryTest extends TestCase
         );
     }
 
-    /** One direction only: `USD→EGP` recorded does not answer `EGP→USD`. */
-    public function test_that_the_inverse_pair_is_not_derived(): void
+    /**
+     * `D-115`: `USD→EGP = 48` also answers `EGP→USD`. The stored rate is 1/48
+     * at `D-68`'s FX scale; converting divides by 48, so 48000 EGP is exactly
+     * 1000 USD rather than 48000 × 0.02083333.
+     */
+    public function test_that_the_inverse_pair_is_derived_from_the_recorded_rate(): void
     {
         $this->rates->record(
             ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48'),
             new DateTimeImmutable('2026-01-01'),
         );
 
-        self::assertNull(
-            $this->rates->effectiveRate(CurrencyCode::Egp, CurrencyCode::Usd, new DateTimeImmutable),
+        $rate = $this->rates->effectiveRate(CurrencyCode::Egp, CurrencyCode::Usd, new DateTimeImmutable);
+
+        self::assertInstanceOf(ExchangeRate::class, $rate);
+        self::assertSame(CurrencyCode::Egp, $rate->from());
+        self::assertSame(CurrencyCode::Usd, $rate->to());
+        self::assertSame('0.02083333', $rate->rate());
+        self::assertSame('1000.000000', $rate->convert('48000', 6));
+    }
+
+    /** A recorded direction multiplies (`D-115`): 1000 USD at 48 is 48000 EGP. */
+    public function test_that_a_recorded_direction_converts_by_multiplying(): void
+    {
+        $this->rates->record(
+            ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48'),
+            new DateTimeImmutable('2026-01-01'),
         );
+
+        $rate = $this->rates->effectiveRate(CurrencyCode::Usd, CurrencyCode::Egp, new DateTimeImmutable);
+
+        self::assertInstanceOf(ExchangeRate::class, $rate);
+        self::assertSame('48000.000000', $rate->convert('1000', 6));
+    }
+
+    /**
+     * `D-115`: the newest row in force wins, whichever direction it was
+     * recorded in. A June `EGP→USD` beats a January `USD→EGP`, and before June
+     * the January row, read in reverse, is the one in force.
+     */
+    public function test_that_the_newest_rate_from_either_direction_wins(): void
+    {
+        $this->rates->record(
+            ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '50'),
+            new DateTimeImmutable('2026-01-01'),
+        );
+        $this->rates->record(
+            ExchangeRate::of(CurrencyCode::Egp, CurrencyCode::Usd, '0.019'),
+            new DateTimeImmutable('2026-06-01'),
+        );
+
+        $march = $this->rates->effectiveRate(CurrencyCode::Egp, CurrencyCode::Usd, new DateTimeImmutable('2026-03-01'));
+        self::assertInstanceOf(ExchangeRate::class, $march);
+        self::assertSame('0.02000000', $march->rate());
+
+        $july = $this->rates->effectiveRate(CurrencyCode::Egp, CurrencyCode::Usd, new DateTimeImmutable('2026-07-01'));
+        self::assertInstanceOf(ExchangeRate::class, $july);
+        self::assertSame('0.01900000', $july->rate());
+
+        $julyReverse = $this->rates->effectiveRate(CurrencyCode::Usd, CurrencyCode::Egp, new DateTimeImmutable('2026-07-01'));
+        self::assertInstanceOf(ExchangeRate::class, $julyReverse);
+        self::assertSame('52.63157894', $julyReverse->rate());
+        self::assertSame('52.631578', $julyReverse->convert('1', 6));
     }
 }

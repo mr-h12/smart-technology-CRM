@@ -4573,6 +4573,13 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-14, #351 — each list under its own view row, the first 100 rows, no pager; `DealFormModal` takes an optional fixed `customer`; a save goes to the new deal)*
       - [x] **3** The Arabic manual test list (closes F-45).
             *(2026-10-14, #352 — 32 checks by role in the PR description; Team Leader, Procurement and Outdoor Supervisor see no customer at all, since `team`/`asgn`/`out` fail closed)*
+- [ ] **F-46** One recorded exchange rate serves both directions (`D-115`). Requested by the owner, 2026-10-14
+      («1 USD = 50 EGP» must also price an EGP supplier cost on a USD quotation); three points, the plan approved in
+      chat the same day. The owner's rulings: one rate for both directions; only the supplier cost converts —
+      additional items stay in the quotation currency.
+      - [ ] **1** Backend: the newest rate from either direction wins; the inverse divides by the recorded rate; `D-115`.
+      - [ ] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
+      - [ ] **3** The Arabic manual test list (closes F-46).
 
 ## Shell revisions — owner-directed
 

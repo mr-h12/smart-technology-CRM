@@ -332,6 +332,51 @@ final class CreateQuotationTest extends TestCase
         self::assertSame(0, DB::table('quotations')->count());
     }
 
+    /**
+     * `D-115`, the owner's example: only `USD→EGP = 50` is recorded, and an EGP
+     * supplier price on a USD quotation converts through it — 30000 EGP is 600 USD.
+     */
+    public function test_that_an_egp_price_on_a_usd_quotation_converts_through_the_recorded_usd_to_egp_rate(): void
+    {
+        $this->fxRate($this->usdId, $this->egpId, '50');
+        $line = $this->supplierLine('30000', '1', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: ['currency' => 'USD', 'default_margin' => '0', 'discount_percent' => '0'],
+        ));
+
+        $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
+            ->first(['unit_cost_currency', 'unit_cost_fx_rate_at_time', 'unit_cost_base']);
+        self::assertNotNull($item);
+        self::assertSame('EGP', $item->unit_cost_currency);
+        self::assertSame('0.02000000', $item->unit_cost_fx_rate_at_time);
+        self::assertSame('600.000000', $item->unit_cost_base);
+    }
+
+    /**
+     * `D-115`: the inverse divides by the recorded rate rather than multiplying
+     * by its truncated inverse — 30000 EGP at 30 is 1000 USD, not 999.9999.
+     */
+    public function test_that_an_inverse_rate_divides_rather_than_multiplying_a_truncated_inverse(): void
+    {
+        $this->fxRate($this->usdId, $this->egpId, '30');
+        $line = $this->supplierLine('30000', '1', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: ['currency' => 'USD', 'default_margin' => '0', 'discount_percent' => '0'],
+        ));
+
+        $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
+            ->first(['unit_cost_fx_rate_at_time', 'unit_cost_base']);
+        self::assertNotNull($item);
+        self::assertSame('0.03333333', $item->unit_cost_fx_rate_at_time);
+        self::assertSame('1000.000000', $item->unit_cost_base);
+    }
+
     // ────────────────────────────────────────────────────────────── §5.6 warn
 
     /** A requested quantity above the supplier's recorded amount warns and does not block. */

@@ -1817,6 +1817,11 @@ would hide them behind `OD-03` indefinitely.
       each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
       `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
       Replace the three with `entryLabel` plus one code→name lookup.
+- [ ] **A `.env` without the `LOG_*` keys still logs to one file at `debug`** — *revealed by F-26 · 1.3's
+      waste audit (2026-10-14).* `config/logging.php:59` falls back to `LOG_STACK=single` and the channels to
+      `LOG_LEVEL=debug`; F-26 · 1.3 changed the template, not those two defaults. `crm/.env.testing.example:37-39`
+      still says `single`/`debug` (it bites only a child artisan run with `--env=testing`). Change both
+      fallbacks to `daily`/`info` and the testing template with them, if the owner wants the code to match.
 
 ## Agent guide revisions — owner-directed
 

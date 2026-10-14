@@ -3687,8 +3687,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             `Referrer-Policy`, and a CSP that fits the Vite build.
       - [ ] **1.2** CORS limited to the application's origin. There is no `config/cors.php`, so
             Laravel's built-in default applies.
-      - [ ] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
+      - [x] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
             the `daily` channel replaces it, with the deployment-debt register updated.
+            *(2026-10-14, #360 — `daily`, 7 days, `info` (the owner); `phpunit.xml` logs nowhere; existing `.env` files and the old `laravel.log` change by hand — deployment-debt row)*
 - [ ] **F-27** Deals (E2-11, E2-12).
       - [ ] **1.1** The owner's name, and each timeline event's actor, instead of their ids.
             `DealPayload` and `DealTimelinePayload` send the id on purpose, because Deals reads no

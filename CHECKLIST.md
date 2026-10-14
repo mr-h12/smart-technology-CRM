@@ -1832,6 +1832,15 @@ would hide them behind `OD-03` indefinitely.
       to #360's diff. `tests/Feature/Pdf/InsertsQuotationRows.php:31` and 16 more fixtures build the code as
       `'DL-2026-'.substr(<uuid>, -4)`, which is 4 random hex digits, so two deals in one test can collide. One shared
       helper with the UUID's last 12 hex digits fits `deals.code`'s `string(20)` exactly.
+- [ ] **`X-Frame-Options` and `X-Content-Type-Options` are missing from error responses** — *revealed by
+      F-26 · 1.1's waste audit (2026-10-14).* `docker/nginx/default.conf:44-45` add them without `always`, so a
+      4xx/5xx (the `/.env` 403, for one) carries neither; the four headers F-26 · 1.1 added all carry `always`.
+      Add `always` to both and a line each to `scripts/verify-headers.sh`.
+- [ ] **The security-header check runs only by hand** — *revealed by F-26 · 1.1's waste audit (2026-10-14).*
+      `scripts/verify-headers.sh` (called from `verify-boot.sh`) needs the running stack; no CI workflow runs
+      either. The CSP carries the sha256 of `welcome.blade.php`'s inline theme script, so an edit to that
+      script without the nginx hash is blocked in the browser and caught only by that script. No PHP test can
+      see it: `docker/` is not mounted in the php container.
 
 ## Agent guide revisions — owner-directed
 

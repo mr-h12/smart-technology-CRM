@@ -1806,6 +1806,11 @@ would hide them behind `OD-03` indefinitely.
       browser check (2026-10-14, #345).* `.file-pick` (A-24) looks like a button but keeps
       `cursor: default`, on the deal documents and the purchase-order block alike. One line in
       `app.css`.
+- [ ] **`sectorLabel` is written three times beside a shared `entryLabel`** — *revealed by F-44 · 2's
+      waste audit (2026-10-14, #349); already on `main`.* `CustomerFormModal.vue` and `CustomersView.vue`
+      each define `sectorLabel(entry)`, and `CustomerDetailView.vue` a `sectorLabel(code)`, while
+      `entryLabel(entry, locale)` in `@/services/admin` already does the same for the catalog screens.
+      Replace the three with `entryLabel` plus one code→name lookup.
 
 ## Agent guide revisions — owner-directed
 

@@ -55,7 +55,7 @@ final class SaveCustomerRequest extends FormRequest
 
             // Lengths are the columns' own (Point 1.1). A value longer than the
             // column is a 500 from PostgreSQL if it is not refused here.
-            'sector' => ['nullable', 'string', 'max:64'],
+            'sector' => ['nullable', 'string', 'max:128'],
             'region' => ['nullable', 'string', 'max:128'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             // A code; `SaveCustomer` checks it is on the live list (`D-104`).

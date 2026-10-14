@@ -366,6 +366,22 @@ describe('CustomerDetailView — §5.2 action controls only by permission', () =
 
         expect(view.text()).toContain('Alpha Trading Co');
     });
+
+    /** `D-113`: a sector typed into the form joins the list, so the page must name it, not show its code. */
+    it('reads the sectors again after the form saves', async () => {
+        const fetchMock = stubDetail(() => CUSTOMER);
+
+        const view = await render(EDITOR);
+        await flushPromises();
+        const sectorCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('/managed-lists/sectors')).length;
+        const before = sectorCalls();
+
+        await view.find('[data-testid="customer-detail-edit"]').trigger('click');
+        await view.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sectorCalls()).toBeGreaterThan(before);
+    });
 });
 
 /**

@@ -128,6 +128,30 @@ final class CustomerSectorTypedTest extends TestCase
         self::assertSame($before, $this->sectors());
     }
 
+    /** The sector is resolved inside the save's transaction: an edit of a missing customer rolls it back. */
+    public function test_that_an_edit_of_a_missing_customer_adds_no_sector(): void
+    {
+        $before = $this->sectors();
+
+        $this->patchJson(self::ENDPOINT.'/'.\Illuminate\Support\Str::uuid7(), ['sector' => 'مقاولات'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+
+        self::assertSame($before, $this->sectors());
+    }
+
+    /** `own` reaches only the caller's rows: an edit of somebody else's customer is a 404 and writes no sector. */
+    public function test_that_an_own_scoped_edit_of_another_owners_customer_adds_no_sector(): void
+    {
+        $id = $this->postJson(self::ENDPOINT, ['name' => 'Theirs'], $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        self::assertIsString($id);
+        $before = $this->sectors();
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['sector' => 'مقاولات'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+
+        self::assertSame($before, $this->sectors());
+    }
+
     /** Longer than the old 64 and within the label's own 128. */
     public function test_that_a_sector_name_up_to_the_label_limit_is_accepted(): void
     {

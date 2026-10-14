@@ -335,7 +335,7 @@ final class CatalogItemWriteEndpointTest extends TestCase
     /** `D-113`: an entry already listed is found by either label too, so a label never becomes a second company. */
     public function test_that_a_listed_company_is_found_by_its_label(): void
     {
-        DB::table('enum_lists')->insert(['id' => (string) \Illuminate\Support\Str::uuid7(), 'list' => 'companies', 'code' => 'zk',
+        DB::table('enum_lists')->insert(['id' => (string) Str::uuid7(), 'list' => 'companies', 'code' => 'zk',
             'label_en' => 'ZK Group', 'label_ar' => 'زد كي', 'position' => 1, 'created_at' => now(), 'updated_at' => now()]);
         $bearer = $this->bearerFor(RoleName::Manager);
 

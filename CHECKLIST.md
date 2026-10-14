@@ -4654,8 +4654,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       points, each checked on screen; the plan approved in chat the same day. The owner's rulings: a customer
       quotation's creation is the trigger for «عرض المورّد»; one timeline line per status passed; by hand only
       «شراء», «توريد», «اكتمل التوريد»; a load test instead of the Arabic manual test list.
-      - [ ] **1.1** A new deal is «تم التواصل»; a customer quotation walks its deal to «عرض المورّد», one line per
+      - [x] **1.1** A new deal is «تم التواصل»; a customer quotation walks its deal to «عرض المورّد», one line per
             step, under a row lock; `D-119` written.
+            *(2026-10-15, #366 — the walk is `allowedFrom`'s next edge through `ChangeDealStatus`, read `FOR UPDATE`; a blocked save rolls it back; D-90 rule a now guards only pre-D-119 quotations)*
       - [ ] **1.2** The customer's answer: Accept → «ناجحة», Partial and Counter → «تفاوض».
       - [ ] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
       - [ ] **1.4** The status control on the customer page's deals list and on the quotation page; the load test

@@ -1822,6 +1822,12 @@ would hide them behind `OD-03` indefinitely.
       (`Audit/Domain/AuditEvent.php:50`) has no caller in `crm/app`; a tax edit is audited only inside
       the quotation's `QUOTATION_UPDATED` old/new values (now with `tax_percents`). CLAUDE.md lists tax
       changes among the always-audited events: emit it where `UpdateQuotation` decides `$taxMoved`.
+- [ ] **The tax-rate list is written twice: the builder's and the supplier offer's** — *created by F-48 · 2
+      (2026-10-14), registered rather than fixed because the fix reopens the builder F-48 · 1 merged (#363).*
+      `SupplierQuotationFormModal.vue`'s rate block (inputs, «إزالة», «+», `taxes` state and its load from
+      `displayPercent`) repeats `QuotationBuilderView.vue`'s almost line for line; the limit is already shared
+      (`@/domain/taxRates`). One `TaxRatesField.vue` (`v-model`, an id prefix, an error) removes both; the
+      supplier form also reads the builder's five `quotations.builder.*` tax keys, which that component would own.
 - [ ] **Two screens print `ApiError.message` raw, so a proxy error page reads as a request line** —
       *revealed by F-47 · 4's waste audit (2026-10-14); already on `main`.* `QuotationPdfPanel.vue:128`
       and `CustomerFormModal.vue:217` show `error.message`; with no JSON envelope `api.ts:387` makes it

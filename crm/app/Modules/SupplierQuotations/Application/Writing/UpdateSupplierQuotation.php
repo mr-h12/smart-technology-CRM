@@ -12,6 +12,7 @@ use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationSummary;
 use App\Modules\SupplierQuotations\Domain\Writing\SupplierQuotationDraft;
 use App\Support\Http\TaxRates;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Validation\ValidationException;
 
 /**
  * §7.2's edit — the header, its lines and `AUD-01`'s record in one transaction.
@@ -90,8 +91,15 @@ final readonly class UpdateSupplierQuotation
 
             // `D-118` on an edit that touches the flag, the rates or an amount:
             // the rates it types, else the ones captured on the offer.
-            if ($flag !== null || array_key_exists('included_tax_percents', $validated)
-                || array_key_exists('total_price', $draft->attributes) || $draft->items !== null) {
+            $amountsSent = array_key_exists('total_price', $draft->attributes) || $draft->items !== null;
+
+            // New rates with no amount to strip would store a sum the stored net
+            // was never divided by (pricing review, F-48 · 2). The form always sends both.
+            if (array_key_exists('included_tax_percents', $validated) && ! $amountsSent) {
+                throw ValidationException::withMessages(['included_tax_percents' => __('supplier_quotations.errors.rates_need_amounts')]);
+            }
+
+            if ($flag !== null || array_key_exists('included_tax_percents', $validated) || $amountsSent) {
                 $rates = IncludedTaxRate::rates($flag ?? $before->header->pricesIncludeTax, $validated, $before->header->includedTaxPercents);
 
                 if ($rates !== []) {

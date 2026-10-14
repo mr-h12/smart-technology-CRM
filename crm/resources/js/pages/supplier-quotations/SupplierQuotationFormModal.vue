@@ -67,6 +67,7 @@ import { listDeals, type DealListQuery, type DealRow } from '@/services/deals';
 import SearchCombobox from '@/components/SearchCombobox.vue';
 import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
+import { MAX_TAXES } from '@/domain/taxRates';
 import CatalogItemPicker from '@/components/catalog/CatalogItemPicker.vue';
 import { useAuth } from '@/stores/auth';
 
@@ -99,8 +100,7 @@ function blank(): Values {
 
 const values = ref<Values>(blank());
 
-/** D-118: the rates typed beside the flag, at most five (`TaxRates`' `max:5`), as the builder's. */
-const MAX_TAXES = 5;
+/** D-118: the rates typed beside the flag, as the builder's. */
 const taxes = ref<string[]>(['']);
 const openedTaxes = ref('[""]');
 const taxError = ref<string | null>(null);

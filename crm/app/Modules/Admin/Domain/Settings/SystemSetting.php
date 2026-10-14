@@ -59,15 +59,6 @@ enum SystemSetting: string
     case DateFormat = 'locale.date_format';
 
     /**
-     * How the stored string is to be read — one of the five `settings.value_type`
-     * accepts (Point 1.1).
-     */
-    public function valueType(): string
-    {
-        return 'string';
-    }
-
-    /**
      * The validation rule the boundary applies, beyond "is a string".
      */
     public function rule(): string

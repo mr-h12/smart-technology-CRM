@@ -67,7 +67,8 @@ final readonly class DatabaseSettingsRepository implements SettingsRepositoryInt
                 'id' => $id,
                 'key' => $setting->value,
                 'value' => $value,
-                'value_type' => $setting->valueType(),
+                // Every setting is text since `D-118` removed the one decimal (F-48 · 2).
+                'value_type' => 'string',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -81,7 +82,7 @@ final readonly class DatabaseSettingsRepository implements SettingsRepositoryInt
             ->where('id', $id)
             ->update([
                 'value' => $value,
-                'value_type' => $setting->valueType(),
+                'value_type' => 'string',
                 'updated_at' => now(),
             ]);
 

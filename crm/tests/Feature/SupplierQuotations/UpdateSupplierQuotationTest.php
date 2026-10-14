@@ -270,6 +270,24 @@ final class UpdateSupplierQuotationTest extends TestCase
         self::assertFalse(DB::table('supplier_quotations')->where('id', $offer->id)->value('prices_include_tax'));
     }
 
+    /**
+     * Pricing review, F-48 · 2: rates sent without the amounts they strip would
+     * store a new sum beside prices stripped at the old one. Refused instead.
+     */
+    public function test_that_new_rates_without_the_amounts_are_refused(): void
+    {
+        $offer = $this->create($this->taxInclusive());
+
+        try {
+            $this->update($offer->id, ['included_tax_percents' => ['5']]);
+            self::fail('Rates were changed without the amounts they strip.');
+        } catch (ValidationException $refused) {
+            self::assertArrayHasKey('included_tax_percents', $refused->errors());
+        }
+
+        self::assertSame('14.000', DB::table('supplier_quotations')->where('id', $offer->id)->value('included_tax_percent'));
+    }
+
     /** Unflagging returns the offer to D-62: taken as recorded, no rates and no entered amounts. */
     public function test_that_unflagging_an_offer_on_edit_takes_it_as_recorded(): void
     {

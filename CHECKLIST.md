@@ -3689,9 +3689,9 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.4** Category suggestions from the values already in use.
 - [ ] **F-26** Security and operations (E5b-13; `laravel.log` at 1.44 GB during the QA).
       - [ ] **1.1** nginx (`docker/nginx/default.conf`): `server_tokens off` (absent today), HSTS,
-            `Referrer-Policy`, and a CSP that fits the Vite build.
-      - [ ] **1.2** CORS limited to the application's origin. There is no `config/cors.php`, so
-            Laravel's built-in default applies.
+            `Referrer-Policy`, and a CSP that fits the Vite build; and CORS limited to the application's
+            origin (there is no `config/cors.php`, so Laravel's built-in default applies). *Joined with the
+            former 1.2 by the owner, 2026-10-14.*
       - [x] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
             the `daily` channel replaces it, with the deployment-debt register updated.
             *(2026-10-14, #360 — `daily`, 7 days, `info` (the owner); `phpunit.xml` logs nowhere; existing `.env` files and the old `laravel.log` change by hand — deployment-debt row)*

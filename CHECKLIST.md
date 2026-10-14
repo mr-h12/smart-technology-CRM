@@ -4668,7 +4668,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #366 — the walk is `allowedFrom`'s next edge through `ChangeDealStatus`, read `FOR UPDATE`; a blocked save rolls it back; D-90 rule a now guards only pre-D-119 quotations)*
       - [x] **1.2** The customer's answer: Accept → «ناجحة», Partial and Counter → «تفاوض».
             *(2026-10-15, #367 — one locked `moveIfAllowed` for Accept, Partial/Counter and Reject; no §4.4 edge, no move; a refused answer moves nothing)*
-      - [ ] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
+      - [x] **1.3** The manual list is the three: `ChangeDealStatusRequest` and `DealStatusControl.vue`.
+            *(2026-10-15, #368 — 422 on every other status, `reason` prohibited, 403 before 422; the control is one button naming the next of the three, from `won` onward)*
       - [ ] **1.4** The status control on the customer page's deals list and on the quotation page; the load test
             (`ab`, 50 at once on one deal, then a database check for duplicate lines).
 

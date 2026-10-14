@@ -82,6 +82,8 @@ docker compose exec -T php php artisan --version >/dev/null 2>&1 \
   && ok "artisan runs inside the container" || bad "artisan is not runnable"
 rcode=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:"${HTTP_PORT:-8080}"/ 2>/dev/null)
 [ "$rcode" = "301" ] && ok "SEC-14 plain HTTP redirects to HTTPS" || bad "HTTP returned $rcode"
+scripts/verify-headers.sh >/dev/null && ok "F-26 · 1.1 security headers (scripts/verify-headers.sh)" \
+  || bad "security headers — run scripts/verify-headers.sh"
 
 echo
 echo "== D-54 / ST-06: does state survive a restart? =="

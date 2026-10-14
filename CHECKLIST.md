@@ -1832,6 +1832,15 @@ would hide them behind `OD-03` indefinitely.
       to #360's diff. `tests/Feature/Pdf/InsertsQuotationRows.php:31` and 16 more fixtures build the code as
       `'DL-2026-'.substr(<uuid>, -4)`, which is 4 random hex digits, so two deals in one test can collide. One shared
       helper with the UUID's last 12 hex digits fits `deals.code`'s `string(20)` exactly.
+- [ ] **`X-Frame-Options` and `X-Content-Type-Options` are missing from error responses** — *revealed by
+      F-26 · 1.1's waste audit (2026-10-14).* `docker/nginx/default.conf:44-45` add them without `always`, so a
+      4xx/5xx (the `/.env` 403, for one) carries neither; the four headers F-26 · 1.1 added all carry `always`.
+      Add `always` to both and a line each to `scripts/verify-headers.sh`.
+- [ ] **The security-header check runs only by hand** — *revealed by F-26 · 1.1's waste audit (2026-10-14).*
+      `scripts/verify-headers.sh` (called from `verify-boot.sh`) needs the running stack; no CI workflow runs
+      either. The CSP carries the sha256 of `welcome.blade.php`'s inline theme script, so an edit to that
+      script without the nginx hash is blocked in the browser and caught only by that script. No PHP test can
+      see it: `docker/` is not mounted in the php container.
 
 ## Agent guide revisions — owner-directed
 
@@ -3687,11 +3696,12 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       - [ ] **1.3** `filter[supplier_id]` works and is in the contract; the supplier's page shows its
             items.
       - [ ] **1.4** Category suggestions from the values already in use.
-- [ ] **F-26** Security and operations (E5b-13; `laravel.log` at 1.44 GB during the QA).
-      - [ ] **1.1** nginx (`docker/nginx/default.conf`): `server_tokens off` (absent today), HSTS,
+- [x] **F-26** Security and operations (E5b-13; `laravel.log` at 1.44 GB during the QA).
+      - [x] **1.1** nginx (`docker/nginx/default.conf`): `server_tokens off` (absent today), HSTS,
             `Referrer-Policy`, and a CSP that fits the Vite build; and CORS limited to the application's
             origin (there is no `config/cors.php`, so Laravel's built-in default applies). *Joined with the
             former 1.2 by the owner, 2026-10-14.*
+            *(2026-10-14, #362 — HSTS 1 year, `Referrer-Policy: same-origin`, a `'self'` CSP with the theme script's hash, `allowed_origins => []`; `scripts/verify-headers.sh` checks them)*
       - [x] **1.3** Log rotation: `crm/.env.example` sets `LOG_STACK=single` and `LOG_LEVEL=debug`;
             the `daily` channel replaces it, with the deployment-debt register updated.
             *(2026-10-14, #360 — `daily`, 7 days, `info` (the owner); `phpunit.xml` logs nowhere; existing `.env` files and the old `laravel.log` change by hand — deployment-debt row)*

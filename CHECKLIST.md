@@ -4577,7 +4577,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       («1 USD = 50 EGP» must also price an EGP supplier cost on a USD quotation); three points, the plan approved in
       chat the same day. The owner's rulings: one rate for both directions; only the supplier cost converts —
       additional items stay in the quotation currency.
-      - [ ] **1** Backend: the newest rate from either direction wins; the inverse divides by the recorded rate; `D-115`.
+      - [x] **1** Backend: the newest rate from either direction wins; the inverse divides by the recorded rate; `D-115`.
+            *(2026-10-14, #353 — `ExchangeRate::convert()` is the one conversion; the inverse divides by the recorded rate, so 30000 EGP at 30 is 1000 USD exactly)*
       - [ ] **2** The Currencies screen's rate hint says which way the rate reads and that it serves both directions.
       - [ ] **3** The Arabic manual test list (closes F-46).
 

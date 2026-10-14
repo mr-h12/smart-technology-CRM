@@ -97,8 +97,8 @@ final readonly class PriceQuotation
             }
 
             // `D-09`: the rate is captured at creation. No rate for the pair in
-            // either direction (`D-115`)
-            // means the line cannot be converted, so it cannot be priced.
+            // either direction (`D-115`) means the line cannot be converted, so
+            // it cannot be priced.
             $rate = $this->fxRates->effectiveRate($supplierCurrency->code(), $currency->code(), $at);
             if ($rate === null) {
                 throw QuotationNotPriceable::fxRateMissing($itemId, $index + 1);

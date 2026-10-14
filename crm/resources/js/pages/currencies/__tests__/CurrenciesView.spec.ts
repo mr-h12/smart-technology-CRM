@@ -508,7 +508,9 @@ describe('the explanations', () => {
         const { wrapper: arabic } = await mountCurrencies(MANAGER, [RATES_OK], 'ar');
         const arHint = arabic.findAll('[data-testid="rate-hint"]')[2]?.text();
 
-        expect(arHint).toContain('1 USD = 50 EGP');
+        // Isolated left-to-right (U+2066 … U+2069): inside an RTL paragraph the
+        // bidi algorithm otherwise draws it as "USD = 50 EGP 1".
+        expect(arHint).toContain('⁦1 USD = 50 EGP⁩');
         expect(arHint).toContain('الاتجاه المعاكس');
 
         const { wrapper: english } = await mountCurrencies(MANAGER, [RATES_OK]);

@@ -95,6 +95,8 @@ export interface DealListQuery {
     approvalStatus?: string | null;
     /** `D-108`: the current owner's id. */
     owner?: string | null;
+    /** `D-114`: the customer page's requests. */
+    customer?: string | null;
 }
 
 /**
@@ -177,6 +179,7 @@ export async function listDeals(query: DealListQuery = {}): Promise<Page<DealRow
         ['filter[source]', query.source],
         ['filter[approval_status]', query.approvalStatus],
         ['filter[owner]', query.owner],
+        ['filter[customer]', query.customer],
     ] as const) {
         if (typeof value === 'string' && value !== '') {
             parameters.set(key, value);

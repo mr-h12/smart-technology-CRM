@@ -59,6 +59,8 @@ const props = defineProps<{
     open: boolean;
     /** Null is a create; a deal is an edit. */
     editing: Deal | null;
+    /** `D-114`: opened from a customer's page, the create's customer is fixed. */
+    customer?: { id: string; name: string };
 }>();
 
 const emit = defineEmits<{ saved: [Deal]; cancel: [] }>();
@@ -147,7 +149,7 @@ watch(
         const deal = props.editing;
 
         const next: Values = deal === null
-            ? blank()
+            ? { ...blank(), customer_id: props.customer?.id ?? '' }
             : {
                 customer_id: deal.customer_id,
                 owner_id: deal.owner_id ?? '',
@@ -305,7 +307,11 @@ function discard(): void {
 
             <!-- Create only: `customer_id` is `prohibited` on a PATCH, a
                  different customer being a different deal. -->
-            <label v-if="!isEdit" class="flex flex-col gap-1.5" :for="fieldId('customer_id')">
+            <div v-if="!isEdit && customer" class="flex flex-col gap-1.5">
+                <span>{{ t('deals.column.customer') }}</span>
+                <span class="font-medium" data-testid="deal-form-customer-fixed">{{ customer.name }}</span>
+            </div>
+            <label v-else-if="!isEdit" class="flex flex-col gap-1.5" :for="fieldId('customer_id')">
                 <span>
                     {{ t('deals.column.customer') }}
                     <!-- §6.3's "explicit required marker": a word, not only a glyph. -->

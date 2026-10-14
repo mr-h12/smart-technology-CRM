@@ -97,6 +97,7 @@ async function mountModal(
     profile: AuthenticatedUser = ASSIGNER,
     usersStatus = 200,
     writeResponse?: () => Promise<Response>,
+    customer?: { id: string; name: string },
 ) {
     await signIn(profile);
 
@@ -125,7 +126,7 @@ async function mountModal(
     const i18n = createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } });
 
     const wrapper = mount(DealFormModal, {
-        props: { open: true, editing },
+        props: { open: true, editing, ...(customer === undefined ? {} : { customer }) },
         global: { plugins: [i18n] },
     });
 
@@ -208,6 +209,20 @@ describe('the deal form dialog', () => {
 
         expect(fetchMock).not.toHaveBeenCalled();
         expect(wrapper.find('[data-testid="deal-form-customer-id-error"]').text()).toBe('The customer is required.');
+    });
+
+    /** `D-114`: opened from a customer's page, the customer is fixed — named, not picked — and sent. */
+    it('a preset customer replaces the picker and is sent as customer_id', async () => {
+        const wrapper = await mountModal(null, ASSIGNER, 200, undefined, { id: 'c-7', name: 'Alpha Trading' });
+
+        expect(wrapper.find('[data-testid="deal-form-customer-id"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="deal-form-customer-fixed"]').text()).toBe('Alpha Trading');
+
+        await wrapper.find('[data-testid="deal-form-title"]').setValue('Twelve pumps');
+        await wrapper.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(JSON.parse(String(writeCall()![1].body)).customer_id).toBe('c-7');
     });
 
     // ───────────────────────────────────────────────────────────────── editing

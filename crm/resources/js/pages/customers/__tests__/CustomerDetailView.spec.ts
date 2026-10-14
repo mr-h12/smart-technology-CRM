@@ -685,3 +685,156 @@ describe('CustomerDetailView — Flow 10 · F-19 · 1.1 assign', () => {
         expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/assign'))).toHaveLength(1);
     });
 });
+
+/**
+ * `D-114` (F-45 · 2): the page lists the customer's requests and quotations,
+ * each under its own view row (§3.4, §3.5) — the server scopes the rows, the
+ * page only asks for this customer's — and «New request» opens with the
+ * customer fixed, then goes to the new request.
+ */
+describe('CustomerDetailView — D-114 requests and quotations', () => {
+    const DEAL_ROW = {
+        id: 'd1', code: 'DL-2026-0007', customer_id: 'c1', customer_name: 'Alpha Trading', title: 'Twelve pumps',
+        details: null, source: null, service_type: null, status: 'lead', owner_id: 'u1', owner_name: 'Indoor Sales',
+        approval_status: 'approved', rejection_reason: null, lost_reason: null,
+        last_activity_at: '2026-10-01T09:00:00Z', created_at: '2026-10-01T09:00:00Z', updated_at: '2026-10-01T09:00:00Z',
+    };
+
+    const QUOTATION_ROW = {
+        id: 'q1', code: 'QT-2026-0003', status: 'draft', customer_id: 'c1', customer_name: 'Alpha Trading', deal_id: 'd1',
+        currency_id: 'cur1', currency: 'EGP', final_total: '1250.00', quotation_date: '2026-10-02', valid_until: null,
+        submitted_at: null, days_waiting: null, sla_exceeded: null, is_self_approved: false, version: 2, parent_id: 'q0',
+        created_at: '2026-10-02T09:00:00Z',
+    };
+
+    const SELLER: AuthenticatedUser = {
+        ...VIEWER,
+        permissions: ['customer.view.own', 'deal.view.own', 'deal.create.own', 'quotation.view.own'],
+    };
+
+    function page(items: unknown[]): Response {
+        return json(200, { data: items, meta: { pagination: { ...PAGINATION, total: items.length } } });
+    }
+
+    function stubHistory(deals: unknown[] = [DEAL_ROW], quotations: unknown[] = [QUOTATION_ROW], dealsStatus = 200): ReturnType<typeof vi.fn> {
+        const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+            const path = String(url);
+
+            if (path.includes('/managed-lists/')) {
+                return page([]);
+            }
+
+            if (/\/deals(\?|$)/.test(path) && init?.method === 'POST') {
+                return json(201, { data: { ...DEAL_ROW, id: 'd-new' }, meta: {} });
+            }
+
+            if (/\/deals\?/.test(path)) {
+                return dealsStatus === 200 ? page(deals) : json(dealsStatus, { error: { code: 'x', message: 'no' } });
+            }
+
+            if (/\/quotations\?/.test(path)) {
+                return page(quotations);
+            }
+
+            return json(200, { data: CUSTOMER, meta: {} });
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        return fetchMock;
+    }
+
+    function asked(fetchMock: ReturnType<typeof vi.fn>, pattern: RegExp): string | undefined {
+        return fetchMock.mock.calls.map((c) => decodeURIComponent(String(c[0]))).find((url) => pattern.test(url));
+    }
+
+    it("lists the customer's requests, each linking to its deal", async () => {
+        const fetchMock = stubHistory();
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        expect(asked(fetchMock, /\/deals\?/)).toContain('filter[customer]=c1');
+        const row = view.find('[data-testid="customer-deals"] a');
+        expect(row.attributes('href')).toBe('/deals/d1');
+        expect(row.text()).toContain('DL-2026-0007');
+        expect(row.text()).toContain('Twelve pumps');
+    });
+
+    it("lists the customer's quotations, each linking to its quotation", async () => {
+        const fetchMock = stubHistory();
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        expect(asked(fetchMock, /\/quotations\?/)).toContain('filter[customer_id]=c1');
+        const row = view.find('[data-testid="customer-quotations"] a');
+        expect(row.attributes('href')).toBe('/quotations/q1');
+        expect(row.text()).toContain('QT-2026-0003');
+        // The server's own total and currency, never a figure the page made (`D-67`), drawn as `D-110` draws it.
+        expect(row.text()).toContain('1,250.00');
+        expect(row.text()).toContain('EGP');
+    });
+
+    it('hides the quotations section without quotation.view and never asks for it', async () => {
+        const fetchMock = stubHistory();
+
+        const view = await render({ ...SELLER, permissions: ['customer.view.own', 'deal.view.own'] });
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-quotations"]').exists()).toBe(false);
+        expect(asked(fetchMock, /\/quotations\?/)).toBeUndefined();
+    });
+
+    it('shows the empty state when the customer has no requests', async () => {
+        stubHistory([], []);
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-deals-empty"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customer-quotations-empty"]').exists()).toBe(true);
+    });
+
+    it('a list that cannot be read says so, and costs that list only', async () => {
+        stubHistory([DEAL_ROW], [QUOTATION_ROW], 500);
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-deals"] [role="alert"]').text()).toBe('This list could not be loaded. Reload the page to try again.');
+        expect(view.find('[data-testid="customer-quotations"] a').exists()).toBe(true);
+        expect(view.text()).toContain('Alpha Trading');
+    });
+
+    it('shows «New request» only with deal.create', async () => {
+        stubHistory();
+
+        const seller = await render(SELLER);
+        await flushPromises();
+        expect(seller.find('[data-testid="customer-new-deal"]').exists()).toBe(true);
+
+        useAuth().forgetSession();
+        const ceo = await render({ ...SELLER, permissions: ['customer.view.all', 'deal.view.all', 'quotation.view.all'] });
+        await flushPromises();
+        expect(ceo.find('[data-testid="customer-new-deal"]').exists()).toBe(false);
+    });
+
+    it('opens the request form with the customer fixed, and goes to the new deal on save', async () => {
+        stubHistory();
+
+        const view = await render(SELLER);
+        await flushPromises();
+
+        await view.find('[data-testid="customer-new-deal"]').trigger('click');
+        await flushPromises();
+
+        expect(view.find('[data-testid="deal-form-customer-fixed"]').text()).toBe('Alpha Trading');
+
+        await view.find('[data-testid="deal-form-title"]').setValue('Twelve pumps');
+        await view.find('[data-testid="deal-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.vm.$router.currentRoute.value.fullPath).toBe('/deals/d-new');
+    });
+});

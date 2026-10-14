@@ -668,7 +668,11 @@
             "notesTitle": "Notes and communication history",
             "notesEmpty": "Nothing has been recorded yet.",
             "archived": "Archived",
-            "incomplete": "Incomplete record"
+            "incomplete": "Incomplete record",
+            "newDeal": "New request",
+            "dealsEmpty": "No requests for this customer are visible to you.",
+            "quotationsEmpty": "No quotations for this customer are visible to you.",
+            "historyFailed": "This list could not be loaded. Reload the page to try again."
         },
         "archive": {
             "action": "Archive",

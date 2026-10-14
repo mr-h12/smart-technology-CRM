@@ -63,9 +63,12 @@ final class LocaleTest extends TestCase
     {
         // Without Vary a shared cache can hand an Arabic response to a client
         // that asked for English.
-        $this->withHeader('Accept-Language', 'ar')
+        // Contains, not equals: CORS adds `Origin` beside it (F-26 · 1.1).
+        $vary = $this->withHeader('Accept-Language', 'ar')
             ->getJson('/api/v1/ping')
-            ->assertHeader('Vary', 'Accept-Language');
+            ->headers->get('Vary');
+
+        self::assertContains('Accept-Language', array_map('trim', explode(',', (string) $vary)));
     }
 
     public function test_validation_messages_are_translated(): void

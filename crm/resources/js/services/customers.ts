@@ -25,6 +25,8 @@ export interface Customer {
     id: string;
     name: string;
     customer_status: string;
+    /** `D-123`: the reason a status was set by hand; `null` while it is derived. */
+    status_reason: string | null;
     sector: string | null;
     region: string | null;
     contact_person: string | null;
@@ -189,6 +191,11 @@ export async function restoreCustomer(id: string): Promise<Customer> {
  */
 export async function assignCustomer(id: string, salesOwnerId: string): Promise<CustomerDetail> {
     return (await apiPatch<CustomerDetail>(`/customers/${id}/assign`, { sales_owner_id: salesOwnerId })).data;
+}
+
+/** `D-123`: a status set by hand, with its reason (`OpenAPI §7.1`). */
+export async function changeCustomerStatus(id: string, status: string, reason: string): Promise<CustomerDetail> {
+    return (await apiPatch<CustomerDetail>(`/customers/${id}/status`, { status, reason })).data;
 }
 
 /** `D-92`: one owner for several customers, all or none; a customer per id, in the order sent (`OpenAPI §7.3`). */

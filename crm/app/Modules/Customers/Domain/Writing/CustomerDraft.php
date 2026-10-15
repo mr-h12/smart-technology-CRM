@@ -11,7 +11,7 @@ namespace App\Modules\Customers\Domain\Writing;
  *
  * | column | why it is not here |
  * |---|---|
- * | `customer_status` | §4.5 and `D-49` derive it. A setter is the first place somebody edits it by hand. |
+ * | `customer_status` | §4.5 and `D-49` derive it; `D-123`'s hand-set status has its own permission, route and {@see self::forStatusByHand()}. |
  * | `is_archived` | §3.3 makes `archive` its own permission and `OpenAPI §7.2` its own route. Point 3.4. |
  * | `is_incomplete` | `D-31` flags a row the **importer** could not complete. A hand-typed record is not incomplete by choice. Point 3.6. |
  *
@@ -51,6 +51,9 @@ final readonly class CustomerDraft
      */
     public const EXPECTED = ['name', 'sector', 'region', 'contact_person', 'phone'];
 
+    /** `D-123`: the statuses a holder of `customer.change_status` may set; «عميل» is never one (`D-49`). */
+    public const SET_BY_HAND = ['prospect', 'no_response', 'deal_not_completed'];
+
     /** @return list<string> */
     public static function writableOnCreate(): array
     {
@@ -85,6 +88,12 @@ final readonly class CustomerDraft
     public static function forAssignment(string $ownerId): self
     {
         return new self(['sales_owner_id' => $ownerId]);
+    }
+
+    /** `D-123`: a status set by hand, and the reason that marks it so. */
+    public static function forStatusByHand(string $status, string $reason): self
+    {
+        return new self(['customer_status' => $status, 'status_reason' => $reason]);
     }
 
     /**

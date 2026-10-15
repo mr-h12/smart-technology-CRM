@@ -485,6 +485,10 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     Route::patch('/{customer}/assign', [CustomerController::class, 'assign'])
         ->middleware('permission:customer.assign');
 
+    // `D-123`: a status set by hand, under its own §3.3 row.
+    Route::patch('/{customer}/status', [CustomerController::class, 'changeStatus'])
+        ->middleware('permission:customer.change_status');
+
     // F-19 · 1.2 · `D-92`: several customers, one owner, one transaction, all
     // or none. The same `customer.assign`, applied at its scope to every
     // customer in the use case (`OpenAPI §7.3`). `POST` because `D-92` names it,

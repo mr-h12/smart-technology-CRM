@@ -56,7 +56,8 @@ final class CustomerStatusEndpointTest extends TestCase
         self::assertIsString($audit->old_values);
         self::assertIsString($audit->new_values);
         self::assertSame(['customer_status' => 'prospect'], json_decode($audit->old_values, true));
-        self::assertSame(['customer_status' => 'no_response', 'status_reason' => 'Three calls unanswered.'], json_decode($audit->new_values, true));
+        // `jsonb` keeps its own key order, so the comparison is by key, not position.
+        self::assertEquals(['customer_status' => 'no_response', 'status_reason' => 'Three calls unanswered.'], json_decode($audit->new_values, true));
     }
 
     public function test_that_each_of_the_three_statuses_may_be_set(): void

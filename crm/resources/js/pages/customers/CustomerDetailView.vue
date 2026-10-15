@@ -49,10 +49,11 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { listEntries, type ListEntry } from '@/services/admin';
-import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '@/services/customers';
+import { assignCustomer, changeCustomerStatus, contactLine, readCustomer, type CustomerDetail } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
 import CustomerNotesSection from '@/components/customers/CustomerNotesSection.vue';
+import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
@@ -89,6 +90,18 @@ const assignErrorKey = ref<string | null>(null);
 const canEdit = computed(() => auth.hasPermission('customer.edit'));
 /** §3.3's own `assign` row, never `edit`: two roles hold it where five hold `edit`. */
 const canAssign = computed(() => auth.hasPermission('customer.assign'));
+/** `D-123`: §3.3's own row; «عميل» is never left by hand (`D-49`), so it offers nothing there. */
+const canChangeStatus = computed(() => auth.hasPermission('customer.change_status') && customer.value?.customer_status !== 'customer');
+
+/** `D-123`'s three, less the status the customer already has. */
+const STATUSES_SET_BY_HAND = ['prospect', 'no_response', 'deal_not_completed'] as const;
+const statusOptions = computed(() => STATUSES_SET_BY_HAND.filter((status) => status !== customer.value?.customer_status));
+const statusOpen = ref(false);
+const statusChoice = ref('');
+const statusReason = ref('');
+const statusReasonMissing = ref(false);
+const statusSaving = ref(false);
+const statusError = ref<string | null>(null);
 /** `D-114`: each list under its own view row, the button under §3.4's `create`. */
 const canSeeDeals = computed(() => auth.hasPermission('deal.view'));
 const canSeeQuotations = computed(() => auth.hasPermission('quotation.view'));
@@ -238,6 +251,42 @@ async function submitAssign(): Promise<void> {
 }
 
 // ponytail: the first 100 rows of each list (§6.1's ceiling), no pager; add one when a customer outgrows it.
+function openStatus(): void {
+    statusChoice.value = '';
+    statusReason.value = '';
+    statusReasonMissing.value = false;
+    statusError.value = null;
+    statusOpen.value = true;
+}
+
+async function submitStatus(): Promise<void> {
+    if (statusSaving.value) {
+        return;
+    }
+
+    statusError.value = null;
+    statusReasonMissing.value = statusReason.value.trim() === '';
+
+    if (statusReasonMissing.value || statusChoice.value === '') {
+        return;
+    }
+
+    statusSaving.value = true;
+
+    try {
+        customer.value = await changeCustomerStatus(id.value, statusChoice.value, statusReason.value.trim());
+        statusOpen.value = false;
+    } catch (error) {
+        const sentence = error instanceof ApiError ? (error.messageFor('status') ?? error.messageFor('reason')) : null;
+
+        statusError.value = sentence ?? t(error instanceof ApiError && error.status === 403
+            ? 'customers.statusChange.forbidden'
+            : 'customers.statusChange.rejected');
+    } finally {
+        statusSaving.value = false;
+    }
+}
+
 async function loadHistory(): Promise<void> {
     await Promise.all([
         canSeeDeals.value && listDeals({ customer: id.value, perPage: 100 })
@@ -306,15 +355,26 @@ onMounted(async () => {
 
                 <!-- §5.2: "action controls only by permission" — and `SEC-09`
                      makes that a mirror of §3.3's row, never the enforcement. -->
-                <button
-                    v-if="canEdit"
-                    type="button"
-                    class="edit-action min-h-11 rounded-lg px-4"
-                    data-testid="customer-detail-edit"
-                    @click="formOpen = true"
-                >
-                    {{ t('action.edit') }}
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        v-if="canChangeStatus"
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-4"
+                        data-testid="customer-status-change"
+                        @click="openStatus()"
+                    >
+                        {{ t('customers.statusChange.open') }}
+                    </button>
+                    <button
+                        v-if="canEdit"
+                        type="button"
+                        class="edit-action min-h-11 rounded-lg px-4"
+                        data-testid="customer-detail-edit"
+                        @click="formOpen = true"
+                    >
+                        {{ t('action.edit') }}
+                    </button>
+                </div>
             </header>
 
             <!-- §5.2's "Summary first". -->
@@ -335,7 +395,12 @@ onMounted(async () => {
                 </div>
 
                 <!-- §4.5 · `D-49`: derived, and the screen says why it cannot be edited. -->
-                <p class="flex items-center gap-2 text-[var(--color-text-muted)] text-pretty" data-testid="customer-detail-status-reason">
+                <!-- `D-123`: a status set by hand says so, and why, until a deal moves. -->
+                <p v-if="customer.status_reason !== null" class="text-pretty" data-testid="customer-detail-status-manual">
+                    <span class="font-semibold">{{ t('customers.statusChange.setByHand') }}</span>
+                    <span dir="auto">{{ ' ' + customer.status_reason }}</span>
+                </p>
+                <p v-else class="flex items-center gap-2 text-[var(--color-text-muted)] text-pretty" data-testid="customer-detail-status-reason">
                     <svg class="size-4 shrink-0" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
                         <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM9 5h2v2H9zm0 4h2v6H9z" />
                     </svg>
@@ -492,6 +557,43 @@ onMounted(async () => {
                 @cancel="formOpen = false"
             />
 
+            <ConfirmDialog
+                :open="statusOpen"
+                title-key="customers.statusChange.title"
+                message-key="customers.statusChange.message"
+                confirm-key="customers.statusChange.save"
+                :subject="customer.name"
+                :busy="statusSaving"
+                @confirm="submitStatus()"
+                @cancel="statusOpen = false"
+            >
+                <form class="flex flex-col gap-3" novalidate data-testid="customer-status-form" @submit.prevent="submitStatus()">
+                    <label class="flex flex-col gap-1">
+                        <span>{{ t('customers.statusChange.status') }}</span>
+                        <select v-model="statusChoice" autofocus class="form-field min-h-11 rounded-lg px-2 py-2" data-testid="customer-status-select">
+                            <option value="" disabled>{{ t('customers.statusChange.choose') }}</option>
+                            <option v-for="status in statusOptions" :key="status" :value="status">{{ t(`customers.status.${status}`) }}</option>
+                        </select>
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span>{{ t('customers.statusChange.reason') }}</span>
+                        <textarea
+                            v-model="statusReason"
+                            rows="3"
+                            maxlength="1000"
+                            dir="auto"
+                            class="form-field rounded-lg px-3 py-2"
+                            :aria-invalid="statusReasonMissing"
+                            data-testid="customer-status-reason"
+                        />
+                        <span v-if="statusReasonMissing" class="text-[var(--color-danger)]" data-testid="customer-status-reason-error">
+                            {{ t('customers.statusChange.reasonRequired') }}
+                        </span>
+                    </label>
+                    <p v-if="statusError !== null" class="form-alert rounded-lg p-3" role="alert" data-testid="customer-status-error">{{ statusError }}</p>
+                </form>
+            </ConfirmDialog>
+
             <DealFormModal
                 :open="dealFormOpen"
                 :editing="null"
@@ -517,6 +619,12 @@ onMounted(async () => {
 .form-alert {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border-strong);
+}
+
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
 }
 
 .edit-action {

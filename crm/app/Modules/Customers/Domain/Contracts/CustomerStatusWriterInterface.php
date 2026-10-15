@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Customers\Domain\Contracts;
 
 /**
- * `customer_status`'s one legitimate writer — §4.5, `D-49`.
+ * `customer_status`'s derived writer — §4.5, `D-49`. `D-123`'s status set by
+ * hand is the Customers module's own write, not this one; this contract only
+ * decides when a derived status replaces it.
  *
  * `Customer.php` and `2026_08_29_000000_create_customers.php` both say the
  * same thing in their own words: *"nothing here derives anything ·
@@ -27,7 +29,9 @@ namespace App\Modules\Customers\Domain\Contracts;
 interface CustomerStatusWriterInterface
 {
     /**
-     * Writes $status if it differs from what is stored; a no-op otherwise.
+     * A deal's status changed: writes $status and clears a status set by hand
+     * (`D-123`, its `status_reason`), even when $status is the same code; a
+     * no-op when neither differs.
      *
      * Silently no-op on an unknown $customerId rather than throwing: the only
      * caller is {@see \App\Modules\Deals\Application\CustomerStatus\RecomputeCustomerStatus},
@@ -35,4 +39,10 @@ interface CustomerStatusWriterInterface
      * already guarantees exists.
      */
     public function write(string $customerId, string $status): void;
+
+    /**
+     * `D-123` — the nightly correction (`J-02`): as {@see self::write()}, but
+     * a status set by hand is left alone until a deal next moves.
+     */
+    public function writeUnlessSetByHand(string $customerId, string $status): void;
 }

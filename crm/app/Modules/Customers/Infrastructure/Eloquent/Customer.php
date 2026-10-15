@@ -18,12 +18,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * logic is the thing `CLAUDE.md` names first when it says modules are
  * directories with layers, not Eloquent models carrying rules.
  *
- * `customer_status` is fillable-by-omission on purpose: §4.5 derives it and
- * `recompute_customer_status` is Module 5's, so nothing in this module sets it.
+ * `customer_status` and `status_reason` are fillable for `D-123`'s status set
+ * by hand only: `CustomerDraft` decides which keys reach `fill()`, and only
+ * {@see \App\Modules\Customers\Domain\Writing\CustomerDraft::forStatusByHand()} carries them.
  *
  * @property string $id
  * @property string $name
  * @property string $customer_status
+ * @property string|null $status_reason
  * @property string|null $sector
  * @property string|null $region
  * @property string|null $contact_person
@@ -51,7 +53,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'name', 'sector', 'region', 'contact_person', 'contact_title', 'phone', 'phone2',
     'whatsapp', 'email', 'location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3',
-    'sales_owner_id', 'start_date',
+    'sales_owner_id', 'start_date', 'customer_status', 'status_reason',
     'is_archived', 'is_incomplete',
 ])]
 class Customer extends Model

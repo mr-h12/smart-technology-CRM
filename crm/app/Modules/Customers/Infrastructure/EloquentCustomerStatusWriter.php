@@ -30,6 +30,15 @@ final readonly class EloquentCustomerStatusWriter implements CustomerStatusWrite
     {
         Customer::query()
             ->whereKey($customerId)
+            ->where(fn ($q) => $q->where('customer_status', '!=', $status)->orWhereNotNull('status_reason'))
+            ->update(['customer_status' => $status, 'status_reason' => null]);
+    }
+
+    public function writeUnlessSetByHand(string $customerId, string $status): void
+    {
+        Customer::query()
+            ->whereKey($customerId)
+            ->whereNull('status_reason')
             ->where('customer_status', '!=', $status)
             ->update(['customer_status' => $status]);
     }

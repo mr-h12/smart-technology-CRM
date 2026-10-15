@@ -32,6 +32,7 @@ final class CustomerPayload
             'id' => $customer->id,
             'name' => $customer->name,
             'customer_status' => $customer->customerStatus,
+            'status_reason' => $customer->statusReason,
             'sector' => $customer->sector,
             'region' => $customer->region,
             'contact_person' => $customer->contactPerson,

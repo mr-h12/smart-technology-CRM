@@ -24,6 +24,7 @@ final readonly class CustomerSummary
         public string $id,
         public string $name,
         public string $customerStatus,
+        public ?string $statusReason,
         public ?string $sector,
         public ?string $region,
         public ?string $contactPerson,

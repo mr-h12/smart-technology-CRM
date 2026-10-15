@@ -44,7 +44,7 @@ final readonly class RecomputeStaleCustomerStatuses
         $customerIds = $this->deals->customerIdsWithActiveDeals();
 
         foreach ($customerIds as $customerId) {
-            $this->recompute->forCustomer($customerId);
+            $this->recompute->correct($customerId);
         }
 
         return count($customerIds);

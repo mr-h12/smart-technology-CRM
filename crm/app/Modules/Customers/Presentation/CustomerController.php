@@ -9,6 +9,7 @@ use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Importing\ImportCustomers;
 use App\Modules\Customers\Application\Listing\ListCustomers;
 use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
+use App\Modules\Customers\Application\Status\ChangeCustomerStatus;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
 use App\Modules\Customers\Domain\Writing\CustomerWriteResult;
@@ -121,6 +122,14 @@ final class CustomerController
     public function assign(AssignCustomerRequest $request, string $customer, AssignCustomer $customers, ListCustomers $read): JsonResponse
     {
         $record = $customers->handle($customer, $request->ownerId(), self::heldScopes($request), self::actorId($request));
+
+        return ApiEnvelope::single($request, CustomerPayload::detail($record, $read->salesOwnerName($record)));
+    }
+
+    /** `D-123` (F-50 · 4): a status set by hand, with its reason. */
+    public function changeStatus(ChangeCustomerStatusRequest $request, string $customer, ChangeCustomerStatus $customers, ListCustomers $read): JsonResponse
+    {
+        $record = $customers->handle($customer, $request->status(), $request->reason(), self::heldScopes($request), self::actorId($request));
 
         return ApiEnvelope::single($request, CustomerPayload::detail($record, $read->salesOwnerName($record)));
     }

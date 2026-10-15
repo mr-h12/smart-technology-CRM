@@ -148,6 +148,14 @@ final class PermissionMatrix
                 Role::OutdoorSales->value => Grant::scoped(Scope::Own),
                 Role::IndoorSales->value => Grant::scoped(Scope::Own),
             ], '§3.3'),
+            // `D-123`: a status set by hand, seeded as `edit` is.
+            new Permission('customer', 'change_status', [
+                Role::Manager->value => Grant::scoped(Scope::All),
+                Role::TeamLeader->value => Grant::scoped(Scope::Team),
+                Role::OutdoorSupervisor->value => Grant::scoped(Scope::Out),
+                Role::OutdoorSales->value => Grant::scoped(Scope::Own),
+                Role::IndoorSales->value => Grant::scoped(Scope::Own),
+            ], '§3.3'),
             new Permission('customer', 'assign', [
                 Role::Manager->value => Grant::scoped(Scope::All),
                 Role::TeamLeader->value => Grant::scoped(Scope::Team),

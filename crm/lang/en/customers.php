@@ -31,6 +31,8 @@ return [
         'status_is_derived' => 'Customer status is set by the system from the customer\'s deals, and cannot be edited here.',
         'archive_has_its_own_action' => 'Archiving a customer is a separate action, not a field on this form.',
         'assign_has_its_own_action' => 'Transferring a customer to another owner is a separate action, not a field on this form.',
+        'status_customer_is_permanent' => 'A customer who has won a deal stays a customer, and this status cannot be changed by hand.',
+        'status_unchanged' => 'The customer already has this status. Choose a different one.',
     ],
 
     // Point 3.6 — `POST /customers/import`. The owner's CSV narrowing of
@@ -65,6 +67,8 @@ return [
         'sales_owner_id' => 'sales owner',
         'ids' => 'selected customers',
         'customer_status' => 'customer status',
+        'status' => 'status',
+        'status_reason' => 'reason',
         'is_archived' => 'archived',
         'is_incomplete' => 'incomplete',
     ],

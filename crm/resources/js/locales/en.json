@@ -733,6 +733,19 @@
             "bulkDone": "Assigned {count} customers.",
             "bulkGone": "Nothing was changed: a selected customer is no longer within your reach. The list has been refreshed."
         },
+        "statusChange": {
+            "open": "Change status",
+            "title": "Change the customer's status",
+            "message": "{name}'s status will stay as you set it until any of its deals changes status.",
+            "status": "New status",
+            "choose": "Choose a status",
+            "reason": "Reason",
+            "reasonRequired": "Write the reason.",
+            "save": "Save status",
+            "setByHand": "Set by hand:",
+            "forbidden": "You do not have permission to change this customer's status.",
+            "rejected": "The status was not changed."
+        },
         "import": {
             "title": "Import customers"
         },

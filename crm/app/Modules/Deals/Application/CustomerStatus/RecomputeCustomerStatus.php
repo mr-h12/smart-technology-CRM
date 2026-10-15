@@ -40,13 +40,23 @@ final readonly class RecomputeCustomerStatus
         private SettingReader $settings,
     ) {}
 
+    /** A deal moved: §4.5 replaces a status set by hand too (`D-123`). */
     public function forCustomer(string $customerId): void
+    {
+        $this->customers->write($customerId, $this->derive($customerId));
+    }
+
+    /** The nightly correction: a status set by hand holds until a deal moves (`D-123`). */
+    public function correct(string $customerId): void
+    {
+        $this->customers->writeUnlessSetByHand($customerId, $this->derive($customerId));
+    }
+
+    private function derive(string $customerId): string
     {
         $deals = $this->deals->activityForCustomer($customerId);
         $staleDealDays = $this->settings->nullableInteger(self::STALE_DEAL_DAYS_KEY);
 
-        $status = CustomerStatusDerivation::derive($deals, new DateTimeImmutable, $staleDealDays);
-
-        $this->customers->write($customerId, $status);
+        return CustomerStatusDerivation::derive($deals, new DateTimeImmutable, $staleDealDays);
     }
 }

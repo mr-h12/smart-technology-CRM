@@ -53,6 +53,7 @@ const CUSTOMER = {
     id: 'c1',
     name: 'Alpha Trading',
     customer_status: 'customer',
+    status_reason: null,
     sector: 'commercial',
     region: 'Cairo',
     contact_person: 'Mona Adel',

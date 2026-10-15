@@ -4682,7 +4682,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
       first, undated note. Each point writes its own `D-xx` row first.
       - [x] **1** The supplier offer's total is computed from its lines and no longer typed (`D-120`).
             *(2026-10-15, #370 — Σ(unit_price × quantity), each line truncated, written by the directory on every save; a sent total, even null, is 422; the form's input is gone)*
-      - [ ] **2** Customer links: location (a Google Maps link), website, social 1–3, each opening on click (`D-121`).
+      - [x] **2** Customer links: location (a Google Maps link), website, social 1–3, each opening on click (`D-121`).
+            *(2026-10-15, #371 — five nullable varchar(2048) links, http(s) only so `javascript:` is 422; new tab with noopener noreferrer; kept out of the CSV import)*
       - [ ] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
       - [ ] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
 

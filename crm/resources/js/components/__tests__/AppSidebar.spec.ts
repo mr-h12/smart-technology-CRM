@@ -180,6 +180,25 @@ describe('AppSidebar — §8 draws the menu from the role’s grants', () => {
         expect(items).toContain(ar.nav.item.users);
     });
 
+    /** Module 13, slice 2 — §3.10: *view received* is the Manager's, never Sales'. */
+    it('draws Received reports for a Manager and not for Sales', async () => {
+        const label = (ar.nav.item as Record<string, string>).receivedReports;
+        expect(label).toBeTruthy();
+
+        await signIn({ ...BASE, permissions: ['report.create.all', 'report.view_received.all'] });
+        expect(menuItems()).toContain(label);
+
+        useAuth().forgetSession();
+        await signIn({
+            ...BASE,
+            role: { id: '01a0-s', slug: 'indoor_sales', name: 'Indoor Sales' },
+            permissions: ['report.create.own', 'customer.view.own'],
+        });
+        const items = menuItems();
+        expect(items).toContain(ar.nav.item.reports);
+        expect(items).not.toContain(label);
+    });
+
     it('omits an item whose permission the role does not hold', async () => {
         await signIn({ ...BASE, permissions: ['customer.view.own'] });
 

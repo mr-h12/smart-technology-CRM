@@ -1,0 +1,114 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
+import { createI18n } from 'vue-i18n';
+import ar from '@/locales/ar.json';
+import en from '@/locales/en.json';
+import ReceivedReportsView from '@/pages/reports/ReceivedReportsView.vue';
+import { NAVIGATION } from '@/navigation';
+import { createAppRouter } from '@/router';
+import { useAuth, type AuthenticatedUser } from '@/stores/auth';
+
+/**
+ * Module 13, slice 2 — "Received reports": the reports sent to the caller
+ * (`GET /reports/received`), for the holders of §3.10's *view received*.
+ *
+ * Not an authorization suite: `ReportReceiveEndpointTest` proves who may list
+ * against the server. Proved here is what the screen draws.
+ */
+
+function json(status: number, body: unknown): Response {
+    return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+const PAGINATION = { page: 1, per_page: 25, total: 1, total_pages: 1, has_next_page: false, has_previous_page: false };
+
+const USER: AuthenticatedUser = {
+    id: 'm1', name: 'Mona Manager', email: 'manager@example.test',
+    role: { id: 'r2', slug: 'manager', name: 'Manager' },
+    permissions: ['report.create.all', 'report.view_received.all', 'report.acknowledge.all', 'report.return_report.all'],
+    is_active: true, unconditional_access: false,
+};
+
+const RECEIVED = {
+    id: 'rep1', code: 'RPT-DY-2026-0001', type: 'daily', status: 'submitted', author_name: 'Test Sales',
+    period_start: '2026-10-15', period_end: '2026-10-15', submitted_at: '2026-10-15T09:00:00Z',
+};
+
+function list(reports: unknown[]): ReturnType<typeof vi.fn> {
+    return vi.fn(async () => json(200, { data: reports, meta: { request_id: 'r', pagination: { ...PAGINATION, total: reports.length } } }));
+}
+
+async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en') {
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+        /\/auth\/login$/.test(String(input))
+            ? Promise.resolve(json(201, {
+                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: USER },
+            }))
+            : (fetchMock as unknown as typeof fetch)(input, init));
+    await useAuth().login(USER.email, 'Passw0rd123');
+    vi.stubGlobal('fetch', fetchMock);
+
+    const router = createAppRouter();
+    await router.push('/reports/received');
+    await router.isReady();
+
+    const i18n = createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } });
+    const wrapper = mount(ReceivedReportsView, { global: { plugins: [i18n, router] } });
+    await flushPromises();
+
+    return wrapper;
+}
+
+describe('ReceivedReportsView — Received reports', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('is a route behind report.view_received, with a sidebar item that names the same permission', () => {
+        const route = createAppRouter().getRoutes().find((r) => r.name === 'received-reports');
+        expect(route?.path).toBe('/reports/received');
+        expect(route?.meta.requiredPermission).toBe('report.view_received');
+
+        const item = NAVIGATION.flatMap((group) => group.items).find((i) => i.name === 'received-reports');
+        expect(item?.permission).toBe('report.view_received');
+    });
+
+    it('reads GET /reports/received and lists each report with its author, type, day and status, linking to its page', async () => {
+        const fetchMock = list([RECEIVED]);
+        const wrapper = await render(fetchMock);
+
+        expect(fetchMock.mock.calls.some(([url]) => /\/reports\/received(\?|$)/.test(String(url)))).toBe(true);
+        const rows = wrapper.findAll('[data-testid="received-report-row"]');
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.text()).toContain('RPT-DY-2026-0001');
+        expect(rows[0]!.text()).toContain('Test Sales');
+        expect(rows[0]!.text()).toContain(en.reports.type.daily);
+        expect(rows[0]!.text()).toContain(en.reports.status.submitted);
+        expect(rows[0]!.find('a').attributes('href')).toBe('/reports/received/rep1');
+    });
+
+    it('shows the empty state when nothing was sent to the caller', async () => {
+        const wrapper = await render(list([]));
+
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="received-report-row"]').exists()).toBe(false);
+    });
+
+    it('shows the error state with a retry when the list fails', async () => {
+        const wrapper = await render(vi.fn(async () => json(500, { error: { code: 'server_error' }, meta: { request_id: 'r' } })));
+
+        expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="error-retry"]').exists()).toBe(true);
+    });
+
+    it('draws its heading and labels in Arabic', async () => {
+        const title = (ar.reports as Record<string, unknown>).received_title;
+        const wrapper = await render(list([RECEIVED]), 'ar');
+
+        expect(title).toBeTruthy();
+        expect(wrapper.text()).toContain(String(title));
+        expect(wrapper.get('[data-testid="received-report-row"]').text()).toContain(ar.reports.status.submitted);
+    });
+});

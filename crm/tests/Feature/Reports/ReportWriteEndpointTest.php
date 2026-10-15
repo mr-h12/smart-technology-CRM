@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Ramsey\Uuid\Uuid;
+use Tests\Feature\Pdf\InsertsQuotationRows;
 use Tests\TestCase;
 
 /**
@@ -22,10 +23,11 @@ use Tests\TestCase;
  * the notes under `DB-12`'s token (`If-Match`, `409` when stale). Every author
  * route is gated by `report.create`, the only report grant an author holds
  * (§3.10); the CEO holds none of it. The day's activity is `D-126`'s RPT-DY
- * list, read from the audit log (`D-129`).
+ * records, found through the audit log and shown as their pages show them (`D-130`).
  */
 final class ReportWriteEndpointTest extends TestCase
 {
+    use InsertsQuotationRows;
     use RefreshDatabase;
 
     private const PASSWORD = 'Passw0rd123';
@@ -156,7 +158,7 @@ final class ReportWriteEndpointTest extends TestCase
             ->assertStatus(200)
             ->assertJsonStructure(['data' => [
                 'id', 'code', 'type', 'status', 'period_start', 'period_end', 'notes', 'etag', 'submitted_at',
-                'activity' => ['counts', 'items'], 'recipients',
+                'activity' => ['counts', 'sections'], 'recipients',
             ]])
             ->assertJsonPath('data.status', 'draft')
             ->assertJsonPath('data.etag', 'report:'.$id.':1')
@@ -173,34 +175,43 @@ final class ReportWriteEndpointTest extends TestCase
     }
 
     /**
-     * `D-126` RPT-DY: the author's own activity that day, as counts and a list —
-     * deals created, deal status moves, quotations created and sent, customer
-     * responses, POs recorded. Nobody else's, no other day, no other event.
+     * `D-130`: the audit log is only the index of what the author touched that
+     * day; each record shows as its own page does, grouped by kind, with a
+     * count per kind. Nobody else's, no other day, no other event; oldest
+     * first within a kind; money is the selling total only (`D-126`).
      */
-    public function test_that_the_draft_shows_the_authors_activity_for_the_day(): void
+    public function test_that_the_draft_shows_each_record_the_author_touched_that_day_grouped_by_kind(): void
     {
         $author = $this->userWith(RoleName::IndoorSales)->id;
         $other = $this->userWith(RoleName::Manager)->id;
 
-        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:00:00');
-        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:30:00');
-        $this->activity($author, 'DEAL_STATUS_CHANGED', 'deal', '2026-10-15 08:00:00');
-        $this->activity($author, 'QUOTATION_CREATED', 'quotation', '2026-10-15 08:10:00');
-        $this->activity($author, 'QUOTATION_SENT', 'quotation', '2026-10-15 08:20:00');
-        $this->activity($author, 'QUOTATION_ACCEPTED', 'quotation', '2026-10-15 08:30:00');
-        $this->activity($author, 'QUOTATION_COUNTERED', 'quotation', '2026-10-15 08:40:00');
-        $this->activity($author, 'PURCHASE_ORDER_CREATED', 'purchase_order', '2026-10-15 08:50:00');
+        $dealA = $this->dealOf($this->insertQuotation());
+        $dealB = $this->dealOf($this->insertQuotation());
+        DB::table('customers')->where('id', DB::table('deals')->where('id', $dealB)->value('customer_id'))->update(['name' => 'Delta Foods']);
+        DB::table('deals')->where('id', $dealA)->update(['status' => 'contacted']);
+
+        $created = $this->quotationWith('draft', '1250', 1);
+        $sent = $this->quotationWith('sent', '980.5', 2);
+        $accepted = $this->quotationWith('accepted', '3000', 1);
+        $countered = $this->quotationWith('counter', '410', 1);
+        $order = $this->purchaseOrderOn($accepted);
+
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:00:00', $dealA);
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:30:00', $dealB);
+        $this->activity($author, 'DEAL_STATUS_CHANGED', 'deal', '2026-10-15 08:00:00', $dealA, ['status' => 'lead'], ['status' => 'contacted']);
+        $this->activity($author, 'QUOTATION_CREATED', 'quotation', '2026-10-15 08:10:00', $created);
+        $this->activity($author, 'QUOTATION_SENT', 'quotation', '2026-10-15 08:20:00', $sent);
+        $this->activity($author, 'QUOTATION_ACCEPTED', 'quotation', '2026-10-15 08:30:00', $accepted);
+        $this->activity($author, 'QUOTATION_COUNTERED', 'quotation', '2026-10-15 08:40:00', $countered);
+        $this->activity($author, 'PURCHASE_ORDER_CREATED', 'purchase_order', '2026-10-15 08:50:00', $order);
         // Noise: another event, another day, another user.
-        $this->activity($author, 'DEAL_UPDATED', 'deal', '2026-10-15 08:55:00');
-        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-14 23:59:59');
-        $this->activity($other, 'DEAL_CREATED', 'deal', '2026-10-15 08:00:00');
+        $this->activity($author, 'DEAL_UPDATED', 'deal', '2026-10-15 08:55:00', $dealA);
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-14 23:59:59', $dealA);
+        $this->activity($other, 'DEAL_CREATED', 'deal', '2026-10-15 08:00:00', $dealB);
 
-        $id = $this->create(RoleName::IndoorSales);
-        $activity = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))
-            ->assertStatus(200)
-            ->json('data.activity');
+        $activity = $this->activityOf($this->create(RoleName::IndoorSales));
 
-        self::assertIsArray($activity);
+        self::assertSame(['counts', 'sections'], array_keys($activity), 'No `items`: the audit events themselves are never shown (D-130).');
         self::assertSame([
             'deals_created' => 2,
             'deal_status_moves' => 1,
@@ -210,18 +221,74 @@ final class ReportWriteEndpointTest extends TestCase
             'purchase_orders' => 1,
         ], $activity['counts']);
 
-        $items = $activity['items'];
-        self::assertIsArray($items);
-        self::assertCount(8, $items);
-        self::assertSame(
-            ['DEAL_CREATED', 'DEAL_CREATED', 'DEAL_STATUS_CHANGED', 'QUOTATION_CREATED', 'QUOTATION_SENT',
-                'QUOTATION_ACCEPTED', 'QUOTATION_COUNTERED', 'PURCHASE_ORDER_CREATED'],
-            array_column($items, 'event'),
-            'Oldest first, the order the day happened in.',
-        );
-        foreach ($items as $item) {
-            self::assertIsArray($item);
-            self::assertSame(['event', 'entity_type', 'entity_id', 'occurred_at'], array_keys($item));
+        self::assertSame([
+            'deals_created' => [
+                ['deal_id' => $dealA, 'code' => $this->code('deals', $dealA), 'customer_name' => 'Nile Trading', 'status' => 'contacted'],
+                ['deal_id' => $dealB, 'code' => $this->code('deals', $dealB), 'customer_name' => 'Delta Foods', 'status' => 'lead'],
+            ],
+            'deal_status_moves' => [
+                ['deal_id' => $dealA, 'code' => $this->code('deals', $dealA), 'customer_name' => 'Nile Trading', 'from_status' => 'lead', 'to_status' => 'contacted'],
+            ],
+            'quotations_created' => [$this->quotationRow($created, 'draft', '1250.000000', 1)],
+            'quotations_sent' => [$this->quotationRow($sent, 'sent', '980.500000', 2)],
+            'customer_responses' => [
+                ['quotation_id' => $accepted, 'code' => $this->code('quotations', $accepted), 'version' => 1, 'customer_name' => 'Nile Trading',
+                    'response' => 'accepted', 'status' => 'accepted', 'final_total' => '3000.000000', 'currency' => 'EGP'],
+                ['quotation_id' => $countered, 'code' => $this->code('quotations', $countered), 'version' => 1, 'customer_name' => 'Nile Trading',
+                    'response' => 'countered', 'status' => 'counter', 'final_total' => '410.000000', 'currency' => 'EGP'],
+            ],
+            'purchase_orders' => [
+                ['purchase_order_id' => $order, 'po_number' => $this->code('purchase_orders', $order, 'po_number'), 'po_date' => '2026-10-15',
+                    'quotation_id' => $accepted, 'quotation_code' => $this->code('quotations', $accepted), 'customer_name' => 'Nile Trading',
+                    'final_total' => '3000.000000', 'currency' => 'EGP'],
+            ],
+        ], $activity['sections']);
+    }
+
+    /** `D-130`: an index entry whose record is gone (or soft-deleted) has nothing to show, so it is neither shown nor counted. */
+    public function test_that_an_index_entry_whose_record_is_missing_or_deleted_is_skipped_and_not_counted(): void
+    {
+        $author = $this->userWith(RoleName::IndoorSales)->id;
+        $kept = $this->dealOf($this->insertQuotation());
+        $deleted = $this->dealOf($this->insertQuotation());
+        DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
+
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:00:00', $kept);
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:10:00', $deleted);
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:20:00', (string) Str::uuid7());
+        $this->activity($author, 'QUOTATION_SENT', 'quotation', '2026-10-15 07:30:00', (string) Str::uuid7());
+
+        $activity = $this->activityOf($this->create(RoleName::IndoorSales));
+
+        self::assertSame(1, $activity['counts']['deals_created']);
+        self::assertSame(0, $activity['counts']['quotations_sent']);
+        self::assertSame([$kept], array_column($activity['sections']['deals_created'], 'deal_id'));
+        self::assertSame([], $activity['sections']['quotations_sent']);
+    }
+
+    /** `D-126`, `D-130`: selling totals only — no cost, margin or profit, and nothing read from the log itself. */
+    public function test_that_the_activity_shows_no_cost_margin_profit_or_audit_fields(): void
+    {
+        $author = $this->userWith(RoleName::IndoorSales)->id;
+        $quotation = $this->quotationWith('accepted', '500', 1);
+        $this->activity($author, 'QUOTATION_CREATED', 'quotation', '2026-10-15 07:00:00', $quotation);
+        $this->activity($author, 'QUOTATION_ACCEPTED', 'quotation', '2026-10-15 07:10:00', $quotation);
+        $this->activity($author, 'PURCHASE_ORDER_CREATED', 'purchase_order', '2026-10-15 07:20:00', $this->purchaseOrderOn($quotation));
+        $this->activity($author, 'DEAL_CREATED', 'deal', '2026-10-15 07:30:00', $this->dealOf($quotation));
+
+        $activity = $this->activityOf($this->create(RoleName::IndoorSales));
+
+        self::assertArrayNotHasKey('items', $activity);
+        self::assertSame(4, array_sum($activity['counts']), 'The fixture must reach the sections, or this test proves nothing.');
+        array_walk_recursive($activity, static function (mixed $value, int|string $key): void {
+            self::assertDoesNotMatchRegularExpression('/cost|margin|profit/i', (string) $key);
+        });
+        foreach ($activity['sections'] as $rows) {
+            foreach ($rows as $row) {
+                foreach (['event', 'entity_type', 'entity_id', 'occurred_at'] as $logField) {
+                    self::assertArrayNotHasKey($logField, $row);
+                }
+            }
         }
     }
 
@@ -339,12 +406,83 @@ final class ReportWriteEndpointTest extends TestCase
         );
     }
 
-    private function activity(string $userId, string $event, string $entityType, string $at): void
+    /**
+     * @param  array<string, string>|null  $old
+     * @param  array<string, string>|null  $new
+     */
+    private function activity(string $userId, string $event, string $entityType, string $at, string $entityId, ?array $old = null, ?array $new = null): void
     {
         DB::table('audit_log')->insert([
             'id' => (string) Str::uuid7(), 'user_id' => $userId, 'event' => $event,
-            'entity_type' => $entityType, 'entity_id' => (string) Str::uuid7(), 'created_at' => $at,
+            'entity_type' => $entityType, 'entity_id' => $entityId, 'created_at' => $at,
+            'old_values' => $old === null ? null : json_encode($old), 'new_values' => $new === null ? null : json_encode($new),
         ]);
+    }
+
+    /** @return array{counts: array<string, int>, sections: array<string, list<array<string, mixed>>>} */
+    private function activityOf(string $reportId): array
+    {
+        $activity = $this->getJson(self::ENDPOINT.'/'.$reportId, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(200)
+            ->assertJsonStructure(['data' => ['activity' => ['counts', 'sections']]])
+            ->json('data.activity');
+        self::assertIsArray($activity);
+        /** @var array{counts: array<string, int>, sections: array<string, list<array<string, mixed>>>} $activity */
+
+        return $activity;
+    }
+
+    private function dealOf(string $quotationId): string
+    {
+        $dealId = DB::table('quotations')->where('id', $quotationId)->value('deal_id');
+        self::assertIsString($dealId);
+
+        return $dealId;
+    }
+
+    /** A quotation (Module 9's fixture) at a status, a selling total and a version. */
+    private function quotationWith(string $status, string $total, int $version): string
+    {
+        $id = $this->insertQuotation();
+        DB::table('quotations')->where('id', $id)->update([
+            'status' => $status, 'version' => $version, 'quotation_date' => '2026-10-15',
+            'rejection_reason' => $status === 'counter' ? 'Price too high.' : null,
+            'subtotal' => $total, 'tax_base' => $total, 'net_amount' => $total,
+            'total_before_round' => $total, 'final_total' => $total,
+        ]);
+
+        return $id;
+    }
+
+    /** As `FilesMigrationTest::insertPurchaseOrder`, on a given accepted quotation. */
+    private function purchaseOrderOn(string $quotationId): string
+    {
+        $id = (string) Str::uuid7();
+        DB::table('purchase_orders')->insert([
+            'id' => $id, 'quotation_id' => $quotationId,
+            'po_number' => 'PO-2026-'.substr(str_replace('-', '', $id), -4),
+            'customer_po_reference' => '4500123987', 'po_date' => '2026-10-15',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    /** @return array<string, mixed> */
+    private function quotationRow(string $id, string $status, string $total, int $version): array
+    {
+        return [
+            'quotation_id' => $id, 'code' => $this->code('quotations', $id), 'version' => $version,
+            'customer_name' => 'Nile Trading', 'status' => $status, 'final_total' => $total, 'currency' => 'EGP',
+        ];
+    }
+
+    private function code(string $table, string $id, string $column = 'code'): string
+    {
+        $code = DB::table($table)->where('id', $id)->value($column);
+        self::assertIsString($code);
+
+        return $code;
     }
 
     private function userWith(RoleName $role): User

@@ -9,8 +9,8 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
  * Module 13, first slice — one daily report (RPT-DY): the author writes notes,
- * sees the day's activity (`D-126`, read by the server from the audit log,
- * `D-129`), chooses recipients (default preselected, `D-129`) and submits.
+ * sees the day's records grouped by kind (`D-126`; found through the audit
+ * log but never showing it, `D-130`), chooses recipients (default preselected, `D-129`) and submits.
  *
  * The screen displays what the server returns and sends what the author typed;
  * it computes no count and decides no recipient (`D-67`, `AP-07`).
@@ -31,21 +31,40 @@ const USER: AuthenticatedUser = {
     is_active: true, unconditional_access: false,
 };
 
-const COUNTS = {
-    deals_created: 2, deal_status_moves: 1, quotations_created: 1,
-    quotations_sent: 1, customer_responses: 2, purchase_orders: 1,
+const SECTIONS = {
+    deals_created: [
+        { deal_id: 'd1', code: 'DL-2026-0001', customer_name: 'Nile Trading', status: 'contacted' },
+        { deal_id: 'd2', code: 'DL-2026-0002', customer_name: 'Delta Foods', status: 'lead' },
+    ],
+    deal_status_moves: [
+        { deal_id: 'd1', code: 'DL-2026-0001', customer_name: 'Nile Trading', from_status: 'lead', to_status: 'contacted' },
+    ],
+    quotations_created: [
+        { quotation_id: 'q1', code: 'QT-2026-0001', version: 1, customer_name: 'Nile Trading', status: 'draft', final_total: '1250.000000', currency: 'EGP' },
+    ],
+    quotations_sent: [] as unknown[],
+    customer_responses: [
+        { quotation_id: 'q2', code: 'QT-2026-0002', version: 2, customer_name: 'Delta Foods', response: 'accepted', status: 'accepted', final_total: '3000.000000', currency: 'EGP' },
+        { quotation_id: 'q3', code: 'QT-2026-0003', version: 1, customer_name: 'Nile Trading', response: 'countered', status: 'counter', final_total: '410.000000', currency: 'EGP' },
+    ],
+    purchase_orders: [
+        { purchase_order_id: 'p1', po_number: 'PO-2026-0001', po_date: '2026-10-15', quotation_id: 'q2', quotation_code: 'QT-2026-0002', customer_name: 'Delta Foods', final_total: '3000.000000', currency: 'EGP' },
+    ],
 };
+
+const COUNTS = Object.fromEntries(Object.entries(SECTIONS).map(([key, rows]) => [key, rows.length])) as Record<keyof typeof SECTIONS, number>;
+
+const EMPTY_SECTIONS = Object.fromEntries(Object.keys(SECTIONS).map((key) => [key, []]));
 
 const DRAFT = {
     id: 'rep1', code: 'RPT-DY-2026-0001', type: 'daily', status: 'draft',
     period_start: '2026-10-15', period_end: '2026-10-15', submitted_at: null,
     notes: 'Morning calls.', etag: 'report:rep1:1',
+    // `D-130`: the records themselves, grouped by kind — never the audit events.
     activity: {
-        counts: COUNTS,
-        items: [
-            { event: 'DEAL_CREATED', entity_type: 'deal', entity_id: 'd1', occurred_at: '2026-10-15T07:00:00Z' },
-            { event: 'QUOTATION_SENT', entity_type: 'quotation', entity_id: 'q1', occurred_at: '2026-10-15T08:20:00Z' },
-        ],
+        counts: COUNTS, sections: SECTIONS,
+        // ponytail: not in the D-130 contract — kept only so today's page renders while R.2 is red; delete it when going green.
+        items: [] as never[],
     },
     recipients: [],
 };
@@ -129,20 +148,94 @@ describe('ReportDetailView — a daily report', () => {
         }
     });
 
-    it('lists the day\'s activity in the order the server gives it', async () => {
+    it('shows one section per kind, its rows in the order the server gives them', async () => {
         const view = await render(server());
 
-        const items = view.findAll('[data-testid="activity-item"]');
-        expect(items).toHaveLength(2);
-        expect(items[0]!.text()).toContain(en.reports.event.DEAL_CREATED);
-        expect(items[1]!.text()).toContain(en.reports.event.QUOTATION_SENT);
+        for (const [key, rows] of Object.entries(SECTIONS)) {
+            const section = view.get(`[data-testid="activity-section-${key}"]`);
+            expect(section.attributes('id')).toBe(`activity-section-${key}`);
+            expect(section.findAll('[data-testid="activity-row"]')).toHaveLength(rows.length);
+        }
+        const deals = view.get('[data-testid="activity-section-deals_created"]').findAll('[data-testid="activity-row"]');
+        expect(deals[0]!.text()).toContain('DL-2026-0001');
+        expect(deals[0]!.text()).toContain('Nile Trading');
+        expect(deals[1]!.text()).toContain('DL-2026-0002');
+        expect(deals[1]!.text()).toContain('Delta Foods');
     });
 
-    it('shows an empty activity message when the day has none', async () => {
-        const quiet = { ...DRAFT, activity: { counts: { ...COUNTS, deals_created: 0 }, items: [] } };
+    it('links each count tile to its section', async () => {
+        const view = await render(server());
+
+        for (const key of Object.keys(SECTIONS)) {
+            const tile = view.get(`[data-testid="activity-count-${key}"]`);
+            const link = tile.element.tagName === 'A' ? tile : tile.get('a');
+            expect(link.attributes('href')).toBe(`#activity-section-${key}`);
+        }
+    });
+
+    it('links deal codes to the deal page and quotation codes to the quotation page', async () => {
+        const view = await render(server());
+        const router = createAppRouter();
+        const href = (name: string, id: string) => router.resolve({ name, params: { id } }).href;
+
+        const dealLink = view.get('[data-testid="activity-section-deals_created"]').findAll('a').find((a) => a.text().includes('DL-2026-0001'));
+        expect(dealLink?.attributes('href')).toBe(href('deal-detail', 'd1'));
+
+        const moveLink = view.get('[data-testid="activity-section-deal_status_moves"]').findAll('a').find((a) => a.text().includes('DL-2026-0001'));
+        expect(moveLink?.attributes('href')).toBe(href('deal-detail', 'd1'));
+
+        const quotationLink = view.get('[data-testid="activity-section-quotations_created"]').findAll('a').find((a) => a.text().includes('QT-2026-0001'));
+        expect(quotationLink?.attributes('href')).toBe(href('quotation-detail', 'q1'));
+
+        const responseLink = view.get('[data-testid="activity-section-customer_responses"]').findAll('a').find((a) => a.text().includes('QT-2026-0002'));
+        expect(responseLink?.attributes('href')).toBe(href('quotation-detail', 'q2'));
+
+        const poLink = view.get('[data-testid="activity-section-purchase_orders"]').findAll('a').find((a) => a.text().includes('QT-2026-0002'));
+        expect(poLink?.attributes('href')).toBe(href('quotation-detail', 'q2'));
+    });
+
+    it('shows each quotation and PO total with its currency', async () => {
+        const view = await render(server());
+
+        const created = view.get('[data-testid="activity-section-quotations_created"]').get('[data-testid="activity-row"]');
+        expect(created.text()).toMatch(/1,?250/);
+        expect(created.text()).toContain('EGP');
+
+        const po = view.get('[data-testid="activity-section-purchase_orders"]').get('[data-testid="activity-row"]');
+        expect(po.text()).toContain('PO-2026-0001');
+        expect(po.text()).toMatch(/3,?000/);
+        expect(po.text()).toContain('EGP');
+    });
+
+    it('shows a kind with no rows as empty, without a table', async () => {
+        const view = await render(server());
+
+        const section = view.get('[data-testid="activity-section-quotations_sent"]');
+        expect(section.find('[data-testid="activity-section-empty-quotations_sent"]').exists()).toBe(true);
+        expect(section.find('table').exists()).toBe(false);
+        expect(view.find('[data-testid="activity-section-empty-deals_created"]').exists()).toBe(false);
+    });
+
+    it('draws no audit event label — the log is only the index (D-130)', async () => {
+        const view = await render(server());
+
+        expect(view.find('[data-testid="activity-empty"]').exists()).toBe(false);
+        const events = (en.reports as Record<string, unknown>).event as Record<string, string> | undefined;
+        for (const label of Object.values(events ?? {})) {
+            expect(view.text()).not.toContain(label);
+        }
+        expect(view.find('[data-testid="activity-item"]').exists()).toBe(false);
+    });
+
+    it('shows an empty activity message, and no section, when the day has none', async () => {
+        const quiet = {
+            ...DRAFT,
+            activity: { counts: Object.fromEntries(Object.keys(COUNTS).map((key) => [key, 0])), sections: EMPTY_SECTIONS, items: [] as never[] },
+        };
         const view = await render(server({ report: quiet }));
 
         expect(view.find('[data-testid="activity-empty"]').exists()).toBe(true);
+        expect(view.find('[data-testid^="activity-section-"]').exists()).toBe(false);
     });
 
     it('saves the notes with If-Match and adopts the new etag', async () => {

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Ramsey\Uuid\Uuid;
+use Tests\Feature\Pdf\InsertsQuotationRows;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
  */
 final class ReportSubmitEndpointTest extends TestCase
 {
+    use InsertsQuotationRows;
     use RefreshDatabase;
 
     private const PASSWORD = 'Passw0rd123';
@@ -188,6 +190,39 @@ final class ReportSubmitEndpointTest extends TestCase
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
             ->assertStatus(200)
             ->assertJsonPath('data.activity.counts.deals_created', 1);
+    }
+
+    /**
+     * `D-130`: the frozen copy holds the records as they were at submit — a
+     * deal that moves on afterwards still shows its submit-time status.
+     */
+    public function test_that_the_frozen_copy_holds_the_records_as_they_were_at_submit(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $dealId = $this->activity($author->id, 'DEAL_CREATED', '2026-10-15 08:00:00');
+        $code = DB::table('deals')->where('id', $dealId)->value('code');
+        $id = $this->create($author);
+        $this->submit($author, $id, 'report:'.$id.':1', [$manager->id])->assertStatus(200);
+
+        $frozen = ['deal_id' => $dealId, 'code' => $code, 'customer_name' => 'Nile Trading', 'status' => 'lead'];
+
+        $version = DB::table('report_versions')->where('report_id', $id)->first();
+        self::assertNotNull($version);
+        self::assertIsString($version->snapshot);
+        $snapshot = json_decode($version->snapshot, true);
+        self::assertIsArray($snapshot);
+        self::assertIsArray($snapshot['activity']);
+        self::assertArrayHasKey('sections', $snapshot['activity'], 'D-130: the frozen copy holds the records, not the log.');
+        self::assertIsArray($snapshot['activity']['sections']);
+        self::assertSame([$frozen], $snapshot['activity']['sections']['deals_created']);
+
+        DB::table('deals')->where('id', $dealId)->update(['status' => 'contacted']);
+        DB::table('customers')->where('id', DB::table('deals')->where('id', $dealId)->value('customer_id'))->update(['name' => 'Renamed Later']);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+            ->assertStatus(200)
+            ->assertJsonPath('data.activity.sections.deals_created', [$frozen]);
     }
 
     public function test_that_submitting_is_audited(): void
@@ -393,12 +428,17 @@ final class ReportSubmitEndpointTest extends TestCase
             ->assertStatus(200);
     }
 
-    private function activity(string $userId, string $event, string $at): void
+    /** One index entry pointing at a real deal (Module 9's fixture), as `D-130` needs; returns the deal's id. */
+    private function activity(string $userId, string $event, string $at): string
     {
+        $dealId = DB::table('quotations')->where('id', $this->insertQuotation())->value('deal_id');
+        self::assertIsString($dealId);
         DB::table('audit_log')->insert([
             'id' => (string) Str::uuid7(), 'user_id' => $userId, 'event' => $event,
-            'entity_type' => 'deal', 'entity_id' => (string) Str::uuid7(), 'created_at' => $at,
+            'entity_type' => 'deal', 'entity_id' => $dealId, 'created_at' => $at,
         ]);
+
+        return $dealId;
     }
 
     private function user(RoleName $role, string $tag = '', bool $active = true): User

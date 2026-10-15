@@ -199,7 +199,8 @@ final class SystemLimitEndpointTest extends TestCase
         // The two the owner has ruled on: `D-75`'s lockout and, since
         // 2026-08-30, `OD-08`'s similarity threshold. Everything else in §13
         // screen 6 still has no documented value.
-        $configured = [self::LOCKOUT, SystemLimit::CustomerSimilarityThreshold->value];
+        // `D-127` (2026-10-15) values the daily deadline at 17:00.
+        $configured = [self::LOCKOUT, SystemLimit::CustomerSimilarityThreshold->value, SystemLimit::DailyReportDeadline->value];
 
         $unvalued = 0;
         foreach ($limits as $key => $limit) {
@@ -213,11 +214,35 @@ final class SystemLimitEndpointTest extends TestCase
 
         // Was 6 until the threshold was seeded. A count, so a limit gaining a
         // value cannot slip past this guard unremarked.
-        self::assertSame(5, $unvalued);
+        self::assertSame(4, $unvalued);
 
         $threshold = $limits[SystemLimit::CustomerSimilarityThreshold->value];
         self::assertIsArray($threshold);
         self::assertSame('0.60', $threshold['value']);
+
+        $deadline = $limits[SystemLimit::DailyReportDeadline->value];
+        self::assertIsArray($deadline);
+        self::assertSame('17:00', $deadline['value'], 'D-127: the daily deadline starts at 17:00.');
+    }
+
+    /** `D-127` — the deadline is a time of day, `HH:MM`, nothing else. */
+    public function test_that_a_daily_deadline_that_is_not_a_time_of_day_is_refused(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        foreach (['25:00', '5pm', '17:60', ''] as $value) {
+            $this->patchJson(
+                self::ENDPOINT,
+                ['limits' => [SystemLimit::DailyReportDeadline->value => $value]],
+                $bearer,
+            )->assertStatus(422);
+        }
+
+        $this->patchJson(
+            self::ENDPOINT,
+            ['limits' => [SystemLimit::DailyReportDeadline->value => '16:30']],
+            $bearer,
+        )->assertStatus(200);
     }
 
     // ── writing ─────────────────────────────────────────────────────────────

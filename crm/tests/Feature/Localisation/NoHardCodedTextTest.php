@@ -163,7 +163,11 @@ final class NoHardCodedTextTest extends TestCase
                 // Every word is a `pdf.panel.*` key or `language.arabic/english`;
                 // the job's `failure_reason` is data drawn from the API.
                 'QuotationPdfPanel.vue',
-                'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue', 'RoleFormModal.vue', 'RolesMatrixView.vue',
+                'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue',
+                // Module 13, first slice — "My reports" and one report's page;
+                // every label is a `reports.*` key.
+                'ReportDetailView.vue', 'ReportsView.vue',
+                'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.
                 'SearchCombobox.vue', 'SelfApprovedBadge.vue',

@@ -5165,6 +5165,8 @@ layered steps (all migrations, all endpoints) are planned in advance. The six ty
 jobs J-04…J-08 (`D-125`), the PDF, the exports and the manual test list are all still owed. Each one
 lands in the slice that first needs it.
 
+- [ ] **Slice 1 — a daily report (RPT-DY), written and submitted end to end** *(divided by the owner, 2026-10-15; `D-129`)*: tables `reports`, `report_versions`, `report_recipients` (and `report_files`' key); the daily deadline seeded at 17:00, the go-live date and the default recipient (`D-127`, `D-129`); create with `Idempotency-Key`, notes under `If-Match`, recipient candidates, submit with a frozen copy; the day's activity from the audit log; "My reports" and the report page. Not in it: the PDF, Viewed/Acknowledge/Return, comments, the other five types, the jobs.
+
 ---
 
 ## Module 14 — Dashboard

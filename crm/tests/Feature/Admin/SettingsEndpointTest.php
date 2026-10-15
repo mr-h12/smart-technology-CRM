@@ -296,4 +296,82 @@ final class SettingsEndpointTest extends TestCase
         self::assertStringContainsString('company e-mail', $message);
         self::assertSame(0, DB::table('settings')->where('key', 'company.email')->count());
     }
+
+    // ── Module 13, first slice: D-127's go-live date, D-129's default recipient ──
+
+    /** `D-127` — the go-live date is a calendar date, empty until rollout. */
+    public function test_that_the_go_live_date_is_saved_as_a_calendar_date(): void
+    {
+        $settings = $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.go_live_date' => '2026-11-01']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(200)->json('data.settings');
+
+        self::assertIsArray($settings);
+        self::assertSame('2026-11-01', $settings['reports.go_live_date']);
+    }
+
+    public function test_that_a_go_live_date_that_is_not_a_date_is_refused(): void
+    {
+        $response = $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.go_live_date' => '01/11/2026']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        self::assertSame('settings.reports.go_live_date', $response->json('error.details.0.field'));
+        self::assertSame(0, DB::table('settings')->where('key', 'reports.go_live_date')->count());
+    }
+
+    /** `D-129` — the default recipient is one Manager, named by the Super Admin. */
+    public function test_that_a_manager_may_be_named_the_default_report_recipient(): void
+    {
+        $manager = $this->userWith(RoleName::Manager)->getKey();
+        self::assertIsString($manager);
+
+        $settings = $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.default_recipient' => $manager]],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(200)->json('data.settings');
+
+        self::assertIsArray($settings);
+        self::assertSame($manager, $settings['reports.default_recipient']);
+    }
+
+    public function test_that_a_user_who_is_not_a_manager_may_not_be_the_default_recipient(): void
+    {
+        $sales = $this->userWith(RoleName::IndoorSales)->getKey();
+        self::assertIsString($sales);
+
+        $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.default_recipient' => $sales]],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422)->assertJsonPath('error.details.0.field', 'settings.reports.default_recipient');
+
+        self::assertSame(0, DB::table('settings')->where('key', 'reports.default_recipient')->count());
+    }
+
+    public function test_that_an_unknown_user_may_not_be_the_default_recipient(): void
+    {
+        // The key itself is known: a real Manager is accepted first, so the
+        // refusal below is about the user, not about an unnamed field.
+        $manager = $this->userWith(RoleName::Manager)->getKey();
+        self::assertIsString($manager);
+        $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.default_recipient' => $manager]],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(200);
+
+        $this->patchJson(
+            self::ENDPOINT,
+            ['settings' => ['reports.default_recipient' => '01999999-9999-7999-8999-999999999999']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        self::assertSame($manager, DB::scalar('select value from settings where key = ?', ['reports.default_recipient']));
+    }
 }

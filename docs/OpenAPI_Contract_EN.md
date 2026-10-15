@@ -208,6 +208,10 @@ GET    /api/v1/customers
 POST   /api/v1/customers
 GET    /api/v1/customers/{customer_id}
 PATCH  /api/v1/customers/{customer_id}
+GET    /api/v1/customers/{customer_id}/notes
+POST   /api/v1/customers/{customer_id}/notes
+PATCH  /api/v1/customers/{customer_id}/notes/{note_id}
+DELETE /api/v1/customers/{customer_id}/notes/{note_id}
 
 GET    /api/v1/deals
 GET    /api/v1/deals/owners
@@ -240,6 +244,8 @@ A deal carries `details` — optional internal free text, `null` or at most 2000
 **Customer filter** (`D-114`; F-45 · 1): `GET /deals?filter[customer]={customer_id}` returns that customer's deals under the caller's row scope, so an `own` caller asking for a customer whose deals another user owns gets an empty page, never a `403`. A value that is not a UUID is `400 invalid_request` with detail `not_a_uuid` on `filter[customer]`.
 
 **Catalog company tiles** (`D-111`; F-43 · 1): `GET /catalog-items/companies`, under `catalog.view`, answers `data.items`: `[{ "company": string|null, "count": int }]` — each company code that has at least one item, with its count, alphabetical by code, and the items with no company as one `null` entry last; unpaginated; active and inactive items counted alike, soft-deleted never. It accepts the list's own `filter[kind]`; any other parameter the list would refuse is refused the same way (`400 invalid_request`). `GET /catalog-items?filter[has_company]=true|false` narrows the list to the items with or without a company; a value that is not a boolean is `400` on `filter[has_company]`.
+
+**Customer notes** (`D-122`; F-50 · 3): `GET /customers/{id}/notes` is paginated (§6.1) and sorted newest `note_date` first, undated last, newest added first; it is read under `customer.view`. `POST`, `PATCH` and `DELETE` take `{body, note_date}` under `customer.edit` — `body` required, at most 5000 characters; `note_date` an optional calendar date. `POST` answers `201`, `PATCH` `200` with the note, `DELETE` `204` with the note soft-deleted. The customer is reached at the caller's scope before anything is read, so a customer out of reach, or a note absent, removed or belonging to another customer, is the parent's own `404`. Each note is `{id, body, note_date, created_by, created_at, updated_at}`. `notes` on `POST`/`PATCH /customers` is `422`.
 
 **Typed list values** (`D-113`; F-44 · 2): `POST /customers` and `PATCH /customers/{id}` accept `sector` as typed text (max 128), as `POST`/`PATCH /catalog-items` accept `company`. The server answers with the **code**: an existing `sectors` (or `companies`) entry whose code, Arabic label or English label equals the text — trimmed, case-insensitive — or, failing that, a new entry added in the same transaction with the text as both labels (`LIST_ENTRY_ADDED`). No list permission is asked beyond the save's own.
 

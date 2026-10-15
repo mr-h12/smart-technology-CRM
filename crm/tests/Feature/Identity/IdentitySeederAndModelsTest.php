@@ -24,7 +24,8 @@ use Tests\TestCase;
  * Point 2.1 — the models, and the seeders that fill the tables Step 1 built.
  *
  * The counts below — 8, 145, 218 — are not typed in as expectations (57 rows
- * + D-80's `currency.view` + D-85's `catalog.import`: 145 triples, 218 grants). Each is
+ * + D-80's `currency.view` + D-85's `catalog.import`: 145 triples, 218 grants; D-91 and
+ * D-123's `customer.change_status` since: 142 triples, 223 grants). Each is
  * derived from `PermissionMatrix` inside the test and compared against the
  * database, and only then compared against the literal, so a matrix that grows
  * fails loudly rather than quietly disagreeing with a number nobody re-derived.
@@ -65,8 +66,8 @@ final class IdentitySeederAndModelsTest extends TestCase
         // The literals, second. If the matrix changes these fail together and
         // the disagreement is visible rather than absorbed.
         self::assertSame(8, Role::count());
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
-        self::assertSame(218, DB::table('role_permissions')->count());
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-123's `customer.change_status` adds four (→ 142)
+        self::assertSame(223, DB::table('role_permissions')->count()); // D-123: five grants (218 → 223)
     }
 
     /**
@@ -121,8 +122,8 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         // A seeder that did nothing would pass every comparison below, so the
         // rows are asserted present before anything is compared.
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
-        self::assertSame(218, DB::table('role_permissions')->count());
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-123's `customer.change_status` adds four (→ 142)
+        self::assertSame(223, DB::table('role_permissions')->count()); // D-123: five grants (218 → 223)
 
         $before = self::snapshot();
 
@@ -239,7 +240,7 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         $this->seedMatrix();
 
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-123's `customer.change_status` adds four (→ 142)
     }
 
     public function test_that_a_missing_password_stops_the_seeder(): void
@@ -305,7 +306,7 @@ final class IdentitySeederAndModelsTest extends TestCase
             $throughRelations += $role->permissions->count();
         }
 
-        self::assertSame(218, $throughRelations,
+        self::assertSame(223, $throughRelations,
             'Walking the relation finds a different number of grants than the table holds.');
     }
 

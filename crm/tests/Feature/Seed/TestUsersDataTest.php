@@ -196,8 +196,9 @@ final class TestUsersDataTest extends TestCase
         // both places have been corrected. 57 permissions, 143 explicit scopes
         // and 69 bare checkmarks — then D-80's `currency.view` added 5 explicit
         // scopes (2026-09-16): 58, 148, 69 → 217; D-85's `catalog.import` added one
-        // bare checkmark (2026-09-21): → 218.
-        self::assertSame(218, DB::table('seed_probe_permissions')->count());
+        // bare checkmark (2026-09-21): → 218; D-123's `customer.change_status`
+        // added five explicit scopes (2026-10-15): → 223.
+        self::assertSame(223, DB::table('seed_probe_permissions')->count());
         self::assertSame(3, DB::table('seed_probe_currencies')->count());
         // 13, then D-104's two contact titles (2026-10-08): → 15.
         self::assertSame(15, DB::table('seed_probe_lists')->count());

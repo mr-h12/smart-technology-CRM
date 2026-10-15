@@ -42,7 +42,7 @@ final class RbacMatrixDataTest extends TestCase
      * that no longer matches.
      */
     private const SECTION_ROWS = [
-        '§3.3' => 7,   // Customers
+        '§3.3' => 8,   // Customers — 7 documented rows + D-123's `customer.change_status`
         '§3.4' => 8,   // Deals / Requests
         '§3.5' => 14,  // Customer Quotations
         '§3.6' => 3,   // Supplier Quotations
@@ -84,7 +84,7 @@ final class RbacMatrixDataTest extends TestCase
         }
 
         self::assertSame(self::SECTION_ROWS, $counted);
-        self::assertCount(59, PermissionMatrix::all());
+        self::assertCount(60, PermissionMatrix::all());
     }
 
     /**

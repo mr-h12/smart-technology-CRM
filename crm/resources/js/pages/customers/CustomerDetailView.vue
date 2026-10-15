@@ -93,7 +93,10 @@ const canAssign = computed(() => auth.hasPermission('customer.assign'));
 /** `D-123`: §3.3's own row; «عميل» is never left by hand (`D-49`), so it offers nothing there. */
 const canChangeStatus = computed(() => auth.hasPermission('customer.change_status') && customer.value?.customer_status !== 'customer');
 
-/** `D-123`'s three, less the status the customer already has. */
+/**
+ * `D-123`'s three, less the status the customer already has.
+ * ponytail: mirrors `CustomerDraft::SET_BY_HAND`; a fourth hand-set status edits both. The server's list is the rule.
+ */
 const STATUSES_SET_BY_HAND = ['prospect', 'no_response', 'deal_not_completed'] as const;
 const statusOptions = computed(() => STATUSES_SET_BY_HAND.filter((status) => status !== customer.value?.customer_status));
 const statusOpen = ref(false);

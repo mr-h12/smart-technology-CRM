@@ -177,6 +177,16 @@ final class CustomerStatusEndpointTest extends TestCase
             ->assertJsonPath('data.customer_status', 'deal_not_completed');
     }
 
+    /** §3.12: the Super Admin's unconditional access reaches the route at `All`. */
+    public function test_that_the_super_admin_sets_any_customer(): void
+    {
+        $id = $this->customer('Somebody Elses', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->patchJson($this->url($id), ['status' => 'no_response', 'reason' => 'Checked by the admin.'], $this->bearerFor(RoleName::SuperAdmin))
+            ->assertStatus(200)
+            ->assertJsonPath('data.customer_status', 'no_response');
+    }
+
     /** `D-123` (d): as `customer.edit` does, an archived customer's status may be set. */
     public function test_that_an_archived_customer_may_be_set(): void
     {

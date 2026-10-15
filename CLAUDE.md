@@ -446,7 +446,6 @@ Both are project-scoped and need a one-time approval when `claude` first starts 
 All three are used on every turn, not only when code is written, and each turn's first response
 names them (§ Imported Agent Guidance).
 
-
 - **`ponytail`** at level `full`, every turn: the ladder before any code (exists at all? →
   already in this codebase? → stdlib → native platform → installed dependency → one line → minimum
   code). Shortest working diff; delete over add; a deliberate ceiling is marked with a `ponytail:`

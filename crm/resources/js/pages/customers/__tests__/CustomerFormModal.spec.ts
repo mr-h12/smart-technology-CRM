@@ -36,6 +36,11 @@ const EXISTING: Customer = {
     phone2: null,
     whatsapp: null,
     email: 'mona@alpha.test',
+    location_url: null,
+    website_url: null,
+    social_url_1: null,
+    social_url_2: null,
+    social_url_3: null,
     sales_owner_id: 'u1',
     start_date: '2024-01-15',
     notes: null,
@@ -163,6 +168,43 @@ describe('CustomerFormModal — what it sends', () => {
 
         expect(String(fetchMock.mock.calls[1]?.[0])).toMatch(/\/customers\/c1$/);
         expect(fetchMock.mock.calls[1]?.[1]?.method).toBe('PATCH');
+    });
+
+    /** `D-121` (F-50 · 2): five optional link inputs, sent on a create and opened filled on an edit. */
+    it('sends the five links on a create and opens an edit on the saved ones', async () => {
+        const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => json(201, { data: EXISTING, meta: {} }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const links = {
+            location_url: 'https://maps.app.goo.gl/AbCd123',
+            website_url: 'https://alpha.example',
+            social_url_1: 'https://www.facebook.com/alpha',
+            social_url_2: 'https://instagram.com/alpha',
+            social_url_3: 'https://www.linkedin.com/company/alpha',
+        };
+
+        const creating = render(null);
+        await creating.find('[data-testid="customer-form-name"]').setValue('Beta Medical');
+
+        for (const [field, link] of Object.entries(links)) {
+            const input = creating.find(`[data-testid="customer-form-${field.replace(/_/g, '-')}"]`);
+            expect(input.exists()).toBe(true);
+            expect(input.attributes('type')).toBe('url');
+            expect(input.attributes('dir')).toBe('ltr');
+            await input.setValue(link);
+        }
+
+        await creating.find('[data-testid="customer-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(sentBodies(fetchMock)[0]).toMatchObject(links);
+
+        const editing = render({ ...EXISTING, ...links });
+
+        for (const [field, link] of Object.entries(links)) {
+            const input = editing.find(`[data-testid="customer-form-${field.replace(/_/g, '-')}"]`);
+            expect((input.element as HTMLInputElement).value).toBe(link);
+        }
     });
 
     /**

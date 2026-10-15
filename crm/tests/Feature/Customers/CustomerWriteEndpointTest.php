@@ -642,6 +642,109 @@ final class CustomerWriteEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'contact_title' => null]);
     }
 
+    // ─────────────────────────────── D-121 (F-50 · 2) — the five links
+
+    private const LINKS = [
+        'location_url' => 'https://maps.app.goo.gl/AbCd123',
+        'website_url' => 'https://alpha.example',
+        'social_url_1' => 'https://www.facebook.com/alpha',
+        'social_url_2' => 'http://instagram.com/alpha',
+        'social_url_3' => 'https://www.linkedin.com/company/alpha',
+    ];
+
+    /** Saved on create, read back by the detail and the list, and carried into the create audit. */
+    public function test_that_a_customer_saves_and_reads_its_five_links(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $created = $this->postJson(self::ENDPOINT, ['name' => 'Alpha Trading'] + self::LINKS, $bearer)->assertStatus(201);
+        $id = $created->json('data.id');
+        self::assertIsString($id);
+
+        $read = $this->getJson(self::ENDPOINT.'/'.$id, $bearer)->assertStatus(200);
+        $list = $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200);
+
+        foreach (self::LINKS as $field => $link) {
+            $created->assertJsonPath('data.'.$field, $link);
+            $read->assertJsonPath('data.'.$field, $link);
+            $list->assertJsonPath('data.0.'.$field, $link);
+        }
+
+        $this->assertDatabaseHas('customers', ['id' => $id] + self::LINKS);
+
+        $audit = DB::table('audit_log')->where('event', 'CUSTOMER_CREATED')->where('entity_id', $id)->value('new_values');
+        self::assertIsString($audit);
+        $values = json_decode($audit, true);
+        self::assertIsArray($values);
+        self::assertSame(self::LINKS['location_url'], $values['location_url'] ?? null);
+
+        $this->postJson(self::ENDPOINT, ['name' => 'Beta Trading'], $bearer)
+            ->assertStatus(201)
+            ->assertJsonPath('data.website_url', null);
+    }
+
+    /** `D-121`: `http`/`https` only, at most 2048 — so a `javascript:` link never reaches an `href`. */
+    public function test_that_a_link_that_is_not_http_or_https_is_refused(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+        $refused = [
+            'javascript:alert(1)',
+            'data:text/html,<script>alert(1)</script>',
+            'ftp://files.example/alpha',
+            'not a link',
+            'https://alpha.example/'.str_repeat('a', 2027),
+        ];
+        self::assertSame(2049, mb_strlen($refused[4]));
+
+        foreach (array_keys(self::LINKS) as $field) {
+            foreach ($refused as $value) {
+                $this->postJson(self::ENDPOINT, ['name' => 'Alpha Trading', $field => $value], $bearer)
+                    ->assertStatus(422)
+                    ->assertJsonPath('error.code', 'validation_failed')
+                    ->assertJsonPath('error.details.0.field', $field);
+            }
+        }
+
+        $this->assertDatabaseMissing('customers', ['name' => 'Alpha Trading']);
+
+        $id = $this->customer('Beta Trading');
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['website_url' => 'javascript:alert(1)'], $bearer)
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'website_url');
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'website_url' => null]);
+
+        // The ceiling itself is allowed.
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['website_url' => 'https://alpha.example/'.str_repeat('a', 2026)], $bearer)
+            ->assertStatus(200);
+    }
+
+    /** `AUD-02`: the old link beside the new one; `null` clears it. */
+    public function test_that_a_link_change_is_audited_with_old_and_new(): void
+    {
+        $id = $this->customer('Alpha Trading');
+        DB::table('customers')->where('id', $id)->update(['website_url' => 'https://old.example']);
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['website_url' => 'https://new.example'], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.website_url', 'https://new.example');
+
+        $row = DB::table('audit_log')->where('event', 'CUSTOMER_UPDATED')->where('entity_id', $id)->first();
+        self::assertNotNull($row);
+        self::assertIsString($row->old_values);
+        self::assertIsString($row->new_values);
+        self::assertSame(['website_url' => 'https://old.example'], json_decode($row->old_values, true));
+        self::assertSame(['website_url' => 'https://new.example'], json_decode($row->new_values, true));
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['website_url' => null], $bearer)
+            ->assertStatus(200)
+            ->assertJsonPath('data.website_url', null);
+
+        $this->assertDatabaseHas('customers', ['id' => $id, 'website_url' => null]);
+    }
+
     /**
      * A customer as the importer leaves it. The API prohibits `is_incomplete`
      * (`D-31`), so the flag is written where the importer writes it: the row.

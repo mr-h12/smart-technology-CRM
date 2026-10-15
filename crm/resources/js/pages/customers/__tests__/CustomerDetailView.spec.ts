@@ -211,6 +211,43 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         expect(summary.find('a[href^="mailto:"]').attributes('href')).toBe('mailto:mona@alpha.test');
     });
 
+    /** `D-121` (F-50 · 2): each link opens in a new tab, never handing this page to the site it opens. */
+    it('draws the five links as new-tab links with noopener noreferrer, and a dash for an empty one', async () => {
+        const links = {
+            location_url: 'https://maps.app.goo.gl/AbCd123',
+            website_url: 'https://alpha.example',
+            social_url_1: 'https://www.facebook.com/alpha',
+            social_url_2: null,
+            social_url_3: 'https://www.linkedin.com/company/alpha',
+        };
+        stubDetail(() => ({ ...CUSTOMER, ...links }));
+
+        const view = await render();
+        await flushPromises();
+
+        const summary = view.find('[data-testid="customer-summary"]');
+
+        for (const link of Object.values(links)) {
+            if (link === null) {
+                continue;
+            }
+
+            const anchor = summary.find(`a[href="${link}"]`);
+            expect(anchor.exists()).toBe(true);
+            expect(anchor.attributes('target')).toBe('_blank');
+            expect(anchor.attributes('rel')).toBe('noopener noreferrer');
+            expect(anchor.attributes('dir')).toBe('ltr');
+        }
+
+        const empty = summary.find('[data-testid="customer-link-social_url_2"]');
+        expect(empty.exists()).toBe(true);
+        expect(empty.text()).toBe('—');
+        expect(empty.find('a').exists()).toBe(false);
+
+        // The phone stays in this tab: `tel:` hands off to an app, not a site.
+        expect(summary.find('a[href^="tel:"]').attributes('target')).toBeUndefined();
+    });
+
     /** F-19 · 1.1a (`D-83`): the server names the owner; the page prints it for everyone who can view the customer. */
     it('names the sales owner in the summary, a dash when there is none', async () => {
         stubDetail(() => ({ ...CUSTOMER, sales_owner_name: 'Test Indoor Sales' }));

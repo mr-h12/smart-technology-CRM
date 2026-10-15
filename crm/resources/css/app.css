@@ -184,6 +184,17 @@ dialog:not([open]) {
     text-decoration: underline;
 }
 
+/*
+ * An input, select or textarea outline (DS §6, `border-strong` for control
+ * boundaries). Unlayered, as the scoped copies were; the older pages still
+ * hold their own copy (debt row).
+ */
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+
 .row-action {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

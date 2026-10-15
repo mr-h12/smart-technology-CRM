@@ -1878,12 +1878,14 @@ would hide them behind `OD-03` indefinitely.
       slice 1, 2026-10-15 (`D-127`).* Both are editable on the settings screen and nothing on the server
       reads them until the slice that builds J-04 (Missed) and J-05…J-07. Until then neither changes any
       behaviour.
-- [ ] **The report page's `form-field` and `primary-action` have no rule** — *revealed by Module 13 slice 2
-      · 2.2's waste audit, 2026-10-16.* Both classes are scoped styles that each of 25 other components
-      defines for itself; `resources/css/app.css` has no global rule, and `ReportDetailView.vue` has no
-      `<style>` block (slice 1). So its notes box, its Return-reason box and its Submit button render
-      unstyled. 2.2 put its new Acknowledge button on the global `create-action`. A fix is a scoped style
-      here (a 26th copy) or one global rule; the owner's call, seen in 2.3's browser check.
+- [ ] **`.form-field` and `.primary-action` are still copied into 21 and 5 components** — *revealed by
+      Module 13 slice 2 · 2.2's waste audit, 2026-10-16.* 2.3b fixed the report pages: their buttons use
+      `create-action`, and `resources/css/app.css` gained one global unlayered `.form-field` beside
+      `.row-link`. The scoped copies still win on their own pages, because they are more specific. 20 of
+      the 21 `.form-field` copies are byte-identical to the global rule (`DealsView.vue`'s differs), and
+      every `.primary-action` base rule equals the global `.create-action` (`QuotationPdfPanel.vue` and
+      `ManagedListsView.vue` also add hover/active states the global lacks). Deleting the copies, or
+      keeping DealsView's, is the owner's call.
 
 ## Agent guide revisions — owner-directed
 
@@ -5191,6 +5193,7 @@ lands in the slice that first needs it.
     - [x] **2.1** Red: failing tests for the received list, Viewed, Acknowledge, Return → v2, and the refusals (CEO acknowledge/return, Sales/Procurement list, the author on someone else's report) *(2026-10-16 — 24 PHP + 8 vitest red for the right reason; the new view's spec fails on its missing component)*
     - [x] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page *(2026-10-16 — Reports 75 passed, reports vitest 68 passed; one more spec edit approved: `uiSourceRules` lists the Return `<dialog>`)*
     - [x] **2.3a** The local suite runs within its memory: `<ini name="memory_limit" value="512M"/>` in `phpunit.xml` *(2026-10-16 — plain `php artisan test` crashed at 256 MB in `UploadValidationTest:76`; now 3929 passed (26471 assertions); the image's 256 MB stays for everything else)*
+    - [x] **2.3b** The report pages' controls take the shared styles: `create-action` on New report and Submit, a global `.form-field` in `app.css` *(2026-10-16 — red: border 0px, transparent; green in ar/en × 1280/375: notes 1px `#78716C`, buttons `rgb(194,65,12)`; `/customers` unchanged; vitest 1412 passed)*
     - [ ] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check
 
 ---

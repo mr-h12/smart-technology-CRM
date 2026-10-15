@@ -438,7 +438,7 @@ onMounted(load);
 
                         <button
                             type="button"
-                            class="primary-action min-h-11 w-fit rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                            class="create-action min-h-11 w-fit rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                             :disabled="busy || chosen.length === 0"
                             data-testid="report-submit"
                             @click="submit"

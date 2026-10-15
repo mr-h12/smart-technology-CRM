@@ -67,4 +67,14 @@ interface DealFactsInterface
      * @return array<string, string>
      */
     public function codesOf(array $dealIds): array;
+
+    /**
+     * Deal id => what its page shows first — code, status and customer — for
+     * a daily report's records (`D-130`). An absent or soft-deleted id has no
+     * entry; the empty list answers `[]` without a query.
+     *
+     * @param  list<string>  $dealIds
+     * @return array<string, array{code: string, status: string, customer_id: string}>
+     */
+    public function cardsOf(array $dealIds): array;
 }

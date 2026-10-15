@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Contracts;
 
+use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
+use App\Modules\Quotations\Domain\Listing\QuotationSummary;
 
 /**
  * The read-only half of {@see QuotationDirectoryInterface} — what another
@@ -37,4 +39,24 @@ interface QuotationReaderInterface
      * to the answer, so the boundary is crossed by the interface, not the SQL.
      */
     public function find(string $quotationId): ?QuotationDetail;
+
+    /**
+     * Quotation id => its list row (§6.6's columns, selling total only) for a
+     * daily report's records (`D-130`). Unscoped as `find()` is; an absent or
+     * soft-deleted id has no entry; the empty list answers `[]` without a query.
+     *
+     * @param  list<string>  $quotationIds
+     * @return array<string, QuotationSummary>
+     */
+    public function summariesOf(array $quotationIds): array;
+
+    /**
+     * Purchase order id => its list row (`D-130`), on `purchaseOrders()`'s
+     * terms: an order whose quotation is soft-deleted goes with it. Unscoped;
+     * an absent or soft-deleted id has no entry.
+     *
+     * @param  list<string>  $purchaseOrderIds
+     * @return array<string, PurchaseOrderRecord>
+     */
+    public function purchaseOrdersOf(array $purchaseOrderIds): array;
 }

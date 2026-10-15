@@ -496,6 +496,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return $quotationId === $this->quotation->id ? $this->quotation : null;
             }
+
+            public function summariesOf(array $quotationIds): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
+            }
+
+            public function purchaseOrdersOf(array $purchaseOrderIds): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
+            }
         };
     }
 

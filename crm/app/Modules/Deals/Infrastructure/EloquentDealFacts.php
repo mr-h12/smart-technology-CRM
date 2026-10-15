@@ -94,6 +94,21 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
         return $codes;
     }
 
+    public function cardsOf(array $dealIds): array
+    {
+        if ($dealIds === []) {
+            return [];
+        }
+
+        $cards = [];
+        /** @var object{id: string, code: string, status: string, customer_id: string} $row */
+        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'code', 'status', 'customer_id')->get() as $row) {
+            $cards[(string) $row->id] = ['code' => (string) $row->code, 'status' => (string) $row->status, 'customer_id' => (string) $row->customer_id];
+        }
+
+        return $cards;
+    }
+
     public function titlesOf(array $dealIds): array
     {
         if ($dealIds === []) {

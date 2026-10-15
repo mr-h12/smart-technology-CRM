@@ -33,17 +33,45 @@ export const ACTIVITY_COUNTS = [
 
 export type ActivityCount = (typeof ACTIVITY_COUNTS)[number];
 
-export interface ActivityItem {
-    event: string;
-    entity_type: string;
-    entity_id: string;
-    occurred_at: string;
+/** `D-130`: each kind's records as their own pages show them — selling totals only (`D-126`). */
+interface DealRow {
+    deal_id: string;
+    code: string;
+    customer_name: string;
+}
+
+interface QuotationRow {
+    quotation_id: string;
+    code: string;
+    version: number;
+    customer_name: string;
+    status: string;
+    final_total: string;
+    currency: string;
+}
+
+export interface ActivitySections {
+    deals_created: Array<DealRow & { status: string }>;
+    deal_status_moves: Array<DealRow & { from_status: string; to_status: string }>;
+    quotations_created: QuotationRow[];
+    quotations_sent: QuotationRow[];
+    customer_responses: Array<QuotationRow & { response: 'accepted' | 'rejected' | 'partial' | 'countered' }>;
+    purchase_orders: Array<{
+        purchase_order_id: string;
+        po_number: string;
+        po_date: string;
+        quotation_id: string;
+        quotation_code: string;
+        customer_name: string;
+        final_total: string;
+        currency: string;
+    }>;
 }
 
 export interface ReportDetail extends ReportSummary {
     notes: string | null;
     etag: string;
-    activity: { counts: Record<ActivityCount, number>; items: ActivityItem[] };
+    activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
 }
 

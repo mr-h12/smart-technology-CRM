@@ -61,11 +61,7 @@ const DRAFT = {
     period_start: '2026-10-15', period_end: '2026-10-15', submitted_at: null,
     notes: 'Morning calls.', etag: 'report:rep1:1',
     // `D-130`: the records themselves, grouped by kind — never the audit events.
-    activity: {
-        counts: COUNTS, sections: SECTIONS,
-        // ponytail: not in the D-130 contract — kept only so today's page renders while R.2 is red; delete it when going green.
-        items: [] as never[],
-    },
+    activity: { counts: COUNTS, sections: SECTIONS },
     recipients: [],
 };
 
@@ -230,7 +226,7 @@ describe('ReportDetailView — a daily report', () => {
     it('shows an empty activity message, and no section, when the day has none', async () => {
         const quiet = {
             ...DRAFT,
-            activity: { counts: Object.fromEntries(Object.keys(COUNTS).map((key) => [key, 0])), sections: EMPTY_SECTIONS, items: [] as never[] },
+            activity: { counts: Object.fromEntries(Object.keys(COUNTS).map((key) => [key, 0])), sections: EMPTY_SECTIONS },
         };
         const view = await render(server({ report: quiet }));
 

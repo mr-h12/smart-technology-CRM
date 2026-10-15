@@ -1490,16 +1490,18 @@
             "customer_responses": "Customer responses",
             "purchase_orders": "Purchase orders"
         },
-        "event": {
-            "DEAL_CREATED": "Deal created",
-            "DEAL_STATUS_CHANGED": "Deal status changed",
-            "QUOTATION_CREATED": "Quotation created",
-            "QUOTATION_SENT": "Quotation sent",
-            "QUOTATION_ACCEPTED": "Customer accepted a quotation",
-            "QUOTATION_REJECTED": "Customer rejected a quotation",
-            "QUOTATION_PARTIAL": "Customer accepted part of a quotation",
-            "QUOTATION_COUNTERED": "Customer countered a quotation",
-            "PURCHASE_ORDER_CREATED": "Purchase order recorded"
+        "activity_none": "None recorded.",
+        "column": {
+            "from": "From",
+            "to": "To",
+            "response": "Response",
+            "po_date": "PO date"
+        },
+        "response": {
+            "accepted": "Accepted",
+            "rejected": "Rejected",
+            "partial": "Partially accepted",
+            "countered": "Counter offer"
         },
         "notes": "Notes",
         "notes_hint": "What else happened today. Saved with the report.",

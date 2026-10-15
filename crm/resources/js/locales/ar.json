@@ -1490,16 +1490,18 @@
             "customer_responses": "ردود العملاء",
             "purchase_orders": "أوامر الشراء"
         },
-        "event": {
-            "DEAL_CREATED": "إنشاء صفقة",
-            "DEAL_STATUS_CHANGED": "تغيير حالة صفقة",
-            "QUOTATION_CREATED": "إنشاء عرض سعر",
-            "QUOTATION_SENT": "إرسال عرض سعر",
-            "QUOTATION_ACCEPTED": "قبول العميل عرض سعر",
-            "QUOTATION_REJECTED": "رفض العميل عرض سعر",
-            "QUOTATION_PARTIAL": "قبول العميل جزءاً من عرض سعر",
-            "QUOTATION_COUNTERED": "عرض مقابل من العميل",
-            "PURCHASE_ORDER_CREATED": "تسجيل أمر شراء"
+        "activity_none": "لا شيء مسجَّل.",
+        "column": {
+            "from": "من",
+            "to": "إلى",
+            "response": "ردّ العميل",
+            "po_date": "تاريخ أمر الشراء"
+        },
+        "response": {
+            "accepted": "قبول",
+            "rejected": "رفض",
+            "partial": "قبول جزئي",
+            "countered": "عرض مقابل"
         },
         "notes": "الملاحظات",
         "notes_hint": "ما حدث أيضاً اليوم. تُحفَظ مع التقرير.",

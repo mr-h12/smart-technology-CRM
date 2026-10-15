@@ -215,14 +215,16 @@ final class ReportSubmitEndpointTest extends TestCase
         self::assertIsArray($snapshot['activity']);
         self::assertArrayHasKey('sections', $snapshot['activity'], 'D-130: the frozen copy holds the records, not the log.');
         self::assertIsArray($snapshot['activity']['sections']);
-        self::assertSame([$frozen], $snapshot['activity']['sections']['deals_created']);
+        // jsonb stores keys in its own order; the frozen copy is compared by value.
+        self::assertEquals([$frozen], $snapshot['activity']['sections']['deals_created']);
 
         DB::table('deals')->where('id', $dealId)->update(['status' => 'contacted']);
         DB::table('customers')->where('id', DB::table('deals')->where('id', $dealId)->value('customer_id'))->update(['name' => 'Renamed Later']);
 
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+        $shown = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
             ->assertStatus(200)
-            ->assertJsonPath('data.activity.sections.deals_created', [$frozen]);
+            ->json('data.activity.sections.deals_created');
+        self::assertEquals([$frozen], $shown);
     }
 
     public function test_that_submitting_is_audited(): void

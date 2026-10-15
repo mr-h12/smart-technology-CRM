@@ -312,6 +312,28 @@ final class UpdateSupplierQuotationTest extends TestCase
 
     // ───────────────────────────────────────────────────────────────── helpers
 
+    /** D-120: an edit that replaces the lines replaces the total — 2 × 100 = 200, not the 4500 it had. */
+    public function test_that_an_edit_of_the_lines_recomputes_the_total(): void
+    {
+        $offer = $this->create();
+
+        $this->update($offer->id, ['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '100', 'quantity' => '2'],
+        ]]);
+
+        self::assertSame('200.000000', DB::table('supplier_quotations')->where('id', $offer->id)->value('total_price'));
+    }
+
+    /** D-120: an edit that only names a currency gives an offer with no line a total of 0 (Point 1.1's CHECK). */
+    public function test_that_adding_a_currency_to_an_offer_without_lines_totals_zero(): void
+    {
+        $offer = $this->create(['currency_id' => null, 'items' => []]);
+
+        $this->update($offer->id, ['currency_id' => $this->currencyId]);
+
+        self::assertSame('0.000000', DB::table('supplier_quotations')->where('id', $offer->id)->value('total_price'));
+    }
+
     /** @return array<string, mixed> 114 a unit, 1140 in all, entered tax-inclusive at 14 %. */
     private function taxInclusive(): array
     {
@@ -319,7 +341,6 @@ final class UpdateSupplierQuotationTest extends TestCase
             'supplier_id' => $this->supplierId,
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1140',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
@@ -346,7 +367,6 @@ final class UpdateSupplierQuotationTest extends TestCase
 
         return $useCase->create(array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

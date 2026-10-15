@@ -167,7 +167,7 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
             ->assertJsonPath('data.code', 'SQ-'.now()->format('Y').'-0001')
             ->assertJsonPath('data.supplier_id', $this->supplierId)
             ->assertJsonPath('data.deal_id', null)
-            ->assertJsonPath('data.total_price', '4500.000000')
+            ->assertJsonPath('data.total_price', '4750.500000', 'D-120: 3 × 1500 + 1 × 250.5, computed.')
             ->assertJsonPath('data.currency_id', $this->currencyId)
             ->assertJsonPath('data.offer_date', '2026-09-02')
             ->assertJsonPath('data.valid_until', '2026-10-02')
@@ -242,13 +242,13 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
      */
     public function test_that_priced_lines_without_a_currency_are_refused(): void
     {
-        $this->post422(['total_price' => null, 'currency_id' => null], 'currency_id');
+        $this->post422(['currency_id' => null], 'currency_id');
     }
 
     /** No lines, no amount, so §5.6 asks for no currency — the pair stays nullable. */
     public function test_that_an_offer_without_lines_needs_no_currency(): void
     {
-        $this->postJson(self::ENDPOINT, $this->payload(['total_price' => null, 'currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
+        $this->postJson(self::ENDPOINT, $this->payload(['currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
             ->assertStatus(201);
     }
 
@@ -431,7 +431,12 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
 
         $this->post422([...$flagged, 'items' => [[...$line, 'unit_price' => 114.5]]], 'items.0.unit_price');
         $this->post422([...$flagged, 'items' => [[...$line, 'unit_price' => '1e3']]], 'items.0.unit_price');
-        $this->post422([...$flagged, 'total_price' => 1140.5], 'total_price');
+    }
+
+    /** D-120: the total is computed, never typed — one sent is refused, not ignored. */
+    public function test_that_a_sent_total_is_refused(): void
+    {
+        $this->post422(['total_price' => '4750.5'], 'total_price');
     }
 
     public function test_that_a_flag_that_is_not_a_boolean_is_refused(): void
@@ -445,7 +450,7 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
         $this->postJson(self::ENDPOINT, $this->payload([
             'prices_include_tax' => true,
             'included_tax_percents' => ['14', '5'],
-            'total_price' => '1190',
+            'items' => [['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1190', 'quantity' => '1']],
         ]), $this->bearerFor(RoleName::Manager))
             ->assertStatus(201)
             ->assertJsonPath('data.prices_include_tax', true)
@@ -465,7 +470,6 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
     {
         return array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

@@ -642,12 +642,8 @@
         },
         "notes": {
             "title": "Notes and communication history",
-            "add": "Add note",
             "body": "Note",
             "date": "Date (optional)",
-            "save": "Save note",
-            "cancel": "Cancel",
-            "edit": "Edit",
             "remove": "Remove",
             "keep": "Keep",
             "removeConfirm": "Remove this note?",
@@ -655,8 +651,12 @@
             "empty": "Nothing has been recorded yet.",
             "loadFailed": "The notes could not be loaded.",
             "retry": "Try again",
-            "saveFailed": "The note was not saved. Try again.",
-            "removeFailed": "The note was not removed. Try again."
+            "removeFailed": "The note was not removed. Try again.",
+            "newPlaceholder": "Write a new note…",
+            "saving": "Saving…",
+            "saved": "Saved",
+            "notSaved": "Not saved",
+            "required": "A note needs some text. The saved text is kept until you type it."
         },
         "form": {
             "createTitle": "New customer",

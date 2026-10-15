@@ -299,7 +299,7 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
 
         expect(viewer.find('[data-testid="customer-notes-section"]').exists()).toBe(true);
         expect(fetchMock.mock.calls.some((call) => /\/customers\/c1\/notes(\?|$)/.test(String(call[0])))).toBe(true);
-        expect(viewer.find('[data-testid="customer-note-add"]').exists()).toBe(false);
+        expect(viewer.find('[data-testid="customer-note-new"]').exists()).toBe(false);
 
         vi.restoreAllMocks();
         stubDetail(() => CUSTOMER);
@@ -307,7 +307,7 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         const editor = await render(EDITOR);
         await flushPromises();
 
-        expect(editor.find('[data-testid="customer-note-add"]').exists()).toBe(true);
+        expect(editor.find('[data-testid="customer-note-new"]').exists()).toBe(true);
     });
 });
 

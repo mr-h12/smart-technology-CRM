@@ -4686,7 +4686,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #371 — five nullable varchar(2048) links, http(s) only so `javascript:` is 422; new tab with noopener noreferrer; kept out of the CSV import)*
       - [x] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
             *(2026-10-15, #372 — customer_notes, newest date first and undated last; view/edit at the customer's scope, soft-deleted and audited; old and imported notes become the first undated note; notes is 422 on the customer)*
-      - [ ] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
+      - [x] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
+            *(2026-10-15, #373 — PATCH /customers/{id}/status under customer.change_status, seeded like edit; «عميل» never set or left, 422 on every refusal; status_reason cleared by any deal move, kept by the nightly job; «تغيير الحالة» dialog)*
 
 ## Shell revisions — owner-directed
 

@@ -130,7 +130,9 @@ describe('SystemSettingsView', () => {
         expect(view.find('[data-testid="loading-state"]').exists()).toBe(true);
     });
 
-    it('renders the eight fields the API exposes, and no more', async () => {
+    // Module 13, first slice: `D-127`'s go-live date and `D-129`'s default
+    // report recipient join the eight.
+    it('renders the ten fields the API exposes, and no more', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(SETTINGS)));
 
         const view = await render();
@@ -147,6 +149,8 @@ describe('SystemSettingsView', () => {
             'locale.date_format',
             'locale.language',
             'locale.timezone',
+            'reports.default_recipient',
+            'reports.go_live_date',
         ]);
     });
 
@@ -466,7 +470,7 @@ describe('SystemSettingsView', () => {
 
         const fields = view.findAll('[data-setting-key]');
 
-        expect(fields).toHaveLength(8);
+        expect(fields).toHaveLength(10);
 
         const hints: Record<string, string> = en.settings.hint;
 
@@ -622,5 +626,90 @@ describe('SystemSettingsView', () => {
 
         expect(heading).toBe(ar.settings.title);
         expect(heading).not.toBe(en.settings.title);
+    });
+
+    // ── Module 13, first slice: D-127's go-live date, D-129's default recipient ──
+
+    describe('the report settings', () => {
+        const MANAGERS = [
+            { id: 'm1', name: 'Mona Manager', email: 'm1@example.test', role_id: 'r', role: { slug: 'manager', name: 'Manager', label: 'Manager' }, is_active: true, job_title_en: null, job_title_ar: null, created_at: '2026-10-01T00:00:00Z' },
+            { id: 'm2', name: 'Omar Manager', email: 'm2@example.test', role_id: 'r', role: { slug: 'manager', name: 'Manager', label: 'Manager' }, is_active: true, job_title_en: null, job_title_ar: null, created_at: '2026-10-01T00:00:00Z' },
+        ];
+
+        function withManagers(onPatch?: (body: unknown) => Response) {
+            return vi.fn(async (input: string, init?: RequestInit) => {
+                const url = String(input);
+                if (init?.method === 'PATCH') {
+                    const body = JSON.parse(init.body as string) as unknown;
+
+                    return onPatch ? onPatch(body) : envelope(SETTINGS);
+                }
+                if (url.includes('/users')) {
+                    return json(200, { data: MANAGERS, meta: { request_id: 'r', pagination: { page: 1, per_page: 25, total: 2, last_page: 1 } } });
+                }
+                if (/\/currencies$/.test(url)) {
+                    return json(200, { data: { currencies: [] }, meta: {} });
+                }
+
+                if (/\/settings$/.test(url)) {
+                    return envelope({ ...SETTINGS, 'reports.go_live_date': null, 'reports.default_recipient': 'm2' });
+                }
+
+                return json(404, { error: { code: 'resource_not_found' } });
+            });
+        }
+
+        it('draws the go-live date as a date input', async () => {
+            vi.stubGlobal('fetch', withManagers());
+            const view = await render('en', SUPER_ADMIN);
+            await flushPromises();
+
+            const input = view.get('[data-setting-key="reports.go_live_date"] input');
+            expect(input.attributes('type')).toBe('date');
+            expect((input.element as HTMLInputElement).value).toBe('');
+        });
+
+        it('offers only the active Managers as the default recipient, with the stored one chosen', async () => {
+            const fetchMock = withManagers();
+            vi.stubGlobal('fetch', fetchMock);
+            const view = await render('en', SUPER_ADMIN);
+            await flushPromises();
+
+            const usersCall = fetchMock.mock.calls.map(([url]) => decodeURIComponent(String(url))).find((url) => url.includes('/users'));
+            expect(usersCall).toContain('filter[is_active]=true');
+            expect(usersCall).toContain('filter[role]=manager');
+
+            const select = view.get('[data-setting-key="reports.default_recipient"] select');
+            expect(select.findAll('option').map((o) => o.attributes('value'))).toEqual(['', 'm1', 'm2']);
+            expect(select.findAll('option').map((o) => o.text())).toContain('Mona Manager');
+            expect((select.element as HTMLSelectElement).value).toBe('m2');
+        });
+
+        it('sends the chosen recipient and the go-live date as strings', async () => {
+            let sent: unknown = null;
+            vi.stubGlobal('fetch', withManagers((body) => {
+                sent = body;
+
+                return envelope({ ...SETTINGS, 'reports.default_recipient': 'm1', 'reports.go_live_date': '2026-11-01' });
+            }));
+            const view = await render('en', SUPER_ADMIN);
+            await flushPromises();
+
+            await view.get('[data-setting-key="reports.default_recipient"] select').setValue('m1');
+            await view.get('[data-setting-key="reports.go_live_date"] input').setValue('2026-11-01');
+            await view.get('[data-testid="settings-save"]').trigger('submit');
+            await flushPromises();
+
+            expect(sent).toEqual({ settings: { 'reports.default_recipient': 'm1', 'reports.go_live_date': '2026-11-01' } });
+        });
+
+        it('labels both fields from the lang files in Arabic', async () => {
+            vi.stubGlobal('fetch', withManagers());
+            const view = await render('ar', SUPER_ADMIN);
+            await flushPromises();
+
+            expect(view.get('[data-setting-key="reports.go_live_date"]').text()).toContain(ar.settings.field.reports_go_live_date);
+            expect(view.get('[data-setting-key="reports.default_recipient"]').text()).toContain(ar.settings.field.reports_default_recipient);
+        });
     });
 });

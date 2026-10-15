@@ -404,6 +404,40 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
             : null;
     }
 
+    public function summariesOf(array $quotationIds): array
+    {
+        $summaries = [];
+        $codes = [];
+        foreach ($quotationIds === [] ? [] : Quotation::query()->whereIn('id', $quotationIds)->get() as $row) {
+            $codes[$row->currency_id] ??= $this->currencyCode($row->currency_id);
+            $summaries[$row->id] = $this->summary($row, $codes[$row->currency_id]);
+        }
+
+        return $summaries;
+    }
+
+    public function purchaseOrdersOf(array $purchaseOrderIds): array
+    {
+        if ($purchaseOrderIds === []) {
+            return [];
+        }
+
+        $orders = PurchaseOrder::query()->whereIn('id', $purchaseOrderIds)->get();
+        $byId = Quotation::query()->whereIn('id', $orders->pluck('quotation_id')->all())->get()->keyBy('id');
+
+        $records = [];
+        $codes = [];
+        foreach ($orders as $order) {
+            $quotation = $byId->get($order->quotation_id);
+            if ($quotation instanceof Quotation) {
+                $codes[$quotation->currency_id] ??= $this->currencyCode($quotation->currency_id);
+                $records[$order->id] = self::record($order, $quotation, $codes[$quotation->currency_id]);
+            }
+        }
+
+        return $records;
+    }
+
     /**
      * `SEC-08`'s `own` as a set of deal ids through the seam — never a join on `deals`.
      *

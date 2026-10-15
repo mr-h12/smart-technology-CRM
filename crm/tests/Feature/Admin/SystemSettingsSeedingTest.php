@@ -97,10 +97,25 @@ final class SystemSettingsSeedingTest extends TestCase
     {
         $this->seed(SystemSettingsSeeder::class);
 
-        self::assertSame(
-            [self::KEY, SystemLimit::CustomerSimilarityThreshold->value],
-            DB::table('system_limits')->orderBy('key')->pluck('key')->all(),
-        );
+        // The third key clears the bar: `D-127` gives the daily deadline its
+        // value, 17:00 company time (the owner, 2026-10-15).
+        $expected = [self::KEY, SystemLimit::CustomerSimilarityThreshold->value, SystemLimit::DailyReportDeadline->value];
+        sort($expected);
+
+        self::assertSame($expected, DB::table('system_limits')->orderBy('key')->pluck('key')->all());
+    }
+
+    /** `D-127` — "the daily deadline (starting at 17:00 company time)". */
+    public function test_that_d_127s_daily_report_deadline_is_seeded(): void
+    {
+        $this->seed(SystemSettingsSeeder::class);
+
+        $row = DB::table('system_limits')->where('key', SystemLimit::DailyReportDeadline->value)->first();
+
+        self::assertNotNull($row, 'D-127 gives the daily deadline a starting value.');
+        self::assertSame('17:00', $row->value);
+        self::assertSame('string', $row->value_type);
+        self::assertNull($row->unit, 'A time of day has no unit.');
     }
 
     /** D-118 removed the one setting the documentation gave a value; no other is invented. */

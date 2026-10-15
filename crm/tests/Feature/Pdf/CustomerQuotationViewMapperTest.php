@@ -454,6 +454,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return array_intersect_key($this->jobTitles, array_flip($userIds));
             }
+
+            public function activeRolesOf(array $userIds): array
+            {
+                return [];
+            }
+
+            public function holdersOf(string $resource, string $action): array
+            {
+                return [];
+            }
         };
     }
 
@@ -485,6 +495,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
             public function find(string $quotationId): ?QuotationDetail
             {
                 return $quotationId === $this->quotation->id ? $this->quotation : null;
+            }
+
+            public function summariesOf(array $quotationIds): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
+            }
+
+            public function purchaseOrdersOf(array $purchaseOrderIds): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
             }
         };
     }

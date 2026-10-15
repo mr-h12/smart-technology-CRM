@@ -63,7 +63,9 @@ final class ApiEnvelope
      * duplicate warning is about the save rather than about the customer, so it
      * belongs beside the request id and not inside `data`.
      *
-     * @param  array<string, mixed>  $data
+     * `data` may be a list (Module 13's recipient candidates).
+     *
+     * @param  array<mixed>  $data
      * @param  array<string, mixed>  $meta  extra response-level metadata; omitted keys change nothing
      */
     public static function single(Request $request, array $data, int $status = 200, array $meta = []): JsonResponse

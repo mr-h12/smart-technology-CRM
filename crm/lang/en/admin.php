@@ -40,7 +40,11 @@ return [
             'locale_language' => 'language',
             'locale_timezone' => 'time zone',
             'locale_date_format' => 'date format',
+            'reports_go_live_date' => 'report go-live date',
+            'reports_default_recipient' => 'default report recipient',
         ],
+        // D-129: the default recipient names an active Manager, nobody else.
+        'not_an_active_manager' => 'The :attribute must be an active Manager.',
     ],
 
     'limits' => [

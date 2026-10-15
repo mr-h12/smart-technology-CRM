@@ -26,6 +26,7 @@ use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
+use App\Modules\Reports\Infrastructure\DatabaseReportDirectory;
 use App\Modules\Storage\Infrastructure\DatabaseFileRepository;
 use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\SupplierQuotations\Application\Writing\UpdateSupplierQuotation;
@@ -280,6 +281,14 @@ final class AuditEnforcementTest extends TestCase
             // a persistence adapter with no actor and no event vocabulary,
             // because `AUD-01`'s recorder belongs one layer out — the division
             // every directory here draws.
+            // Module 13, first slice: the reports' persistence adapter. The use
+            // cases own the transactions and record REPORT_CREATED,
+            // REPORT_UPDATED and REPORT_SUBMITTED — asserted by
+            // `ReportWriteEndpointTest` and `ReportSubmitEndpointTest`.
+            DatabaseReportDirectory::class => 'AUD-01 is satisfied one layer out: CreateReport, UpdateReportNotes and '
+                    .'SubmitReport own the transactions and record the events. This is a persistence adapter with no '
+                    .'actor and no event vocabulary.',
+
             EloquentQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateQuotation (Point 3.3) owns '
                     .'the create transaction and records QUOTATION_CREATED. This is a persistence adapter with no '
                     .'actor and no event vocabulary.',

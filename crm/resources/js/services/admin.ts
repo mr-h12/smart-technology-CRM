@@ -55,6 +55,9 @@ export const SETTING_KEYS = [
     'locale.language',
     'locale.timezone',
     'locale.date_format',
+    // Module 13, first slice: `D-127`'s go-live date, `D-129`'s default recipient.
+    'reports.go_live_date',
+    'reports.default_recipient',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];

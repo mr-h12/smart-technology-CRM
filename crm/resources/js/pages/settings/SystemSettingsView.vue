@@ -32,8 +32,8 @@
  *
  * §13 names ten. The **logo** is Module 5 — a `files` row, `SEC-15`'s scan and
  * `D-38`'s permission-checked download — and the **PDF and email templates**
- * are Module 9, which owns what a template *is*. `SystemSetting` exposes eight
- * and this form draws eight. **Owner decision of 2026-08-28, option (A):** no
+ * are Module 9, which owns what a template *is*. `SystemSetting` exposes ten
+ * and this form draws ten (the two report settings joined in Module 13). **Owner decision of 2026-08-28, option (A):** no
  * disabled placeholders for the two that are not built. A control that cannot
  * be used is a promise the product has not made, and a person who clicks it
  * learns nothing except that the software is lying to them.
@@ -51,7 +51,7 @@
  * ── Only what changed is sent ──────────────────────────────────────────────
  *
  * `UpdateSettings` writes one audit entry per field with the old and the new
- * value. Sending all eight on every save would fill `audit_log` with "changed X
+ * value. Sending all ten on every save would fill `audit_log` with "changed X
  * to X", and `UpdateSettingsRequest` refuses an empty change set with a 422 —
  * so the save button does nothing when nothing was edited, rather than asking
  * the server to say no.
@@ -63,6 +63,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { SETTING_KEYS, listCurrencies, readSettings, updateSettings, type SystemSettings } from '@/services/admin';
+import { listUsers } from '@/services/identity';
 import { useAuth } from '@/stores/auth';
 import CurrenciesView from '@/pages/currencies/CurrenciesView.vue';
 import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
@@ -156,6 +157,24 @@ const TIME_ZONES = timeZones();
  * this is not a request the caller was going to be refused.
  */
 const currencyCodes = ref<string[]>([]);
+
+/**
+ * `D-129` — the active Managers the default report recipient may name. The
+ * server refuses anyone else; this only offers the choice.
+ *
+ * ponytail: the first page of `GET /users` (25). A company with more active
+ * Managers than that needs the select to page or search.
+ */
+const managers = ref<Array<{ id: string; name: string }>>([]);
+
+/** The stored recipient stays visible even when they left the list (deactivated, or moved role). */
+const recipientOptions = computed(() => {
+    const stored = draft.value['reports.default_recipient'] ?? '';
+
+    return stored === '' || managers.value.some((manager) => manager.id === stored)
+        ? managers.value
+        : [...managers.value, { id: stored, name: t('settings.recipient_not_manager') }];
+});
 
 /**
  * §8 asks for *error association*; the same mechanism carries the explanation.
@@ -299,6 +318,15 @@ onMounted(async () => {
         // it was never a closed list to begin with.
         currencyCodes.value = [];
     }
+
+    try {
+        managers.value = (await listUsers({ isActive: true, roleSlug: 'manager' })).items
+            .map((user) => ({ id: user.id, name: user.name }));
+    } catch {
+        // No list, no choices: the stored value still shows, and the server
+        // still refuses anyone who is not an active Manager.
+        managers.value = [];
+    }
 });
 </script>
 
@@ -309,7 +337,7 @@ onMounted(async () => {
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('settings.subtitle') }}</p>
         </header>
 
-        <!-- Section one — §13 screen 4's own eight fields. -->
+        <!-- Section one — §13 screen 4's eight fields, and Module 13's two report settings. -->
         <section
             v-if="canConfigureSettings"
             class="flex flex-col gap-4"
@@ -362,12 +390,32 @@ onMounted(async () => {
                         >{{ t(language.labelKey) }}</option>
                     </select>
 
+                    <!-- `D-129`: closed by the data, not the document — the
+                         active Managers, and nobody else. -->
+                    <select
+                        v-else-if="key === 'reports.default_recipient'"
+                        v-model="draft[key]"
+                        :aria-invalid="fieldErrors[key] !== undefined"
+                        :aria-describedby="describedBy(key)"
+                        class="field min-h-11 rounded-lg border px-3 text-[var(--color-text)]"
+                        :class="fieldErrors[key] !== undefined
+                            ? 'border-[var(--color-danger)]'
+                            : 'border-[var(--color-border-strong)]'"
+                    >
+                        <option value="">{{ t('settings.unset') }}</option>
+                        <option
+                            v-for="manager in recipientOptions"
+                            :key="manager.id"
+                            :value="manager.id"
+                        >{{ manager.name }}</option>
+                    </select>
+
                     <!-- `list` turns the text control into a dropdown without
-                         closing the set. -->
+                         closing the set. The go-live date is a calendar date. -->
                     <input
                         v-else
                         v-model="draft[key]"
-                        type="text"
+                        :type="key === 'reports.go_live_date' ? 'date' : 'text'"
                         :list="suggestionsFor(key).length > 0 ? `options-${key}` : undefined"
                         :aria-invalid="fieldErrors[key] !== undefined"
                         :aria-describedby="describedBy(key)"

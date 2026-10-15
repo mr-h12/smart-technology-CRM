@@ -28,6 +28,8 @@ import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import ApprovalsView from '@/pages/approvals/ApprovalsView.vue';
 import PurchaseOrdersView from '@/pages/purchase-orders/PurchaseOrdersView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
+import ReportDetailView from '@/pages/reports/ReportDetailView.vue';
+import ReportsView from '@/pages/reports/ReportsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
@@ -219,6 +221,21 @@ export const routes: RouteRecordRaw[] = [
         name: 'purchase-orders',
         component: PurchaseOrdersView,
         meta: { requiresAuth: true, requiredPermission: 'quotation.view', titleKey: 'purchaseOrders.title' },
+    },
+    {
+        // Module 13, first slice — "My reports". `report.create` is the only
+        // report grant an author holds (§3.10); the CEO holds none of it and
+        // reaches received reports in a later slice.
+        path: '/reports',
+        name: 'reports',
+        component: ReportsView,
+        meta: { requiresAuth: true, requiredPermission: 'report.create', titleKey: 'reports.title' },
+    },
+    {
+        path: '/reports/:id',
+        name: 'report-detail',
+        component: ReportDetailView,
+        meta: { requiresAuth: true, requiredPermission: 'report.create', titleKey: 'reports.title' },
     },
     {
         // The builder, create (Module 7, Point 6.6) — reached from the deal's

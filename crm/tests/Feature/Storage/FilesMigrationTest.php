@@ -266,9 +266,8 @@ final class FilesMigrationTest extends TestCase
             }
         }
 
-        self::assertSame([
-            'report_files.report_id → reports',
-        ], $pending, 'A parent table now exists; add its foreign key and drop it from this list.');
+        // Module 13's first slice closed the last entry: `reports` now exists.
+        self::assertSame([], $pending, 'A parent table now exists; add its foreign key and drop it from this list.');
     }
 
     // ───────────────────────────────────────────────────── the 30 MB ceiling
@@ -352,13 +351,17 @@ final class FilesMigrationTest extends TestCase
         // Module 6, Point 1.1 added the parent key, so a fabricated id no
         // longer satisfies the pivot — which is the whole reason the key was
         // added; Module 10, Point 1.6 did the same for `purchase_order_files`.
-        // `report_files` keeps the fabricated id until Module 13 creates its parent.
+        // Module 13's first slice did the same for `report_files`.
         if ($table === 'supplier_quotation_files') {
             return self::insertSupplierQuotation();
         }
 
         if ($table === 'purchase_order_files') {
             return self::insertPurchaseOrder();
+        }
+
+        if ($table === 'report_files') {
+            return self::insertReport();
         }
 
         // Module 9, Point 1.3: created with its parent key, so it never had a
@@ -368,6 +371,32 @@ final class FilesMigrationTest extends TestCase
         }
 
         return Uuid::uuid7()->toString();
+    }
+
+    /** A draft daily report; its author is the only key it needs. */
+    private static function insertReport(): string
+    {
+        $roleId = Uuid::uuid7()->toString();
+        $userId = Uuid::uuid7()->toString();
+        $reportId = Uuid::uuid7()->toString();
+
+        DB::table('roles')->insert([
+            'id' => $roleId, 'slug' => 'report_pivot_'.substr(str_replace('-', '', $roleId), -6),
+            'name' => 'Report Pivot Role', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('users')->insert([
+            'id' => $userId, 'name' => 'Report Pivot Author', 'email' => $userId.'@example.test',
+            'password' => 'x', 'role_id' => $roleId, 'is_active' => true, 'is_hidden' => false,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('reports')->insert([
+            'id' => $reportId, 'code' => 'RPT-DY-2026-'.substr(str_replace('-', '', $reportId), -4),
+            'type' => 'daily', 'status' => 'draft', 'author_id' => $userId,
+            'period_start' => '2026-10-15', 'period_end' => '2026-10-15',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $reportId;
     }
 
     private static function insertSupplierQuotation(): string

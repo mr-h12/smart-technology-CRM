@@ -135,6 +135,11 @@ enum SystemLimit: string
      */
     public function rule(): string
     {
+        // `D-127`: a time of day, `HH:MM` on the 24-hour clock.
+        if ($this === self::DailyReportDeadline) {
+            return 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/';
+        }
+
         return match ($this->valueType()) {
             'integer' => 'regex:/^[1-9][0-9]*$/',
             'decimal' => 'regex:/^(?!0(\.0+)?$)(0(\.[0-9]{1,3})?|1(\.0{1,3})?)$/',

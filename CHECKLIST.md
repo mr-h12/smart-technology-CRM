@@ -1869,6 +1869,15 @@ would hide them behind `OD-03` indefinitely.
       (`D-125`).* §11.2's Procurement type reads Module 11's `procurement_negotiations`, which is paused
       and has no table. It is added in Module 11. **The cost, stated:** until then Procurement cannot
       file a procurement report.
+- [ ] **`ReportEtag` and `ReportWriteRefused` copy `QuotationEtag` and `QuotationWriteRefused`** — *revealed
+      by Module 13 slice 1's waste audit, 2026-10-15.* The same `<prefix>:<id>:<token>` codec and the same
+      400/409/422 refusal table now exist twice, one per module, because a module's Domain may not reach
+      another's. A shared `App\Support` codec would remove both copies; it is the owner's call whether a
+      third module writing under `If-Match` should get a third copy or the shared one.
+- [ ] **The report go-live date and the 17:00 daily deadline are stored but not yet read** — *Module 13
+      slice 1, 2026-10-15 (`D-127`).* Both are editable on the settings screen and nothing on the server
+      reads them until the slice that builds J-04 (Missed) and J-05…J-07. Until then neither changes any
+      behaviour.
 
 ## Agent guide revisions — owner-directed
 
@@ -5164,6 +5173,13 @@ describes it, the owner says how to divide it, and only then is it added here an
 layered steps (all migrations, all endpoints) are planned in advance. The six types of `D-126`, the
 jobs J-04…J-08 (`D-125`), the PDF, the exports and the manual test list are all still owed. Each one
 lands in the slice that first needs it.
+
+- [ ] **Slice 1 — a daily report (RPT-DY), written and submitted end to end** *(divided by the owner, 2026-10-15; `D-129`)*: tables `reports`, `report_versions`, `report_recipients` (and `report_files`' key); the daily deadline seeded at 17:00, the go-live date and the default recipient (`D-127`, `D-129`); create with `Idempotency-Key`, notes under `If-Match`, recipient candidates, submit with a frozen copy; the day's activity from the audit log; "My reports" and the report page. Not in it: the PDF, Viewed/Acknowledge/Return, comments, the other five types, the jobs.
+  - Amended before its PR (the owner, 2026-10-15): the report shows the records as their pages do, never the audit log (`D-130`).
+    - [x] **R.1** `D-130` *(2026-10-15, PR 379 — amends D-129: the audit log is the index only; records grouped by kind; selling totals only)*
+    - [x] **R.2** Red: failing tests for the grouped records (backend payload, frozen copy, report screen) *(2026-10-15, PR 379 — 6 PHP + 6 vitest red for the right reason)*
+    - [x] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned *(2026-10-15, PR 379 — suite 3901 passed, 1 failed (the 401 test, R.4); browser check NOT done: the pane was signed out, the owner skipped it)*
+    - [~] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check *(2026-10-15, PR 379 — the 401 test was a test defect (the request guard kept create()'s user; forgetGuards); suite 3902 passed, 0 failed; Reports 51 passed; browser check NOT done: the owner skipped it)*
 
 ---
 

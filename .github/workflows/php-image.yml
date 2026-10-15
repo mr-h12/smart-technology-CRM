@@ -306,6 +306,7 @@ jobs:
             paths: >-
               tests/Feature/Quotations tests/Feature/Deals tests/Feature/Catalog
               tests/Feature/Storage tests/Feature/Audit tests/Feature/Http
+              tests/Feature/Reports
           - name: suppliers-customers
             paths: >-
               tests/Feature/SupplierQuotations tests/Feature/Customers

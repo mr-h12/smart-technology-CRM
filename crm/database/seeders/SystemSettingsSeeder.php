@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  * `D-75`'s move: the lockout duration stops being configuration-only and
  * becomes a row an administrator can edit.
  *
- * **Two rows, and the emptiness around them is the point.** §13 screen 6
+ * **Three rows, and the emptiness around them is the point.** §13 screen 6
  * names five limits and §13 screen 4 names ten settings; the documentation
  * gives a value to **one** of the limits and to none of the settings
  * (`D-105`'s seeded tax rate left with the setting, `D-118`). `D-17` says the stale-deal threshold is
@@ -28,7 +28,9 @@ use Illuminate\Support\Str;
  * The second row is `OD-08`'s similarity threshold, added 2026-08-30. It is the
  * exception that proves the rule above rather than a hole in it: the value is
  * not inferred from a document that declines to give one, it is the owner's
- * explicit answer to an open question, taken against measured scores.
+ * explicit answer to an open question, taken against measured scores. The
+ * third, `D-127`'s daily report deadline (17:00), is the same kind: the owner's
+ * answer of 2026-10-15, not a guess at §11.5's "deadline from settings".
  *
  * **Creates, never overwrites** (`IdempotentSeeder`), and here the reason is
  * sharper than usual: the seeded 30 is explicitly an interim awaiting the
@@ -51,21 +53,20 @@ final class SystemSettingsSeeder extends GuardedSeeder
         // firstOrCreate through the query builder rather than a model: there is
         // no Eloquent model for system_limits yet and this point does not need
         // one — the read path is DatabaseSettingReader, which uses the
-        // connection directly for the same reason.
-        $exists = DB::table('system_limits')
-            ->where('key', AuthenticateUser::LOCKOUT_MINUTES_KEY)
-            ->exists();
-
-        if (! $exists) {
-            $this->insertLockout();
-        }
-
-        $configured = DB::table('system_limits')
-            ->where('key', SystemLimit::CustomerSimilarityThreshold->value)
-            ->exists();
-
-        if (! $configured) {
-            $this->insertSimilarityThreshold();
+        // connection directly for the same reason. A row that exists is never
+        // overwritten: the first thing that happens to one is somebody changing it.
+        foreach (self::limits() as $key => [$value, $type, $unit]) {
+            if (! DB::table('system_limits')->where('key', $key)->exists()) {
+                DB::table('system_limits')->insert([
+                    'id' => Str::uuid7()->toString(),
+                    'key' => $key,
+                    'value' => $value,
+                    'value_type' => $type,
+                    'unit' => $unit,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
 
         // ⚠️ **Unconditional, and after the write** (Point 4.2). `PRF-08`'s
@@ -83,54 +84,31 @@ final class SystemSettingsSeeder extends GuardedSeeder
         app(SettingsCacheInterface::class)->forgetSettings();
     }
 
-    private function insertLockout(): void
-    {
-        DB::table('system_limits')->insert([
-            'id' => Str::uuid7()->toString(),
-            'key' => AuthenticateUser::LOCKOUT_MINUTES_KEY,
-
-            // D-75's interim value, and the reason it is a setting rather than
-            // a constant: nothing in the documentation gives this number, so
-            // the owner must be able to change it without a deployment.
-            'value' => '30',
-            'value_type' => 'integer',
-            'unit' => 'minutes',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
     /**
-     * `OD-08`, answered by the owner on 2026-08-30 — and the number was
-     * measured before it was chosen, not after.
+     * The limits the documentation or the owner gives a value, and why.
      *
-     * `similarity()` over `translate()`-folded names scores the documented
-     * `D-35` pair (`أحمد للتجارة` / `احمد للتجاره`) at **1.00**,
-     * `Alpha Trading` / `Alpha Trading Co` at **0.82**, and two different firms
-     * sharing a `شركة`/`مؤسسة` prefix at **0.50**–**0.57**.
+     * - `D-75`'s lockout: an interim 30 minutes, a setting rather than a
+     *   constant because nothing in the documentation gives this number.
+     * - `OD-08`'s similarity threshold (the owner, 2026-08-30), measured before
+     *   it was chosen: `similarity()` over `translate()`-folded names scores the
+     *   `D-35` pair at **1.00**, `Alpha Trading` / `Alpha Trading Co` at
+     *   **0.82**, two different firms sharing a `شركة`/`مؤسسة` prefix at
+     *   **0.50**–**0.57**. ⚠️ No threshold separates the cases cleanly —
+     *   `أحمد للتجارة` against `محمد للتجارة` scores **0.62**, above one company
+     *   with a trade suffix at **0.58** — and `D-35` only warns, so `0.60`
+     *   favours firing over silence. A decimal string (`DB-07`): the comparison
+     *   happens in PostgreSQL against `?::real`; a PHP float never touches it.
+     * - `D-127`'s daily report deadline: 17:00 company time (the owner,
+     *   2026-10-15). A time of day, so no unit.
      *
-     * ⚠️ **No threshold separates the cases cleanly.** `أحمد للتجارة` against
-     * `محمد للتجارة` — different companies — scores **0.62**, *above*
-     * `شركة النور` against `شركة النور للتجارة`, which is one company with a
-     * trade suffix at **0.58**. That overlap belongs to trigram similarity, not
-     * to this number, and no value fixes it. `D-35` is a warning that never
-     * blocks and never merges, so `0.60` favours firing over silence: it costs
-     * a glance when wrong and saves a duplicate record when right.
-     *
-     * A **decimal string** (`DB-07`) — the comparison happens in PostgreSQL
-     * against `?::real`, and a PHP float never touches it.
+     * @return array<string, array{string, string, ?string}> key → [value, value_type, unit]
      */
-    private function insertSimilarityThreshold(): void
+    private static function limits(): array
     {
-        DB::table('system_limits')->insert([
-            'id' => Str::uuid7()->toString(),
-            'key' => SystemLimit::CustomerSimilarityThreshold->value,
-            'value' => '0.60',
-            'value_type' => 'decimal',
-            // A trigram ratio has no unit; the value is the reading.
-            'unit' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        return [
+            AuthenticateUser::LOCKOUT_MINUTES_KEY => ['30', 'integer', 'minutes'],
+            SystemLimit::CustomerSimilarityThreshold->value => ['0.60', 'decimal', null],
+            SystemLimit::DailyReportDeadline->value => ['17:00', 'string', null],
+        ];
     }
 }

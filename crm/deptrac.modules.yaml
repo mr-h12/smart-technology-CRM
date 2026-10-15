@@ -74,6 +74,11 @@ parameters:
               value: ^App\\Modules\\Quotations\\Domain\\Writing\\QuotationSent$
             - type: classLike
               value: ^App\\Modules\\Quotations\\Domain\\Pricing\\CustomerLineFigures$
+            # Module 13 slice 1 (`D-130`): the rows `summariesOf()` and `purchaseOrdersOf()` return.
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationSummary$
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderRecord$
     # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
     # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
@@ -263,6 +268,12 @@ parameters:
         # F-40 · 1.4: `D-107`'s per-line VAT and total, for the Commercial Offer.
         - type: classLike
           value: ^App\\Modules\\Quotations\\Domain\\Pricing\\CustomerLineFigures$
+        # Module 13 slice 1 (`D-130`): a daily report's quotation and PO rows,
+        # selling total only — neither class carries cost or margin.
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationSummary$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderRecord$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
@@ -784,7 +795,26 @@ parameters:
       - StorageContract
     Procurement: ~
     Outdoor: ~
-    Reports: ~
+    # Reports, Module 13's first slice. Each grant names what the daily report needs:
+    Reports:
+      - Framework
+      # SharedContracts: the envelope, and `DocumentNumberAllocator` for RPT-DY codes.
+      - SharedContracts
+      # AuditContract: `AUD-01`'s entries, and the day's activity read from the
+      # audit log (`D-129`, `AuditEntryReaderInterface::byActorBetween`).
+      - AuditContract
+      # AdminContract: `CompanyToday` for the report's day, and the
+      # `reports.default_recipient` setting (`D-129`).
+      - AdminContract
+      # IdentityContract: who holds `report.view_received` and who is an
+      # active Manager (`UserFactsInterface`), and the role and scope names.
+      - IdentityContract
+      # D-130: a daily report shows each record as its page does — read through
+      # `DealFactsInterface::cardsOf`, `QuotationReaderInterface::summariesOf`
+      # / `purchaseOrdersOf` and `CustomerNamesInterface::namesOf`, never the tables.
+      - DealsContract
+      - QuotationsContract
+      - CustomersContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.
@@ -860,6 +890,10 @@ parameters:
       - SharedContracts
       - AuditContract
       - AdminContract
+      # IdentityContract, Module 13 slice 1 (`D-129`): the settings screen's
+      # default report recipient must name an active Manager, which only
+      # Identity knows (`UserFactsInterface::activeRolesOf`).
+      - IdentityContract
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.

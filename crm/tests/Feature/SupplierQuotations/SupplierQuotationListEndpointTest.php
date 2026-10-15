@@ -502,6 +502,11 @@ final class SupplierQuotationListEndpointTest extends TestCase
 
                 return $this->real->codesOf($dealIds);
             }
+
+            public function cardsOf(array $dealIds): array
+            {
+                return $this->real->cardsOf($dealIds);
+            }
         };
         $this->app->instance(DealFactsInterface::class, $spy);
 

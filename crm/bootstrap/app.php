@@ -35,6 +35,8 @@ use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Quotations\Presentation\ExpireQuotationsCommand;
+use App\Modules\Reports\Domain\ReportNotFound;
+use App\Modules\Reports\Domain\ReportWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -305,6 +307,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(
             fn (QuotationWriteRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::quotationWriteRefused($e, $request)
+                : null,
+        );
+        $exceptions->render(
+            fn (ReportNotFound $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::reportNotFound($request)
+                : null,
+        );
+        $exceptions->render(
+            fn (ReportWriteRefused $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
+                ? ApiExceptionRenderer::reportWriteRefused($e, $request)
                 : null,
         );
         $exceptions->render(

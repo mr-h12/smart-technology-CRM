@@ -36,4 +36,23 @@ interface UserFactsInterface
      * @return array<string, array{en: string|null, ar: string|null}>
      */
     public function jobTitlesOf(array $userIds): array;
+
+    /**
+     * Module 13, first slice (`D-129`) — each **active** user's role slug, on
+     * the terms of {@see namesOf()}: an inactive, hidden or deleted account has
+     * no entry, so "is this an active Manager?" is one lookup.
+     *
+     * @param  list<string>  $userIds
+     * @return array<string, string>
+     */
+    public function activeRolesOf(array $userIds): array;
+
+    /**
+     * Module 13, first slice (`D-127`) — the active, visible users whose role
+     * holds `resource.action`, with the scopes it holds it at. Who those scopes
+     * reach is the caller's rule; this says only who holds what.
+     *
+     * @return array<string, array{name: string, role: string, scopes: list<string>}>
+     */
+    public function holdersOf(string $resource, string $action): array;
 }

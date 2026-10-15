@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Presentation;
 
-use App\Modules\Quotations\Application\Writing\CompanyToday;
+use App\Modules\Admin\Application\Settings\CompanyToday;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use RuntimeException;

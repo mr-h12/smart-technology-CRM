@@ -163,10 +163,14 @@ final class ReportSubmitEndpointTest extends TestCase
 
         $version = DB::table('report_versions')->where('report_id', $id)->first();
         self::assertNotNull($version, '§11.3: a submitted report keeps a frozen copy.');
-        self::assertSame(1, (int) $version->version);
-        $snapshot = json_decode((string) $version->snapshot, true);
+        self::assertIsInt($version->version);
+        self::assertSame(1, $version->version);
+        self::assertIsString($version->snapshot);
+        $snapshot = json_decode($version->snapshot, true);
         self::assertIsArray($snapshot);
         self::assertSame('A good day.', $snapshot['notes']);
+        self::assertIsArray($snapshot['activity']);
+        self::assertIsArray($snapshot['activity']['counts']);
         self::assertSame(1, $snapshot['activity']['counts']['deals_created']);
     }
 
@@ -288,6 +292,56 @@ final class ReportSubmitEndpointTest extends TestCase
         $this->assertStillDraft($id);
     }
 
+    // ── refusals the permission audit asked for ─────────────────────────────
+
+    /** §3.10: the CEO holds no `report.create`, so no author route opens for them — even on a real report id. */
+    public function test_that_the_ceo_is_refused_on_every_report_route(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->create($author);
+        $ceo = $this->bearer($this->user(RoleName::Ceo));
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $ceo)->assertStatus(403);
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'x'], [...$ceo, 'If-Match' => 'report:'.$id.':1'])->assertStatus(403);
+        $this->getJson(self::ENDPOINT.'/'.$id.'/recipient-candidates', $ceo)->assertStatus(403);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$manager->id]], [...$ceo, 'If-Match' => 'report:'.$id.':1'])
+            ->assertStatus(403);
+
+        $this->assertStillDraft($id);
+        self::assertNull(DB::table('reports')->where('id', $id)->value('notes'));
+    }
+
+    public function test_that_an_unauthenticated_caller_is_refused(): void
+    {
+        $id = $this->create($this->user(RoleName::IndoorSales));
+
+        $this->getJson(self::ENDPOINT)->assertStatus(401);
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'])->assertStatus(401);
+        $this->getJson(self::ENDPOINT.'/'.$id)->assertStatus(401);
+        $this->getJson(self::ENDPOINT.'/'.$id.'/recipient-candidates')->assertStatus(401);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => []])->assertStatus(401);
+    }
+
+    /** The candidates rule holds on the submit path too: an inactive Manager and the hidden Super Admin are refused. */
+    public function test_that_an_inactive_manager_or_the_super_admin_is_refused_as_a_recipient(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $gone = $this->user(RoleName::Manager, 'gone', active: false);
+        $admin = $this->user(RoleName::SuperAdmin);
+        self::assertTrue((bool) $admin->is_hidden, 'The fixture must build the Super Admin hidden, or this proves nothing.');
+        $id = $this->create($author);
+
+        $this->submit($author, $id, 'report:'.$id.':1', [$gone->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.code', 'recipient_not_allowed');
+        $this->submit($author, $id, 'report:'.$id.':1', [$admin->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.code', 'recipient_not_allowed');
+
+        $this->assertStillDraft($id);
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
 
     private function assertStillDraft(string $id): void
@@ -309,7 +363,10 @@ final class ReportSubmitEndpointTest extends TestCase
         return $data;
     }
 
-    /** @param list<string> $recipients */
+    /**
+     * @param  list<string>  $recipients
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
     private function submit(User $author, string $id, string $ifMatch, array $recipients): TestResponse
     {
         return $this->patchJson(

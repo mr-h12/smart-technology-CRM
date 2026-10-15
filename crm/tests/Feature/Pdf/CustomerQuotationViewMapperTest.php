@@ -454,6 +454,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return array_intersect_key($this->jobTitles, array_flip($userIds));
             }
+
+            public function activeRolesOf(array $userIds): array
+            {
+                return [];
+            }
+
+            public function holdersOf(string $resource, string $action): array
+            {
+                return [];
+            }
         };
     }
 

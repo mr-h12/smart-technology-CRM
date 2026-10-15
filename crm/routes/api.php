@@ -24,6 +24,7 @@ use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Pdf\Presentation\QuotationPdfController;
 use App\Modules\Quotations\Presentation\QuotationController;
+use App\Modules\Reports\Presentation\ReportController;
 use App\Modules\Storage\Presentation\DownloadFileController;
 use App\Modules\SupplierQuotations\Presentation\SupplierQuotationController;
 use App\Modules\Suppliers\Presentation\SupplierController;
@@ -880,4 +881,25 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     // Leader's `Team` by name (Q2, `D-a`); the answer is `OpenAPI §4.3`'s `202`.
     Route::post('/{quotation}/pdf', [QuotationPdfController::class, 'generate'])
         ->middleware('permission:quotation.generate_pdf');
+});
+
+// Module 13, first slice — the author's side of a report (§11.3, `D-127`,
+// `D-129`). `report.create` is the only report grant an author holds (§3.10),
+// so it gates every author route; the CEO holds none of it. Reach is the
+// author's own report, answered by `ReportAccess` (404 otherwise).
+// `idempotency` on create (`OpenAPI §9.1` names reports); submit is guarded by
+// the token, as a quotation's submit is (the owner's Q6 ruling, Point 4.2).
+Route::middleware('auth')->prefix('reports')->group(function (): void {
+    Route::get('/', [ReportController::class, 'index'])
+        ->middleware('permission:report.create');
+    Route::post('/', [ReportController::class, 'store'])
+        ->middleware(['permission:report.create', 'idempotency']);
+    Route::get('/{report}', [ReportController::class, 'show'])
+        ->middleware('permission:report.create');
+    Route::patch('/{report}', [ReportController::class, 'update'])
+        ->middleware('permission:report.create');
+    Route::get('/{report}/recipient-candidates', [ReportController::class, 'candidates'])
+        ->middleware('permission:report.create');
+    Route::patch('/{report}/submit', [ReportController::class, 'submit'])
+        ->middleware('permission:report.create');
 });

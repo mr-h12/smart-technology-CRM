@@ -705,6 +705,16 @@ final class DealListEndpointTest extends TestCase
             {
                 return [];
             }
+
+            public function activeRolesOf(array $userIds): array
+            {
+                return [];
+            }
+
+            public function holdersOf(string $resource, string $action): array
+            {
+                return [];
+            }
         };
         $this->app->instance(UserFactsInterface::class, $fake);
 

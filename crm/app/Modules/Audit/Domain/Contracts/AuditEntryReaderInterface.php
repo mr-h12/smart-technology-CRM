@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Audit\Domain\Contracts;
 
+use App\Modules\Audit\Domain\Reading\AuditRecord;
 use App\Modules\Audit\Domain\Reading\AuditRecordPage;
+use DateTimeImmutable;
 
 /**
  * The read port — the half {@see AuditEntryWriterInterface} deliberately does
@@ -50,4 +52,14 @@ interface AuditEntryReaderInterface
      * @param  positive-int  $perPage
      */
     public function forEntity(string $entityType, string $entityId, int $page, int $perPage): AuditRecordPage;
+
+    /**
+     * Module 13, first slice (`D-129`) — one actor's entries for the named
+     * events in `[from, to)`, oldest first: a daily report's activity. Served
+     * by `audit_log_user_index (user_id, created_at DESC)`.
+     *
+     * @param  list<string>  $events
+     * @return list<AuditRecord>
+     */
+    public function byActorBetween(string $actorId, DateTimeImmutable $from, DateTimeImmutable $to, array $events): array;
 }

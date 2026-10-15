@@ -784,7 +784,20 @@ parameters:
       - StorageContract
     Procurement: ~
     Outdoor: ~
-    Reports: ~
+    # Reports, Module 13's first slice. Each grant names what the daily report needs:
+    Reports:
+      - Framework
+      # SharedContracts: the envelope, and `DocumentNumberAllocator` for RPT-DY codes.
+      - SharedContracts
+      # AuditContract: `AUD-01`'s entries, and the day's activity read from the
+      # audit log (`D-129`, `AuditEntryReaderInterface::byActorBetween`).
+      - AuditContract
+      # AdminContract: `CompanyToday` for the report's day, and the
+      # `reports.default_recipient` setting (`D-129`).
+      - AdminContract
+      # IdentityContract: who holds `report.view_received` and who is an
+      # active Manager (`UserFactsInterface`), and the role and scope names.
+      - IdentityContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.
@@ -860,6 +873,10 @@ parameters:
       - SharedContracts
       - AuditContract
       - AdminContract
+      # IdentityContract, Module 13 slice 1 (`D-129`): the settings screen's
+      # default report recipient must name an active Manager, which only
+      # Identity knows (`UserFactsInterface::activeRolesOf`).
+      - IdentityContract
     # Contracts may reach the framework but never the driver — the point of the
     # split. The driver may use its own contracts, which is what implementing
     # them means.

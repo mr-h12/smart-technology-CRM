@@ -1869,6 +1869,15 @@ would hide them behind `OD-03` indefinitely.
       (`D-125`).* §11.2's Procurement type reads Module 11's `procurement_negotiations`, which is paused
       and has no table. It is added in Module 11. **The cost, stated:** until then Procurement cannot
       file a procurement report.
+- [ ] **`ReportEtag` and `ReportWriteRefused` copy `QuotationEtag` and `QuotationWriteRefused`** — *revealed
+      by Module 13 slice 1's waste audit, 2026-10-15.* The same `<prefix>:<id>:<token>` codec and the same
+      400/409/422 refusal table now exist twice, one per module, because a module's Domain may not reach
+      another's. A shared `App\Support` codec would remove both copies; it is the owner's call whether a
+      third module writing under `If-Match` should get a third copy or the shared one.
+- [ ] **The report go-live date and the 17:00 daily deadline are stored but not yet read** — *Module 13
+      slice 1, 2026-10-15 (`D-127`).* Both are editable on the settings screen and nothing on the server
+      reads them until the slice that builds J-04 (Missed) and J-05…J-07. Until then neither changes any
+      behaviour.
 
 ## Agent guide revisions — owner-directed
 

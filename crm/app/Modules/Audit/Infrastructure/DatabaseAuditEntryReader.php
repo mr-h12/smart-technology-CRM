@@ -79,6 +79,32 @@ final readonly class DatabaseAuditEntryReader implements AuditEntryReaderInterfa
         return new AuditRecordPage($items, $total, $page, $perPage);
     }
 
+    public function byActorBetween(string $actorId, DateTimeImmutable $from, DateTimeImmutable $to, array $events): array
+    {
+        if ($events === []) {
+            return [];
+        }
+
+        /**
+         * @var list<object{
+         *     id: string, event: string, entity_type: string, entity_id: string,
+         *     old_values: ?string, new_values: ?string, user_id: ?string,
+         *     impersonated_user_id: ?string, created_at: string
+         * }> $rows
+         */
+        $rows = $this->connection->table(self::TABLE)
+            ->where('user_id', $actorId)
+            ->where('created_at', '>=', $from->format(DATE_ATOM))
+            ->where('created_at', '<', $to->format(DATE_ATOM))
+            ->whereIn('event', $events)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->all();
+
+        return array_map(self::hydrate(...), $rows);
+    }
+
     /**
      * The row's shape, spelled out because the query builder answers `mixed`
      * per property and PHPStan at level 10 will not cast one to a string on

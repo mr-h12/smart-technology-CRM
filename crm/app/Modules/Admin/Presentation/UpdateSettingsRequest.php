@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Presentation;
 
 use App\Modules\Admin\Domain\Settings\SystemSetting;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
+use App\Modules\Identity\Domain\Rbac\Role;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 /**
  * The boundary for `PATCH /api/v1/settings`.
@@ -112,6 +115,18 @@ final class UpdateSettingsRequest extends FormRequest
 
             $rules[$path] = ['sometimes', 'required', 'string', $setting->rule()];
         }
+
+        // `D-129`: the default report recipient is one **active Manager**.
+        // Identity answers who that is; Admin never reads `users` itself.
+        $rules['settings.'.str_replace('.', '\\.', SystemSetting::ReportsDefaultRecipient->value)][] =
+            static function (string $attribute, mixed $value, callable $fail): void {
+                // A non-uuid is already the `uuid` rule's refusal, and must not
+                // reach a uuid column as a query.
+                if (is_string($value) && Str::isUuid($value)
+                    && (app(UserFactsInterface::class)->activeRolesOf([$value])[$value] ?? null) !== Role::Manager->value) {
+                    $fail((string) __('admin.settings.not_an_active_manager'));
+                }
+            };
 
         return $rules;
     }

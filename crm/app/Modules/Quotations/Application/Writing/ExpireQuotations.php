@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Application\Writing;
 
+use App\Modules\Admin\Application\Settings\CompanyToday;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;

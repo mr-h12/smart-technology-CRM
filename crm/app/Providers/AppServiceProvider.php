@@ -96,6 +96,8 @@ use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
+use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
+use App\Modules\Reports\Infrastructure\DatabaseReportDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
@@ -365,6 +367,10 @@ class AppServiceProvider extends ServiceProvider
         // thing this directory needs beyond its own model is
         // `document_sequences`' atomic upsert (§4.7, Point 1.6). `SearchService`
         // for the purchase orders' `q` (Module 10 · 2.2).
+        // Module 13, first slice — the reports' persistence port; the adapter
+        // needs only the connection.
+        $this->app->bind(ReportDirectoryInterface::class, DatabaseReportDirectory::class);
+
         $this->app->bind(
             QuotationDirectoryInterface::class,
             fn (): EloquentQuotationDirectory => new EloquentQuotationDirectory(

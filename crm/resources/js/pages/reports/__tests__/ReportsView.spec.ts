@@ -53,7 +53,7 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en') {
             ? Promise.resolve(json(201, {
                 data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: USER },
             }))
-            : fetchMock(input, init));
+            : (fetchMock as unknown as typeof fetch)(input, init));
     await useAuth().login(USER.email, 'Passw0rd123');
     vi.stubGlobal('fetch', fetchMock);
 
@@ -93,10 +93,10 @@ describe('ReportsView — My reports', () => {
 
         const rows = wrapper.findAll('[data-testid="report-row"]');
         expect(rows).toHaveLength(1);
-        expect(rows[0].text()).toContain('RPT-DY-2026-0001');
-        expect(rows[0].text()).toContain(en.reports.status.draft);
-        expect(rows[0].text()).toContain(en.reports.type.daily);
-        expect(rows[0].find('a').attributes('href')).toBe('/reports/rep1');
+        expect(rows[0]!.text()).toContain('RPT-DY-2026-0001');
+        expect(rows[0]!.text()).toContain(en.reports.status.draft);
+        expect(rows[0]!.text()).toContain(en.reports.type.daily);
+        expect(rows[0]!.find('a').attributes('href')).toBe('/reports/rep1');
     });
 
     it('shows the empty state when the author has no report yet', async () => {

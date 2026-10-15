@@ -100,7 +100,8 @@
             "deals": "Requests / Deals",
             "quotations": "Quotations",
             "approvals": "Approvals",
-            "purchaseOrders": "Purchase Orders"
+            "purchaseOrders": "Purchase Orders",
+            "reports": "Reports"
         }
     },
     "theme": {
@@ -387,7 +388,9 @@
             "defaults_currency": "Default currency",
             "locale_language": "Language",
             "locale_timezone": "Time zone",
-            "locale_date_format": "Date format"
+            "locale_date_format": "Date format",
+            "reports_go_live_date": "Reports go-live date",
+            "reports_default_recipient": "Default report recipient"
         },
         "error": {
             "load": "These settings could not be loaded. Try again.",
@@ -401,8 +404,11 @@
             "defaults_currency": "The currency the system uses unless someone picks another one. Choose from the list, or type a three-letter code such as EGP.",
             "locale_language": "The language the system opens in. Each person can still switch it for themselves afterwards.",
             "locale_timezone": "The city or region whose clock times should be shown in. Times are stored the same way for everyone and shown in this zone.",
-            "locale_date_format": "How dates should look. d is the day, m the month and Y the year — so d/m/Y shows the 9th of March 2026 as 09/03/2026."
-        }
+            "locale_date_format": "How dates should look. d is the day, m the month and Y the year — so d/m/Y shows the 9th of March 2026 as 09/03/2026.",
+            "reports_go_live_date": "The day report deadlines start. Leave it empty until rollout: no report is marked missed while it is empty.",
+            "reports_default_recipient": "The Manager every report goes to by default. Authors can change the choice; a Manager's own report has no default."
+        },
+        "recipient_not_manager": "No longer an active Manager"
     },
     "currencies": {
         "rounding": {
@@ -1446,6 +1452,70 @@
             "generateFailed": "The PDF could not be requested. Try again.",
             "downloadFailed": "The PDF could not be downloaded. Try again.",
             "unavailable": "This section is not available to you."
+        }
+    },
+    "reports": {
+        "title": "My reports",
+        "subtitle": "Your reports, newest day first.",
+        "new_daily": "New daily report",
+        "creating": "Creating…",
+        "loading": "Loading reports…",
+        "back": "Back to my reports",
+        "empty": {
+            "title": "No reports yet",
+            "message": "Start today's daily report with the button above."
+        },
+        "not_found": {
+            "title": "Report not found",
+            "message": "This report does not exist or is not yours."
+        },
+        "error": {
+            "create": "The report could not be created. Try again.",
+            "save": "The report could not be saved. Try again."
+        },
+        "type": {
+            "daily": "Daily report"
+        },
+        "status": {
+            "draft": "Draft",
+            "submitted": "Submitted"
+        },
+        "activity_title": "The day's activity",
+        "activity_empty": "No activity recorded for this day.",
+        "activity": {
+            "deals_created": "Deals created",
+            "deal_status_moves": "Deal status changes",
+            "quotations_created": "Quotations created",
+            "quotations_sent": "Quotations sent",
+            "customer_responses": "Customer responses",
+            "purchase_orders": "Purchase orders"
+        },
+        "event": {
+            "DEAL_CREATED": "Deal created",
+            "DEAL_STATUS_CHANGED": "Deal status changed",
+            "QUOTATION_CREATED": "Quotation created",
+            "QUOTATION_SENT": "Quotation sent",
+            "QUOTATION_ACCEPTED": "Customer accepted a quotation",
+            "QUOTATION_REJECTED": "Customer rejected a quotation",
+            "QUOTATION_PARTIAL": "Customer accepted part of a quotation",
+            "QUOTATION_COUNTERED": "Customer countered a quotation",
+            "PURCHASE_ORDER_CREATED": "Purchase order recorded"
+        },
+        "notes": "Notes",
+        "notes_hint": "What else happened today. Saved with the report.",
+        "no_notes": "No notes.",
+        "save": "Save notes",
+        "saved": "Notes saved.",
+        "conflict": "This report changed since you opened it. Reload the page and try again.",
+        "recipients_title": "Recipients",
+        "recipients_hint": "Choose who receives this report.",
+        "recipients_none": "Nobody can receive this report yet. Ask an administrator.",
+        "submit": "Submit report",
+        "pagination": {
+            "label": "Report pages",
+            "previous": "Previous",
+            "next": "Next",
+            "position": "Page {page} of {pages}"
         }
     }
 }

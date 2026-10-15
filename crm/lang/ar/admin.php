@@ -35,7 +35,11 @@ return [
             'locale_language' => 'اللغة',
             'locale_timezone' => 'المنطقة الزمنيّة',
             'locale_date_format' => 'صيغة التاريخ',
+            'reports_go_live_date' => 'تاريخ بدء التقارير',
+            'reports_default_recipient' => 'مستلم التقارير الافتراضي',
         ],
+        // D-129: the default recipient names an active Manager, nobody else.
+        'not_an_active_manager' => 'يجب أن يكون :attribute مديراً نشطاً.',
     ],
 
     'limits' => [

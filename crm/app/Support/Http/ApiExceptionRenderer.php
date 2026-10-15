@@ -28,6 +28,7 @@ use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
+use App\Modules\Reports\Domain\ReportWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -552,6 +553,25 @@ final class ApiExceptionRenderer
     public static function quotationWriteRefused(QuotationWriteRefused $exception, Request $request): JsonResponse
     {
         $message = (string) __('quotations.errors.'.$exception->reason);
+        $detail = ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message];
+
+        if ($exception->currentEtag !== null) {
+            $detail['current_etag'] = $exception->currentEtag;
+        }
+
+        return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [$detail]);
+    }
+
+    /** Module 13 — a report that is not the caller's is the same 404 as one that does not exist. */
+    public static function reportNotFound(Request $request): JsonResponse
+    {
+        return ApiEnvelope::error($request, 404, 'resource_not_found', (string) __('reports.not_found'));
+    }
+
+    /** Module 13 — `quotationWriteRefused()`'s answer for a report, `current_etag` on the 409. */
+    public static function reportWriteRefused(ReportWriteRefused $exception, Request $request): JsonResponse
+    {
+        $message = (string) __('reports.errors.'.$exception->reason);
         $detail = ['field' => $exception->field, 'code' => $exception->reason, 'message' => $message];
 
         if ($exception->currentEtag !== null) {

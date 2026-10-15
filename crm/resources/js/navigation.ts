@@ -147,6 +147,15 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'quotation.view',
             },
             {
+                // §8's *Reports* — Module 13's "My reports" (first slice), keyed
+                // on `report.create`, the author's only report grant (§3.10).
+                // No badge yet: §5.1's Reports counter needs Missed (J-04).
+                name: 'reports',
+                labelKey: 'nav.item.reports',
+                icon: 'M5 2h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm1.5 11V15H8v-2zm3-3V15H11v-5zm3-3V15H14V7z',
+                permission: 'report.create',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

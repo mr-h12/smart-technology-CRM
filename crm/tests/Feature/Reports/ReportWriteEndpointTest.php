@@ -247,11 +247,13 @@ final class ReportWriteEndpointTest extends TestCase
 
         $entry = DB::table('audit_log')->where('event', 'REPORT_UPDATED')->where('entity_id', $id)
             ->orderByDesc('created_at')->orderByDesc('id')->get()
-            ->first(fn (object $row): bool => str_contains((string) $row->new_values, 'Second.'));
+            ->first(fn (object $row): bool => is_string($row->new_values) && str_contains($row->new_values, 'Second.'));
 
         self::assertNotNull($entry, 'AUD-01: the edit left no audit entry.');
-        self::assertEquals(['notes' => 'First.'], json_decode((string) $entry->old_values, true));
-        self::assertEquals(['notes' => 'Second.'], json_decode((string) $entry->new_values, true));
+        self::assertIsString($entry->old_values);
+        self::assertIsString($entry->new_values);
+        self::assertEquals(['notes' => 'First.'], json_decode($entry->old_values, true));
+        self::assertEquals(['notes' => 'Second.'], json_decode($entry->new_values, true));
     }
 
     public function test_that_a_missing_if_match_is_a_400(): void
@@ -324,7 +326,10 @@ final class ReportWriteEndpointTest extends TestCase
         return $id;
     }
 
-    /** @param array<string, mixed> $body */
+    /**
+     * @param  array<string, mixed>  $body
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
     private function edit(string $id, string $ifMatch, array $body): TestResponse
     {
         return $this->patchJson(

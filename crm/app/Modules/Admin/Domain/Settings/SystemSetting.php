@@ -58,6 +58,15 @@ enum SystemSetting: string
     /** §13/4 "date format". */
     case DateFormat = 'locale.date_format';
 
+    /** `D-127` — the day reports go live; empty until rollout, and while empty no report job acts. */
+    case ReportsGoLiveDate = 'reports.go_live_date';
+
+    /**
+     * `D-129` — the one Manager a report goes to by default until teams exist.
+     * Holds a user id; `UpdateSettingsRequest` checks it names an active Manager.
+     */
+    case ReportsDefaultRecipient = 'reports.default_recipient';
+
     /**
      * The validation rule the boundary applies, beyond "is a string".
      */
@@ -65,6 +74,8 @@ enum SystemSetting: string
     {
         return match ($this) {
             self::CompanyEmail => 'email',
+            self::ReportsGoLiveDate => 'date_format:Y-m-d',
+            self::ReportsDefaultRecipient => 'uuid',
             default => 'string',
         };
     }

@@ -56,4 +56,53 @@ final readonly class EloquentUserFacts implements UserFactsInterface
 
         return $titles;
     }
+
+    public function activeRolesOf(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $roles = [];
+        /** @var object{id: string, slug: string} $row */
+        foreach ($this->connection->table('users')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->whereNull('users.deleted_at')
+            ->where('users.is_hidden', false)
+            ->where('users.is_active', true)
+            ->whereIn('users.id', $userIds)
+            ->select('users.id', 'roles.slug')
+            ->get() as $row) {
+            $roles[(string) $row->id] = (string) $row->slug;
+        }
+
+        return $roles;
+    }
+
+    public function holdersOf(string $resource, string $action): array
+    {
+        $holders = [];
+        /** @var object{id: string, name: string, slug: string, scope: string} $row */
+        foreach ($this->connection->table('users')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->join('role_permissions', 'role_permissions.role_id', '=', 'roles.id')
+            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->whereNull('users.deleted_at')
+            ->whereNull('roles.deleted_at')
+            ->whereNull('role_permissions.deleted_at')
+            ->whereNull('permissions.deleted_at')
+            ->where('users.is_hidden', false)
+            ->where('users.is_active', true)
+            ->where('permissions.resource', $resource)
+            ->where('permissions.action', $action)
+            ->orderBy('users.name')
+            ->select('users.id', 'users.name', 'roles.slug', 'permissions.scope')
+            ->get() as $row) {
+            $id = (string) $row->id;
+            $holders[$id] ??= ['name' => (string) $row->name, 'role' => (string) $row->slug, 'scopes' => []];
+            $holders[$id]['scopes'][] = (string) $row->scope;
+        }
+
+        return $holders;
+    }
 }

@@ -89,7 +89,7 @@ async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en') {
             ? Promise.resolve(json(201, {
                 data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: USER },
             }))
-            : fetchMock(input, init));
+            : (fetchMock as unknown as typeof fetch)(input, init));
     await useAuth().login(USER.email, 'Passw0rd123');
     vi.stubGlobal('fetch', fetchMock);
 
@@ -134,8 +134,8 @@ describe('ReportDetailView — a daily report', () => {
 
         const items = view.findAll('[data-testid="activity-item"]');
         expect(items).toHaveLength(2);
-        expect(items[0].text()).toContain(en.reports.event.DEAL_CREATED);
-        expect(items[1].text()).toContain(en.reports.event.QUOTATION_SENT);
+        expect(items[0]!.text()).toContain(en.reports.event.DEAL_CREATED);
+        expect(items[1]!.text()).toContain(en.reports.event.QUOTATION_SENT);
     });
 
     it('shows an empty activity message when the day has none', async () => {
@@ -154,14 +154,14 @@ describe('ReportDetailView — a daily report', () => {
         await view.get('[data-testid="report-save"]').trigger('click');
         await flushPromises();
 
-        const [url, init] = patches(fetchMock)[0];
+        const [url, init] = patches(fetchMock)[0]!;
         expect(url).toMatch(/\/reports\/rep1$/);
         expect(JSON.parse(init.body as string)).toEqual({ notes: 'Two visits.' });
         expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');
 
         await view.get('[data-testid="report-save"]').trigger('click');
         await flushPromises();
-        expect(new Headers(patches(fetchMock)[1][1].headers).get('If-Match')).toBe('report:rep1:2');
+        expect(new Headers(patches(fetchMock)[1]![1].headers).get('If-Match')).toBe('report:rep1:2');
     });
 
     it('says the report changed elsewhere on a 409, and keeps the typed notes', async () => {
@@ -181,14 +181,14 @@ describe('ReportDetailView — a daily report', () => {
 
         const options = view.findAll('[data-testid="recipient-option"]');
         expect(options.map((o) => o.text())).toEqual(['Mona Manager', 'Chris CEO']);
-        expect((options[0].get('input').element as HTMLInputElement).checked).toBe(true);
-        expect((options[1].get('input').element as HTMLInputElement).checked).toBe(false);
+        expect((options[0]!.get('input').element as HTMLInputElement).checked).toBe(true);
+        expect((options[1]!.get('input').element as HTMLInputElement).checked).toBe(false);
     });
 
     it('cannot submit with no recipient chosen', async () => {
         const view = await render(server());
 
-        await view.findAll('[data-testid="recipient-option"]')[0].get('input').setValue(false);
+        await view.findAll('[data-testid="recipient-option"]')[0]!.get('input').setValue(false);
 
         expect(view.get('[data-testid="report-submit"]').attributes('disabled')).toBeDefined();
     });
@@ -197,11 +197,11 @@ describe('ReportDetailView — a daily report', () => {
         const fetchMock = server({ patch: () => envelope(SUBMITTED) });
         const view = await render(fetchMock);
 
-        await view.findAll('[data-testid="recipient-option"]')[1].get('input').setValue(true);
+        await view.findAll('[data-testid="recipient-option"]')[1]!.get('input').setValue(true);
         await view.get('[data-testid="report-submit"]').trigger('click');
         await flushPromises();
 
-        const [url, init] = patches(fetchMock)[0];
+        const [url, init] = patches(fetchMock)[0]!;
         expect(url).toMatch(/\/reports\/rep1\/submit$/);
         expect(JSON.parse(init.body as string)).toEqual({ recipient_ids: ['m1', 'c1'] });
         expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');

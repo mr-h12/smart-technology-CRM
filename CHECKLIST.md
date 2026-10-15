@@ -48,7 +48,8 @@ does not create requirements. If a box here disagrees with the build plan, the b
       block kept. Four fields it needs are requests to their owners — `contact_person` (Customers),
       a per-line delivery time (Quotations), Settings texts and e-mails (Admin), a job title (Identity)
 - [x] ~~**OD-04** — VPN type and concurrent capacity~~ — closed by `D-59`: Cloudflare Tunnel + Access, 5 named users
-- [ ] **OD-06** — Company holiday calendar *(before Module 13)*
+- [ ] **OD-06** — Company holiday calendar *(before Module 13)* — still open; until it closes, deadlines
+      skip Friday and Saturday only and a public holiday counts as a working day (`D-125`, 2026-10-15)
 - [ ] **OD-05** — Expected daily workload *(queue and storage sizing)*
 
 ### One-time documents
@@ -1861,6 +1862,13 @@ would hide them behind `OD-03` indefinitely.
       last three edges). Publishing the reachable manual moves on the payload removes the copy; a
       backend point. **The cost, stated:** a fourth manual status, or a changed edge, needs the map
       edited beside the PHP graph; the server still refuses a wrong edge (409), so nothing is moved wrongly.
+- [ ] **RPT-VS (Visits report) is not built in Module 13** — *the owner's ruling, 2026-10-15 (`D-125`).*
+      §11.2's Visits type reads Module 12's `visits`, which is paused and has no table. It is added in
+      Module 12. **The cost, stated:** until then Outdoor Sales and the Supervisor cannot file a visits report.
+- [ ] **RPT-PR (Procurement report) is not built in Module 13** — *the owner's ruling, 2026-10-15
+      (`D-125`).* §11.2's Procurement type reads Module 11's `procurement_negotiations`, which is paused
+      and has no table. It is added in Module 11. **The cost, stated:** until then Procurement cannot
+      file a procurement report.
 
 ## Agent guide revisions — owner-directed
 
@@ -3538,6 +3546,9 @@ a seven-part report, and the owner's merge. One per turn; the list is the owner'
 
 ## Fix pass — owner-directed, 2026-09-24
 
+**Paused 2026-10-15 (`D-125`):** F-27…F-30 and the limits test L.0–L.7 wait with Modules 11 and 12;
+Module 13 is built first.
+
 What the field QA of 2026-09-23 found in closed modules (report:
 https://claude.ai/artifact/KKWrafDX5DYQFc8nBVVewM; evidence in the owner's `~/crm-qa-run/findings/E1–E5.md`,
 a verdict per finding in `VERIFY.md`; E3-2 and E3-3 were refuted as browser-tool artifacts). The owner's
@@ -5081,11 +5092,13 @@ Arabic manual test list handed over 2026-09-24 (#225).
 Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
 the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒
 No Response") and `J-02`'s missing catch-up stay in the debt register above; the post-QA fix pass
-(F-17…F-30, 2026-09-24) runs before Module 11.
+(F-17…F-30, 2026-09-24) runs before Module 11 — paused under `D-125` (2026-10-15); Module 13 runs next.
 
 ---
 
 ## Module 11 — Procurement
+
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
 
 > As a procurement employee, I want to renegotiate with the supplier and calculate the final profit,
 > so that the company earns the best possible margin.
@@ -5101,6 +5114,8 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 ---
 
 ## Module 12 — Outdoor Visits 📱
+
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
 
 > As an Outdoor employee, I want to record a visit outcome from my phone with minimal typing, so that
 > I can finish my day quickly.
@@ -5124,6 +5139,8 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 > track the work.
 
 **Tables** `reports` · `report_recipients` · `report_versions` · **Jobs** J-04 … J-08
+
+**Scope:** six of §11.2's eight types, under `D-125` (RPT-VS and RPT-PR: debt register; deadlines: `OD-06`'s line).
 
 **Acceptance criteria**
 - [ ] Submitted report → **fixed snapshot + stored PDF**, unchanged even if the data changes

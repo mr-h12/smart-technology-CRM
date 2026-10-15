@@ -5179,7 +5179,7 @@ lands in the slice that first needs it.
     - [x] **R.1** `D-130` *(2026-10-15, PR 379 — amends D-129: the audit log is the index only; records grouped by kind; selling totals only)*
     - [x] **R.2** Red: failing tests for the grouped records (backend payload, frozen copy, report screen) *(2026-10-15, PR 379 — 6 PHP + 6 vitest red for the right reason)*
     - [x] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned *(2026-10-15, PR 379 — suite 3901 passed, 1 failed (the 401 test, R.4); browser check NOT done: the pane was signed out, the owner skipped it)*
-    - [ ] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check
+    - [~] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check *(2026-10-15, PR 379 — the 401 test was a test defect (the request guard kept create()'s user; forgetGuards); suite 3902 passed, 0 failed; Reports 51 passed; browser check NOT done: the owner skipped it)*
 
 ---
 

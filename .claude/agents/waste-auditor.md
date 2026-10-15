@@ -1,7 +1,7 @@
 ---
 name: waste-auditor
 description: Runs the four waste questions from CLAUDE.md against the current point's diff and answers each with the command that produced it. Use before writing any point report, and before any merge that adds a class, route, lang key, exported function, or Vue component. Returns evidence, never an impression.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, Skill
 model: sonnet
 ---
 

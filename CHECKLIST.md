@@ -4674,6 +4674,16 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             page reads its deal through `GET /deals/{id}`, no backend change). *(split from 1.4 by the owner, 2026-10-15)*
             *(2026-10-15, #369 — the control beside the row's link, never inside it; the quotation page asks for the deal only with `deal.view`; a 16rem link basis drops the button to its own line on a phone)*
       - [ ] **1.4b** The load test (`ab`, 50 at once on one deal, then a database check for duplicate lines).
+- [ ] **F-50** Customer notes, links and manual status; the supplier offer's total computed (`D-120`…`D-123`).
+      Requested by the owner, 2026-10-15; the plan approved in chat the same day, then cut by the owner to four
+      points with no Arabic manual test list. The owner's rulings: a manual customer status holds until the next
+      status change of any of that customer's deals, and «عميل» is never set by hand; a note's date is a label only
+      (no reminder, `D-15`); the social links are three free fields; the old notes box becomes each customer's
+      first, undated note. Each point writes its own `D-xx` row first.
+      - [ ] **1** The supplier offer's total is computed from its lines and no longer typed (`D-120`).
+      - [ ] **2** Customer links: location (a Google Maps link), website, social 1–3, each opening on click (`D-121`).
+      - [ ] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
+      - [ ] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
 
 ## Shell revisions — owner-directed
 

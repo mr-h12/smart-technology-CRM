@@ -1,15 +1,16 @@
 import { apiGet, apiPatch, apiPost, collection, type Page } from '@/api';
 
 /**
- * Module 13, first slice — the author's side of a report (`GET/POST /reports`,
- * `GET/PATCH /reports/{id}`, `/recipient-candidates`, `/submit`).
+ * Module 13 — the author's side of a report (`GET/POST /reports`,
+ * `GET/PATCH /reports/{id}`, `/recipient-candidates`, `/submit`) and, since
+ * slice 2, the recipient's (`GET /reports/received[/{id}]`, `/acknowledge`, `/return`).
  *
  * The screen shows what the server returns: the counts, the default recipient
  * and every refusal are the server's (`D-67`, `AP-07`).
  */
 
-// This slice writes Draft and Submitted only; §11.4's other statuses arrive with the slices that set them.
-export type ReportStatus = 'draft' | 'submitted';
+// §11.4's statuses the first two slices set; Archived and Missed arrive with the slices that set them.
+export type ReportStatus = 'draft' | 'submitted' | 'viewed' | 'acknowledged' | 'returned';
 
 export interface ReportSummary {
     id: string;
@@ -69,10 +70,16 @@ export interface ActivitySections {
 }
 
 export interface ReportDetail extends ReportSummary {
+    author_name?: string;
     notes: string | null;
     etag: string;
     activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
+}
+
+/** A report sent to the caller: the list row and the detail both name its author. */
+export interface ReceivedReportSummary extends ReportSummary {
+    author_name: string;
 }
 
 export interface RecipientCandidate {
@@ -104,4 +111,21 @@ export async function readRecipientCandidates(id: string): Promise<RecipientCand
 
 export async function submitReport(id: string, etag: string, recipientIds: string[]): Promise<ReportDetail> {
     return (await apiPatch<ReportDetail>(`/reports/${id}/submit`, { recipient_ids: recipientIds }, { 'If-Match': etag })).data;
+}
+
+export async function listReceivedReports(page = 1): Promise<Page<ReceivedReportSummary>> {
+    return collection<ReceivedReportSummary>(await apiGet(`/reports/received?page=${page}`));
+}
+
+/** `D-127`: the server marks the report Viewed on a recipient's first open. */
+export async function readReceivedReport(id: string): Promise<ReportDetail> {
+    return (await apiGet<ReportDetail>(`/reports/received/${id}`)).data;
+}
+
+export async function acknowledgeReport(id: string, etag: string): Promise<ReportDetail> {
+    return (await apiPatch<ReportDetail>(`/reports/${id}/acknowledge`, {}, { 'If-Match': etag })).data;
+}
+
+export async function returnReport(id: string, etag: string, reason: string): Promise<ReportDetail> {
+    return (await apiPatch<ReportDetail>(`/reports/${id}/return`, { reason }, { 'If-Match': etag })).data;
 }

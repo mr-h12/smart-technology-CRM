@@ -19,6 +19,8 @@ final class ReportReceivingMigrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const MIGRATION = 'database/migrations/2026_10_16_000000_add_receiving_to_report_versions.php';
+
     private const COLUMNS = [
         'viewed_by', 'viewed_at', 'acknowledged_by', 'acknowledged_at', 'returned_by', 'returned_at', 'return_reason',
     ];
@@ -39,7 +41,7 @@ final class ReportReceivingMigrationTest extends TestCase
     }
 
     /**
-     * DEV-03. The newest migration is this slice's, so one step back is it —
+     * DEV-03. This slice's migration, rolled back by its path —
      * inside RefreshDatabase's transaction, never on the dev database.
      */
     public function test_that_the_migration_rolls_back_and_forward(): void
@@ -48,7 +50,7 @@ final class ReportReceivingMigrationTest extends TestCase
             self::assertTrue(Schema::hasColumn('report_versions', $column), "report_versions has no {$column} to roll back.");
         }
 
-        self::assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
         self::assertTrue(Schema::hasTable('report_versions'), 'down() must not drop slice 1\'s table.');
         foreach (self::COLUMNS as $column) {
             self::assertFalse(Schema::hasColumn('report_versions', $column), "down() left {$column} behind (DEV-03).");
@@ -60,10 +62,12 @@ final class ReportReceivingMigrationTest extends TestCase
 
     private function nullable(string $table, string $column): bool
     {
-        return DB::selectOne(
+        $row = DB::selectOne(
             'select is_nullable from information_schema.columns where table_name = ? and column_name = ?',
             [$table, $column],
-        )?->is_nullable === 'YES';
+        );
+
+        return is_object($row) && ($row->is_nullable ?? null) === 'YES';
     }
 
     private function foreignTable(string $table, string $column): ?string

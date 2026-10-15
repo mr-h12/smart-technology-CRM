@@ -156,6 +156,14 @@ export const NAVIGATION: readonly NavigationGroup[] = [
                 permission: 'report.create',
             },
             {
+                // Module 13, slice 2 — "Received reports": the reports sent to
+                // the caller, on §3.10's *view received* (Manager, CEO; never Sales).
+                name: 'received-reports',
+                labelKey: 'nav.item.receivedReports',
+                icon: 'M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2.2V14h12V6.2l-6 4.3z',
+                permission: 'report.view_received',
+            },
+            {
                 // §8's *Catalog*, on the **same** permission as the item above.
                 // §3.7 is one row pair covering the catalog and its suppliers,
                 // so there is no `catalog_item.*` resource to name — and the

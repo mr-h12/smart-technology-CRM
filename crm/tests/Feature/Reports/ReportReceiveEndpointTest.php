@@ -57,6 +57,7 @@ final class ReportReceiveEndpointTest extends TestCase
             ->json('data');
 
         self::assertIsArray($rows);
+        /** @var list<array<string, mixed>> $rows */
         self::assertSame([$mine], array_column($rows, 'id'));
         self::assertSame($author->name, $rows[0]['author_name']);
         self::assertSame('daily', $rows[0]['type']);
@@ -393,8 +394,20 @@ final class ReportReceiveEndpointTest extends TestCase
         self::assertSame($user->id, $entry->user_id);
     }
 
+    /**
+     * @return object{
+     *     snapshot: string, viewed_by: ?string, viewed_at: ?string, acknowledged_by: ?string,
+     *     acknowledged_at: ?string, returned_by: ?string, returned_at: ?string, return_reason: ?string
+     * }
+     */
     private function version(string $id, int $version): object
     {
+        /**
+         * @var object{
+         *     snapshot: string, viewed_by: ?string, viewed_at: ?string, acknowledged_by: ?string,
+         *     acknowledged_at: ?string, returned_by: ?string, returned_at: ?string, return_reason: ?string
+         * }|null $row
+         */
         $row = DB::table('report_versions')->where('report_id', $id)->where('version', $version)->first();
         self::assertNotNull($row, "report_versions has no v{$version}.");
 
@@ -415,7 +428,10 @@ final class ReportReceiveEndpointTest extends TestCase
     /** The current token, read from the row — whether an open advances it is the implementation's call. */
     private function etag(string $id): string
     {
-        return 'report:'.$id.':'.DB::table('reports')->where('id', $id)->value('version_token');
+        $token = DB::table('reports')->where('id', $id)->value('version_token');
+        self::assertIsInt($token);
+
+        return 'report:'.$id.':'.$token;
     }
 
     /** @return TestResponse<\Illuminate\Http\JsonResponse> */

@@ -20,8 +20,15 @@ final readonly class Report
         public ?string $submittedAt,
     ) {}
 
-    public function isDraft(): bool
+    /** §11.4: the author writes a draft, and a returned report on its way to the next version. */
+    public function isEditable(): bool
     {
-        return $this->status === 'draft';
+        return $this->status === 'draft' || $this->status === 'returned';
+    }
+
+    /** §11.4, the owner's ruling of 2026-10-16: Acknowledge and Return answer a Submitted or Viewed report. */
+    public function awaitsAnswer(): bool
+    {
+        return $this->status === 'submitted' || $this->status === 'viewed';
     }
 }

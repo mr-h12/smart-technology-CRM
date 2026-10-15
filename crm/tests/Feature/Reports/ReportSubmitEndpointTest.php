@@ -352,6 +352,8 @@ final class ReportSubmitEndpointTest extends TestCase
     public function test_that_an_unauthenticated_caller_is_refused(): void
     {
         $id = $this->create($this->user(RoleName::IndoorSales));
+        // The request guard keeps the user it resolved for create(); drop it so the calls below carry no identity.
+        $this->app['auth']->forgetGuards();
 
         $this->getJson(self::ENDPOINT)->assertStatus(401);
         $this->postJson(self::ENDPOINT, ['type' => 'daily'])->assertStatus(401);

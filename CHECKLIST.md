@@ -5151,6 +5151,20 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 - [ ] Server down on the weekly report day → the job **runs on startup** (catch-up)
 - [ ] No deletion — automatic archiving after six months, still viewable
 
+### Point list — Step 1 approved 2026-10-15 (owner, in chat); later points one slice at a time
+
+**Step 1 — Decisions and contract (docs only)**
+- [x] **1.1** What each of the six types fills in automatically — `D-126` *(2026-10-15, #376)*
+- [ ] **1.2** Lifecycle rules: what marks a report Viewed, the comment model, default recipients, which types go Missed, what "approved" means for J-06, the go-live date and daily-deadline settings, archive age fixed or a setting
+- [ ] **1.3** Excel export: a library (the owner's approval, as `D-97`) or a CSV that Excel opens
+
+**After Step 1 — vertical slices (the owner, 2026-10-15).** Each point runs from the database to the
+API to a screen and ends in something the owner can open and test. Before a point starts, Claude
+describes it, the owner says how to divide it, and only then is it added here and its branch cut. No
+layered steps (all migrations, all endpoints) are planned in advance. The six types of `D-126`, the
+jobs J-04…J-08 (`D-125`), the PDF, the exports and the manual test list are all still owed. Each one
+lands in the slice that first needs it.
+
 ---
 
 ## Module 14 — Dashboard

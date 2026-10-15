@@ -5155,7 +5155,7 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 **Step 1 — Decisions and contract (docs only)**
 - [x] **1.1** What each of the six types fills in automatically — `D-126` *(2026-10-15, #376)*
-- [ ] **1.2** Lifecycle rules: what marks a report Viewed, the comment model, default recipients, which types go Missed, what "approved" means for J-06, the go-live date and daily-deadline settings, archive age fixed or a setting
+- [x] **1.2** Lifecycle rules — `D-127` *(2026-10-15, #377)*: Viewed on a recipient's first open; flat append-only comments; Manager + the author's Team Leader by default; Missed for RPT-DY only; deadline, go-live date, review window and archive age are settings
 - [ ] **1.3** Excel export: a library (the owner's approval, as `D-97`) or a CSV that Excel opens
 
 **After Step 1 — vertical slices (the owner, 2026-10-15).** Each point runs from the database to the

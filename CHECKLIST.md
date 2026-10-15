@@ -1878,6 +1878,12 @@ would hide them behind `OD-03` indefinitely.
       slice 1, 2026-10-15 (`D-127`).* Both are editable on the settings screen and nothing on the server
       reads them until the slice that builds J-04 (Missed) and J-05…J-07. Until then neither changes any
       behaviour.
+- [ ] **The report page's `form-field` and `primary-action` have no rule** — *revealed by Module 13 slice 2
+      · 2.2's waste audit, 2026-10-16.* Both classes are scoped styles that each of 25 other components
+      defines for itself; `resources/css/app.css` has no global rule, and `ReportDetailView.vue` has no
+      `<style>` block (slice 1). So its notes box, its Return-reason box and its Submit button render
+      unstyled. 2.2 put its new Acknowledge button on the global `create-action`. A fix is a scoped style
+      here (a 26th copy) or one global rule; the owner's call, seen in 2.3's browser check.
 
 ## Agent guide revisions — owner-directed
 
@@ -5183,7 +5189,7 @@ lands in the slice that first needs it.
   - Merged 2026-10-15 (#379; CI green on `5f37952`, including `tests/Feature/Reports`, newly added to the `quotations-deals` shard). `[~]` until R.4's browser check is done.
 - [ ] **Slice 2 — the receiving side of a daily report** *(divided by the owner, 2026-10-16; §3.10, §11.4, `D-127`)*: a "Received reports" list for the holders of *view received*, read from the frozen copy; the report page for a recipient; **Viewed** on a recipient's first open (who and when; the author's own open does not count); **Acknowledge** → permanently read-only, even for the author; **Return** with a mandatory reason → a new editable version (v2) that copies v1's notes and recipients, the original kept viewable; the CEO views but cannot acknowledge or return; Sales and Procurement have no received list. Scopes: Manager and CEO `All`; the Team Leader's `Team` and the Outdoor Supervisor's `Out` wait for teams (`D-129`). Not in it: the PDF, comments, the other five types, the jobs, badges, the duplicate-period warning.
     - [x] **2.1** Red: failing tests for the received list, Viewed, Acknowledge, Return → v2, and the refusals (CEO acknowledge/return, Sales/Procurement list, the author on someone else's report) *(2026-10-16 — 24 PHP + 8 vitest red for the right reason; the new view's spec fails on its missing component)*
-    - [ ] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page
+    - [x] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page *(2026-10-16 — Reports 75 passed, reports vitest 68 passed; one more spec edit approved: `uiSourceRules` lists the Return `<dialog>`)*
     - [ ] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check
 
 ---

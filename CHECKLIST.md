@@ -4674,7 +4674,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             page reads its deal through `GET /deals/{id}`, no backend change). *(split from 1.4 by the owner, 2026-10-15)*
             *(2026-10-15, #369 — the control beside the row's link, never inside it; the quotation page asks for the deal only with `deal.view`; a 16rem link basis drops the button to its own line on a phone)*
       - [ ] **1.4b** The load test (`ab`, 50 at once on one deal, then a database check for duplicate lines).
-- [ ] **F-50** Customer notes, links and manual status; the supplier offer's total computed (`D-120`…`D-123`).
+- [x] **F-50** Customer notes, links and manual status; the supplier offer's total computed (`D-120`…`D-123`).
+      *(closed 2026-10-15 — points 1–3 merged; point 4 withdrawn by the owner)*
       Requested by the owner, 2026-10-15; the plan approved in chat the same day, then cut by the owner to four
       points with no Arabic manual test list. The owner's rulings: a manual customer status holds until the next
       status change of any of that customer's deals, and «عميل» is never set by hand; a note's date is a label only
@@ -4686,7 +4687,11 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #371 — five nullable varchar(2048) links, http(s) only so `javascript:` is 422; new tab with noopener noreferrer; kept out of the CSV import)*
       - [x] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
             *(2026-10-15, #372 — customer_notes, newest date first and undated last; view/edit at the customer's scope, soft-deleted and audited; old and imported notes become the first undated note; notes is 422 on the customer)*
-      - [ ] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
+      - [~] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
+            — **withdrawn by the owner, 2026-10-15** ("I don't want users to change it any more"): a customer's status
+            stays automatic only (`D-49`, §4.5), and §16 keeps "Manual override of customer status" deferred. Built and
+            closed unmerged as #373; its two migrations were rolled back on dev (no customer had a status set by hand).
+            `D-123` is left unused, as `D-95` was.
 
 ## Shell revisions — owner-directed
 

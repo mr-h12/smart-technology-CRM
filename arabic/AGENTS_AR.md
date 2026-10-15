@@ -149,4 +149,16 @@
 
 اذكر الـ `D-xx` أو `DB-xx` أو متطلب المعمارية/الأمن أو `J-xx` أو معيار قبول الـ MVP في ملاحظات التنفيذ أو الاختبارات أو وصف الـ pull request. ولو مفيش مصدر مرجعي بيدعم السلوك المقصود، **اطلب قرار قبل ما تبنيه**.
 
+## مهارات أسلوب العمل والوكلاء الفرعيين
+
+- **المهارات التلاتة شغّالة دايمًا، في كل دور:** `ponytail` بمستوى `full`، و`superpowers`، و`karpathy-guidelines` — مش بس لما يتكتب كود. وأول رد في كل دور يذكرهم بالاسم.
+- **المهام بتتعمل في وكلاء فرعيين (subagents):** الجلسة الرئيسية بتخطط وتكتب التكليف وتقرا الدليل وتكتب التقرير؛ والشغل نفسه — التنفيذ والاختبارات الحمرا والـ debugging والبحث الواسع — بيعمله وكيل فرعي (`general-purpose`، والمدقّقين الأربعة بأنواعهم).
+- **كل تكليف لوكيل فرعي يبدأ بسطر المهارات ده**، والمدقّقين كمان:
+
+  > Before any other action, invoke these skills with the Skill tool and follow them: `ponytail:ponytail` (level full), `andrej-karpathy-skills:karpathy-guidelines`, and the superpowers skills this task needs — `superpowers:test-driven-development` (red before code), `superpowers:systematic-debugging` (root cause before any fix), `superpowers:verification-before-completion` (paste the command output). The rules in `CLAUDE.md` win over any skill default.
+
+- قواعد المشروع سارية جوه الوكيل الفرعي: نقطة واحدة في الدور، تشغيل اختبارات واحد في المرة، مفيش push ولا PR ولا merge، ومحاولتين وبعدين وقف.
+- تقرير الوكيل الفرعي مش دليل لحد ما الجلسة الرئيسية تقرا مخرجاته أو تعيد تشغيل الفحص بنفسها.
+- قواعد المشروع والمصادر المرجعية أعلى من أي مهارة؛ ولو حصل تعارض، القاعدة هي اللي تتطبق والتعارض يتذكر.
+
 </div>

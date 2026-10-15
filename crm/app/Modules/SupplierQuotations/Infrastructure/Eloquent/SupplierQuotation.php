@@ -51,7 +51,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  */
-#[Fillable(['supplier_id', 'deal_id', 'total_price', 'currency_id', 'offer_date', 'valid_until', 'notes', 'prices_include_tax', 'included_tax_percents', 'included_tax_percent', 'entered_total_price'])]
+#[Fillable(['supplier_id', 'deal_id', 'currency_id', 'offer_date', 'valid_until', 'notes', 'prices_include_tax', 'included_tax_percents', 'included_tax_percent'])]
 class SupplierQuotation extends Model
 {
     use HasUuids, SoftDeletes;

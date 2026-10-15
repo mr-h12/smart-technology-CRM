@@ -69,17 +69,12 @@ final class SaveSupplierQuotationRequest extends FormRequest
             // `D-51`: standalone, and available to any deal.
             'deal_id' => ['nullable', 'uuid', $this->alive('deals')],
 
-            // Owner's ruling, 2026-09-02: **entered by the user**, never summed
-            // from the lines. `min:0` has no source of its own — it mirrors the
-            // `unit_price >= 0` CHECK Point 1.2 put on a line, because §5 has no
-            // negative price anywhere and an offer that totals below zero is not
-            // a discount. Flagged as a boundary rule with no citation rather
-            // than presented as one.
-            'total_price' => ['nullable', 'numeric', 'min:0', 'required_with:currency_id'],
+            // `D-120`: computed from the lines on every save, never typed — a
+            // sent one is refused rather than ignored. `missing`, not
+            // `prohibited`: the latter lets an empty `null` through unseen.
+            'total_price' => ['missing'],
 
-            // Point 1.1's CHECK: `(total_price IS NULL) = (currency_id IS NULL)`.
-            // Both `required_with`s together are what makes the pair symmetric.
-            'currency_id' => ['nullable', 'uuid', 'required_with:total_price', $this->alive('currencies')],
+            'currency_id' => ['nullable', 'uuid', $this->alive('currencies')],
 
             // `D-105`: one flag for the whole offer, off unless sent. `D-118`: the
             // rates it strips are typed beside it, on the quotation's bounds; the

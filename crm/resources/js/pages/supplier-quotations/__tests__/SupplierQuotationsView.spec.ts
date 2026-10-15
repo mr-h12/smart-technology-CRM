@@ -597,19 +597,14 @@ describe('the supplier quotations screen', () => {
 /**
  * Module 6, Point 6.3 — §7.2's header form, create and edit in one dialog.
  *
- * ── The total and the currency are a pair the form now carries ─────────────
+ * ── The currency is typed; the total is the server's (`D-120`, F-50 · 1) ────
  *
- * §7.2 lists both. Since D-80 `GET /currencies` is `currency.view` (the §3.6
- * create/edit set) and each row carries its `id`, so the dialog can offer a
- * closed select for `currency_id` and a text input for `total_price`. They are
- * one pair (`SaveSupplierQuotationRequest`'s mutual `required_with`, over
- * Point 1.1's `CHECK ((total_price IS NULL) = (currency_id IS NULL))`); the
- * form does not re-state that rule — a half-filled pair is the server's 422,
- * landing on the field it names.
- *
- * What the tests below pin: a create and an edit **always name both keys**
- * (`""` → `null`), so blanking them on an edit clears the offer's total on
- * purpose, and hydration re-sends what the offer already had. A currency list
+ * Since D-80 `GET /currencies` is `currency.view` (the §3.6 create/edit set)
+ * and each row carries its `id`, so the dialog offers a closed select for
+ * `currency_id`. The total is no longer an input: the server sums the lines
+ * on every save and refuses a sent `total_price` (422), so the form never
+ * names that key. A create and an edit always name `currency_id` (`""` →
+ * `null`), and hydration re-sends what the offer already had. A currency list
  * that cannot be loaded is said, not hidden.
  *
  * ── Not an authorization suite ─────────────────────────────────────────────
@@ -663,7 +658,7 @@ describe('the supplier quotation form', () => {
     });
 
     /** §7.2's `code` is "Automatic" and the boundary answers a supplied one with `prohibited`. */
-    it('creates with §7.2 header fields, the total and its currency — no code', async () => {
+    it('creates with §7.2 header fields and its currency — no code, no total (D-120)', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
@@ -672,7 +667,8 @@ describe('the supplier quotation form', () => {
         await pickSupplier(view);
         await view.get('[data-testid="supplier-quotation-form-offer-date"]').setValue('2026-09-04');
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('From the PDF');
-        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('4500');
+        // D-120: no total input to type into.
+        expect(view.find('[data-testid="supplier-quotation-form-total-price"]').exists()).toBe(false);
         await view.get('[data-testid="supplier-quotation-form-currency-id"]').setValue('c1');
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
@@ -689,8 +685,6 @@ describe('the supplier quotation form', () => {
             offer_date: '2026-09-04',
             valid_until: null,
             notes: 'From the PDF',
-            // A string, never a number: DB-07 through JSON.
-            total_price: '4500',
             currency_id: 'c1',
             // F-39 · 1.4: always named, so a save never leaves the flag to the stored row.
             prices_include_tax: false,
@@ -700,7 +694,7 @@ describe('the supplier quotation form', () => {
         });
     });
 
-    it('sends the pair as null when both are left blank', async () => {
+    it('sends the currency as null when left blank, and never a total', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
@@ -712,23 +706,19 @@ describe('the supplier quotation form', () => {
         const call = [...fetchMock.mock.calls].find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
-        expect(sent.total_price).toBeNull();
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(sent.currency_id).toBeNull();
     });
 
-    /**
-     * An edit hydrates the pair from the offer and sends it back as it stands,
-     * so a PATCH that only touched the notes leaves the total exactly as it
-     * was — by re-stating it, not by omitting it.
-     */
-    it('edits with the offer\'s total and currency hydrated and re-sent', async () => {
+    /** An edit hydrates the currency and sends it back; the total is the server's to recompute (D-120). */
+    it('edits with the offer\'s currency hydrated and re-sent, and no total', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
         await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
         await flushPromises();
 
-        expect((view.get('[data-testid="supplier-quotation-form-total-price"]').element as HTMLInputElement).value).toBe('4500.000000');
+        expect(view.find('[data-testid="supplier-quotation-form-total-price"]').exists()).toBe(false);
         expect((view.get('[data-testid="supplier-quotation-form-currency-id"]').element as HTMLSelectElement).value).toBe('c1');
 
         await view.get('[data-testid="supplier-quotation-form-notes"]').setValue('Revised');
@@ -741,7 +731,7 @@ describe('the supplier quotation form', () => {
 
         const sent = JSON.parse(String((call?.[1] as RequestInit).body)) as Record<string, unknown>;
 
-        expect(sent.total_price).toBe('4500.000000');
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(sent.currency_id).toBe('c1');
         expect(sent.notes).toBe('Revised');
     });
@@ -1547,7 +1537,7 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         expect(ar.supplierQuotations.form.pricesIncludeTax).toBe('السعر شامل الضريبة');
     });
 
-    it('sends the ticked flag with the total and every line as typed', async () => {
+    it('sends the ticked flag with every line as typed, and no total (D-120)', async () => {
         const fetchMock = respond();
         const view = await render(fetchMock);
 
@@ -1558,7 +1548,6 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         await view.get('[data-testid="supplier-quotation-form-tax-0"]').setValue('14');
         await view.get('[data-testid="supplier-quotation-form-add-tax"]').trigger('click');
         await view.get('[data-testid="supplier-quotation-form-tax-1"]').setValue(' 5 ');
-        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('4560');
         await view.get('[data-testid="supplier-quotation-form-add-line"]').trigger('click');
         await pickProduct(view, 0);
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('1710');
@@ -1571,11 +1560,11 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         expect(sent.prices_include_tax).toBe(true);
         // D-118: the rates as typed, trimmed; the server sums and strips them.
         expect(sent.included_tax_percents).toEqual(['14', '5']);
-        expect(sent.total_price).toBe('4560');
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710', quantity: '1' }]);
     });
 
-    it('opens a tax-inclusive offer with its entered amounts, the server\'s net beside each, and sends them back', async () => {
+    it('opens a tax-inclusive offer with its entered line prices, the server\'s net beside each, and sends them back', async () => {
         const fetchMock = respond([TAXED], 200, TAXED_DETAIL);
         const view = await render(fetchMock);
 
@@ -1584,10 +1573,10 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
 
         expect((view.get('[data-testid="supplier-quotation-form-prices-include-tax"]').element as HTMLInputElement).checked).toBe(true);
         expect((view.get('[data-testid="supplier-quotation-form-tax-0"]').element as HTMLInputElement).value).toBe('14');
-        expect((view.get('[data-testid="supplier-quotation-form-total-price"]').element as HTMLInputElement).value).toBe('4560.000000');
+        expect(view.find('[data-testid="supplier-quotation-form-total-price"]').exists()).toBe(false);
+        expect(view.find('[data-testid="supplier-quotation-form-total-price-net"]').exists()).toBe(false);
         expect((view.get('[data-testid="supplier-quotation-line-0-unit-price"]').element as HTMLInputElement).value).toBe('1710.000000');
         // D-110: money's screen form, like every other figure on this form.
-        expect(view.get('[data-testid="supplier-quotation-form-total-price-net"]').text()).toContain('4,000.00');
         expect(view.get('[data-testid="supplier-quotation-line-0-unit-price-net"]').text()).toContain('1,500.00');
 
         await view.get('[data-testid="supplier-quotation-form"]').trigger('submit');
@@ -1598,7 +1587,7 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         // Re-sent as entered with the flag, so the server strips once, from the entered amount.
         expect(sent.prices_include_tax).toBe(true);
         expect(sent.included_tax_percents).toEqual(['14']);
-        expect(sent.total_price).toBe('4560.000000');
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710.000000', quantity: '3.000' }]);
     });
 
@@ -1627,9 +1616,7 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
 
         await view.find('[data-testid="supplier-quotations-row-edit"]').trigger('click');
         await flushPromises();
-        await view.get('[data-testid="supplier-quotation-form-total-price"]').setValue('5000');
 
-        expect(view.find('[data-testid="supplier-quotation-form-total-price-net"]').exists()).toBe(false);
         expect(view.find('[data-testid="supplier-quotation-line-0-unit-price-net"]').exists()).toBe(true);
 
         await view.get('[data-testid="supplier-quotation-line-0-unit-price"]').setValue('2000');
@@ -1656,7 +1643,7 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
 
         expect(sent.prices_include_tax).toBe(false);
         expect(Object.keys(sent)).not.toContain('included_tax_percents');
-        expect(sent.total_price).toBe('4560.000000');
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(sent.items).toEqual([{ catalog_item_id: 'ci1', unit_price: '1710.000000', quantity: '3.000' }]);
     });
 
@@ -1696,11 +1683,11 @@ describe('the tax-inclusive supplier quotation (D-105)', () => {
         await unread.get('[data-testid="supplier-quotation-form"]').trigger('submit');
         await flushPromises();
 
-        // The stored flag and the entered total, as they were; the lines left alone.
+        // The stored flag as it was; the lines left alone; no total (D-120).
         const sent = sentBody(fetchMock, 'PATCH');
 
         expect(sent.prices_include_tax).toBe(true);
-        expect(sent.total_price).toBe('4560.000000');
+        expect(Object.keys(sent)).not.toContain('total_price');
         expect(Object.keys(sent)).not.toContain('items');
     });
 

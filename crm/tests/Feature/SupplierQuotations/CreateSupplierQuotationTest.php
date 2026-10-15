@@ -21,14 +21,12 @@ use Tests\TestCase;
  * record of it; the route, the Form Request and the response envelope are
  * Point 2.2's.
  *
- * ── The owner's ruling of 2026-09-02, pinned here ──────────────────────────
+ * ── `D-120` (F-50 · 1): the total is computed, never typed ─────────────────
  *
- * **`total_price` is entered by the user.** §7.2 lists it as a field of its
- * own, which permits it to differ from the sum of the lines, and the owner
- * chose that reading over "always computed" and over "typed with a warning".
- * The test below therefore submits a total that does **not** match its lines
- * and asserts the submitted figure survives — a later point that starts
- * summing the lines will turn this red, which is the point of writing it.
+ * It reverses the owner's ruling of 2026-09-02 ("entered by the user"). Every
+ * save sets `total_price` to Σ(`unit_price` × `quantity`) of the offer's lines,
+ * at money scale and truncated (`D-68`); a currency with no line totals 0, no
+ * currency leaves it empty (Point 1.1's CHECK). A total handed in is not kept.
  */
 final class CreateSupplierQuotationTest extends TestCase
 {
@@ -134,23 +132,92 @@ final class CreateSupplierQuotationTest extends TestCase
         self::assertSame(0, DB::table('supplier_quotation_items')->where('supplier_quotation_id', $summary->id)->count());
     }
 
-    // ──────────────────────────────── the owner's ruling on `total_price`
+    // ─────────────────────────────── `D-120`: the total is computed, never typed
+
+    /** D-120: Σ(unit_price × quantity) — 3 × 1500.50 + 2 × 10 = 4521.50, in the answer and in the row. */
+    public function test_that_the_total_is_the_sum_of_the_lines(): void
+    {
+        $summary = $this->create(['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500.50', 'quantity' => '3'],
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '10', 'quantity' => '2'],
+        ]]);
+
+        self::assertSame('4521.500000', $summary->totalPrice);
+        self::assertSame('4521.500000', DB::table('supplier_quotations')->where('id', $summary->id)->value('total_price'));
+    }
 
     /**
-     * Owner's ruling, 2026-09-02: **entered by the user.** The lines below sum
-     * to 4500 and the submitted total is 1; the submitted total is what the row
-     * must hold.
+     * D-120's "truncated as `PricedLine` truncates": each line at money scale,
+     * then summed. 0.000001 × 0.5 is 0.0000005, truncated to 0 per line, so two
+     * such lines total 0.000000; truncating the sum instead would give 0.000001.
      */
-    public function test_that_the_submitted_total_is_not_replaced_by_the_sum_of_the_lines(): void
+    public function test_that_each_line_is_truncated_before_the_sum(): void
+    {
+        $summary = $this->create(['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '0.000001', 'quantity' => '0.5'],
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '0.000001', 'quantity' => '0.5'],
+        ]]);
+
+        self::assertSame('0.000000', $summary->totalPrice);
+    }
+
+    /** D-120 reverses the 2026-09-02 ruling: a total handed to the use case is not what the row holds. */
+    public function test_that_a_handed_total_is_replaced_by_the_sum_of_the_lines(): void
+    {
+        $summary = $this->create(['total_price' => '1.000000']);
+
+        self::assertSame('4500.000000', $summary->totalPrice);
+    }
+
+    /** D-120: a currency with no line totals 0 — Point 1.1's CHECK pairs a currency with a total. */
+    public function test_that_a_currency_with_no_line_totals_zero(): void
+    {
+        $summary = $this->create(['items' => []]);
+
+        self::assertSame('0.000000', $summary->totalPrice);
+    }
+
+    /** D-120: no currency, no total — `(total_price IS NULL) = (currency_id IS NULL)`. */
+    public function test_that_no_currency_leaves_the_total_empty(): void
+    {
+        $summary = $this->create(['currency_id' => null, 'items' => []]);
+
+        self::assertNull($summary->totalPrice);
+    }
+
+    /**
+     * D-120 with D-105: the sum of the stored net lines, 3 × 0.877192 = 2.631576 —
+     * not the net of the typed sum, 3 ÷ 1.14 = 2.631578 — beside the typed sum, 3.
+     */
+    public function test_that_a_tax_inclusive_total_sums_the_net_lines_and_keeps_the_entered_sum(): void
     {
         $summary = $this->create([
-            'total_price' => '1.000000',
+            'prices_include_tax' => true,
+            'included_tax_percents' => ['14'],
             'items' => [
-                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],
+                ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1', 'quantity' => '3'],
             ],
         ]);
 
-        self::assertSame('1.000000', $summary->totalPrice);
+        $header = DB::table('supplier_quotations')->where('id', $summary->id)->first();
+
+        self::assertNotNull($header);
+        self::assertSame('2.631576', $header->total_price);
+        self::assertSame('3.000000', $header->entered_total_price);
+    }
+
+    /** AUD-01: the snapshot holds the total the row holds, the computed one. */
+    public function test_that_the_audit_records_the_computed_total(): void
+    {
+        $summary = $this->create(['total_price' => '1.000000']);
+
+        $values = DB::table('audit_log')
+            ->where('event', 'SUPPLIER_QUOTATION_CREATED')
+            ->where('entity_id', $summary->id)
+            ->value('new_values');
+
+        self::assertIsString($values);
+        self::assertStringContainsString('"total_price": "4500.000000"', $values);
     }
 
     // ─────────────────────────────────────────────────────────────── `AUD-01`
@@ -315,7 +382,6 @@ final class CreateSupplierQuotationTest extends TestCase
         $summary = $this->create([
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1140',
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
             ],
@@ -345,7 +411,6 @@ final class CreateSupplierQuotationTest extends TestCase
         $summary = $this->create([
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1',
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1', 'quantity' => '1'],
             ],
@@ -377,7 +442,6 @@ final class CreateSupplierQuotationTest extends TestCase
         $summary = $this->create([
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1140',
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
             ],
@@ -404,7 +468,6 @@ final class CreateSupplierQuotationTest extends TestCase
 
         return $useCase->create(array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

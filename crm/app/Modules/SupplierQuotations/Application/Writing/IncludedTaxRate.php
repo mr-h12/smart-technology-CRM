@@ -61,10 +61,6 @@ final readonly class IncludedTaxRate
     {
         $refused = [];
 
-        if (! self::amount($draft->attributes['total_price'] ?? null)) {
-            $refused['total_price'] = __('supplier_quotations.errors.not_decimal_text');
-        }
-
         foreach ($draft->items ?? [] as $index => $line) {
             if (! self::amount($line['unit_price'] ?? null)) {
                 $refused["items.{$index}.unit_price"] = __('supplier_quotations.errors.not_decimal_text');

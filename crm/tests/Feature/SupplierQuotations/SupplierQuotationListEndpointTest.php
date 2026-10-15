@@ -659,7 +659,6 @@ final class SupplierQuotationListEndpointTest extends TestCase
     {
         return array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

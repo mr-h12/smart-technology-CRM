@@ -18,7 +18,7 @@ return [
         'not_decimal_text' => 'A tax-inclusive price must be a plain decimal number, such as 114 or 114.50.',
         'no_tax_rate' => 'Type at least one tax rate for prices that include tax.',
         'rates_need_flag' => 'Tax rates are typed only when the prices include tax.',
-        'rates_need_amounts' => 'Send the total and the line prices with the tax rates they include.',
+        'rates_need_amounts' => 'Send the line prices with the tax rates they include.',
         'invalid_request' => 'This request could not be understood.',
     ],
 

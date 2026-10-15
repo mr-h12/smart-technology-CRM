@@ -949,7 +949,7 @@
             "attachmentForbidden": "You do not have permission to attach a file to this offer.",
             "attachmentRejected": "The file was not accepted.",
             "attachmentUnreachable": "The server could not be reached. The file was not attached.",
-            "totalUnavailable": "The currency list could not be loaded, so the total cannot be given a currency right now. The offer can still be saved without a total; try again later.",
+            "totalUnavailable": "The currency list could not be loaded, so a currency cannot be chosen right now; try again later.",
             "forbidden": "You do not have permission to save this offer.",
             "rejected": "The change was not accepted. Review the fields and try again.",
             "unreachable": "The server could not be reached. The offer was not saved.",
@@ -958,7 +958,6 @@
             "discard": "Discard changes",
             "pricesIncludeTax": "Prices include tax",
             "net": "Net before tax: {amount}",
-            "totalPrice": "Total",
             "currency": "Currency",
             "currencyNone": "Choose a currency",
             "pricesIncludeTaxLocked": "Available once the lines have loaded."

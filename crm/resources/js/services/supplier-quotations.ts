@@ -9,10 +9,10 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, collection, type Pagin
  * CEO `view` and no `create`), who may attach (a **third** grant,
  * `upload_attachment`, which the CEO also lacks), and what an offer totals.
  *
- * ── `total_price` is entered, never summed — and never a `number` ──────────
+ * ── `total_price` is the server's sum, never typed — and never a `number` ───
  *
- * The owner's ruling of 2026-09-02: the total is typed by the user, not derived
- * from the lines. So nothing here adds anything up. It is also a `string`:
+ * `D-120`: the server sums the lines on every save and refuses a sent total, so
+ * a draft has no `total_price` and nothing here adds anything up. It is a `string`:
  * `DB-07` forbids floating point anywhere near money and the server sends
  * `4500.000000`, so parsing it to a JavaScript number would reintroduce the
  * float the backend spent `D-68` avoiding.
@@ -118,7 +118,6 @@ export interface SupplierQuotationLineDraft {
 export interface SupplierQuotationDraft {
     supplier_id?: string;
     deal_id?: string | null;
-    total_price?: string | null;
     currency_id?: string | null;
     offer_date?: string | null;
     valid_until?: string | null;

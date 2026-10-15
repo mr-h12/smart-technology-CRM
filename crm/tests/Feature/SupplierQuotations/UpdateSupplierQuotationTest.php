@@ -312,6 +312,76 @@ final class UpdateSupplierQuotationTest extends TestCase
 
     // ───────────────────────────────────────────────────────────────── helpers
 
+    /** D-120: an edit that replaces the lines replaces the total — 2 × 100 = 200, not the 4500 it had. */
+    public function test_that_an_edit_of_the_lines_recomputes_the_total(): void
+    {
+        $offer = $this->create();
+
+        $this->update($offer->id, ['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '100', 'quantity' => '2'],
+        ]]);
+
+        self::assertSame('200.000000', DB::table('supplier_quotations')->where('id', $offer->id)->value('total_price'));
+    }
+
+    /** AUD-01 with D-120: the total moves with the lines, so the edit's audit row carries it both ways. */
+    public function test_that_the_audit_records_the_total_an_edit_of_the_lines_moved(): void
+    {
+        $offer = $this->create();
+
+        $this->update($offer->id, ['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '100', 'quantity' => '2'],
+        ]]);
+
+        $row = DB::table('audit_log')->where('event', 'SUPPLIER_QUOTATION_UPDATED')->where('entity_id', $offer->id)->first();
+
+        self::assertNotNull($row);
+        self::assertIsString($row->old_values);
+        self::assertIsString($row->new_values);
+        self::assertStringContainsString('"total_price": "4500.000000"', $row->old_values);
+        self::assertStringContainsString('"total_price": "200.000000"', $row->new_values);
+    }
+
+    /** D-120 with D-105 on an edit: the sum of the stored nets, 3 × 0.877192 = 2.631576, beside the typed 3. */
+    public function test_that_an_edit_sums_the_net_lines_of_a_flagged_offer(): void
+    {
+        $offer = $this->create($this->taxInclusive());
+
+        $this->update($offer->id, array_merge($this->taxInclusive(), ['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1', 'quantity' => '3'],
+        ]]));
+
+        $header = DB::table('supplier_quotations')->where('id', $offer->id)->first();
+
+        self::assertNotNull($header);
+        self::assertSame('2.631576', $header->total_price);
+        self::assertSame('3.000000', $header->entered_total_price);
+    }
+
+    /** AUD-01: an edit that leaves the lines alone moves no total, so its audit row names none. */
+    public function test_that_a_header_only_edit_records_no_total(): void
+    {
+        $offer = $this->create();
+
+        $this->update($offer->id, ['notes' => 'Revised']);
+
+        $row = DB::table('audit_log')->where('event', 'SUPPLIER_QUOTATION_UPDATED')->where('entity_id', $offer->id)->first();
+
+        self::assertNotNull($row);
+        self::assertIsString($row->new_values);
+        self::assertStringNotContainsString('total_price', $row->new_values);
+    }
+
+    /** D-120: an edit that only names a currency gives an offer with no line a total of 0 (Point 1.1's CHECK). */
+    public function test_that_adding_a_currency_to_an_offer_without_lines_totals_zero(): void
+    {
+        $offer = $this->create(['currency_id' => null, 'items' => []]);
+
+        $this->update($offer->id, ['currency_id' => $this->currencyId]);
+
+        self::assertSame('0.000000', DB::table('supplier_quotations')->where('id', $offer->id)->value('total_price'));
+    }
+
     /** @return array<string, mixed> 114 a unit, 1140 in all, entered tax-inclusive at 14 %. */
     private function taxInclusive(): array
     {
@@ -319,7 +389,6 @@ final class UpdateSupplierQuotationTest extends TestCase
             'supplier_id' => $this->supplierId,
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1140',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10'],
@@ -346,7 +415,6 @@ final class UpdateSupplierQuotationTest extends TestCase
 
         return $useCase->create(array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

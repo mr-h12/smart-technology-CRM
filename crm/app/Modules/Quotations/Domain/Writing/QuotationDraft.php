@@ -31,9 +31,8 @@ namespace App\Modules\Quotations\Domain\Writing;
  * the Form Request in front of it never validates them, so `forCreate()` never
  * sees them in a caller's payload.
  *
- * This is the same division Module 6 drew and the opposite outcome, because the
- * rule is different: `supplier_quotations.total_price` is user-entered by the
- * owner's ruling of 2026-09-02, and none of these is.
+ * Module 6 now draws the same line: since `D-120` a supplier offer's
+ * `total_price` is computed from its lines and never a caller's either.
  *
  * ── One named constructor, not two ────────────────────────────────────────
  *

@@ -54,11 +54,13 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
         $row->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();
         $row->created_by = $actorId;
         $row->updated_by = $actorId;
+        self::holdTotal($row);
         $row->save();
 
         $this->writeLines($row->id, $draft->items ?? [], $actorId);
+        $this->writeTotals($row->id);
 
-        return self::hydrate($row);
+        return self::hydrate($row->refresh());
     }
 
     /**
@@ -80,13 +82,58 @@ final readonly class EloquentSupplierQuotationDirectory implements SupplierQuota
 
         $row->fill($draft->attributes);
         $row->updated_by = $actorId;
+        self::holdTotal($row);
         $row->save();
 
         if ($draft->items !== null) {
             $this->replaceLines($row->id, $draft->items, $actorId);
         }
 
+        $this->writeTotals($row->id);
+
         return self::hydrate($row->refresh());
+    }
+
+    /**
+     * `D-120`: the CHECK `(total_price IS NULL) = (currency_id IS NULL)` is
+     * checked on this very `save()`, before the lines exist to be summed — so a
+     * header with a currency holds 0 until {@see writeTotals()} replaces it in
+     * the same transaction. Never a caller's figure: the draft has no
+     * `total_price`.
+     */
+    private static function holdTotal(SupplierQuotation $row): void
+    {
+        $row->total_price = $row->currency_id === null ? null : ($row->total_price ?? '0');
+    }
+
+    /**
+     * `D-120`: the total is Σ(`unit_price` × `quantity`) over the live lines,
+     * each line truncated at money scale before the sum, as `PricedLine`
+     * truncates (`D-68`). PostgreSQL sums the stored NUMERICs
+     * exactly, so a line that arrived as a JSON number never meets BCMath here.
+     * Tax-inclusive (`D-105`, `D-118`): `total_price` sums the net lines and
+     * `entered_total_price` the lines as typed; unflagged, the latter is empty.
+     * No currency, no total; a currency and no line, 0.
+     */
+    private function writeTotals(string $quotationId): void
+    {
+        $this->connection->update(
+            <<<'SQL'
+                UPDATE supplier_quotations q SET
+                    total_price = CASE WHEN q.currency_id IS NULL THEN NULL
+                        ELSE coalesce(s.net, 0) END,
+                    entered_total_price = CASE WHEN q.currency_id IS NULL OR NOT q.prices_include_tax THEN NULL
+                        ELSE coalesce(s.entered, 0) END
+                FROM (
+                    SELECT sum(trunc(unit_price * quantity, 6)) AS net,
+                           sum(trunc(coalesce(entered_unit_price, unit_price) * quantity, 6)) AS entered
+                    FROM supplier_quotation_items
+                    WHERE supplier_quotation_id = ? AND deleted_at IS NULL
+                ) s
+                WHERE q.id = ?
+                SQL,
+            [$quotationId, $quotationId],
+        );
     }
 
     /**

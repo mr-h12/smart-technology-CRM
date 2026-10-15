@@ -18,20 +18,18 @@
  * a supplied one with `prohibited`. A control for it could only build a
  * request that cannot succeed. (`Line items` are Point 6.4's, below.)
  *
- * ── The total and the currency: one pair, and the server holds the rule ────
+ * ── The currency is typed; the total is the server's (`D-120`) ─────────────
  *
- * Point 1.1 put `CHECK ((total_price IS NULL) = (currency_id IS NULL))` on the
- * table and `SaveSupplierQuotationRequest` mirrors it with `required_with` in
- * both directions. This form does not re-state that rule: a half-filled pair
- * is the server's 422, landing on the field it names. `currency_id` is a uuid,
+ * The server sums the lines into `total_price` on every save and refuses a
+ * sent one, so this form has no total input and never names the key; the list
+ * shows the server's figure. `currency_id` is a uuid,
  * offered as a closed `<select>` from `GET /currencies` — readable since D-80
  * by `currency.view`, the §3.6 create/edit set, and carrying each row's `id`.
  * The list is best-effort like the catalog: if it cannot be loaded the form
  * says so where the select is and the rest still works.
  *
- * Both keys are **always in the body** (`""` → `null`), so blanking them on an
- * edit clears the offer's total on purpose, and an untouched edit re-sends the
- * pair it was opened with.
+ * `currency_id` is **always in the body** (`""` → `null`), and an untouched
+ * edit re-sends the one it was opened with.
  *
  * ── A form-level refusal is a key; a field refusal is the server's sentence ─
  *
@@ -86,7 +84,7 @@ const form = ref<HTMLFormElement | null>(null);
 useModalDialog(dialog);
 
 /** The fields a server refusal can name, which are the inputs this form has. */
-const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'total_price', 'currency_id', 'prices_include_tax'] as const;
+const FIELDS = ['supplier_id', 'deal_id', 'offer_date', 'valid_until', 'notes', 'currency_id', 'prices_include_tax'] as const;
 
 type Field = (typeof FIELDS)[number];
 
@@ -95,7 +93,7 @@ type Values = Record<Exclude<Field, 'prices_include_tax'>, string> & { prices_in
 
 /** "" is "not given" for every one of them; `draft()` turns that into `null`. */
 function blank(): Values {
-    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '', total_price: '', currency_id: '', prices_include_tax: false };
+    return { supplier_id: '', deal_id: '', offer_date: '', valid_until: '', notes: '', currency_id: '', prices_include_tax: false };
 }
 
 const values = ref<Values>(blank());
@@ -221,15 +219,6 @@ const removing = ref<SupplierQuotationDocument | null>(null);
 const removeBusy = ref(false);
 
 const isEdit = computed(() => props.editing !== null);
-
-/** D-105: the server's net for the total, while the flag and the total are as opened. */
-const totalNet = computed(() => {
-    const record = props.editing;
-
-    return record?.prices_include_tax === true && values.value.prices_include_tax && values.value.total_price === opened.value.total_price
-        ? displayDecimals(record.total_price)
-        : null;
-});
 
 const dirty = computed(() => FIELDS.some((field) => values.value[field] !== opened.value[field])
     || JSON.stringify(lines.value) !== openedLines.value
@@ -376,9 +365,6 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
         next.offer_date = record.offer_date ?? '';
         next.valid_until = record.valid_until ?? '';
         next.notes = record.notes ?? '';
-        // Strings as sent (`4500.000000`), never parsed: DB-07. D-105: the
-        // amount as entered, so a re-save strips from it, never twice.
-        next.total_price = (record.prices_include_tax ? record.entered_total_price : record.total_price) ?? '';
         next.prices_include_tax = record.prices_include_tax;
         next.currency_id = record.currency_id ?? '';
     }
@@ -550,12 +536,11 @@ function items(): SupplierQuotationLineDraft[] {
  * `SaveSupplierQuotationRequest` would answer it with a 422 anyway.
  * `supplier_id` is the exception: it is required, so it is always a string.
  *
- * `total_price` and `currency_id` are always named — see the header.
+ * `currency_id` is always named, and `total_price` never — see the header.
  */
 function draft(): SupplierQuotationDraft {
     const current = values.value;
     const notes = current.notes.trim();
-    const total = current.total_price.trim();
 
     const header: SupplierQuotationDraft = {
         supplier_id: current.supplier_id,
@@ -563,7 +548,6 @@ function draft(): SupplierQuotationDraft {
         offer_date: current.offer_date === '' ? null : current.offer_date,
         valid_until: current.valid_until === '' ? null : current.valid_until,
         notes: notes === '' ? null : notes,
-        total_price: total === '' ? null : total,
         currency_id: current.currency_id === '' ? null : current.currency_id,
         // Always named, with every amount beside it: a bare flag would leave
         // the stored amounts meaning something else (F-39 · 1.3's debt row).
@@ -891,41 +875,8 @@ function discard(): void {
                 </div>
             </div>
 
-            <!-- §7.2's total and currency — one pair; the server says when one
-                 is missing (`required_with`). `inputmode`, not `type="number"`:
-                 the value is a decimal string at `D-68`'s scale (`DB-07`). -->
+            <!-- §7.2's currency; the total is computed by the server (`D-120`). -->
             <div class="flex flex-wrap gap-3">
-                <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId('total_price')">
-                    <span>{{ t('supplierQuotations.form.totalPrice') }}</span>
-                    <input
-                        :id="fieldId('total_price')"
-                        v-model="values.total_price"
-                        type="text"
-                        inputmode="decimal"
-                        autocomplete="off"
-                        :disabled="saving"
-                        :aria-invalid="errorFor('total_price') !== null"
-                        :aria-describedby="errorId('total_price')"
-                        class="form-field min-h-11 rounded-lg px-3 py-2 text-end tabular-nums"
-                        :data-testid="testId('total_price')"
-                    />
-                    <span
-                        v-if="totalNet !== null"
-                        class="text-[var(--color-text-muted)] tabular-nums"
-                        data-testid="supplier-quotation-form-total-price-net"
-                    >
-                        {{ t('supplierQuotations.form.net', { amount: totalNet }) }}
-                    </span>
-                    <span
-                        v-if="errorFor('total_price') !== null"
-                        :id="errorId('total_price')"
-                        class="text-[var(--color-danger)]"
-                        data-testid="supplier-quotation-form-total-price-error"
-                    >
-                        {{ errorFor('total_price') }}
-                    </span>
-                </label>
-
                 <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId('currency_id')">
                     <span>{{ t('supplierQuotations.form.currency') }}</span>
                     <select

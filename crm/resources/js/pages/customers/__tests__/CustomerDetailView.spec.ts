@@ -939,3 +939,155 @@ describe('CustomerDetailView — D-114 requests and quotations', () => {
         expect(reader.find('[data-testid="deal-status-next"]').exists()).toBe(false);
     });
 });
+
+/**
+ * `D-123` (F-50 · 4): a holder of `customer.change_status` sets the status by
+ * hand with a required reason; «عميل» is never set and never left by hand; the
+ * page says when a status was set by hand, and why.
+ */
+describe('CustomerDetailView — D-123 a status set by hand', () => {
+    const CHANGER: AuthenticatedUser = { ...VIEWER, permissions: ['customer.view.own', 'customer.change_status.own'] };
+    const PROSPECT = { ...CUSTOMER, customer_status: 'prospect', status_reason: null };
+
+    function stubStatus(answer: () => Response = () => json(200, {
+        data: { ...PROSPECT, customer_status: 'no_response', status_reason: 'Three calls unanswered.' },
+        meta: {},
+    }), record: unknown = PROSPECT): ReturnType<typeof vi.fn> {
+        const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+            if (String(url).includes('/managed-lists/') || /\/notes(\?|$)/.test(String(url))) {
+                return json(200, { data: [], meta: { pagination: PAGINATION } });
+            }
+
+            if (/\/customers\/c1\/status$/.test(String(url)) && init?.method === 'PATCH') {
+                return answer();
+            }
+
+            return json(200, { data: record, meta: {} });
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        return fetchMock;
+    }
+
+    function statusCalls(fetchMock: ReturnType<typeof vi.fn>): Array<[string, RequestInit]> {
+        return (fetchMock.mock.calls as Array<[string, RequestInit]>).filter((c) => /\/customers\/c1\/status$/.test(String(c[0])));
+    }
+
+    async function openDialog(view: Awaited<ReturnType<typeof render>>): Promise<void> {
+        await view.find('[data-testid="customer-status-change"]').trigger('click');
+        await flushPromises();
+    }
+
+    it('sets the status through its own route with the reason, and shows it was set by hand', async () => {
+        const fetchMock = stubStatus();
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        await openDialog(view);
+        await view.find('[data-testid="customer-status-select"]').setValue('no_response');
+        await view.find('[data-testid="customer-status-reason"]').setValue('Three calls unanswered.');
+        await view.find('[data-testid="customer-status-form"]').trigger('submit');
+        await flushPromises();
+
+        const [url, init] = statusCalls(fetchMock)[0] ?? ['', {}];
+        expect(url).toContain('/customers/c1/status');
+        expect(init.method).toBe('PATCH');
+        expect(JSON.parse(String(init.body))).toEqual({ status: 'no_response', reason: 'Three calls unanswered.' });
+
+        expect(view.find('[data-testid="customer-status-form"]').exists()).toBe(false);
+        expect(view.find('[data-testid="customer-detail-status"]').text()).toContain(en.customers.status.no_response);
+        expect(view.find('[data-testid="customer-detail-status-manual"]').text()).toContain('Three calls unanswered.');
+        expect(view.find('[data-testid="customer-detail-status-reason"]').exists()).toBe(false);
+    });
+
+    /** «عميل» is never a choice, and the current status is not offered again. */
+    it('offers only the hand-settable statuses other than the current one', async () => {
+        stubStatus();
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        await openDialog(view);
+
+        const values = view.findAll('[data-testid="customer-status-select"] option')
+            .map((o) => (o.element as HTMLOptionElement).value)
+            .filter((v) => v !== '');
+        expect(values).toEqual(['no_response', 'deal_not_completed']);
+    });
+
+    it('refuses a blank reason without asking the server', async () => {
+        const fetchMock = stubStatus();
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        await openDialog(view);
+        await view.find('[data-testid="customer-status-select"]').setValue('no_response');
+        await view.find('[data-testid="customer-status-reason"]').setValue('   ');
+        await view.find('[data-testid="customer-status-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(statusCalls(fetchMock)).toHaveLength(0);
+        expect(view.find('[data-testid="customer-status-reason-error"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customer-status-form"]').exists()).toBe(true);
+    });
+
+    it('keeps the dialog open and says so when the server refuses', async () => {
+        stubStatus(() => json(422, {
+            error: { code: 'validation_failed', message: 'no', details: [{ field: 'status', message: 'no' }] },
+        }));
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        await openDialog(view);
+        await view.find('[data-testid="customer-status-select"]').setValue('no_response');
+        await view.find('[data-testid="customer-status-reason"]').setValue('Three calls unanswered.');
+        await view.find('[data-testid="customer-status-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-status-error"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customer-status-form"]').exists()).toBe(true);
+        expect(view.find('[data-testid="customer-detail-status"]').text()).toContain(en.customers.status.prospect);
+    });
+
+    /** §3.3's own row: without it there is no button, and «عميل» offers none either (`D-49`). */
+    it('draws the button only for customer.change_status, and never on a customer', async () => {
+        stubStatus();
+        const changer = await render(CHANGER);
+        await flushPromises();
+        expect(changer.find('[data-testid="customer-status-change"]').text()).toBe(en.customers.statusChange.open);
+
+        vi.restoreAllMocks();
+        useAuth().forgetSession();
+        stubStatus();
+        const editor = await render(EDITOR);
+        await flushPromises();
+        expect(editor.find('[data-testid="customer-status-change"]').exists()).toBe(false);
+
+        vi.restoreAllMocks();
+        useAuth().forgetSession();
+        stubStatus(undefined, { ...CUSTOMER, status_reason: null });
+        const customer = await render(CHANGER);
+        await flushPromises();
+        expect(customer.find('[data-testid="customer-status-change"]').exists()).toBe(false);
+    });
+
+    it('says a status was set by hand, with its reason, on load', async () => {
+        stubStatus(undefined, { ...PROSPECT, customer_status: 'deal_not_completed', status_reason: 'Chose a competitor.' });
+        const view = await render(VIEWER);
+        await flushPromises();
+
+        const manual = view.find('[data-testid="customer-detail-status-manual"]');
+        expect(manual.text()).toContain(en.customers.statusChange.setByHand);
+        expect(manual.text()).toContain('Chose a competitor.');
+        expect(view.find('[data-testid="customer-detail-status-reason"]').exists()).toBe(false);
+    });
+
+    it('labels the button «تغيير الحالة» in Arabic', async () => {
+        stubStatus();
+        const view = await render(CHANGER, 'c1', 'ar');
+        await flushPromises();
+
+        expect(view.find('[data-testid="customer-status-change"]').text()).toBe('تغيير الحالة');
+        expect(ar.customers.statusChange.open).toBe('تغيير الحالة');
+    });
+});

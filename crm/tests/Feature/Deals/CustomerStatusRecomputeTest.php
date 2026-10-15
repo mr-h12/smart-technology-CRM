@@ -231,4 +231,49 @@ final class CustomerStatusRecomputeTest extends TestCase
 
         self::assertSame('prospect', $this->customerStatus($customerId));
     }
+
+    // ─────────────────────────────── D-123: a status set by hand
+
+    /** D-123 (a): a new deal's first status is a deal moving, so it clears the hand-set status. */
+    public function test_that_a_new_deal_clears_a_status_set_by_hand(): void
+    {
+        $customerId = $this->customer();
+        DB::table('customers')->where('id', $customerId)->update(['customer_status' => 'no_response', 'status_reason' => 'Set by hand.']);
+
+        $this->postJson(self::DEALS, [
+            'customer_id' => $customerId,
+            'source' => 'employee_entry',
+        ], $this->bearerFor(RoleName::Manager))->assertStatus(201);
+
+        self::assertSame('prospect', $this->customerStatus($customerId));
+        self::assertNull(DB::table('customers')->where('id', $customerId)->value('status_reason'));
+    }
+
+    public function test_that_a_deal_status_change_clears_a_status_set_by_hand(): void
+    {
+        $customerId = $this->customer();
+        $dealId = $this->seedDeal($customerId, ['status' => 'quotation_sent']);
+        DB::table('customers')->where('id', $customerId)->update(['customer_status' => 'no_response', 'status_reason' => 'Set by hand.']);
+
+        self::assertTrue(app(DealOutcomeInterface::class)->quotationRejected($dealId, 'Chose a competitor', $this->userWith(RoleName::Manager)->id));
+
+        self::assertSame('deal_not_completed', $this->customerStatus($customerId));
+        self::assertNull(DB::table('customers')->where('id', $customerId)->value('status_reason'));
+    }
+
+    /** The derived status equals the hand-set one: the reason is still cleared. */
+    public function test_that_a_deal_move_clears_the_reason_even_when_the_status_is_unchanged(): void
+    {
+        $customerId = $this->customer();
+        $this->seedDeal($customerId, ['status' => 'lead']);
+        DB::table('customers')->where('id', $customerId)->update(['customer_status' => 'prospect', 'status_reason' => 'Set by hand.']);
+
+        $this->postJson(self::DEALS, [
+            'customer_id' => $customerId,
+            'source' => 'employee_entry',
+        ], $this->bearerFor(RoleName::Manager))->assertStatus(201);
+
+        self::assertSame('prospect', $this->customerStatus($customerId));
+        self::assertNull(DB::table('customers')->where('id', $customerId)->value('status_reason'));
+    }
 }

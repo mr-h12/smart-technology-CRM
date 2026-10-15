@@ -221,4 +221,22 @@ final class RecomputeStaleCustomerStatusesTest extends TestCase
 
         Queue::assertPushedOn(QueueName::Maintenance->value, RecomputeStaleCustomerStatusesJob::class);
     }
+
+    /** D-123: the nightly correction leaves a status set by hand alone. */
+    public function test_that_a_status_set_by_hand_is_left_alone(): void
+    {
+        $this->app->make(SystemLimitRepositoryInterface::class)->put(SystemLimit::StaleDealDays, '5');
+
+        $customerId = $this->customer();
+        $this->seedDeal($customerId, [
+            'status' => 'negotiations',
+            'last_activity_at' => now()->subDays(30),
+        ]);
+        DB::table('customers')->where('id', $customerId)->update(['customer_status' => 'deal_not_completed', 'status_reason' => 'Set by hand.']);
+
+        $this->app->make(RecomputeStaleCustomerStatuses::class)->run();
+
+        self::assertSame('deal_not_completed', $this->customerStatus($customerId));
+        self::assertSame('Set by hand.', DB::table('customers')->where('id', $customerId)->value('status_reason'));
+    }
 }

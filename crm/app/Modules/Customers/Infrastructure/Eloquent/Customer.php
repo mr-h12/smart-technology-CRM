@@ -32,6 +32,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $phone2
  * @property string|null $whatsapp
  * @property string|null $email
+ * @property string|null $location_url
+ * @property string|null $website_url
+ * @property string|null $social_url_1
+ * @property string|null $social_url_2
+ * @property string|null $social_url_3
  * @property string|null $sales_owner_id
  * @property \Illuminate\Support\Carbon|null $start_date
  * @property string|null $notes
@@ -45,7 +50,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'name', 'sector', 'region', 'contact_person', 'contact_title', 'phone', 'phone2',
-    'whatsapp', 'email', 'sales_owner_id', 'start_date', 'notes',
+    'whatsapp', 'email', 'location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3',
+    'sales_owner_id', 'start_date', 'notes',
     'is_archived', 'is_incomplete',
 ])]
 class Customer extends Model

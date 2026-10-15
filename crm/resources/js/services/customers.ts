@@ -34,6 +34,12 @@ export interface Customer {
     phone2: string | null;
     whatsapp: string | null;
     email: string | null;
+    /** `D-121`: optional links, http(s) only. */
+    location_url: string | null;
+    website_url: string | null;
+    social_url_1: string | null;
+    social_url_2: string | null;
+    social_url_3: string | null;
     sales_owner_id: string | null;
     start_date: string | null;
     notes: string | null;
@@ -96,6 +102,11 @@ export interface CustomerDraft {
     phone2?: string | null;
     whatsapp?: string | null;
     email?: string | null;
+    location_url?: string | null;
+    website_url?: string | null;
+    social_url_1?: string | null;
+    social_url_2?: string | null;
+    social_url_3?: string | null;
     start_date?: string | null;
     notes?: string | null;
     /** Create only. `PATCH` refuses it — §3.3 makes `assign` its own permission. */

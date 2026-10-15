@@ -64,6 +64,8 @@ final class SaveCustomerRequest extends FormRequest
             'phone2' => ['nullable', 'string', 'max:32'],
             'whatsapp' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:255'],
+            // `D-121`: http(s) only, so a `javascript:` link never reaches an `href`.
+            ...array_fill_keys(CustomerDraft::LINKS, ['nullable', 'string', 'max:2048', 'url:http,https']),
             'start_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
 

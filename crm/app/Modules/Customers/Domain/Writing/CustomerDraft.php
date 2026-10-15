@@ -38,6 +38,12 @@ final readonly class CustomerDraft
     ];
 
     /**
+     * `D-121`'s five links. Kept out of `WRITABLE` because `CustomerCsv` takes
+     * its columns from there, and `D-121` keeps the links out of the import.
+     */
+    public const LINKS = ['location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3'];
+
+    /**
      * The fields whose absence makes a saved row incomplete (`D-87` ruling 1:
      * the core five, not §4.2's ten), read by the importer that sets the flag
      * and by the edit that clears it, so the two cannot disagree on what
@@ -48,7 +54,7 @@ final readonly class CustomerDraft
     /** @return list<string> */
     public static function writableOnCreate(): array
     {
-        return [...self::WRITABLE, 'sales_owner_id'];
+        return [...self::WRITABLE, ...self::LINKS, 'sales_owner_id'];
     }
 
     /** @param  array<string, mixed>  $attributes  already validated at the boundary */
@@ -63,7 +69,7 @@ final readonly class CustomerDraft
     /** @param  array<string, mixed>  $validated */
     public static function forUpdate(array $validated): self
     {
-        return new self(self::only($validated, self::WRITABLE));
+        return new self(self::only($validated, [...self::WRITABLE, ...self::LINKS]));
     }
 
     /**

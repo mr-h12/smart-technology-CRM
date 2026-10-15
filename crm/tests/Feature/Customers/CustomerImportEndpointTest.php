@@ -567,6 +567,16 @@ final class CustomerImportEndpointTest extends TestCase
         $this->assertDatabaseCount('customers', 0);
     }
 
+    /** `D-121`: the links are not read by the import, so a link column is as unknown as any other. */
+    public function test_that_a_link_column_is_refused_like_any_unknown_column(): void
+    {
+        $this->import(self::HEADER.",website_url\n".self::COMPLETE.',javascript:alert(1)')
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'file');
+
+        $this->assertDatabaseCount('customers', 0);
+    }
+
     public function test_that_a_file_without_a_name_column_is_refused(): void
     {
         $this->import("sector,region\nMedical,Cairo")

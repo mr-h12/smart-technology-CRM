@@ -78,15 +78,28 @@ useModalDialog(dialog);
  */
 const FIELDS = [
     'name', 'sector', 'region', 'contact_title', 'contact_person',
-    'phone', 'phone2', 'whatsapp', 'email', 'start_date', 'notes',
+    'phone', 'phone2', 'whatsapp', 'email',
+    'location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3',
+    'start_date', 'notes',
 ] as const;
 
 type Field = (typeof FIELDS)[number];
 
+/** `D-121`'s five links, drawn alike: one input each, `http(s)` checked by the server. */
+const LINK_FIELDS = [
+    { field: 'location_url', label: 'customers.form.locationUrl' },
+    { field: 'website_url', label: 'customers.form.websiteUrl' },
+    { field: 'social_url_1', label: 'customers.form.socialUrl1' },
+    { field: 'social_url_2', label: 'customers.form.socialUrl2' },
+    { field: 'social_url_3', label: 'customers.form.socialUrl3' },
+] as const;
+
 function blank(): Record<Field, string> {
     return {
         name: '', sector: '', region: '', contact_title: '', contact_person: '',
-        phone: '', phone2: '', whatsapp: '', email: '', start_date: '', notes: '',
+        phone: '', phone2: '', whatsapp: '', email: '',
+        location_url: '', website_url: '', social_url_1: '', social_url_2: '', social_url_3: '',
+        start_date: '', notes: '',
     };
 }
 
@@ -612,6 +625,28 @@ function discard(): void {
                     />
                     <span v-if="errorFor('email') !== null" :id="errorId('email')" class="text-[var(--color-danger)]" data-testid="customer-form-email-error">
                         {{ errorFor('email') }}
+                    </span>
+                </label>
+
+                <!-- `D-121`: optional links; the server refuses anything but http(s). -->
+                <label v-for="link in LINK_FIELDS" :key="link.field" class="flex flex-col gap-1.5" :for="fieldId(link.field)">
+                    <span>{{ t(link.label) }}</span>
+                    <input
+                        :id="fieldId(link.field)"
+                        v-model="values[link.field]"
+                        type="url"
+                        inputmode="url"
+                        dir="ltr"
+                        maxlength="2048"
+                        autocomplete="off"
+                        :disabled="saving"
+                        :aria-invalid="errorFor(link.field) !== null"
+                        :aria-describedby="errorId(link.field)"
+                        class="form-field min-h-11 rounded-lg px-3 py-2"
+                        :data-testid="testId(link.field)"
+                    />
+                    <span v-if="errorFor(link.field) !== null" :id="errorId(link.field)" class="text-[var(--color-danger)]">
+                        {{ errorFor(link.field) }}
                     </span>
                 </label>
             </fieldset>

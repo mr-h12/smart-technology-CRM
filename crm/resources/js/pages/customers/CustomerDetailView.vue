@@ -108,11 +108,18 @@ const id = computed(() => String(route.params.id ?? ''));
  * The contact person is drawn above them: `D-104` prints it with its title.
  */
 const CONTACT_FIELDS = [
-    { key: 'phone', label: 'customers.column.phone', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}` },
-    { key: 'phone2', label: 'customers.form.phone2', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}` },
+    { key: 'phone', label: 'customers.column.phone', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}`, newTab: false },
+    { key: 'phone2', label: 'customers.form.phone2', href: (value: string) => `tel:${value.replace(/[^\d+]/g, '')}`, newTab: false },
     // wa.me takes the international number as digits only.
-    { key: 'whatsapp', label: 'customers.form.whatsapp', href: (value: string) => `https://wa.me/${value.replace(/\D/g, '')}` },
-    { key: 'email', label: 'customers.form.email', href: (value: string) => `mailto:${value}` },
+    { key: 'whatsapp', label: 'customers.form.whatsapp', href: (value: string) => `https://wa.me/${value.replace(/\D/g, '')}`, newTab: false },
+    { key: 'email', label: 'customers.form.email', href: (value: string) => `mailto:${value}`, newTab: false },
+    // `D-121`: a site opens in a new tab and never gets this page (`noopener noreferrer`).
+    // The server stored only http(s), so the value is the href as it is.
+    { key: 'location_url', label: 'customers.form.locationUrl', href: (value: string) => value, newTab: true },
+    { key: 'website_url', label: 'customers.form.websiteUrl', href: (value: string) => value, newTab: true },
+    { key: 'social_url_1', label: 'customers.form.socialUrl1', href: (value: string) => value, newTab: true },
+    { key: 'social_url_2', label: 'customers.form.socialUrl2', href: (value: string) => value, newTab: true },
+    { key: 'social_url_3', label: 'customers.form.socialUrl3', href: (value: string) => value, newTab: true },
 ] as const;
 
 async function load(): Promise<void> {
@@ -350,9 +357,16 @@ onMounted(async () => {
                     <div v-for="field in CONTACT_FIELDS" :key="field.key" class="flex flex-col">
                         <dt class="text-[var(--color-text-muted)]">{{ t(field.label) }}</dt>
                         <!-- A-07: numbers and addresses keep their order inside Arabic text. -->
-                        <dd class="tabular-nums">
+                        <dd class="tabular-nums" :data-testid="field.newTab ? `customer-link-${field.key}` : undefined">
                             <!-- A-54: one tap opens the phone, WhatsApp or mail app. -->
-                            <a v-if="customer[field.key]" :href="field.href(customer[field.key] ?? '')" dir="ltr" class="row-link">{{ customer[field.key] }}</a>
+                            <a
+                                v-if="customer[field.key]"
+                                :href="field.href(customer[field.key] ?? '')"
+                                :target="field.newTab ? '_blank' : undefined"
+                                :rel="field.newTab ? 'noopener noreferrer' : undefined"
+                                dir="ltr"
+                                :class="['row-link', { 'break-all': field.newTab }]"
+                            >{{ customer[field.key] }}</a>
                             <template v-else>—</template>
                         </dd>
                     </div>

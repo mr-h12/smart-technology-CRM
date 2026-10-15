@@ -1886,6 +1886,21 @@ would hide them behind `OD-03` indefinitely.
       every `.primary-action` base rule equals the global `.create-action` (`QuotationPdfPanel.vue` and
       `ManagedListsView.vue` also add hover/active states the global lacks). Deleting the copies, or
       keeping DealsView's, is the owner's call.
+- [ ] **Slice 2's receiving side has five open test and guard gaps** — *revealed by Module 13 slice 2 · 2.3's
+      permission-matrix audit, 2026-10-16; the owner chose the register over this slice.* No blocking
+      defect was found; the routes match §3.10's rows and only a recipient reaches a received report (404 otherwise).
+      1. **Not awaiting an answer is untested.** `ReportWriteRefused::notAwaitingAnswer()`
+         (`report_not_awaiting_answer`) has no test: acknowledge twice, return an acknowledged report,
+         acknowledge a returned one (`grep -rn not_awaiting_answer crm/tests` → 0).
+      2. **The Team Leader and the Outdoor Supervisor are never exercised** in `ReportReceiveEndpointTest`
+         (0 hits). One test that a non-recipient TL/OutSup gets 404 on show, acknowledge and return.
+      3. **The audit values are unasserted.** `assertAudited` checks the entry and its user only, not
+         `old_values`/`new_values`, nor the return reason inside the audit payload.
+      4. **Nothing but submit keeps an author off their own recipient list.** `reachReceived` does not
+         refuse `actorId === authorId`, and no DB constraint does. No path creates such a row today.
+      5. **The Team and Out scopes narrow nothing yet** (`D-129`, the `ponytail:` comment in
+         `ReportAccess.php`). Recipient rows are the only barrier; re-audit when teams land.
+      **The cost, stated:** a regression in 1–3 would pass the suite; 4 and 5 widen nothing today.
 
 ## Agent guide revisions — owner-directed
 

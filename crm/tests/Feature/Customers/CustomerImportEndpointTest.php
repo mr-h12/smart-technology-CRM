@@ -214,7 +214,26 @@ final class CustomerImportEndpointTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('data.row_count', 1);
 
-        $this->assertDatabaseHas('customers', ['name' => 'Alpha Trading', 'notes' => "first\nsecond"]);
+        // `D-122`, ruling (a): an imported `notes` becomes the row's first, undated note.
+        $id = DB::table('customers')->where('name', 'Alpha Trading')->value('id');
+        $this->assertDatabaseHas('customer_notes', ['customer_id' => $id, 'body' => "first\nsecond", 'note_date' => null]);
+    }
+
+    /** `D-122` (a): a blank `notes` cell makes no note, and each row's note is its own. */
+    public function test_that_an_imported_notes_cell_becomes_the_rows_first_note(): void
+    {
+        $this->import(self::HEADER."
+".self::COMPLETE."
+Beta Trading,,,,,,,,,   ")
+            ->assertStatus(201)
+            ->assertJsonPath('data.imported_count', 2);
+
+        $alpha = DB::table('customers')->where('name', 'Alpha Trading')->value('id');
+        $beta = DB::table('customers')->where('name', 'Beta Trading')->value('id');
+
+        $this->assertDatabaseHas('customer_notes', ['customer_id' => $alpha, 'body' => 'ok', 'note_date' => null]);
+        self::assertSame(1, DB::table('customer_notes')->where('customer_id', $alpha)->count());
+        self::assertSame(0, DB::table('customer_notes')->where('customer_id', $beta)->count());
     }
 
     public function test_that_a_header_only_file_imports_nothing_and_is_not_an_error(): void

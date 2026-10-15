@@ -35,7 +35,7 @@ const PAGINATION = { page: 1, per_page: 25, total: 0, total_pages: 1, has_next_p
  */
 function stubDetail(record: () => unknown, status = 200): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-        if (String(url).includes('/managed-lists/')) {
+        if (String(url).includes('/managed-lists/') || /\/notes(\?|$)/.test(String(url))) {
             return json(200, { data: [], meta: { pagination: PAGINATION } });
         }
 
@@ -62,7 +62,6 @@ const CUSTOMER = {
     email: 'mona@alpha.test',
     sales_owner_id: 'u1',
     start_date: '2024-01-15',
-    notes: 'Called on the 3rd; asked for a revised offer.',
     is_archived: false,
     is_incomplete: false,
     created_at: '2026-01-01T09:00:00Z',
@@ -291,21 +290,24 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
     });
 
     /** `D-16`: notes carry the communication history — §5.2's "related data second". */
-    it('shows the notes as the second section, and says so when there are none', async () => {
-        stubDetail(() => CUSTOMER);
+    /** `D-122`: the notes are their own section, read from their own route, writable with customer.edit. */
+    it('draws the notes section from its own route, with writing only for customer.edit', async () => {
+        const fetchMock = stubDetail(() => CUSTOMER);
 
-        const withNotes = await render();
+        const viewer = await render();
         await flushPromises();
 
-        expect(withNotes.find('[data-testid="customer-notes"]').text()).toContain('revised offer');
+        expect(viewer.find('[data-testid="customer-notes-section"]').exists()).toBe(true);
+        expect(fetchMock.mock.calls.some((call) => /\/customers\/c1\/notes(\?|$)/.test(String(call[0])))).toBe(true);
+        expect(viewer.find('[data-testid="customer-note-add"]').exists()).toBe(false);
 
         vi.restoreAllMocks();
-        stubDetail(() => ({ ...CUSTOMER, notes: null }));
+        stubDetail(() => CUSTOMER);
 
-        const without = await render();
+        const editor = await render(EDITOR);
         await flushPromises();
 
-        expect(without.find('[data-testid="customer-notes-empty"]').exists()).toBe(true);
+        expect(editor.find('[data-testid="customer-note-add"]').exists()).toBe(true);
     });
 });
 

@@ -43,7 +43,6 @@ const EXISTING: Customer = {
     social_url_3: null,
     sales_owner_id: 'u1',
     start_date: '2024-01-15',
-    notes: null,
     is_archived: false,
     is_incomplete: false,
     created_at: '2026-01-01T09:00:00Z',
@@ -91,10 +90,13 @@ describe('CustomerFormModal — §4.2 fields and §6.3 controls', () => {
 
         for (const field of [
             'name', 'sector', 'region', 'contact-person',
-            'phone', 'phone2', 'whatsapp', 'email', 'start-date', 'notes',
+            'phone', 'phone2', 'whatsapp', 'email', 'start-date',
         ]) {
             expect(view.find(`[data-testid="customer-form-${field}"]`).exists()).toBe(true);
         }
+
+        // `D-122`: notes are separate entries on the customer page, not a box here.
+        expect(view.find('[data-testid="customer-form-notes"]').exists()).toBe(false);
 
         expect(view.find('[data-testid="customer-form-name-required"]').exists()).toBe(true);
         expect(view.find('[data-testid="customer-form-email-required"]').exists()).toBe(false);

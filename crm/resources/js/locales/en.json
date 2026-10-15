@@ -744,7 +744,9 @@
             "save": "Save status",
             "setByHand": "Set by hand:",
             "forbidden": "You do not have permission to change this customer's status.",
-            "rejected": "The status was not changed."
+            "rejected": "The status was not changed.",
+            "statusRequired": "Choose the new status.",
+            "derived": "The status is calculated from this customer's deals until you set it by hand."
         },
         "import": {
             "title": "Import customers"

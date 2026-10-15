@@ -103,6 +103,7 @@ const statusOpen = ref(false);
 const statusChoice = ref('');
 const statusReason = ref('');
 const statusReasonMissing = ref(false);
+const statusChoiceMissing = ref(false);
 const statusSaving = ref(false);
 const statusError = ref<string | null>(null);
 /** `D-114`: each list under its own view row, the button under §3.4's `create`. */
@@ -258,6 +259,7 @@ function openStatus(): void {
     statusChoice.value = '';
     statusReason.value = '';
     statusReasonMissing.value = false;
+    statusChoiceMissing.value = false;
     statusError.value = null;
     statusOpen.value = true;
 }
@@ -268,9 +270,10 @@ async function submitStatus(): Promise<void> {
     }
 
     statusError.value = null;
+    statusChoiceMissing.value = statusChoice.value === '';
     statusReasonMissing.value = statusReason.value.trim() === '';
 
-    if (statusReasonMissing.value || statusChoice.value === '') {
+    if (statusChoiceMissing.value || statusReasonMissing.value) {
         return;
     }
 
@@ -407,7 +410,7 @@ onMounted(async () => {
                     <svg class="size-4 shrink-0" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
                         <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM9 5h2v2H9zm0 4h2v6H9z" />
                     </svg>
-                    {{ t('customers.form.statusIsDerived') }}
+                    {{ t(canChangeStatus ? 'customers.statusChange.derived' : 'customers.form.statusIsDerived') }}
                 </p>
 
                 <dl class="grid gap-3 sm:grid-cols-2">
@@ -573,10 +576,19 @@ onMounted(async () => {
                 <form class="flex flex-col gap-3" novalidate data-testid="customer-status-form" @submit.prevent="submitStatus()">
                     <label class="flex flex-col gap-1">
                         <span>{{ t('customers.statusChange.status') }}</span>
-                        <select v-model="statusChoice" autofocus class="form-field min-h-11 rounded-lg px-2 py-2" data-testid="customer-status-select">
+                        <select
+                            v-model="statusChoice"
+                            autofocus
+                            class="form-field min-h-11 rounded-lg px-2 py-2"
+                            :aria-invalid="statusChoiceMissing"
+                            data-testid="customer-status-select"
+                        >
                             <option value="" disabled>{{ t('customers.statusChange.choose') }}</option>
                             <option v-for="status in statusOptions" :key="status" :value="status">{{ t(`customers.status.${status}`) }}</option>
                         </select>
+                        <span v-if="statusChoiceMissing" class="text-[var(--color-danger)]" data-testid="customer-status-select-error">
+                            {{ t('customers.statusChange.statusRequired') }}
+                        </span>
                     </label>
                     <label class="flex flex-col gap-1">
                         <span>{{ t('customers.statusChange.reason') }}</span>

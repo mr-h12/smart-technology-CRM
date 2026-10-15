@@ -1032,6 +1032,36 @@ describe('CustomerDetailView — D-123 a status set by hand', () => {
         expect(view.find('[data-testid="customer-status-form"]').exists()).toBe(true);
     });
 
+    it('refuses a missing status without asking the server', async () => {
+        const fetchMock = stubStatus();
+        const view = await render(CHANGER);
+        await flushPromises();
+
+        await openDialog(view);
+        await view.find('[data-testid="customer-status-reason"]').setValue('Three calls unanswered.');
+        await view.find('[data-testid="customer-status-form"]').trigger('submit');
+        await flushPromises();
+
+        expect(statusCalls(fetchMock)).toHaveLength(0);
+        expect(view.find('[data-testid="customer-status-select-error"]').text()).toBe(en.customers.statusChange.statusRequired);
+        expect(view.find('[data-testid="customer-status-reason-error"]').exists()).toBe(false);
+    });
+
+    /** The derived sentence must not say "cannot be edited" beside a button that edits it. */
+    it('tells a holder of customer.change_status the status holds until set by hand', async () => {
+        stubStatus();
+        const changer = await render(CHANGER);
+        await flushPromises();
+        expect(changer.find('[data-testid="customer-detail-status-reason"]').text()).toBe(en.customers.statusChange.derived);
+
+        vi.restoreAllMocks();
+        useAuth().forgetSession();
+        stubStatus();
+        const viewer = await render(VIEWER);
+        await flushPromises();
+        expect(viewer.find('[data-testid="customer-detail-status-reason"]').text()).toBe(en.customers.form.statusIsDerived);
+    });
+
     it('keeps the dialog open and says so when the server refuses', async () => {
         stubStatus(() => json(422, {
             error: { code: 'validation_failed', message: 'no', details: [{ field: 'status', message: 'no' }] },

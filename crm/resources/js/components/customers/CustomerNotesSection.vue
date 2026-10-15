@@ -121,7 +121,7 @@ watch(() => props.customerId, load);
             <button
                 v-if="canEdit && editing !== 'new'"
                 type="button"
-                class="edit-action min-h-11 rounded-lg px-4"
+                class="create-action min-h-11 rounded-lg px-4"
                 data-testid="customer-note-add"
                 @click="open(null)"
             >
@@ -129,7 +129,7 @@ watch(() => props.customerId, load);
             </button>
         </div>
 
-        <form v-if="editing !== null" class="flex flex-col gap-3" novalidate data-testid="customer-note-form" @submit.prevent="save">
+        <form v-if="editing !== null" class="note-form flex flex-col gap-3 rounded-lg p-3" novalidate data-testid="customer-note-form" @submit.prevent="save">
             <label class="flex flex-col gap-1.5" for="customer-note-body">
                 <span>{{ t('customers.notes.body') }}</span>
                 <textarea
@@ -162,12 +162,12 @@ watch(() => props.customerId, load);
             <div class="flex flex-wrap gap-2">
                 <button
                     type="submit"
-                    class="modal-save min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="create-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="saving"
                 >
                     {{ t('customers.notes.save') }}
                 </button>
-                <button type="button" class="modal-cancel min-h-11 rounded-lg px-4 py-2" :disabled="saving" @click="close">
+                <button type="button" class="row-action min-h-11 rounded-lg px-4 py-2" :disabled="saving" @click="close">
                     {{ t('customers.notes.cancel') }}
                 </button>
             </div>
@@ -182,14 +182,18 @@ watch(() => props.customerId, load);
             {{ t('customers.notes.empty') }}
         </p>
         <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
-            <li v-for="note in notes" :key="note.id" class="flex flex-col gap-1 py-2" data-testid="customer-note">
-                <!-- Printed as stored: a calendar date has no timezone. -->
-                <time v-if="note.note_date !== null" :datetime="note.note_date" dir="ltr" class="self-start tabular-nums text-[var(--color-text-muted)]">{{ note.note_date }}</time>
-                <p class="whitespace-pre-line text-pretty [overflow-wrap:anywhere]">{{ note.body }}</p>
-                <div v-if="canEdit" class="flex flex-wrap items-center gap-2">
+            <li v-for="note in notes" :key="note.id" class="flex flex-wrap items-start gap-x-4 gap-y-2 py-3" data-testid="customer-note">
+                <div class="flex min-w-0 flex-[1_1_16rem] flex-col gap-1">
+                    <!-- Printed as stored: a calendar date has no timezone. -->
+                    <time v-if="note.note_date !== null" :datetime="note.note_date" dir="ltr" class="self-start text-sm tabular-nums text-[var(--color-text-muted)]">{{ note.note_date }}</time>
+                    <!-- A note runs in its own language's direction, whichever the screen is in. -->
+                    <p dir="auto" class="whitespace-pre-line text-pretty [overflow-wrap:anywhere]">{{ note.body }}</p>
+                </div>
+                <!-- DS §6.2: Edit is the row's secondary, Remove a text danger; the filled danger lives only inside the confirm. -->
+                <div v-if="canEdit" class="flex shrink-0 flex-wrap items-center gap-2">
                     <template v-if="confirmingRemove === note.id">
-                        <span>{{ t('customers.notes.removeConfirm') }}</span>
-                        <button type="button" class="row-action min-h-11 rounded-lg px-4" :disabled="saving" data-testid="customer-note-remove-confirm" @click="remove(note.id)">
+                        <span class="text-sm">{{ t('customers.notes.removeConfirm') }}</span>
+                        <button type="button" class="danger-action min-h-11 rounded-lg px-4" :disabled="saving" data-testid="customer-note-remove-confirm" @click="remove(note.id)">
                             {{ t('customers.notes.remove') }}
                         </button>
                         <button type="button" class="row-action min-h-11 rounded-lg px-4" :disabled="saving" @click="confirmingRemove = null">
@@ -197,10 +201,10 @@ watch(() => props.customerId, load);
                         </button>
                     </template>
                     <template v-else>
-                        <button type="button" class="row-action min-h-11 rounded-lg px-4" data-testid="customer-note-edit" @click="open(note)">
+                        <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="customer-note-edit" @click="open(note)">
                             {{ t('customers.notes.edit') }}
                         </button>
-                        <button type="button" class="row-action min-h-11 rounded-lg px-4" data-testid="customer-note-remove" @click="confirmingRemove = note.id">
+                        <button type="button" class="danger-text min-h-11 rounded-lg px-3" data-testid="customer-note-remove" @click="confirmingRemove = note.id">
                             {{ t('customers.notes.remove') }}
                         </button>
                     </template>
@@ -209,3 +213,18 @@ watch(() => props.customerId, load);
         </ul>
     </section>
 </template>
+
+<style scoped>
+/* The form sits on the muted surface, so it reads as one block inside the card. */
+.note-form {
+    background-color: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+}
+
+/* ponytail: the form-field copy every form holds (the scoped-copies debt row); one global rule when that row is paid. */
+.form-field {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+</style>

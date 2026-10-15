@@ -1,7 +1,7 @@
 ---
 name: pricing-invariant-reviewer
 description: Reviews any change touching price, cost, margin, discount, tax, FX, rounding, saving, or profit against docs/CRM_Documentation_EN.md §5 and Coding_Standards §6. Use before merging quotation, supplier-quotation, or procurement calculation code. Pricing is the project's highest-priority test surface.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, Skill
 model: sonnet
 ---
 

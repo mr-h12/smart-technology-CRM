@@ -1,7 +1,7 @@
 ---
 name: rtl-ui-verifier
 description: Verifies a screen change in the real browser at the four states CLAUDE.md § "UI Verification" requires — Arabic RTL and English LTR, desktop and phone width — and returns the manual steps performed plus the defects jsdom cannot see. Use before any point report that touched a .vue, .ts route, or stylesheet.
-tools: Read, Grep, Bash, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__navigate, mcp__Claude_Browser__computer, mcp__Claude_Browser__read_page, mcp__Claude_Browser__find, mcp__Claude_Browser__form_input, mcp__Claude_Browser__resize_window, mcp__Claude_Browser__read_console_messages, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__tabs_context
+tools: Read, Grep, Bash, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__navigate, mcp__Claude_Browser__computer, mcp__Claude_Browser__read_page, mcp__Claude_Browser__find, mcp__Claude_Browser__form_input, mcp__Claude_Browser__resize_window, mcp__Claude_Browser__read_console_messages, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__tabs_context, Skill
 model: sonnet
 ---
 

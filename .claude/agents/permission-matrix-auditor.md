@@ -1,7 +1,7 @@
 ---
 name: permission-matrix-auditor
 description: Audits an endpoint, row-scoped query, export, or role-gated action against the CRM permission matrix (docs/CRM_Documentation_EN.md §3.3–3.12). Use before merging any change that adds or modifies an API route, a scoped query, a download/export, or a permission check. Verifies correct resource.action.scope, row-level enforcement, required audit entries, and the presence of a negative-authorization test.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, Skill
 model: sonnet
 ---
 

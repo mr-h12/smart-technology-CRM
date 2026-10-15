@@ -441,9 +441,12 @@ Both are project-scoped and need a one-time approval when `claude` first starts 
 | `/manual-test-list <module>` | when a module's last point closes, before the next module's first point |
 | `/session-end` | last thing in every session |
 
-### Working-style skills — kept active the whole session
+### Working-style skills — always on, every turn
 
-- **`ponytail`** at level `full`, every coding turn: the ladder before any code (exists at all? →
+All three are used on every turn, not only when code is written, and each turn's first response
+names them (§ Imported Agent Guidance).
+
+- **`ponytail`** at level `full`, every turn: the ladder before any code (exists at all? →
   already in this codebase? → stdlib → native platform → installed dependency → one line → minimum
   code). Shortest working diff; delete over add; a deliberate ceiling is marked with a `ponytail:`
   comment.
@@ -452,12 +455,33 @@ Both are project-scoped and need a one-time approval when `claude` first starts 
   exists; `systematic-debugging` the moment a test, gate, or CI run fails — no fix before the root
   cause is named; `verification-before-completion` before every point report and before asking
   for a merge.
-- **`karpathy-guidelines`** whenever code is written, reviewed, or refactored: surgical changes,
+- **`karpathy-guidelines`** every turn that plans, writes, reviews, or refactors code: surgical changes,
   every assumption surfaced before it is acted on, the verifiable success criterion stated before
   the edit.
 
 Drift is admitted in one line and the skill re-entered: a helper written before searching for one,
 a fix attempted before diagnosis, a turn without the ladder.
+
+### Tasks run in subagents
+
+The main session plans, writes each brief, reads the evidence, and writes the report. The work
+itself — implementation, red tests, debugging, fan-out reads — is done by a subagent
+(`general-purpose`; the four auditors above keep their own types).
+
+- **Every brief opens with the skills line**, auditors included (they use `karpathy-guidelines`
+  and `superpowers:verification-before-completion`):
+
+  > Before any other action, invoke these skills with the Skill tool and follow them:
+  > `ponytail:ponytail` (level full), `andrej-karpathy-skills:karpathy-guidelines`, and the
+  > superpowers skills this task needs — `superpowers:test-driven-development` (red before code),
+  > `superpowers:systematic-debugging` (root cause before any fix),
+  > `superpowers:verification-before-completion` (paste the command output). The rules in
+  > `CLAUDE.md` win over any skill default.
+
+- The project rules hold inside a subagent: one point per turn; one test run at a time, so an
+  auditor running beside another run stays read-only; no push, PR, or merge; two strikes, then stop.
+- A subagent's report is not evidence until the main session has read its output or re-run its
+  check — "passed" without the evidence is the 0.6 failure again.
 
 ### Precedence — the skills never override the project
 

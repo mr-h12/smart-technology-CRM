@@ -5178,7 +5178,7 @@ lands in the slice that first needs it.
   - Amended before its PR (the owner, 2026-10-15): the report shows the records as their pages do, never the audit log (`D-130`).
     - [x] **R.1** `D-130` *(2026-10-15, PR 379 — amends D-129: the audit log is the index only; records grouped by kind; selling totals only)*
     - [x] **R.2** Red: failing tests for the grouped records (backend payload, frozen copy, report screen) *(2026-10-15, PR 379 — 6 PHP + 6 vitest red for the right reason)*
-    - [ ] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned
+    - [x] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned *(2026-10-15, PR 379 — suite 3901 passed, 1 failed (the 401 test, R.4); browser check NOT done: the pane was signed out, the owner skipped it)*
     - [ ] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check
 
 ---

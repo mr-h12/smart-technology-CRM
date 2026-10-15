@@ -161,8 +161,12 @@ final class EloquentSupplierQuotationDirectoryTest extends TestCase
      */
     public function test_that_a_price_comes_back_at_the_scale_d_68_fixes(): void
     {
+        $catalogItemId = Uuid::uuid4()->toString();
+        DB::table('catalog_items')->insert(['id' => $catalogItemId, 'kind' => 'product', 'name' => 'Split unit', 'created_at' => now(), 'updated_at' => now()]);
+
         $summary = $this->directory()->create(
-            $this->draft(['total_price' => '1234.5678914']),
+            // D-120: the total is the lines' sum, so the seven decimals ride in on a line.
+            $this->draft(['items' => [['catalog_item_id' => $catalogItemId, 'unit_price' => '1234.5678914', 'quantity' => '1']]]),
             $this->actorId,
         );
 
@@ -406,7 +410,6 @@ final class EloquentSupplierQuotationDirectoryTest extends TestCase
     {
         return SupplierQuotationDraft::forCreate(array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '1500.000000',
             'currency_id' => $this->currencyId,
         ], $overrides));
     }

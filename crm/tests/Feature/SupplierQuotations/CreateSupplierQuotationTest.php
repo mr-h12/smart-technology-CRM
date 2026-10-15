@@ -146,6 +146,21 @@ final class CreateSupplierQuotationTest extends TestCase
         self::assertSame('4521.500000', DB::table('supplier_quotations')->where('id', $summary->id)->value('total_price'));
     }
 
+    /**
+     * D-120's "truncated as `PricedLine` truncates": each line at money scale,
+     * then summed. 0.000001 × 0.5 is 0.0000005, truncated to 0 per line, so two
+     * such lines total 0.000000; truncating the sum instead would give 0.000001.
+     */
+    public function test_that_each_line_is_truncated_before_the_sum(): void
+    {
+        $summary = $this->create(['items' => [
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '0.000001', 'quantity' => '0.5'],
+            ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '0.000001', 'quantity' => '0.5'],
+        ]]);
+
+        self::assertSame('0.000000', $summary->totalPrice);
+    }
+
     /** D-120 reverses the 2026-09-02 ruling: a total handed to the use case is not what the row holds. */
     public function test_that_a_handed_total_is_replaced_by_the_sum_of_the_lines(): void
     {

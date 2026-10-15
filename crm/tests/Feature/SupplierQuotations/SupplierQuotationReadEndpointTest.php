@@ -193,7 +193,7 @@ final class SupplierQuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.deal_id', null)
             ->assertJsonPath('data.deal_code', null)
             ->assertJsonStructure(['data' => ['deal_code']])
-            ->assertJsonPath('data.total_price', '4500.000000')
+            ->assertJsonPath('data.total_price', '4750.500000')
             ->assertJsonPath('data.currency_id', $this->currencyId);
     }
 
@@ -406,7 +406,6 @@ final class SupplierQuotationReadEndpointTest extends TestCase
         $id = $this->postJson(self::ENDPOINT, $this->payload([
             'prices_include_tax' => true,
             'included_tax_percents' => ['14'],
-            'total_price' => '1140',
             'items' => [['catalog_item_id' => $this->catalogItemId, 'unit_price' => '114', 'quantity' => '10']],
         ]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
@@ -433,7 +432,6 @@ final class SupplierQuotationReadEndpointTest extends TestCase
     {
         return array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

@@ -153,7 +153,7 @@ describe('the supplier quotation API catalogue', () => {
     it('creates with the body the server validates', async () => {
         fetchMock.mockResolvedValue(json(201, envelope(OFFER)));
 
-        await createSupplierQuotation({ supplier_id: OFFER.supplier_id, total_price: '4500', currency_id: OFFER.currency_id });
+        await createSupplierQuotation({ supplier_id: OFFER.supplier_id, currency_id: OFFER.currency_id });
 
         const request = requestFor();
 

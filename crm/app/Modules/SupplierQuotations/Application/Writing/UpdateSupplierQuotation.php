@@ -38,9 +38,8 @@ use Illuminate\Validation\ValidationException;
  * while §9.1 lists supplier quotations as a separate resource. Confirmed by the
  * owner 2026-09-02 and carried on the debt register.
  *
- * No recomputation of `total_price`: the owner ruled on 2026-09-02 that it is
- * entered, and an edit that replaced the lines would be the tempting place to
- * quietly start summing them.
+ * `total_price` is recomputed by the directory on every edit (`D-120`), from
+ * the lines as stored after it — replaced or not.
  *
  * ── `D-22` reaches the replacement set too (Point 3.5) ─────────────────────
  *
@@ -91,10 +90,10 @@ final readonly class UpdateSupplierQuotation
 
             // `D-118` on an edit that touches the flag, the rates or an amount:
             // the rates it types, else the ones captured on the offer.
-            $amountsSent = array_key_exists('total_price', $draft->attributes) || $draft->items !== null;
+            $amountsSent = $draft->items !== null;
 
             // New rates with no amount to strip would store a sum the stored net
-            // was never divided by (pricing review, F-48 · 2). The form always sends both.
+            // was never divided by (pricing review, F-48 · 2). The form always sends the lines.
             if (array_key_exists('included_tax_percents', $validated) && ! $amountsSent) {
                 throw ValidationException::withMessages(['included_tax_percents' => __('supplier_quotations.errors.rates_need_amounts')]);
             }
@@ -128,12 +127,15 @@ final readonly class UpdateSupplierQuotation
             }
 
             if (! $draft->isEmpty()) {
+                // `D-120`: the totals follow the lines, so a moved total is recorded beside what was sent.
+                $sameTotals = self::totals($before->header) === self::totals($after);
+
                 $this->audit->record(
                     AuditEvent::of('SUPPLIER_QUOTATION_UPDATED'),
                     'supplier_quotation',
                     $quotationId,
-                    self::changedFrom($before->header, $draft),
-                    self::submitted($draft),
+                    [...self::changedFrom($before->header, $draft), ...($sameTotals ? [] : self::totals($before->header))],
+                    [...self::submitted($draft), ...($sameTotals ? [] : self::totals($after))],
                 );
             }
 
@@ -173,6 +175,12 @@ final readonly class UpdateSupplierQuotation
         }
 
         return $old;
+    }
+
+    /** @return array{total_price: ?string, entered_total_price: ?string} */
+    private static function totals(SupplierQuotationSummary $offer): array
+    {
+        return ['total_price' => $offer->totalPrice, 'entered_total_price' => $offer->enteredTotalPrice];
     }
 
     /**

@@ -37,9 +37,8 @@ use Illuminate\Database\ConnectionInterface;
  *
  * ── What this use case deliberately does not do ────────────────────────────
  *
- * It does not **compute** `total_price`: the owner ruled on 2026-09-02 that the
- * figure is entered by the user, which §7.2 permits by listing it as a field of
- * its own. It does not **check that the product exists** either — the foreign
+ * It does not **compute** `total_price` itself: `D-120`'s sum is written where
+ * the lines are, by the directory. It does not **check that the product exists** either — the foreign
  * key does, and turning that refusal into `OpenAPI §295`'s 422 is Point 2.2's
  * boundary.
  *
@@ -94,7 +93,13 @@ final readonly class CreateSupplierQuotation
                 'supplier_quotation',
                 $quotation->id,
                 null,
-                [...$draft->attributes, 'items' => $draft->items],
+                // `D-120`: the totals are the directory's sum, not the caller's.
+                [
+                    ...$draft->attributes,
+                    'total_price' => $quotation->totalPrice,
+                    'entered_total_price' => $quotation->enteredTotalPrice,
+                    'items' => $draft->items,
+                ],
             );
 
             return $quotation;

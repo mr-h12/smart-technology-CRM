@@ -167,7 +167,8 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
             ->assertJsonPath('data.code', 'SQ-'.now()->format('Y').'-0001')
             ->assertJsonPath('data.supplier_id', $this->supplierId)
             ->assertJsonPath('data.deal_id', null)
-            ->assertJsonPath('data.total_price', '4750.500000', 'D-120: 3 × 1500 + 1 × 250.5, computed.')
+            // D-120: 3 × 1500 + 1 × 250.5, computed.
+            ->assertJsonPath('data.total_price', '4750.500000')
             ->assertJsonPath('data.currency_id', $this->currencyId)
             ->assertJsonPath('data.offer_date', '2026-09-02')
             ->assertJsonPath('data.valid_until', '2026-10-02')
@@ -437,6 +438,8 @@ final class SupplierQuotationWriteEndpointTest extends TestCase
     public function test_that_a_sent_total_is_refused(): void
     {
         $this->post422(['total_price' => '4750.5'], 'total_price');
+        // "Sent" means named: an empty total is refused too, not silently dropped.
+        $this->post422(['total_price' => null], 'total_price');
     }
 
     public function test_that_a_flag_that_is_not_a_boolean_is_refused(): void

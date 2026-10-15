@@ -30,14 +30,11 @@ use App\Modules\Admin\Domain\Money\RoundedTotal;
  * and keeping them apart is what stops a stray `items` key reaching a column
  * that does not exist.
  *
- * ── `total_price` stays writable: the owner's ruling of 2026-09-02 ─────────
+ * ── `total_price` is not writable: `D-120` ─────────────────────────────────
  *
- * **It is entered by the user, not summed from the lines.** §7.2 lists it as a
- * field of its own, which permits it to differ from their sum, and the owner
- * chose that over "always computed" and over "typed with a warning". So nothing
- * in this module computes it, and `CreateSupplierQuotationTest` submits a total
- * that contradicts its lines to keep it that way. Recorded in `CHECKLIST.md`
- * awaiting a `D-xx`; `docs/` is untouched.
+ * The total is the lines' sum, computed where the lines are written
+ * (`EloquentSupplierQuotationDirectory::writeTotals()`), never taken from a
+ * caller. `D-120` reverses the owner's ruling of 2026-09-02 that it was typed.
  *
  * ── `forUpdate()` answers the question Point 1.3 left open ─────────────────
  *
@@ -70,7 +67,6 @@ final readonly class SupplierQuotationDraft
     public const WRITABLE_ON_CREATE = [
         'supplier_id',
         'deal_id',
-        'total_price',
         'currency_id',
         'offer_date',
         'valid_until',
@@ -147,17 +143,17 @@ final readonly class SupplierQuotationDraft
      * `null` — taken as recorded (`D-62`). `D-118`: `$rate` is the sum of the
      * `$rates` typed on the offer, kept beside it as entered.
      *
-     * With a rate, `total_price` and every line's `unit_price` become the net,
+     * With a rate, every line's `unit_price` becomes the net,
      * `entered ÷ (1 + rate / 100)`, truncated at money scale as `PricedLine`
      * truncates (`D-68`), and the amounts as entered move to `entered_*`. The
      * caller always sends what was typed, so a re-save strips once.
      *
      * Only what this draft carries is touched: an edit that names no lines
      * leaves the stored ones as they are. ponytail: toggling the flag on an
-     * edit that resends neither the total nor the lines leaves the stored
-     * amounts as they were — unflagged, the lines keep their
-     * `entered_unit_price`; flagged, they keep the recorded price as the net.
-     * The form always resends both (F-39 · 1.4); refuse the bare toggle if a
+     * edit that resends no lines leaves the stored amounts as they were —
+     * unflagged, the lines keep their `entered_unit_price`; flagged, they keep
+     * the recorded price as the net.
+     * The form always resends the lines (F-39 · 1.4); refuse the bare toggle if a
      * caller other than the form ever sends one.
      *
      * @param  list<numeric-string>  $rates  none when `$rate` is null
@@ -171,13 +167,6 @@ final readonly class SupplierQuotationDraft
             'included_tax_percents' => $rates,
             'included_tax_percent' => $rate,
         ];
-
-        if ($rate === null) {
-            $attributes['entered_total_price'] = null;
-        } elseif (array_key_exists('total_price', $attributes)) {
-            $attributes['entered_total_price'] = $attributes['total_price'];
-            $attributes['total_price'] = $attributes['total_price'] === null ? null : self::net($attributes['total_price'], $rate);
-        }
 
         $items = $this->items === null ? null : array_map(
             static fn (array $line): array => [

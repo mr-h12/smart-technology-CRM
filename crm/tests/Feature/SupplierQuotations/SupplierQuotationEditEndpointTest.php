@@ -197,7 +197,7 @@ final class SupplierQuotationEditEndpointTest extends TestCase
 
         $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'Revised'], $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.total_price', '4500.000000')
+            ->assertJsonPath('data.total_price', '4750.500000')
             ->assertJsonPath('data.supplier_id', $this->supplierId);
     }
 
@@ -308,12 +308,8 @@ final class SupplierQuotationEditEndpointTest extends TestCase
             ->assertJsonPath('data.items', []);
     }
 
-    /**
-     * The owner's ruling of 2026-09-02 survives an edit too: `total_price` is
-     * entered, never summed. Replacing the lines with a set totalling 198 leaves
-     * the stated total where it was.
-     */
-    public function test_that_replacing_the_lines_does_not_recompute_the_total(): void
+    /** D-120 reverses the 2026-09-02 ruling: replacing the lines with a set totalling 198 makes the total 198. */
+    public function test_that_replacing_the_lines_recomputes_the_total(): void
     {
         $id = $this->created();
 
@@ -321,7 +317,7 @@ final class SupplierQuotationEditEndpointTest extends TestCase
             'items' => [['catalog_item_id' => $this->otherCatalogItemId, 'unit_price' => '99', 'quantity' => '2']],
         ], $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.total_price', '4500.000000');
+            ->assertJsonPath('data.total_price', '198.000000');
     }
 
     /**
@@ -431,7 +427,7 @@ final class SupplierQuotationEditEndpointTest extends TestCase
     {
         $id = $this->created();
 
-        $this->patchJson(self::ENDPOINT.'/'.$id, ['total_price' => null, 'currency_id' => null], $this->bearerFor(RoleName::Manager))
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['currency_id' => null], $this->bearerFor(RoleName::Manager))
             ->assertStatus(422)
             ->assertJsonPath('error.details.0.field', 'currency_id');
 
@@ -440,7 +436,7 @@ final class SupplierQuotationEditEndpointTest extends TestCase
 
     public function test_that_adding_lines_to_an_offer_without_a_currency_is_refused(): void
     {
-        $id = $this->postJson(self::ENDPOINT, $this->payload(['total_price' => null, 'currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
+        $id = $this->postJson(self::ENDPOINT, $this->payload(['currency_id' => null, 'items' => []]), $this->bearerFor(RoleName::Manager))
             ->assertStatus(201)
             ->json('data.id');
         self::assertIsString($id);
@@ -479,7 +475,6 @@ final class SupplierQuotationEditEndpointTest extends TestCase
     {
         return array_merge([
             'supplier_id' => $this->supplierId,
-            'total_price' => '4500.000000',
             'currency_id' => $this->currencyId,
             'items' => [
                 ['catalog_item_id' => $this->catalogItemId, 'unit_price' => '1500', 'quantity' => '3'],

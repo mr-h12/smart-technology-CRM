@@ -402,7 +402,7 @@ Supplier ──► Supplier Quotation            ← standalone entity (D-51)
 | contact_person | Single contact (D-18); an optional title before the name (D-104) |
 | contact_title | Optional; a code from the managed list contact_titles (D-104) |
 | phone · phone2 · whatsapp · email | |
-| location_url · website_url · social_url_1–3 | Optional links, http(s) only (D-121) |
+| location_url · website_url · social_url_1 · social_url_2 · social_url_3 | Optional links, http(s) only (D-121) |
 | sales_owner_id | Team Leader / Manager can change it |
 | start_date | First engagement — drives "years of dealing" |
 | notes | Includes communication history (D-16) |

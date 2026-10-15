@@ -55,14 +55,15 @@ final class CustomerNotesEndpointTest extends TestCase
             ->assertJsonPath('meta.pagination.total', 4)
             ->assertJsonPath('data.1.note_date', '2026-01-10');
 
-        self::assertSame(
-            ['dated late', 'dated early', 'undated, newer', 'undated, older'],
-            array_column($response->json('data'), 'body'),
-        );
-        self::assertSame(
-            ['body', 'created_at', 'created_by', 'id', 'note_date', 'updated_at'],
-            collect($response->json('data.0'))->keys()->sort()->values()->all(),
-        );
+        $data = $response->json('data');
+        self::assertIsArray($data);
+        self::assertSame(['dated late', 'dated early', 'undated, newer', 'undated, older'], array_column($data, 'body'));
+
+        $first = $response->json('data.0');
+        self::assertIsArray($first);
+        $keys = array_keys($first);
+        sort($keys);
+        self::assertSame(['body', 'created_at', 'created_by', 'id', 'note_date', 'updated_at'], $keys);
     }
 
     public function test_that_an_out_of_scope_customer_is_404(): void
@@ -201,6 +202,8 @@ final class CustomerNotesEndpointTest extends TestCase
             ->assertJsonPath('error.code', 'resource_not_found');
         $this->deleteJson($this->notes($alpha).'/'.$betasNote, [], $bearer)->assertStatus(404);
         $this->patchJson($this->notes($alpha).'/'.Str::uuid7(), ['body' => 'x'], $bearer)->assertStatus(404);
+        // A malformed id is the router's 404 (`note` is in the id patterns), never a 500.
+        $this->patchJson($this->notes($alpha).'/not-a-uuid', ['body' => 'x'], $bearer)->assertStatus(404);
 
         $this->assertDatabaseHas('customer_notes', ['id' => $betasNote, 'customer_id' => $beta, 'body' => 'beta only', 'deleted_at' => null]);
     }

@@ -24,7 +24,10 @@ final readonly class ListCustomers
 {
     public function __construct(private CustomerDirectoryInterface $customers, private UserFactsInterface $users) {}
 
-    /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
+    /**
+     * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
+     * @return CustomerPage<CustomerSummary>
+     */
     public function handle(CustomerListCriteria $criteria, array $heldScopes, string $actorId): CustomerPage
     {
         return $this->customers->list($criteria, CustomerRowScope::resolve($heldScopes, $actorId));

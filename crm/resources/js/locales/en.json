@@ -640,6 +640,24 @@
                 "message": "No customer matches these filters. Widen them or clear them to see the rest."
             }
         },
+        "notes": {
+            "title": "Notes and communication history",
+            "add": "Add note",
+            "body": "Note",
+            "date": "Date (optional)",
+            "save": "Save note",
+            "cancel": "Cancel",
+            "edit": "Edit",
+            "remove": "Remove",
+            "keep": "Keep",
+            "removeConfirm": "Remove this note?",
+            "loading": "Loading notes…",
+            "empty": "Nothing has been recorded yet.",
+            "loadFailed": "The notes could not be loaded.",
+            "retry": "Try again",
+            "saveFailed": "The note was not saved. Try again.",
+            "removeFailed": "The note was not removed. Try again."
+        },
         "form": {
             "createTitle": "New customer",
             "editTitle": "Edit customer",
@@ -657,7 +675,6 @@
             "socialUrl1": "Social link 1",
             "socialUrl2": "Social link 2",
             "socialUrl3": "Social link 3",
-            "notes": "Notes",
             "sectorHint": "Pick a sector or type a new one",
             "nameRequired": "A name is required.",
             "statusIsDerived": "The status is calculated from this customer's deals and cannot be edited.",
@@ -676,8 +693,6 @@
             "backToList": "Back to customers",
             "notFoundTitle": "This customer could not be opened",
             "notFoundMessage": "The record is not available. Check the link, or return to the customer list.",
-            "notesTitle": "Notes and communication history",
-            "notesEmpty": "Nothing has been recorded yet.",
             "archived": "Archived",
             "incomplete": "Incomplete record",
             "newDeal": "New request",

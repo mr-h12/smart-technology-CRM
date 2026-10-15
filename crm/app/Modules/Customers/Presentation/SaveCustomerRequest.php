@@ -67,7 +67,8 @@ final class SaveCustomerRequest extends FormRequest
             // `D-121`: http(s) only, so a `javascript:` link never reaches an `href`.
             ...array_fill_keys(CustomerDraft::LINKS, ['nullable', 'string', 'max:2048', 'url:http,https']),
             'start_date' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string'],
+            // `D-122`: notes have their own route now; the old box is refused, not ignored.
+            'notes' => ['prohibited'],
 
             // Existence is checked by the use case through Identity's contract,
             // not by `exists:users,id` — that rule is a direct read of another
@@ -87,7 +88,7 @@ final class SaveCustomerRequest extends FormRequest
     {
         $attributes = [];
 
-        foreach ([...CustomerDraft::writableOnCreate(), 'customer_status', 'is_archived', 'is_incomplete'] as $field) {
+        foreach ([...CustomerDraft::writableOnCreate(), 'customer_status', 'is_archived', 'is_incomplete', 'notes'] as $field) {
             $attributes[$field] = (string) __('customers.attributes.'.$field);
         }
 

@@ -123,7 +123,7 @@ describe('CustomerNotesSection — the list', () => {
 describe('CustomerNotesSection — writing', () => {
     it('adds a note with its date, then reads the list again', async () => {
         let notes: unknown[] = [UNDATED];
-        const fetchMock = stub((url, init) => {
+        const fetchMock = stub((_url, init) => {
             if (init?.method === 'POST') {
                 notes = [DATED, UNDATED];
 
@@ -149,7 +149,7 @@ describe('CustomerNotesSection — writing', () => {
     });
 
     it('sends an empty date as null', async () => {
-        const fetchMock = stub((url, init) => (init?.method === 'POST' ? json(201, { data: UNDATED, meta: {} }) : listOf()));
+        const fetchMock = stub((_url, init) => (init?.method === 'POST' ? json(201, { data: UNDATED, meta: {} }) : listOf()));
 
         const view = render();
         await flushPromises();
@@ -163,7 +163,7 @@ describe('CustomerNotesSection — writing', () => {
     });
 
     it("puts the server's sentence under the body and keeps what was typed", async () => {
-        stub((url, init) => (init?.method === 'POST'
+        stub((_url, init) => (init?.method === 'POST'
             ? json(422, { error: { code: 'validation_failed', message: 'Invalid.', details: [{ field: 'body', message: 'The note may not be longer than 5000 characters.' }] } })
             : listOf()));
 
@@ -180,7 +180,7 @@ describe('CustomerNotesSection — writing', () => {
     });
 
     it('edits a note in place, opening on its saved body and date', async () => {
-        const fetchMock = stub((url, init) => (init?.method === 'PATCH'
+        const fetchMock = stub((_url, init) => (init?.method === 'PATCH'
             ? json(200, { data: { ...DATED, body: 'Second wording.' }, meta: {} })
             : listOf(DATED)));
 
@@ -202,7 +202,7 @@ describe('CustomerNotesSection — writing', () => {
 
     it('removes a note only after it is confirmed', async () => {
         let notes: unknown[] = [DATED, UNDATED];
-        const fetchMock = stub((url, init) => {
+        const fetchMock = stub((_url, init) => {
             if (init?.method === 'DELETE') {
                 notes = [UNDATED];
 

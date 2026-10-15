@@ -27,6 +27,7 @@ use App\Modules\Customers\Domain\Writing\CustomerDraft;
  */
 interface CustomerDirectoryInterface
 {
+    /** @return CustomerPage<CustomerSummary> */
     public function list(CustomerListCriteria $criteria, CustomerRowScope $scope): CustomerPage;
 
     /** Null when the row is absent **or** outside the scope — the caller cannot tell, by design. */

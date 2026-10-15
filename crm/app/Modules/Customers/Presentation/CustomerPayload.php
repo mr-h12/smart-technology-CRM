@@ -47,7 +47,6 @@ final class CustomerPayload
             'social_url_3' => $customer->socialUrl3,
             'sales_owner_id' => $customer->salesOwnerId,
             'start_date' => $customer->startDate?->format('Y-m-d'),
-            'notes' => $customer->notes,
             'is_archived' => $customer->isArchived,
             'is_incomplete' => $customer->isIncomplete,
             'created_at' => $customer->createdAt->format(DATE_ATOM),
@@ -66,7 +65,10 @@ final class CustomerPayload
         return self::of($customer) + ['sales_owner_name' => $salesOwnerName];
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * @param  CustomerPage<CustomerSummary>  $page
+     * @return list<array<string, mixed>>
+     */
     public static function many(CustomerPage $page): array
     {
         return array_map(static fn (CustomerSummary $customer): array => self::of($customer), $page->items);
@@ -90,7 +92,14 @@ final class CustomerPayload
         );
     }
 
-    /** @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool} */
+    /**
+     * Customers' and notes' alike (`D-122`).
+     *
+     * @template TItem of object
+     *
+     * @param  CustomerPage<TItem>  $page
+     * @return array{page: int, per_page: int, total: int, total_pages: int, has_next_page: bool, has_previous_page: bool}
+     */
     public static function pagination(CustomerPage $page): array
     {
         return [

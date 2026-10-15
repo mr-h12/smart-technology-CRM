@@ -38,11 +38,13 @@ final class CustomerNotesMigrationTest extends TestCase
 
         $foreignKey = DB::selectOne(
             "select ccu.table_name from information_schema.table_constraints tc
+             join information_schema.key_column_usage kcu on kcu.constraint_name = tc.constraint_name
              join information_schema.constraint_column_usage ccu on ccu.constraint_name = tc.constraint_name
-             where tc.table_name = 'customer_notes' and tc.constraint_type = 'FOREIGN KEY'",
+             where tc.table_name = 'customer_notes' and tc.constraint_type = 'FOREIGN KEY'
+               and kcu.column_name = 'customer_id'",
         );
-        self::assertNotNull($foreignKey, 'customer_notes.customer_id has no foreign key.');
-        self::assertSame('customers', $foreignKey->table_name);
+        self::assertIsObject($foreignKey, 'customer_notes.customer_id has no foreign key.');
+        self::assertSame('customers', $foreignKey->table_name ?? null);
 
         $index = DB::selectOne(
             "select indexdef from pg_indexes where tablename = 'customer_notes' and indexdef like '%customer_id%note_date%'",
@@ -84,10 +86,12 @@ final class CustomerNotesMigrationTest extends TestCase
         $notes = DB::table('customer_notes')->get(['customer_id', 'body', 'note_date', 'deleted_at']);
 
         self::assertCount(1, $notes);
-        self::assertSame($alpha, $notes[0]->customer_id);
-        self::assertSame("Called on the 3rd.\nAsked for a revised offer.", $notes[0]->body);
-        self::assertNull($notes[0]->note_date);
-        self::assertNull($notes[0]->deleted_at);
+        $note = $notes->first();
+        self::assertNotNull($note);
+        self::assertSame($alpha, $note->customer_id);
+        self::assertSame("Called on the 3rd.\nAsked for a revised offer.", $note->body);
+        self::assertNull($note->note_date);
+        self::assertNull($note->deleted_at);
 
         // The old column keeps its text: data is never dropped (`DB-01`).
         $this->assertDatabaseHas('customers', ['id' => $alpha, 'notes' => "Called on the 3rd.\nAsked for a revised offer."]);

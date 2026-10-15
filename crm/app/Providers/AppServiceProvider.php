@@ -36,12 +36,14 @@ use App\Modules\Catalog\Infrastructure\EloquentCatalogItemLabels;
 use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
+use App\Modules\Customers\Domain\Contracts\CustomerNotesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerContacts;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentCustomerNames;
+use App\Modules\Customers\Infrastructure\EloquentCustomerNotes;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
@@ -217,6 +219,9 @@ class AppServiceProvider extends ServiceProvider
         // Module 3 Point 3.6. `bind` for the same reason as the directory
         // above: stateless, and a singleton would outlive nothing useful.
         $this->app->bind(ImportBatchesInterface::class, EloquentImportBatches::class);
+
+        // F-50 · 3 (`D-122`). Stateless, like the two above.
+        $this->app->bind(CustomerNotesInterface::class, EloquentCustomerNotes::class);
 
         // Module 5 Point 3.1. `bind` for the same reason as its siblings:
         // stateless, and this write is a single conditional `UPDATE` with no

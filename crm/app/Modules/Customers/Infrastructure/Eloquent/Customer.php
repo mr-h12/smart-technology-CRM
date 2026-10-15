@@ -51,7 +51,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'name', 'sector', 'region', 'contact_person', 'contact_title', 'phone', 'phone2',
     'whatsapp', 'email', 'location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3',
-    'sales_owner_id', 'start_date', 'notes',
+    'sales_owner_id', 'start_date',
     'is_archived', 'is_incomplete',
 ])]
 class Customer extends Model

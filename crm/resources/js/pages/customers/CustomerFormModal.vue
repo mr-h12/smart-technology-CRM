@@ -80,7 +80,7 @@ const FIELDS = [
     'name', 'sector', 'region', 'contact_title', 'contact_person',
     'phone', 'phone2', 'whatsapp', 'email',
     'location_url', 'website_url', 'social_url_1', 'social_url_2', 'social_url_3',
-    'start_date', 'notes',
+    'start_date',
 ] as const;
 
 type Field = (typeof FIELDS)[number];
@@ -99,7 +99,7 @@ function blank(): Record<Field, string> {
         name: '', sector: '', region: '', contact_title: '', contact_person: '',
         phone: '', phone2: '', whatsapp: '', email: '',
         location_url: '', website_url: '', social_url_1: '', social_url_2: '', social_url_3: '',
-        start_date: '', notes: '',
+        start_date: '',
     };
 }
 
@@ -650,24 +650,6 @@ function discard(): void {
                     </span>
                 </label>
             </fieldset>
-
-            <!-- `D-16`: notes carry the communication history. -->
-            <label class="flex flex-col gap-1.5" :for="fieldId('notes')">
-                <span>{{ t('customers.form.notes') }}</span>
-                <textarea
-                    :id="fieldId('notes')"
-                    v-model="values.notes"
-                    rows="4"
-                    :disabled="saving"
-                    :aria-invalid="errorFor('notes') !== null"
-                    :aria-describedby="errorId('notes')"
-                    class="form-field rounded-lg px-3 py-2"
-                    :data-testid="testId('notes')"
-                />
-                <span v-if="errorFor('notes') !== null" :id="errorId('notes')" class="text-[var(--color-danger)]">
-                    {{ errorFor('notes') }}
-                </span>
-            </label>
 
             <!-- §5.2's unsaved-change warning. Inside the dialog, because a
                  native `confirm()` is neither translatable nor RTL-aware. -->

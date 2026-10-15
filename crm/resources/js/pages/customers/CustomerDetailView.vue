@@ -3,7 +3,7 @@
  * One customer — Design System §5.2's Detail view (Point 4.4).
  *
  * §5.2: "Summary first, related data/timeline second, action controls only by
- * permission." That is the shape below: §4.2's fields, then `D-16`'s notes,
+ * permission." That is the shape below: §4.2's fields, then `D-122`'s notes,
  * then the one action this point ships.
  *
  * ── A 404 is one state and must stay one state ─────────────────────────────
@@ -32,8 +32,8 @@
  * **Its requests and quotations** (`D-114`, F-45 · 2) are §5.2's "related data
  * second": each list under its own view row (§3.4, §3.5), the rows scoped by the
  * server, the page only naming the customer. «New request» opens the deal form
- * with the customer fixed, and a save goes to the new deal. `D-16` puts the
- * communication history in `notes`, drawn after them.
+ * with the customer fixed, and a save goes to the new deal. `D-122` makes the
+ * communication history a list of notes, drawn after them.
  *
  * **No "years of dealing".** §4.2 says `start_date` "drives" it, and that is
  * the only mention in the sources: no field on the wire, no definition of a
@@ -52,6 +52,7 @@ import { listEntries, type ListEntry } from '@/services/admin';
 import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
+import CustomerNotesSection from '@/components/customers/CustomerNotesSection.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
@@ -440,18 +441,9 @@ onMounted(async () => {
                 </ul>
             </section>
 
-            <!-- §5.2's "related data/timeline second". `D-16` puts the
-                 communication history in the notes field. -->
-            <section class="detail-card flex flex-col gap-2 rounded-xl p-4">
-                <h2 class="text-card-title">{{ t('customers.detail.notesTitle') }}</h2>
-
-                <p v-if="customer.notes !== null && customer.notes !== ''" class="whitespace-pre-line text-pretty" data-testid="customer-notes">
-                    {{ customer.notes }}
-                </p>
-                <p v-else class="text-[var(--color-text-muted)] text-pretty" data-testid="customer-notes-empty">
-                    {{ t('customers.detail.notesEmpty') }}
-                </p>
-            </section>
+            <!-- §5.2's "related data/timeline second". `D-122`: the
+                 communication history is a list of notes, each its own entry. -->
+            <CustomerNotesSection :customer-id="customer.id" :can-edit="canEdit" />
 
             <!-- Flow 10, last after §5.2's summary and related data. The picker
                  is the deal page's own control, reused rather than copied. -->

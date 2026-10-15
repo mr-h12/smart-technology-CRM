@@ -55,6 +55,7 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
         private UserDirectoryInterface $users,
     ) {}
 
+    /** @return CustomerPage<CustomerSummary> */
     public function list(CustomerListCriteria $criteria, CustomerRowScope $scope): CustomerPage
     {
         $query = $this->scoped($scope);
@@ -337,7 +338,6 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
             socialUrl3: $row->social_url_3,
             salesOwnerId: $row->sales_owner_id,
             startDate: $row->start_date?->toDateTimeImmutable(),
-            notes: $row->notes,
             isArchived: $row->is_archived,
             isIncomplete: $row->is_incomplete,
             createdAt: new DateTimeImmutable((string) $row->created_at?->toIso8601String()),

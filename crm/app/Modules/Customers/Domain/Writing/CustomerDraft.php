@@ -31,10 +31,10 @@ namespace App\Modules\Customers\Domain\Writing;
  */
 final readonly class CustomerDraft
 {
-    /** §4.2's user-entered fields. */
+    /** §4.2's user-entered fields. `notes` left with `D-122`: notes are their own entries now. */
     public const WRITABLE = [
         'name', 'sector', 'region', 'contact_person', 'contact_title',
-        'phone', 'phone2', 'whatsapp', 'email', 'start_date', 'notes',
+        'phone', 'phone2', 'whatsapp', 'email', 'start_date',
     ];
 
     /**

@@ -5175,6 +5175,11 @@ jobs J-04…J-08 (`D-125`), the PDF, the exports and the manual test list are al
 lands in the slice that first needs it.
 
 - [ ] **Slice 1 — a daily report (RPT-DY), written and submitted end to end** *(divided by the owner, 2026-10-15; `D-129`)*: tables `reports`, `report_versions`, `report_recipients` (and `report_files`' key); the daily deadline seeded at 17:00, the go-live date and the default recipient (`D-127`, `D-129`); create with `Idempotency-Key`, notes under `If-Match`, recipient candidates, submit with a frozen copy; the day's activity from the audit log; "My reports" and the report page. Not in it: the PDF, Viewed/Acknowledge/Return, comments, the other five types, the jobs.
+  - Amended before its PR (the owner, 2026-10-15): the report shows the records as their pages do, never the audit log (`D-130`).
+    - [x] **R.1** `D-130` *(2026-10-15, PR 379 — amends D-129: the audit log is the index only; records grouped by kind; selling totals only)*
+    - [ ] **R.2** Red: failing tests for the grouped records (backend payload, frozen copy, report screen)
+    - [ ] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned
+    - [ ] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check
 
 ---
 

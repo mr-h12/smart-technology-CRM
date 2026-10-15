@@ -93,6 +93,25 @@ final readonly class CustomerListCriteria
         );
     }
 
+    /**
+     * `D-122`'s notes list: `page` and `per_page` only, at this list's bounds.
+     * §6.2 refuses an undeclared parameter rather than ignoring it.
+     *
+     * @param  array<array-key, mixed>  $query
+     *
+     * @throws InvalidCustomerListQuery
+     */
+    public static function pageOnly(array $query): self
+    {
+        foreach (array_keys($query) as $parameter) {
+            if ($parameter !== 'page' && $parameter !== 'per_page') {
+                throw InvalidCustomerListQuery::of((string) $parameter, 'unknown_parameter');
+            }
+        }
+
+        return self::fromQuery($query);
+    }
+
     public function offset(): int
     {
         return ($this->page - 1) * $this->perPage;

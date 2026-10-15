@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, collection, type ImportBatch, type Pagination } from '@/api';
 import { entryLabel, type ListEntry } from '@/services/admin';
 
 /**
@@ -42,7 +42,6 @@ export interface Customer {
     social_url_3: string | null;
     sales_owner_id: string | null;
     start_date: string | null;
-    notes: string | null;
     is_archived: boolean;
     is_incomplete: boolean;
     created_at: string;
@@ -108,7 +107,6 @@ export interface CustomerDraft {
     social_url_2?: string | null;
     social_url_3?: string | null;
     start_date?: string | null;
-    notes?: string | null;
     /** Create only. `PATCH` refuses it — §3.3 makes `assign` its own permission. */
     sales_owner_id?: string | null;
 }
@@ -219,4 +217,37 @@ function written(result: { data: Customer; meta: Record<string, unknown> }): Cus
         customer: result.data,
         similar: Array.isArray(similar) ? (similar as Customer[]) : [],
     };
+}
+
+/** `D-122`: one entry of a customer's communication history. `note_date` is a label only. */
+export interface CustomerNote {
+    id: string;
+    body: string;
+    note_date: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CustomerNoteDraft {
+    body: string;
+    note_date: string | null;
+}
+
+/** The server's order — newest date first, undated last. ponytail: one page of 100; a pager when a customer passes it. */
+export async function listCustomerNotes(customerId: string): Promise<Page<CustomerNote>> {
+    return collection<CustomerNote>(await apiGet(`/customers/${customerId}/notes?per_page=100`));
+}
+
+export async function addCustomerNote(customerId: string, draft: CustomerNoteDraft): Promise<CustomerNote> {
+    return (await apiPost<CustomerNote>(`/customers/${customerId}/notes`, draft)).data;
+}
+
+export async function updateCustomerNote(customerId: string, noteId: string, draft: CustomerNoteDraft): Promise<CustomerNote> {
+    return (await apiPatch<CustomerNote>(`/customers/${customerId}/notes/${noteId}`, draft)).data;
+}
+
+/** Soft-deleted by the server (`DB-01`). */
+export async function removeCustomerNote(customerId: string, noteId: string): Promise<void> {
+    await apiDelete(`/customers/${customerId}/notes/${noteId}`);
 }

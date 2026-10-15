@@ -45,7 +45,7 @@ use Illuminate\Support\Facades\Route;
 // router copies these patterns onto each route as it is registered. `{code}`
 // and `{list}` are not ids and stay free. The regex is `whereUuid()`'s.
 Route::patterns(array_fill_keys([
-    'catalogItem', 'customer', 'deal', 'file', 'purchaseOrder', 'quotation',
+    'catalogItem', 'customer', 'deal', 'file', 'note', 'purchaseOrder', 'quotation',
     'role', 'session', 'supplier', 'supplierQuotation', 'user',
 ], '[\da-fA-F]{8}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{12}'));
 
@@ -445,6 +445,22 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
         ->middleware('permission:customer.create');
 
     Route::patch('/{customer}', [CustomerController::class, 'update'])
+        ->middleware('permission:customer.edit');
+
+    // F-50 · 3 (`D-122`): a customer's notes, read under `customer.view` and
+    // written under `customer.edit` — §3.3's own rows, each at the customer's
+    // row scope, which the use case resolves. A removed note is soft-deleted
+    // (`DB-01`). No `Idempotency-Key`, on Point 3.3's reading of §9.1.
+    Route::get('/{customer}/notes', [CustomerController::class, 'notes'])
+        ->middleware('permission:customer.view');
+
+    Route::post('/{customer}/notes', [CustomerController::class, 'addNote'])
+        ->middleware('permission:customer.edit');
+
+    Route::patch('/{customer}/notes/{note}', [CustomerController::class, 'updateNote'])
+        ->middleware('permission:customer.edit');
+
+    Route::delete('/{customer}/notes/{note}', [CustomerController::class, 'removeNote'])
         ->middleware('permission:customer.edit');
 
     // §3.3's `import (Excel)` row — the Manager alone, with a dash in every

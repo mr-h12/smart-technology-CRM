@@ -16,8 +16,12 @@ use Illuminate\Validation\ValidationException;
  */
 final readonly class CustomerCsv
 {
-    /** The header cells a file may carry — §4.2's user-entered fields, and no others. */
-    public const COLUMNS = CustomerDraft::WRITABLE;
+    /**
+     * The header cells a file may carry — §4.2's user-entered fields, and no
+     * others. `notes` stays readable for files already in use: `D-122`'s
+     * ruling (a) makes the cell the row's first, undated note.
+     */
+    public const COLUMNS = [...CustomerDraft::WRITABLE, 'notes'];
 
     /**
      * Headers that are a different word for a field, normalised form on the left.

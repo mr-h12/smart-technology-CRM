@@ -312,7 +312,6 @@ final readonly class SaveCustomer
             'social_url_2' => $before->socialUrl2,
             'social_url_3' => $before->socialUrl3,
             'start_date' => $before->startDate?->format('Y-m-d'),
-            'notes' => $before->notes,
             'is_incomplete' => $before->isIncomplete,
         ];
 

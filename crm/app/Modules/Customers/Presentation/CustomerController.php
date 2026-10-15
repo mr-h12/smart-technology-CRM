@@ -8,6 +8,7 @@ use App\Modules\Customers\Application\Archiving\ArchiveCustomer;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Importing\ImportCustomers;
 use App\Modules\Customers\Application\Listing\ListCustomers;
+use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
 use App\Modules\Customers\Domain\Writing\CustomerWriteResult;
@@ -18,6 +19,7 @@ use App\Support\Csv\ImportFileRequest;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use RuntimeException;
 
 /**
@@ -69,6 +71,50 @@ final class CustomerController
             self::heldScopes($request),
             self::actorId($request),
         ));
+    }
+
+    /** `D-122`: `page` and `per_page` only, parsed in Domain so a bad one is §6.1's 400. */
+    public function notes(Request $request, string $customer, ManageCustomerNotes $notes): JsonResponse
+    {
+        $page = $notes->list(
+            $customer,
+            CustomerListCriteria::pageOnly($request->query()),
+            self::heldScopes($request),
+            self::actorId($request),
+        );
+
+        return ApiEnvelope::collection($request, CustomerNotePayload::many($page), CustomerPayload::pagination($page));
+    }
+
+    public function addNote(SaveCustomerNoteRequest $request, string $customer, ManageCustomerNotes $notes): JsonResponse
+    {
+        $changes = $request->changes();
+
+        return ApiEnvelope::single($request, CustomerNotePayload::of($notes->add(
+            $customer,
+            $changes['body'],
+            $changes['note_date'] ?? null,
+            self::heldScopes($request),
+            self::actorId($request),
+        )), 201);
+    }
+
+    public function updateNote(SaveCustomerNoteRequest $request, string $customer, string $note, ManageCustomerNotes $notes): JsonResponse
+    {
+        return ApiEnvelope::single($request, CustomerNotePayload::of($notes->update(
+            $customer,
+            $note,
+            $request->changes(),
+            self::heldScopes($request),
+            self::actorId($request),
+        )));
+    }
+
+    public function removeNote(Request $request, string $customer, string $note, ManageCustomerNotes $notes): Response
+    {
+        $notes->remove($customer, $note, self::heldScopes($request), self::actorId($request));
+
+        return response()->noContent();
     }
 
     /** The page's own shape back, so the new owner's name shows without a second read (F-19 · 1.1a). */

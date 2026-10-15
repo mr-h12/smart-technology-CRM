@@ -4684,7 +4684,8 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             *(2026-10-15, #370 — Σ(unit_price × quantity), each line truncated, written by the directory on every save; a sent total, even null, is 422; the form's input is gone)*
       - [x] **2** Customer links: location (a Google Maps link), website, social 1–3, each opening on click (`D-121`).
             *(2026-10-15, #371 — five nullable varchar(2048) links, http(s) only so `javascript:` is 422; new tab with noopener noreferrer; kept out of the CSV import)*
-      - [ ] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
+      - [x] **3** Customer notes as separate entries with an optional date; the old notes become the first note (`D-122`).
+            *(2026-10-15, #372 — customer_notes, newest date first and undated last; view/edit at the customer's scope, soft-deleted and audited; old and imported notes become the first undated note; notes is 422 on the customer)*
       - [ ] **4** Manual customer status with a reason, held until the next deal status change (`D-123`).
 
 ## Shell revisions — owner-directed

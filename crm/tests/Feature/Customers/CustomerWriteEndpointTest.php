@@ -642,6 +642,28 @@ final class CustomerWriteEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'contact_title' => null]);
     }
 
+    // ─────────────────────────────── D-122 (F-50 · 3) — notes have their own route
+
+    /** The old box left the customer: `notes` is refused on both verbs and no longer read back. */
+    public function test_that_notes_are_refused_on_the_customer_itself(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->postJson(self::ENDPOINT, ['name' => 'Alpha Trading', 'notes' => 'old box'], $bearer)
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'notes');
+
+        $this->assertDatabaseMissing('customers', ['name' => 'Alpha Trading']);
+
+        $id = $this->customer('Beta Trading');
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'old box'], $bearer)
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'notes');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $bearer)->assertStatus(200)->assertJsonMissingPath('data.notes');
+    }
+
     // ─────────────────────────────── D-121 (F-50 · 2) — the five links
 
     private const LINKS = [

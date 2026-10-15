@@ -11,10 +11,14 @@ namespace App\Modules\Customers\Domain\Listing;
  * Derived here rather than in the serialiser because five of the six are
  * arithmetic on the other two, and arithmetic that lives in a serialiser is
  * arithmetic no unit test reaches.
+ *
+ * Customers, or one customer's notes (`D-122`).
+ *
+ * @template TItem of object
  */
 final readonly class CustomerPage
 {
-    /** @param list<CustomerSummary> $items */
+    /** @param list<TItem> $items */
     public function __construct(
         public array $items,
         public int $total,

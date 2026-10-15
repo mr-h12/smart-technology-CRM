@@ -6,6 +6,7 @@ namespace App\Modules\Customers\Application\Importing;
 
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
+use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
 use App\Modules\Customers\Domain\Access\CustomerRowScope;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
@@ -75,6 +76,7 @@ final readonly class ImportCustomers
         private StorageServiceInterface $storage,
         private ConnectionInterface $connection,
         private AuthorizeAction $authorize,
+        private ManageCustomerNotes $notes,
     ) {}
 
     public function handle(string $path, string $originalFilename, string $actorId): ImportSummary
@@ -138,6 +140,11 @@ final readonly class ImportCustomers
                     null,
                     $draft->attributes,
                 );
+
+                // `D-122` (a): the old single box's cell becomes the first note.
+                if (isset($attributes['notes'])) {
+                    $this->notes->record($customer->id, $attributes['notes'], null, $actorId);
+                }
 
                 $imported++;
 

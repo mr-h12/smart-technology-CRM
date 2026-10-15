@@ -12,6 +12,7 @@ use App\Modules\Audit\Infrastructure\DatabaseAuditEntries;
 use App\Modules\Catalog\Application\Writing\SaveCatalogItem;
 use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
+use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Writing\SaveDeal;
@@ -150,6 +151,11 @@ final class AuditEnforcementTest extends TestCase
             // above instead. So does `EloquentImportBatches`, which writes
             // `import_batches` through a module-aliased Eloquent model.
             AssignCustomer::class => self::AUDITED,
+
+            // F-50 · 3 (`D-122`), seen for the same two signals: `->update(`
+            // beside an imported `ConnectionInterface`. It owns the note
+            // transactions and writes CUSTOMER_NOTE_ADDED, _UPDATED and _REMOVED.
+            ManageCustomerNotes::class => self::AUDITED,
 
             // Module 4 Point 2.2, and seen for the same two signals as the
             // three above: `->update(` beside an imported `ConnectionInterface`.

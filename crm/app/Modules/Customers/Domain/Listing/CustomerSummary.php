@@ -39,7 +39,6 @@ final readonly class CustomerSummary
         public ?string $socialUrl3,
         public ?string $salesOwnerId,
         public ?DateTimeImmutable $startDate,
-        public ?string $notes,
         public bool $isArchived,
         public bool $isIncomplete,
         public DateTimeImmutable $createdAt,

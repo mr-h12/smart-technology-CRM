@@ -20,6 +20,7 @@ return [
         'not_a_boolean' => 'This filter accepts only true or false.',
         'not_a_code' => 'This filter value is not a valid code.',
         'not_a_string' => 'The search term must be text.',
+        'unknown_parameter' => 'This list does not offer that parameter.',
     ],
 
     // Point 3.3 — `POST /customers` and `PATCH /customers/{id}`.
@@ -58,6 +59,8 @@ return [
         'social_url_2' => 'social link 2',
         'social_url_3' => 'social link 3',
         'start_date' => 'first engagement date',
+        'note_body' => 'note',
+        'note_date' => 'note date',
         'notes' => 'notes',
         'sales_owner_id' => 'sales owner',
         'ids' => 'selected customers',

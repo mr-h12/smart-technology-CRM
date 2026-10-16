@@ -35,14 +35,14 @@ final class ReportController
         $page = max(1, $request->integer('page', 1));
         $mine = $reports->mine(self::actorId($request), $page, self::PER_PAGE);
 
-        return ApiEnvelope::collection($request, array_map(self::summary(...), $mine['items']), self::pagination($page, $mine['total']));
+        return ApiEnvelope::collection($request, array_map(static fn (Report $r): array => self::summary($r, $r->shownVersion(! $r->isEditable())), $mine['items']), self::pagination($page, $mine['total']));
     }
 
     public function received(Request $request, ShowReport $reports): JsonResponse
     {
         $page = max(1, $request->integer('page', 1));
         $sent = $reports->received(self::actorId($request), $page, self::PER_PAGE);
-        $rows = array_map(static fn (array $row): array => [...self::summary($row['report']), 'author_name' => $row['author_name']], $sent['items']);
+        $rows = array_map(static fn (array $row): array => [...self::summary($row['report'], $row['report']->shownVersion(true)), 'author_name' => $row['author_name']], $sent['items']);
 
         return ApiEnvelope::collection($request, $rows, self::pagination($page, $sent['total']));
     }
@@ -136,10 +136,11 @@ final class ReportController
     }
 
     /** @return array<string, mixed> */
-    private static function summary(Report $report): array
+    private static function summary(Report $report, int $version): array
     {
         return [
             'id' => $report->id,
+            'version' => $version,
             'code' => $report->code,
             'type' => $report->type,
             'status' => $report->status,
@@ -150,13 +151,13 @@ final class ReportController
     }
 
     /**
-     * @param  array{report: Report, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
+     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
      * @return array<string, mixed>
      */
     private static function detail(array $read): array
     {
         return [
-            ...self::summary($read['report']),
+            ...self::summary($read['report'], $read['version']),
             ...(isset($read['author_name']) ? ['author_name' => $read['author_name']] : []),
             'follow_ups' => $read['follow_ups'],
             'notes' => $read['notes'],

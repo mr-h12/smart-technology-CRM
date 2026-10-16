@@ -23,6 +23,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 import { ApiError } from '@/api';
 import CustomerPicker from '@/components/customers/CustomerPicker.vue';
+import ReportPdfButton from '@/components/reports/ReportPdfButton.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
@@ -96,6 +97,9 @@ const isEditable = computed(() => !received && (report.value?.status === 'draft'
 const awaitsAnswer = computed(() => received && (report.value?.status === 'submitted' || report.value?.status === 'viewed'));
 const canAcknowledge = computed(() => awaitsAnswer.value && auth.hasPermission('report.acknowledge'));
 const canReturn = computed(() => awaitsAnswer.value && auth.hasPermission('report.return_report'));
+
+/** `D-132`: a submitted version has its stored PDF; a draft and a returned report (the author's next version) do not. */
+const hasStoredPdf = computed(() => ['submitted', 'viewed', 'acknowledged'].includes(report.value?.status ?? ''));
 
 /** `D-131`: one box per follow-up or note; `key` names its pause, `stored` is what the server holds. */
 interface FollowUpRow {
@@ -403,9 +407,17 @@ onMounted(load);
                         <span v-if="report.author_name">{{ t('reports.from_author', { name: report.author_name }) }}</span>
                     </p>
                 </div>
-                <span class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="report-status">
-                    {{ t(`reports.status.${report.status}`) }}
-                </span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <ReportPdfButton
+                        v-if="hasStoredPdf"
+                        :report-id="report.id"
+                        :report-code="report.code"
+                        :version="report.version"
+                    />
+                    <span class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="report-status">
+                        {{ t(`reports.status.${report.status}`) }}
+                    </span>
+                </div>
             </header>
 
             <!-- D-131's order: ①–④ in the main column from 1024 px, ⑤⑥ beside them; one column ①→⑥ on a phone. -->

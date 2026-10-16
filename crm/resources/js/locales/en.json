@@ -1461,6 +1461,11 @@
         }
     },
     "reports": {
+        "pdf": {
+            "preparing": "Preparing the PDF… (version {version})",
+            "download": "Download PDF (version {version})",
+            "failed": "The PDF could not be prepared."
+        },
         "title": "My reports",
         "subtitle": "Your reports, newest day first.",
         "new_daily": "New daily report",

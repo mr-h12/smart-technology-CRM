@@ -18,6 +18,8 @@ export interface ReportSummary {
     code: string;
     type: string;
     status: ReportStatus;
+    /** The version the payload shows (`D-132`); a submitted one has its stored PDF. */
+    version: number;
     period_start: string;
     period_end: string;
     submitted_at: string | null;
@@ -114,6 +116,18 @@ export async function createDailyReport(idempotencyKey: string): Promise<{ id: s
 
 export async function readReport(id: string): Promise<ReportDetail> {
     return (await apiGet<ReportDetail>(`/reports/${id}`)).data;
+}
+
+export interface ReportPdfState {
+    status: 'queued' | 'completed' | 'failed';
+    file_id: string | null;
+    failure_reason: string | null;
+    finished_at: string | null;
+}
+
+/** `D-132`: the stored PDF of one submitted version; the author and a recipient read it. */
+export async function readReportPdf(id: string, version: number): Promise<ReportPdfState> {
+    return (await apiGet<ReportPdfState>(`/reports/${id}/versions/${version}/pdf`)).data;
 }
 
 /** `D-131`'s row writes carry no `If-Match`: the last write to a row wins; the server answers the row. */

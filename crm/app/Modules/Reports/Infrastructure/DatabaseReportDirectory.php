@@ -23,6 +23,9 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
 
     private const FIELDS = ['follow_up' => ['customer_id', 'note'], 'note' => ['body']];
 
+    /** `Report::$submittedVersions`, read beside each row. */
+    private const SUBMITTED_VERSIONS = 'SELECT COALESCE(MAX(v.version), 0) FROM report_versions v WHERE v.report_id = reports.id';
+
     public function __construct(private ConnectionInterface $connection) {}
 
     /** @return array{id: string, code: string} */
@@ -58,10 +61,11 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string
+         *     submitted_at: ?string, submitted_versions: int
          * }|null $row
          */
-        $row = $this->connection->table('reports')->whereNull('deleted_at')->where('id', $reportId)
+        $row = $this->connection->table('reports')->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
+            ->whereNull('deleted_at')->where('id', $reportId)
             ->when($lock, static fn ($query) => $query->lockForUpdate())->first();
 
         return $row === null ? null : self::hydrate($row);
@@ -76,10 +80,11 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string
+         *     submitted_at: ?string, submitted_versions: int
          * }> $rows
          */
-        $rows = $query->orderByDesc('period_start')->orderByDesc('created_at')->orderByDesc('id')
+        $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
+            ->orderByDesc('period_start')->orderByDesc('created_at')->orderByDesc('id')
             ->forPage($page, $perPage)->get()->all();
 
         return ['items' => array_map(self::hydrate(...), $rows), 'total' => $total];
@@ -222,6 +227,30 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return $decoded;
     }
 
+    public function versionOf(string $reportId, int $version): ?array
+    {
+        if (! Str::isUuid($reportId)) {
+            return null;
+        }
+
+        $row = $this->connection->table('report_versions')
+            ->where('report_id', $reportId)
+            ->where('version', $version)
+            ->whereNull('deleted_at')
+            ->first(['snapshot', 'created_at']);
+        $snapshot = is_object($row) && is_string($row->snapshot ?? null) ? json_decode($row->snapshot, true) : null;
+
+        if (! is_array($snapshot) || ! is_string($row->created_at ?? null)) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $snapshot `SubmitReport` froze an object */
+        return [
+            'snapshot' => $snapshot,
+            'submitted_at' => (new \DateTimeImmutable($row->created_at))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+        ];
+    }
+
     public function recipientIdsOf(string $reportId): array
     {
         /** @var list<string> $ids `user_id` is a non-null uuid column */
@@ -249,10 +278,10 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string
+         *     submitted_at: ?string, submitted_versions: int
          * }> $rows
          */
-        $rows = $query->select('reports.*')
+        $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
             ->orderByDesc('reports.period_start')->orderByDesc('reports.submitted_at')->orderByDesc('reports.id')
             ->forPage($page, $perPage)->get()->all();
 
@@ -298,7 +327,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
      * @param  object{
      *     id: string, code: string, type: string, status: string, author_id: string,
      *     period_start: string, period_end: string, version_token: int,
-     *     submitted_at: ?string
+     *     submitted_at: ?string, submitted_versions: int
      * }  $row
      */
     private static function hydrate(object $row): Report
@@ -314,6 +343,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             versionToken: $row->version_token,
             submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            submittedVersions: $row->submitted_versions,
         );
     }
 

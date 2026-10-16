@@ -4,8 +4,14 @@ import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
 import en from '@/locales/en.json';
 import ReportDetailView from '@/pages/reports/ReportDetailView.vue';
+import { downloadFile } from '@/services/files';
 import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
+
+vi.mock('@/services/files', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/services/files')>()),
+    downloadFile: vi.fn(async () => undefined),
+}));
 
 /**
  * Module 13, first slice — one daily report (RPT-DY): the author writes notes
@@ -768,5 +774,158 @@ describe('ReportDetailView — follow-ups and notes (D-131)', () => {
             expect(text.trim()).not.toBe('');
             expect(text).not.toMatch(/[؀-ۿ]/);
         }
+    });
+});
+
+/**
+ * Module 13, slice 4 · 4.1 red — the stored PDF of a submitted version (`D-132`, spec §4.4).
+ *
+ * - The button is on a **submitted** version's page, the author's and a recipient's; never on a draft.
+ * - Queued: «جارٍ تجهيز ملف PDF…» / "Preparing the PDF…", disabled, read again on a timer that
+ *   `QuotationPdfPanel` also uses (3 s) and that stops on unmount.
+ * - Completed: «تنزيل PDF» / "Download PDF", through the files route (`downloadFile`, `D-38`).
+ * - Failed: a plain error message. The label names its version.
+ *
+ * Assumption to confirm at 4.2: the report payload carries `version`, the latest submitted
+ * version's number, and the page reads `GET /reports/{id}/versions/{version}/pdf`.
+ * The screen draws what the server answers; it decides no access (`D-67`, `AP-07`).
+ */
+const AUTHOR_EXPORT: AuthenticatedUser = { ...USER, permissions: ['report.create.own', 'report.export.own'] };
+
+const MANAGER_EXPORT: AuthenticatedUser = { ...MANAGER, permissions: [...MANAGER.permissions, 'report.export.all'] };
+
+const PDF_SUBMITTED = { ...SUBMITTED, version: 2 };
+
+const PDF_VIEWED = { ...VIEWED, version: 2 };
+
+const PDF_QUEUED = { status: 'queued', file_id: null, failure_reason: null, finished_at: null };
+
+const PDF_COMPLETED = { status: 'completed', file_id: 'f9', failure_reason: null, finished_at: '2026-10-15T09:00:05+00:00' };
+
+const PDF_FAILED = { status: 'failed', file_id: null, failure_reason: 'The PDF could not be rendered.', finished_at: '2026-10-15T09:00:05+00:00' };
+
+const PDF_URL = /\/reports\/rep1\/versions\/2\/pdf$/;
+
+/** The report answers `report`; the PDF status answers `pdf` in turn, the last one repeating. */
+function pdfServer(report: unknown, pdf: unknown[]): ReturnType<typeof vi.fn> {
+    let read = 0;
+
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        if (PDF_URL.test(url)) {
+            return envelope(pdf[Math.min(read++, pdf.length - 1)]);
+        }
+        if (url.endsWith('/recipient-candidates')) {
+            return envelope(CANDIDATES);
+        }
+
+        return envelope(report);
+    });
+}
+
+function pdfReads(fetchMock: ReturnType<typeof vi.fn>): number {
+    return gets(fetchMock).filter((url) => PDF_URL.test(url)).length;
+}
+
+describe('ReportDetailView — the stored PDF of a submitted version (D-132)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        vi.mocked(downloadFile).mockClear();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('draws no button on a draft, and asks for no PDF', async () => {
+        const fetchMock = pdfServer({ ...DRAFT, version: 1 }, [PDF_QUEUED]);
+        const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
+
+        expect(view.find('[data-testid="report-pdf-button"]').exists()).toBe(false);
+        expect(pdfReads(fetchMock)).toBe(0);
+    });
+
+    it('shows the author a disabled «Preparing the PDF…» that names its version, and reads again on a timer', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const fetchMock = pdfServer(PDF_SUBMITTED, [PDF_QUEUED, PDF_QUEUED, PDF_COMPLETED]);
+        const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
+
+        expect(pdfReads(fetchMock)).toBe(1);
+        const button = view.get('[data-testid="report-pdf-button"]');
+        expect(button.text()).toContain('Preparing the PDF…');
+        expect(button.text()).toContain('2');
+        expect(button.attributes('disabled')).toBeDefined();
+
+        await vi.advanceTimersByTimeAsync(3000);
+        await flushPromises();
+        expect(pdfReads(fetchMock)).toBe(2);
+        expect(view.get('[data-testid="report-pdf-button"]').attributes('disabled')).toBeDefined();
+
+        await vi.advanceTimersByTimeAsync(3000);
+        await flushPromises();
+        expect(pdfReads(fetchMock)).toBe(3);
+        expect(view.get('[data-testid="report-pdf-button"]').text()).toContain('Download PDF');
+        expect(view.get('[data-testid="report-pdf-button"]').attributes('disabled')).toBeUndefined();
+
+        // Final: no read after the one that said so.
+        await vi.advanceTimersByTimeAsync(9000);
+        expect(pdfReads(fetchMock)).toBe(3);
+    });
+
+    it('stops reading when the page goes away', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const fetchMock = pdfServer(PDF_SUBMITTED, [PDF_QUEUED]);
+        const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
+
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(pdfReads(fetchMock)).toBe(2);
+
+        view.unmount();
+        await vi.advanceTimersByTimeAsync(9000);
+        expect(pdfReads(fetchMock)).toBe(2);
+    });
+
+    it('downloads a completed version through the files route', async () => {
+        const view = await render(pdfServer(PDF_SUBMITTED, [PDF_COMPLETED]), 'en', AUTHOR_EXPORT);
+
+        const button = view.get('[data-testid="report-pdf-button"]');
+        expect(button.text()).toContain('Download PDF');
+        await button.trigger('click');
+        await flushPromises();
+
+        expect(downloadFile).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(downloadFile).mock.calls[0]?.[0]).toBe('f9');
+    });
+
+    it('shows a recipient the same button on the received page', async () => {
+        const fetchMock = pdfServer(PDF_VIEWED, [PDF_COMPLETED]);
+        const view = await render(fetchMock, 'en', MANAGER_EXPORT, RECEIVED_PATH);
+
+        expect(pdfReads(fetchMock)).toBe(1);
+        expect(view.get('[data-testid="report-pdf-button"]').text()).toContain('Download PDF');
+    });
+
+    it('shows a plain error, and no download, when the render failed', async () => {
+        const view = await render(pdfServer(PDF_SUBMITTED, [PDF_FAILED]), 'en', AUTHOR_EXPORT);
+
+        expect(view.get('[data-testid="report-pdf-error"]').text().trim()).not.toBe('');
+        expect(view.find('[data-testid="report-pdf-button"]').exists()).toBe(false);
+        expect(downloadFile).not.toHaveBeenCalled();
+    });
+
+    it('speaks Arabic on an Arabic screen, and no Arabic on an English one', async () => {
+        const queued = await render(pdfServer(PDF_SUBMITTED, [PDF_QUEUED]), 'ar', AUTHOR_EXPORT);
+        expect(queued.get('[data-testid="report-pdf-button"]').text()).toContain('جارٍ تجهيز ملف PDF…');
+        queued.unmount();
+
+        const completed = await render(pdfServer(PDF_SUBMITTED, [PDF_COMPLETED]), 'ar', AUTHOR_EXPORT);
+        expect(completed.get('[data-testid="report-pdf-button"]').text()).toContain('تنزيل PDF');
+        completed.unmount();
+
+        const english = await render(pdfServer(PDF_SUBMITTED, [PDF_COMPLETED]), 'en', AUTHOR_EXPORT);
+        expect(english.get('[data-testid="report-pdf-button"]').text()).not.toMatch(/[؀-ۿ]/);
+        english.unmount();
     });
 });

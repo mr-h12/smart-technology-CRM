@@ -69,6 +69,14 @@ interface ReportDirectoryInterface
      */
     public function latestSnapshot(string $reportId): ?array;
 
+    /**
+     * One version's frozen copy and when it was submitted (its row's `created_at`,
+     * UTC, ATOM), or null when the report has no such version.
+     *
+     * @return array{snapshot: array<string, mixed>, submitted_at: string}|null
+     */
+    public function versionOf(string $reportId, int $version): ?array;
+
     /** @return list<string> */
     public function recipientIdsOf(string $reportId): array;
 

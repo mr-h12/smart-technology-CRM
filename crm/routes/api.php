@@ -23,6 +23,7 @@ use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
 use App\Modules\Pdf\Presentation\QuotationPdfController;
+use App\Modules\Pdf\Presentation\ReportPdfController;
 use App\Modules\Quotations\Presentation\QuotationController;
 use App\Modules\Reports\Presentation\ReportController;
 use App\Modules\Storage\Presentation\DownloadFileController;
@@ -936,4 +937,9 @@ Route::middleware('auth')->prefix('reports')->group(function (): void {
         ->middleware('permission:report.acknowledge');
     Route::patch('/{report}/return', [ReportController::class, 'returnToAuthor'])
         ->middleware('permission:report.return_report');
+    // Slice 4 (`D-132`, spec §4.3): a submitted version's stored PDF, served by the
+    // Pdf module. `report.export` here (403); the author or a live recipient there (404).
+    Route::get('/{report}/versions/{version}/pdf', [ReportPdfController::class, 'show'])
+        ->whereNumber('version')
+        ->middleware('permission:report.export');
 });

@@ -42,7 +42,7 @@ final readonly class ShowReport
         ];
     }
 
-    /** @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
+    /** @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
     public function one(string $reportId, string $actorId): array
     {
         $report = $this->access->reach($reportId, $actorId);
@@ -53,7 +53,7 @@ final readonly class ShowReport
     /**
      * A recipient reads the frozen copy (§11.3) and who wrote it.
      *
-     * @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
      */
     public function oneReceived(string $reportId, string $actorId): array
     {
@@ -87,7 +87,7 @@ final readonly class ShowReport
 
     /**
      * @param  array<string, mixed>|null  $frozen
-     * @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>}
      */
     private function read(Report $report, ?array $frozen): array
     {
@@ -112,6 +112,7 @@ final readonly class ShowReport
 
         return [
             'report' => $report,
+            'version' => $report->shownVersion($frozen !== null),
             'follow_ups' => $followUps,
             'notes' => $notes,
             'activity' => $activity,

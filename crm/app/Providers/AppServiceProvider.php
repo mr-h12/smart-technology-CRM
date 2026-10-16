@@ -82,22 +82,29 @@ use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
+use App\Modules\Pdf\Application\Access\ReportPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfAssetsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfGenerationsInterface;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
+use App\Modules\Pdf\Domain\Contracts\ReportPdfGenerationsInterface;
 use App\Modules\Pdf\Infrastructure\BrowsershotPdfRenderer;
 use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
 use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
+use App\Modules\Pdf\Infrastructure\DatabaseReportPdfGenerations;
 use App\Modules\Pdf\Infrastructure\FilePdfAssets;
 use App\Modules\Pdf\Presentation\QueuePdfWhenQuotationSent;
+use App\Modules\Pdf\Presentation\QueuePdfWhenReportSubmitted;
 use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
+use App\Modules\Reports\Application\SubmittedReports;
 use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
+use App\Modules\Reports\Domain\Contracts\ReportSubmitted;
+use App\Modules\Reports\Domain\Contracts\SubmittedReportsInterface;
 use App\Modules\Reports\Infrastructure\DatabaseReportDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
@@ -373,6 +380,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReportDirectoryInterface::class, DatabaseReportDirectory::class);
         // `D-133`: the follow-ups Customers shows, read from the same adapter.
         $this->app->bind(CustomerFollowUpsInterface::class, DatabaseReportDirectory::class);
+        // `D-132`: the submitted version the Pdf module renders, and who may open it.
+        $this->app->bind(SubmittedReportsInterface::class, SubmittedReports::class);
 
         $this->app->bind(
             QuotationDirectoryInterface::class,
@@ -510,9 +519,9 @@ class AppServiceProvider extends ServiceProvider
         // answer; this map is the only place that has to know about both, and
         // it is already outside every module boundary.
         //
-        // `Report` has no entry and is refused by the composite —
-        // `DenyAllAttachmentPermission`'s deny-by-default, kept for the one
-        // parent no module answers for yet.
+        // Module 13, slice 4 (`D-132`) — `Report` joins with its stored PDFs:
+        // `report.export` and the report's author or a live recipient (spec §4.3).
+        // A parent with no entry is still refused by the composite.
         $this->app->bind(
             AttachmentPermissionInterface::class,
             fn (): AttachmentPermissionInterface => new ParentAwareAttachmentPermission([
@@ -521,6 +530,7 @@ class AppServiceProvider extends ServiceProvider
                 AttachmentParent::PurchaseOrder->value => $this->app->make(PurchaseOrderAttachmentPermission::class),
                 // Module 9 · 4.1 — §3.5's export/download PDF row for a quotation's stored PDFs.
                 AttachmentParent::Quotation->value => $this->app->make(QuotationPdfAttachmentPermission::class),
+                AttachmentParent::Report->value => $this->app->make(ReportPdfAttachmentPermission::class),
             ]),
         );
 
@@ -606,6 +616,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Module 9, Point 4.2 — `pdf_generations` (3.3), read for a quotation's PDF state.
         $this->app->bind(PdfGenerationsInterface::class, DatabasePdfGenerations::class);
+        // Module 13, slice 4 (`D-132`) — `report_pdf_generations`, one row per submitted report version.
+        $this->app->bind(ReportPdfGenerationsInterface::class, DatabaseReportPdfGenerations::class);
     }
 
     /**
@@ -657,6 +669,13 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             QuotationSent::class,
             fn (QuotationSent $event): null => $this->app->make(QueuePdfWhenQuotationSent::class)->handle($event),
+        );
+
+        // Module 13, slice 4 (`D-132`) — a committed submit queues its version's
+        // PDF, synchronously, so the row exists as soon as the submit returns.
+        Event::listen(
+            ReportSubmitted::class,
+            fn (ReportSubmitted $event): null => $this->app->make(QueuePdfWhenReportSubmitted::class)->handle($event),
         );
     }
 

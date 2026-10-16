@@ -17,6 +17,8 @@ final readonly class Report
         public string $periodEnd,
         public int $versionToken,
         public ?string $submittedAt,
+        /** How many versions were submitted — the highest `report_versions.version`, 0 for a first draft. */
+        public int $submittedVersions,
     ) {}
 
     /** §11.4: the author writes a draft, and a returned report on its way to the next version. */
@@ -29,5 +31,14 @@ final readonly class Report
     public function awaitsAnswer(): bool
     {
         return $this->status === 'submitted' || $this->status === 'viewed';
+    }
+
+    /**
+     * The version a read of it shows: the author's draft is the next one, a
+     * frozen copy is the latest submitted (spec §4.4 builds the PDF link from it).
+     */
+    public function shownVersion(bool $frozen): int
+    {
+        return $this->submittedVersions + ($frozen ? 0 : 1);
     }
 }

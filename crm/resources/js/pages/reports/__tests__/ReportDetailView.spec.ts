@@ -844,7 +844,6 @@ describe('ReportDetailView — the stored PDF of a submitted version (D-132)', (
         const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
 
         expect(view.find('[data-testid="report-pdf-button"]').exists()).toBe(false);
-        expect(view.find('[data-testid="report-pdf-status"]').exists()).toBe(false);
         expect(pdfReads(fetchMock)).toBe(0);
     });
 

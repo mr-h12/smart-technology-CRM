@@ -52,15 +52,7 @@ final class ReportPdfEndpointTest extends TestCase
         $this->rememberStoredFiles(AttachmentParent::Report);
 
         Queue::fake();
-        $this->app->instance(PdfRendererInterface::class, new class(self::PDF) implements PdfRendererInterface
-        {
-            public function __construct(private readonly string $bytes) {}
-
-            public function render(string $html, ?string $footerHtml = null): string
-            {
-                return $this->bytes;
-            }
-        });
+        $this->app->instance(PdfRendererInterface::class, new ReportPdfFakeRenderer(self::PDF));
     }
 
     protected function tearDown(): void

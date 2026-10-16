@@ -139,10 +139,17 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Outdoor/.*
+    # `D-133`: `CustomerFollowUpsInterface` lives in `ReportsContract` alone, on
+    # `Deals`' terms above, so Customers is allowed the contract, not the module.
     - name: Reports
       collectors:
-        - type: directory
-          value: app/Modules/Reports/.*
+        - type: bool
+          must:
+            - type: directory
+              value: app/Modules/Reports/.*
+          must_not:
+            - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\Contracts\\CustomerFollowUpsInterface$
     - name: Notifications
       collectors:
         - type: directory
@@ -317,6 +324,13 @@ parameters:
         # under — its "own" is the deal owner's (owner ruling 2026-09-11).
         - type: classLike
           value: ^App\\Modules\\Deals\\Domain\\Access\\DealRowScope$
+
+    # `ReportsContract`, Module 13 · 3.3 (`D-133`): the one interface Customers
+    # reads to show a submitted daily report's follow-ups on the customer's page.
+    - name: ReportsContract
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\Contracts\\CustomerFollowUpsInterface$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -499,6 +513,9 @@ parameters:
       # `SaveCustomer` asks `ManagedListRepositoryInterface` whether it is live —
       # Catalog's crossing of 2026-08-31, for the same reason.
       - AdminContract
+      # ReportsContract, Module 13 · 3.3 (`D-133`): `ListCustomerFollowUps` reads
+      # `CustomerFollowUpsInterface`, never Reports' tables.
+      - ReportsContract
     CustomersDriver:
       - CustomersContract
       - Framework
@@ -815,6 +832,9 @@ parameters:
       - DealsContract
       - QuotationsContract
       - CustomersContract
+      # ReportsContract (`D-133`): its own published interface back —
+      # `DatabaseReportDirectory` implements it, as Deals does `DealsContract`.
+      - ReportsContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.

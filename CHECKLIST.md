@@ -1925,6 +1925,10 @@ would hide them behind `OD-03` indefinitely.
       3.2's waste audit, 2026-10-16 (read, not run).* `CustomerNotesSection.vue` sets `row.error` and returns on a
       cleared text without resetting `row.status`, so `statusText` keeps printing `customers.notes.saved`. 3.2 fixed the
       same defect on the report page (the section status goes back to idle); the customer page is F-50's, the owner's call.
+- [ ] **No shared UTC→ATOM formatter** — *revealed by Module 13 slice 3 · 3.3's waste audit, 2026-10-16.*
+      `(new DateTimeImmutable($x))->setTimezone(new DateTimeZone('UTC'))->format(DATE_ATOM)` is written three times in
+      Reports (`DatabaseReportDirectory::hydrate` on `main`, plus `ofCustomer` and `ShowReport::followUpsOf` from 3.3), with
+      seven near-shapes across Identity, Pdf, Audit and Storage. A shared helper is a new abstraction; the owner's call.
 
 ## Agent guide revisions — owner-directed
 
@@ -5238,7 +5242,7 @@ lands in the slice that first needs it.
 - [ ] **Slice 3 — follow-ups and several notes on a daily report** *(the owner's request and division, 2026-10-16; spec `docs/superpowers/specs/2026-10-16-report-follow-ups-notes-design.md`, approved by the owner in chat, 2026-10-16; `D-131` proposed)*: a «التواصل والمتابعة» section of customer + note rows; several notes instead of one box; both autosaved (the `D-124` pattern) and frozen at submit; the page in the order ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit. Not in it: a channel, date or time on a follow-up; the PDF (slice 4, spec `2026-10-16-report-pdf-design.md`, `D-132`).
     - [x] **3.1** Decision and red: `D-131` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason *(2026-10-16 — `D-131` at `CRM_Documentation_EN.md:196`, inode kept; 22 PHP + 13 vitest red for the right reason (missing routes, tables, migration, module, testids); 75 PHP and 62 vitest old tests still pass)*
     - [x] **3.2** Green and evidence: migration, tables, endpoints, the frozen copy, the shared autosave helper, sections ③④ and the page order; the full suite alone, the gates, the auditors, the browser check *(2026-10-16, PR 382 — an archived customer refused like an out-of-reach one (422); PHP 3950, vitest 1432; browser ar/en × 1280/375; no «تم الحفظ» beside a required error)*
-    - [ ] **3.3** Follow-ups on the customer page (`D-133`; one point by the owner's division, 2026-10-16; restatement approved 2026-10-16 with (a) the author is the report's author and (b) a version frozen before 3.3 shows its submit time): `D-133` written; red; green; the full suite alone, the gates, the auditors, the browser check
+    - [x] **3.3** Follow-ups on the customer page (`D-133`; one point by the owner's division, 2026-10-16; restatement approved 2026-10-16 with (a) the author is the report's author and (b) a version frozen before 3.3 shows its submit time): `D-133` written; red; green; the full suite alone, the gates, the auditors, the browser check *(2026-10-16, PR 383 — `GET /customers/{id}/follow-ups` reads the latest submitted version through `ReportsContract`; the first-save time frozen at submit; PHP 3960, vitest 1439; browser checked by the owner)*
 
 ---
 

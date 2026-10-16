@@ -98,6 +98,9 @@ final class NoHardCodedTextTest extends TestCase
                 // add/edit form, on the same terms: added only after the scan
                 // below passed on each.
                 'CustomerDetailView.vue',
+                // Module 13 · 3.3 (`D-133`) — the customer's read-only follow-ups; every line is a
+                // `customers.followUps.*` or `state.*` key, or the follow-up itself.
+                'CustomerFollowUpsSection.vue',
                 'CustomerFormModal.vue',
                 // F-08 · 1.2 (`D-84`) — the shared customer search dropdown; every
                 // line it draws is a `customers.picker.*` key or a label its caller passes.

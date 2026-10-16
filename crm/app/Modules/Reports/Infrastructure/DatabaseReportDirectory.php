@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Infrastructure;
 
+use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Report;
 use App\Support\Database\DocumentNumberAllocator;
@@ -15,7 +16,7 @@ use Illuminate\Support\Str;
  * builder. A persistence adapter: the use cases own the transactions and the
  * audit entries (`AUD-01`).
  */
-final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
+final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterface, ReportDirectoryInterface
 {
     /** `D-131`: each row kind's table, and the columns it writes and reads. */
     private const ROWS = ['follow_up' => 'report_follow_ups', 'note' => 'report_notes'];
@@ -92,7 +93,8 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             ->whereNull('deleted_at')
             ->orderBy('created_at')
             ->orderBy('id')
-            ->get(['id', ...self::FIELDS[$kind]])
+            // `D-133`: a follow-up's first save travels into the frozen copy.
+            ->get(['id', ...self::FIELDS[$kind], ...($kind === 'follow_up' ? ['created_at'] : [])])
             ->map(static fn (object $row): array => (array) $row)
             ->all();
 
@@ -313,6 +315,31 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
         );
+    }
+
+    public function ofCustomer(string $customerId): array
+    {
+        // ponytail: scans every report's latest snapshot (no index on the JSONB); a GIN index on `snapshot` if this gets slow.
+        /** @var list<object{note: string, author_id: string, followed_up_at: string}> $rows */
+        $rows = $this->connection->select(<<<'SQL'
+            SELECT f->>'note' AS note, latest.author_id,
+                   COALESCE((f->>'followed_up_at')::timestamptz, latest.created_at AT TIME ZONE 'UTC') AS followed_up_at
+            FROM (
+                SELECT DISTINCT ON (v.report_id) v.snapshot, v.created_at, r.author_id
+                FROM report_versions v JOIN reports r ON r.id = v.report_id
+                WHERE v.deleted_at IS NULL AND r.deleted_at IS NULL
+                ORDER BY v.report_id, v.version DESC
+            ) latest
+            CROSS JOIN LATERAL jsonb_array_elements(COALESCE(latest.snapshot->'follow_ups', '[]'::jsonb)) f
+            WHERE f->>'customer_id' = ?
+            ORDER BY 3 DESC
+            SQL, [$customerId]);
+
+        return array_map(static fn (object $row): array => [
+            'note' => $row->note,
+            'author_id' => $row->author_id,
+            'followed_up_at' => (new \DateTimeImmutable($row->followed_up_at))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+        ], $rows);
     }
 
     /** The report's highest version number; 0 when it has none. */

@@ -52,6 +52,7 @@ import { listEntries, type ListEntry } from '@/services/admin';
 import { assignCustomer, contactLine, readCustomer, type CustomerDetail } from '@/services/customers';
 import { useAuth } from '@/stores/auth';
 import CustomerFormModal from '@/pages/customers/CustomerFormModal.vue';
+import CustomerFollowUpsSection from '@/components/customers/CustomerFollowUpsSection.vue';
 import CustomerNotesSection from '@/components/customers/CustomerNotesSection.vue';
 import DealOwnerPicker from '@/pages/deals/DealOwnerPicker.vue';
 import DealFormModal from '@/pages/deals/DealFormModal.vue';
@@ -444,6 +445,7 @@ onMounted(async () => {
             <!-- §5.2's "related data/timeline second". `D-122`: the
                  communication history is a list of notes, each its own entry. -->
             <CustomerNotesSection :customer-id="customer.id" :can-edit="canEdit" />
+            <CustomerFollowUpsSection :customer-id="customer.id" />
 
             <!-- Flow 10, last after §5.2's summary and related data. The picker
                  is the deal page's own control, reused rather than copied. -->

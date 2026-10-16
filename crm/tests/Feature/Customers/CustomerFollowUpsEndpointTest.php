@@ -158,6 +158,53 @@ final class CustomerFollowUpsEndpointTest extends TestCase
             ->assertJsonPath('error.code', 'resource_not_found');
     }
 
+    /** `D-133` · `SEC-07`: a role with no `customer.view` grant is refused with 403, not shown an empty list. */
+    public function test_that_a_role_without_customer_view_is_refused(): void
+    {
+        $owner = $this->user(RoleName::IndoorSales);
+        $nile = $this->customer('Nile Trading', $owner);
+
+        $role = new Role;
+        $role->fill(['slug' => 'auditor_without_grants', 'name' => 'Auditor', 'is_editable' => true]);
+        $role->save();
+        $grantless = new User;
+        $grantless->fill([
+            'name' => 'Grantless', 'email' => 'grantless@example.test', 'password' => self::PASSWORD,
+            'role_id' => $role->id, 'is_active' => true, 'is_hidden' => false,
+        ]);
+        $grantless->save();
+
+        $this->getJson($this->followUps($nile), $this->bearer($grantless))->assertStatus(403);
+    }
+
+    /** `D-133` · `SEC-07`: no token, no follow-ups. */
+    public function test_that_an_unauthenticated_caller_is_refused(): void
+    {
+        $this->getJson($this->followUps((string) Str::uuid7()))->assertStatus(401);
+    }
+
+    /**
+     * `D-133` · `SEC-07`: a role whose customer scope resolves to no rows (Team Leader)
+     * gets the parent's 404 even on a customer with a submitted follow-up. The owner's
+     * 200 first, so a missing route cannot pass this.
+     */
+    public function test_that_a_role_whose_scope_resolves_to_nothing_gets_404(): void
+    {
+        $owner = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $teamLeader = $this->user(RoleName::TeamLeader);
+        $nile = $this->customer('Nile Trading', $owner);
+        $id = $this->create($owner);
+        $this->addFollowUp($owner, $id, $nile, 'Visible to the owner only.');
+        $this->submit($owner, $id, [$manager])->assertStatus(200);
+
+        $this->getJson($this->followUps($nile), $this->bearer($owner))->assertStatus(200)->assertJsonCount(1, 'data');
+
+        $this->getJson($this->followUps($nile), $this->bearer($teamLeader))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found');
+    }
+
     /** `D-133`: only the follow-ups whose customer is this one. */
     public function test_that_a_follow_up_on_another_customer_does_not_show(): void
     {

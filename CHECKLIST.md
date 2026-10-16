@@ -1862,7 +1862,7 @@ would hide them behind `OD-03` indefinitely.
       last three edges). Publishing the reachable manual moves on the payload removes the copy; a
       backend point. **The cost, stated:** a fourth manual status, or a changed edge, needs the map
       edited beside the PHP graph; the server still refuses a wrong edge (409), so nothing is moved wrongly.
-- [ ] **RPT-VS (Visits report) is not built in Module 13** — *the owner's ruling, 2026-10-15 (`D-125`).*
+- [x] **RPT-VS (Visits report) is not built in Module 13** — *the owner's ruling, 2026-10-15 (`D-125`).* *(Withdrawn 2026-10-16, `D-134`: RPT-VS is built in Module 13; the owner gives its details when its slice starts.)*
       §11.2's Visits type reads Module 12's `visits`, which is paused and has no table. It is added in
       Module 12. **The cost, stated:** until then Outdoor Sales and the Supervisor cannot file a visits report.
 - [ ] **RPT-PR (Procurement report) is not built in Module 13** — *the owner's ruling, 2026-10-15
@@ -5206,7 +5206,7 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 **Tables** `reports` · `report_recipients` · `report_versions` · **Jobs** J-04 … J-08
 
-**Scope:** six of §11.2's eight types, under `D-125` (RPT-VS and RPT-PR: debt register; deadlines: `OD-06`'s line).
+**Scope:** seven of §11.2's eight types, under `D-125` and `D-134` (RPT-PR: debt register; RPT-VS in Module 13, its details from the owner when its slice starts; RPT-WK and RPT-MN carry a new-customers section, `D-134`; deadlines: `OD-06`'s line).
 
 **Acceptance criteria**
 - [ ] Submitted report → **fixed snapshot + stored PDF**, unchanged even if the data changes

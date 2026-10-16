@@ -56,7 +56,7 @@ Implement modules strictly in this order unless an approved change says otherwis
 
 `0 Foundation → 1 Identity & Dynamic RBAC → 2 Settings/Currencies → 3 Customers → 4 Catalog/Suppliers → 5 Deals → 6 Supplier Quotations → 7 Customer Quotations → 8 Approvals → 9 PDF → 10 Customer Response & POs → 11 Procurement → 12 Outdoor Visits → 13 Reports → 14 Dashboard → 15 Meilisearch`.
 
-**Approved change (`D-125`, 2026-10-15):** Module 13 Reports is built after Module 10; Modules 11 and 12 are paused and resume after Module 13 unless the owner reorders. Module 13 builds six of §11.2's types; RPT-VS and RPT-PR wait for Modules 12 and 11.
+**Approved change (`D-125`, 2026-10-15):** Module 13 Reports is built after Module 10; Modules 11 and 12 are paused and resume after Module 13 unless the owner reorders. Module 13 builds seven of §11.2's types; RPT-PR waits for Module 11. RPT-VS is built in Module 13 (`D-134`), its details given by the owner when its slice starts.
 
 Do not advance a module until its acceptance criteria, tests, permissions, audit records, RTL/LTR states, and reversible migration pass. While `P-02` is deferred, the deployment item means the production-matched local environment plus a recorded deployment debt (`D-66`).
 

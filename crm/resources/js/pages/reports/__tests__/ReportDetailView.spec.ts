@@ -647,6 +647,27 @@ describe('ReportDetailView — follow-ups and notes (D-131)', () => {
         expect(row.find('[data-testid="report-follow-up-note-error"]').exists()).toBe(true);
     });
 
+    // 3.2's browser check: «تم الحفظ ✓» stayed beside the required-text error, though the cleared text was not saved.
+    it('does not say saved beside a required-text error', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+
+        for (const [section, box] of [['follow-ups', 'report-follow-up-note'], ['notes', 'report-note-body']] as const) {
+            const status = () => view.get(`[data-testid="report-section-${section}"]`).get('[data-testid="report-autosave-status"]').text();
+            const field = view.get(`[data-testid="report-section-${section}"]`).get(`[data-testid="${box}"]`);
+
+            await field.setValue('Saved once.');
+            await field.trigger('blur');
+            await flushPromises();
+            expect(status()).toBe(en.reports.autosave.saved);
+
+            await field.setValue('');
+            await field.trigger('blur');
+            await flushPromises();
+            expect(status()).not.toBe(en.reports.autosave.saved);
+        }
+    });
+
     it('asks before «حذف» removes a follow-up', async () => {
         const fetchMock = rowsServer();
         const view = await render(fetchMock);

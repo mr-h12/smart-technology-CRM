@@ -171,7 +171,11 @@ async function saveFollowUp(key: string): Promise<void> {
     // `D-131`: a cleared or empty required text is not sent; the stored one stays.
     row.customerMissing = row.customerId === '';
     row.noteMissing = note === '';
-    if (row.customerMissing || row.noteMissing || (row.stored?.customer_id === row.customerId && row.stored.note === note)) {
+    if (row.customerMissing || row.noteMissing) {
+        followUpStatus.value = 'idle'; // the error speaks; «تم الحفظ» would claim what was not saved
+        return;
+    }
+    if (row.stored?.customer_id === row.customerId && row.stored.note === note) {
         return;
     }
 
@@ -197,7 +201,11 @@ async function saveNote(key: string): Promise<void> {
     }
 
     row.missing = body === '';
-    if (row.missing || row.stored === body) {
+    if (row.missing) {
+        noteStatus.value = 'idle';
+        return;
+    }
+    if (row.stored === body) {
         return;
     }
 

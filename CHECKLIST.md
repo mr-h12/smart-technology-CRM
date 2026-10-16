@@ -1865,6 +1865,13 @@ would hide them behind `OD-03` indefinitely.
 - [x] **RPT-VS (Visits report) is not built in Module 13** — *the owner's ruling, 2026-10-15 (`D-125`).* *(Withdrawn 2026-10-16, `D-134`: RPT-VS is built in Module 13; the owner gives its details when its slice starts.)*
       §11.2's Visits type reads Module 12's `visits`, which is paused and has no table. It is added in
       Module 12. **The cost, stated:** until then Outdoor Sales and the Supervisor cannot file a visits report.
+- [ ] **The report status pill is written inline three times** — *created by Module 13 · 5.2, 2026-10-16 (`D-135`), accepted by the owner.*
+      `ReportsView.vue`, `ReceivedReportsView.vue` and `ReportDetailView.vue` each carry the same `rounded-full` status span and
+      now the same «سُلِّم متأخراً» span with the warning tone. **The cost, stated:** a change to the pill is made three times. Extract a
+      `ReportStatusChip` when a fourth place needs it. Also: `SystemLimit::valueType()`'s docblock count is stale (revealed, 5.2).
+- [ ] **J-04's job and catch-up command copy J-01's shape** — *created by Module 13 · 5.2, 2026-10-16.* Two ~20-line copies
+      (`ExpireQuotations*`, `MarkMissedDailyReports*`). **The cost, stated:** none yet; the third catch-up job (J-05) is the trigger
+      to extract one shared catch-up command, and the `scheduler` service's `&&` chain grows by one per job until then.
 - [ ] **RPT-PR (Procurement report) is not built in Module 13** — *the owner's ruling, 2026-10-15
       (`D-125`).* §11.2's Procurement type reads Module 11's `procurement_negotiations`, which is paused
       and has no table. It is added in Module 11. **The cost, stated:** until then Procurement cannot

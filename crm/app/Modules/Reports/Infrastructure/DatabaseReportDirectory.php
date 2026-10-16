@@ -17,6 +17,11 @@ use Illuminate\Support\Str;
  */
 final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
 {
+    /** `D-131`: each row kind's table, and the columns it writes and reads. */
+    private const ROWS = ['follow_up' => 'report_follow_ups', 'note' => 'report_notes'];
+
+    private const FIELDS = ['follow_up' => ['customer_id', 'note'], 'note' => ['body']];
+
     public function __construct(private ConnectionInterface $connection) {}
 
     /** @return array{id: string, code: string} */
@@ -42,7 +47,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         return ['id' => $id, 'code' => $code];
     }
 
-    public function find(string $reportId): ?Report
+    public function find(string $reportId, bool $lock = false): ?Report
     {
         if (! Str::isUuid($reportId)) {
             return null;
@@ -51,11 +56,12 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         /**
          * @var object{
          *     id: string, code: string, type: string, status: string, author_id: string,
-         *     period_start: string, period_end: string, notes: ?string, version_token: int,
+         *     period_start: string, period_end: string, version_token: int,
          *     submitted_at: ?string
          * }|null $row
          */
-        $row = $this->connection->table('reports')->whereNull('deleted_at')->where('id', $reportId)->first();
+        $row = $this->connection->table('reports')->whereNull('deleted_at')->where('id', $reportId)
+            ->when($lock, static fn ($query) => $query->lockForUpdate())->first();
 
         return $row === null ? null : self::hydrate($row);
     }
@@ -68,7 +74,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         /**
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
-         *     period_start: string, period_end: string, notes: ?string, version_token: int,
+         *     period_start: string, period_end: string, version_token: int,
          *     submitted_at: ?string
          * }> $rows
          */
@@ -78,19 +84,64 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         return ['items' => array_map(self::hydrate(...), $rows), 'total' => $total];
     }
 
-    public function updateNotes(string $reportId, int $versionToken, ?string $notes, string $actorId): bool
+    public function rowsOf(string $kind, string $reportId): array
     {
-        return $this->connection->table('reports')
-            ->where('id', $reportId)
-            ->where('version_token', $versionToken)
-            ->whereIn('status', ['draft', 'returned'])
+        /** @var list<array<string, string>> $rows the columns are non-null uuid and text */
+        $rows = $this->connection->table(self::ROWS[$kind])
+            ->where('report_id', $reportId)
             ->whereNull('deleted_at')
-            ->update([
-                'notes' => $notes,
-                'version_token' => $versionToken + 1,
-                'updated_by' => $actorId,
-                'updated_at' => now(),
-            ]) === 1;
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', ...self::FIELDS[$kind]])
+            ->map(static fn (object $row): array => (array) $row)
+            ->all();
+
+        return $rows;
+    }
+
+    public function addRow(string $kind, string $reportId, array $fields, string $actorId): string
+    {
+        $id = Str::uuid7()->toString();
+
+        $this->connection->table(self::ROWS[$kind])->insert([
+            ...$fields,
+            'id' => $id,
+            'report_id' => $reportId,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    public function findRow(string $kind, string $reportId, string $rowId): ?array
+    {
+        if (! Str::isUuid($rowId)) {
+            return null;
+        }
+
+        $row = $this->connection->table(self::ROWS[$kind])
+            ->where('id', $rowId)
+            ->where('report_id', $reportId)
+            ->whereNull('deleted_at')
+            ->first(['id', ...self::FIELDS[$kind]]);
+
+        /** @var array<string, string>|null */
+        return $row === null ? null : (array) $row;
+    }
+
+    public function updateRow(string $kind, string $rowId, array $fields, string $actorId): void
+    {
+        $this->connection->table(self::ROWS[$kind])->where('id', $rowId)
+            ->update([...$fields, 'updated_by' => $actorId, 'updated_at' => now()]);
+    }
+
+    public function removeRow(string $kind, string $rowId, string $actorId): void
+    {
+        $this->connection->table(self::ROWS[$kind])->where('id', $rowId)
+            ->update(['deleted_at' => now(), 'updated_by' => $actorId, 'updated_at' => now()]);
     }
 
     public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, string $actorId): bool
@@ -195,7 +246,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         /**
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
-         *     period_start: string, period_end: string, notes: ?string, version_token: int,
+         *     period_start: string, period_end: string, version_token: int,
          *     submitted_at: ?string
          * }> $rows
          */
@@ -244,7 +295,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
      *
      * @param  object{
      *     id: string, code: string, type: string, status: string, author_id: string,
-     *     period_start: string, period_end: string, notes: ?string, version_token: int,
+     *     period_start: string, period_end: string, version_token: int,
      *     submitted_at: ?string
      * }  $row
      */
@@ -258,7 +309,6 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             authorId: $row->author_id,
             periodStart: $row->period_start,
             periodEnd: $row->period_end,
-            notes: $row->notes,
             versionToken: $row->version_token,
             submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),

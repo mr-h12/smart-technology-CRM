@@ -1,8 +1,9 @@
-import { apiGet, apiPatch, apiPost, collection, type Page } from '@/api';
+import { apiDelete, apiGet, apiPatch, apiPost, collection, type Page } from '@/api';
 
 /**
  * Module 13 — the author's side of a report (`GET/POST /reports`,
- * `GET/PATCH /reports/{id}`, `/recipient-candidates`, `/submit`) and, since
+ * `GET /reports/{id}`, `/recipient-candidates`, `/submit`, and slice 3's
+ * `/follow-ups` and `/notes`, `D-131`) and, since
  * slice 2, the recipient's (`GET /reports/received[/{id}]`, `/acknowledge`, `/return`).
  *
  * The screen shows what the server returns: the counts, the default recipient
@@ -69,9 +70,23 @@ export interface ActivitySections {
     }>;
 }
 
+/** `D-131`: a draft's rows carry their id; a submitted report's are its frozen copy's, without one. */
+export interface ReportFollowUp {
+    id?: string;
+    customer_id: string;
+    customer_name: string;
+    note: string;
+}
+
+export interface ReportNote {
+    id?: string;
+    body: string;
+}
+
 export interface ReportDetail extends ReportSummary {
     author_name?: string;
-    notes: string | null;
+    follow_ups: ReportFollowUp[];
+    notes: ReportNote[];
     etag: string;
     activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
@@ -101,8 +116,29 @@ export async function readReport(id: string): Promise<ReportDetail> {
     return (await apiGet<ReportDetail>(`/reports/${id}`)).data;
 }
 
-export async function saveReportNotes(id: string, etag: string, notes: string): Promise<ReportDetail> {
-    return (await apiPatch<ReportDetail>(`/reports/${id}`, { notes }, { 'If-Match': etag })).data;
+/** `D-131`'s row writes carry no `If-Match`: the last write to a row wins; the server answers the row. */
+export async function addReportFollowUp(id: string, row: { customer_id: string; note: string }): Promise<{ id: string; customer_id: string; note: string }> {
+    return (await apiPost<{ id: string; customer_id: string; note: string }>(`/reports/${id}/follow-ups`, row)).data;
+}
+
+export async function updateReportFollowUp(id: string, rowId: string, row: { customer_id: string; note: string }): Promise<{ id: string; customer_id: string; note: string }> {
+    return (await apiPatch<{ id: string; customer_id: string; note: string }>(`/reports/${id}/follow-ups/${rowId}`, row)).data;
+}
+
+export async function removeReportFollowUp(id: string, rowId: string): Promise<void> {
+    await apiDelete(`/reports/${id}/follow-ups/${rowId}`);
+}
+
+export async function addReportNote(id: string, body: string): Promise<{ id: string; body: string }> {
+    return (await apiPost<{ id: string; body: string }>(`/reports/${id}/notes`, { body })).data;
+}
+
+export async function updateReportNote(id: string, noteId: string, body: string): Promise<{ id: string; body: string }> {
+    return (await apiPatch<{ id: string; body: string }>(`/reports/${id}/notes/${noteId}`, { body })).data;
+}
+
+export async function removeReportNote(id: string, noteId: string): Promise<void> {
+    await apiDelete(`/reports/${id}/notes/${noteId}`);
 }
 
 export async function readRecipientCandidates(id: string): Promise<RecipientCandidate[]> {

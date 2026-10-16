@@ -1901,6 +1901,30 @@ would hide them behind `OD-03` indefinitely.
       5. **The Team and Out scopes narrow nothing yet** (`D-129`, the `ponytail:` comment in
          `ReportAccess.php`). Recipient rows are the only barrier; re-audit when teams land.
       **The cost, stated:** a regression in 1–3 would pass the suite; 4 and 5 widen nothing today.
+- [ ] **The Reports feature tests each carry their own `etag()`, `user()`, `bearer()`, `create()` and `customer()`**
+      — *revealed by Module 13 slice 3 · 3.1's waste audit, 2026-10-16.* `etag()` is byte-identical in
+      `ReportReceiveEndpointTest`, `ReportSubmitEndpointTest` and `ReportFollowUpsEndpointTest`; the others are
+      the same shape across the five Reports test classes, as are `snapshot()` against `version()` + `snapshotOf()`
+      and `withFollowUp`/`withNote` against `withRows`. Same family as the `refusedWith()` rows above. A shared
+      Reports test trait would remove the copies; the owner's call where shared test helpers live.
+- [ ] **A report that is no longer editable answers two ways** — *revealed by Module 13 slice 3 · 3.1, 2026-10-16;
+      the owner kept both (3.1's report).* The new follow-up and note routes answer `409 report_not_editable`
+      (`D-131`); submit on a non-draft still answers `422 business_rule_blocked` / `report_not_draft`. Since 3.2,
+      `PATCH /reports/{id}` writes nothing: it refuses `notes` (`422`) and otherwise returns the report. The owner
+      kept it (2026-10-16); removing the route, and one code for one state, are the owner's call.
+- [ ] **A follow-up's customer name is frozen even after the customer left the author's reach** — *revealed by
+      Module 13 slice 3 · 3.2's permission audit, 2026-10-16; the owner accepted it as is.* The scope is checked
+      when a row is added or changed (`ManageReportRows::checkCustomer`); at submit `followUpsOf` reads the name
+      through the unscoped `CustomerNamesInterface`, so a customer reassigned away after the row was written
+      still appears by name in the frozen copy. Same family as slice 1's reassigned deal or quotation, also accepted.
+- [ ] **`data-testid="report-conflict"` in the recipient's answer section is queried by nothing** — *revealed by
+      Module 13 slice 3 · 3.2's waste audit, 2026-10-16.* `ReportDetailView.vue`'s Acknowledge/Return section carries it
+      and no spec reads it (none did before 3.2 either); 3.2 dropped the submit section's copy, whose only test went
+      with the old notes box. Assert it in a receive-409 test or drop it; the owner's call.
+- [ ] **A cleared customer note still says «تم الحفظ» beside its required error** — *revealed by Module 13 slice 3 ·
+      3.2's waste audit, 2026-10-16 (read, not run).* `CustomerNotesSection.vue` sets `row.error` and returns on a
+      cleared text without resetting `row.status`, so `statusText` keeps printing `customers.notes.saved`. 3.2 fixed the
+      same defect on the report page (the section status goes back to idle); the customer page is F-50's, the owner's call.
 
 ## Agent guide revisions — owner-directed
 
@@ -5176,8 +5200,8 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 **Acceptance criteria**
 - [ ] Submitted report → **fixed snapshot + stored PDF**, unchanged even if the data changes
-- [ ] Returned report → mandatory reason + v2 version, original retained
-- [ ] Acknowledged → **read-only even for the author**
+- [x] Returned report → mandatory reason + v2 version, original retained *(2026-10-16, #381 — slice 2)*
+- [x] Acknowledged → **read-only even for the author** *(2026-10-16, #381 — slice 2)*
 - [ ] Same type, period and employee → warning and a choice
 - [ ] CEO → view, export and comment only — **no acknowledge, no return**
 - [ ] Server down on the weekly report day → the job **runs on startup** (catch-up)
@@ -5204,12 +5228,16 @@ lands in the slice that first needs it.
     - [x] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned *(2026-10-15, PR 379 — suite 3901 passed, 1 failed (the 401 test, R.4); browser check NOT done: the pane was signed out, the owner skipped it)*
     - [~] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check *(2026-10-15, PR 379 — the 401 test was a test defect (the request guard kept create()'s user; forgetGuards); suite 3902 passed, 0 failed; Reports 51 passed; browser check NOT done: the owner skipped it)*
   - Merged 2026-10-15 (#379; CI green on `5f37952`, including `tests/Feature/Reports`, newly added to the `quotations-deals` shard). `[~]` until R.4's browser check is done.
-- [ ] **Slice 2 — the receiving side of a daily report** *(divided by the owner, 2026-10-16; §3.10, §11.4, `D-127`)*: a "Received reports" list for the holders of *view received*, read from the frozen copy; the report page for a recipient; **Viewed** on a recipient's first open (who and when; the author's own open does not count); **Acknowledge** → permanently read-only, even for the author; **Return** with a mandatory reason → a new editable version (v2) that copies v1's notes and recipients, the original kept viewable; the CEO views but cannot acknowledge or return; Sales and Procurement have no received list. Scopes: Manager and CEO `All`; the Team Leader's `Team` and the Outdoor Supervisor's `Out` wait for teams (`D-129`). Not in it: the PDF, comments, the other five types, the jobs, badges, the duplicate-period warning.
+- [x] **Slice 2 — the receiving side of a daily report** *(divided by the owner, 2026-10-16; §3.10, §11.4, `D-127`)*: a "Received reports" list for the holders of *view received*, read from the frozen copy; the report page for a recipient; **Viewed** on a recipient's first open (who and when; the author's own open does not count); **Acknowledge** → permanently read-only, even for the author; **Return** with a mandatory reason → a new editable version (v2) that copies v1's notes and recipients, the original kept viewable; the CEO views but cannot acknowledge or return; Sales and Procurement have no received list. Scopes: Manager and CEO `All`; the Team Leader's `Team` and the Outdoor Supervisor's `Out` wait for teams (`D-129`). Not in it: the PDF, comments, the other five types, the jobs, badges, the duplicate-period warning.
     - [x] **2.1** Red: failing tests for the received list, Viewed, Acknowledge, Return → v2, and the refusals (CEO acknowledge/return, Sales/Procurement list, the author on someone else's report) *(2026-10-16 — 24 PHP + 8 vitest red for the right reason; the new view's spec fails on its missing component)*
     - [x] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page *(2026-10-16 — Reports 75 passed, reports vitest 68 passed; one more spec edit approved: `uiSourceRules` lists the Return `<dialog>`)*
     - [x] **2.3a** The local suite runs within its memory: `<ini name="memory_limit" value="512M"/>` in `phpunit.xml` *(2026-10-16 — plain `php artisan test` crashed at 256 MB in `UploadValidationTest:76`; now 3929 passed (26471 assertions); the image's 256 MB stays for everything else)*
     - [x] **2.3b** The report pages' controls take the shared styles: `create-action` on New report and Submit, a global `.form-field` in `app.css` *(2026-10-16 — red: border 0px, transparent; green in ar/en × 1280/375: notes 1px `#78716C`, buttons `rgb(194,65,12)`; `/customers` unchanged; vitest 1412 passed)*
-    - [~] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check *(2026-10-16 — six gates green locally: PHP 3929 passed, vitest 1412, pint 825 files, phpstan OK, deptrac 0/0; permission audit: no blocker, five gaps to the register; browser check ar/en × 1280/375; CI owed: branch not pushed — PR 381)*
+    - [x] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check *(2026-10-16, #381 — six gates green locally: PHP 3929 passed, vitest 1412, pint 825 files, phpstan OK, deptrac 0/0; permission audit: no blocker, five gaps to the register; browser check ar/en × 1280/375; CI success on `4cdb867` (Frontend build, PHP image))*
+  - Merged 2026-10-16 (#381).
+- [ ] **Slice 3 — follow-ups and several notes on a daily report** *(the owner's request and division, 2026-10-16; spec `docs/superpowers/specs/2026-10-16-report-follow-ups-notes-design.md`, approved by the owner in chat, 2026-10-16; `D-131` proposed)*: a «التواصل والمتابعة» section of customer + note rows; several notes instead of one box; both autosaved (the `D-124` pattern) and frozen at submit; the page in the order ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit. Not in it: a channel, date or time on a follow-up; the PDF (slice 4, spec `2026-10-16-report-pdf-design.md`, `D-132`).
+    - [x] **3.1** Decision and red: `D-131` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason *(2026-10-16 — `D-131` at `CRM_Documentation_EN.md:196`, inode kept; 22 PHP + 13 vitest red for the right reason (missing routes, tables, migration, module, testids); 75 PHP and 62 vitest old tests still pass)*
+    - [x] **3.2** Green and evidence: migration, tables, endpoints, the frozen copy, the shared autosave helper, sections ③④ and the page order; the full suite alone, the gates, the auditors, the browser check *(2026-10-16, PR 382 — an archived customer refused like an out-of-reach one (422); PHP 3950, vitest 1432; browser ar/en × 1280/375; no «تم الحفظ» beside a required error)*
 
 ---
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import ar from '@/locales/ar.json';
@@ -8,8 +8,8 @@ import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
- * Module 13, first slice — one daily report (RPT-DY): the author writes notes,
- * sees the day's records grouped by kind (`D-126`; found through the audit
+ * Module 13, first slice — one daily report (RPT-DY): the author writes notes
+ * (several since `D-131`), sees the day's records grouped by kind (`D-126`; found through the audit
  * log but never showing it, `D-130`), chooses recipients (default preselected, `D-129`) and submits.
  *
  * The screen displays what the server returns and sends what the author typed;
@@ -59,7 +59,7 @@ const EMPTY_SECTIONS = Object.fromEntries(Object.keys(SECTIONS).map((key) => [ke
 const DRAFT = {
     id: 'rep1', code: 'RPT-DY-2026-0001', type: 'daily', status: 'draft',
     period_start: '2026-10-15', period_end: '2026-10-15', submitted_at: null,
-    notes: 'Morning calls.', etag: 'report:rep1:1',
+    follow_ups: [], notes: [{ id: 'n1', body: 'Morning calls.' }], etag: 'report:rep1:1',
     // `D-130`: the records themselves, grouped by kind — never the audit events.
     activity: { counts: COUNTS, sections: SECTIONS },
     recipients: [],
@@ -234,35 +234,35 @@ describe('ReportDetailView — a daily report', () => {
         expect(view.find('[data-testid^="activity-section-"]').exists()).toBe(false);
     });
 
-    it('saves the notes with If-Match and adopts the new etag', async () => {
-        const fetchMock = server({ patch: (_url, init) => envelope({ ...DRAFT, notes: JSON.parse(init.body as string).notes, etag: 'report:rep1:2' }) });
+    it('saves a note through its own route, without If-Match, and Submit keeps the report\'s etag (D-131)', async () => {
+        const fetchMock = server({ patch: (url, init) => /\/notes\//.test(url) ? envelope({ id: 'n1', body: JSON.parse(init.body as string).body }) : envelope(SUBMITTED) });
         const view = await render(fetchMock);
 
-        expect((view.get('[data-testid="report-notes"]').element as HTMLTextAreaElement).value).toBe('Morning calls.');
-        await view.get('[data-testid="report-notes"]').setValue('Two visits.');
-        await view.get('[data-testid="report-save"]').trigger('click');
+        expect((view.get('[data-testid="report-note-body"]').element as HTMLTextAreaElement).value).toBe('Morning calls.');
+        await view.get('[data-testid="report-note-body"]').setValue('Two visits.');
+        await view.get('[data-testid="report-note-body"]').trigger('blur');
         await flushPromises();
 
         const [url, init] = patches(fetchMock)[0]!;
-        expect(url).toMatch(/\/reports\/rep1$/);
-        expect(JSON.parse(init.body as string)).toEqual({ notes: 'Two visits.' });
-        expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');
+        expect(url).toMatch(/\/reports\/rep1\/notes\/n1$/);
+        expect(JSON.parse(init.body as string)).toEqual({ body: 'Two visits.' });
+        expect(new Headers(init.headers).get('If-Match')).toBeNull();
 
-        await view.get('[data-testid="report-save"]').trigger('click');
+        await view.get('[data-testid="report-submit"]').trigger('click');
         await flushPromises();
-        expect(new Headers(patches(fetchMock)[1]![1].headers).get('If-Match')).toBe('report:rep1:2');
+        expect(new Headers(patches(fetchMock)[1]![1].headers).get('If-Match')).toBe('report:rep1:1');
     });
 
-    it('says the report changed elsewhere on a 409, and keeps the typed notes', async () => {
-        const fetchMock = server({ patch: () => json(409, { error: { code: 'concurrency_conflict', details: [] }, meta: { request_id: 'r' } }) });
+    it('says a note was not saved when the report changed elsewhere (409), and keeps the typed text', async () => {
+        const fetchMock = server({ patch: () => json(409, { error: { code: 'state_transition_invalid', details: [{ code: 'report_not_editable' }] }, meta: { request_id: 'r' } }) });
         const view = await render(fetchMock);
 
-        await view.get('[data-testid="report-notes"]').setValue('Unsaved.');
-        await view.get('[data-testid="report-save"]').trigger('click');
+        await view.get('[data-testid="report-note-body"]').setValue('Unsaved.');
+        await view.get('[data-testid="report-note-body"]').trigger('blur');
         await flushPromises();
 
-        expect(view.find('[data-testid="report-conflict"]').exists()).toBe(true);
-        expect((view.get('[data-testid="report-notes"]').element as HTMLTextAreaElement).value).toBe('Unsaved.');
+        expect(view.get('[data-testid="report-section-notes"]').get('[data-testid="report-autosave-status"]').text()).toBe(en.reports.autosave.failed);
+        expect((view.get('[data-testid="report-note-body"]').element as HTMLTextAreaElement).value).toBe('Unsaved.');
     });
 
     it('offers the server\'s candidates with the default already chosen', async () => {
@@ -296,7 +296,7 @@ describe('ReportDetailView — a daily report', () => {
         expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');
 
         expect(view.get('[data-testid="report-status"]').text()).toContain(en.reports.status.submitted);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="report-submit"]').exists()).toBe(false);
     });
 
@@ -305,7 +305,7 @@ describe('ReportDetailView — a daily report', () => {
 
         expect(view.text()).toContain('Morning calls.');
         expect(view.findAll('[data-testid="report-recipient"]').map((r) => r.text())).toEqual(['Mona Manager']);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="recipient-option"]').exists()).toBe(false);
     });
 
@@ -377,7 +377,7 @@ describe('ReportDetailView — a received report', () => {
         expect(view.text()).toContain('RPT-DY-2026-0001');
         expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(true);
         expect(view.find('[data-testid="report-return"]').exists()).toBe(true);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="report-submit"]').exists()).toBe(false);
     });
 
@@ -458,5 +458,315 @@ describe('ReportDetailView — a received report', () => {
         expect(view.text()).toContain('RPT-DY-2026-0001');
         expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(false);
         expect(view.find('[data-testid="report-return"]').exists()).toBe(false);
+    });
+});
+
+/**
+ * Module 13, slice 3 — follow-ups («التواصل والمتابعة») and several notes, both
+ * written by the author and saved by themselves (`D-131`, spec §5):
+ *
+ * - the page reads ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit;
+ * - a row is a customer (`SearchCombobox`, the customers list the server scopes) and a note;
+ * - a row or note saves 2 s after typing stops and at once when its box is left
+ *   (`D-124`'s pattern, through the shared autosave helper); an empty one is not
+ *   sent and says it is required; «حذف» asks first;
+ * - after submit both read from the frozen copy, with no add and no remove.
+ *
+ * The screen sends what was typed; the server decides scope, limits and state (`D-67`).
+ */
+const FOLLOW_UP = { id: 'f1', customer_id: 'cu1', customer_name: 'Nile Trading', note: 'Wants a visit.' };
+
+const NOTE = { id: 'n1', body: 'Morning calls.' };
+
+const ROWS_DRAFT = { ...DRAFT, follow_ups: [FOLLOW_UP], notes: [NOTE] };
+
+const ROWS_SUBMITTED = {
+    ...SUBMITTED,
+    follow_ups: [{ customer_id: 'cu1', customer_name: 'Nile Trading', note: 'Wants a visit.' }],
+    notes: [{ body: 'Morning calls.' }],
+};
+
+const CUSTOMERS = [
+    { id: 'cu1', name: 'Nile Trading', region: null, contact_person: null, phone: null },
+    { id: 'cu2', name: 'Delta Foods', region: null, contact_person: null, phone: null },
+];
+
+const SECTION_ORDER = ['summary', 'activity', 'follow-ups', 'notes', 'recipients', 'submit'];
+
+function rowsServer(report: unknown = ROWS_DRAFT): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : {};
+
+        if (method === 'DELETE') {
+            return new Response(null, { status: 204 });
+        }
+        if (/\/follow-ups(\/[^/?]+)?$/.test(url) && method !== 'GET') {
+            const customer = CUSTOMERS.find((c) => c.id === body.customer_id);
+
+            return json(method === 'POST' ? 201 : 200, {
+                data: { ...FOLLOW_UP, id: method === 'POST' ? 'f2' : 'f1', ...body, customer_name: customer?.name ?? FOLLOW_UP.customer_name },
+                meta: { request_id: 'r' },
+            });
+        }
+        if (/\/notes(\/[^/?]+)?$/.test(url) && method !== 'GET') {
+            return json(method === 'POST' ? 201 : 200, { data: { ...NOTE, id: method === 'POST' ? 'n2' : 'n1', ...body }, meta: { request_id: 'r' } });
+        }
+        if (/\/customers(\?|$)/.test(url)) {
+            return json(200, {
+                data: CUSTOMERS,
+                meta: {
+                    request_id: 'r',
+                    pagination: { page: 1, per_page: 20, total: CUSTOMERS.length, total_pages: 1, has_next_page: false, has_previous_page: false },
+                },
+            });
+        }
+        if (url.endsWith('/recipient-candidates')) {
+            return envelope(CANDIDATES);
+        }
+
+        return envelope(report);
+    });
+}
+
+function calls(fetchMock: ReturnType<typeof vi.fn>, method: string, path: RegExp): Array<[string, Record<string, unknown>]> {
+    return fetchMock.mock.calls
+        .filter(([url, init]) => ((init as RequestInit | undefined)?.method ?? 'GET') === method && path.test(String(url)))
+        .map(([url, init]) => {
+            const body = (init as RequestInit | undefined)?.body;
+
+            return [String(url), typeof body === 'string' ? JSON.parse(body) as Record<string, unknown> : {}];
+        });
+}
+
+describe('ReportDetailView — follow-ups and notes (D-131)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+        // Only the timers the pause uses: flushPromises needs a real setImmediate.
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('lays the page out ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit', async () => {
+        const view = await render(rowsServer());
+
+        const sections = SECTION_ORDER.map((name) => view.get(`[data-testid="report-section-${name}"]`).element);
+        for (let i = 1; i < sections.length; i++) {
+            // Each section comes after the one before it in the document, on a phone too.
+            expect(sections[i - 1]!.compareDocumentPosition(sections[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        }
+        expect(view.get('[data-testid="report-section-submit"]').find('[data-testid="report-submit"]').exists()).toBe(true);
+    });
+
+    it('shows the draft\'s follow-ups and notes from the server', async () => {
+        const view = await render(rowsServer());
+
+        const row = view.get('[data-testid="report-follow-up-row"]');
+        expect(row.text()).toContain('Nile Trading');
+        expect((row.get('[data-testid="report-follow-up-note"]').element as HTMLTextAreaElement).value).toBe('Wants a visit.');
+        expect((view.get('[data-testid="report-note-body"]').element as HTMLTextAreaElement).value).toBe('Morning calls.');
+    });
+
+    it('adds a follow-up: picks a customer, types, and saves 2 s after typing stops', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+        const before = view.findAll('[data-testid="report-follow-up-row"]').length;
+
+        await view.get('[data-testid="report-follow-up-add"]').trigger('click');
+        const rows = view.findAll('[data-testid="report-follow-up-row"]');
+        expect(rows).toHaveLength(before + 1);
+        const row = rows[rows.length - 1]!;
+
+        await row.get('[data-testid="report-follow-up-customer"]').trigger('focus');
+        await flushPromises();
+        await row.findAll('[data-testid="report-follow-up-customer-option"]')[1]!.trigger('mousedown');
+        await row.get('[data-testid="report-follow-up-note"]').setValue('Sent the catalogue.');
+        await row.get('[data-testid="report-follow-up-note"]').trigger('input');
+
+        vi.advanceTimersByTime(1999);
+        await flushPromises();
+        expect(calls(fetchMock, 'POST', /\/reports\/rep1\/follow-ups$/)).toHaveLength(0);
+
+        vi.advanceTimersByTime(1);
+        await flushPromises();
+        const posts = calls(fetchMock, 'POST', /\/reports\/rep1\/follow-ups$/);
+        expect(posts).toHaveLength(1);
+        expect(posts[0]![1]).toEqual({ customer_id: 'cu2', note: 'Sent the catalogue.' });
+        expect(view.get('[data-testid="report-section-follow-ups"]').find('[data-testid="report-autosave-status"]').exists()).toBe(true);
+    });
+
+    it('saves a follow-up at once when its box is left', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+        const note = view.get('[data-testid="report-follow-up-row"]').get('[data-testid="report-follow-up-note"]');
+
+        await note.setValue('Called back.');
+        await note.trigger('blur');
+        await flushPromises();
+
+        const patched = calls(fetchMock, 'PATCH', /\/reports\/rep1\/follow-ups\/f1$/);
+        expect(patched).toHaveLength(1);
+        expect(patched[0]![1]).toMatchObject({ note: 'Called back.' });
+    });
+
+    it('does not save an empty row, and marks its note required', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+
+        await view.get('[data-testid="report-follow-up-add"]').trigger('click');
+        const rows = view.findAll('[data-testid="report-follow-up-row"]');
+        const row = rows[rows.length - 1]!;
+        await row.get('[data-testid="report-follow-up-customer"]').trigger('focus');
+        await flushPromises();
+        await row.findAll('[data-testid="report-follow-up-customer-option"]')[0]!.trigger('mousedown');
+        await row.get('[data-testid="report-follow-up-note"]').trigger('blur');
+        vi.advanceTimersByTime(5000);
+        await flushPromises();
+
+        expect(calls(fetchMock, 'POST', /\/follow-ups$/)).toHaveLength(0);
+        expect(row.get('[data-testid="report-follow-up-note"]').attributes('aria-invalid')).toBe('true');
+        expect(row.find('[data-testid="report-follow-up-note-error"]').exists()).toBe(true);
+    });
+
+    it('does not save a cleared note: the box says it is required', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+        const row = view.get('[data-testid="report-follow-up-row"]');
+
+        await row.get('[data-testid="report-follow-up-note"]').setValue('   ');
+        await row.get('[data-testid="report-follow-up-note"]').trigger('blur');
+        await flushPromises();
+
+        expect(calls(fetchMock, 'PATCH', /\/follow-ups\/f1$/)).toHaveLength(0);
+        expect(row.find('[data-testid="report-follow-up-note-error"]').exists()).toBe(true);
+    });
+
+    // 3.2's browser check: «تم الحفظ ✓» stayed beside the required-text error, though the cleared text was not saved.
+    it('does not say saved beside a required-text error', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+
+        for (const [section, box] of [['follow-ups', 'report-follow-up-note'], ['notes', 'report-note-body']] as const) {
+            const status = () => view.get(`[data-testid="report-section-${section}"]`).get('[data-testid="report-autosave-status"]').text();
+            const field = view.get(`[data-testid="report-section-${section}"]`).get(`[data-testid="${box}"]`);
+
+            await field.setValue('Saved once.');
+            await field.trigger('blur');
+            await flushPromises();
+            expect(status()).toBe(en.reports.autosave.saved);
+
+            await field.setValue('');
+            await field.trigger('blur');
+            await flushPromises();
+            expect(status()).not.toBe(en.reports.autosave.saved);
+        }
+    });
+
+    it('asks before «حذف» removes a follow-up', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+        const row = view.get('[data-testid="report-follow-up-row"]');
+
+        await row.get('[data-testid="report-follow-up-remove"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'DELETE', /\/follow-ups\/f1$/)).toHaveLength(0);
+
+        await row.get('[data-testid="report-follow-up-remove-confirm"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'DELETE', /\/reports\/rep1\/follow-ups\/f1$/)).toHaveLength(1);
+    });
+
+    it('adds a note and saves it 2 s after typing stops; an edited note saves when left', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+
+        await view.get('[data-testid="report-note-add"]').trigger('click');
+        const bodies = view.findAll('[data-testid="report-note-body"]');
+        const fresh = bodies[bodies.length - 1]!;
+        await fresh.setValue('Afternoon visit.');
+        await fresh.trigger('input');
+        vi.advanceTimersByTime(2000);
+        await flushPromises();
+
+        const posts = calls(fetchMock, 'POST', /\/reports\/rep1\/notes$/);
+        expect(posts).toHaveLength(1);
+        expect(posts[0]![1]).toEqual({ body: 'Afternoon visit.' });
+
+        const first = view.get('[data-testid="report-note-body"]');
+        await first.setValue('Morning calls, two answered.');
+        await first.trigger('blur');
+        await flushPromises();
+        const patched = calls(fetchMock, 'PATCH', /\/reports\/rep1\/notes\/n1$/);
+        expect(patched).toHaveLength(1);
+        expect(patched[0]![1]).toEqual({ body: 'Morning calls, two answered.' });
+    });
+
+    it('does not save an empty note, and asks before «حذف» removes one', async () => {
+        const fetchMock = rowsServer();
+        const view = await render(fetchMock);
+
+        await view.get('[data-testid="report-note-add"]').trigger('click');
+        const bodies = view.findAll('[data-testid="report-note-body"]');
+        await bodies[bodies.length - 1]!.trigger('blur');
+        vi.advanceTimersByTime(5000);
+        await flushPromises();
+        expect(calls(fetchMock, 'POST', /\/notes$/)).toHaveLength(0);
+
+        const row = view.get('[data-testid="report-note-row"]');
+        await row.get('[data-testid="report-note-remove"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'DELETE', /\/notes\/n1$/)).toHaveLength(0);
+        await row.get('[data-testid="report-note-remove-confirm"]').trigger('click');
+        await flushPromises();
+        expect(calls(fetchMock, 'DELETE', /\/reports\/rep1\/notes\/n1$/)).toHaveLength(1);
+    });
+
+    it('shows a submitted report\'s follow-ups and notes read-only, from the frozen copy', async () => {
+        const view = await render(rowsServer(ROWS_SUBMITTED));
+
+        const row = view.get('[data-testid="report-follow-up-row"]');
+        expect(row.text()).toContain('Nile Trading');
+        expect(row.text()).toContain('Wants a visit.');
+        expect(view.get('[data-testid="report-note-row"]').text()).toContain('Morning calls.');
+        for (const control of ['report-follow-up-add', 'report-follow-up-remove', 'report-follow-up-note', 'report-note-add', 'report-note-remove', 'report-note-body']) {
+            expect(view.find(`[data-testid="${control}"]`).exists()).toBe(false);
+        }
+    });
+
+    it('shows a recipient the follow-ups and notes, read-only', async () => {
+        const view = await render(rowsServer({ ...ROWS_SUBMITTED, status: 'viewed', author_name: 'Test Sales' }), 'en', MANAGER, RECEIVED_PATH);
+
+        expect(view.get('[data-testid="report-follow-up-row"]').text()).toContain('Nile Trading');
+        expect(view.get('[data-testid="report-note-row"]').text()).toContain('Morning calls.');
+        expect(view.find('[data-testid="report-follow-up-add"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-add"]').exists()).toBe(false);
+    });
+
+    it('draws the two sections in Arabic', async () => {
+        const view = await render(rowsServer(), 'ar');
+
+        const followUps = view.get('[data-testid="report-section-follow-ups"]').text();
+        expect(followUps).toContain('التواصل والمتابعة');
+        expect(followUps).toContain('إضافة متابعة');
+        expect(followUps).toContain('حذف');
+        const notes = view.get('[data-testid="report-section-notes"]').text();
+        expect(notes).toContain('الملاحظات');
+        expect(notes).toContain('إضافة ملاحظة');
+    });
+
+    it('draws the two sections in English, with no Arabic label', async () => {
+        const view = await render(rowsServer(), 'en');
+
+        for (const name of ['follow-ups', 'notes']) {
+            const text = view.get(`[data-testid="report-section-${name}"]`).text();
+            expect(text.trim()).not.toBe('');
+            expect(text).not.toMatch(/[؀-ۿ]/);
+        }
     });
 });

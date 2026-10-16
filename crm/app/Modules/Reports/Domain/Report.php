@@ -15,7 +15,6 @@ final readonly class Report
         public string $authorId,
         public string $periodStart,
         public string $periodEnd,
-        public ?string $notes,
         public int $versionToken,
         public ?string $submittedAt,
     ) {}

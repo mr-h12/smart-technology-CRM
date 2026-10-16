@@ -2,7 +2,7 @@
 /**
  * Module 13, first slice — one daily report (RPT-DY).
  *
- * The author writes notes (§11.3), reads the day's records grouped by kind
+ * The author reads the day's records grouped by kind
  * (`D-126`; found by the server through the audit log, never showing it, `D-130`), chooses recipients from the server's
  * candidates with its default already chosen (`D-127`, `D-129`), and submits.
  * Once submitted the page shows the frozen copy and no form (§11.4); a
@@ -11,15 +11,23 @@
  * Slice 2 — the same page for a recipient (`/reports/received/:id`): the
  * server marks it Viewed on that read (`D-127`), and the page offers
  * Acknowledge and Return-with-a-reason to a recipient who holds them (§3.10).
+ *
+ * Slice 3 (`D-131`) — follow-ups (a customer and a note) and several notes,
+ * added with «+ إضافة» and saved by themselves (`useAutosave`, `D-124`'s
+ * pattern): 2 s after typing stops and at once when a box is left. An empty
+ * required text is not sent and says so; «حذف» asks first. The page reads
+ * ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit.
  */
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 import { ApiError } from '@/api';
+import CustomerPicker from '@/components/customers/CustomerPicker.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import { useAutosave } from '@/components/useAutosave';
 import { useModalDialog } from '@/components/useModalDialog';
 import { displayDate } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
@@ -29,12 +37,17 @@ import { useAuth } from '@/stores/auth';
 import {
     ACTIVITY_COUNTS,
     acknowledgeReport,
+    addReportFollowUp,
+    addReportNote,
     readReceivedReport,
     readRecipientCandidates,
     readReport,
+    removeReportFollowUp,
+    removeReportNote,
     returnReport,
-    saveReportNotes,
     submitReport,
+    updateReportFollowUp,
+    updateReportNote,
     type ActivityCount,
     type RecipientCandidate,
     type ReportDetail,
@@ -49,14 +62,12 @@ const auth = useAuth();
 const report = ref<ReportDetail | null>(null);
 const candidates = ref<RecipientCandidate[]>([]);
 const chosen = ref<string[]>([]);
-const notes = ref('');
 
 const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
 const notFound = ref(false);
 const busy = ref(false);
-const saved = ref(false);
 const conflict = ref(false);
 const actionFailed = ref<string | null>(null);
 
@@ -85,11 +96,168 @@ const isEditable = computed(() => !received && (report.value?.status === 'draft'
 const awaitsAnswer = computed(() => received && (report.value?.status === 'submitted' || report.value?.status === 'viewed'));
 const canAcknowledge = computed(() => awaitsAnswer.value && auth.hasPermission('report.acknowledge'));
 const canReturn = computed(() => awaitsAnswer.value && auth.hasPermission('report.return_report'));
-const notesChanged = computed(() => notes.value !== (report.value?.notes ?? ''));
+
+/** `D-131`: one box per follow-up or note; `key` names its pause, `stored` is what the server holds. */
+interface FollowUpRow {
+    key: string;
+    id: string | null;
+    customerId: string;
+    customerName: string;
+    note: string;
+    stored: { customer_id: string; note: string } | null;
+    customerMissing: boolean;
+    noteMissing: boolean;
+}
+
+interface NoteRow {
+    key: string;
+    id: string | null;
+    body: string;
+    stored: string | null;
+    missing: boolean;
+}
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+
+const followUps = ref<FollowUpRow[]>([]);
+const noteRows = ref<NoteRow[]>([]);
+const followUpStatus = ref<SaveStatus>('idle');
+const noteStatus = ref<SaveStatus>('idle');
+/** The row whose «حذف» waits for its confirm. */
+const confirming = ref<string | null>(null);
+
+let added = 0;
+const saving = new Map<string, Promise<void>>();
+const { typed, left, cancel, pending } = useAutosave(save);
 
 function adopt(next: ReportDetail): void {
     report.value = next;
-    notes.value = next.notes ?? '';
+    followUps.value = next.follow_ups.map((row) => ({
+        key: `follow-up-${row.id}`, id: row.id ?? null, customerId: row.customer_id, customerName: row.customer_name,
+        note: row.note, stored: { customer_id: row.customer_id, note: row.note }, customerMissing: false, noteMissing: false,
+    }));
+    noteRows.value = next.notes.map((note) => ({ key: `note-${note.id}`, id: note.id ?? null, body: note.body, stored: note.body, missing: false }));
+}
+
+function addFollowUp(): void {
+    followUps.value.push({ key: `follow-up-new-${++added}`, id: null, customerId: '', customerName: '', note: '', stored: null, customerMissing: false, noteMissing: false });
+}
+
+function addNote(): void {
+    noteRows.value.push({ key: `note-new-${++added}`, id: null, body: '', stored: null, missing: false });
+}
+
+function pickCustomer(row: FollowUpRow, customerId: string): void {
+    row.customerId = customerId;
+    typed(row.key);
+}
+
+/** One request per box at a time; the next pause or leave sends what is left. */
+function save(key: string): Promise<void> {
+    const running = saving.get(key) ?? (key.startsWith('note-') ? saveNote(key) : saveFollowUp(key)).finally(() => saving.delete(key));
+    saving.set(key, running);
+
+    return running;
+}
+
+async function saveFollowUp(key: string): Promise<void> {
+    const row = followUps.value.find((candidate) => candidate.key === key);
+    const note = row?.note.trim() ?? '';
+
+    if (report.value === null || row === undefined) {
+        return;
+    }
+
+    // `D-131`: a cleared or empty required text is not sent; the stored one stays.
+    row.customerMissing = row.customerId === '';
+    row.noteMissing = note === '';
+    if (row.customerMissing || row.noteMissing) {
+        followUpStatus.value = 'idle'; // the error speaks; «تم الحفظ» would claim what was not saved
+        return;
+    }
+    if (row.stored?.customer_id === row.customerId && row.stored.note === note) {
+        return;
+    }
+
+    followUpStatus.value = 'saving';
+    try {
+        const draft = { customer_id: row.customerId, note };
+        // The first save creates the row; every later one updates it, so a pause mid-sentence never splits it.
+        const saved = row.id === null ? await addReportFollowUp(report.value.id, draft) : await updateReportFollowUp(report.value.id, row.id, draft);
+        row.id = saved.id;
+        row.stored = { customer_id: saved.customer_id, note: saved.note };
+        followUpStatus.value = 'saved';
+    } catch {
+        followUpStatus.value = 'failed';
+    }
+}
+
+async function saveNote(key: string): Promise<void> {
+    const row = noteRows.value.find((candidate) => candidate.key === key);
+    const body = row?.body.trim() ?? '';
+
+    if (report.value === null || row === undefined) {
+        return;
+    }
+
+    row.missing = body === '';
+    if (row.missing) {
+        noteStatus.value = 'idle';
+        return;
+    }
+    if (row.stored === body) {
+        return;
+    }
+
+    noteStatus.value = 'saving';
+    try {
+        const saved = row.id === null ? await addReportNote(report.value.id, body) : await updateReportNote(report.value.id, row.id, body);
+        row.id = saved.id;
+        row.stored = saved.body;
+        noteStatus.value = 'saved';
+    } catch {
+        noteStatus.value = 'failed';
+    }
+}
+
+async function removeFollowUp(row: FollowUpRow): Promise<void> {
+    cancel(row.key);
+    try {
+        if (row.id !== null) {
+            await removeReportFollowUp(report.value!.id, row.id);
+        }
+        followUps.value = followUps.value.filter((candidate) => candidate !== row);
+        confirming.value = null;
+    } catch {
+        followUpStatus.value = 'failed';
+    }
+}
+
+async function removeNote(row: NoteRow): Promise<void> {
+    cancel(row.key);
+    try {
+        if (row.id !== null) {
+            await removeReportNote(report.value!.id, row.id);
+        }
+        noteRows.value = noteRows.value.filter((candidate) => candidate !== row);
+        confirming.value = null;
+    } catch {
+        noteStatus.value = 'failed';
+    }
+}
+
+/** What is still waiting is saved before Submit, so what is frozen is what is on screen. */
+async function flush(): Promise<void> {
+    for (const row of [...followUps.value, ...noteRows.value]) {
+        if (pending(row.key)) {
+            left(row.key);
+        }
+    }
+    await Promise.all(saving.values());
+}
+
+function statusText(status: SaveStatus): string {
+    return status === 'idle' ? '' : t(`reports.autosave.${status}`);
 }
 
 async function load(): Promise<void> {
@@ -122,7 +290,7 @@ async function load(): Promise<void> {
     }
 }
 
-/** A refusal is said, and the typed notes stay on screen. */
+/** A refusal is said, and what was typed stays on screen. */
 function refused(error: unknown): void {
     if (error instanceof ApiError && error.status === 409) {
         conflict.value = true;
@@ -131,52 +299,19 @@ function refused(error: unknown): void {
     }
 }
 
-async function saveNotes(): Promise<boolean> {
-    if (report.value === null) {
-        return false;
-    }
-
-    try {
-        const typed = notes.value;
-        adopt(await saveReportNotes(report.value.id, report.value.etag, typed));
-        saved.value = true;
-
-        return true;
-    } catch (error) {
-        refused(error);
-
-        return false;
-    }
-}
-
-async function save(): Promise<void> {
-    busy.value = true;
-    saved.value = false;
-    conflict.value = false;
-    actionFailed.value = null;
-    await saveNotes();
-    busy.value = false;
-}
-
-/** Unsaved notes are saved first, so what is frozen is what is on screen. */
 async function submit(): Promise<void> {
     if (report.value === null || chosen.value.length === 0) {
         return;
     }
 
     busy.value = true;
-    saved.value = false;
     conflict.value = false;
     actionFailed.value = null;
 
     try {
-        if (notesChanged.value && !(await saveNotes())) {
-            return;
-        }
-
+        await flush();
         const ordered = candidates.value.map((candidate) => candidate.id).filter((id) => chosen.value.includes(id));
         adopt(await submitReport(report.value.id, report.value.etag, ordered));
-        saved.value = false;
     } catch (error) {
         refused(error);
     } finally {
@@ -273,10 +408,12 @@ onMounted(load);
                 </span>
             </header>
 
+            <!-- D-131's order: ①–④ in the main column from 1024 px, ⑤⑥ beside them; one column ①→⑥ on a phone. -->
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-                <!-- `D-126` RPT-DY, `D-130`: the counts, then the records themselves, one section per kind. -->
-                <section class="flex min-w-0 flex-col gap-4" :aria-label="t('reports.activity_title')">
-                    <h2 class="text-section-title">{{ t('reports.activity_title') }}</h2>
+                <div class="flex min-w-0 flex-col gap-8">
+                <!-- ① `D-126` RPT-DY: the counts. -->
+                <section class="flex flex-col gap-4" aria-labelledby="report-summary-heading" data-testid="report-section-summary">
+                    <h2 id="report-summary-heading" class="text-section-title">{{ t('reports.summary_title') }}</h2>
                     <ul class="grid grid-cols-2 gap-2 md:grid-cols-3">
                         <li v-for="key in ACTIVITY_COUNTS" :key="key" :data-testid="`activity-count-${key}`">
                             <component
@@ -290,7 +427,14 @@ onMounted(load);
                             </component>
                         </li>
                     </ul>
+                </section>
 
+                <!-- ② `D-130`: the records themselves, one section per kind — the server's, read-only. -->
+                <section class="flex flex-col gap-4 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-activity-heading" data-testid="report-section-activity">
+                    <h2 id="report-activity-heading" class="text-section-title">
+                        {{ t('reports.activity_title') }}
+                        <span class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.auto') }}</span>
+                    </h2>
                     <p v-if="!hasActivity" class="text-[var(--color-text-muted)]" data-testid="activity-empty">
                         {{ t('reports.activity_empty') }}
                     </p>
@@ -384,40 +528,146 @@ onMounted(load);
                     </template>
                 </section>
 
-                <!-- Notes, recipients and Submit: the side column on a wide screen, last on a phone. -->
-                <div class="flex flex-col gap-6">
-                <!-- §11.3's free-text notes: a form on a draft, text once submitted. -->
-                <section class="flex flex-col gap-2">
-                    <h2 class="text-card-title">{{ t('reports.notes') }}</h2>
+                <!-- ③ D-131: follow-ups — a customer and a note per row, saved by themselves. -->
+                <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-follow-ups-heading" data-testid="report-section-follow-ups">
+                    <h2 id="report-follow-ups-heading" class="text-section-title">
+                        {{ t('reports.follow_ups_title') }}
+                        <span v-if="isEditable" class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.follow_ups') }}</span>
+                    </h2>
                     <template v-if="isEditable">
-                        <label class="flex flex-col gap-1.5">
-                            <span class="text-table text-[var(--color-text-muted)]">{{ t('reports.notes_hint') }}</span>
-                            <textarea
-                                v-model="notes"
-                                rows="5"
-                                class="form-field rounded-lg px-3 py-2"
-                                data-testid="report-notes"
-                            />
-                        </label>
+                        <p v-if="followUps.length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.no_follow_ups') }}</p>
+                        <ul class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="row in followUps" :key="row.key" class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start" data-testid="report-follow-up-row">
+                                <div class="flex flex-col gap-1 sm:w-64 sm:shrink-0">
+                                    <label :for="`${row.key}-customer`" class="text-table text-[var(--color-text-muted)]">{{ t('reports.follow_up_customer') }}</label>
+                                    <CustomerPicker
+                                        :id="`${row.key}-customer`"
+                                        v-model:name="row.customerName"
+                                        :model-value="row.customerId"
+                                        test-id="report-follow-up-customer"
+                                        :aria-invalid="row.customerMissing"
+                                        @update:model-value="pickCustomer(row, $event)"
+                                    />
+                                    <span v-if="row.customerMissing" class="text-[var(--color-danger)]">{{ t('reports.follow_up_customer_required') }}</span>
+                                </div>
+                                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                                    <label :for="`${row.key}-note`" class="text-table text-[var(--color-text-muted)]">
+                                        {{ row.customerName === '' ? t('reports.follow_up_note') : t('reports.follow_up_note_about', { name: row.customerName }) }}
+                                    </label>
+                                    <textarea
+                                        :id="`${row.key}-note`"
+                                        v-model="row.note"
+                                        rows="2"
+                                        maxlength="5000"
+                                        dir="auto"
+                                        :aria-invalid="row.noteMissing"
+                                        :aria-describedby="row.noteMissing ? `${row.key}-note-error` : undefined"
+                                        class="form-field rounded-lg px-3 py-2"
+                                        data-testid="report-follow-up-note"
+                                        @input="typed(row.key)"
+                                        @blur="left(row.key)"
+                                    />
+                                    <span v-if="row.noteMissing" :id="`${row.key}-note-error`" class="text-[var(--color-danger)]" data-testid="report-follow-up-note-error">
+                                        {{ t('reports.text_required') }}
+                                    </span>
+                                </div>
+                                <!-- DS §6.2: Remove is a text danger; the filled danger lives only inside the confirm. -->
+                                <div class="flex flex-wrap items-center gap-2 sm:pt-6">
+                                    <template v-if="confirming === row.key">
+                                        <span class="text-sm">{{ t('reports.follow_up_remove_confirm') }}</span>
+                                        <button type="button" class="danger-action min-h-11 rounded-lg px-4" data-testid="report-follow-up-remove-confirm" @click="removeFollowUp(row)">
+                                            {{ t('reports.remove') }}
+                                        </button>
+                                        <button type="button" class="row-action min-h-11 rounded-lg px-4" @click="confirming = null">{{ t('reports.keep') }}</button>
+                                    </template>
+                                    <button v-else type="button" class="danger-text min-h-11 rounded-lg px-3" data-testid="report-follow-up-remove" @click="confirming = row.key">
+                                        {{ t('reports.remove') }}
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
                         <div class="flex flex-wrap items-center gap-3">
-                            <button
-                                type="button"
-                                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="busy"
-                                data-testid="report-save"
-                                @click="save"
-                            >
-                                {{ t('reports.save') }}
+                            <button type="button" class="row-action min-h-11 rounded-lg px-4" data-testid="report-follow-up-add" @click="addFollowUp">
+                                {{ t('reports.follow_up_add') }}
                             </button>
-                            <p v-if="saved" class="text-[var(--color-success)]" role="status">{{ t('reports.saved') }}</p>
+                            <p class="text-sm text-[var(--color-text-muted)]" aria-live="polite" data-testid="report-autosave-status">{{ statusText(followUpStatus) }}</p>
                         </div>
                     </template>
-                    <p v-else class="whitespace-pre-line text-pretty">{{ report.notes ?? t('reports.no_notes') }}</p>
+                    <template v-else>
+                        <p v-if="report.follow_ups.length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.no_follow_ups') }}</p>
+                        <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="(row, index) in report.follow_ups" :key="index" class="flex flex-col gap-1 py-3" data-testid="report-follow-up-row">
+                                <span class="font-semibold">{{ row.customer_name }}</span>
+                                <p dir="auto" class="whitespace-pre-line text-pretty [overflow-wrap:anywhere]">{{ row.note }}</p>
+                            </li>
+                        </ul>
+                    </template>
                 </section>
 
-                <!-- `D-127` / `D-129`: who it goes to. The server's candidates, its default already chosen. -->
-                <section class="flex flex-col gap-2">
-                    <h2 class="text-card-title">{{ t('reports.recipients_title') }}</h2>
+                <!-- ④ D-131: several notes, one box each, saved by themselves. -->
+                <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-notes-heading" data-testid="report-section-notes">
+                    <h2 id="report-notes-heading" class="text-section-title">
+                        {{ t('reports.notes') }}
+                        <span v-if="isEditable" class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.notes') }}</span>
+                    </h2>
+                    <template v-if="isEditable">
+                        <p v-if="noteRows.length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.no_notes') }}</p>
+                        <ul class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="(row, index) in noteRows" :key="row.key" class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start" data-testid="report-note-row">
+                                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                                    <label :for="`${row.key}-body`" class="text-table text-[var(--color-text-muted)]">{{ t('reports.note_label', { number: index + 1 }) }}</label>
+                                    <textarea
+                                        :id="`${row.key}-body`"
+                                        v-model="row.body"
+                                        rows="2"
+                                        maxlength="5000"
+                                        dir="auto"
+                                        :aria-invalid="row.missing"
+                                        :aria-describedby="row.missing ? `${row.key}-body-error` : undefined"
+                                        class="form-field rounded-lg px-3 py-2"
+                                        data-testid="report-note-body"
+                                        @input="typed(row.key)"
+                                        @blur="left(row.key)"
+                                    />
+                                    <span v-if="row.missing" :id="`${row.key}-body-error`" class="text-[var(--color-danger)]">{{ t('reports.text_required') }}</span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 sm:pt-6">
+                                    <template v-if="confirming === row.key">
+                                        <span class="text-sm">{{ t('reports.note_remove_confirm') }}</span>
+                                        <button type="button" class="danger-action min-h-11 rounded-lg px-4" data-testid="report-note-remove-confirm" @click="removeNote(row)">
+                                            {{ t('reports.remove') }}
+                                        </button>
+                                        <button type="button" class="row-action min-h-11 rounded-lg px-4" @click="confirming = null">{{ t('reports.keep') }}</button>
+                                    </template>
+                                    <button v-else type="button" class="danger-text min-h-11 rounded-lg px-3" data-testid="report-note-remove" @click="confirming = row.key">
+                                        {{ t('reports.remove') }}
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" class="row-action min-h-11 rounded-lg px-4" data-testid="report-note-add" @click="addNote">
+                                {{ t('reports.note_add') }}
+                            </button>
+                            <p class="text-sm text-[var(--color-text-muted)]" aria-live="polite" data-testid="report-autosave-status">{{ statusText(noteStatus) }}</p>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <p v-if="report.notes.length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.no_notes') }}</p>
+                        <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="(note, index) in report.notes" :key="index" class="py-3" data-testid="report-note-row">
+                                <p dir="auto" class="whitespace-pre-line text-pretty [overflow-wrap:anywhere]">{{ note.body }}</p>
+                            </li>
+                        </ul>
+                    </template>
+                </section>
+                </div>
+
+                <!-- ⑤⑥ Recipients and Submit: the side column on a wide screen, last on a phone. -->
+                <div class="flex flex-col gap-6">
+                <!-- ⑤ `D-127` / `D-129`: who it goes to. The server's candidates, its default already chosen. -->
+                <section class="flex flex-col gap-2" aria-labelledby="report-recipients-heading" data-testid="report-section-recipients">
+                    <h2 id="report-recipients-heading" class="text-card-title">{{ t('reports.recipients_title') }}</h2>
                     <template v-if="isEditable">
                         <p class="text-table text-[var(--color-text-muted)]">{{ t('reports.recipients_hint') }}</p>
                         <p v-if="candidates.length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.recipients_none') }}</p>
@@ -430,25 +680,29 @@ onMounted(load);
                             <input v-model="chosen" type="checkbox" :value="candidate.id" class="size-5">
                             <span>{{ candidate.name }}</span>
                         </label>
-
-                        <p v-if="conflict" class="text-[var(--color-danger)]" role="alert" data-testid="report-conflict">
-                            {{ t('reports.conflict') }}
-                        </p>
-                        <p v-if="actionFailed !== null" class="text-[var(--color-danger)]" role="alert">{{ actionFailed }}</p>
-
-                        <button
-                            type="button"
-                            class="create-action min-h-11 w-fit rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
-                            :disabled="busy || chosen.length === 0"
-                            data-testid="report-submit"
-                            @click="submit"
-                        >
-                            {{ t('reports.submit') }}
-                        </button>
                     </template>
                     <ul v-else class="flex flex-col gap-1">
                         <li v-for="recipient in report.recipients" :key="recipient.id" data-testid="report-recipient">{{ recipient.name }}</li>
                     </ul>
+                </section>
+
+                <!-- ⑥ Submit: always last, on a phone too. -->
+                <section v-if="isEditable" class="flex flex-col gap-2" aria-labelledby="report-submit-heading" data-testid="report-section-submit">
+                    <h2 id="report-submit-heading" class="text-card-title">{{ t('reports.submit_title') }}</h2>
+                    <p v-if="conflict" class="text-[var(--color-danger)]" role="alert">
+                        {{ t('reports.conflict') }}
+                    </p>
+                    <p v-if="actionFailed !== null" class="text-[var(--color-danger)]" role="alert">{{ actionFailed }}</p>
+
+                    <button
+                        type="button"
+                        class="create-action min-h-11 w-fit rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="busy || chosen.length === 0"
+                        data-testid="report-submit"
+                        @click="submit"
+                    >
+                        {{ t('reports.submit') }}
+                    </button>
                 </section>
 
                 <!-- §11.4: the recipient's answer — Acknowledge, or Return with a reason. -->

@@ -12,6 +12,9 @@ return [
         'notes' => 'notes',
         'reason' => 'reason',
         'recipient_ids' => 'recipients',
+        'customer_id' => 'customer',
+        'follow_up_note' => 'follow-up note',
+        'note_body' => 'note',
     ],
 
     'errors' => [
@@ -20,5 +23,7 @@ return [
         'report_not_draft' => 'Only a draft or returned report can be changed.',
         'recipient_not_allowed' => 'One of the recipients cannot receive this report.',
         'report_not_awaiting_answer' => 'Only a submitted or viewed report can be acknowledged or returned.',
+        'report_not_editable' => 'This report can no longer be changed: only a draft or returned report can.',
+        'customer_not_allowed' => 'Choose one of your own customers.',
     ],
 ];

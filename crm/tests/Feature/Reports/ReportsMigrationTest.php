@@ -116,6 +116,8 @@ final class ReportsMigrationTest extends TestCase
     // ── DEV-03
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
+        // Slice 3's tables reference `reports` (`D-131`): their migration goes first, as a rollback runs newest first.
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_10_17_000000_add_follow_ups_and_notes_to_reports.php']));
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
         foreach (['reports', 'report_versions', 'report_recipients'] as $table) {
             self::assertFalse(Schema::hasTable($table), "down() left {$table} behind (DEV-03).");

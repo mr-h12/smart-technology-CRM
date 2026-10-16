@@ -1508,10 +1508,7 @@
             "countered": "Counter offer"
         },
         "notes": "Notes",
-        "notes_hint": "What else happened today. Saved with the report.",
         "no_notes": "No notes.",
-        "save": "Save notes",
-        "saved": "Notes saved.",
         "conflict": "This report changed since you opened it. Reload the page and try again.",
         "recipients_title": "Recipients",
         "recipients_hint": "Choose who receives this report.",
@@ -1536,6 +1533,32 @@
         "return_title": "Return the report",
         "return_reason": "Why it is returned",
         "return_reason_required": "Write the reason for returning the report.",
-        "return_send": "Return report"
+        "return_send": "Return report",
+        "summary_title": "The day's summary",
+        "filled": {
+            "auto": "automatic",
+            "follow_ups": "you write it",
+            "notes": "you write them"
+        },
+        "follow_ups_title": "Contacts and follow-ups",
+        "follow_up_add": "+ Add follow-up",
+        "follow_up_customer": "Customer",
+        "follow_up_note": "Note",
+        "follow_up_note_about": "Note about {name}",
+        "follow_up_customer_required": "Choose the customer.",
+        "text_required": "Write the note; the saved one is kept until then.",
+        "follow_up_remove_confirm": "Remove this follow-up?",
+        "no_follow_ups": "No follow-ups.",
+        "note_add": "+ Add note",
+        "note_label": "Note {number}",
+        "note_remove_confirm": "Remove this note?",
+        "remove": "Remove",
+        "keep": "Keep",
+        "autosave": {
+            "saving": "Saving…",
+            "saved": "Saved ✓",
+            "failed": "Could not save. Your text is still here; try again."
+        },
+        "submit_title": "Submit the report"
     }
 }

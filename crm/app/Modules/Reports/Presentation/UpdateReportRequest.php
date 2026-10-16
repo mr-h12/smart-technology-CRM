@@ -6,26 +6,20 @@ namespace App\Modules\Reports\Presentation;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/** §11.3's free-text notes; empty clears them. */
+/**
+ * `D-131` replaced the one notes box with notes written through
+ * `/reports/{id}/notes`; the old field is refused, as `D-122` did for customers.
+ */
 final class UpdateReportRequest extends FormRequest
 {
     /** @return array<string, list<string>> */
     public function rules(): array
     {
-        return [
-            'notes' => ['present', 'nullable', 'string', 'max:10000'],
-        ];
+        return ['notes' => ['prohibited']];
     }
 
     public function attributes(): array
     {
         return ['notes' => (string) __('reports.attributes.notes')];
-    }
-
-    public function notes(): ?string
-    {
-        $notes = $this->validated('notes');
-
-        return is_string($notes) && trim($notes) !== '' ? $notes : null;
     }
 }

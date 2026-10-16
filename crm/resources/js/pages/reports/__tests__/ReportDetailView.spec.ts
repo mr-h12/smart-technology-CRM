@@ -991,4 +991,46 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
         const arabic = await render(server({ report: { ...WEEKLY, not_reviewed: true } }), 'ar');
         expect(arabic.get('[data-testid="report-not-reviewed"]').text()).toContain('لم يُراجَع');
     });
+
+    it('draws the weekly sections: the daily reports with their status, the PO count, the new customers', async () => {
+        const wrapper = await render(server({
+            report: {
+                ...WEEKLY,
+                daily_reports: [
+                    { code: 'RPT-DY-2026-0001', period_start: '2026-10-11', status: 'submitted' },
+                    { code: 'RPT-DY-2026-0002', period_start: '2026-10-12', status: 'missed' },
+                ],
+                purchase_orders_received: 3,
+                new_customers: { count: 2, items: [{ customer_id: 'c1', name: 'Acme Co' }, { customer_id: 'c2', name: 'Beta Ltd' }] },
+            },
+        }));
+        const days = wrapper.findAll('[data-testid="weekly-daily-report-row"]');
+        expect(days).toHaveLength(2);
+        expect(days[0]!.text()).toContain('RPT-DY-2026-0001');
+        expect(days[0]!.text()).toContain('Submitted');
+        expect(days[1]!.text()).toContain('Missed');
+        expect(wrapper.get('[data-testid="weekly-purchase-orders-count"]').text()).toBe('3');
+        expect(wrapper.get('[data-testid="weekly-new-customers-count"]').text()).toContain('2');
+        expect(wrapper.findAll('[data-testid="weekly-new-customer-row"]').map((r) => r.text())).toEqual(['Acme Co', 'Beta Ltd']);
+
+        expect(wrapper.get('#report-summary-heading').text()).toBe("The week's summary");
+        expect(wrapper.get('#report-activity-heading').text()).toContain("The week's activity");
+        const arabic = await render(server({ report: WEEKLY }), 'ar');
+        expect(arabic.get('#report-summary-heading').text()).toBe('ملخص الأسبوع');
+        expect(arabic.get('#report-activity-heading').text()).toContain('نشاط الأسبوع');
+
+        const empty = await render(server({ report: { ...WEEKLY, daily_reports: [], purchase_orders_received: 0, new_customers: { count: 0, items: [] } } }));
+        expect(empty.text()).toContain('No daily reports this week.');
+        expect(empty.text()).toContain('No customers were added this week.');
+    });
+
+    it('hides the follow-ups section on a weekly report and keeps it on a daily one (D-136)', async () => {
+        const weekly = await render(server({ report: WEEKLY }));
+        expect(weekly.find('[data-testid="report-section-follow-ups"]').exists()).toBe(false);
+        expect(weekly.find('[data-testid="report-section-notes"]').exists()).toBe(true);
+
+        const daily = await render(server({ report: SUBMITTED }));
+        expect(daily.find('[data-testid="report-section-follow-ups"]').exists()).toBe(true);
+        expect(daily.find('[data-testid="report-section-weekly-daily"]').exists()).toBe(false);
+    });
 });

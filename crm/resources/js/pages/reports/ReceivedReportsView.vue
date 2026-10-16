@@ -75,6 +75,7 @@ onMounted(() => load());
                     <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(report.period_start, locale) }}</span>
                     <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table" :class="{ 'text-[var(--color-warning)]': report.status === 'missed' }">{{ t(`reports.status.${report.status}`) }}</span>
                     <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
+                    <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-[var(--color-warning)] text-table" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
                 </li>
             </ul>
 

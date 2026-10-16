@@ -16,7 +16,7 @@ interface SubmittedReportsInterface
      * Selling totals only — the frozen copy holds no cost, margin or profit.
      *
      * @return array{
-     *     report_id: string, version: int, code: string, author_id: string, author_name: string,
+     *     report_id: string, version: int, code: string, type: string, author_id: string, author_name: string,
      *     period_start: string, period_end: string, submitted_at: string,
      *     follow_ups: list<array{customer_id: string, customer_name: string, note: string, followed_up_at?: string}>,
      *     notes: list<array{body: string}>,

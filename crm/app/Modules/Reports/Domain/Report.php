@@ -21,6 +21,8 @@ final readonly class Report
         public int $submittedVersions,
         /** `D-135`: submitted after it was marked Missed; once true it stays true. */
         public bool $submittedLate = false,
+        /** `D-136`: J-06 submitted it, not its author; cleared when a person submits again. */
+        public bool $notReviewed = false,
     ) {}
 
     /** §11.4: the author writes a draft, and a returned report on its way to the next version; `D-135`: and a Missed one, to submit it late. */

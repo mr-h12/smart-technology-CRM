@@ -321,7 +321,7 @@ services:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage
       - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
-    command: ["sh", "-c", "php artisan quotations:expire && php artisan reports:mark-missed && exec php artisan schedule:work"]
+    command: ["sh", "-c", "php artisan quotations:expire && php artisan reports:mark-missed && php artisan reports:generate-weekly && php artisan reports:submit-unreviewed && exec php artisan schedule:work"]
     networks: [crm]
 
   # ── One-shot: local TLS certificate ──────────────────────────────────────────

@@ -78,6 +78,7 @@ return [
     'report' => [
         'title' => 'Report :code',
         'heading' => 'Daily report',
+        'heading_weekly' => 'Weekly report',
         'meta' => [
             'version' => 'Version:',
             'period' => 'Day:',

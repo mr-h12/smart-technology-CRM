@@ -40,6 +40,7 @@ use App\Modules\Customers\Domain\Contracts\CustomerNotesInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerStatusWriterInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
+use App\Modules\Customers\Domain\Contracts\NewCustomersInterface;
 use App\Modules\Customers\Infrastructure\EloquentCustomerContacts;
 use App\Modules\Customers\Infrastructure\EloquentCustomerDirectory;
 use App\Modules\Customers\Infrastructure\EloquentCustomerNames;
@@ -96,6 +97,7 @@ use App\Modules\Pdf\Infrastructure\FilePdfAssets;
 use App\Modules\Pdf\Presentation\QueuePdfWhenQuotationSent;
 use App\Modules\Pdf\Presentation\QueuePdfWhenReportSubmitted;
 use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
+use App\Modules\Quotations\Domain\Contracts\PurchaseOrderCountsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Writing\QuotationSent;
@@ -247,6 +249,8 @@ class AppServiceProvider extends ServiceProvider
         // `whereIn` on one table. Module 7 labels its rows through this —
         // the name only, unfiltered by archive, deletion or scope.
         $this->app->bind(CustomerNamesInterface::class, EloquentCustomerNames::class);
+        // `D-134`: the customers a user added, for the weekly report — the same adapter.
+        $this->app->bind(NewCustomersInterface::class, EloquentCustomerNames::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 
@@ -398,6 +402,11 @@ class AppServiceProvider extends ServiceProvider
         // same `find()` rather than a second implementation of it.
         $this->app->bind(
             QuotationReaderInterface::class,
+            fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
+        );
+        // `D-126`: the weekly report's PO count, from the same adapter.
+        $this->app->bind(
+            PurchaseOrderCountsInterface::class,
             fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
         );
 

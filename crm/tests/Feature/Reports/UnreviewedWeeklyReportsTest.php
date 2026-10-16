@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
+use stdClass;
 use Tests\TestCase;
 
 /**
@@ -67,6 +68,13 @@ final class UnreviewedWeeklyReportsTest extends TestCase
         self::assertSame([$manager->id], DB::table('report_recipients')->where('report_id', $id)->pluck('user_id')->all());
         self::assertNotNull(DB::table('reports')->where('id', $id)->value('submitted_at'));
         self::assertSame(1, DB::table('audit_log')->where('event', 'REPORT_SUBMITTED')->where('entity_id', $id)->count(), 'AUD-01');
+        $audit = DB::table('audit_log')->where('event', 'REPORT_SUBMITTED')->where('entity_id', $id)->first();
+        self::assertInstanceOf(stdClass::class, $audit);
+        self::assertNull($audit->user_id, 'D-136: the system submits it, not a person.');
+        self::assertIsString($audit->new_values);
+        $new = json_decode($audit->new_values, true);
+        self::assertIsArray($new);
+        self::assertTrue($new['not_reviewed'] ?? null, 'AUD-01: the audit row says it went unreviewed.');
         Event::assertDispatched(ReportSubmitted::class, static fn (ReportSubmitted $e): bool => $e->reportId === $id && $e->version === 1);
     }
 
@@ -113,6 +121,35 @@ final class UnreviewedWeeklyReportsTest extends TestCase
 
         self::assertSame('submitted', $this->statusOf($id), 'D-136: J-06 tries again on its next run.');
         self::assertTrue((bool) DB::table('reports')->where('id', $id)->value('not_reviewed'));
+    }
+
+    /** `D-129`: a default who lost `report.view_received` is no candidate, so no default. */
+    public function test_that_a_default_recipient_who_lost_report_view_received_leaves_it_a_draft(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $this->defaultRecipient($manager);
+        DB::table('role_permissions')
+            ->where('role_id', $manager->role_id)
+            ->whereIn('permission_id', DB::table('permissions')->where('resource', 'report')->where('action', 'view_received')->pluck('id'))
+            ->update(['deleted_at' => now()]);
+        $id = $this->weekly($author, hoursOld: 25);
+
+        $this->runJob();
+
+        $this->assertStillAnUntouchedDraft($id);
+    }
+
+    /** `D-129`: never on a Manager's own report. */
+    public function test_that_a_managers_own_weekly_draft_stays_a_draft(): void
+    {
+        $manager = $this->user(RoleName::Manager);
+        $this->defaultRecipient($manager);
+        $id = $this->weekly($manager, hoursOld: 25);
+
+        $this->runJob();
+
+        $this->assertStillAnUntouchedDraft($id);
     }
 
     /** `D-129`: a named user who is no longer an active Manager is no default. */
@@ -250,6 +287,15 @@ final class UnreviewedWeeklyReportsTest extends TestCase
         // As a worker runs it: with no request, so the audit names no user.
         $this->app->instance('request', Request::create('http://localhost'));
         $this->app->call([new SubmitUnreviewedWeeklyReportsJob, 'handle']);
+    }
+
+    private function assertStillAnUntouchedDraft(string $id): void
+    {
+        self::assertSame('draft', $this->statusOf($id));
+        self::assertSame(0, DB::table('report_versions')->where('report_id', $id)->count());
+        self::assertSame(0, DB::table('report_recipients')->where('report_id', $id)->count());
+        self::assertFalse((bool) DB::table('reports')->where('id', $id)->value('not_reviewed'));
+        self::assertSame(0, DB::table('audit_log')->where('event', 'REPORT_SUBMITTED')->where('entity_id', $id)->count());
     }
 
     private function statusOf(string $id): string

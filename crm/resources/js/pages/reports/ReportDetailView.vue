@@ -418,6 +418,7 @@ onMounted(load);
                         {{ t(`reports.status.${report.status}`) }}
                     </span>
                     <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
+                    <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
                 </div>
             </header>
 
@@ -426,7 +427,7 @@ onMounted(load);
                 <div class="flex min-w-0 flex-col gap-8">
                 <!-- ① `D-126` RPT-DY: the counts. -->
                 <section class="flex flex-col gap-4" aria-labelledby="report-summary-heading" data-testid="report-section-summary">
-                    <h2 id="report-summary-heading" class="text-section-title">{{ t('reports.summary_title') }}</h2>
+                    <h2 id="report-summary-heading" class="text-section-title">{{ t(report.type === 'weekly' ? 'reports.summary_title_weekly' : 'reports.summary_title') }}</h2>
                     <ul class="grid grid-cols-2 gap-2 md:grid-cols-3">
                         <li v-for="key in ACTIVITY_COUNTS" :key="key" :data-testid="`activity-count-${key}`">
                             <component
@@ -445,7 +446,7 @@ onMounted(load);
                 <!-- ② `D-130`: the records themselves, one section per kind — the server's, read-only. -->
                 <section class="flex flex-col gap-4 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-activity-heading" data-testid="report-section-activity">
                     <h2 id="report-activity-heading" class="text-section-title">
-                        {{ t('reports.activity_title') }}
+                        {{ t(report.type === 'weekly' ? 'reports.activity_title_weekly' : 'reports.activity_title') }}
                         <span class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.auto') }}</span>
                     </h2>
                     <p v-if="!hasActivity" class="text-[var(--color-text-muted)]" data-testid="activity-empty">
@@ -541,8 +542,37 @@ onMounted(load);
                     </template>
                 </section>
 
+                <!-- `D-126`/`D-134` RPT-WK: the week's own sections. -->
+                <template v-if="report.type === 'weekly'">
+                    <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-weekly-daily-heading" data-testid="report-section-weekly-daily">
+                        <h2 id="report-weekly-daily-heading" class="text-section-title">{{ t('reports.weekly_daily_reports_title') }}</h2>
+                        <p v-if="(report.daily_reports ?? []).length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.weekly_daily_reports_empty') }}</p>
+                        <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="row in report.daily_reports" :key="row.code" class="flex flex-wrap items-center gap-x-4 gap-y-1 py-3" data-testid="weekly-daily-report-row">
+                                <span class="tabular-nums"><bdi dir="ltr">{{ row.code }}</bdi></span>
+                                <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(row.period_start, locale) }}</span>
+                                <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table" :class="{ 'text-[var(--color-warning)]': row.status === 'missed' }">{{ t(`reports.status.${row.status}`) }}</span>
+                            </li>
+                        </ul>
+                    </section>
+                    <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-weekly-po-heading">
+                        <h2 id="report-weekly-po-heading" class="text-section-title">{{ t('reports.weekly_purchase_orders_title') }}</h2>
+                        <p class="text-page-title tabular-nums" data-testid="weekly-purchase-orders-count">{{ report.purchase_orders_received ?? 0 }}</p>
+                    </section>
+                    <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-weekly-customers-heading">
+                        <h2 id="report-weekly-customers-heading" class="text-section-title">
+                            {{ t('reports.weekly_new_customers_title') }}
+                            <span class="tabular-nums text-[var(--color-text-muted)]" data-testid="weekly-new-customers-count">({{ report.new_customers?.count ?? 0 }})</span>
+                        </h2>
+                        <p v-if="(report.new_customers?.items ?? []).length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.weekly_new_customers_empty') }}</p>
+                        <ul v-else class="flex flex-col divide-y divide-[var(--color-border)]">
+                            <li v-for="row in report.new_customers?.items" :key="row.customer_id" class="py-3" data-testid="weekly-new-customer-row">{{ row.name }}</li>
+                        </ul>
+                    </section>
+                </template>
+
                 <!-- ③ D-131: follow-ups — a customer and a note per row, saved by themselves. -->
-                <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-follow-ups-heading" data-testid="report-section-follow-ups">
+                <section v-if="report.type !== 'weekly'" class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-follow-ups-heading" data-testid="report-section-follow-ups">
                     <h2 id="report-follow-ups-heading" class="text-section-title">
                         {{ t('reports.follow_ups_title') }}
                         <span v-if="isEditable" class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.follow_ups') }}</span>

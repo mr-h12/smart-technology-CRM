@@ -1483,7 +1483,8 @@
             "save": "تعذّر حفظ التقرير. حاول مجدّداً."
         },
         "type": {
-            "daily": "تقرير يومي"
+            "daily": "تقرير يومي",
+            "weekly": "تقرير أسبوعي"
         },
         "status": {
             "draft": "مسوّدة",
@@ -1494,7 +1495,9 @@
             "missed": "فائت"
         },
         "late": "سُلِّم متأخراً",
+        "not_reviewed": "لم يُراجَع",
         "activity_title": "نشاط اليوم",
+        "activity_title_weekly": "نشاط الأسبوع",
         "activity_empty": "لا نشاط مسجَّل في هذا اليوم.",
         "activity": {
             "deals_created": "صفقات أُنشئت",
@@ -1545,6 +1548,7 @@
         "return_reason_required": "اكتب سبب إرجاع التقرير.",
         "return_send": "إرجاع التقرير",
         "summary_title": "ملخص اليوم",
+        "summary_title_weekly": "ملخص الأسبوع",
         "filled": {
             "auto": "تلقائي",
             "follow_ups": "تكتبه أنت",
@@ -1559,6 +1563,11 @@
         "text_required": "اكتب الملاحظة؛ المحفوظة تبقى حتى ذلك الحين.",
         "follow_up_remove_confirm": "حذف هذه المتابعة؟",
         "no_follow_ups": "لا متابعات.",
+        "weekly_daily_reports_title": "التقارير اليومية لهذا الأسبوع",
+        "weekly_daily_reports_empty": "لا تقارير يومية في هذا الأسبوع.",
+        "weekly_purchase_orders_title": "أوامر الشراء المستلمة هذا الأسبوع",
+        "weekly_new_customers_title": "العملاء الجدد هذا الأسبوع",
+        "weekly_new_customers_empty": "لم يُضف أي عميل هذا الأسبوع.",
         "note_add": "+ إضافة ملاحظة",
         "note_label": "ملاحظة {number}",
         "note_remove_confirm": "حذف هذه الملاحظة؟",

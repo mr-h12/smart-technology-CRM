@@ -14,7 +14,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 
 /**
- * `D-126` RPT-DY: the author's own activity on the report's company day.
+ * `D-126` RPT-DY: the author's own activity on the report's company day, and
+ * RPT-WK's over its working week (`$lastDay`, inclusive).
  * The audit log is only the index (`D-129`, amended by `D-130`): it names the
  * records the author touched; each one is shown as its own page shows it,
  * read through the Deals, Quotations and Customers contracts, grouped by kind
@@ -42,10 +43,12 @@ final readonly class DailyActivity
     ) {}
 
     /** @return array{counts: array<string, int>, sections: array<string, list<array<string, string|int|null>>>} */
-    public function of(string $authorId, string $day): array
+    public function of(string $authorId, string $day, ?string $lastDay = null): array
     {
-        $from = new DateTimeImmutable($day.' 00:00:00', new DateTimeZone($this->today->zone()));
-        $records = $this->audit->byActorBetween($authorId, $from, $from->modify('+1 day'), array_merge(...array_values(self::SECTIONS)));
+        $zone = new DateTimeZone($this->today->zone());
+        $from = new DateTimeImmutable($day.' 00:00:00', $zone);
+        $to = new DateTimeImmutable(($lastDay ?? $day).' 00:00:00', $zone);
+        $records = $this->audit->byActorBetween($authorId, $from, $to->modify('+1 day'), array_merge(...array_values(self::SECTIONS)));
 
         $ids = static fn (string ...$sections): array => array_values(array_unique(array_map(
             static fn (AuditRecord $r): string => $r->entityId,

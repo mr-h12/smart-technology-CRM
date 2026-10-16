@@ -44,6 +44,7 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
             'report_id' => $report->id,
             'version' => $version,
             'code' => $report->code,
+            'type' => $report->type,
             'author_id' => $report->authorId,
             'author_name' => $this->users->namesOf([$report->authorId])[$report->authorId] ?? '',
             'period_start' => $report->periodStart,

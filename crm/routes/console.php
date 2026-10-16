@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
+use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
+use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
 use App\Support\Queue\QueueName;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -66,3 +68,16 @@ Schedule::job(new ExpireQuotationsJob, QueueName::Maintenance->value)->daily();
 // runs `reports:mark-missed` once before `schedule:work`. At 00:00 UTC — the
 // company's day is read inside the job, as J-01 does.
 Schedule::job(new MarkMissedDailyReportsJob, QueueName::Maintenance->value)->daily();
+
+// J-05 generate_weekly_reports (§15, D-136, Module 13 slice 6). J-04's shape,
+// onto `maintenance`, with its catch-up (`reports:generate-weekly`). Early on
+// Sunday, 01:00 UTC — the company's day and week are read inside the job, as
+// J-01 does. ponytail: a company zone west of UTC is still on Saturday at that
+// instant, so its week is drafted by the next start's catch-up or the Sunday
+// after; Egypt (the deployment) is east of UTC. A zone-aware schedule if that changes.
+Schedule::job(new GenerateWeeklyReportsJob, QueueName::Maintenance->value)->weeklyOn(0, '1:00');
+
+// J-06 submit_unreviewed_weekly_reports (§15, D-136). Daily, onto `maintenance`,
+// with its catch-up (`reports:submit-unreviewed`), after J-05 on start. The window
+// is the setting's, read inside the job.
+Schedule::job(new SubmitUnreviewedWeeklyReportsJob, QueueName::Maintenance->value)->daily();

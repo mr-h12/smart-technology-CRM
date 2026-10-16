@@ -53,13 +53,14 @@ final class WeeklyReportsGenerationTest extends TestCase
 
     public function test_that_it_drafts_one_weekly_report_for_the_week_that_just_ended_audited_with_no_actor(): void
     {
-        $this->goLive('2026-10-01');
+        $this->goLive('2026-10-11');
         $author = $this->user(RoleName::IndoorSales);
 
         $this->runJob();
 
         $rows = DB::table('reports')->where('type', 'weekly')->get();
         self::assertCount(1, $rows);
+        /** @var object{id: string, code: string, author_id: string, status: string, period_start: string, period_end: string} $report */
         $report = $rows[0];
         self::assertSame($author->id, $report->author_id);
         self::assertSame('draft', $report->status);
@@ -74,7 +75,7 @@ final class WeeklyReportsGenerationTest extends TestCase
 
     public function test_that_a_second_run_creates_nothing_new(): void
     {
-        $this->goLive('2026-10-01');
+        $this->goLive('2026-10-11');
         $this->user(RoleName::IndoorSales);
 
         $this->runJob();
@@ -122,7 +123,7 @@ final class WeeklyReportsGenerationTest extends TestCase
 
     public function test_that_only_active_users_holding_report_create_get_a_draft(): void
     {
-        $this->goLive('2026-10-01');
+        $this->goLive('2026-10-11');
         $sales = $this->user(RoleName::IndoorSales);
         $this->user(RoleName::Ceo);                                         // holds no `report.create` (§3.10).
         $this->user(RoleName::IndoorSales, 'gone', active: false);
@@ -138,7 +139,7 @@ final class WeeklyReportsGenerationTest extends TestCase
 
     public function test_that_the_draft_holds_the_weeks_activity_daily_reports_purchase_orders_and_new_customers(): void
     {
-        $this->goLive('2026-10-01');
+        $this->goLive('2026-10-11');
         $author = $this->user(RoleName::IndoorSales);
         $other = $this->user(RoleName::IndoorSales, 'other');
         $this->seedTheWeek($author, $other);
@@ -146,6 +147,7 @@ final class WeeklyReportsGenerationTest extends TestCase
         $this->runJob();
         $id = $this->weeklyOf($author);
 
+        /** @var array{activity: array{counts: array<string, int>, sections: array{deals_created: list<array{code: string}>}}, daily_reports: list<array<string, string>>, purchase_orders_received: int, new_customers: array{count: int, items: list<array{name: string}>}}|null $data */
         $data = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data');
         self::assertIsArray($data);
 
@@ -170,7 +172,7 @@ final class WeeklyReportsGenerationTest extends TestCase
     /** The frozen copy carries the same four sections (`D-126`: "the frozen copy … carry the same content"). */
     public function test_that_submitting_the_weekly_draft_freezes_the_four_sections(): void
     {
-        $this->goLive('2026-10-01');
+        $this->goLive('2026-10-11');
         $author = $this->user(RoleName::IndoorSales);
         $other = $this->user(RoleName::IndoorSales, 'other');
         $manager = $this->user(RoleName::Manager);
@@ -183,12 +185,75 @@ final class WeeklyReportsGenerationTest extends TestCase
 
         $raw = DB::table('report_versions')->where('report_id', $id)->value('snapshot');
         self::assertIsString($raw);
+        /** @var array{activity?: array{counts: array<string, int>}, daily_reports?: list<mixed>, purchase_orders_received?: int, new_customers?: array{count: int}}|null $snapshot */
         $snapshot = json_decode($raw, true);
         self::assertIsArray($snapshot);
         self::assertSame(1, $snapshot['activity']['counts']['deals_created'] ?? null);
         self::assertCount(2, $snapshot['daily_reports'] ?? []);
         self::assertSame(1, $snapshot['purchase_orders_received'] ?? null);
         self::assertSame(1, $snapshot['new_customers']['count'] ?? null);
+    }
+
+    /** `SEC-08`: a PO counts for the owner of its deal, whoever recorded it. */
+    public function test_that_a_po_on_another_users_deal_does_not_raise_the_authors_count(): void
+    {
+        $this->goLive('2026-10-11');
+        $author = $this->user(RoleName::IndoorSales);
+        $other = $this->user(RoleName::IndoorSales, 'other');
+        $this->purchaseOrder($author, 'PO-2026-0001', '2026-10-13', dealOwner: $other);
+
+        $this->runJob();
+
+        $this->getJson(self::ENDPOINT.'/'.$this->weeklyOf($author), $this->bearer($author))
+            ->assertStatus(200)->assertJsonPath('data.purchase_orders_received', 0);
+    }
+
+    /** Neither a stranger nor a Manager who is not a recipient may read it, whichever route they try. */
+    public function test_that_the_weekly_report_does_not_leak_to_a_non_author_or_a_non_recipient(): void
+    {
+        $this->goLive('2026-10-11');
+        $author = $this->user(RoleName::IndoorSales);
+        $other = $this->user(RoleName::IndoorSales, 'other');
+        $recipient = $this->user(RoleName::Manager, 'recipient');
+        $stranger = $this->user(RoleName::Manager, 'stranger');
+        $this->seedTheWeek($author, $other);
+        $this->runJob();
+        $id = $this->weeklyOf($author);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$recipient->id]], [...$this->bearer($author), 'If-Match' => $this->etag($id)])
+            ->assertStatus(200);
+
+        $paths = [self::ENDPOINT.'/'.$id, self::ENDPOINT.'/received/'.$id];
+        foreach ([$other, $stranger] as $reader) {
+            foreach ($paths as $path) {
+                // Sales does not hold `report.view_received`: the route's permission middleware answers 403 before any 404.
+                $refused = $reader === $other && str_contains($path, '/received/') ? 403 : 404;
+                $body = $this->getJson($path, $this->bearer($reader))->assertStatus($refused)->getContent();
+                self::assertIsString($body);
+                foreach (['new_customers', 'purchase_orders_received', 'daily_reports', 'Nile New'] as $leak) {
+                    self::assertStringNotContainsString($leak, $body, "{$reader->email} got {$leak} from {$path}.");
+                }
+            }
+        }
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($recipient))->assertStatus(200);
+    }
+
+    /** `holdersOf` lists nobody hidden, so a Super Admin holding `report.create` still gets no draft (`D-136`). */
+    public function test_that_the_hidden_super_admin_is_given_no_draft_even_with_an_explicit_report_create_grant(): void
+    {
+        $this->goLive('2026-10-11');
+        $sales = $this->user(RoleName::IndoorSales);
+        $admin = $this->admin();
+        $permission = DB::table('permissions')->where('resource', 'report')->where('action', 'create')->value('id');
+        self::assertIsString($permission);
+        DB::table('role_permissions')->where('role_id', $admin->role_id)->where('permission_id', $permission)->delete();
+        DB::table('role_permissions')->insert([
+            'id' => (string) Str::uuid7(), 'role_id' => $admin->role_id, 'permission_id' => $permission,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->runJob();
+
+        self::assertSame([$sales->id], DB::table('reports')->where('type', 'weekly')->pluck('author_id')->all());
     }
 
     // ── nobody creates one by hand ──────────────────────────────────────────
@@ -319,10 +384,10 @@ final class WeeklyReportsGenerationTest extends TestCase
     }
 
     /** A PO on one of the author's own deals, received on $day (its date and its row agree). */
-    private function purchaseOrder(User $author, string $number, string $day): void
+    private function purchaseOrder(User $author, string $number, string $day, ?User $dealOwner = null): void
     {
         DB::table('purchase_orders')->insert([
-            'id' => (string) Str::uuid7(), 'quotation_id' => $this->insertQuotation($author->id),
+            'id' => (string) Str::uuid7(), 'quotation_id' => $this->insertQuotation(($dealOwner ?? $author)->id),
             'po_number' => $number, 'customer_po_reference' => 'REF-'.$number, 'po_date' => $day, 'created_by' => $author->id,
             'created_at' => $day.' 09:00:00', 'updated_at' => $day.' 09:00:00',
         ]);

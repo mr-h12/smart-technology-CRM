@@ -54,6 +54,18 @@ final readonly class RecipientCandidates
         return array_column($this->for($report), 'id');
     }
 
+    /** `D-136`, J-06: the default recipient when that user is a candidate for this report, else null. */
+    public function defaultFor(Report $report): ?string
+    {
+        foreach ($this->for($report) as $candidate) {
+            if ($candidate['is_default']) {
+                return $candidate['id'];
+            }
+        }
+
+        return null;
+    }
+
     private function defaultRecipient(): ?string
     {
         $named = $this->settings->all()[SystemSetting::ReportsDefaultRecipient->value] ?? null;

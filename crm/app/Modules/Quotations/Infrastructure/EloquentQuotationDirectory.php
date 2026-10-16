@@ -8,6 +8,7 @@ use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
+use App\Modules\Quotations\Domain\Contracts\PurchaseOrderCountsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderPage;
@@ -65,7 +66,7 @@ use stdClass;
  * simultaneous creates serialise on one row rather than racing to the same
  * number and failing the `quotations_code_unique` index.
  */
-final readonly class EloquentQuotationDirectory implements QuotationDirectoryInterface
+final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsInterface, QuotationDirectoryInterface
 {
     /** §4.7: "QT-2026-0001". */
     private const CODE_PREFIX = 'QT';
@@ -436,6 +437,14 @@ final readonly class EloquentQuotationDirectory implements QuotationDirectoryInt
         }
 
         return $records;
+    }
+
+    public function countOnDealsOwnedBy(string $ownerId, string $from, string $to): int
+    {
+        return PurchaseOrder::query()
+            ->whereBetween('po_date', [$from, $to])
+            ->whereIn('quotation_id', Quotation::query()->whereIn('deal_id', $this->deals->dealIdsOwnedBy($ownerId))->select('id'))
+            ->count();
     }
 
     /**

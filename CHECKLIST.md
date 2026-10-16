@@ -1901,6 +1901,12 @@ would hide them behind `OD-03` indefinitely.
       5. **The Team and Out scopes narrow nothing yet** (`D-129`, the `ponytail:` comment in
          `ReportAccess.php`). Recipient rows are the only barrier; re-audit when teams land.
       **The cost, stated:** a regression in 1–3 would pass the suite; 4 and 5 widen nothing today.
+- [ ] **The Reports feature tests each carry their own `etag()`, `user()`, `bearer()`, `create()` and `customer()`**
+      — *revealed by Module 13 slice 3 · 3.1's waste audit, 2026-10-16.* `etag()` is byte-identical in
+      `ReportReceiveEndpointTest`, `ReportSubmitEndpointTest` and `ReportFollowUpsEndpointTest`; the others are
+      the same shape across the five Reports test classes, as are `snapshot()` against `version()` + `snapshotOf()`
+      and `withFollowUp`/`withNote` against `withRows`. Same family as the `refusedWith()` rows above. A shared
+      Reports test trait would remove the copies; the owner's call where shared test helpers live.
 
 ## Agent guide revisions — owner-directed
 
@@ -5212,7 +5218,7 @@ lands in the slice that first needs it.
     - [x] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check *(2026-10-16, #381 — six gates green locally: PHP 3929 passed, vitest 1412, pint 825 files, phpstan OK, deptrac 0/0; permission audit: no blocker, five gaps to the register; browser check ar/en × 1280/375; CI success on `4cdb867` (Frontend build, PHP image))*
   - Merged 2026-10-16 (#381).
 - [ ] **Slice 3 — follow-ups and several notes on a daily report** *(the owner's request and division, 2026-10-16; spec `docs/superpowers/specs/2026-10-16-report-follow-ups-notes-design.md`, approved by the owner in chat, 2026-10-16; `D-131` proposed)*: a «التواصل والمتابعة» section of customer + note rows; several notes instead of one box; both autosaved (the `D-124` pattern) and frozen at submit; the page in the order ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit. Not in it: a channel, date or time on a follow-up; the PDF (slice 4, spec `2026-10-16-report-pdf-design.md`, `D-132`).
-    - [ ] **3.1** Decision and red: `D-131` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason
+    - [x] **3.1** Decision and red: `D-131` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason *(2026-10-16 — `D-131` at `CRM_Documentation_EN.md:196`, inode kept; 22 PHP + 13 vitest red for the right reason (missing routes, tables, migration, module, testids); 75 PHP and 62 vitest old tests still pass)*
     - [ ] **3.2** Green and evidence: migration, tables, endpoints, the frozen copy, the shared autosave helper, sections ③④ and the page order; the full suite alone, the gates, the auditors, the browser check
 
 ---

@@ -329,6 +329,120 @@ final class ReportSubmitEndpointTest extends TestCase
         $this->assertStillDraft($id);
     }
 
+    // ── follow-ups and notes in the frozen copy (`D-131`) ───────────────────
+
+    /** `D-131`: submit freezes each follow-up with its customer's name as it was, and the notes list. */
+    public function test_that_submitting_freezes_the_follow_ups_and_notes(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $nile = $this->customer('Nile Trading', $author);
+        $id = $this->create($author);
+        $this->withFollowUp($author, $id, $nile, 'Wants a visit.');
+        $this->withNote($author, $id, 'A good day.');
+
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+
+        $snapshot = $this->snapshot($id, 1);
+        // jsonb stores keys in its own order; the frozen copy is compared by value.
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Wants a visit.']], $snapshot['follow_ups'] ?? null);
+        self::assertEquals([['body' => 'A good day.']], $snapshot['notes'] ?? null);
+    }
+
+    /** `D-131`: "each follow-up with its customer's name as it was" — a later rename does not reach the copy. */
+    public function test_that_a_customer_renamed_after_submit_keeps_its_frozen_name(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $nile = $this->customer('Nile Trading', $author);
+        $id = $this->create($author);
+        $this->withFollowUp($author, $id, $nile, 'Wants a visit.');
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+
+        DB::table('customers')->where('id', $nile)->update(['name' => 'Renamed Later']);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+            ->assertStatus(200)
+            ->assertJsonPath('data.follow_ups.0.customer_name', 'Nile Trading')
+            ->assertJsonPath('data.follow_ups.0.note', 'Wants a visit.');
+    }
+
+    /** `D-131`: both are shown to a recipient, from the frozen copy. */
+    public function test_that_a_recipient_reads_the_follow_ups_and_notes(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $nile = $this->customer('Nile Trading', $author);
+        $id = $this->create($author);
+        $this->withFollowUp($author, $id, $nile, 'Wants a visit.');
+        $this->withNote($author, $id, 'A good day.');
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.follow_ups.0.customer_name', 'Nile Trading')
+            ->assertJsonPath('data.follow_ups.0.note', 'Wants a visit.')
+            ->assertJsonPath('data.notes.0.body', 'A good day.');
+    }
+
+    /** `D-131`: "a version submitted earlier shows its notes text as one note". */
+    public function test_that_an_older_snapshots_notes_text_reads_as_one_note(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->create($author);
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+        // The frozen copy as slices 1 and 2 wrote it: one `notes` string, no follow-ups.
+        $old = $this->snapshot($id, 1);
+        unset($old['follow_ups']);
+        DB::table('report_versions')->where('report_id', $id)->update(['snapshot' => json_encode([...$old, 'notes' => 'Old words.'])]);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+            ->assertStatus(200)
+            ->assertJsonPath('data.notes.0.body', 'Old words.')
+            ->assertJsonCount(1, 'data.notes')
+            ->assertJsonPath('data.follow_ups', []);
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.notes.0.body', 'Old words.');
+    }
+
+    /**
+     * §11.4 with `D-131`: Return → the rows and notes stay editable in the
+     * draft; the resubmit freezes v2, and v1's frozen copy is unchanged.
+     */
+    public function test_that_return_then_version_2_keeps_the_rows_editable_and_v1_frozen(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $nile = $this->customer('Nile Trading', $author);
+        $id = $this->create($author);
+        $row = $this->withFollowUp($author, $id, $nile, 'First wording.');
+        $note = $this->withNote($author, $id, 'First note.');
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/return', ['reason' => 'Add Delta.'], [...$this->bearer($manager), 'If-Match' => $this->etag($id)])
+            ->assertStatus(200);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'returned')
+            ->assertJsonPath('data.follow_ups.0.id', $row)
+            ->assertJsonPath('data.follow_ups.0.note', 'First wording.')
+            ->assertJsonPath('data.notes.0.id', $note);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/follow-ups/'.$row, ['note' => 'Second wording.'], $this->bearer($author))->assertStatus(200);
+        $this->withNote($author, $id, 'Added after return.');
+        $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
+
+        $v1 = $this->snapshot($id, 1);
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'First wording.']], $v1['follow_ups'] ?? null);
+        self::assertEquals([['body' => 'First note.']], $v1['notes'] ?? null);
+
+        $v2 = $this->snapshot($id, 2);
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Second wording.']], $v2['follow_ups'] ?? null);
+        self::assertEquals([['body' => 'First note.'], ['body' => 'Added after return.']], $v2['notes'] ?? null);
+    }
+
     // ── refusals the permission audit asked for ─────────────────────────────
 
     /** §3.10: the CEO holds no `report.create`, so no author route opens for them — even on a real report id. */
@@ -382,6 +496,59 @@ final class ReportSubmitEndpointTest extends TestCase
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────
+
+    private function withFollowUp(User $author, string $id, string $customer, string $note): string
+    {
+        $row = $this->postJson(self::ENDPOINT.'/'.$id.'/follow-ups', ['customer_id' => $customer, 'note' => $note], $this->bearer($author))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($row);
+
+        return $row;
+    }
+
+    private function withNote(User $author, string $id, string $body): string
+    {
+        $note = $this->postJson(self::ENDPOINT.'/'.$id.'/notes', ['body' => $body], $this->bearer($author))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($note);
+
+        return $note;
+    }
+
+    /** @return array<string, mixed> */
+    private function snapshot(string $id, int $version): array
+    {
+        $raw = DB::table('report_versions')->where('report_id', $id)->where('version', $version)->value('snapshot');
+        self::assertIsString($raw, "report_versions has no v{$version}.");
+        $snapshot = json_decode($raw, true);
+        self::assertIsArray($snapshot);
+
+        /** @var array<string, mixed> $snapshot */
+        return $snapshot;
+    }
+
+    /** The current token, read from the row. */
+    private function etag(string $id): string
+    {
+        $token = DB::table('reports')->where('id', $id)->value('version_token');
+        self::assertIsInt($token);
+
+        return 'report:'.$id.':'.$token;
+    }
+
+    private function customer(string $name, User $owner): string
+    {
+        $id = (string) Str::uuid7();
+        DB::table('customers')->insert([
+            'id' => $id, 'name' => $name, 'customer_status' => 'prospect', 'sales_owner_id' => $owner->id,
+            'is_archived' => false, 'is_incomplete' => false, 'created_by' => $owner->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
 
     private function assertStillDraft(string $id): void
     {

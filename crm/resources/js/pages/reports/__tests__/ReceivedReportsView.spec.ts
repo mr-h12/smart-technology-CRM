@@ -126,6 +126,20 @@ describe('ReceivedReportsView — Received reports', () => {
         expect(arabic.get('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
     });
 
+    it('draws a weekly report\'s range and a daily report\'s single date', async () => {
+        const weekly = { ...RECEIVED, id: 'rep6', code: 'RPT-WK-2026-0001', type: 'weekly', period_start: '2026-10-11', period_end: '2026-10-15' };
+        const wrapper = await render(list([RECEIVED, weekly]));
+
+        const dates = wrapper.findAll('[data-testid="report-period"]');
+        expect(dates[0]!.text()).toMatch(/^15.10.2026$/);
+        expect(dates[1]!.text()).toMatch(/^11.10.2026 – 15.10.2026$/);
+        // No LTR isolate: ar-EG's right-to-left marks would scramble the date inside one.
+        for (const date of dates) {
+            expect(date.element.closest('[dir]')).toBeNull();
+            expect(date.find('[dir], bdi').exists()).toBe(false);
+        }
+    });
+
     it('shows a received weekly report as Weekly report, with the Not reviewed label only on a flagged one (D-136)', async () => {
         const weekly = { ...RECEIVED, id: 'rep4', code: 'RPT-WK-2026-0001', type: 'weekly', submitted_late: false, not_reviewed: false };
         const flagged = { ...weekly, id: 'rep5', not_reviewed: true };

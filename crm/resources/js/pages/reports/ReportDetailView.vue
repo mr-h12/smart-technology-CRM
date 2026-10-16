@@ -30,7 +30,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { useAutosave } from '@/components/useAutosave';
 import { useModalDialog } from '@/components/useModalDialog';
-import { displayDate } from '@/domain/displayDate';
+import { displayDate, displayDateRange } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
@@ -403,7 +403,7 @@ onMounted(load);
                     <h1 class="text-page-title"><bdi dir="ltr">{{ report.code }}</bdi></h1>
                     <p class="flex flex-wrap gap-x-3 text-[var(--color-text-muted)]">
                         <span>{{ t(`reports.type.${report.type}`) }}</span>
-                        <span class="tabular-nums">{{ displayDate(report.period_start, locale) }}</span>
+                        <span class="tabular-nums" data-testid="report-period">{{ displayDateRange(report.period_start, report.period_end, locale) }}</span>
                         <span v-if="report.author_name">{{ t('reports.from_author', { name: report.author_name }) }}</span>
                     </p>
                 </div>

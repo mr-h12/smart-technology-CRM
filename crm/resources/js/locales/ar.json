@@ -1505,7 +1505,7 @@
             "quotations_created": "عروض أسعار أُنشئت",
             "quotations_sent": "عروض أسعار أُرسلت",
             "customer_responses": "ردود العملاء",
-            "purchase_orders": "أوامر الشراء"
+            "purchase_orders": "أوامر شراء سجّلتها"
         },
         "activity_none": "لا شيء مسجَّل.",
         "column": {
@@ -1565,7 +1565,7 @@
         "no_follow_ups": "لا متابعات.",
         "weekly_daily_reports_title": "التقارير اليومية لهذا الأسبوع",
         "weekly_daily_reports_empty": "لا تقارير يومية في هذا الأسبوع.",
-        "weekly_purchase_orders_title": "أوامر الشراء المستلمة هذا الأسبوع",
+        "weekly_purchase_orders_title": "أوامر شراء وصلت على صفقاتك",
         "weekly_new_customers_title": "العملاء الجدد هذا الأسبوع",
         "weekly_new_customers_empty": "لم يُضف أي عميل هذا الأسبوع.",
         "note_add": "+ إضافة ملاحظة",

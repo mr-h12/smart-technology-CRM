@@ -1505,7 +1505,7 @@
             "quotations_created": "Quotations created",
             "quotations_sent": "Quotations sent",
             "customer_responses": "Customer responses",
-            "purchase_orders": "Purchase orders"
+            "purchase_orders": "POs you recorded"
         },
         "activity_none": "None recorded.",
         "column": {
@@ -1565,7 +1565,7 @@
         "no_follow_ups": "No follow-ups.",
         "weekly_daily_reports_title": "The week's daily reports",
         "weekly_daily_reports_empty": "No daily reports this week.",
-        "weekly_purchase_orders_title": "Purchase orders received this week",
+        "weekly_purchase_orders_title": "POs received on your deals",
         "weekly_new_customers_title": "New customers this week",
         "weekly_new_customers_empty": "No customers were added this week.",
         "note_add": "+ Add note",

@@ -99,6 +99,20 @@ describe('ReportsView — My reports', () => {
         expect(rows[0]!.find('a').attributes('href')).toBe('/reports/rep1');
     });
 
+    it('draws a weekly report\'s range and a daily report\'s single date', async () => {
+        const weekly = { ...REPORT, id: 'rep9', code: 'RPT-WK-2026-0001', type: 'weekly', period_start: '2026-10-11', period_end: '2026-10-15' };
+        const { wrapper } = await render(list([REPORT, weekly]));
+
+        const dates = wrapper.findAll('[data-testid="report-period"]');
+        expect(dates[0]!.text()).toMatch(/^15.10.2026$/);
+        expect(dates[1]!.text()).toMatch(/^11.10.2026 – 15.10.2026$/);
+        // No LTR isolate: ar-EG's right-to-left marks would scramble the date inside one.
+        for (const date of dates) {
+            expect(date.element.closest('[dir]')).toBeNull();
+            expect(date.find('[dir], bdi').exists()).toBe(false);
+        }
+    });
+
     it('shows the empty state when the author has no report yet', async () => {
         const { wrapper } = await render(list([]));
 

@@ -154,4 +154,21 @@ describe('ReportsView — My reports', () => {
         expect(arRows[0]!.text()).toContain('فائت');
         expect(arRows[1]!.find('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
     });
+
+    // ── D-136 ──
+    it('shows a weekly report as Weekly report (تقرير أسبوعي), and the Not reviewed label only on a flagged one', async () => {
+        const weekly = { ...REPORT, id: 'rep5', code: 'RPT-WK-2026-0001', type: 'weekly', status: 'submitted', submitted_late: false, not_reviewed: false };
+        const flagged = { ...weekly, id: 'rep6', code: 'RPT-WK-2026-0002', not_reviewed: true };
+
+        const { wrapper } = await render(list([weekly, flagged]));
+        const rows = wrapper.findAll('[data-testid="report-row"]');
+        expect(rows[0]!.text()).toContain('Weekly report');
+        expect(rows[0]!.find('[data-testid="report-not-reviewed"]').exists()).toBe(false);
+        expect(rows[1]!.find('[data-testid="report-not-reviewed"]').text()).toContain('Not reviewed');
+
+        const { wrapper: arabic } = await render(list([weekly, flagged]), 'ar');
+        const arRows = arabic.findAll('[data-testid="report-row"]');
+        expect(arRows[0]!.text()).toContain('تقرير أسبوعي');
+        expect(arRows[1]!.find('[data-testid="report-not-reviewed"]').text()).toContain('لم يُراجَع');
+    });
 });

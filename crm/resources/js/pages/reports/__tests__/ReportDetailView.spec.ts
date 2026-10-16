@@ -963,3 +963,32 @@ describe('ReportDetailView — a Missed and a late report (D-135)', () => {
         expect(arabic.get('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
     });
 });
+
+describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const WEEKLY = {
+        ...SUBMITTED, code: 'RPT-WK-2026-0001', type: 'weekly', period_start: '2026-10-11', period_end: '2026-10-15',
+        submitted_late: false, not_reviewed: false,
+    };
+
+    it('draws the weekly type as Weekly report, and as تقرير أسبوعي in Arabic', async () => {
+        expect((await render(server({ report: WEEKLY }))).text()).toContain('Weekly report');
+        expect((await render(server({ report: WEEKLY }), 'ar')).text()).toContain('تقرير أسبوعي');
+    });
+
+    it('shows the Not reviewed label only on a report submitted without its author\'s review', async () => {
+        const flagged = await render(server({ report: { ...WEEKLY, not_reviewed: true } }));
+        expect(flagged.get('[data-testid="report-not-reviewed"]').text()).toContain('Not reviewed');
+
+        const reviewed = await render(server({ report: WEEKLY }));
+        expect(reviewed.find('[data-testid="report-not-reviewed"]').exists()).toBe(false);
+
+        const arabic = await render(server({ report: { ...WEEKLY, not_reviewed: true } }), 'ar');
+        expect(arabic.get('[data-testid="report-not-reviewed"]').text()).toContain('لم يُراجَع');
+    });
+});

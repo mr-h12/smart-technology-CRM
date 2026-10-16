@@ -40,7 +40,7 @@ final readonly class ReportAccess
 
     /**
      * `D-131`: a follow-up or note is written by the author while the report is
-     * a draft or returned — checked under the row lock a submit also takes, so a
+     * a draft, returned or missed (`D-135`) — checked under the row lock a submit also takes, so a
      * write racing a submit ends in 409, never in a row the frozen copy missed.
      */
     public function editable(string $reportId, string $actorId): Report

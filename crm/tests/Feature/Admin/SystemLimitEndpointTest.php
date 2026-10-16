@@ -54,6 +54,9 @@ final class SystemLimitEndpointTest extends TestCase
 
     private const LOCKOUT = AuthenticateUser::LOCKOUT_MINUTES_KEY;
 
+    /** `D-135` removed it; a string, because the enum case is gone. */
+    private const DEADLINE = 'limits.daily_report_deadline';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -148,10 +151,11 @@ final class SystemLimitEndpointTest extends TestCase
         self::assertIsArray($limits);
         // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
         // adds the seventh, `OD-08`'s similarity threshold, on the owner's
-        // decision of 2026-08-30. The count is asserted first on purpose: a
+        // decision of 2026-08-30 · `D-135` removes the daily report deadline, which
+        // leaves six. The count is asserted first on purpose: a
         // limit added without a reader noticing is a field the screen will not
         // draw, and this line is what makes somebody notice.
-        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh.');
+        self::assertCount(6, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);
@@ -199,8 +203,7 @@ final class SystemLimitEndpointTest extends TestCase
         // The two the owner has ruled on: `D-75`'s lockout and, since
         // 2026-08-30, `OD-08`'s similarity threshold. Everything else in §13
         // screen 6 still has no documented value.
-        // `D-127` (2026-10-15) values the daily deadline at 17:00.
-        $configured = [self::LOCKOUT, SystemLimit::CustomerSimilarityThreshold->value, SystemLimit::DailyReportDeadline->value];
+        $configured = [self::LOCKOUT, SystemLimit::CustomerSimilarityThreshold->value];
 
         $unvalued = 0;
         foreach ($limits as $key => $limit) {
@@ -220,29 +223,30 @@ final class SystemLimitEndpointTest extends TestCase
         self::assertIsArray($threshold);
         self::assertSame('0.60', $threshold['value']);
 
-        $deadline = $limits[SystemLimit::DailyReportDeadline->value];
-        self::assertIsArray($deadline);
-        self::assertSame('17:00', $deadline['value'], 'D-127: the daily deadline starts at 17:00.');
+        // `D-135`: the daily deadline is removed; a day's report is due by midnight.
+        self::assertArrayNotHasKey(self::DEADLINE, $limits);
     }
 
-    /** `D-127` — the deadline is a time of day, `HH:MM`, nothing else. */
-    public function test_that_a_daily_deadline_that_is_not_a_time_of_day_is_refused(): void
+    /** `D-135` — the key is no longer a limit, so the endpoint refuses it like any unknown key. */
+    public function test_that_the_removed_daily_deadline_is_refused(): void
     {
-        $bearer = $this->bearerFor(RoleName::SuperAdmin);
-
-        foreach (['25:00', '5pm', '17:60', ''] as $value) {
-            $this->patchJson(
-                self::ENDPOINT,
-                ['limits' => [SystemLimit::DailyReportDeadline->value => $value]],
-                $bearer,
-            )->assertStatus(422);
-        }
-
         $this->patchJson(
             self::ENDPOINT,
-            ['limits' => [SystemLimit::DailyReportDeadline->value => '16:30']],
-            $bearer,
-        )->assertStatus(200);
+            ['limits' => [self::DEADLINE => '16:30']],
+            $this->bearerFor(RoleName::SuperAdmin),
+        )->assertStatus(422);
+
+        self::assertSame(0, DB::table('system_limits')->where('key', self::DEADLINE)->whereNull('deleted_at')->count());
+    }
+
+    /** `D-135` — the validation-message name of the removed limit goes with it, in both languages. */
+    public function test_that_the_removed_daily_deadline_has_no_validation_attribute_name(): void
+    {
+        $key = 'admin.limits.attributes.limits_daily_report_deadline';
+
+        foreach (['en', 'ar'] as $locale) {
+            self::assertSame($key, trans($key, [], $locale), "D-135: lang/{$locale}/admin.php still names the removed deadline.");
+        }
     }
 
     // ── writing ─────────────────────────────────────────────────────────────

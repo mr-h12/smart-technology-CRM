@@ -19,12 +19,14 @@ final readonly class Report
         public ?string $submittedAt,
         /** How many versions were submitted — the highest `report_versions.version`, 0 for a first draft. */
         public int $submittedVersions,
+        /** `D-135`: submitted after it was marked Missed; once true it stays true. */
+        public bool $submittedLate = false,
     ) {}
 
-    /** §11.4: the author writes a draft, and a returned report on its way to the next version. */
+    /** §11.4: the author writes a draft, and a returned report on its way to the next version; `D-135`: and a Missed one, to submit it late. */
     public function isEditable(): bool
     {
-        return $this->status === 'draft' || $this->status === 'returned';
+        return in_array($this->status, ['draft', 'returned', 'missed'], true);
     }
 
     /** §11.4, the owner's ruling of 2026-10-16: Acknowledge and Return answer a Submitted or Viewed report. */

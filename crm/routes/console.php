@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
+use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
 use App\Support\Queue\QueueName;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -59,3 +60,9 @@ Schedule::job(new RecomputeStaleCustomerStatusesJob, QueueName::Maintenance->val
 // At 00:00 UTC — the company's day is read inside the job; local-time
 // scheduling was declined by the owner (2026-09-23).
 Schedule::job(new ExpireQuotationsJob, QueueName::Maintenance->value)->daily();
+
+// J-04 mark_missed_daily_reports (§15, D-135, Module 13 slice 5). J-01's shape,
+// onto `maintenance`, with its catch-up (§15 ✅, D-55): the `scheduler` service
+// runs `reports:mark-missed` once before `schedule:work`. At 00:00 UTC — the
+// company's day is read inside the job, as J-01 does.
+Schedule::job(new MarkMissedDailyReportsJob, QueueName::Maintenance->value)->daily();

@@ -147,6 +147,7 @@ final class ReportController
             'period_start' => $report->periodStart,
             'period_end' => $report->periodEnd,
             'submitted_at' => $report->submittedAt,
+            'submitted_late' => $report->submittedLate,
         ];
     }
 

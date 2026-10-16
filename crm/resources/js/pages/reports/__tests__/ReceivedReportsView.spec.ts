@@ -111,4 +111,18 @@ describe('ReceivedReportsView — Received reports', () => {
         expect(wrapper.text()).toContain(String(title));
         expect(wrapper.get('[data-testid="received-report-row"]').text()).toContain(ar.reports.status.submitted);
     });
+
+    // ── D-135 ──
+    it('shows the late label on a report delivered late, and not on one on time', async () => {
+        const late = { ...RECEIVED, id: 'rep2', status: 'submitted', submitted_late: true };
+        const onTime = { ...RECEIVED, id: 'rep3', status: 'submitted', submitted_late: false };
+        const wrapper = await render(list([late, onTime]));
+
+        const rows = wrapper.findAll('[data-testid="received-report-row"]');
+        expect(rows[0]!.find('[data-testid="report-late"]').text()).toContain('Delivered late');
+        expect(rows[1]!.find('[data-testid="report-late"]').exists()).toBe(false);
+
+        const arabic = await render(list([late]), 'ar');
+        expect(arabic.get('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
+    });
 });

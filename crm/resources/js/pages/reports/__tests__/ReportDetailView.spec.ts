@@ -929,3 +929,37 @@ describe('ReportDetailView — the stored PDF of a submitted version (D-132)', (
         english.unmount();
     });
 });
+
+describe('ReportDetailView — a Missed and a late report (D-135)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('gives the author of a Missed report the edit and submit controls', async () => {
+        const view = await render(server({ report: { ...DRAFT, status: 'missed', submitted_late: false } }));
+
+        expect(view.find('[data-testid="report-submit"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-note-add"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-late"]').exists()).toBe(false);
+    });
+
+    it('draws the Missed status as Missed, and as فائت in Arabic', async () => {
+        const missed = server({ report: { ...DRAFT, status: 'missed', submitted_late: false } });
+
+        expect((await render(missed)).get('[data-testid="report-status"]').text()).toContain('Missed');
+        expect((await render(missed, 'ar')).get('[data-testid="report-status"]').text()).toContain('فائت');
+    });
+
+    it('shows the late label only when the report was submitted late', async () => {
+        const late = await render(server({ report: { ...SUBMITTED, submitted_late: true } }));
+        expect(late.get('[data-testid="report-late"]').text()).toContain('Delivered late');
+
+        const onTime = await render(server({ report: { ...SUBMITTED, submitted_late: false } }));
+        expect(onTime.find('[data-testid="report-late"]').exists()).toBe(false);
+
+        const arabic = await render(server({ report: { ...SUBMITTED, submitted_late: true } }), 'ar');
+        expect(arabic.get('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
+    });
+});

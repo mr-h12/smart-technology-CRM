@@ -477,7 +477,6 @@
         "saved": "Limits saved.",
         "field": {
             "limits_stale_deal_days": "Stale-deal threshold",
-            "limits_daily_report_deadline": "Daily report deadline",
             "limits_quotation_approval_sla_hours": "Quotation approval SLA",
             "limits_weekly_review_window_hours": "Weekly review window",
             "limits_max_file_size_mb": "Maximum file size",
@@ -496,7 +495,6 @@
         },
         "hint": {
             "limits_stale_deal_days": "How many days a deal may sit with no activity before the system flags it as stale.",
-            "limits_daily_report_deadline": "The time of day daily reports are due. A report that arrives after this counts as missed.",
             "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it counts as overdue.",
             "limits_weekly_review_window_hours": "How many hours the weekly review stays open.",
             "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
@@ -1492,8 +1490,10 @@
             "submitted": "Submitted",
             "viewed": "Viewed",
             "acknowledged": "Acknowledged",
-            "returned": "Returned"
+            "returned": "Returned",
+            "missed": "Missed"
         },
+        "late": "Delivered late",
         "activity_title": "The day's activity",
         "activity_empty": "No activity recorded for this day.",
         "activity": {

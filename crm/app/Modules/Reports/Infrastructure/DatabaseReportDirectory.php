@@ -61,7 +61,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
          * }|null $row
          */
         $row = $this->connection->table('reports')->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -80,7 +80,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
          * }> $rows
          */
         $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -156,10 +156,12 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         $moved = $this->connection->table('reports')
             ->where('id', $reportId)
             ->where('version_token', $versionToken)
-            ->whereIn('status', ['draft', 'returned'])
+            ->whereIn('status', ['draft', 'returned', 'missed'])
             ->whereNull('deleted_at')
             ->update([
                 'status' => 'submitted',
+                // `D-135`: a Missed report submitted is late for good, even if returned and resubmitted.
+                'submitted_late' => $this->connection->raw("submitted_late OR status = 'missed'"),
                 'submitted_at' => now(),
                 'version_token' => $versionToken + 1,
                 'updated_by' => $actorId,
@@ -278,7 +280,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
          * }> $rows
          */
         $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -327,7 +329,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
      * @param  object{
      *     id: string, code: string, type: string, status: string, author_id: string,
      *     period_start: string, period_end: string, version_token: int,
-     *     submitted_at: ?string, submitted_versions: int
+     *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
      * }  $row
      */
     private static function hydrate(object $row): Report
@@ -344,6 +346,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
             submittedVersions: $row->submitted_versions,
+            submittedLate: $row->submitted_late,
         );
     }
 
@@ -370,6 +373,27 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             'author_id' => $row->author_id,
             'followed_up_at' => (new \DateTimeImmutable($row->followed_up_at))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
         ], $rows);
+    }
+
+    public function markMissed(string $goLive, string $today): array
+    {
+        // `D-125`: Friday (5) and Saturday (6) are not working days.
+        $rows = $this->connection->select(
+            "UPDATE reports SET status = 'missed', version_token = version_token + 1, updated_by = NULL, updated_at = now()
+             WHERE type = 'daily' AND status = 'draft' AND deleted_at IS NULL
+               AND period_start < ? AND period_start >= ? AND EXTRACT(DOW FROM period_start) NOT IN (5, 6)
+             RETURNING id",
+            [$today, $goLive],
+        );
+
+        $ids = [];
+        foreach ($rows as $row) {
+            if ($row instanceof \stdClass && is_string($row->id)) {
+                $ids[] = $row->id;
+            }
+        }
+
+        return $ids;
     }
 
     /** The report's highest version number; 0 when it has none. */

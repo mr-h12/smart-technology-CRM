@@ -477,7 +477,6 @@
         "saved": "حُفظت الحدود.",
         "field": {
             "limits_stale_deal_days": "حدّ ركود الصفقة",
-            "limits_daily_report_deadline": "موعد التقرير اليومي",
             "limits_quotation_approval_sla_hours": "مهلة اعتماد عرض السعر",
             "limits_weekly_review_window_hours": "نافذة المراجعة الأسبوعيّة",
             "limits_max_file_size_mb": "الحدّ الأقصى لحجم الملفّ",
@@ -496,7 +495,6 @@
         },
         "hint": {
             "limits_stale_deal_days": "كم يوماً تبقى الصفقة بلا أيّ نشاط قبل أن ينبّه النظام إلى ركودها.",
-            "limits_daily_report_deadline": "الوقت الذي تُستحقّ عنده التقارير اليوميّة. والتقرير الذي يصل بعده يُعَدّ فائتاً.",
             "limits_quotation_approval_sla_hours": "كم ساعة يجوز أن ينتظر الاعتماد قبل أن يُعَدّ متأخّراً.",
             "limits_weekly_review_window_hours": "كم ساعة تبقى المراجعة الأسبوعيّة مفتوحة.",
             "limits_max_file_size_mb": "أكبر ملفّ يجوز لأيّ شخص إرفاقه، بالميغابايت. 10 تعني أنّ ملفّاً بحجم 10 ميغابايت مقبول وما زاد عنه يُرفض.",
@@ -1492,8 +1490,10 @@
             "submitted": "مُرسَل",
             "viewed": "تمّ الاطّلاع",
             "acknowledged": "معتمَد",
-            "returned": "مُرجَع"
+            "returned": "مُرجَع",
+            "missed": "فائت"
         },
+        "late": "سُلِّم متأخراً",
         "activity_title": "نشاط اليوم",
         "activity_empty": "لا نشاط مسجَّل في هذا اليوم.",
         "activity": {

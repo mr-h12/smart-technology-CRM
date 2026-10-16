@@ -108,7 +108,6 @@ final class SystemSettingsSeeder extends GuardedSeeder
         return [
             AuthenticateUser::LOCKOUT_MINUTES_KEY => ['30', 'integer', 'minutes'],
             SystemLimit::CustomerSimilarityThreshold->value => ['0.60', 'decimal', null],
-            SystemLimit::DailyReportDeadline->value => ['17:00', 'string', null],
         ];
     }
 }

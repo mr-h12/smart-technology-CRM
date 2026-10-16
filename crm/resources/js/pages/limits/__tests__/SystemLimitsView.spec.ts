@@ -36,7 +36,6 @@ import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
 
 const LIMITS = {
     'limits.stale_deal_days': { value: null, unit: 'days', value_type: 'integer' },
-    'limits.daily_report_deadline': { value: null, unit: null, value_type: 'string' },
     'limits.quotation_approval_sla_hours': { value: null, unit: 'hours', value_type: 'integer' },
     'limits.weekly_review_window_hours': { value: null, unit: 'hours', value_type: 'integer' },
     'limits.max_file_size_mb': { value: null, unit: 'megabytes', value_type: 'integer' },
@@ -82,7 +81,6 @@ describe('SystemLimitsView', () => {
 
         expect(fields.map((f) => f.attributes('data-limit-key'))).toEqual([
             'limits.stale_deal_days',
-            'limits.daily_report_deadline',
             'limits.quotation_approval_sla_hours',
             'limits.weekly_review_window_hours',
             'limits.max_file_size_mb',
@@ -126,15 +124,18 @@ describe('SystemLimitsView', () => {
         expect(row).not.toContain('megabytes');
     });
 
-    /** A time of day has no unit — the value *is* the reading. */
-    it('shows no unit for the daily report deadline', async () => {
+    /** `D-135`: a day's report is due by midnight, so the screen carries no deadline field or words for one. */
+    it('has no daily report deadline field, label or hint in either language', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
 
         const view = render();
         await flushPromises();
 
-        expect(view.get('[data-limit-key="limits.daily_report_deadline"]')
-            .find('[data-testid="limits-unit"]').exists()).toBe(false);
+        expect(view.find('[data-limit-key="limits.daily_report_deadline"]').exists()).toBe(false);
+        expect('limits_daily_report_deadline' in en.limits.field).toBe(false);
+        expect('limits_daily_report_deadline' in en.limits.hint).toBe(false);
+        expect('limits_daily_report_deadline' in ar.limits.field).toBe(false);
+        expect('limits_daily_report_deadline' in ar.limits.hint).toBe(false);
     });
 
     /** Null is "not configured yet", which Point 1.1 made a real state. */
@@ -173,12 +174,12 @@ describe('SystemLimitsView', () => {
         await flushPromises();
 
         const counted = view.get('[data-limit-key="identity.lockout_minutes"] input');
-        const deadline = view.get('[data-limit-key="limits.daily_report_deadline"] input');
+        const threshold = view.get('[data-limit-key="limits.customer_similarity_threshold"] input');
 
         expect(counted.attributes('type')).toBe('text');
-        expect(deadline.attributes('type')).toBe('text');
+        expect(threshold.attributes('type')).toBe('text');
         expect(counted.attributes('inputmode')).toBe('numeric');
-        expect(deadline.attributes('inputmode')).toBeUndefined();
+        expect(threshold.attributes('inputmode')).toBeUndefined();
     });
 
     // ── saving ─────────────────────────────────────────────────────────────
@@ -340,7 +341,7 @@ describe('SystemLimitsView', () => {
 
         const fields = view.findAll('[data-limit-key]');
 
-        expect(fields).toHaveLength(7);
+        expect(fields).toHaveLength(6);
 
         const hints: Record<string, string> = en.limits.hint;
 

@@ -24,6 +24,9 @@ final class ReportsMigrationTest extends TestCase
 
     private const MIGRATION = 'database/migrations/2026_10_15_200000_create_reports.php';
 
+    /** `D-135`: whether a report was delivered after it became Missed. */
+    private const LATE_MIGRATION = 'database/migrations/2026_10_19_000000_add_submitted_late_to_reports.php';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -113,9 +116,28 @@ final class ReportsMigrationTest extends TestCase
         $this->expectDatabaseError('23505', fn () => $this->recipient($report, $recipient));
     }
 
+    /** `D-135`: NOT NULL, false for every report already there; `down()` takes it away (DEV-03). */
+    public function test_that_submitted_late_defaults_to_false_and_is_gone_after_down(): void
+    {
+        self::assertTrue(Schema::hasColumn('reports', 'submitted_late'), 'D-135: reports has no submitted_late.');
+
+        $id = $this->report($this->user());
+        self::assertFalse((bool) DB::table('reports')->where('id', $id)->value('submitted_late'));
+
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::LATE_MIGRATION, '--force' => true]));
+        self::assertFalse(Schema::hasColumn('reports', 'submitted_late'), 'DEV-03: down() left submitted_late behind.');
+
+        self::assertSame(0, Artisan::call('migrate', ['--force' => true]));
+        self::assertTrue(Schema::hasColumn('reports', 'submitted_late'));
+
+        // Last: a failed write aborts the test's transaction (SQLSTATE 25P02) for anything after it.
+        $this->expectDatabaseError('23502', fn () => DB::table('reports')->where('id', $id)->update(['submitted_late' => null]));
+    }
+
     // ── DEV-03
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::LATE_MIGRATION]));
         // Slice 4's `report_pdf_generations` and slice 3's tables reference `reports` (`D-132`, `D-131`): their migrations go first, as a rollback runs newest first.
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_10_18_000000_create_report_pdf_generations.php']));
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_10_17_000000_add_follow_ups_and_notes_to_reports.php']));

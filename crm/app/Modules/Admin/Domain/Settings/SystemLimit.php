@@ -23,7 +23,8 @@ namespace App\Modules\Admin\Domain\Settings;
  *
  * **§13's five are declared and deliberately unvalued.** `D-17` says the
  * stale-deal threshold is *"configurable in settings"* and stops; §11.5 says
- * the daily deadline comes *"from settings"* and stops. None of the five is
+ * the daily deadline comes *"from settings"* and stops (`D-135` later removed
+ * that deadline: a daily report is due at midnight). None of the five is
  * seeded, for the reason `SystemSettingsSeeder` records: a default nobody wrote
  * would arrive as configuration and be read as fact. The lockout (`D-75`) and
  * the similarity threshold (`OD-08`) are the two it does seed.
@@ -40,9 +41,6 @@ enum SystemLimit: string
 {
     /** `D-17` — "the stale deal threshold is configurable in settings". `J-03` reads it daily. */
     case StaleDealDays = 'limits.stale_deal_days';
-
-    /** §11.5 — "Daily: deadline from settings · if missed → Missed". A time of day, not a count. */
-    case DailyReportDeadline = 'limits.daily_report_deadline';
 
     /** §13/6 "quotation approval SLA". §6 gives the states; no document gives the hours. */
     case QuotationApprovalSlaHours = 'limits.quotation_approval_sla_hours';
@@ -78,7 +76,7 @@ enum SystemLimit: string
     /**
      * One of the five `system_limits.value_type` accepts (Point 1.1).
      *
-     * A deadline is a time of day and the rest are counts. **`decimal` was the
+     * The limits are counts, and one fraction. **`decimal` was the
      * type this enum said it did not need**, on the reasoning that none of
      * §13's limits is a fraction; `OD-08`'s threshold is the fraction that
      * arrived, and it takes the branch `DB-07` was already holding open — a
@@ -87,7 +85,6 @@ enum SystemLimit: string
     public function valueType(): string
     {
         return match ($this) {
-            self::DailyReportDeadline => 'string',
             self::CustomerSimilarityThreshold => 'decimal',
             default => 'integer',
         };
@@ -99,18 +96,17 @@ enum SystemLimit: string
      * §13 screen 6 mixes days, hours and megabytes on one form, which is the
      * whole reason `system_limits` has a `unit` column and `settings` does not:
      * a threshold in days cannot be shown beside an SLA in hours without saying
-     * which is which. A time of day has no unit — the value *is* the reading.
+     * which is which. A similarity ratio has no unit — the value *is* the reading.
      */
     public function unit(): ?string
     {
         return match ($this) {
             self::StaleDealDays => 'days',
-            self::DailyReportDeadline => null,
             self::QuotationApprovalSlaHours, self::WeeklyReviewWindowHours => 'hours',
             self::MaxFileSizeMb => 'megabytes',
             self::LockoutMinutes => 'minutes',
-            // A similarity score is a ratio of trigrams. It has no unit, the
-            // same way a time of day has none — the value *is* the reading.
+            // A similarity score is a ratio of trigrams. It has no unit —
+            // the value *is* the reading.
             self::CustomerSimilarityThreshold => null,
         };
     }
@@ -135,15 +131,9 @@ enum SystemLimit: string
      */
     public function rule(): string
     {
-        // `D-127`: a time of day, `HH:MM` on the 24-hour clock.
-        if ($this === self::DailyReportDeadline) {
-            return 'regex:/^([01][0-9]|2[0-3]):[0-5][0-9]$/';
-        }
-
         return match ($this->valueType()) {
-            'integer' => 'regex:/^[1-9][0-9]*$/',
             'decimal' => 'regex:/^(?!0(\.0+)?$)(0(\.[0-9]{1,3})?|1(\.0{1,3})?)$/',
-            default => 'string',
+            default => 'regex:/^[1-9][0-9]*$/',
         };
     }
 }

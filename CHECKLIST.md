@@ -1865,6 +1865,13 @@ would hide them behind `OD-03` indefinitely.
 - [x] **RPT-VS (Visits report) is not built in Module 13** — *the owner's ruling, 2026-10-15 (`D-125`).* *(Withdrawn 2026-10-16, `D-134`: RPT-VS is built in Module 13; the owner gives its details when its slice starts.)*
       §11.2's Visits type reads Module 12's `visits`, which is paused and has no table. It is added in
       Module 12. **The cost, stated:** until then Outdoor Sales and the Supervisor cannot file a visits report.
+- [ ] **The report status pill is written inline three times** — *created by Module 13 · 5.2, 2026-10-16 (`D-135`), accepted by the owner.*
+      `ReportsView.vue`, `ReceivedReportsView.vue` and `ReportDetailView.vue` each carry the same `rounded-full` status span and
+      now the same «سُلِّم متأخراً» span with the warning tone. **The cost, stated:** a change to the pill is made three times. Extract a
+      `ReportStatusChip` when a fourth place needs it. Also: `SystemLimit::valueType()`'s docblock count is stale (revealed, 5.2).
+- [ ] **J-04's job and catch-up command copy J-01's shape** — *created by Module 13 · 5.2, 2026-10-16.* Two ~20-line copies
+      (`ExpireQuotations*`, `MarkMissedDailyReports*`). **The cost, stated:** none yet; the third catch-up job (J-05) is the trigger
+      to extract one shared catch-up command, and the `scheduler` service's `&&` chain grows by one per job until then.
 - [ ] **RPT-PR (Procurement report) is not built in Module 13** — *the owner's ruling, 2026-10-15
       (`D-125`).* §11.2's Procurement type reads Module 11's `procurement_negotiations`, which is paused
       and has no table. It is added in Module 11. **The cost, stated:** until then Procurement cannot
@@ -5254,6 +5261,9 @@ lands in the slice that first needs it.
     - [x] **4.1** Decision and red: `D-132` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason *(2026-10-16 — `D-132` at `CRM_Documentation_EN.md:197`, inode kept; 34 PHP + 6 vitest red for the right reason; company timezone and a 403 test by the owner's answers)*
     - [x] **4.2** Green and evidence: the event and read contract, the table, the listener, the job, the template, the status endpoint, the attachment permission, the deptrac grant and the button; the full suite alone, the gates, the auditors, the browser check, one real Arabic PDF read back *(2026-10-16, PR 384 — full PHP suite 4007 passed alone; vitest 1446; statuses and responses printed in Arabic after the owner's report on RPT-DY-2026-0014; a hidden author prints «—»)*
   - Merged 2026-10-16 (#384); CI success on main `63a5e10` (PHP image). Closed 2026-10-16: the owner did the PDF button's browser check.
+- [ ] **Slice 5 — a daily report not submitted by midnight becomes Missed (J-04)** *(divided by the owner, 2026-10-16, into two points; `D-135`)*: J-04 after midnight marks a past working day's unsubmitted RPT-DY draft Missed (none created; nothing while the go-live date is empty); the startup catch-up; a Missed report can still be submitted, stored and shown as «سُلِّم متأخراً»; the 17:00 deadline setting retired. Not in it: the Team Leader's badge (the badges slice).
+    - [x] **5.1** Decision and red: `D-135` written (after the owner's yes); the failing tests, failing for the right reason *(2026-10-16 — 22 PHP + 6 vitest red, re-run by the main session)*
+    - [x] **5.2** Green and evidence: J-04, its schedule and startup catch-up, the late mark, the deadline setting retired, the screen *(2026-10-16 — suite 4025 passed once php re-mounted the replaced `docker-compose.yml`; a negative test for a missed report (permission audit); browser check ar/en × 1280/375 on RPT-DY-2026-0019 set to missed by hand on dev, submitted → «سُلِّم متأخراً»; dev migrated)*
 
 ---
 

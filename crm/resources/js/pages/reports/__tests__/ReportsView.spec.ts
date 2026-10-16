@@ -137,4 +137,21 @@ describe('ReportsView — My reports', () => {
         expect(wrapper.get('[data-testid="report-row"]').text()).toContain(ar.reports.status.draft);
         expect(wrapper.get('[data-testid="reports-new"]').text()).toContain(ar.reports.new_daily);
     });
+
+    // ── D-135 ──
+    it('shows a missed report as Missed (فائت in Arabic), and the late label only on a late one', async () => {
+        const missed = { ...REPORT, id: 'rep3', code: 'RPT-DY-2026-0003', status: 'missed', submitted_late: false };
+        const late = { ...REPORT, id: 'rep4', code: 'RPT-DY-2026-0004', status: 'submitted', submitted_late: true };
+
+        const { wrapper } = await render(list([missed, late]));
+        const rows = wrapper.findAll('[data-testid="report-row"]');
+        expect(rows[0]!.text()).toContain('Missed');
+        expect(rows[0]!.find('[data-testid="report-late"]').exists()).toBe(false);
+        expect(rows[1]!.find('[data-testid="report-late"]').text()).toContain('Delivered late');
+
+        const { wrapper: arabic } = await render(list([missed, late]), 'ar');
+        const arRows = arabic.findAll('[data-testid="report-row"]');
+        expect(arRows[0]!.text()).toContain('فائت');
+        expect(arRows[1]!.find('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
+    });
 });

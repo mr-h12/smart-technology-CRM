@@ -90,4 +90,13 @@ interface ReportDirectoryInterface
      * written, when the token moved.
      */
     public function receive(string $reportId, int $versionToken, string $status, ?string $returnReason, string $actorId): bool;
+
+    /**
+     * `D-135`, J-04: every daily report still in draft whose day is a working
+     * day (`D-125`), before `$today` and on or after `$goLive` becomes `missed`.
+     * Only drafts move, so a second run moves none.
+     *
+     * @return list<string> the ids moved
+     */
+    public function markMissed(string $goLive, string $today): array;
 }

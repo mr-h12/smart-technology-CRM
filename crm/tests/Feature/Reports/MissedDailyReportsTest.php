@@ -144,8 +144,12 @@ final class MissedDailyReportsTest extends TestCase
         self::assertNull($audit->user_id, 'D-135: the system marks it, not a person.');
         self::assertIsString($audit->old_values);
         self::assertIsString($audit->new_values);
-        self::assertSame('draft', (json_decode($audit->old_values, true)['status'] ?? null));
-        self::assertSame('missed', (json_decode($audit->new_values, true)['status'] ?? null));
+        /** @var array{status?: string} $old */
+        $old = json_decode($audit->old_values, true);
+        /** @var array{status?: string} $new */
+        $new = json_decode($audit->new_values, true);
+        self::assertSame('draft', $old['status'] ?? null);
+        self::assertSame('missed', $new['status'] ?? null);
     }
 
     // ── the job and the schedule (J-01's shape) ─────────────────────────────
@@ -238,6 +242,35 @@ final class MissedDailyReportsTest extends TestCase
         self::assertTrue($listed);
     }
 
+    /** `SEC-07`: the row-level rule holds for a Missed report as for a draft — only its author reaches it. */
+    public function test_that_only_its_author_reaches_a_missed_report(): void
+    {
+        $this->goLive('2026-10-01');
+        $author = $this->user(RoleName::IndoorSales);
+        $other = $this->user(RoleName::IndoorSales, 'other.sales@example.test');
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->draft($author, '2026-10-18');
+        $note = $this->postJson('/api/v1/reports/'.$id.'/notes', ['body' => 'mine'], $this->bearer($author))->assertStatus(201)->json('data.id');
+        self::assertIsString($note);
+        $this->runJob();
+        self::assertSame('missed', $this->statusOf($id));
+
+        foreach ([$other, $manager] as $caller) {
+            $this->postJson('/api/v1/reports/'.$id.'/notes', ['body' => 'theirs'], $this->bearer($caller))->assertStatus(404);
+            $this->patchJson('/api/v1/reports/'.$id.'/notes/'.$note, ['body' => 'theirs'], $this->bearer($caller))->assertStatus(404);
+            $this->patchJson('/api/v1/reports/'.$id.'/submit', ['recipient_ids' => [$manager->id]], [...$this->bearer($caller), 'If-Match' => $this->etag($id)])->assertStatus(404);
+        }
+
+        // A salesperson holds no `report.view_received`; a Manager does, and was not sent this one.
+        $this->getJson('/api/v1/reports/received/'.$id, $this->bearer($other))->assertStatus(403);
+        $this->getJson('/api/v1/reports/received/'.$id, $this->bearer($manager))->assertStatus(404);
+        self::assertSame([], $this->getJson('/api/v1/reports/received', $this->bearer($manager))->assertStatus(200)->json('data'));
+
+        self::assertSame('missed', $this->statusOf($id));
+        self::assertFalse((bool) DB::table('reports')->where('id', $id)->value('submitted_late'));
+        self::assertSame('mine', DB::table('report_notes')->where('id', $note)->value('body'));
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
 
     private function runJob(): void
@@ -257,7 +290,10 @@ final class MissedDailyReportsTest extends TestCase
 
     private function etag(string $id): string
     {
-        return 'report:'.$id.':'.DB::table('reports')->where('id', $id)->value('version_token');
+        $token = DB::table('reports')->where('id', $id)->value('version_token');
+        self::assertIsInt($token);
+
+        return 'report:'.$id.':'.$token;
     }
 
     /** A daily report of $day for $author, written straight to the table (the day is the point). */
@@ -292,12 +328,12 @@ final class MissedDailyReportsTest extends TestCase
         );
     }
 
-    private function user(RoleName $role): User
+    private function user(RoleName $role, ?string $email = null): User
     {
         $user = new User;
         $user->fill([
             'name' => 'Test '.$role->label(),
-            'email' => str_replace('_', '.', $role->value).'@example.test',
+            'email' => $email ?? str_replace('_', '.', $role->value).'@example.test',
             'password' => self::PASSWORD,
             'role_id' => Role::query()->where('slug', $role->value)->firstOrFail()->id,
             'is_active' => true,

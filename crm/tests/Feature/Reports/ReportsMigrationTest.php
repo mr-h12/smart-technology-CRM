@@ -123,13 +123,15 @@ final class ReportsMigrationTest extends TestCase
 
         $id = $this->report($this->user());
         self::assertFalse((bool) DB::table('reports')->where('id', $id)->value('submitted_late'));
-        $this->expectDatabaseError('23502', fn () => DB::table('reports')->where('id', $id)->update(['submitted_late' => null]));
 
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::LATE_MIGRATION, '--force' => true]));
         self::assertFalse(Schema::hasColumn('reports', 'submitted_late'), 'DEV-03: down() left submitted_late behind.');
 
         self::assertSame(0, Artisan::call('migrate', ['--force' => true]));
         self::assertTrue(Schema::hasColumn('reports', 'submitted_late'));
+
+        // Last: a failed write aborts the test's transaction (SQLSTATE 25P02) for anything after it.
+        $this->expectDatabaseError('23502', fn () => DB::table('reports')->where('id', $id)->update(['submitted_late' => null]));
     }
 
     // ── DEV-03

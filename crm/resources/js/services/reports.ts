@@ -10,8 +10,8 @@ import { apiDelete, apiGet, apiPatch, apiPost, collection, type Page } from '@/a
  * and every refusal are the server's (`D-67`, `AP-07`).
  */
 
-// §11.4's statuses the first two slices set; Archived and Missed arrive with the slices that set them.
-export type ReportStatus = 'draft' | 'submitted' | 'viewed' | 'acknowledged' | 'returned';
+// §11.4's statuses; Missed is J-04's (`D-135`), Archived arrives with the slice that sets it.
+export type ReportStatus = 'draft' | 'submitted' | 'viewed' | 'acknowledged' | 'returned' | 'missed';
 
 export interface ReportSummary {
     id: string;
@@ -23,6 +23,8 @@ export interface ReportSummary {
     period_start: string;
     period_end: string;
     submitted_at: string | null;
+    /** `D-135`: submitted after it became Missed. */
+    submitted_late: boolean;
 }
 
 /** `D-126` RPT-DY's six counts. */

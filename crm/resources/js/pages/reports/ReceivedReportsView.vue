@@ -73,7 +73,8 @@ onMounted(() => load());
                     <span>{{ report.author_name }}</span>
                     <span>{{ t(`reports.type.${report.type}`) }}</span>
                     <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(report.period_start, locale) }}</span>
-                    <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table">{{ t(`reports.status.${report.status}`) }}</span>
+                    <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table" :class="{ 'text-[var(--color-warning)]': report.status === 'missed' }">{{ t(`reports.status.${report.status}`) }}</span>
+                    <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
                 </li>
             </ul>
 

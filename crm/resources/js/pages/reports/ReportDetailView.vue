@@ -91,8 +91,8 @@ const COLUMNS: Record<ActivityCount, string[]> = {
 };
 
 const hasActivity = computed(() => report.value !== null && ACTIVITY_COUNTS.some((key) => report.value!.activity.sections[key].length > 0));
-/** §11.4: the author writes a draft, and a returned report on its way to the next version. */
-const isEditable = computed(() => !received && (report.value?.status === 'draft' || report.value?.status === 'returned'));
+/** §11.4: the author writes a draft (a Missed one too, `D-135`), and a returned report on its way to the next version. */
+const isEditable = computed(() => !received && (['draft', 'returned', 'missed'].includes(report.value?.status ?? '')));
 /** The server refuses anyone else; the page draws the buttons only where they can work (§3.10). */
 const awaitsAnswer = computed(() => received && (report.value?.status === 'submitted' || report.value?.status === 'viewed'));
 const canAcknowledge = computed(() => awaitsAnswer.value && auth.hasPermission('report.acknowledge'));
@@ -414,9 +414,10 @@ onMounted(load);
                         :report-code="report.code"
                         :version="report.version"
                     />
-                    <span class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="report-status">
+                    <span class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1" :class="{ 'text-[var(--color-warning)]': report.status === 'missed' }" data-testid="report-status">
                         {{ t(`reports.status.${report.status}`) }}
                     </span>
+                    <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
                 </div>
             </header>
 

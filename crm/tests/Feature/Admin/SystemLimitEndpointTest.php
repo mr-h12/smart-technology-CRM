@@ -151,10 +151,11 @@ final class SystemLimitEndpointTest extends TestCase
         self::assertIsArray($limits);
         // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
         // adds the seventh, `OD-08`'s similarity threshold, on the owner's
-        // decision of 2026-08-30. The count is asserted first on purpose: a
+        // decision of 2026-08-30 · `D-135` removes the daily report deadline, which
+        // leaves six. The count is asserted first on purpose: a
         // limit added without a reader noticing is a field the screen will not
         // draw, and this line is what makes somebody notice.
-        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh.');
+        self::assertCount(6, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);

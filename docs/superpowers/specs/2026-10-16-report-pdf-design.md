@@ -1,6 +1,6 @@
 # Module 13 · Slice 4 — the stored PDF of a submitted report
 
-*Design spec, 2026-10-16. Status: **approved by the owner, 2026-10-16, with §8 (a); renumbered to slice 4 the same day**, when the owner put follow-ups and notes first (`2026-10-16-report-follow-ups-notes-design.md`). The owner approved the design in chat,
+*Design spec, 2026-10-16. Status: **approved by the owner, 2026-10-16, with §8 (a); renumbered to slice 4 the same day**, when the owner put follow-ups and notes first (`2026-10-16-report-follow-ups-notes-design.md`). Divided by the owner on 2026-10-16 into two points (4.1 decision + red, 4.2 green + evidence); `D-132` written at 4.1. Two answers the same day: a 403 test for a caller without `report.export`, and the follow-up's first-save time in the PDF. The owner approved the design in chat,
 section by section, on 2026-10-16; this file is its written form. Nothing here is built until the owner
 approves this spec and slice 4's point list is written into `CHECKLIST.md`.*
 
@@ -22,7 +22,7 @@ adds its stored PDF and the way to download it.
 | §3.10 | `export PDF / Excel`: Manager ✅ · TL ✅ · Out.Sup ✅ · Sales Own · Procurement Own · CEO ✅. Seeded as `report.export`. | `:345–354`; `PermissionMatrix.php:470–478` |
 | `deptrac.modules.yaml` | Pdf "was named for the capability rather than for the quotation because §11 stores a report PDF too". Only Pdf may drive Browsershot. | `:150–154`, `:837` |
 
-**Proposed decision `D-132`** (needs the owner's approval; written at point 4.0):
+**Decision `D-132`** (written at point 4.1, the owner's yes, 2026-10-16):
 - Each submitted version of a report keeps its own stored PDF.
 - It is made once, at submit, in **Arabic only**.
 - v1's PDF is never replaced by v2's.
@@ -100,7 +100,7 @@ adds its stored PDF and the way to download it.
   - the code and period, the author, and the submit time;
   - the six record groups with their counts;
   - the selling totals with their currency;
-  - the follow-ups (customer and note, as frozen) and the notes list (`D-131`).
+  - the follow-ups (customer, note, and the first-save time of `D-133`, shown in the author's timezone, as frozen) and the notes list (`D-131`).
 
   It **never shows cost, margin or profit.** It is RTL, with embedded fonts (`P-01`).
 
@@ -110,7 +110,7 @@ adds its stored PDF and the way to download it.
   - they have `report.export`;
   - `mayOpen(reportId, caller)` is true.
 
-  Anyone else gets **404**, the same as opening the report.
+  Anyone else gets **404**, the same as opening the report. A caller without `report.export` gets **403** from the route middleware.
   - Sales and Procurement reach their own reports (`Own`). The Manager and the CEO reach the reports sent
     to them.
   - **Known ceiling:** the Team Leader's `Team` and the Outdoor Supervisor's `Out` narrow nothing until
@@ -147,32 +147,24 @@ One new migration, `create_report_pdf_generations`, with a `down()` that drops o
 | File | Proves |
 |---|---|
 | `tests/Feature/Reports/ReportPdfMigrationTest.php` | the columns and foreign keys; the unique key; each CHECK rule refusing a bad row; the rollback by path |
-| `tests/Feature/Reports/ReportPdfGenerationTest.php` | **Queueing:** submit queues exactly one row; a refused submit queues nothing; Return → resubmit queues v2 and leaves v1's row and file unchanged. **Rendering:** with the fake renderer, the job stores the file under the report, links `report_files`, and completes; a second run stores no second file; a render failure ends `failed` with a reason. **Content:** the rendered HTML holds the frozen codes, counts, notes and selling totals, and no cost, margin or profit; a deal changed after submit does not change the PDF. |
-| `tests/Feature/Reports/ReportPdfEndpointTest.php` | **Status:** the author and a recipient read it; anyone else gets 404; a caller who is not signed in gets 401; a draft or a missing version gets 404. **Download:** through `/files` it works for the author and a recipient, and anyone else gets 404; a Team Leader who is not a recipient gets 404. |
+| `tests/Feature/Reports/ReportPdfGenerationTest.php` | **Queueing:** submit queues exactly one row; a refused submit queues nothing; Return → resubmit queues v2 and leaves v1's row and file unchanged. **Rendering:** with the fake renderer, the job stores the file under the report, links `report_files`, and completes; a second run stores no second file; a render failure ends `failed` with a reason. **Content:** the follow-up's first-save time; the rendered HTML holds the frozen codes, counts, notes and selling totals, and no cost, margin or profit; a deal changed after submit does not change the PDF. |
+| `tests/Feature/Reports/ReportPdfEndpointTest.php` | **Status:** the author and a recipient read it; anyone else gets 404; a caller who is not signed in gets 401; a caller whose role has no grants (the `auditor_without_grants` pattern of `CustomerListEndpointTest.php:229`) gets 403; a draft or a missing version gets 404. **Download:** through `/files` it works for the author and a recipient, and anyone else gets 404; a Team Leader who is not a recipient gets 404. |
 | `resources/js/pages/reports/__tests__/ReportDetailView.spec.ts` | no button on a draft; queued is disabled and read again on a timer that stops on unmount; completed links the file; failed shows the error; ar and en |
 
-**Cannot be a test:** a caller without `report.export`. Every role is seeded with it, so no such user
-exists.
+**A caller without `report.export`** is tested with a role that has no grants (the owner's answer, 2026-10-16), although every seeded role holds the permission.
 
-**Not a unit test:** a real Arabic PDF. That belongs to point 4.3: one real render through `worker-pdf`
+**Not a unit test:** a real Arabic PDF. That belongs to point 4.2: one real render through `worker-pdf`
 (restarted first), read back with `pdftotext`.
 
-## 7. Points (proposed; the owner divides them)
+## 7. Points (divided by the owner, 2026-10-16)
 
-- **4.0** Docs only: write `D-132` (a shell write that keeps the inode, after the owner's yes) and commit
-  this spec.
-- **4.1** Red: the four test files of §6, failing for the right reason.
-- **4.2** Green:
-  - in Reports: the event and the read contract;
-  - in Pdf: the table, the listener, the job, the template, the status endpoint and the attachment
-    permission;
-  - the deptrac grant;
-  - the button.
-- **4.3** Evidence:
-  - the full suite alone, and the gates;
-  - `permission-matrix-auditor` and `waste-auditor`;
-  - the browser check in ar/en × 1280/375;
-  - one real Arabic PDF, read back.
+- **4.1** Decision and red: `D-132` written (a shell write that keeps the inode, after the owner's yes), the
+  failing tests of §6, failing for the right reason.
+- **4.2** Green and evidence: everything in §4 (Reports: the event and the read contract; Pdf: the table,
+  the listener, the job, the template, the status endpoint and the attachment permission; the deptrac
+  grant; the button), then the full suite alone, the gates, `permission-matrix-auditor`,
+  `waste-auditor`, the browser check in ar/en × 1280/375, and one real Arabic PDF through `worker-pdf`
+  (restarted first), read back with `pdftotext`.
 
 ## 8. Versions submitted before this slice — decided (a), the owner, 2026-10-16
 

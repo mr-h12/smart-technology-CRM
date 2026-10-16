@@ -82,7 +82,7 @@ final readonly class EloquentUserFacts implements UserFactsInterface
     public function holdersOf(string $resource, string $action): array
     {
         $holders = [];
-        /** @var object{id: string, name: string, slug: string, scope: string} $row */
+        /** @var object{id: string, name: string, slug: string, scope: string, created_at: string} $row */
         foreach ($this->connection->table('users')
             ->join('roles', 'roles.id', '=', 'users.role_id')
             ->join('role_permissions', 'role_permissions.role_id', '=', 'roles.id')
@@ -96,10 +96,10 @@ final readonly class EloquentUserFacts implements UserFactsInterface
             ->where('permissions.resource', $resource)
             ->where('permissions.action', $action)
             ->orderBy('users.name')
-            ->select('users.id', 'users.name', 'roles.slug', 'permissions.scope')
+            ->select('users.id', 'users.name', 'roles.slug', 'permissions.scope', 'users.created_at')
             ->get() as $row) {
             $id = (string) $row->id;
-            $holders[$id] ??= ['name' => (string) $row->name, 'role' => (string) $row->slug, 'scopes' => []];
+            $holders[$id] ??= ['name' => (string) $row->name, 'role' => (string) $row->slug, 'scopes' => [], 'created_at' => (string) $row->created_at];
             $holders[$id]['scopes'][] = (string) $row->scope;
         }
 

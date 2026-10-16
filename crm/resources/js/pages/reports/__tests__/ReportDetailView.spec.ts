@@ -1024,6 +1024,35 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
         expect(empty.text()).toContain('No customers were added this week.');
     });
 
+    it('names the weekly PO count "POs received on your deals", and the activity PO kind "POs you recorded" (Q-PO)', async () => {
+        const en1 = await render(server({ report: { ...WEEKLY, purchase_orders_received: 3 } }));
+        expect(en1.get('#report-weekly-po-heading').text()).toBe('POs received on your deals');
+        expect(en1.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('POs you recorded');
+        expect(en1.get('[data-testid="activity-section-purchase_orders"] h3').text()).toContain('POs you recorded');
+
+        const ar1 = await render(server({ report: { ...WEEKLY, purchase_orders_received: 3 } }), 'ar');
+        expect(ar1.get('#report-weekly-po-heading').text()).toBe('أوامر شراء وصلت على صفقاتك');
+        expect(ar1.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('أوامر شراء سجّلتها');
+        expect(ar1.get('[data-testid="activity-section-purchase_orders"] h3').text()).toContain('أوامر شراء سجّلتها');
+    });
+
+    it('shows a weekly report\'s range and a daily report\'s date in the page\'s own direction, with no LTR isolate', async () => {
+        const weekly = await render(server({ report: WEEKLY }));
+        expect(weekly.get('[data-testid="report-period"]').text()).toMatch(/^11.10.2026 – 15.10.2026$/);
+        const arabic = await render(server({ report: WEEKLY }), 'ar');
+        // ar-EG puts a right-to-left mark after each part; inside an LTR isolate they scramble the string.
+        expect(arabic.get('[data-testid="report-period"]').text().replace(/\u200f/g, '')).toBe('11/10/2026 – 15/10/2026');
+
+        const daily = await render(server({ report: SUBMITTED }));
+        expect(daily.get('[data-testid="report-period"]').text()).toMatch(/^15.10.2026$/);
+
+        for (const view of [weekly, arabic, daily]) {
+            const period = view.get('[data-testid="report-period"]');
+            expect(period.element.closest('[dir]')).toBeNull();
+            expect(period.find('[dir], bdi').exists()).toBe(false);
+        }
+    });
+
     it('hides the follow-ups section on a weekly report and keeps it on a daily one (D-136)', async () => {
         const weekly = await render(server({ report: WEEKLY }));
         expect(weekly.find('[data-testid="report-section-follow-ups"]').exists()).toBe(false);
@@ -1032,5 +1061,41 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
         const daily = await render(server({ report: SUBMITTED }));
         expect(daily.find('[data-testid="report-section-follow-ups"]').exists()).toBe(true);
         expect(daily.find('[data-testid="report-section-weekly-daily"]').exists()).toBe(false);
+    });
+
+    it('reads the two PO labels in the third person for a recipient, and keeps the second person for the author (D-137)', async () => {
+        const received = { ...WEEKLY, purchase_orders_received: 3, status: 'viewed', author_name: 'Test Sales' };
+
+        const en1 = await render(server({ report: received }), 'en', MANAGER, RECEIVED_PATH);
+        expect(en1.get('#report-weekly-po-heading').text()).toBe('POs received on their deals');
+        expect(en1.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('POs they recorded');
+        expect(en1.get('[data-testid="activity-section-purchase_orders"] h3').text()).toContain('POs they recorded');
+
+        const ar1 = await render(server({ report: received }), 'ar', MANAGER, RECEIVED_PATH);
+        expect(ar1.get('#report-weekly-po-heading').text()).toBe('أوامر شراء وصلت على صفقاته');
+        expect(ar1.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('أوامر شراء سجّلها');
+        expect(ar1.get('[data-testid="activity-section-purchase_orders"] h3').text()).toContain('أوامر شراء سجّلها');
+
+        // The daily report's PO kind is the same label: the recipient's view of it is third person too.
+        const daily = await render(server({ report: { ...SUBMITTED, status: 'viewed', author_name: 'Test Sales' } }), 'en', MANAGER, RECEIVED_PATH);
+        expect(daily.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('POs they recorded');
+
+        // The author's own view is unchanged.
+        const own = await render(server({ report: received }));
+        expect(own.get('#report-weekly-po-heading').text()).toBe('POs received on your deals');
+        expect(own.get('[data-testid="activity-count-purchase_orders"]').text()).toContain('POs you recorded');
+        expect((await render(server({ report: received }), 'ar')).get('#report-weekly-po-heading').text()).toBe('أوامر شراء وصلت على صفقاتك');
+    });
+
+    it('names the week in an empty weekly activity, and keeps the day for a daily one (D-137)', async () => {
+        const quiet = { activity: { counts: Object.fromEntries(Object.keys(COUNTS).map((key) => [key, 0])), sections: EMPTY_SECTIONS } };
+
+        const weekly = await render(server({ report: { ...WEEKLY, ...quiet } }));
+        expect(weekly.get('[data-testid="activity-empty"]').text()).toBe('No activity recorded for this week.');
+        expect((await render(server({ report: { ...WEEKLY, ...quiet } }), 'ar')).get('[data-testid="activity-empty"]').text()).toBe('لا نشاط مسجّل لهذا الأسبوع.');
+
+        const daily = await render(server({ report: { ...SUBMITTED, ...quiet } }));
+        expect(daily.get('[data-testid="activity-empty"]').text()).toBe('No activity recorded for this day.');
+        expect((await render(server({ report: { ...SUBMITTED, ...quiet } }), 'ar')).get('[data-testid="activity-empty"]').text()).toBe('لا نشاط مسجَّل في هذا اليوم.');
     });
 });

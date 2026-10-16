@@ -27,6 +27,8 @@ final class ReportWriteRefused extends RuntimeException
 
     public const CUSTOMER_NOT_ALLOWED = 'customer_not_allowed';
 
+    public const FOLLOW_UP_NOT_ALLOWED = 'report_follow_up_not_allowed';
+
     private function __construct(
         public readonly string $reason,
         public readonly int $status,
@@ -63,6 +65,12 @@ final class ReportWriteRefused extends RuntimeException
     public static function customerNotAllowed(): self
     {
         return new self(self::CUSTOMER_NOT_ALLOWED, 422, 'validation_failed', 'customer_id', null);
+    }
+
+    /** `D-137`: follow-ups belong to the daily report (`D-131`); on any other type the write is refused, not hidden. */
+    public static function followUpNotAllowed(): self
+    {
+        return new self(self::FOLLOW_UP_NOT_ALLOWED, 422, 'business_rule_blocked', 'type', null);
     }
 
     /** §11.4: only a Submitted or Viewed report is acknowledged or returned; Acknowledged is final. */

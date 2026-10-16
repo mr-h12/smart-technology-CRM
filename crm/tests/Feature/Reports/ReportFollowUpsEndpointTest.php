@@ -342,6 +342,62 @@ final class ReportFollowUpsEndpointTest extends TestCase
         $this->assertNotEditable($author, $id, $row, $note, $nile);
     }
 
+    /**
+     * `D-137`: follow-ups are the daily report's (`D-131`); on any other type the API refuses all
+     * three writes with 422 — nothing written, nothing audited. The weekly draft is the only
+     * other type there is; the row it holds is placed straight in the table.
+     */
+    public function test_that_follow_up_writes_on_a_weekly_report_are_422_and_leave_nothing_behind(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $nile = $this->customer('Nile Trading', $author);
+        [$id, $row] = $this->weekly($author, $nile);
+        $calls = [
+            fn () => $this->postJson($this->followUps($id), ['customer_id' => $nile, 'note' => 'Not on a weekly.'], $this->bearer($author)),
+            fn () => $this->patchJson($this->followUps($id).'/'.$row, ['note' => 'Not on a weekly.'], $this->bearer($author)),
+            fn () => $this->deleteJson($this->followUps($id).'/'.$row, [], $this->bearer($author)),
+        ];
+        foreach ($calls as $call) {
+            $call()->assertStatus(422)
+                ->assertJsonPath('error.code', 'business_rule_blocked')
+                ->assertJsonPath('error.details.0.code', 'report_follow_up_not_allowed')
+                ->assertJsonPath('error.details.0.field', 'type');
+        }
+
+        self::assertSame(1, DB::table('report_follow_ups')->where('report_id', $id)->count(), 'D-137: no row was added.');
+        $this->assertDatabaseHas('report_follow_ups', ['id' => $row, 'note' => 'Placed by the test.', 'deleted_at' => null]);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'like', 'REPORT_FOLLOW_UP_%')->count(), 'D-137: a refused write is not audited.');
+    }
+
+    /**
+     * `D-137`: the type refusal must not leak a weekly report to a stranger — reach comes first, so anyone
+     * but the author gets the report's own 404, not the 422 that would confirm it exists and is weekly.
+     */
+    public function test_that_a_non_author_gets_404_not_422_on_follow_up_writes_to_a_weekly_report(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        [$id] = $this->weekly($author, $this->customer('Nile Trading', $author));
+        $row = (string) Str::uuid7();
+
+        foreach ([$this->user(RoleName::IndoorSales, 'other'), $this->user(RoleName::Manager)] as $stranger) {
+            $this->postJson($this->followUps($id), ['customer_id' => $this->customer('Delta Foods', $stranger), 'note' => 'Hello.'], $this->bearer($stranger))->assertStatus(404);
+            $this->patchJson($this->followUps($id).'/'.$row, ['note' => 'Hello.'], $this->bearer($stranger))->assertStatus(404);
+            $this->deleteJson($this->followUps($id).'/'.$row, [], $this->bearer($stranger))->assertStatus(404);
+        }
+    }
+
+    /** `D-137`: "notes stay allowed on every type". */
+    public function test_that_a_note_on_a_weekly_report_is_still_accepted(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        [$id] = $this->weekly($author, $this->customer('Nile Trading', $author));
+
+        $this->postJson($this->notes($id), ['body' => 'A weekly note.'], $this->bearer($author))
+            ->assertStatus(201)
+            ->assertJsonPath('data.body', 'A weekly note.');
+        $this->assertDatabaseHas('report_notes', ['report_id' => $id, 'body' => 'A weekly note.', 'deleted_at' => null]);
+    }
+
     /** `D-131`: a returned report is editable again — its rows with it. */
     public function test_that_a_returned_report_is_editable_again(): void
     {
@@ -437,6 +493,24 @@ final class ReportFollowUpsEndpointTest extends TestCase
         $this->assertDatabaseHas('report_notes', ['id' => $note, 'body' => 'Before submit.', 'deleted_at' => null]);
         self::assertSame(1, DB::table('report_follow_ups')->where('report_id', $id)->count());
         self::assertSame(1, DB::table('report_notes')->where('report_id', $id)->count());
+    }
+
+    /** @return array{string, string} a weekly draft of the author and a follow-up on it, written straight to the tables */
+    private function weekly(User $author, string $customer): array
+    {
+        $id = (string) Str::uuid7();
+        $row = (string) Str::uuid7();
+        DB::table('reports')->insert([
+            'id' => $id, 'code' => 'RPT-WK-2026-'.substr($id, -6), 'type' => 'weekly', 'status' => 'draft',
+            'author_id' => $author->id, 'period_start' => '2026-10-04', 'period_end' => '2026-10-08',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('report_follow_ups')->insert([
+            'id' => $row, 'report_id' => $id, 'customer_id' => $customer, 'note' => 'Placed by the test.',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return [$id, $row];
     }
 
     /** @return array{string, string, string} the report, one follow-up and one note, written while a draft */

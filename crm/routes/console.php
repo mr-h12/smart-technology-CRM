@@ -77,7 +77,7 @@ Schedule::job(new MarkMissedDailyReportsJob, QueueName::Maintenance->value)->dai
 // after; Egypt (the deployment) is east of UTC. A zone-aware schedule if that changes.
 Schedule::job(new GenerateWeeklyReportsJob, QueueName::Maintenance->value)->weeklyOn(0, '1:00');
 
-// J-06 submit_unreviewed_weekly_reports (§15, D-136). Daily, onto `maintenance`,
+// J-06 submit_unreviewed_weekly_reports (§15, D-136, D-137). Hourly, onto `maintenance`,
 // with its catch-up (`reports:submit-unreviewed`), after J-05 on start. The window
-// is the setting's, read inside the job.
-Schedule::job(new SubmitUnreviewedWeeklyReportsJob, QueueName::Maintenance->value)->daily();
+// is the setting's, read inside the job; hourly so a draft past it goes out within the hour.
+Schedule::job(new SubmitUnreviewedWeeklyReportsJob, QueueName::Maintenance->value)->hourly();

@@ -19,6 +19,11 @@ export function displayDate(value: string | null, locale: string): string {
     return new Date(value).toLocaleDateString(tag(locale), /^\d{4}-\d{2}-\d{2}$/.test(value) ? { timeZone: 'UTC' } : {});
 }
 
+/** A weekly report's range, one inline string: `11/10/2026 – 15/10/2026`; a single day stays a single date. */
+export function displayDateRange(start: string, end: string, locale: string): string {
+    return start === end ? displayDate(start, locale) : `${displayDate(start, locale)} – ${displayDate(end, locale)}`;
+}
+
 /** A timestamp to the minute: the seconds are noise on a screen. */
 export function displayTimestamp(value: string | null, locale: string): string {
     if (value === null) {

@@ -24,6 +24,7 @@ return [
         'recipient_not_allowed' => 'One of the recipients cannot receive this report.',
         'report_not_awaiting_answer' => 'Only a submitted or viewed report can be acknowledged or returned.',
         'report_not_editable' => 'This report can no longer be changed: only a draft or returned report can.',
+        'report_follow_up_not_allowed' => 'Follow-ups belong to the daily report only; a weekly report takes notes.',
         'customer_not_allowed' => 'Choose one of your own customers.',
     ],
 ];

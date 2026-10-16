@@ -50,9 +50,10 @@ interface UserFactsInterface
     /**
      * Module 13, first slice (`D-127`) — the active, visible users whose role
      * holds `resource.action`, with the scopes it holds it at. Who those scopes
-     * reach is the caller's rule; this says only who holds what.
+     * reach is the caller's rule; this says only who holds what. `created_at` is
+     * the account's creation instant, UTC (`Y-m-d H:i:s`) — `D-137`'s J-05 floor.
      *
-     * @return array<string, array{name: string, role: string, scopes: list<string>}>
+     * @return array<string, array{name: string, role: string, scopes: list<string>, created_at: string}>
      */
     public function holdersOf(string $resource, string $action): array;
 }

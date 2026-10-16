@@ -42,7 +42,7 @@ final readonly class ManageReportRows
     public function add(string $kind, string $reportId, array $fields, string $actorId): array
     {
         return $this->connection->transaction(function () use ($kind, $reportId, $fields, $actorId): array {
-            $this->access->editable($reportId, $actorId);
+            $this->editable($kind, $reportId, $actorId);
             $this->checkCustomer($fields, $actorId);
 
             $id = $this->reports->addRow($kind, $reportId, $fields, $actorId);
@@ -90,9 +90,19 @@ final readonly class ManageReportRows
      */
     private function row(string $kind, string $reportId, string $rowId, string $actorId): array
     {
-        $this->access->editable($reportId, $actorId);
+        $this->editable($kind, $reportId, $actorId);
 
         return $this->reports->findRow($kind, $reportId, $rowId) ?? throw ReportNotFound::of($reportId);
+    }
+
+    /** `D-137`: the one place every follow-up write passes — add, update and remove — refuses a report that is not RPT-DY; notes pass on any type. */
+    private function editable(string $kind, string $reportId, string $actorId): void
+    {
+        $report = $this->access->editable($reportId, $actorId);
+
+        if ($kind === 'follow_up' && $report->type !== 'daily') {
+            throw ReportWriteRefused::followUpNotAllowed();
+        }
     }
 
     /** @param  array<string, string>  $fields */

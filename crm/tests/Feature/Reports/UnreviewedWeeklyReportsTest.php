@@ -242,7 +242,7 @@ final class UnreviewedWeeklyReportsTest extends TestCase
 
     // ── the job and the schedule (J-04's shape) ─────────────────────────────
 
-    public function test_that_the_job_is_scheduled_daily_onto_maintenance(): void
+    public function test_that_the_job_is_scheduled_hourly_onto_maintenance(): void
     {
         Queue::fake();
 
@@ -252,11 +252,31 @@ final class UnreviewedWeeklyReportsTest extends TestCase
         ));
 
         self::assertCount(1, $scheduled, 'Expected exactly one scheduled J-06 job.');
-        self::assertSame('0 0 * * *', $scheduled[0]->expression);
+        self::assertSame('0 * * * *', $scheduled[0]->expression, 'D-137: hourly, not daily.');
 
         $scheduled[0]->run($this->app);
 
         Queue::assertPushedOn(QueueName::Maintenance->value, SubmitUnreviewedWeeklyReportsJob::class);
+    }
+
+    /** `D-137`: a draft whose window ended at 01:00 goes out with the 02:00 run, not the next midnight's. */
+    public function test_that_a_draft_whose_window_ended_at_one_oclock_is_submitted_by_the_two_oclock_run(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $this->defaultRecipient($this->user(RoleName::Manager));
+        $this->travelTo(now()->setTime(2, 0));
+        $id = $this->weekly($author, hoursOld: 25);    // created 01:00 yesterday: the 24-hour window ended at 01:00 today.
+
+        $scheduled = array_values(array_filter(
+            app(Schedule::class)->events(),
+            static fn (object $event): bool => str_contains((string) ($event->description ?? ''), SubmitUnreviewedWeeklyReportsJob::class),
+        ));
+        self::assertCount(1, $scheduled);
+        self::assertTrue($scheduled[0]->isDue($this->app), 'D-137: the schedule fires at 02:00.');
+
+        $this->runJob();
+
+        self::assertSame('submitted', $this->statusOf($id));
     }
 
     /** `D-55` / `ST-05`: the `scheduler` service runs this once on start. */

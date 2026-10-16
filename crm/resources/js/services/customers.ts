@@ -239,6 +239,18 @@ export async function listCustomerNotes(customerId: string): Promise<Page<Custom
     return collection<CustomerNote>(await apiGet(`/customers/${customerId}/notes?per_page=100`));
 }
 
+/** `D-133`: one follow-up from a submitted daily report; `author_name` is null for a hidden or absent author. */
+export interface CustomerFollowUp {
+    note: string;
+    author_name: string | null;
+    followed_up_at: string;
+}
+
+/** The server's order — newest first; unpaginated. */
+export async function listCustomerFollowUps(customerId: string): Promise<CustomerFollowUp[]> {
+    return collection<CustomerFollowUp>(await apiGet(`/customers/${customerId}/follow-ups`)).items;
+}
+
 export async function addCustomerNote(customerId: string, draft: CustomerNoteDraft): Promise<CustomerNote> {
     return (await apiPost<CustomerNote>(`/customers/${customerId}/notes`, draft)).data;
 }

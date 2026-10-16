@@ -96,6 +96,7 @@ use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
+use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Infrastructure\DatabaseReportDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
@@ -370,6 +371,8 @@ class AppServiceProvider extends ServiceProvider
         // Module 13, first slice — the reports' persistence port; the adapter
         // needs only the connection.
         $this->app->bind(ReportDirectoryInterface::class, DatabaseReportDirectory::class);
+        // `D-133`: the follow-ups Customers shows, read from the same adapter.
+        $this->app->bind(CustomerFollowUpsInterface::class, DatabaseReportDirectory::class);
 
         $this->app->bind(
             QuotationDirectoryInterface::class,

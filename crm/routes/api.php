@@ -455,6 +455,11 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     Route::get('/{customer}/notes', [CustomerController::class, 'notes'])
         ->middleware('permission:customer.view');
 
+    // Module 13 · 3.3 (`D-133`): the submitted daily reports' follow-ups on this
+    // customer, read-only, under `customer.view` at its row scope — no new permission.
+    Route::get('/{customer}/follow-ups', [CustomerController::class, 'followUps'])
+        ->middleware('permission:customer.view');
+
     Route::post('/{customer}/notes', [CustomerController::class, 'addNote'])
         ->middleware('permission:customer.edit');
 

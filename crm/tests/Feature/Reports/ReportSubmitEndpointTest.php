@@ -345,7 +345,7 @@ final class ReportSubmitEndpointTest extends TestCase
 
         $snapshot = $this->snapshot($id, 1);
         // jsonb stores keys in its own order; the frozen copy is compared by value.
-        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Wants a visit.']], $snapshot['follow_ups'] ?? null);
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Wants a visit.', 'followed_up_at' => '2026-10-15T09:00:00+00:00']], $snapshot['follow_ups'] ?? null);
         self::assertEquals([['body' => 'A good day.']], $snapshot['notes'] ?? null);
     }
 
@@ -435,11 +435,11 @@ final class ReportSubmitEndpointTest extends TestCase
         $this->submit($author, $id, $this->etag($id), [$manager->id])->assertStatus(200);
 
         $v1 = $this->snapshot($id, 1);
-        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'First wording.']], $v1['follow_ups'] ?? null);
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'First wording.', 'followed_up_at' => '2026-10-15T09:00:00+00:00']], $v1['follow_ups'] ?? null);
         self::assertEquals([['body' => 'First note.']], $v1['notes'] ?? null);
 
         $v2 = $this->snapshot($id, 2);
-        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Second wording.']], $v2['follow_ups'] ?? null);
+        self::assertEquals([['customer_id' => $nile, 'customer_name' => 'Nile Trading', 'note' => 'Second wording.', 'followed_up_at' => '2026-10-15T09:00:00+00:00']], $v2['follow_ups'] ?? null);
         self::assertEquals([['body' => 'First note.'], ['body' => 'Added after return.']], $v2['notes'] ?? null);
     }
 

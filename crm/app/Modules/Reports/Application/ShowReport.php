@@ -68,7 +68,7 @@ final readonly class ShowReport
     /**
      * `D-131`'s follow-ups with their customer's name now, as `SubmitReport` freezes them.
      *
-     * @return list<array{id?: string, customer_id: string, customer_name: string, note: string}>
+     * @return list<array{id: string, customer_id: string, customer_name: string, note: string, followed_up_at: string}>
      */
     public function followUpsOf(string $reportId): array
     {
@@ -80,6 +80,8 @@ final readonly class ShowReport
             'customer_id' => $row['customer_id'],
             'customer_name' => $names[$row['customer_id']] ?? '',
             'note' => $row['note'],
+            // `D-133`: the row's first save, carried into the frozen copy at submit.
+            'followed_up_at' => (new \DateTimeImmutable($row['created_at']))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
         ], $rows);
     }
 

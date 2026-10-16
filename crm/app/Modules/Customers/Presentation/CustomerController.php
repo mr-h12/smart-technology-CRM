@@ -8,6 +8,7 @@ use App\Modules\Customers\Application\Archiving\ArchiveCustomer;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Importing\ImportCustomers;
 use App\Modules\Customers\Application\Listing\ListCustomers;
+use App\Modules\Customers\Application\Notes\ListCustomerFollowUps;
 use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
 use App\Modules\Customers\Domain\Listing\CustomerListCriteria;
@@ -84,6 +85,12 @@ final class CustomerController
         );
 
         return ApiEnvelope::collection($request, CustomerNotePayload::many($page), CustomerPayload::pagination($page));
+    }
+
+    /** `D-133`: the submitted daily reports' follow-ups on this customer, newest first, unpaginated. */
+    public function followUps(Request $request, string $customer, ListCustomerFollowUps $followUps): JsonResponse
+    {
+        return ApiEnvelope::single($request, $followUps->list($customer, self::heldScopes($request), self::actorId($request)));
     }
 
     public function addNote(SaveCustomerNoteRequest $request, string $customer, ManageCustomerNotes $notes): JsonResponse

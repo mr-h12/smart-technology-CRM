@@ -665,6 +665,11 @@
             "notSaved": "Not saved",
             "required": "A note needs some text. The saved text is kept until you type it."
         },
+        "followUps": {
+            "title": "Follow-ups",
+            "empty": "No follow-ups yet.",
+            "loadFailed": "The follow-ups could not be loaded."
+        },
         "form": {
             "createTitle": "New customer",
             "editTitle": "Edit customer",

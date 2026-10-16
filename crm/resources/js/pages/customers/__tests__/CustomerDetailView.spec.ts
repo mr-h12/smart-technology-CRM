@@ -35,7 +35,7 @@ const PAGINATION = { page: 1, per_page: 25, total: 0, total_pages: 1, has_next_p
  */
 function stubDetail(record: () => unknown, status = 200): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-        if (String(url).includes('/managed-lists/') || /\/notes(\?|$)/.test(String(url))) {
+        if (String(url).includes('/managed-lists/') || /\/(notes|follow-ups)(\?|$)/.test(String(url))) {
             return json(200, { data: [], meta: { pagination: PAGINATION } });
         }
 
@@ -308,6 +308,17 @@ describe('CustomerDetailView — Design System §5.2 Detail', () => {
         await flushPromises();
 
         expect(editor.find('[data-testid="customer-note-new"]').exists()).toBe(true);
+    });
+
+    /** `D-133`: a submitted daily report's follow-ups are their own read-only section, read from their own route. */
+    it('draws the follow-ups section from its own route', async () => {
+        const fetchMock = stubDetail(() => CUSTOMER);
+
+        const view = await render();
+        await flushPromises();
+
+        expect(fetchMock.mock.calls.some((call) => /\/customers\/c1\/follow-ups(\?|$)/.test(String(call[0])))).toBe(true);
+        expect(view.find('[data-testid="customer-follow-ups-section"]').exists()).toBe(true);
     });
 });
 

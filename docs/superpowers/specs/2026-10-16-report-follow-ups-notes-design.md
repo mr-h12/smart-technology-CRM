@@ -27,8 +27,9 @@ Save/Cancel behavior"**, on the pattern of `D-124`:
    characters). The one `notes` box is replaced. Each existing draft's non-blank `notes` text becomes its
    first note; the old column is kept, unread (the `D-122` precedent).
 3. **Autosave.** Follow-ups and notes save themselves: 2 seconds after typing stops, and at once when the
-   box is left (the `D-124` pattern). There is no Save button for them. An empty row or note waits at the
-   end of its list, and its first save creates it. A row or note whose required text is cleared is not
+   box is left (the `D-124` pattern). There is no Save button for them. A new row or note is added with
+   «+ إضافة» only (no empty row waits on its own), and its first save creates it; leaving the page saves
+   what is still waiting (the owner, 2026-10-16). A row or note whose required text is cleared is not
    saved: the box says it is required, and the stored text stays. Removing is an explicit «حذف» with its
    confirm.
 4. **Frozen at submit.** Both are part of the frozen copy at submit, read-only afterwards, and visible to
@@ -112,8 +113,12 @@ word saying who fills it:
 - After submit, «إضافة» and «حذف» disappear and ③④ read from the frozen copy; a recipient sees the same.
 - Every field has a visible label, not a placeholder only (`ui-ux-pro-max`: Form Labels); groups are made
   by spacing and headings, not colour alone (`field-grouping`, `visual-hierarchy`, `whitespace-balance`).
-- The autosave timer is the one in `CustomerNotesSection.vue:33,67,100`. It moves into one shared helper
-  used by both pages, rather than a second copy.
+- The autosave timer is the one in `CustomerNotesSection.vue:33,67,100`. It moves into one shared helper,
+  `resources/js/components/useAutosave.ts`, used by both pages, rather than a second copy. On unmount it
+  saves what is still waiting, as the customer page does today (the owner, 2026-10-16).
+- Editing a non-editable report answers `409 report_not_editable` for the new rows; the older `422
+  report_not_draft` on `PATCH /reports/{id}` stays, recorded as debt (the owner, 2026-10-16).
+- The existing tests that send the old `notes` field or read notes as one string are rewritten in 3.2.
 - Every string in `ar.json` and `en.json`; loading, empty, error and refused states; RTL and LTR.
 
 ## 6. Tests, written red first

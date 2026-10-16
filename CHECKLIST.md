@@ -1907,6 +1907,10 @@ would hide them behind `OD-03` indefinitely.
       the same shape across the five Reports test classes, as are `snapshot()` against `version()` + `snapshotOf()`
       and `withFollowUp`/`withNote` against `withRows`. Same family as the `refusedWith()` rows above. A shared
       Reports test trait would remove the copies; the owner's call where shared test helpers live.
+- [ ] **A report that is no longer editable answers two ways** — *revealed by Module 13 slice 3 · 3.1, 2026-10-16;
+      the owner kept both (3.1's report).* The new follow-up and note routes answer `409 report_not_editable`
+      (`D-131`); the older `PATCH /reports/{id}` still answers `422 business_rule_blocked` / `report_not_draft`.
+      One code for one state would be the fix; it changes slice 1's refusal and its tests, so it is the owner's call.
 
 ## Agent guide revisions — owner-directed
 

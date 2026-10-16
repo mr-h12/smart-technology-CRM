@@ -148,11 +148,12 @@ final class ReportController
             'period_end' => $report->periodEnd,
             'submitted_at' => $report->submittedAt,
             'submitted_late' => $report->submittedLate,
+            'not_reviewed' => $report->notReviewed,
         ];
     }
 
     /**
-     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
+     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
      * @return array<string, mixed>
      */
     private static function detail(array $read): array
@@ -164,6 +165,7 @@ final class ReportController
             'notes' => $read['notes'],
             'etag' => ReportEtag::of($read['report']),
             'activity' => $read['activity'],
+            ...$read['weekly'],
             'recipients' => $read['recipients'],
         ];
     }

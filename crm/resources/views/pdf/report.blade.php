@@ -86,7 +86,7 @@
 <header class="report-header">
     <img class="logo" src="{{ $logo }}" alt="">
     <div>
-        <h1>{{ $t('heading') }}</h1>
+        <h1>{{ $t($report['type'] === 'weekly' ? 'heading_weekly' : 'heading') }}</h1>
         <div class="code num">{{ $ltr($report['code']) }}</div>
     </div>
 </header>

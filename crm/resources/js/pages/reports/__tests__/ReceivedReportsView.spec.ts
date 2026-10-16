@@ -125,4 +125,18 @@ describe('ReceivedReportsView — Received reports', () => {
         const arabic = await render(list([late]), 'ar');
         expect(arabic.get('[data-testid="report-late"]').text()).toContain('سُلِّم متأخراً');
     });
+
+    it('shows a received weekly report as Weekly report, with the Not reviewed label only on a flagged one (D-136)', async () => {
+        const weekly = { ...RECEIVED, id: 'rep4', code: 'RPT-WK-2026-0001', type: 'weekly', submitted_late: false, not_reviewed: false };
+        const flagged = { ...weekly, id: 'rep5', not_reviewed: true };
+        const wrapper = await render(list([weekly, flagged]));
+
+        const rows = wrapper.findAll('[data-testid="received-report-row"]');
+        expect(rows[0]!.text()).toContain('Weekly report');
+        expect(rows[0]!.find('[data-testid="report-not-reviewed"]').exists()).toBe(false);
+        expect(rows[1]!.get('[data-testid="report-not-reviewed"]').text()).toContain('Not reviewed');
+
+        const arabic = await render(list([flagged]), 'ar');
+        expect(arabic.get('[data-testid="report-not-reviewed"]').text()).toContain('لم يُراجَع');
+    });
 });

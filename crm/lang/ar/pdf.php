@@ -79,6 +79,7 @@ return [
     'report' => [
         'title' => 'التقرير :code',
         'heading' => 'تقرير يومي',
+        'heading_weekly' => 'تقرير أسبوعي',
         'meta' => [
             'version' => 'النسخة:',
             'period' => 'اليوم:',

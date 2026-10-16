@@ -1483,7 +1483,8 @@
             "save": "The report could not be saved. Try again."
         },
         "type": {
-            "daily": "Daily report"
+            "daily": "Daily report",
+            "weekly": "Weekly report"
         },
         "status": {
             "draft": "Draft",
@@ -1494,7 +1495,9 @@
             "missed": "Missed"
         },
         "late": "Delivered late",
+        "not_reviewed": "Not reviewed",
         "activity_title": "The day's activity",
+        "activity_title_weekly": "The week's activity",
         "activity_empty": "No activity recorded for this day.",
         "activity": {
             "deals_created": "Deals created",
@@ -1545,6 +1548,7 @@
         "return_reason_required": "Write the reason for returning the report.",
         "return_send": "Return report",
         "summary_title": "The day's summary",
+        "summary_title_weekly": "The week's summary",
         "filled": {
             "auto": "automatic",
             "follow_ups": "you write it",
@@ -1559,6 +1563,11 @@
         "text_required": "Write the note; the saved one is kept until then.",
         "follow_up_remove_confirm": "Remove this follow-up?",
         "no_follow_ups": "No follow-ups.",
+        "weekly_daily_reports_title": "The week's daily reports",
+        "weekly_daily_reports_empty": "No daily reports this week.",
+        "weekly_purchase_orders_title": "Purchase orders received this week",
+        "weekly_new_customers_title": "New customers this week",
+        "weekly_new_customers_empty": "No customers were added this week.",
         "note_add": "+ Add note",
         "note_label": "Note {number}",
         "note_remove_confirm": "Remove this note?",

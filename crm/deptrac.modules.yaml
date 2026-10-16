@@ -79,6 +79,9 @@ parameters:
               value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationSummary$
             - type: classLike
               value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderRecord$
+            # Module 13 slice 6 (`D-126`): the weekly report's PO count.
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Contracts\\PurchaseOrderCountsInterface$
     # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
     # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
@@ -287,6 +290,8 @@ parameters:
           value: ^App\\Modules\\Quotations\\Domain\\Listing\\QuotationSummary$
         - type: classLike
           value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderRecord$
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Contracts\\PurchaseOrderCountsInterface$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's

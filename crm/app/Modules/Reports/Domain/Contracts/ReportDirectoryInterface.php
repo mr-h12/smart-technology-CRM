@@ -55,12 +55,13 @@ interface ReportDirectoryInterface
      * Submit under the token: status, the next frozen version and the
      * recipients — one live row per user, so a resubmit keeps who stays,
      * adds who is new and soft-removes who was dropped. False, and nothing
-     * written, when the token moved.
+     * written, when the token moved. `$actorId` is null for J-06 (`D-136`), which
+     * submits with `$notReviewed` set; any submit by a person clears the flag.
      *
      * @param  array<string, mixed>  $snapshot
      * @param  list<string>  $recipientIds
      */
-    public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, string $actorId): bool;
+    public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, ?string $actorId, bool $notReviewed = false): bool;
 
     /**
      * The newest frozen copy, or null for a report never submitted.
@@ -99,4 +100,26 @@ interface ReportDirectoryInterface
      * @return list<string> the ids moved
      */
     public function markMissed(string $goLive, string $today): array;
+
+    /**
+     * `D-136`, J-05: the authors who already have a weekly report starting on
+     * `$periodStart` (soft-deleted ones included, so a deleted draft is not remade).
+     *
+     * @return list<string>
+     */
+    public function weeklyAuthorsOf(string $periodStart): array;
+
+    /**
+     * `D-126`, RPT-WK: the author's daily reports whose day is in `[$from, $to]`, oldest first.
+     *
+     * @return list<array{code: string, period_start: string, status: string}>
+     */
+    public function dailyReportsOf(string $authorId, string $from, string $to): array;
+
+    /**
+     * `D-136`, J-06: the weekly drafts created before `$createdBefore`, oldest first.
+     *
+     * @return list<string> the ids
+     */
+    public function staleWeeklyDraftIds(\DateTimeInterface $createdBefore): array;
 }

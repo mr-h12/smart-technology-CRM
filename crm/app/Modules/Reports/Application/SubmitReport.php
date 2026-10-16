@@ -24,8 +24,7 @@ final readonly class SubmitReport
     public function __construct(
         private ReportDirectoryInterface $reports,
         private ReportAccess $access,
-        private DailyActivity $activity,
-        private ShowReport $show,
+        private FrozenCopy $frozen,
         private RecipientCandidates $candidates,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
@@ -46,12 +45,7 @@ final readonly class SubmitReport
                 throw ReportWriteRefused::recipientNotAllowed();
             }
 
-            // `D-131`: the follow-ups with their customer's name as it is now, and the notes — no row ids.
-            $snapshot = [
-                'follow_ups' => array_map(static fn (array $row): array => array_diff_key($row, ['id' => true]), $this->show->followUpsOf($reportId)),
-                'notes' => array_map(static fn (array $note): array => ['body' => $note['body']], $this->reports->rowsOf('note', $reportId)),
-                'activity' => $this->activity->of($before->authorId, $before->periodStart),
-            ];
+            $snapshot = $this->frozen->of($before);
 
             if (! $this->reports->submit($reportId, $before->versionToken, $snapshot, $recipientIds, $actorId)) {
                 throw ReportWriteRefused::staleVersion(ReportEtag::of($before));

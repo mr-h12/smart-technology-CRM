@@ -25,6 +25,8 @@ export interface ReportSummary {
     submitted_at: string | null;
     /** `D-135`: submitted after it became Missed. */
     submitted_late: boolean;
+    /** `D-136`: a weekly report J-06 submitted unchanged after the review window. */
+    not_reviewed: boolean;
 }
 
 /** `D-126` RPT-DY's six counts. */
@@ -94,6 +96,10 @@ export interface ReportDetail extends ReportSummary {
     etag: string;
     activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
+    /** `D-126`/`D-134`: RPT-WK's own sections; present only on a weekly report. */
+    daily_reports?: Array<{ code: string; period_start: string; status: ReportStatus }>;
+    purchase_orders_received?: number;
+    new_customers?: { count: number; items: Array<{ customer_id: string; name: string }> };
 }
 
 /** A report sent to the caller: the list row and the detail both name its author. */

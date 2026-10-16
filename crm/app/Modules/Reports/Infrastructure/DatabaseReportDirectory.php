@@ -61,7 +61,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool, not_reviewed: bool
          * }|null $row
          */
         $row = $this->connection->table('reports')->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -80,7 +80,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool, not_reviewed: bool
          * }> $rows
          */
         $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -151,7 +151,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             ->update(['deleted_at' => now(), 'updated_by' => $actorId, 'updated_at' => now()]);
     }
 
-    public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, string $actorId): bool
+    public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, ?string $actorId, bool $notReviewed = false): bool
     {
         $moved = $this->connection->table('reports')
             ->where('id', $reportId)
@@ -162,6 +162,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
                 'status' => 'submitted',
                 // `D-135`: a Missed report submitted is late for good, even if returned and resubmitted.
                 'submitted_late' => $this->connection->raw("submitted_late OR status = 'missed'"),
+                'not_reviewed' => $notReviewed,
                 'submitted_at' => now(),
                 'version_token' => $versionToken + 1,
                 'updated_by' => $actorId,
@@ -280,7 +281,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
          * @var list<object{
          *     id: string, code: string, type: string, status: string, author_id: string,
          *     period_start: string, period_end: string, version_token: int,
-         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
+         *     submitted_at: ?string, submitted_versions: int, submitted_late: bool, not_reviewed: bool
          * }> $rows
          */
         $rows = $query->select('reports.*')->selectSub(self::SUBMITTED_VERSIONS, 'submitted_versions')
@@ -329,7 +330,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
      * @param  object{
      *     id: string, code: string, type: string, status: string, author_id: string,
      *     period_start: string, period_end: string, version_token: int,
-     *     submitted_at: ?string, submitted_versions: int, submitted_late: bool
+     *     submitted_at: ?string, submitted_versions: int, submitted_late: bool, not_reviewed: bool
      * }  $row
      */
     private static function hydrate(object $row): Report
@@ -347,6 +348,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
             submittedVersions: $row->submitted_versions,
             submittedLate: $row->submitted_late,
+            notReviewed: $row->not_reviewed,
         );
     }
 
@@ -392,6 +394,40 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
                 $ids[] = $row->id;
             }
         }
+
+        return $ids;
+    }
+
+    public function weeklyAuthorsOf(string $periodStart): array
+    {
+        /** @var list<string> $ids `author_id` is a non-null uuid column */
+        $ids = $this->connection->table('reports')->where('type', 'weekly')->where('period_start', $periodStart)->pluck('author_id')->all();
+
+        return $ids;
+    }
+
+    public function dailyReportsOf(string $authorId, string $from, string $to): array
+    {
+        /** @var list<array{code: string, period_start: string, status: string}> $rows */
+        $rows = $this->connection->table('reports')
+            ->where('type', 'daily')->where('author_id', $authorId)->whereNull('deleted_at')
+            ->whereBetween('period_start', [$from, $to])
+            ->orderBy('period_start')->orderBy('code')
+            ->get(['code', 'period_start', 'status'])
+            ->map(static fn (object $row): array => (array) $row)
+            ->all();
+
+        return $rows;
+    }
+
+    public function staleWeeklyDraftIds(\DateTimeInterface $createdBefore): array
+    {
+        /** @var list<string> $ids */
+        $ids = $this->connection->table('reports')
+            ->where('type', 'weekly')->where('status', 'draft')->whereNull('deleted_at')
+            ->where('created_at', '<', $createdBefore)
+            ->orderBy('created_at')->orderBy('id')
+            ->pluck('id')->all();
 
         return $ids;
     }

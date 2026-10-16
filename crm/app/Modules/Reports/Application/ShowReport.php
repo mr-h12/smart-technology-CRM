@@ -16,10 +16,13 @@ use App\Modules\Reports\Domain\Report;
  */
 final readonly class ShowReport
 {
+    private const WEEKLY_KEYS = ['daily_reports', 'purchase_orders_received', 'new_customers'];
+
     public function __construct(
         private ReportDirectoryInterface $reports,
         private ReportAccess $access,
         private DailyActivity $activity,
+        private WeeklyContent $weekly,
         private UserFactsInterface $users,
         private CustomerNamesInterface $customers,
     ) {}
@@ -42,7 +45,7 @@ final readonly class ShowReport
         ];
     }
 
-    /** @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
+    /** @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
     public function one(string $reportId, string $actorId): array
     {
         $report = $this->access->reach($reportId, $actorId);
@@ -53,7 +56,7 @@ final readonly class ShowReport
     /**
      * A recipient reads the frozen copy (§11.3) and who wrote it.
      *
-     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
      */
     public function oneReceived(string $reportId, string $actorId): array
     {
@@ -87,7 +90,7 @@ final readonly class ShowReport
 
     /**
      * @param  array<string, mixed>|null  $frozen
-     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>}
      */
     private function read(Report $report, ?array $frozen): array
     {
@@ -95,7 +98,7 @@ final readonly class ShowReport
         $names = $this->users->namesOf($ids);
 
         /** @var array<string, mixed> $activity the frozen copy holds what `DailyActivity::of()` answered at submit */
-        $activity = is_array($frozen['activity'] ?? null) ? $frozen['activity'] : $this->activity->of($report->authorId, $report->periodStart);
+        $activity = is_array($frozen['activity'] ?? null) ? $frozen['activity'] : $this->activity->of($report->authorId, $report->periodStart, $report->periodEnd);
 
         if ($frozen === null) {
             $followUps = $this->followUpsOf($report->id);
@@ -116,6 +119,8 @@ final readonly class ShowReport
             'follow_ups' => $followUps,
             'notes' => $notes,
             'activity' => $activity,
+            // `D-126`/`D-134`: a weekly report's own sections — the frozen copy's once submitted.
+            'weekly' => $report->type !== 'weekly' ? [] : ($frozen === null ? $this->weekly->of($report) : array_intersect_key($frozen, array_flip(self::WEEKLY_KEYS))),
             'recipients' => array_map(static fn (string $id): array => ['id' => $id, 'name' => $names[$id] ?? ''], $ids),
         ];
     }

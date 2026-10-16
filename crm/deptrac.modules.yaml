@@ -150,6 +150,12 @@ parameters:
           must_not:
             - type: classLike
               value: ^App\\Modules\\Reports\\Domain\\Contracts\\CustomerFollowUpsInterface$
+            - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\Contracts\\SubmittedReportsInterface$
+            - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\Contracts\\ReportSubmitted$
+            - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
     - name: Notifications
       collectors:
         - type: directory
@@ -331,6 +337,15 @@ parameters:
       collectors:
         - type: classLike
           value: ^App\\Modules\\Reports\\Domain\\Contracts\\CustomerFollowUpsInterface$
+        # Module 13 · slice 4 (`D-132`): what Pdf reads of a submitted version and
+        # who may open it, the event a committed submit dispatches, and the 404 a
+        # caller outside the rule gets — the report's own, as `QuotationNotFound` is Pdf's for a quotation.
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\Contracts\\SubmittedReportsInterface$
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\Contracts\\ReportSubmitted$
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -880,6 +895,11 @@ parameters:
       # AuditContract, Point 3.5 — `QUOTATION_PDF_REQUESTED` through
       # `AuditRecorderInterface`, with the caller as the actor. The contract half only.
       - AuditContract
+      # ReportsContract, Module 13 slice 4 (`D-132`) — a submitted report version's
+      # stored PDF: `ReportSubmitted` queues it, `SubmittedReportsInterface` hands
+      # over the frozen version and answers who may open it (`ReportAccess`'s rule,
+      # not a copy), and `ReportNotFound` is the 404. Never Reports' tables.
+      - ReportsContract
     # Admin → Framework, added 2026-08-27 with Point 2.1. Until now Admin held
     # only framework-free domain classes and an empty ruleset cost nothing; the
     # `currencies` table gives it its first Eloquent model, which cannot exist

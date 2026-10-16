@@ -172,7 +172,9 @@ final class NoHardCodedTextTest extends TestCase
                 'ReceivedReportsView.vue',
                 // Module 13, first slice — "My reports" and one report's page;
                 // every label is a `reports.*` key.
-                'ReportDetailView.vue', 'ReportsView.vue',
+                'ReportDetailView.vue',
+                // Module 13, slice 4 — the stored PDF button; every word is a `reports.pdf.*` key.
+                'ReportPdfButton.vue', 'ReportsView.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.
@@ -242,6 +244,8 @@ final class NoHardCodedTextTest extends TestCase
                 // the scan below passed on it: every label comes from
                 // lang/{ar,en}/pdf.php through the template's `$t`.
                 'customer-quotation.blade.php',
+                // Module 13, slice 4 — the stored report PDF; every word is a `pdf.report.*` key.
+                'report.blade.php',
                 'welcome.blade.php',
             ],
             self::basenames($files),

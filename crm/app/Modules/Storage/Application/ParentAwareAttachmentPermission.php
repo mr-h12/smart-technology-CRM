@@ -32,8 +32,9 @@ use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
  *
  * ── An unmapped parent is refused, not passed on ──────────────────────────
  *
- * Modules 10 and 13 are still `.gitkeep`, so `PurchaseOrder` and `Report` have
- * no entry and get `false`. That is `DenyAllAttachmentPermission`'s rule kept
+ * A parent with no entry in the map gets `false`: `PurchaseOrder` (Module 10) has
+ * none yet, while `Report` (Module 13, `D-132`) is mapped to the Pdf module's
+ * `ReportPdfAttachmentPermission`. That is `DenyAllAttachmentPermission`'s rule kept
  * rather than dropped, and `AttachmentPermissionInterface` gives the reason:
  * "A default that denies is a feature that does not work yet; a default that
  * grants is a hole nobody notices."

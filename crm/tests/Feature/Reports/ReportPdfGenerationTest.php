@@ -108,6 +108,7 @@ final class ReportPdfGenerationTest extends TestCase
         $manager = $this->user(RoleName::Manager);
         $id = $this->submitted($author, [$manager]);
         $v1 = DB::table('report_pdf_generations')->where('report_id', $id)->where('version', 1)->sole();
+        self::assertIsString($v1->id);
         $this->render($v1->id);
         $v1Done = DB::table('report_pdf_generations')->where('id', $v1->id)->first();
         self::assertNotNull($v1Done);
@@ -149,7 +150,7 @@ final class ReportPdfGenerationTest extends TestCase
 
         $file = DB::table('files')->where('id', $row->file_id)->first();
         self::assertNotNull($file);
-        self::assertSame(DB::table('reports')->where('id', $id)->value('code').'.pdf', $file->original_name);
+        self::assertSame($this->code('reports', $id).'.pdf', $file->original_name);
         self::assertSame('application/pdf', $file->mime_type);
         self::assertSame(strlen(self::PDF), $file->size_bytes);
         self::assertSame('clean', $file->scan_status, 'Scanned like any other file (ScanStoredFile), not inserted as clean.');
@@ -181,7 +182,7 @@ final class ReportPdfGenerationTest extends TestCase
         $generation = $this->generation($id, 1);
         $this->renderer->failTimes(3);
 
-        $last = null;
+        $last = new RuntimeException('unreachable');
         foreach ([1, 2, 3] as $attempt) {
             try {
                 $this->render($generation, $attempt);
@@ -191,7 +192,7 @@ final class ReportPdfGenerationTest extends TestCase
             }
         }
         // What the worker does once `--tries=3` is spent.
-        (new RenderReportPdfJob($generation))->failed($last ?? new RuntimeException('unreachable'));
+        (new RenderReportPdfJob($generation))->failed($last);
 
         $row = DB::table('report_pdf_generations')->where('id', $generation)->first();
         self::assertNotNull($row);
@@ -226,7 +227,7 @@ final class ReportPdfGenerationTest extends TestCase
         $html = $this->renderedHtml($id);
 
         self::assertStringContainsString('dir="rtl"', $html, 'P-01: an Arabic, right-to-left document.');
-        self::assertStringContainsString((string) DB::table('reports')->where('id', $id)->value('code'), $html);
+        self::assertStringContainsString($this->code('reports', $id), $html);
         foreach ($dealCodes as $code) {
             self::assertStringContainsString($code, $html);
         }
@@ -236,7 +237,7 @@ final class ReportPdfGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/EGP|ج\.م|جنيه/u', $html, 'The total carries its currency.');
 
         // The deals-created count is a lone 7 once every code is taken out of the text.
-        $text = str_replace([...$dealCodes, $this->code('quotations', $sent), (string) DB::table('reports')->where('id', $id)->value('code')], '', $this->textOf($html));
+        $text = str_replace([...$dealCodes, $this->code('quotations', $sent), $this->code('reports', $id)], '', $this->textOf($html));
         self::assertMatchesRegularExpression('/(?<![\d.,٫٬])[7٧](?![\d.,٫٬])/u', $text, 'The count of 7 deals created is not in the PDF.');
     }
 
@@ -304,6 +305,50 @@ final class ReportPdfGenerationTest extends TestCase
         self::assertStringNotContainsString('Renamed Later', $text);
         self::assertStringNotContainsString('Also Renamed', $text);
         self::assertDoesNotMatchRegularExpression('/9[,٬ ]?999/u', $text);
+    }
+
+    /** The owner's defect: a status move names its from and to status, in Arabic, so two moves of one deal differ. */
+    public function test_that_a_status_move_shows_its_from_and_to_status_in_arabic(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $dealId = $this->dealOf($this->insertQuotation());
+        $this->activity($author->id, 'DEAL_STATUS_CHANGED', 'deal', '2026-10-15 07:00:00', $dealId, ['status' => 'negotiations'], ['status' => 'won']);
+        $this->activity($author->id, 'DEAL_STATUS_CHANGED', 'deal', '2026-10-15 07:30:00', $dealId, null, ['status' => 'lead']);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        self::assertStringContainsString('تفاوض', $text, 'The from-status label.');
+        self::assertStringContainsString('ناجحة', $text, 'The to-status label.');
+        self::assertStringContainsString('مبدئي', $text, 'A move with no from-status still shows its to-status.');
+        self::assertStringContainsString('من', $text);
+        self::assertStringContainsString('إلى', $text);
+    }
+
+    public function test_that_a_response_row_shows_its_response_in_arabic_and_an_unknown_status_prints_raw(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $quotation = $this->quotationWith('sent', '500');
+        $this->activity($author->id, 'QUOTATION_REJECTED', 'quotation', '2026-10-15 08:00:00', $quotation);
+        $dealId = $this->dealOf($this->insertQuotation());
+        $this->activity($author->id, 'DEAL_STATUS_CHANGED', 'deal', '2026-10-15 07:00:00', $dealId, ['status' => 'legacy_x'], ['status' => 'won']);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+
+        $text = $this->textOf($this->renderedHtml($id));
+
+        self::assertStringContainsString('رفض', $text, 'The response label.');
+        self::assertStringContainsString('legacy_x', $text, 'An unknown status prints its raw code and does not crash.');
+    }
+
+    /** The owner's defect on RPT-DY-2026-0014: a hidden author (§3.1) has no name in the directory, and the label printed beside nothing. */
+    public function test_that_a_hidden_author_prints_a_dash_and_not_an_empty_value(): void
+    {
+        $author = $this->user(RoleName::SuperAdmin);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        self::assertMatchesRegularExpression('/مقدَّم من: —/u', $text);
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────
@@ -402,12 +447,18 @@ final class ReportPdfGenerationTest extends TestCase
         return $id;
     }
 
-    /** One index entry for a record the author touched that day (`D-130`). */
-    private function activity(string $userId, string $event, string $entityType, string $at, string $entityId): void
+    /**
+     * One index entry for a record the author touched that day (`D-130`).
+     *
+     * @param  array<string, string>|null  $old
+     * @param  array<string, string>|null  $new
+     */
+    private function activity(string $userId, string $event, string $entityType, string $at, string $entityId, ?array $old = null, ?array $new = null): void
     {
         DB::table('audit_log')->insert([
             'id' => (string) Str::uuid7(), 'user_id' => $userId, 'event' => $event,
             'entity_type' => $entityType, 'entity_id' => $entityId, 'created_at' => $at,
+            'old_values' => $old === null ? null : json_encode($old), 'new_values' => $new === null ? null : json_encode($new),
         ]);
     }
 

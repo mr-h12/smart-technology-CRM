@@ -129,8 +129,8 @@ final class ReportPdfEndpointTest extends TestCase
         $id = $this->submitted($author, [$recipient]);
         $generation = $this->generation($id, 1);
         $this->render($generation);
-        $fileId = (string) DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
-        self::assertNotSame('', $fileId, 'The render did not complete.');
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
 
         $outsider = $this->user($role, 'outsider');
 
@@ -194,8 +194,8 @@ final class ReportPdfEndpointTest extends TestCase
         $id = $this->submitted($author, [$manager]);
         $generation = $this->generation($id, 1);
         $this->render($generation);
-        $fileId = (string) DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
-        self::assertNotSame('', $fileId, 'The render did not complete.');
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
 
         foreach ([$author, $manager] as $reader) {
             $response = $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($reader));
@@ -205,7 +205,82 @@ final class ReportPdfEndpointTest extends TestCase
         }
     }
 
+    /** Half of `ReportPdfAttachmentPermission::mayView` is `report.export`: losing it after the render closes the download. */
+    public function test_that_an_author_who_loses_report_export_gets_a_404_on_the_download(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId);
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($author))->assertOk();
+
+        DB::table('role_permissions')
+            ->where('role_id', $author->role_id)
+            ->whereIn('permission_id', DB::table('permissions')->where('resource', 'report')->where('action', 'export')->pluck('id'))
+            ->update(['deleted_at' => now()]);
+
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($author))->assertNotFound();
+    }
+
+    /** A recipient removed after the submit (the row soft-deleted, as `D-127`'s replace does) loses both reads. */
+    public function test_that_a_recipient_removed_after_submit_gets_a_404_on_the_status_and_the_download(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->submitted($author, [$manager]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId);
+        $this->pdfStatus($manager, $id, 1)->assertOk();
+
+        DB::table('report_recipients')->where('report_id', $id)->where('user_id', $manager->id)->update(['deleted_at' => now()]);
+
+        $this->pdfStatus($manager, $id, 1)->assertStatus(404);
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($manager))->assertNotFound();
+    }
+
+    // ── the version the payload shows ───────────────────────────────────────
+
+    /** The SPA builds `…/versions/{version}/pdf` from `data.version` (spec §4.4: the label names its version). */
+    public function test_that_the_detail_reads_carry_the_version_they_show(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->create($author);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertOk()->assertJsonPath('data.version', 1);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$manager->id]], [...$this->bearer($author), 'If-Match' => 'report:'.$id.':1'])->assertOk();
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertOk()->assertJsonPath('data.version', 1);
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))->assertOk()->assertJsonPath('data.version', 1);
+
+        // Return → the author's draft is v2 while the recipient still reads v1's frozen copy.
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/return', ['reason' => 'Add Delta.'], [...$this->bearer($manager), 'If-Match' => $this->etag($id)])->assertOk();
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertOk()->assertJsonPath('data.version', 2);
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))->assertOk()->assertJsonPath('data.version', 1);
+        // The list rows decide "frozen" by another path (`! isEditable()`, `true`); they must show the detail's version.
+        $this->getJson(self::ENDPOINT, $this->bearer($author))->assertOk()->assertJsonPath('data.0.version', 2);
+        $this->getJson(self::ENDPOINT.'/received', $this->bearer($manager))->assertOk()->assertJsonPath('data.0.version', 1);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$manager->id]], [...$this->bearer($author), 'If-Match' => $this->etag($id)])->assertOk();
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertOk()->assertJsonPath('data.version', 2);
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))->assertOk()->assertJsonPath('data.version', 2);
+        $this->getJson(self::ENDPOINT, $this->bearer($author))->assertOk()->assertJsonPath('data.0.version', 2);
+        $this->getJson(self::ENDPOINT.'/received', $this->bearer($manager))->assertOk()->assertJsonPath('data.0.version', 2);
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
+
+    private function etag(string $id): string
+    {
+        $token = DB::table('reports')->where('id', $id)->value('version_token');
+        self::assertIsInt($token);
+
+        return 'report:'.$id.':'.$token;
+    }
 
     /** @return TestResponse<\Illuminate\Http\JsonResponse> */
     private function pdfStatus(User $caller, string $reportId, int $version): TestResponse

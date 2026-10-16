@@ -21,6 +21,7 @@ use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
+use App\Modules\Pdf\Infrastructure\DatabaseReportPdfGenerations;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
 use App\Modules\Quotations\Application\Writing\EditAndApproveQuotation;
 use App\Modules\Quotations\Application\Writing\TermSuggestions;
@@ -427,6 +428,14 @@ final class AuditEnforcementTest extends TestCase
                     .'QUOTATION_PDF_REQUESTED in the transaction that inserts the row. The updates are the render '
                     .'job\'s own progress on that request, not an actor decision, and each row carries the '
                     .'requester in DB-02\'s created_by / updated_by.',
+
+            // Module 13 slice 4 (`D-132`): the report PDF's twin of the row above. AUD-01 is satisfied
+            // one layer out: the submit records the report's own audit entry in the transaction that
+            // queues the row; the updates are the render job's progress, not an actor decision.
+            DatabaseReportPdfGenerations::class => 'AUD-01 is satisfied one layer out: the report submit records its '
+                    .'audit entry in the transaction that queues the row. The updates are the render job\'s own '
+                    .'progress on that request, not an actor decision, and each row carries the submitter in '
+                    .'DB-02\'s created_by / updated_by.',
         ];
     }
 

@@ -5209,7 +5209,7 @@ lands in the slice that first needs it.
     - [x] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page *(2026-10-16 — Reports 75 passed, reports vitest 68 passed; one more spec edit approved: `uiSourceRules` lists the Return `<dialog>`)*
     - [x] **2.3a** The local suite runs within its memory: `<ini name="memory_limit" value="512M"/>` in `phpunit.xml` *(2026-10-16 — plain `php artisan test` crashed at 256 MB in `UploadValidationTest:76`; now 3929 passed (26471 assertions); the image's 256 MB stays for everything else)*
     - [x] **2.3b** The report pages' controls take the shared styles: `create-action` on New report and Submit, a global `.form-field` in `app.css` *(2026-10-16 — red: border 0px, transparent; green in ar/en × 1280/375: notes 1px `#78716C`, buttons `rgb(194,65,12)`; `/customers` unchanged; vitest 1412 passed)*
-    - [ ] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check
+    - [~] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check *(2026-10-16 — six gates green locally: PHP 3929 passed, vitest 1412, pint 825 files, phpstan OK, deptrac 0/0; permission audit: no blocker, five gaps to the register; browser check ar/en × 1280/375; CI owed: branch not pushed — PR 381)*
 
 ---
 

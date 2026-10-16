@@ -100,7 +100,7 @@ adds its stored PDF and the way to download it.
   - the code and period, the author, and the submit time;
   - the six record groups with their counts;
   - the selling totals with their currency;
-  - the follow-ups (customer, note, and the first-save time of `D-133`, shown in the author's timezone, as frozen) and the notes list (`D-131`).
+  - the follow-ups (customer, note, and the first-save time of `D-133`, shown in the company timezone (`locale.timezone`), as frozen) and the notes list (`D-131`).
 
   It **never shows cost, margin or profit.** It is RTL, with embedded fonts (`P-01`).
 

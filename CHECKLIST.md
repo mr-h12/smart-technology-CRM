@@ -1878,6 +1878,29 @@ would hide them behind `OD-03` indefinitely.
       slice 1, 2026-10-15 (`D-127`).* Both are editable on the settings screen and nothing on the server
       reads them until the slice that builds J-04 (Missed) and J-05…J-07. Until then neither changes any
       behaviour.
+- [ ] **`.form-field` and `.primary-action` are still copied into 21 and 5 components** — *revealed by
+      Module 13 slice 2 · 2.2's waste audit, 2026-10-16.* 2.3b fixed the report pages: their buttons use
+      `create-action`, and `resources/css/app.css` gained one global unlayered `.form-field` beside
+      `.row-link`. The scoped copies still win on their own pages, because they are more specific. 20 of
+      the 21 `.form-field` copies are byte-identical to the global rule (`DealsView.vue`'s differs), and
+      every `.primary-action` base rule equals the global `.create-action` (`QuotationPdfPanel.vue` and
+      `ManagedListsView.vue` also add hover/active states the global lacks). Deleting the copies, or
+      keeping DealsView's, is the owner's call.
+- [ ] **Slice 2's receiving side has five open test and guard gaps** — *revealed by Module 13 slice 2 · 2.3's
+      permission-matrix audit, 2026-10-16; the owner chose the register over this slice.* No blocking
+      defect was found; the routes match §3.10's rows and only a recipient reaches a received report (404 otherwise).
+      1. **Not awaiting an answer is untested.** `ReportWriteRefused::notAwaitingAnswer()`
+         (`report_not_awaiting_answer`) has no test: acknowledge twice, return an acknowledged report,
+         acknowledge a returned one (`grep -rn not_awaiting_answer crm/tests` → 0).
+      2. **The Team Leader and the Outdoor Supervisor are never exercised** in `ReportReceiveEndpointTest`
+         (0 hits). One test that a non-recipient TL/OutSup gets 404 on show, acknowledge and return.
+      3. **The audit values are unasserted.** `assertAudited` checks the entry and its user only, not
+         `old_values`/`new_values`, nor the return reason inside the audit payload.
+      4. **Nothing but submit keeps an author off their own recipient list.** `reachReceived` does not
+         refuse `actorId === authorId`, and no DB constraint does. No path creates such a row today.
+      5. **The Team and Out scopes narrow nothing yet** (`D-129`, the `ponytail:` comment in
+         `ReportAccess.php`). Recipient rows are the only barrier; re-audit when teams land.
+      **The cost, stated:** a regression in 1–3 would pass the suite; 4 and 5 widen nothing today.
 
 ## Agent guide revisions — owner-directed
 
@@ -5174,12 +5197,19 @@ layered steps (all migrations, all endpoints) are planned in advance. The six ty
 jobs J-04…J-08 (`D-125`), the PDF, the exports and the manual test list are all still owed. Each one
 lands in the slice that first needs it.
 
-- [ ] **Slice 1 — a daily report (RPT-DY), written and submitted end to end** *(divided by the owner, 2026-10-15; `D-129`)*: tables `reports`, `report_versions`, `report_recipients` (and `report_files`' key); the daily deadline seeded at 17:00, the go-live date and the default recipient (`D-127`, `D-129`); create with `Idempotency-Key`, notes under `If-Match`, recipient candidates, submit with a frozen copy; the day's activity from the audit log; "My reports" and the report page. Not in it: the PDF, Viewed/Acknowledge/Return, comments, the other five types, the jobs.
+- [~] **Slice 1 — a daily report (RPT-DY), written and submitted end to end** *(divided by the owner, 2026-10-15; `D-129`)*: tables `reports`, `report_versions`, `report_recipients` (and `report_files`' key); the daily deadline seeded at 17:00, the go-live date and the default recipient (`D-127`, `D-129`); create with `Idempotency-Key`, notes under `If-Match`, recipient candidates, submit with a frozen copy; the day's activity from the audit log; "My reports" and the report page. Not in it: the PDF, Viewed/Acknowledge/Return, comments, the other five types, the jobs.
   - Amended before its PR (the owner, 2026-10-15): the report shows the records as their pages do, never the audit log (`D-130`).
     - [x] **R.1** `D-130` *(2026-10-15, PR 379 — amends D-129: the audit log is the index only; records grouped by kind; selling totals only)*
     - [x] **R.2** Red: failing tests for the grouped records (backend payload, frozen copy, report screen) *(2026-10-15, PR 379 — 6 PHP + 6 vitest red for the right reason)*
     - [x] **R.3** Green: contract readers, `DailyActivity` fills the records, deptrac grant, the report page redesigned *(2026-10-15, PR 379 — suite 3901 passed, 1 failed (the 401 test, R.4); browser check NOT done: the pane was signed out, the owner skipped it)*
     - [~] **R.4** Slice 1's carried evidence: full PHP suite alone, the 3 negative tests, the browser check *(2026-10-15, PR 379 — the 401 test was a test defect (the request guard kept create()'s user; forgetGuards); suite 3902 passed, 0 failed; Reports 51 passed; browser check NOT done: the owner skipped it)*
+  - Merged 2026-10-15 (#379; CI green on `5f37952`, including `tests/Feature/Reports`, newly added to the `quotations-deals` shard). `[~]` until R.4's browser check is done.
+- [ ] **Slice 2 — the receiving side of a daily report** *(divided by the owner, 2026-10-16; §3.10, §11.4, `D-127`)*: a "Received reports" list for the holders of *view received*, read from the frozen copy; the report page for a recipient; **Viewed** on a recipient's first open (who and when; the author's own open does not count); **Acknowledge** → permanently read-only, even for the author; **Return** with a mandatory reason → a new editable version (v2) that copies v1's notes and recipients, the original kept viewable; the CEO views but cannot acknowledge or return; Sales and Procurement have no received list. Scopes: Manager and CEO `All`; the Team Leader's `Team` and the Outdoor Supervisor's `Out` wait for teams (`D-129`). Not in it: the PDF, comments, the other five types, the jobs, badges, the duplicate-period warning.
+    - [x] **2.1** Red: failing tests for the received list, Viewed, Acknowledge, Return → v2, and the refusals (CEO acknowledge/return, Sales/Procurement list, the author on someone else's report) *(2026-10-16 — 24 PHP + 8 vitest red for the right reason; the new view's spec fails on its missing component)*
+    - [x] **2.2** Green: endpoints, permissions, the version copy, the received list and the recipient's actions on the report page *(2026-10-16 — Reports 75 passed, reports vitest 68 passed; one more spec edit approved: `uiSourceRules` lists the Return `<dialog>`)*
+    - [x] **2.3a** The local suite runs within its memory: `<ini name="memory_limit" value="512M"/>` in `phpunit.xml` *(2026-10-16 — plain `php artisan test` crashed at 256 MB in `UploadValidationTest:76`; now 3929 passed (26471 assertions); the image's 256 MB stays for everything else)*
+    - [x] **2.3b** The report pages' controls take the shared styles: `create-action` on New report and Submit, a global `.form-field` in `app.css` *(2026-10-16 — red: border 0px, transparent; green in ar/en × 1280/375: notes 1px `#78716C`, buttons `rgb(194,65,12)`; `/customers` unchanged; vitest 1412 passed)*
+    - [~] **2.3** Evidence: full PHP suite alone, gates, auditors, the browser check *(2026-10-16 — six gates green locally: PHP 3929 passed, vitest 1412, pint 825 files, phpstan OK, deptrac 0/0; permission audit: no blocker, five gaps to the register; browser check ar/en × 1280/375; CI owed: branch not pushed — PR 381)*
 
 ---
 

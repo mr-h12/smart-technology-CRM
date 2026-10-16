@@ -106,6 +106,7 @@ describe('UI source rules (F-42)', () => {
             'pages/catalog/CatalogItemFormModal.vue',
             'pages/customers/CustomerFormModal.vue',
             'pages/deals/DealFormModal.vue',
+            'pages/reports/ReportDetailView.vue',
             'pages/supplier-quotations/SupplierQuotationFormModal.vue',
             'pages/suppliers/SupplierFormModal.vue',
         ]);

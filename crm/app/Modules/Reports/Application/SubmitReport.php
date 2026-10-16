@@ -12,7 +12,7 @@ use App\Modules\Reports\Domain\ReportWriteRefused;
 use Illuminate\Database\ConnectionInterface;
 
 /**
- * Draft → Submitted (§11.4): the frozen copy (§11.3, the acceptance criterion
+ * Draft (or Returned, as the next version) → Submitted (§11.4): the frozen copy (§11.3, the acceptance criterion
  * "unchanged even if the data changes") and the chosen recipients (`D-127`,
  * `D-129`), in one transaction under the token.
  */
@@ -33,7 +33,7 @@ final readonly class SubmitReport
         $this->connection->transaction(function () use ($reportId, $recipientIds, $ifMatch, $actorId): void {
             $before = $this->access->open($reportId, $ifMatch, $actorId);
 
-            if (! $before->isDraft()) {
+            if (! $before->isEditable()) {
                 throw ReportWriteRefused::notDraft();
             }
 
@@ -47,7 +47,7 @@ final readonly class SubmitReport
                 throw ReportWriteRefused::staleVersion(ReportEtag::of($before));
             }
 
-            $this->audit->record(AuditEvent::of('REPORT_SUBMITTED'), 'report', $reportId, ['status' => 'draft'], [
+            $this->audit->record(AuditEvent::of('REPORT_SUBMITTED'), 'report', $reportId, ['status' => $before->status], [
                 'status' => 'submitted', 'recipient_ids' => $recipientIds,
             ]);
         });

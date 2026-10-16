@@ -21,6 +21,8 @@ final class ReportWriteRefused extends RuntimeException
 
     public const RECIPIENT_NOT_ALLOWED = 'recipient_not_allowed';
 
+    public const NOT_AWAITING_ANSWER = 'report_not_awaiting_answer';
+
     private function __construct(
         public readonly string $reason,
         public readonly int $status,
@@ -45,6 +47,12 @@ final class ReportWriteRefused extends RuntimeException
     public static function notDraft(): self
     {
         return new self(self::NOT_DRAFT, 422, 'business_rule_blocked', 'status', null);
+    }
+
+    /** §11.4: only a Submitted or Viewed report is acknowledged or returned; Acknowledged is final. */
+    public static function notAwaitingAnswer(): self
+    {
+        return new self(self::NOT_AWAITING_ANSWER, 422, 'business_rule_blocked', 'status', null);
     }
 
     /** `D-127`: recipients come from the author's candidates only. */

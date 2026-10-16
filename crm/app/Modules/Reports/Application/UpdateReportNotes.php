@@ -11,7 +11,7 @@ use App\Modules\Reports\Domain\ReportEtag;
 use App\Modules\Reports\Domain\ReportWriteRefused;
 use Illuminate\Database\ConnectionInterface;
 
-/** §11.3's free-text notes on a draft, under the token (`DB-12`), audited with old and new (`AUD-02`). */
+/** §11.3's free-text notes on a draft or a returned report, under the token (`DB-12`), audited with old and new (`AUD-02`). */
 final readonly class UpdateReportNotes
 {
     public function __construct(
@@ -26,7 +26,7 @@ final readonly class UpdateReportNotes
         $this->connection->transaction(function () use ($reportId, $notes, $ifMatch, $actorId): void {
             $before = $this->access->open($reportId, $ifMatch, $actorId);
 
-            if (! $before->isDraft()) {
+            if (! $before->isEditable()) {
                 throw ReportWriteRefused::notDraft();
             }
 

@@ -98,18 +98,18 @@ function server(options: Options = {}): ReturnType<typeof vi.fn> {
     });
 }
 
-async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en') {
+async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en', user = USER, path = '/reports/rep1') {
     vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
         /\/auth\/login$/.test(String(input))
             ? Promise.resolve(json(201, {
-                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: USER },
+                data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user },
             }))
             : (fetchMock as unknown as typeof fetch)(input, init));
-    await useAuth().login(USER.email, 'Passw0rd123');
+    await useAuth().login(user.email, 'Passw0rd123');
     vi.stubGlobal('fetch', fetchMock);
 
     const router = createAppRouter();
-    await router.push('/reports/rep1');
+    await router.push(path);
     await router.isReady();
 
     const i18n = createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, ar } });
@@ -321,5 +321,142 @@ describe('ReportDetailView — a daily report', () => {
         expect(view.get('[data-testid="report-status"]').text()).toContain(ar.reports.status.draft);
         expect(view.get('[data-testid="activity-count-deals_created"]').text()).toContain(ar.reports.activity.deals_created);
         expect(view.get('[data-testid="report-submit"]').text()).toContain(ar.reports.submit);
+    });
+});
+
+/**
+ * Module 13, slice 2 — the same page for a recipient, opened from "Received
+ * reports" (§3.10, §11.4, `D-127`). The server decides who may act; the page
+ * draws Acknowledge and Return only for a recipient who holds them, and the
+ * refusals live in `ReportReceiveEndpointTest`.
+ */
+const MANAGER: AuthenticatedUser = {
+    id: 'm1', name: 'Mona Manager', email: 'manager@example.test',
+    role: { id: 'r2', slug: 'manager', name: 'Manager' },
+    permissions: ['report.create.all', 'report.view_received.all', 'report.acknowledge.all', 'report.return_report.all', 'report.comment.all'],
+    is_active: true, unconditional_access: false,
+};
+
+const CEO: AuthenticatedUser = {
+    id: 'c1', name: 'Chris CEO', email: 'ceo@example.test',
+    role: { id: 'r3', slug: 'ceo', name: 'CEO' },
+    permissions: ['report.view_received.all', 'report.comment.all', 'report.export.all'],
+    is_active: true, unconditional_access: false,
+};
+
+const RECEIVED_PATH = '/reports/received/rep1';
+
+const VIEWED = { ...SUBMITTED, status: 'viewed', etag: 'report:rep1:3', author_name: 'Test Sales' };
+
+const STATUS = en.reports.status as Record<string, string>;
+
+function gets(fetchMock: ReturnType<typeof vi.fn>): string[] {
+    return fetchMock.mock.calls
+        .filter(([, init]) => ((init as RequestInit | undefined)?.method ?? 'GET') === 'GET')
+        .map(([url]) => String(url));
+}
+
+describe('ReportDetailView — a received report', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('is a route behind report.view_received', () => {
+        const route = createAppRouter().getRoutes().find((r) => r.name === 'received-report-detail');
+        expect(route?.path).toBe('/reports/received/:id');
+        expect(route?.meta.requiredPermission).toBe('report.view_received');
+    });
+
+    it('reads the report through the received endpoint and offers Acknowledge and Return', async () => {
+        const fetchMock = server({ report: VIEWED });
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        expect(gets(fetchMock).some((url) => /\/reports\/received\/rep1$/.test(url))).toBe(true);
+        expect(view.text()).toContain('RPT-DY-2026-0001');
+        expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-return"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-submit"]').exists()).toBe(false);
+    });
+
+    it('acknowledges under If-Match and then offers nothing more', async () => {
+        const fetchMock = server({ report: VIEWED, patch: () => envelope({ ...VIEWED, status: 'acknowledged', etag: 'report:rep1:4' }) });
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-acknowledge"]').trigger('click');
+        await flushPromises();
+
+        const [url, init] = patches(fetchMock)[0]!;
+        expect(url).toMatch(/\/reports\/rep1\/acknowledge$/);
+        expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:3');
+
+        expect(STATUS.acknowledged).toBeTruthy();
+        expect(view.get('[data-testid="report-status"]').text()).toContain(STATUS.acknowledged);
+        expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-return"]').exists()).toBe(false);
+    });
+
+    it('will not send a return without a reason', async () => {
+        const fetchMock = server({ report: VIEWED });
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-return"]').trigger('click');
+        expect(view.find('[data-testid="report-return-dialog"]').exists()).toBe(true);
+        await view.get('[data-testid="report-return-reason"]').setValue('   ');
+        await view.get('[data-testid="report-return-dialog"]').trigger('submit');
+        await flushPromises();
+
+        expect(patches(fetchMock)).toHaveLength(0);
+        const error = view.get('[data-testid="report-return-reason-error"]');
+        expect(view.get('[data-testid="report-return-reason"]').attributes('aria-describedby')).toBe(error.attributes('id'));
+    });
+
+    it('returns with the reason in the body, under If-Match', async () => {
+        const fetchMock = server({ report: VIEWED, patch: () => envelope({ ...VIEWED, status: 'returned', etag: 'report:rep1:4' }) });
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-return"]').trigger('click');
+        await view.get('[data-testid="report-return-reason"]').setValue('Add the visit to Delta.');
+        await view.get('[data-testid="report-return-dialog"]').trigger('submit');
+        await flushPromises();
+
+        const [url, init] = patches(fetchMock)[0]!;
+        expect(url).toMatch(/\/reports\/rep1\/return$/);
+        expect(JSON.parse(init.body as string)).toEqual({ reason: 'Add the visit to Delta.' });
+        expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:3');
+
+        expect(STATUS.returned).toBeTruthy();
+        expect(view.get('[data-testid="report-status"]').text()).toContain(STATUS.returned);
+        expect(view.find('[data-testid="report-return-dialog"]').exists()).toBe(false);
+    });
+
+    it('shows the CEO the report sent to them, without Acknowledge or Return (§3.10)', async () => {
+        const fetchMock = server({ report: VIEWED });
+        const view = await render(fetchMock, 'en', CEO, RECEIVED_PATH);
+
+        expect(gets(fetchMock).some((url) => /\/reports\/received\/rep1$/.test(url))).toBe(true);
+        expect(view.text()).toContain('RPT-DY-2026-0001');
+        expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-return"]').exists()).toBe(false);
+    });
+
+    it('draws Acknowledge and Return in Arabic', async () => {
+        const labels = ar.reports as Record<string, unknown>;
+        const view = await render(server({ report: VIEWED }), 'ar', MANAGER, RECEIVED_PATH);
+
+        expect(labels.acknowledge).toBeTruthy();
+        expect(labels.return).toBeTruthy();
+        expect(view.get('[data-testid="report-acknowledge"]').text()).toContain(String(labels.acknowledge));
+        expect(view.get('[data-testid="report-return"]').text()).toContain(String(labels.return));
+    });
+
+    it('shows the author\'s own submitted report without Acknowledge or Return, even to a Manager author', async () => {
+        const view = await render(server({ report: SUBMITTED }), 'en', MANAGER, '/reports/rep1');
+
+        expect(view.text()).toContain('RPT-DY-2026-0001');
+        expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-return"]').exists()).toBe(false);
     });
 });

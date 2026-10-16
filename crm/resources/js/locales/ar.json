@@ -101,7 +101,8 @@
             "quotations": "عروض الأسعار",
             "approvals": "الموافقات",
             "purchaseOrders": "أوامر الشراء",
-            "reports": "التقارير"
+            "reports": "التقارير",
+            "receivedReports": "التقارير الواردة"
         }
     },
     "theme": {
@@ -1478,7 +1479,10 @@
         },
         "status": {
             "draft": "مسوّدة",
-            "submitted": "مُرسَل"
+            "submitted": "مُرسَل",
+            "viewed": "تمّ الاطّلاع",
+            "acknowledged": "معتمَد",
+            "returned": "مُرجَع"
         },
         "activity_title": "نشاط اليوم",
         "activity_empty": "لا نشاط مسجَّل في هذا اليوم.",
@@ -1518,6 +1522,20 @@
             "previous": "السابق",
             "next": "التالي",
             "position": "الصفحة {page} من {pages}"
-        }
+        },
+        "received_title": "التقارير الواردة",
+        "received_subtitle": "التقارير المُرسَلة إليك، الأحدث يوماً أولاً.",
+        "received_empty": {
+            "title": "لم يصلك شيء بعد",
+            "message": "لم يُرسَل إليك أي تقرير."
+        },
+        "received_back": "العودة إلى التقارير الواردة",
+        "from_author": "من {name}",
+        "acknowledge": "اعتماد",
+        "return": "إرجاع",
+        "return_title": "إرجاع التقرير",
+        "return_reason": "سبب الإرجاع",
+        "return_reason_required": "اكتب سبب إرجاع التقرير.",
+        "return_send": "إرجاع التقرير"
     }
 }

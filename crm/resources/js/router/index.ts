@@ -28,6 +28,7 @@ import QuotationDetailView from '@/pages/quotations/QuotationDetailView.vue';
 import ApprovalsView from '@/pages/approvals/ApprovalsView.vue';
 import PurchaseOrdersView from '@/pages/purchase-orders/PurchaseOrdersView.vue';
 import QuotationsView from '@/pages/quotations/QuotationsView.vue';
+import ReceivedReportsView from '@/pages/reports/ReceivedReportsView.vue';
 import ReportDetailView from '@/pages/reports/ReportDetailView.vue';
 import ReportsView from '@/pages/reports/ReportsView.vue';
 import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
@@ -225,11 +226,26 @@ export const routes: RouteRecordRaw[] = [
     {
         // Module 13, first slice — "My reports". `report.create` is the only
         // report grant an author holds (§3.10); the CEO holds none of it and
-        // reaches received reports in a later slice.
+        // reaches received reports through the routes below.
         path: '/reports',
         name: 'reports',
         component: ReportsView,
         meta: { requiresAuth: true, requiredPermission: 'report.create', titleKey: 'reports.title' },
+    },
+    {
+        // Module 13, slice 2 — what was sent to the caller (§3.10's *view
+        // received*). Static paths before `/reports/:id`, as on the server.
+        path: '/reports/received',
+        name: 'received-reports',
+        component: ReceivedReportsView,
+        meta: { requiresAuth: true, requiredPermission: 'report.view_received', titleKey: 'reports.received_title' },
+    },
+    {
+        // The same page as the author's, in its recipient's mode (Acknowledge, Return).
+        path: '/reports/received/:id',
+        name: 'received-report-detail',
+        component: ReportDetailView,
+        meta: { requiresAuth: true, requiredPermission: 'report.view_received', titleKey: 'reports.received_title' },
     },
     {
         path: '/reports/:id',

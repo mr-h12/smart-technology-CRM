@@ -164,6 +164,9 @@ final class NoHardCodedTextTest extends TestCase
                 // the job's `failure_reason` is data drawn from the API.
                 'QuotationPdfPanel.vue',
                 'QuotationPurchaseOrder.vue', 'QuotationStatusChip.vue', 'QuotationsView.vue',
+                // Module 13, slice 2 — "Received reports"; every label is a `reports.*`
+                // key, the author's name is data drawn from the API.
+                'ReceivedReportsView.vue',
                 // Module 13, first slice — "My reports" and one report's page;
                 // every label is a `reports.*` key.
                 'ReportDetailView.vue', 'ReportsView.vue',

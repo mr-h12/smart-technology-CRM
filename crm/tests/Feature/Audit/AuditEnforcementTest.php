@@ -284,9 +284,11 @@ final class AuditEnforcementTest extends TestCase
             // Module 13, first slice: the reports' persistence adapter. The use
             // cases own the transactions and record REPORT_CREATED,
             // REPORT_UPDATED and REPORT_SUBMITTED — asserted by
-            // `ReportWriteEndpointTest` and `ReportSubmitEndpointTest`.
-            DatabaseReportDirectory::class => 'AUD-01 is satisfied one layer out: CreateReport, UpdateReportNotes and '
-                    .'SubmitReport own the transactions and record the events. This is a persistence adapter with no '
+            // `ReportWriteEndpointTest` and `ReportSubmitEndpointTest`. Slice 2
+            // adds ReceiveReport (REPORT_VIEWED, REPORT_ACKNOWLEDGED,
+            // REPORT_RETURNED), asserted by `ReportReceiveEndpointTest`.
+            DatabaseReportDirectory::class => 'AUD-01 is satisfied one layer out: CreateReport, UpdateReportNotes, '
+                    .'SubmitReport and ReceiveReport own the transactions and record the events. This is a persistence adapter with no '
                     .'actor and no event vocabulary.',
 
             EloquentQuotationDirectory::class => 'AUD-01 is satisfied one layer out: CreateQuotation (Point 3.3) owns '

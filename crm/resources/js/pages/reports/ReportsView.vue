@@ -79,7 +79,7 @@ onMounted(() => load());
 
             <button
                 type="button"
-                class="primary-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="creating"
                 data-testid="reports-new"
                 @click="startDaily"

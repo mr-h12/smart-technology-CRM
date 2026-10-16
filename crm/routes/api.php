@@ -889,7 +889,18 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
 // author's own report, answered by `ReportAccess` (404 otherwise).
 // `idempotency` on create (`OpenAPI §9.1` names reports); submit is guarded by
 // the token, as a quotation's submit is (the owner's Q6 ruling, Point 4.2).
+//
+// Module 13, slice 2 — the recipient's side (§3.10, §11.4, `D-127`). "Received"
+// is what was sent to the caller (the owner, 2026-10-16), answered by
+// `ReportAccess::reachReceived` (404 otherwise); the CEO holds *view received*
+// but neither answer. `/received` is registered before `/{report}` so the
+// parameter route never swallows it. Acknowledge and return are guarded by the
+// token, as submit is.
 Route::middleware('auth')->prefix('reports')->group(function (): void {
+    Route::get('/received', [ReportController::class, 'received'])
+        ->middleware('permission:report.view_received');
+    Route::get('/received/{report}', [ReportController::class, 'showReceived'])
+        ->middleware('permission:report.view_received');
     Route::get('/', [ReportController::class, 'index'])
         ->middleware('permission:report.create');
     Route::post('/', [ReportController::class, 'store'])
@@ -902,4 +913,8 @@ Route::middleware('auth')->prefix('reports')->group(function (): void {
         ->middleware('permission:report.create');
     Route::patch('/{report}/submit', [ReportController::class, 'submit'])
         ->middleware('permission:report.create');
+    Route::patch('/{report}/acknowledge', [ReportController::class, 'acknowledge'])
+        ->middleware('permission:report.acknowledge');
+    Route::patch('/{report}/return', [ReportController::class, 'returnToAuthor'])
+        ->middleware('permission:report.return_report');
 });

@@ -83,7 +83,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         return $this->connection->table('reports')
             ->where('id', $reportId)
             ->where('version_token', $versionToken)
-            ->where('status', 'draft')
+            ->whereIn('status', ['draft', 'returned'])
             ->whereNull('deleted_at')
             ->update([
                 'notes' => $notes,
@@ -98,7 +98,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         $moved = $this->connection->table('reports')
             ->where('id', $reportId)
             ->where('version_token', $versionToken)
-            ->where('status', 'draft')
+            ->whereIn('status', ['draft', 'returned'])
             ->whereNull('deleted_at')
             ->update([
                 'status' => 'submitted',
@@ -112,8 +112,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             return false;
         }
 
-        $latest = $this->connection->table('report_versions')->where('report_id', $reportId)->max('version');
-        $version = (is_numeric($latest) ? (int) $latest : 0) + 1;
+        $version = $this->latestVersion($reportId) + 1;
 
         $this->connection->table('report_versions')->insert([
             'id' => Str::uuid7()->toString(),
@@ -126,6 +125,14 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             'updated_at' => now(),
         ]);
 
+        $this->connection->table('report_recipients')
+            ->where('report_id', $reportId)
+            ->whereNull('deleted_at')
+            ->whereNotIn('user_id', $recipientIds)
+            ->update(['deleted_at' => now(), 'updated_by' => $actorId, 'updated_at' => now()]);
+
+        $kept = $this->recipientIdsOf($reportId);
+
         $this->connection->table('report_recipients')->insert(array_map(static fn (string $userId): array => [
             'id' => Str::uuid7()->toString(),
             'report_id' => $reportId,
@@ -134,7 +141,7 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             'updated_by' => $actorId,
             'created_at' => now(),
             'updated_at' => now(),
-        ], $recipientIds));
+        ], array_values(array_diff($recipientIds, $kept))));
 
         return true;
     }
@@ -176,6 +183,61 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
         return $ids;
     }
 
+    public function forRecipient(string $userId, int $page, int $perPage): array
+    {
+        $query = $this->connection->table('reports')
+            ->join('report_recipients', 'report_recipients.report_id', '=', 'reports.id')
+            ->where('report_recipients.user_id', $userId)
+            ->whereNull('report_recipients.deleted_at')
+            ->whereNull('reports.deleted_at');
+        $total = (clone $query)->count();
+
+        /**
+         * @var list<object{
+         *     id: string, code: string, type: string, status: string, author_id: string,
+         *     period_start: string, period_end: string, notes: ?string, version_token: int,
+         *     submitted_at: ?string
+         * }> $rows
+         */
+        $rows = $query->select('reports.*')
+            ->orderByDesc('reports.period_start')->orderByDesc('reports.submitted_at')->orderByDesc('reports.id')
+            ->forPage($page, $perPage)->get()->all();
+
+        return ['items' => array_map(self::hydrate(...), $rows), 'total' => $total];
+    }
+
+    public function receive(string $reportId, int $versionToken, string $status, ?string $returnReason, string $actorId): bool
+    {
+        $moved = $this->connection->table('reports')
+            ->where('id', $reportId)
+            ->where('version_token', $versionToken)
+            ->whereNull('deleted_at')
+            ->update([
+                'status' => $status,
+                'version_token' => $versionToken + 1,
+                'updated_by' => $actorId,
+                'updated_at' => now(),
+            ]) === 1;
+
+        if (! $moved) {
+            return false;
+        }
+
+        // `viewed` / `acknowledged` / `returned` name their own `_by` and `_at` columns.
+        $this->connection->table('report_versions')
+            ->where('report_id', $reportId)
+            ->where('version', $this->latestVersion($reportId))
+            ->update([
+                $status.'_by' => $actorId,
+                $status.'_at' => now(),
+                ...($status === 'returned' ? ['return_reason' => $returnReason] : []),
+                'updated_by' => $actorId,
+                'updated_at' => now(),
+            ]);
+
+        return true;
+    }
+
     /**
      * The row's shape, spelled out because the query builder answers `mixed`
      * per property; `ReportsMigrationTest` is what holds the table to it.
@@ -201,5 +263,13 @@ final readonly class DatabaseReportDirectory implements ReportDirectoryInterface
             submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
                 ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
         );
+    }
+
+    /** The report's highest version number; 0 when it has none. */
+    private function latestVersion(string $reportId): int
+    {
+        $latest = $this->connection->table('report_versions')->where('report_id', $reportId)->max('version');
+
+        return is_numeric($latest) ? (int) $latest : 0;
     }
 }

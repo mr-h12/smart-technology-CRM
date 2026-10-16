@@ -101,7 +101,8 @@
             "quotations": "Quotations",
             "approvals": "Approvals",
             "purchaseOrders": "Purchase Orders",
-            "reports": "Reports"
+            "reports": "Reports",
+            "receivedReports": "Received reports"
         }
     },
     "theme": {
@@ -1478,7 +1479,10 @@
         },
         "status": {
             "draft": "Draft",
-            "submitted": "Submitted"
+            "submitted": "Submitted",
+            "viewed": "Viewed",
+            "acknowledged": "Acknowledged",
+            "returned": "Returned"
         },
         "activity_title": "The day's activity",
         "activity_empty": "No activity recorded for this day.",
@@ -1518,6 +1522,20 @@
             "previous": "Previous",
             "next": "Next",
             "position": "Page {page} of {pages}"
-        }
+        },
+        "received_title": "Received reports",
+        "received_subtitle": "Reports sent to you, newest day first.",
+        "received_empty": {
+            "title": "Nothing received yet",
+            "message": "No report has been sent to you."
+        },
+        "received_back": "Back to received reports",
+        "from_author": "From {name}",
+        "acknowledge": "Acknowledge",
+        "return": "Return",
+        "return_title": "Return the report",
+        "return_reason": "Why it is returned",
+        "return_reason_required": "Write the reason for returning the report.",
+        "return_send": "Return report"
     }
 }

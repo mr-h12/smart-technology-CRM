@@ -1499,13 +1499,15 @@
         "activity_title": "The day's activity",
         "activity_title_weekly": "The week's activity",
         "activity_empty": "No activity recorded for this day.",
+        "activity_empty_weekly": "No activity recorded for this week.",
         "activity": {
             "deals_created": "Deals created",
             "deal_status_moves": "Deal status changes",
             "quotations_created": "Quotations created",
             "quotations_sent": "Quotations sent",
             "customer_responses": "Customer responses",
-            "purchase_orders": "POs you recorded"
+            "purchase_orders": "POs you recorded",
+            "purchase_orders_received": "POs they recorded"
         },
         "activity_none": "None recorded.",
         "column": {
@@ -1566,6 +1568,7 @@
         "weekly_daily_reports_title": "The week's daily reports",
         "weekly_daily_reports_empty": "No daily reports this week.",
         "weekly_purchase_orders_title": "POs received on your deals",
+        "weekly_purchase_orders_title_received": "POs received on their deals",
         "weekly_new_customers_title": "New customers this week",
         "weekly_new_customers_empty": "No customers were added this week.",
         "note_add": "+ Add note",

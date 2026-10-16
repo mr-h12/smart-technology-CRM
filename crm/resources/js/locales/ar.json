@@ -1499,13 +1499,15 @@
         "activity_title": "نشاط اليوم",
         "activity_title_weekly": "نشاط الأسبوع",
         "activity_empty": "لا نشاط مسجَّل في هذا اليوم.",
+        "activity_empty_weekly": "لا نشاط مسجّل لهذا الأسبوع.",
         "activity": {
             "deals_created": "صفقات أُنشئت",
             "deal_status_moves": "تغييرات حالة الصفقات",
             "quotations_created": "عروض أسعار أُنشئت",
             "quotations_sent": "عروض أسعار أُرسلت",
             "customer_responses": "ردود العملاء",
-            "purchase_orders": "أوامر شراء سجّلتها"
+            "purchase_orders": "أوامر شراء سجّلتها",
+            "purchase_orders_received": "أوامر شراء سجّلها"
         },
         "activity_none": "لا شيء مسجَّل.",
         "column": {
@@ -1566,6 +1568,7 @@
         "weekly_daily_reports_title": "التقارير اليومية لهذا الأسبوع",
         "weekly_daily_reports_empty": "لا تقارير يومية في هذا الأسبوع.",
         "weekly_purchase_orders_title": "أوامر شراء وصلت على صفقاتك",
+        "weekly_purchase_orders_title_received": "أوامر شراء وصلت على صفقاته",
         "weekly_new_customers_title": "العملاء الجدد هذا الأسبوع",
         "weekly_new_customers_empty": "لم يُضف أي عميل هذا الأسبوع.",
         "note_add": "+ إضافة ملاحظة",

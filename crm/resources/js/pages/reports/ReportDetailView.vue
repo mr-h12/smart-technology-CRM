@@ -90,6 +90,9 @@ const COLUMNS: Record<ActivityCount, string[]> = {
     purchase_orders: ['purchaseOrders.column.poNumber', 'purchaseOrders.column.quotation', 'quotations.column.customer', 'reports.column.po_date', 'quotations.column.total'],
 };
 
+/** `D-137`: a recipient reads the author's own counts in the third person — «سجّلها», not «سجّلتها». */
+const activityLabel = (key: ActivityCount): string => `reports.activity.${key === 'purchase_orders' && received ? 'purchase_orders_received' : key}`;
+
 const hasActivity = computed(() => report.value !== null && ACTIVITY_COUNTS.some((key) => report.value!.activity.sections[key].length > 0));
 /** §11.4: the author writes a draft (a Missed one too, `D-135`), and a returned report on its way to the next version. */
 const isEditable = computed(() => !received && (['draft', 'returned', 'missed'].includes(report.value?.status ?? '')));
@@ -437,7 +440,7 @@ onMounted(load);
                                 :class="{ 'hover:bg-[var(--color-surface-muted)]': hasActivity }"
                             >
                                 <span class="text-page-title tabular-nums">{{ report.activity.counts[key] }}</span>
-                                <span class="text-table text-[var(--color-text-muted)]">{{ t(`reports.activity.${key}`) }}</span>
+                                <span class="text-table text-[var(--color-text-muted)]">{{ t(activityLabel(key)) }}</span>
                             </component>
                         </li>
                     </ul>
@@ -450,7 +453,7 @@ onMounted(load);
                         <span class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.auto') }}</span>
                     </h2>
                     <p v-if="!hasActivity" class="text-[var(--color-text-muted)]" data-testid="activity-empty">
-                        {{ t('reports.activity_empty') }}
+                        {{ t(report.type === 'weekly' ? 'reports.activity_empty_weekly' : 'reports.activity_empty') }}
                     </p>
                     <template v-else>
                         <section
@@ -462,7 +465,7 @@ onMounted(load);
                             :data-testid="`activity-section-${key}`"
                         >
                             <h3 :id="`activity-heading-${key}`" class="text-card-title">
-                                {{ t(`reports.activity.${key}`) }}
+                                {{ t(activityLabel(key)) }}
                                 <span class="tabular-nums text-[var(--color-text-muted)]">({{ report.activity.counts[key] }})</span>
                             </h3>
                             <p
@@ -556,7 +559,7 @@ onMounted(load);
                         </ul>
                     </section>
                     <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-weekly-po-heading">
-                        <h2 id="report-weekly-po-heading" class="text-section-title">{{ t('reports.weekly_purchase_orders_title') }}</h2>
+                        <h2 id="report-weekly-po-heading" class="text-section-title">{{ t(received ? 'reports.weekly_purchase_orders_title_received' : 'reports.weekly_purchase_orders_title') }}</h2>
                         <p class="text-page-title tabular-nums" data-testid="weekly-purchase-orders-count">{{ report.purchase_orders_received ?? 0 }}</p>
                     </section>
                     <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-weekly-customers-heading">

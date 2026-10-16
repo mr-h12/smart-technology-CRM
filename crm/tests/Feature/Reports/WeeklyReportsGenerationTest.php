@@ -121,6 +121,33 @@ final class WeeklyReportsGenerationTest extends TestCase
         ], $periods, 'D-136: one draft per missed week since go-live, none twice.');
     }
 
+    /** `D-137`: a user added mid-way gets the weeks that end on or after the day the account was created, not the backlog. */
+    public function test_that_a_week_ending_before_the_users_account_was_created_is_not_drafted_for_them(): void
+    {
+        $this->goLive('2026-09-27');
+        $newcomer = $this->user(RoleName::IndoorSales, 'new', createdAt: '2026-10-07 10:00:00');
+        $veteran = $this->user(RoleName::IndoorSales, 'old');
+
+        $this->runJob();
+
+        $periods = static fn (User $u): array => DB::table('reports')->where('type', 'weekly')->where('author_id', $u->id)
+            ->orderBy('period_start')->pluck('period_start')->all();
+        self::assertSame(['2026-10-04', '2026-10-11'], $periods($newcomer), 'D-137: 10-04..10-08 ends after 10-07; 09-27..10-01 does not.');
+        self::assertSame(['2026-09-27', '2026-10-04', '2026-10-11'], $periods($veteran), 'D-137: an older account still gets every week since go-live.');
+    }
+
+    /** `D-137`: the day is the company's, so an account created late on the 8th UTC is already the 9th in Cairo. */
+    public function test_that_the_creation_day_is_read_in_company_time(): void
+    {
+        $this->goLive('2026-09-27');
+        $this->patchJson('/api/v1/settings', ['settings' => ['locale.timezone' => 'Africa/Cairo']], $this->bearer($this->admin()))->assertStatus(200);
+        $user = $this->user(RoleName::IndoorSales, 'late', createdAt: '2026-10-08 22:30:00');
+
+        $this->runJob();
+
+        self::assertSame(['2026-10-11'], DB::table('reports')->where('type', 'weekly')->where('author_id', $user->id)->pluck('period_start')->all(), 'D-137: 22:30 UTC on the 8th is the 9th in Cairo, after Thursday the 8th.');
+    }
+
     public function test_that_only_active_users_holding_report_create_get_a_draft(): void
     {
         $this->goLive('2026-10-11');
@@ -414,7 +441,8 @@ final class WeeklyReportsGenerationTest extends TestCase
         return User::query()->where('email', 'super.admin@example.test')->first() ?? $this->user(RoleName::SuperAdmin);
     }
 
-    private function user(RoleName $role, string $tag = '', bool $active = true): User
+    /** `$createdAt` (UTC) defaults to well before every week here, so only the tests of `D-137`'s lower bound set it. */
+    private function user(RoleName $role, string $tag = '', bool $active = true, string $createdAt = '2026-01-01 00:00:00'): User
     {
         $user = new User;
         $user->fill([
@@ -425,6 +453,7 @@ final class WeeklyReportsGenerationTest extends TestCase
             'is_active' => $active,
             'is_hidden' => $role->isHidden(),
         ]);
+        $user->forceFill(['created_at' => $createdAt]);
         $user->save();
 
         return $user;

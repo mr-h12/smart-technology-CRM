@@ -12,6 +12,7 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -19,7 +20,8 @@ use Illuminate\Database\ConnectionInterface;
  * (`D-125`), one RPT-WK draft per active user holding `report.create` (the
  * hidden Super Admin is never listed by `holdersOf`). A week that ends before
  * the go-live date gets none, and while the go-live date is empty nothing is
- * created (`D-127`). Idempotent (§15.1): an author who already has the week is
+ * created (`D-127`). Nor does a user get a week that ended before the day their
+ * account was created, in company time (`D-137`). Idempotent (§15.1): an author who already has the week is
  * skipped, so the startup catch-up fills every missed week once (`D-55`). The
  * audit carries no actor — a queued job has no request, as `J-04` (`D-135`).
  * ponytail: the check-then-insert is not locked; two runs at the same instant
@@ -46,13 +48,23 @@ final readonly class GenerateWeeklyReports
             return 0;
         }
 
-        $authors = array_keys($this->users->holdersOf('report', 'create'));
+        $holders = $this->users->holdersOf('report', 'create');
+        $authors = array_keys($holders);
+        $zone = new DateTimeZone($this->today->zone());
         $created = 0;
 
         foreach (self::weeksSince($goLive, $this->today->date()) as [$start, $end]) {
             $has = $this->reports->weeklyAuthorsOf($start);
 
             foreach (array_diff($authors, $has) as $authorId) {
+                // ponytail: a reactivated user, or one newly granted `report.create`, still gets every week
+                // since the account's creation — the grant date is not recorded (`D-137`).
+                $joined = (new DateTimeImmutable($holders[$authorId]['created_at'], new DateTimeZone('UTC')))->setTimezone($zone)->format('Y-m-d');
+
+                if ($end < $joined) {
+                    continue;
+                }
+
                 $this->connection->transaction(function () use ($authorId, $start, $end): void {
                     $draft = $this->reports->createDraft('weekly', 'RPT-WK', $authorId, $start, $end);
 

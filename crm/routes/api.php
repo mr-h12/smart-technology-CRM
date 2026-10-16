@@ -913,6 +913,20 @@ Route::middleware('auth')->prefix('reports')->group(function (): void {
         ->middleware('permission:report.create');
     Route::patch('/{report}/submit', [ReportController::class, 'submit'])
         ->middleware('permission:report.create');
+    // Slice 3 (`D-131`): follow-ups and notes, row by row, under the author's gate;
+    // `ManageReportRows` answers 404 off the author's report and 409 once it is not editable.
+    Route::post('/{report}/follow-ups', [ReportController::class, 'addFollowUp'])
+        ->middleware('permission:report.create');
+    Route::patch('/{report}/follow-ups/{row}', [ReportController::class, 'updateFollowUp'])
+        ->middleware('permission:report.create');
+    Route::delete('/{report}/follow-ups/{row}', [ReportController::class, 'removeFollowUp'])
+        ->middleware('permission:report.create');
+    Route::post('/{report}/notes', [ReportController::class, 'addNote'])
+        ->middleware('permission:report.create');
+    Route::patch('/{report}/notes/{note}', [ReportController::class, 'updateNote'])
+        ->middleware('permission:report.create');
+    Route::delete('/{report}/notes/{note}', [ReportController::class, 'removeNote'])
+        ->middleware('permission:report.create');
     Route::patch('/{report}/acknowledge', [ReportController::class, 'acknowledge'])
         ->middleware('permission:report.acknowledge');
     Route::patch('/{report}/return', [ReportController::class, 'returnToAuthor'])

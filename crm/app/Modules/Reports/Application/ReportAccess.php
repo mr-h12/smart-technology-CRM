@@ -21,9 +21,10 @@ final readonly class ReportAccess
 {
     public function __construct(private ReportDirectoryInterface $reports) {}
 
-    public function reach(string $reportId, string $actorId): Report
+    /** `$lock` holds the report row for the caller's transaction (a write's). */
+    public function reach(string $reportId, string $actorId, bool $lock = false): Report
     {
-        $report = $this->reports->find($reportId);
+        $report = $this->reports->find($reportId, $lock);
 
         if ($report === null || $report->authorId !== $actorId) {
             throw ReportNotFound::of($reportId);
@@ -34,7 +35,23 @@ final readonly class ReportAccess
 
     public function open(string $reportId, ?string $ifMatch, string $actorId): Report
     {
-        return self::current($this->reach($reportId, $actorId), $ifMatch);
+        return self::current($this->reach($reportId, $actorId, true), $ifMatch);
+    }
+
+    /**
+     * `D-131`: a follow-up or note is written by the author while the report is
+     * a draft or returned — checked under the row lock a submit also takes, so a
+     * write racing a submit ends in 409, never in a row the frozen copy missed.
+     */
+    public function editable(string $reportId, string $actorId): Report
+    {
+        $report = $this->reach($reportId, $actorId, true);
+
+        if (! $report->isEditable()) {
+            throw ReportWriteRefused::notEditable();
+        }
+
+        return $report;
     }
 
     public function reachReceived(string $reportId, string $actorId): Report

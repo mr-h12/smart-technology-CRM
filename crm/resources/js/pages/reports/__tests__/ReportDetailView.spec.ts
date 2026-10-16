@@ -8,8 +8,8 @@ import { createAppRouter } from '@/router';
 import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 
 /**
- * Module 13, first slice — one daily report (RPT-DY): the author writes notes,
- * sees the day's records grouped by kind (`D-126`; found through the audit
+ * Module 13, first slice — one daily report (RPT-DY): the author writes notes
+ * (several since `D-131`), sees the day's records grouped by kind (`D-126`; found through the audit
  * log but never showing it, `D-130`), chooses recipients (default preselected, `D-129`) and submits.
  *
  * The screen displays what the server returns and sends what the author typed;
@@ -59,7 +59,7 @@ const EMPTY_SECTIONS = Object.fromEntries(Object.keys(SECTIONS).map((key) => [ke
 const DRAFT = {
     id: 'rep1', code: 'RPT-DY-2026-0001', type: 'daily', status: 'draft',
     period_start: '2026-10-15', period_end: '2026-10-15', submitted_at: null,
-    notes: 'Morning calls.', etag: 'report:rep1:1',
+    follow_ups: [], notes: [{ id: 'n1', body: 'Morning calls.' }], etag: 'report:rep1:1',
     // `D-130`: the records themselves, grouped by kind — never the audit events.
     activity: { counts: COUNTS, sections: SECTIONS },
     recipients: [],
@@ -234,35 +234,35 @@ describe('ReportDetailView — a daily report', () => {
         expect(view.find('[data-testid^="activity-section-"]').exists()).toBe(false);
     });
 
-    it('saves the notes with If-Match and adopts the new etag', async () => {
-        const fetchMock = server({ patch: (_url, init) => envelope({ ...DRAFT, notes: JSON.parse(init.body as string).notes, etag: 'report:rep1:2' }) });
+    it('saves a note through its own route, without If-Match, and Submit keeps the report\'s etag (D-131)', async () => {
+        const fetchMock = server({ patch: (url, init) => /\/notes\//.test(url) ? envelope({ id: 'n1', body: JSON.parse(init.body as string).body }) : envelope(SUBMITTED) });
         const view = await render(fetchMock);
 
-        expect((view.get('[data-testid="report-notes"]').element as HTMLTextAreaElement).value).toBe('Morning calls.');
-        await view.get('[data-testid="report-notes"]').setValue('Two visits.');
-        await view.get('[data-testid="report-save"]').trigger('click');
+        expect((view.get('[data-testid="report-note-body"]').element as HTMLTextAreaElement).value).toBe('Morning calls.');
+        await view.get('[data-testid="report-note-body"]').setValue('Two visits.');
+        await view.get('[data-testid="report-note-body"]').trigger('blur');
         await flushPromises();
 
         const [url, init] = patches(fetchMock)[0]!;
-        expect(url).toMatch(/\/reports\/rep1$/);
-        expect(JSON.parse(init.body as string)).toEqual({ notes: 'Two visits.' });
-        expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');
+        expect(url).toMatch(/\/reports\/rep1\/notes\/n1$/);
+        expect(JSON.parse(init.body as string)).toEqual({ body: 'Two visits.' });
+        expect(new Headers(init.headers).get('If-Match')).toBeNull();
 
-        await view.get('[data-testid="report-save"]').trigger('click');
+        await view.get('[data-testid="report-submit"]').trigger('click');
         await flushPromises();
-        expect(new Headers(patches(fetchMock)[1]![1].headers).get('If-Match')).toBe('report:rep1:2');
+        expect(new Headers(patches(fetchMock)[1]![1].headers).get('If-Match')).toBe('report:rep1:1');
     });
 
-    it('says the report changed elsewhere on a 409, and keeps the typed notes', async () => {
-        const fetchMock = server({ patch: () => json(409, { error: { code: 'concurrency_conflict', details: [] }, meta: { request_id: 'r' } }) });
+    it('says a note was not saved when the report changed elsewhere (409), and keeps the typed text', async () => {
+        const fetchMock = server({ patch: () => json(409, { error: { code: 'state_transition_invalid', details: [{ code: 'report_not_editable' }] }, meta: { request_id: 'r' } }) });
         const view = await render(fetchMock);
 
-        await view.get('[data-testid="report-notes"]').setValue('Unsaved.');
-        await view.get('[data-testid="report-save"]').trigger('click');
+        await view.get('[data-testid="report-note-body"]').setValue('Unsaved.');
+        await view.get('[data-testid="report-note-body"]').trigger('blur');
         await flushPromises();
 
-        expect(view.find('[data-testid="report-conflict"]').exists()).toBe(true);
-        expect((view.get('[data-testid="report-notes"]').element as HTMLTextAreaElement).value).toBe('Unsaved.');
+        expect(view.get('[data-testid="report-section-notes"]').get('[data-testid="report-autosave-status"]').text()).toBe(en.reports.autosave.failed);
+        expect((view.get('[data-testid="report-note-body"]').element as HTMLTextAreaElement).value).toBe('Unsaved.');
     });
 
     it('offers the server\'s candidates with the default already chosen', async () => {
@@ -296,7 +296,7 @@ describe('ReportDetailView — a daily report', () => {
         expect(new Headers(init.headers).get('If-Match')).toBe('report:rep1:1');
 
         expect(view.get('[data-testid="report-status"]').text()).toContain(en.reports.status.submitted);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="report-submit"]').exists()).toBe(false);
     });
 
@@ -305,7 +305,7 @@ describe('ReportDetailView — a daily report', () => {
 
         expect(view.text()).toContain('Morning calls.');
         expect(view.findAll('[data-testid="report-recipient"]').map((r) => r.text())).toEqual(['Mona Manager']);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="recipient-option"]').exists()).toBe(false);
     });
 
@@ -377,7 +377,7 @@ describe('ReportDetailView — a received report', () => {
         expect(view.text()).toContain('RPT-DY-2026-0001');
         expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(true);
         expect(view.find('[data-testid="report-return"]').exists()).toBe(true);
-        expect(view.find('[data-testid="report-notes"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-note-body"]').exists()).toBe(false);
         expect(view.find('[data-testid="report-submit"]').exists()).toBe(false);
     });
 

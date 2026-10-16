@@ -6,7 +6,10 @@ namespace App\Modules\Reports\Domain\Contracts;
 
 use App\Modules\Reports\Domain\Report;
 
-/** The module's persistence port: `reports`, `report_versions`, `report_recipients`. */
+/**
+ * The module's persistence port: `reports`, `report_versions`, `report_recipients`,
+ * and `D-131`'s rows — kind `follow_up` (`report_follow_ups`) and `note` (`report_notes`).
+ */
 interface ReportDirectoryInterface
 {
     /**
@@ -16,13 +19,37 @@ interface ReportDirectoryInterface
      */
     public function createDraft(string $type, string $codePrefix, string $authorId, string $periodStart, string $periodEnd): array;
 
-    public function find(string $reportId): ?Report;
+    /** `$lock` holds the row until the caller's transaction ends, so a row write and a submit never interleave. */
+    public function find(string $reportId, bool $lock = false): ?Report;
 
     /** @return array{items: list<Report>, total: int} newest period first */
     public function forAuthor(string $authorId, int $page, int $perPage): array;
 
-    /** False when the token moved or the report is no longer editable — nothing was written. */
-    public function updateNotes(string $reportId, int $versionToken, ?string $notes, string $actorId): bool;
+    /**
+     * One kind's live rows of a report, in the order they were added, each with its `id`.
+     *
+     * @return list<array<string, string>>
+     */
+    public function rowsOf(string $kind, string $reportId): array;
+
+    /**
+     * @param  array<string, string>  $fields
+     * @return string the new row's id
+     */
+    public function addRow(string $kind, string $reportId, array $fields, string $actorId): string;
+
+    /**
+     * The live row when it is this report's, with its `id`; null otherwise.
+     *
+     * @return array<string, string>|null
+     */
+    public function findRow(string $kind, string $reportId, string $rowId): ?array;
+
+    /** @param  array<string, string>  $fields */
+    public function updateRow(string $kind, string $rowId, array $fields, string $actorId): void;
+
+    /** Soft-deleted (`DB-01`). */
+    public function removeRow(string $kind, string $rowId, string $actorId): void;
 
     /**
      * Submit under the token: status, the next frozen version and the

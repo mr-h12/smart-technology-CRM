@@ -11,7 +11,6 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Testing\TestResponse;
 use Ramsey\Uuid\Uuid;
 use Tests\Feature\Pdf\InsertsQuotationRows;
 use Tests\TestCase;
@@ -19,8 +18,8 @@ use Tests\TestCase;
 /**
  * Module 13, first slice — a daily report (RPT-DY) written by its author.
  *
- * Create (`OpenAPI §9.1`'s `Idempotency-Key`), read, list "My reports", and edit
- * the notes under `DB-12`'s token (`If-Match`, `409` when stale). Every author
+ * Create (`OpenAPI §9.1`'s `Idempotency-Key`), read, list "My reports", and write
+ * a note (`D-131`; the follow-up and note routes are `ReportFollowUpsEndpointTest`'s). Every author
  * route is gated by `report.create`, the only report grant an author holds
  * (§3.10); the CEO holds none of it. The day's activity is `D-126`'s RPT-DY
  * records, found through the audit log and shown as their pages show them (`D-130`).
@@ -292,93 +291,25 @@ final class ReportWriteEndpointTest extends TestCase
         }
     }
 
-    // ── edit the notes ──────────────────────────────────────────────────────
+    // ── notes (`D-131`) ─────────────────────────────────────────────────────
 
-    public function test_that_the_author_edits_the_notes_and_the_token_advances(): void
+    /**
+     * `D-131`: notes are written through `/reports/{id}/notes`, one row each, and a
+     * row write carries no `If-Match` — the report's token stays for its submit.
+     * Their audit, refusals and limits are `ReportFollowUpsEndpointTest`'s.
+     */
+    public function test_that_the_author_writes_a_note_and_the_reports_token_stays(): void
     {
         $id = $this->create(RoleName::IndoorSales);
 
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'Visited two customers.'])
+        $this->postJson(self::ENDPOINT.'/'.$id.'/notes', ['body' => 'Visited two customers.'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(201)
+            ->assertJsonPath('data.body', 'Visited two customers.');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))
             ->assertStatus(200)
-            ->assertJsonPath('data.notes', 'Visited two customers.')
-            ->assertJsonPath('data.etag', 'report:'.$id.':2');
-
-        self::assertSame('Visited two customers.', DB::table('reports')->where('id', $id)->value('notes'));
-    }
-
-    public function test_that_editing_the_notes_is_audited_with_old_and_new_values(): void
-    {
-        $id = $this->create(RoleName::IndoorSales);
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'First.'])->assertStatus(200);
-        $this->edit($id, 'report:'.$id.':2', ['notes' => 'Second.'])->assertStatus(200);
-
-        $entry = DB::table('audit_log')->where('event', 'REPORT_UPDATED')->where('entity_id', $id)
-            ->orderByDesc('created_at')->orderByDesc('id')->get()
-            ->first(fn (object $row): bool => is_string($row->new_values) && str_contains($row->new_values, 'Second.'));
-
-        self::assertNotNull($entry, 'AUD-01: the edit left no audit entry.');
-        self::assertIsString($entry->old_values);
-        self::assertIsString($entry->new_values);
-        self::assertEquals(['notes' => 'First.'], json_decode($entry->old_values, true));
-        self::assertEquals(['notes' => 'Second.'], json_decode($entry->new_values, true));
-    }
-
-    public function test_that_a_missing_if_match_is_a_400(): void
-    {
-        $id = $this->create(RoleName::IndoorSales);
-
-        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'x'], $this->bearerFor(RoleName::IndoorSales))
-            ->assertStatus(400)
-            ->assertJsonPath('error.code', 'invalid_request')
-            ->assertJsonPath('error.details.0.field', 'If-Match')
-            ->assertJsonPath('error.details.0.code', 'if_match_required');
-    }
-
-    public function test_that_a_stale_token_is_a_409_with_the_current_etag(): void
-    {
-        $id = $this->create(RoleName::IndoorSales);
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'First.'])->assertStatus(200);
-
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'Lost update.'])
-            ->assertStatus(409)
-            ->assertJsonPath('error.code', 'concurrency_conflict')
-            ->assertJsonPath('error.details.0.field', 'If-Match')
-            ->assertJsonPath('error.details.0.code', 'stale_version')
-            ->assertJsonPath('error.details.0.current_etag', 'report:'.$id.':2');
-
-        self::assertSame('First.', DB::table('reports')->where('id', $id)->value('notes'));
-    }
-
-    public function test_that_another_authors_draft_cannot_be_edited(): void
-    {
-        $id = $this->create(RoleName::Manager);
-
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'Not mine.'])
-            ->assertStatus(404)
-            ->assertJsonPath('error.code', 'resource_not_found');
-
-        self::assertNull(DB::table('reports')->where('id', $id)->value('notes'));
-    }
-
-    /** §11.4: once submitted, the content is the frozen copy's — not editable. */
-    public function test_that_a_submitted_report_cannot_be_edited(): void
-    {
-        $id = $this->create(RoleName::IndoorSales);
-        DB::table('reports')->where('id', $id)->update(['status' => 'submitted']);
-
-        $this->edit($id, 'report:'.$id.':1', ['notes' => 'Too late.'])
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'report_not_draft');
-    }
-
-    public function test_that_notes_must_be_text(): void
-    {
-        $id = $this->create(RoleName::IndoorSales);
-
-        $this->edit($id, 'report:'.$id.':1', ['notes' => ['not', 'text']])
-            ->assertStatus(422)
-            ->assertJsonPath('error.details.0.field', 'notes');
+            ->assertJsonPath('data.notes.0.body', 'Visited two customers.')
+            ->assertJsonPath('data.etag', 'report:'.$id.':1');
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────
@@ -391,19 +322,6 @@ final class ReportWriteEndpointTest extends TestCase
         self::assertIsString($id);
 
         return $id;
-    }
-
-    /**
-     * @param  array<string, mixed>  $body
-     * @return TestResponse<\Illuminate\Http\JsonResponse>
-     */
-    private function edit(string $id, string $ifMatch, array $body): TestResponse
-    {
-        return $this->patchJson(
-            self::ENDPOINT.'/'.$id,
-            $body,
-            [...$this->bearerFor(RoleName::IndoorSales), 'If-Match' => $ifMatch],
-        );
     }
 
     /**

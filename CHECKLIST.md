@@ -1909,8 +1909,18 @@ would hide them behind `OD-03` indefinitely.
       Reports test trait would remove the copies; the owner's call where shared test helpers live.
 - [ ] **A report that is no longer editable answers two ways** — *revealed by Module 13 slice 3 · 3.1, 2026-10-16;
       the owner kept both (3.1's report).* The new follow-up and note routes answer `409 report_not_editable`
-      (`D-131`); the older `PATCH /reports/{id}` still answers `422 business_rule_blocked` / `report_not_draft`.
-      One code for one state would be the fix; it changes slice 1's refusal and its tests, so it is the owner's call.
+      (`D-131`); submit on a non-draft still answers `422 business_rule_blocked` / `report_not_draft`. Since 3.2,
+      `PATCH /reports/{id}` writes nothing: it refuses `notes` (`422`) and otherwise returns the report. The owner
+      kept it (2026-10-16); removing the route, and one code for one state, are the owner's call.
+- [ ] **A follow-up's customer name is frozen even after the customer left the author's reach** — *revealed by
+      Module 13 slice 3 · 3.2's permission audit, 2026-10-16; the owner accepted it as is.* The scope is checked
+      when a row is added or changed (`ManageReportRows::checkCustomer`); at submit `followUpsOf` reads the name
+      through the unscoped `CustomerNamesInterface`, so a customer reassigned away after the row was written
+      still appears by name in the frozen copy. Same family as slice 1's reassigned deal or quotation, also accepted.
+- [ ] **`data-testid="report-conflict"` in the recipient's answer section is queried by nothing** — *revealed by
+      Module 13 slice 3 · 3.2's waste audit, 2026-10-16.* `ReportDetailView.vue`'s Acknowledge/Return section carries it
+      and no spec reads it (none did before 3.2 either); 3.2 dropped the submit section's copy, whose only test went
+      with the old notes box. Assert it in a receive-409 test or drop it; the owner's call.
 
 ## Agent guide revisions — owner-directed
 
@@ -5223,7 +5233,7 @@ lands in the slice that first needs it.
   - Merged 2026-10-16 (#381).
 - [ ] **Slice 3 — follow-ups and several notes on a daily report** *(the owner's request and division, 2026-10-16; spec `docs/superpowers/specs/2026-10-16-report-follow-ups-notes-design.md`, approved by the owner in chat, 2026-10-16; `D-131` proposed)*: a «التواصل والمتابعة» section of customer + note rows; several notes instead of one box; both autosaved (the `D-124` pattern) and frozen at submit; the page in the order ① summary → ② activity → ③ follow-ups → ④ notes → ⑤ recipients → ⑥ submit. Not in it: a channel, date or time on a follow-up; the PDF (slice 4, spec `2026-10-16-report-pdf-design.md`, `D-132`).
     - [x] **3.1** Decision and red: `D-131` written (after the owner's yes); the failing tests of the spec's §6, failing for the right reason *(2026-10-16 — `D-131` at `CRM_Documentation_EN.md:196`, inode kept; 22 PHP + 13 vitest red for the right reason (missing routes, tables, migration, module, testids); 75 PHP and 62 vitest old tests still pass)*
-    - [ ] **3.2** Green and evidence: migration, tables, endpoints, the frozen copy, the shared autosave helper, sections ③④ and the page order; the full suite alone, the gates, the auditors, the browser check
+    - [x] **3.2** Green and evidence: migration, tables, endpoints, the frozen copy, the shared autosave helper, sections ③④ and the page order; the full suite alone, the gates, the auditors, the browser check *(2026-10-16, PR 382 — an archived customer refused like an out-of-reach one (422); PHP 3950, vitest 1431; browser ar/en × 1280/375)*
 
 ---
 

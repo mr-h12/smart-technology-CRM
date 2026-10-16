@@ -13,9 +13,10 @@
  * its first save. A cleared note is never saved: the box says so and the
  * stored text stays until real text is typed. Remove keeps its confirm.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api';
+import { useAutosave } from '@/components/useAutosave';
 import {
     addCustomerNote,
     listCustomerNotes,
@@ -28,9 +29,6 @@ import {
 const props = defineProps<{ customerId: string; canEdit: boolean }>();
 
 const { t } = useI18n();
-
-/** `D-124`'s pause before a save. */
-const PAUSE_MS = 2000;
 
 /** `NEW` is the empty box at the top; every other row is keyed by its note's id. */
 const NEW = 'new';
@@ -64,7 +62,7 @@ const removeFailed = ref(false);
 /** The note whose removal is waiting for its confirm. */
 const confirmingRemove = ref<string | null>(null);
 
-const timers = new Map<string, ReturnType<typeof setTimeout>>();
+const { typed, left, cancel, pending } = useAutosave(save);
 const inFlight = new Set<string>();
 
 function blankRow(): Row {
@@ -82,7 +80,7 @@ async function load(): Promise<void> {
         const loaded = (await listCustomerNotes(props.customerId)).items;
         notes.value = loaded;
         // A box still waiting for its save keeps what was typed.
-        const keep = (id: string): Row | undefined => (timers.has(id) || inFlight.has(id) ? rows.value[id] : undefined);
+        const keep = (id: string): Row | undefined => (pending(id) || inFlight.has(id) ? rows.value[id] : undefined);
         rows.value = Object.fromEntries(loaded.map((note) => [note.id, keep(note.id) ?? rowOf(note)]));
     } catch {
         notes.value = null;
@@ -94,16 +92,8 @@ function draftOf(row: Row): CustomerNoteDraft {
     return { body: row.body.trim(), note_date: row.date === '' ? null : row.date };
 }
 
-/** Typing restarts the pause; leaving the box saves at once. */
-function typed(key: string): void {
-    clearTimeout(timers.get(key));
-    timers.set(key, setTimeout(() => void save(key), PAUSE_MS));
-}
-
+/** Typing restarts the pause and leaving the box saves at once (`useAutosave`). */
 async function save(key: string): Promise<void> {
-    clearTimeout(timers.get(key));
-    timers.delete(key);
-
     const row = key === NEW ? fresh.value : rows.value[key];
 
     // One request per box at a time; the next pause or leave sends what is left.
@@ -156,9 +146,10 @@ async function leaveFresh(event: FocusEvent): Promise<void> {
         return;
     }
 
+    cancel(NEW);
     await save(NEW);
 
-    if (fresh.value.id !== null && !timers.has(NEW) && fresh.value.status === 'saved') {
+    if (fresh.value.id !== null && !pending(NEW) && fresh.value.status === 'saved') {
         fresh.value = blankRow();
         await load();
     }
@@ -168,8 +159,7 @@ async function remove(noteId: string): Promise<void> {
     removeFailed.value = false;
 
     try {
-        clearTimeout(timers.get(noteId));
-        timers.delete(noteId);
+        cancel(noteId);
         await removeCustomerNote(props.customerId, noteId);
         confirmingRemove.value = null;
         await load();
@@ -190,13 +180,6 @@ function statusText(row: Row): string {
 
 onMounted(load);
 watch(() => props.customerId, load);
-
-// Leaving the page saves what is still waiting for its pause.
-onBeforeUnmount(() => {
-    for (const key of [...timers.keys()]) {
-        void save(key);
-    }
-});
 </script>
 
 <template>
@@ -255,7 +238,7 @@ onBeforeUnmount(() => {
                             class="form-field min-w-0 flex-[1_1_16rem] rounded-lg px-3 py-2"
                             data-testid="customer-note-body"
                             @input="typed(note.id)"
-                            @blur="save(note.id)"
+                            @blur="left(note.id)"
                         />
                         <input
                             v-model="row.date"
@@ -264,7 +247,7 @@ onBeforeUnmount(() => {
                             class="form-field min-h-11 rounded-lg px-3 py-2"
                             data-testid="customer-note-date"
                             @change="typed(note.id)"
-                            @blur="save(note.id)"
+                            @blur="left(note.id)"
                         />
                         <!-- DS §6.2: Remove is a text danger; the filled danger lives only inside the confirm. -->
                         <template v-if="confirmingRemove === note.id">

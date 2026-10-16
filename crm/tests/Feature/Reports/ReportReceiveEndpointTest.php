@@ -107,13 +107,13 @@ final class ReportReceiveEndpointTest extends TestCase
         $author = $this->user(RoleName::IndoorSales);
         $manager = $this->user(RoleName::Manager);
         $id = $this->create($author);
-        $this->edit($author, $id, 'Submitted words.')->assertStatus(200);
+        $note = $this->note($author, $id, 'Submitted words.')->assertStatus(201)->json('data.id');
         $this->submit($author, $id, [$manager])->assertStatus(200);
-        DB::table('reports')->where('id', $id)->update(['notes' => 'Changed afterwards.']);
+        DB::table('report_notes')->where('id', $note)->update(['body' => 'Changed afterwards.']);
 
         $this->getJson(self::RECEIVED.'/'.$id, $this->bearer($manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.notes', 'Submitted words.');
+            ->assertJsonPath('data.notes.0.body', 'Submitted words.');
     }
 
     // ── viewed ──────────────────────────────────────────────────────────────
@@ -200,10 +200,10 @@ final class ReportReceiveEndpointTest extends TestCase
         $id = $this->submitted($author, [$manager]);
         $this->acknowledge($manager, $id)->assertStatus(200);
 
-        $this->edit($author, $id, 'Too late.')
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'report_not_draft');
+        // `D-131`: a note route answers 409 (the two-answers debt row in CHECKLIST.md).
+        $this->note($author, $id, 'Too late.')
+            ->assertStatus(409)
+            ->assertJsonPath('error.details.0.code', 'report_not_editable');
         $this->submit($author, $id, [$manager])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'business_rule_blocked')
@@ -288,17 +288,18 @@ final class ReportReceiveEndpointTest extends TestCase
         $author = $this->user(RoleName::IndoorSales);
         $manager = $this->user(RoleName::Manager);
         $id = $this->create($author);
-        $this->edit($author, $id, 'First words.')->assertStatus(200);
+        $note = $this->note($author, $id, 'First words.')->assertStatus(201)->json('data.id');
+        self::assertIsString($note);
         $this->submit($author, $id, [$manager])->assertStatus(200);
         $this->returnReport($manager, $id, 'Add the visit to Delta.')->assertStatus(200);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'returned')
-            ->assertJsonPath('data.notes', 'First words.')
+            ->assertJsonPath('data.notes.0.body', 'First words.')
             ->assertJsonPath('data.recipients.0.id', $manager->id);
 
-        $this->edit($author, $id, 'Second words.')->assertStatus(200);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/notes/'.$note, ['body' => 'Second words.'], $this->bearer($author))->assertStatus(200);
         $this->submit($author, $id, [$manager])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'submitted');
@@ -307,12 +308,12 @@ final class ReportReceiveEndpointTest extends TestCase
         self::assertSame([$manager->id], DB::table('report_recipients')->where('report_id', $id)->whereNull('deleted_at')->pluck('user_id')->all());
 
         $v1 = $this->version($id, 1);
-        self::assertSame('First words.', $this->snapshotOf($v1)['notes']);
+        self::assertEquals([['body' => 'First words.']], $this->snapshotOf($v1)['notes']);
         self::assertSame('Add the visit to Delta.', $v1->return_reason);
         self::assertSame($manager->id, $v1->returned_by);
 
         $v2 = $this->version($id, 2);
-        self::assertSame('Second words.', $this->snapshotOf($v2)['notes']);
+        self::assertEquals([['body' => 'Second words.']], $this->snapshotOf($v2)['notes']);
         self::assertNull($v2->returned_by);
         self::assertNull($v2->viewed_by);
     }
@@ -450,10 +451,14 @@ final class ReportReceiveEndpointTest extends TestCase
         );
     }
 
-    /** @return TestResponse<\Illuminate\Http\JsonResponse> */
-    private function edit(User $author, string $id, string $notes): TestResponse
+    /**
+     * `D-131`: a note, through its own route.
+     *
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
+    private function note(User $author, string $id, string $body): TestResponse
     {
-        return $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => $notes], [...$this->bearer($author), 'If-Match' => $this->etag($id)]);
+        return $this->postJson(self::ENDPOINT.'/'.$id.'/notes', ['body' => $body], $this->bearer($author));
     }
 
     /**

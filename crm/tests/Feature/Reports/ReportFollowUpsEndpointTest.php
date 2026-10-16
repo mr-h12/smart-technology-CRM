@@ -171,6 +171,57 @@ final class ReportFollowUpsEndpointTest extends TestCase
         self::assertSame([$mine], DB::table('report_follow_ups')->where('report_id', $id)->pluck('customer_id')->all());
     }
 
+    /**
+     * `D-131`, gap 1: an archived customer is out of reach even when the author owns
+     * it — the same 422 `error` as a customer outside the scope (`meta.request_id` is per request), on add and on edit,
+     * with no row and no audit entry written.
+     */
+    public function test_that_an_archived_customer_in_the_authors_scope_is_refused_like_one_outside_it(): void
+    {
+        $author = $this->user(RoleName::IndoorSales, 'a');
+        $colleague = $this->user(RoleName::IndoorSales, 'b');
+        $mine = $this->customer('Nile Trading', $author);
+        $archived = $this->customer('Old Delta', $author);
+        DB::table('customers')->where('id', $archived)->update(['is_archived' => true]);
+        $theirs = $this->customer('Delta Foods', $colleague);
+        $id = $this->create($author);
+        $row = $this->postJson($this->followUps($id), ['customer_id' => $mine, 'note' => 'Mine.'], $this->bearer($author))
+            ->assertStatus(201)->json('data.id');
+        self::assertIsString($row);
+        $audited = DB::table('audit_log')->where('event', 'like', 'REPORT_FOLLOW_UP_%')->count();
+
+        $outside = $this->postJson($this->followUps($id), ['customer_id' => $theirs, 'note' => 'x'], $this->bearer($author))
+            ->assertStatus(422)->json('error');
+        $this->postJson($this->followUps($id), ['customer_id' => $archived, 'note' => 'x'], $this->bearer($author))
+            ->assertStatus(422)
+            ->assertJsonPath('error', $outside);
+
+        $outside = $this->patchJson($this->followUps($id).'/'.$row, ['customer_id' => $theirs], $this->bearer($author))
+            ->assertStatus(422)->json('error');
+        $this->patchJson($this->followUps($id).'/'.$row, ['customer_id' => $archived], $this->bearer($author))
+            ->assertStatus(422)
+            ->assertJsonPath('error', $outside);
+
+        self::assertSame([$mine], DB::table('report_follow_ups')->where('report_id', $id)->pluck('customer_id')->all());
+        self::assertSame($audited, DB::table('audit_log')->where('event', 'like', 'REPORT_FOLLOW_UP_%')->count());
+    }
+
+    /** `D-131`, gap 3a: a customer that does not exist and one outside the scope are answered alike — no hint either exists. */
+    public function test_that_a_missing_customer_and_one_outside_the_scope_get_the_same_422(): void
+    {
+        $author = $this->user(RoleName::IndoorSales, 'a');
+        $theirs = $this->customer('Delta Foods', $this->user(RoleName::IndoorSales, 'b'));
+        $id = $this->create($author);
+
+        $outside = $this->postJson($this->followUps($id), ['customer_id' => $theirs, 'note' => 'x'], $this->bearer($author))
+            ->assertStatus(422)->json('error');
+        $missing = $this->postJson($this->followUps($id), ['customer_id' => (string) Str::uuid7(), 'note' => 'x'], $this->bearer($author))
+            ->assertStatus(422)->json('error');
+
+        self::assertSame($outside, $missing);
+        $this->assertDatabaseCount('report_follow_ups', 0);
+    }
+
     // ── notes ───────────────────────────────────────────────────────────────
 
     public function test_that_the_author_adds_edits_and_removes_a_note_and_each_is_audited(): void
@@ -305,6 +356,35 @@ final class ReportFollowUpsEndpointTest extends TestCase
         $this->patchJson($this->followUps($id).'/'.$row, ['note' => 'Edited after return.'], $this->bearer($author))->assertStatus(200);
         $this->patchJson($this->notes($id).'/'.$note, ['body' => 'Edited after return.'], $this->bearer($author))->assertStatus(200);
         $this->postJson($this->notes($id), ['body' => 'Added after return.'], $this->bearer($author))->assertStatus(201);
+    }
+
+    /**
+     * `D-131`, gap 3b: a recipient never reads the live rows. A draft never sent is
+     * a 404 to them; a returned report shows them the submitted copy, not the rows
+     * the author edits or adds after the return.
+     */
+    public function test_that_a_recipient_never_reads_a_drafts_live_rows(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $nile = $this->customer('Nile Trading', $author);
+        $delta = $this->customer('Delta Foods', $author);
+
+        // Login is limited to 10 a minute per user (`identity.rate_limit.login`): the draft takes one.
+        $this->getJson(self::ENDPOINT.'/received/'.$this->create($author), $this->bearer($manager))->assertStatus(404);
+
+        [$id, $row, $note] = $this->withRows($author, $nile);
+        $this->submit($author, $id, [$manager])->assertStatus(200);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/return', ['reason' => 'Add Delta.'], [...$this->bearer($manager), 'If-Match' => $this->etag($id)])
+            ->assertStatus(200);
+        $this->patchJson($this->followUps($id).'/'.$row, ['note' => 'Live edit.'], $this->bearer($author))->assertStatus(200);
+        $this->postJson($this->followUps($id), ['customer_id' => $delta, 'note' => 'Live add.'], $this->bearer($author))->assertStatus(201);
+        $this->patchJson($this->notes($id).'/'.$note, ['body' => 'Live edit.'], $this->bearer($author))->assertStatus(200);
+        $this->postJson($this->notes($id), ['body' => 'Live add.'], $this->bearer($author))->assertStatus(201);
+
+        $read = $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($manager))->assertStatus(200);
+        self::assertSame(['Before submit.'], $read->json('data.follow_ups.*.note'));
+        self::assertSame(['Before submit.'], $read->json('data.notes.*.body'));
     }
 
     public function test_that_an_unauthenticated_caller_is_refused(): void

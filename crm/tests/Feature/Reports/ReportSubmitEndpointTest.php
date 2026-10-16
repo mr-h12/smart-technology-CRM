@@ -146,13 +146,13 @@ final class ReportSubmitEndpointTest extends TestCase
         $manager = $this->user(RoleName::Manager);
         $this->activity($author->id, 'DEAL_CREATED', '2026-10-15 08:00:00');
         $id = $this->create($author);
-        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'A good day.'], [...$this->bearer($author), 'If-Match' => 'report:'.$id.':1'])
-            ->assertStatus(200);
+        // `D-131`: a note is written through its own route and leaves the report's token where it was.
+        $this->withNote($author, $id, 'A good day.');
 
-        $this->submit($author, $id, 'report:'.$id.':2', [$manager->id])
+        $this->submit($author, $id, 'report:'.$id.':1', [$manager->id])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'submitted')
-            ->assertJsonPath('data.etag', 'report:'.$id.':3')
+            ->assertJsonPath('data.etag', 'report:'.$id.':2')
             ->assertJsonPath('data.recipients.0.id', $manager->id)
             ->assertJsonPath('data.recipients.0.name', $manager->name);
 
@@ -170,7 +170,7 @@ final class ReportSubmitEndpointTest extends TestCase
         self::assertIsString($version->snapshot);
         $snapshot = json_decode($version->snapshot, true);
         self::assertIsArray($snapshot);
-        self::assertSame('A good day.', $snapshot['notes']);
+        self::assertEquals([['body' => 'A good day.']], $snapshot['notes']);
         self::assertIsArray($snapshot['activity']);
         self::assertIsArray($snapshot['activity']['counts']);
         self::assertSame(1, $snapshot['activity']['counts']['deals_created']);
@@ -280,15 +280,15 @@ final class ReportSubmitEndpointTest extends TestCase
         $author = $this->user(RoleName::IndoorSales);
         $manager = $this->user(RoleName::Manager);
         $id = $this->create($author);
-        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'x'], [...$this->bearer($author), 'If-Match' => 'report:'.$id.':1'])
-            ->assertStatus(200);
+        // The same submit sent twice from one opened copy (`D-131`: only submit and the answers move the token now).
+        $this->submit($author, $id, 'report:'.$id.':1', [$manager->id])->assertStatus(200);
 
         $this->submit($author, $id, 'report:'.$id.':1', [$manager->id])
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'concurrency_conflict')
             ->assertJsonPath('error.details.0.current_etag', 'report:'.$id.':2');
 
-        $this->assertStillDraft($id);
+        self::assertSame(1, DB::table('report_versions')->where('report_id', $id)->count(), 'The stale submit froze no second copy.');
     }
 
     public function test_that_a_submit_without_if_match_is_a_400(): void
@@ -454,13 +454,21 @@ final class ReportSubmitEndpointTest extends TestCase
         $ceo = $this->bearer($this->user(RoleName::Ceo));
 
         $this->getJson(self::ENDPOINT.'/'.$id, $ceo)->assertStatus(403);
-        $this->patchJson(self::ENDPOINT.'/'.$id, ['notes' => 'x'], [...$ceo, 'If-Match' => 'report:'.$id.':1'])->assertStatus(403);
+        $this->patchJson(self::ENDPOINT.'/'.$id, [], [...$ceo, 'If-Match' => 'report:'.$id.':1'])->assertStatus(403);
+        // `D-131`: the follow-up and note routes sit behind the same author gate.
+        $row = (string) Str::uuid7();
+        $this->postJson(self::ENDPOINT.'/'.$id.'/follow-ups', ['customer_id' => $row, 'note' => 'x'], $ceo)->assertStatus(403);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/follow-ups/'.$row, ['note' => 'x'], $ceo)->assertStatus(403);
+        $this->deleteJson(self::ENDPOINT.'/'.$id.'/follow-ups/'.$row, [], $ceo)->assertStatus(403);
+        $this->postJson(self::ENDPOINT.'/'.$id.'/notes', ['body' => 'x'], $ceo)->assertStatus(403);
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/notes/'.$row, ['body' => 'x'], $ceo)->assertStatus(403);
+        $this->deleteJson(self::ENDPOINT.'/'.$id.'/notes/'.$row, [], $ceo)->assertStatus(403);
         $this->getJson(self::ENDPOINT.'/'.$id.'/recipient-candidates', $ceo)->assertStatus(403);
         $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$manager->id]], [...$ceo, 'If-Match' => 'report:'.$id.':1'])
             ->assertStatus(403);
 
         $this->assertStillDraft($id);
-        self::assertNull(DB::table('reports')->where('id', $id)->value('notes'));
+        self::assertSame(0, DB::table('report_notes')->where('report_id', $id)->count());
     }
 
     public function test_that_an_unauthenticated_caller_is_refused(): void

@@ -13,7 +13,7 @@ use Illuminate\Database\ConnectionInterface;
 
 /**
  * Draft (or Returned, as the next version) → Submitted (§11.4): the frozen copy (§11.3, the acceptance criterion
- * "unchanged even if the data changes") and the chosen recipients (`D-127`,
+ * "unchanged even if the data changes"; with `D-131`'s follow-ups and notes, read under the report's row lock) and the chosen recipients (`D-127`,
  * `D-129`), in one transaction under the token.
  */
 final readonly class SubmitReport
@@ -22,6 +22,7 @@ final readonly class SubmitReport
         private ReportDirectoryInterface $reports,
         private ReportAccess $access,
         private DailyActivity $activity,
+        private ShowReport $show,
         private RecipientCandidates $candidates,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
@@ -41,7 +42,12 @@ final readonly class SubmitReport
                 throw ReportWriteRefused::recipientNotAllowed();
             }
 
-            $snapshot = ['notes' => $before->notes, 'activity' => $this->activity->of($before->authorId, $before->periodStart)];
+            // `D-131`: the follow-ups with their customer's name as it is now, and the notes — no row ids.
+            $snapshot = [
+                'follow_ups' => array_map(static fn (array $row): array => array_diff_key($row, ['id' => true]), $this->show->followUpsOf($reportId)),
+                'notes' => array_map(static fn (array $note): array => ['body' => $note['body']], $this->reports->rowsOf('note', $reportId)),
+                'activity' => $this->activity->of($before->authorId, $before->periodStart),
+            ];
 
             if (! $this->reports->submit($reportId, $before->versionToken, $snapshot, $recipientIds, $actorId)) {
                 throw ReportWriteRefused::staleVersion(ReportEtag::of($before));

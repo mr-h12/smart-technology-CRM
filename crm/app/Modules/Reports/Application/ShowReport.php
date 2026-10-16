@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Application;
 
+use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Report;
 
 /**
- * The reads: "My reports" and "Received reports", and one report with its activity — live
- * while the author can edit it, the frozen copy's once submitted (§11.3) — and its recipients.
+ * The reads: "My reports" and "Received reports", and one report with its activity, its
+ * follow-ups and notes (`D-131`) — live while the author can edit it, the frozen copy's
+ * once submitted (§11.3) — and its recipients.
  */
 final readonly class ShowReport
 {
@@ -19,6 +21,7 @@ final readonly class ShowReport
         private ReportAccess $access,
         private DailyActivity $activity,
         private UserFactsInterface $users,
+        private CustomerNamesInterface $customers,
     ) {}
 
     /** @return array{items: list<Report>, total: int} */
@@ -39,36 +42,52 @@ final readonly class ShowReport
         ];
     }
 
-    /** @return array{report: Report, notes: ?string, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
+    /** @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
     public function one(string $reportId, string $actorId): array
     {
         $report = $this->access->reach($reportId, $actorId);
 
-        return $this->read($report, $report->isEditable() ? null : $this->reports->latestSnapshot($reportId), $report->notes);
+        return $this->read($report, $report->isEditable() ? null : $this->reports->latestSnapshot($reportId));
     }
 
     /**
-     * A recipient reads the frozen copy — its notes too (§11.3) — and who wrote it.
+     * A recipient reads the frozen copy (§11.3) and who wrote it.
      *
-     * @return array{report: Report, notes: ?string, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
+     * @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
      */
     public function oneReceived(string $reportId, string $actorId): array
     {
         $report = $this->access->reachReceived($reportId, $actorId);
-        $frozen = $this->reports->latestSnapshot($reportId);
-        $notes = is_string($frozen['notes'] ?? null) ? $frozen['notes'] : null;
 
         return [
-            ...$this->read($report, $frozen, $notes),
+            ...$this->read($report, $this->reports->latestSnapshot($reportId)),
             'author_name' => $this->users->namesOf([$report->authorId])[$report->authorId] ?? '',
         ];
     }
 
     /**
-     * @param  array<string, mixed>|null  $frozen
-     * @return array{report: Report, notes: ?string, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>}
+     * `D-131`'s follow-ups with their customer's name now, as `SubmitReport` freezes them.
+     *
+     * @return list<array{id?: string, customer_id: string, customer_name: string, note: string}>
      */
-    private function read(Report $report, ?array $frozen, ?string $notes): array
+    public function followUpsOf(string $reportId): array
+    {
+        $rows = $this->reports->rowsOf('follow_up', $reportId);
+        $names = $this->customers->namesOf(array_values(array_unique(array_column($rows, 'customer_id'))));
+
+        return array_map(static fn (array $row): array => [
+            'id' => $row['id'],
+            'customer_id' => $row['customer_id'],
+            'customer_name' => $names[$row['customer_id']] ?? '',
+            'note' => $row['note'],
+        ], $rows);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $frozen
+     * @return array{report: Report, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, recipients: list<array{id: string, name: string}>}
+     */
+    private function read(Report $report, ?array $frozen): array
     {
         $ids = $this->reports->recipientIdsOf($report->id);
         $names = $this->users->namesOf($ids);
@@ -76,8 +95,22 @@ final readonly class ShowReport
         /** @var array<string, mixed> $activity the frozen copy holds what `DailyActivity::of()` answered at submit */
         $activity = is_array($frozen['activity'] ?? null) ? $frozen['activity'] : $this->activity->of($report->authorId, $report->periodStart);
 
+        if ($frozen === null) {
+            $followUps = $this->followUpsOf($report->id);
+            /** @var list<array{id?: string, body: string}> $notes */
+            $notes = $this->reports->rowsOf('note', $report->id);
+        } else {
+            /** @var list<array{id?: string, customer_id: string, customer_name: string, note: string}> $followUps `SubmitReport` froze this shape; a copy older than `D-131` has none */
+            $followUps = is_array($frozen['follow_ups'] ?? null) ? $frozen['follow_ups'] : [];
+            $frozenNotes = $frozen['notes'] ?? null;
+            // A copy older than `D-131` froze one notes string: it reads as one note.
+            /** @var list<array{id?: string, body: string}> $notes */
+            $notes = is_string($frozenNotes) ? [['body' => $frozenNotes]] : (is_array($frozenNotes) ? $frozenNotes : []);
+        }
+
         return [
             'report' => $report,
+            'follow_ups' => $followUps,
             'notes' => $notes,
             'activity' => $activity,
             'recipients' => array_map(static fn (string $id): array => ['id' => $id, 'name' => $names[$id] ?? ''], $ids),

@@ -182,7 +182,7 @@ final class ReportFollowUpsMigrationTest extends TestCase
     private function expectDatabaseError(string $sqlState, callable $write): void
     {
         try {
-            $write();
+            DB::transaction(fn () => $write());
             self::fail("The write succeeded; SQLSTATE {$sqlState} was expected.");
         } catch (QueryException $e) {
             self::assertSame($sqlState, $e->getCode());

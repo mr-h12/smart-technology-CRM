@@ -23,6 +23,10 @@ final class ReportWriteRefused extends RuntimeException
 
     public const NOT_AWAITING_ANSWER = 'report_not_awaiting_answer';
 
+    public const NOT_EDITABLE = 'report_not_editable';
+
+    public const CUSTOMER_NOT_ALLOWED = 'customer_not_allowed';
+
     private function __construct(
         public readonly string $reason,
         public readonly int $status,
@@ -47,6 +51,18 @@ final class ReportWriteRefused extends RuntimeException
     public static function notDraft(): self
     {
         return new self(self::NOT_DRAFT, 422, 'business_rule_blocked', 'status', null);
+    }
+
+    /** `D-131`: a follow-up or note is written only while the report is a draft or returned. */
+    public static function notEditable(): self
+    {
+        return new self(self::NOT_EDITABLE, 409, 'state_transition_invalid', 'status', null);
+    }
+
+    /** `D-131`: a follow-up's customer is one the author reaches under `customer.view` — never a hint that another exists. */
+    public static function customerNotAllowed(): self
+    {
+        return new self(self::CUSTOMER_NOT_ALLOWED, 422, 'validation_failed', 'customer_id', null);
     }
 
     /** §11.4: only a Submitted or Viewed report is acknowledged or returned; Acknowledged is final. */

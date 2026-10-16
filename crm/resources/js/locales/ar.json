@@ -1508,10 +1508,7 @@
             "countered": "عرض مقابل"
         },
         "notes": "الملاحظات",
-        "notes_hint": "ما حدث أيضاً اليوم. تُحفَظ مع التقرير.",
         "no_notes": "لا ملاحظات.",
-        "save": "حفظ الملاحظات",
-        "saved": "تمّ حفظ الملاحظات.",
         "conflict": "تغيّر هذا التقرير منذ فتحته. أعد تحميل الصفحة ثم حاول مجدّداً.",
         "recipients_title": "المستلمون",
         "recipients_hint": "اختر من يستلم هذا التقرير.",
@@ -1536,6 +1533,32 @@
         "return_title": "إرجاع التقرير",
         "return_reason": "سبب الإرجاع",
         "return_reason_required": "اكتب سبب إرجاع التقرير.",
-        "return_send": "إرجاع التقرير"
+        "return_send": "إرجاع التقرير",
+        "summary_title": "ملخص اليوم",
+        "filled": {
+            "auto": "تلقائي",
+            "follow_ups": "تكتبه أنت",
+            "notes": "تكتبها أنت"
+        },
+        "follow_ups_title": "التواصل والمتابعة",
+        "follow_up_add": "+ إضافة متابعة",
+        "follow_up_customer": "العميل",
+        "follow_up_note": "الملاحظة",
+        "follow_up_note_about": "ملاحظة عن {name}",
+        "follow_up_customer_required": "اختر العميل.",
+        "text_required": "اكتب الملاحظة؛ المحفوظة تبقى حتى ذلك الحين.",
+        "follow_up_remove_confirm": "حذف هذه المتابعة؟",
+        "no_follow_ups": "لا متابعات.",
+        "note_add": "+ إضافة ملاحظة",
+        "note_label": "ملاحظة {number}",
+        "note_remove_confirm": "حذف هذه الملاحظة؟",
+        "remove": "حذف",
+        "keep": "إبقاء",
+        "autosave": {
+            "saving": "جارٍ الحفظ…",
+            "saved": "تم الحفظ ✓",
+            "failed": "تعذّر الحفظ. نصّك ما زال هنا؛ حاول مجدّداً."
+        },
+        "submit_title": "إرسال التقرير"
     }
 }

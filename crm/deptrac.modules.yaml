@@ -159,6 +159,8 @@ deptrac:
               value: ^App\\Modules\\Reports\\Domain\\Contracts\\ReportSubmitted$
             - type: classLike
               value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
+            - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\ReportWriteRefused$
     - name: Notifications
       collectors:
         - type: directory
@@ -351,6 +353,8 @@ deptrac:
           value: ^App\\Modules\\Reports\\Domain\\Contracts\\ReportSubmitted$
         - type: classLike
           value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\ReportWriteRefused$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -983,6 +987,9 @@ deptrac:
     StorageDriver:
       - StorageContract
       - Framework
+      # `App\Support\Http\PrivateFileResponse` — the streamed attachment the files route
+      # and Pdf's report download both return; one builder instead of a copy per module.
+      - SharedContracts
     Framework: ~
     Factories: ~
     SharedContracts: ~

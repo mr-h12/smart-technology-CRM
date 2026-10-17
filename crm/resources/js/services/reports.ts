@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost, collection, type Page } from '@/api';
+import { downloadFrom } from '@/services/files';
 
 /**
  * Module 13 — the author's side of a report (`GET/POST /reports`,
@@ -136,6 +137,16 @@ export interface ReportPdfState {
 /** `D-132`: the stored PDF of one submitted version; the author and a recipient read it. */
 export async function readReportPdf(id: string, version: number): Promise<ReportPdfState> {
     return (await apiGet<ReportPdfState>(`/reports/${id}/versions/${version}/pdf`)).data;
+}
+
+/** `D-132`, 7.2: a `failed` version goes back to the queue; the server answers the new state (`202`) or refuses (`422`). */
+export async function retryReportPdf(id: string, version: number): Promise<ReportPdfState> {
+    return (await apiPost<ReportPdfState>(`/reports/${id}/versions/${version}/pdf/retry`, {})).data;
+}
+
+/** `D-132`, 7.2: the stored PDF through the report's route, which audits each download. */
+export async function downloadReportPdf(id: string, version: number, filename: string): Promise<void> {
+    return downloadFrom(`/reports/${id}/versions/${version}/pdf/download`, filename);
 }
 
 /** `D-131`'s row writes carry no `If-Match`: the last write to a row wins; the server answers the row. */

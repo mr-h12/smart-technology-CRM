@@ -806,6 +806,15 @@ const PDF_FAILED = { status: 'failed', file_id: null, failure_reason: 'The PDF c
 
 const PDF_URL = /\/reports\/rep1\/versions\/2\/pdf$/;
 
+const PDF_DOWNLOAD_URL = /\/reports\/rep1\/versions\/2\/pdf\/download$/;
+
+const PDF_RETRY_URL = /\/reports\/rep1\/versions\/2\/pdf\/retry$/;
+
+/** The `reports.pdf` labels of a locale file, typed loosely so a key the file lacks reads `undefined` and fails an assertion, not the compiler. */
+function pdfLabels(messages: unknown): Record<string, string | undefined> {
+    return (messages as { reports: { pdf: Record<string, string | undefined> } }).reports.pdf;
+}
+
 /** The report answers `report`; the PDF status answers `pdf` in turn, the last one repeating. */
 function pdfServer(report: unknown, pdf: unknown[]): ReturnType<typeof vi.fn> {
     let read = 0;
@@ -887,16 +896,22 @@ describe('ReportDetailView — the stored PDF of a submitted version (D-132)', (
         expect(pdfReads(fetchMock)).toBe(2);
     });
 
-    it('downloads a completed version through the files route', async () => {
-        const view = await render(pdfServer(PDF_SUBMITTED, [PDF_COMPLETED]), 'en', AUTHOR_EXPORT);
+    it('downloads a completed version through the report route, which audits it, and not the files route (7.2)', async () => {
+        // jsdom has no object URLs; the stub goes with `unstubAllGlobals()`, so no other test sees it.
+        vi.stubGlobal('URL', class extends URL {
+            static override createObjectURL = vi.fn(() => 'blob:report-pdf');
+            static override revokeObjectURL = vi.fn();
+        });
+        const fetchMock = pdfServer(PDF_SUBMITTED, [PDF_COMPLETED]);
+        const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
 
         const button = view.get('[data-testid="report-pdf-button"]');
         expect(button.text()).toContain('Download PDF');
         await button.trigger('click');
         await flushPromises();
 
-        expect(downloadFile).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(downloadFile).mock.calls[0]?.[0]).toBe('f9');
+        expect(gets(fetchMock).filter((url) => PDF_DOWNLOAD_URL.test(url))).toHaveLength(1);
+        expect(downloadFile).not.toHaveBeenCalled();
     });
 
     it('shows a recipient the same button on the received page', async () => {
@@ -913,6 +928,50 @@ describe('ReportDetailView — the stored PDF of a submitted version (D-132)', (
         expect(view.get('[data-testid="report-pdf-error"]').text().trim()).not.toBe('');
         expect(view.find('[data-testid="report-pdf-button"]').exists()).toBe(false);
         expect(downloadFile).not.toHaveBeenCalled();
+    });
+
+    /** 7.2: a failed version offers a retry beside its message; the click asks the server, then the page polls again. */
+    it('offers a retry when the render failed, and returns to preparing and polling after it', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const reads = pdfServer(PDF_SUBMITTED, [PDF_FAILED, PDF_QUEUED, PDF_QUEUED, PDF_COMPLETED]);
+        const fetchMock = vi.fn(async (input: string, init?: RequestInit) =>
+            init?.method === 'POST' && PDF_RETRY_URL.test(String(input)) ? json(202, { data: PDF_QUEUED, meta: { request_id: 'r' } }) : (reads as unknown as (url: string) => Promise<Response>)(input));
+        const view = await render(fetchMock, 'en', AUTHOR_EXPORT);
+
+        expect(view.find('[data-testid="report-pdf-error"]').exists()).toBe(true);
+        const retry = view.get('[data-testid="report-pdf-retry"]');
+        expect(retry.text()).toBe(pdfLabels(en).retry);
+        expect(retry.text()).not.toBe('');
+
+        await retry.trigger('click');
+        await flushPromises();
+
+        const posts = fetchMock.mock.calls.filter(([url, init]) => (init as RequestInit | undefined)?.method === 'POST' && PDF_RETRY_URL.test(String(url)));
+        expect(posts).toHaveLength(1);
+        expect(view.find('[data-testid="report-pdf-retry"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-pdf-error"]').exists()).toBe(false);
+        expect(view.get('[data-testid="report-pdf-button"]').text()).toContain('Preparing the PDF…');
+        expect(view.get('[data-testid="report-pdf-button"]').attributes('disabled')).toBeDefined();
+
+        for (let i = 0; i < 3; i++) {
+            await vi.advanceTimersByTimeAsync(3000);
+            await flushPromises();
+        }
+        expect(view.get('[data-testid="report-pdf-button"]').text()).toContain('Download PDF');
+        expect(posts).toHaveLength(1);
+    });
+
+    it('draws no retry for a queued or a completed version', async () => {
+        for (const pdf of [PDF_QUEUED, PDF_COMPLETED]) {
+            const view = await render(pdfServer(PDF_SUBMITTED, [pdf]), 'en', AUTHOR_EXPORT);
+            expect(view.find('[data-testid="report-pdf-retry"]').exists()).toBe(false);
+            view.unmount();
+        }
+    });
+
+    it('speaks the retry in Arabic', () => {
+        expect(String(pdfLabels(ar).retry)).toMatch(/[؀-ۿ]/);
+        expect(String(pdfLabels(en).retry)).toMatch(/^[A-Za-z ]+$/);
     });
 
     it('speaks Arabic on an Arabic screen, and no Arabic on an English one', async () => {

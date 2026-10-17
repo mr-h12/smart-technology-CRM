@@ -94,7 +94,7 @@ return [
             'quotations_created' => 'Quotations created',
             'quotations_sent' => 'Quotations sent',
             'customer_responses' => 'Customer responses',
-            'purchase_orders' => 'Purchase orders',
+            'purchase_orders' => 'POs they recorded',
         ],
         'columns' => [
             'code' => 'No.',

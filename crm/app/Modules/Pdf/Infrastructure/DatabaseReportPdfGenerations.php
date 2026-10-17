@@ -77,6 +77,17 @@ final readonly class DatabaseReportPdfGenerations implements ReportPdfGeneration
         ] + $this->touched());
     }
 
+    public function requeue(string $id, string $actorId): bool
+    {
+        return $this->live()->where('id', $id)->where('status', PdfGenerationStatus::Failed->value)->update([
+            'status' => PdfGenerationStatus::Queued->value,
+            'failure_reason' => null,
+            'finished_at' => null,
+            'updated_at' => now(),
+            'updated_by' => $actorId,
+        ]) === 1;
+    }
+
     private function live(): Builder
     {
         return $this->connection->table('report_pdf_generations')->whereNull('deleted_at');

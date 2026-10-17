@@ -39,6 +39,8 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
         $followUps = $snapshot['follow_ups'] ?? [];
         /** @var list<array{body: string}> $notes */
         $notes = $snapshot['notes'] ?? [];
+        /** @var array{daily_reports?: list<array{code: string, period_start: string, status: string}>, purchase_orders_received?: int, new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}} $weekly `WeeklyContent::of()`'s answer, frozen at submit (`D-126`, `D-134`) */
+        $weekly = $report->type === 'weekly' ? array_intersect_key($snapshot, array_flip(ShowReport::WEEKLY_KEYS)) : [];
 
         return [
             'report_id' => $report->id,
@@ -54,6 +56,7 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
             'follow_ups' => $followUps,
             'notes' => $notes,
             'activity' => $activity,
+            ...$weekly,
         ];
     }
 

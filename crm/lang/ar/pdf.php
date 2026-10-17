@@ -83,10 +83,12 @@ return [
         'meta' => [
             'version' => 'النسخة:',
             'period' => 'اليوم:',
+            'period_weekly' => 'الأسبوع:',
             'author' => 'مقدَّم من:',
             'submitted_at' => 'وقت الإرسال:',
         ],
         'summary' => 'ملخص اليوم',
+        'summary_weekly' => 'ملخص الأسبوع',
         'groups' => [
             'deals_created' => 'صفقات أُنشئت',
             'deal_status_moves' => 'تغييرات حالة الصفقات',
@@ -102,6 +104,8 @@ return [
             'from' => 'من',
             'to' => 'إلى',
             'response' => 'الرد',
+            'day' => 'اليوم',
+            'status' => 'الحالة',
         ],
         'deal_status' => [
             'lead' => 'مبدئي',
@@ -122,6 +126,24 @@ return [
             'rejected' => 'رفض',
             'partial' => 'قبول جزئي',
             'countered' => 'عرض مقابل',
+        ],
+        // `D-126`: a daily report's status in the weekly list — the SPA's `reports.status.*`.
+        'status' => [
+            'draft' => 'مسوّدة',
+            'submitted' => 'مُرسَل',
+            'viewed' => 'تمّ الاطّلاع',
+            'acknowledged' => 'معتمَد',
+            'returned' => 'مُرجَع',
+            'missed' => 'فائت',
+        ],
+        // `D-126`, `D-134`: a weekly report's own sections.
+        'weekly' => [
+            'daily_reports' => 'التقارير اليومية لهذا الأسبوع',
+            'no_daily_reports' => 'لا تقارير يومية في هذا الأسبوع.',
+            'purchase_orders_received' => 'أوامر شراء وصلت على صفقاته',
+            'no_purchase_orders' => 'لا أوامر شراء هذا الأسبوع.',
+            'new_customers' => 'العملاء الجدد هذا الأسبوع',
+            'no_new_customers' => 'لم يُضف أي عميل هذا الأسبوع.',
         ],
         'no_value' => '—',
         'none' => 'لا شيء مسجَّل.',

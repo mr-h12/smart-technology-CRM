@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Reports;
 
+use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
@@ -13,11 +14,13 @@ use App\Modules\Pdf\Application\Generation\RenderReportPdf;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Domain\Rendering\PdfRenderingFailed;
 use App\Modules\Pdf\Presentation\RenderReportPdfJob;
+use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Modules\Storage\Domain\ValueObjects\StoragePath;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -351,7 +354,94 @@ final class ReportPdfGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/مقدَّم من: —/u', $text);
     }
 
+    // ── the weekly PDF (6.5, `D-126`, `D-134`, `D-137`) ─────────────────────
+
+    /** Week Sunday 2026-10-11 → Thursday 2026-10-15; the fixtures sit on Tuesday and Thursday. */
+    public function test_that_a_weekly_pdf_holds_the_week_labels_its_daily_reports_the_po_count_and_the_new_customers(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $daily = $this->submitted($author, [$manager]);   // Thursday 2026-10-15, submitted
+        DB::table('purchase_orders')->insert([
+            'id' => (string) Str::uuid7(), 'quotation_id' => $this->insertQuotation($author->id),
+            'po_number' => 'PO-2026-0001', 'customer_po_reference' => 'REF-PO-2026-0001', 'po_date' => '2026-10-13', 'created_by' => $author->id,
+            'created_at' => '2026-10-13 09:00:00', 'updated_at' => '2026-10-13 09:00:00',
+        ]);
+        $this->customer('Nile New', $author);
+
+        $id = $this->weekly($author);
+        $this->submit($author, $id, [$manager])->assertStatus(200);
+        $raw = DB::table('report_versions')->where('report_id', $id)->value('snapshot');
+        self::assertIsString($raw);
+        /** @var array{daily_reports?: list<array{code: string}>, purchase_orders_received?: int, new_customers?: array{items: list<array{name: string}>}}|null $snapshot */
+        $snapshot = json_decode($raw, true);
+        self::assertIsArray($snapshot);
+        self::assertSame(
+            [[$this->code('reports', $daily)], 1, ['Nile New']],
+            [array_column($snapshot['daily_reports'] ?? [], 'code'), $snapshot['purchase_orders_received'] ?? null, array_column($snapshot['new_customers']['items'] ?? [], 'name')],
+            'The fixtures must reach the frozen copy, or this test proves nothing.',
+        );
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        foreach (['تقرير أسبوعي', 'الأسبوع:', 'ملخص الأسبوع', 'التقارير اليومية لهذا الأسبوع', $this->code('reports', $daily), 'مُرسَل', 'أوامر شراء وصلت على صفقاته', 'العملاء الجدد هذا الأسبوع', 'Nile New'] as $expected) {
+            self::assertStringContainsString($expected, $text);
+        }
+        foreach (['اليوم:', 'ملخص اليوم', 'التواصل والمتابعة'] as $daySide) {
+            self::assertStringNotContainsString($daySide, $text, 'A weekly PDF printed a daily label or the follow-ups section.');
+        }
+    }
+
+    public function test_that_a_daily_pdf_holds_no_weekly_label_or_section(): void
+    {
+        $id = $this->submitted($this->user(RoleName::IndoorSales), [$this->user(RoleName::Manager)]);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        foreach (['اليوم:', 'ملخص اليوم', 'التواصل والمتابعة'] as $expected) {
+            self::assertStringContainsString($expected, $text);
+        }
+        foreach (['الأسبوع:', 'ملخص الأسبوع', 'التقارير اليومية لهذا الأسبوع', 'أوامر شراء وصلت على صفقاته', 'العملاء الجدد هذا الأسبوع'] as $weekSide) {
+            self::assertStringNotContainsString($weekSide, $text);
+        }
+    }
+
+    public function test_that_an_empty_weekly_pdf_prints_its_three_empty_lines(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->weekly($author);
+        $this->submit($author, $id, [$this->user(RoleName::Manager)])->assertStatus(200);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        foreach (['لا تقارير يومية في هذا الأسبوع.', 'لا أوامر شراء هذا الأسبوع.', 'لم يُضف أي عميل هذا الأسبوع.'] as $empty) {
+            self::assertStringContainsString($empty, $text);
+        }
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
+
+    /**
+     * J-05 (`D-136`) drafts the author's weekly report for 2026-10-11 → 2026-10-15,
+     * run as the worker runs it, early on Sunday 2026-10-18. Three days on, every
+     * bearer token is past `D-29`'s eight idle hours, so each user logs in again.
+     */
+    private function weekly(User $author): string
+    {
+        // As `UpdateSettings` does: the earlier requests cached the settings map without the go-live date.
+        $this->app->make(SettingsRepositoryInterface::class)->put(SystemSetting::ReportsGoLiveDate, '2026-10-11');
+        $this->app->make(SettingsCacheInterface::class)->forgetSettings();
+        $this->travelTo(now()->setDate(2026, 10, 18)->setTime(3, 0));
+        $this->tokens = [];
+        $this->app->instance('request', Request::create('http://localhost'));
+        $this->app->call([new GenerateWeeklyReportsJob, 'handle']);
+
+        $id = DB::table('reports')->where('type', 'weekly')->where('author_id', $author->id)->value('id');
+        self::assertIsString($id, 'J-05 drafted no weekly report for the author.');
+        self::assertSame(['2026-10-11', '2026-10-15'], [DB::table('reports')->where('id', $id)->value('period_start'), DB::table('reports')->where('id', $id)->value('period_end')]);
+
+        return $id;
+    }
 
     /** Renders the report's v1 and answers the HTML the renderer was handed. */
     private function renderedHtml(string $reportId, int $version = 1): string

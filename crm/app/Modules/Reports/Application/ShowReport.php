@@ -16,7 +16,7 @@ use App\Modules\Reports\Domain\Report;
  */
 final readonly class ShowReport
 {
-    private const WEEKLY_KEYS = ['daily_reports', 'purchase_orders_received', 'new_customers'];
+    public const WEEKLY_KEYS = ['daily_reports', 'purchase_orders_received', 'new_customers'];
 
     public function __construct(
         private ReportDirectoryInterface $reports,

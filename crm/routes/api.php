@@ -933,6 +933,9 @@ Route::middleware('auth')->prefix('reports')->group(function (): void {
         ->middleware('permission:report.create');
     Route::delete('/{report}/notes/{note}', [ReportController::class, 'removeNote'])
         ->middleware('permission:report.create');
+    // `D-127`: a live recipient's comment (404 off the recipient list); `AddReportComment` owns that reach.
+    Route::post('/{report}/comments', [ReportController::class, 'addComment'])
+        ->middleware('permission:report.comment');
     Route::patch('/{report}/acknowledge', [ReportController::class, 'acknowledge'])
         ->middleware('permission:report.acknowledge');
     Route::patch('/{report}/return', [ReportController::class, 'returnToAuthor'])

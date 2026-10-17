@@ -52,6 +52,16 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return ['id' => $id, 'code' => $code];
     }
 
+    public function findDaily(string $authorId, string $day): ?array
+    {
+        /** @var object{id: string, code: string}|null $row */
+        $row = $this->connection->table('reports')
+            ->where('type', 'daily')->where('author_id', $authorId)->where('period_start', $day)
+            ->whereNull('deleted_at')->orderBy('created_at')->orderBy('id')->first(['id', 'code']);
+
+        return $row === null ? null : ['id' => $row->id, 'code' => $row->code];
+    }
+
     public function find(string $reportId, bool $lock = false): ?Report
     {
         if (! Str::isUuid($reportId)) {
@@ -150,6 +160,38 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
     {
         $this->connection->table(self::ROWS[$kind])->where('id', $rowId)
             ->update(['deleted_at' => now(), 'updated_by' => $actorId, 'updated_at' => now()]);
+    }
+
+    public function addComment(string $reportId, string $body, string $actorId): array
+    {
+        $id = Str::uuid7()->toString();
+        $at = now();
+
+        $this->connection->table('report_comments')->insert([
+            'id' => $id,
+            'report_id' => $reportId,
+            'body' => $body,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => $at,
+            'updated_at' => $at,
+        ]);
+
+        return ['id' => $id, 'created_at' => UtcAtom::of($at->toAtomString())];
+    }
+
+    public function commentsOf(string $reportId): array
+    {
+        /** @var list<object{id: string, body: string, created_by: string, created_at: string}> $rows non-null columns */
+        $rows = $this->connection->table('report_comments')
+            ->where('report_id', $reportId)->whereNull('deleted_at')
+            ->orderBy('created_at')->orderBy('id')
+            ->get(['id', 'body', 'created_by', 'created_at'])->all();
+
+        return array_map(static fn (object $row): array => [
+            'id' => $row->id, 'body' => $row->body,
+            'author_id' => $row->created_by, 'created_at' => UtcAtom::of($row->created_at),
+        ], $rows);
     }
 
     public function submit(string $reportId, int $versionToken, array $snapshot, array $recipientIds, ?string $actorId, bool $notReviewed = false): bool

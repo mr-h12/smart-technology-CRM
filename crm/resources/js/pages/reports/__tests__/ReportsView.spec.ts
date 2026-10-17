@@ -185,4 +185,108 @@ describe('ReportsView — My reports', () => {
         expect(arRows[0]!.text()).toContain('تقرير أسبوعي');
         expect(arRows[1]!.find('[data-testid="report-not-reviewed"]').text()).toContain('لم يُراجَع');
     });
+
+    // ── Module 13 · 7.3 — the duplicate-period warning and its choice (§3.10, `D-127`) ──
+    /**
+     * The server answers the first POST `409` with `details.0.code = report_duplicate_period` and the
+     * existing report (id, code). The page asks; it never decides. «افتح الموجود» opens that report;
+     * «أنشئ تقريراً آخر» POSTs once more with `confirm_duplicate` and a NEW `Idempotency-Key` — the
+     * same key with a changed body would be `idempotency_conflict` (`OpenAPI §5.1`).
+     */
+    const DUPLICATE = {
+        error: {
+            code: 'state_transition_invalid',
+            message: 'A daily report for this day already exists.',
+            details: [{ field: 'type', code: 'report_duplicate_period', message: 'A daily report for this day already exists.', existing_report: { id: 'rep1', code: 'RPT-DY-2026-0001' } }],
+        },
+        meta: { request_id: 'r' },
+    };
+
+    function duplicating(): ReturnType<typeof vi.fn> {
+        return vi.fn(async (_input: string, init?: RequestInit) => {
+            if (init?.method === 'POST') {
+                return JSON.parse(init.body as string).confirm_duplicate === true
+                    ? json(201, { data: { id: 'rep2', code: 'RPT-DY-2026-0002' }, meta: { request_id: 'r' } })
+                    : json(409, DUPLICATE);
+            }
+
+            return json(200, { data: [REPORT], meta: { request_id: 'r', pagination: PAGINATION } });
+        });
+    }
+
+    function posts(fetchMock: ReturnType<typeof vi.fn>): RequestInit[] {
+        return fetchMock.mock.calls
+            .filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+            .map(([, init]) => init as RequestInit);
+    }
+
+    it('opens a dialog naming the existing report when the server warns of a duplicate day', async () => {
+        const fetchMock = duplicating();
+        const { wrapper, router } = await render(fetchMock);
+
+        expect(wrapper.find('[data-testid="report-duplicate-dialog"]').exists()).toBe(false);
+        await wrapper.get('[data-testid="reports-new"]').trigger('click');
+        await flushPromises();
+
+        const dialog = wrapper.get('[data-testid="report-duplicate-dialog"]');
+        expect(dialog.text()).toContain('RPT-DY-2026-0001');
+        expect(dialog.get('[data-testid="report-duplicate-open"]').text()).toContain(en.reports.duplicate_open);
+        expect(dialog.get('[data-testid="report-duplicate-create"]').text()).toContain(en.reports.duplicate_create);
+        expect(posts(fetchMock)).toHaveLength(1);
+        expect(JSON.parse(posts(fetchMock)[0]!.body as string)).toEqual({ type: 'daily' });
+        expect(router.currentRoute.value.fullPath).toBe('/reports');
+        // The warning is not the generic failure.
+        expect(wrapper.text()).not.toContain(en.reports.error.create);
+    });
+
+    it('opens the existing report, and creates nothing, on «افتح الموجود»', async () => {
+        const fetchMock = duplicating();
+        const { wrapper, router } = await render(fetchMock);
+
+        await wrapper.get('[data-testid="reports-new"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="report-duplicate-open"]').trigger('click');
+        await flushPromises();
+
+        expect(router.currentRoute.value.fullPath).toBe('/reports/rep1');
+        expect(posts(fetchMock)).toHaveLength(1);
+    });
+
+    it('creates another report on «أنشئ تقريراً آخر»: a second POST with confirm_duplicate and a new key, then opens it', async () => {
+        const fetchMock = duplicating();
+        const { wrapper, router } = await render(fetchMock);
+
+        await wrapper.get('[data-testid="reports-new"]').trigger('click');
+        await flushPromises();
+        await wrapper.get('[data-testid="report-duplicate-create"]').trigger('click');
+        await flushPromises();
+
+        const [first, second] = posts(fetchMock);
+        expect(second).toBeDefined();
+        expect(JSON.parse(second!.body as string)).toEqual({ type: 'daily', confirm_duplicate: true });
+        const firstKey = new Headers(first!.headers).get('Idempotency-Key');
+        const secondKey = new Headers(second!.headers).get('Idempotency-Key');
+        expect(secondKey).toMatch(/^[0-9a-f-]{36}$/);
+        expect(secondKey).not.toBe(firstKey);
+        expect(router.currentRoute.value.fullPath).toBe('/reports/rep2');
+    });
+
+    it('draws the duplicate dialog in Arabic with the owner\'s two choices, and has English text for both', async () => {
+        const { wrapper } = await render(duplicating(), 'ar');
+
+        await wrapper.get('[data-testid="reports-new"]').trigger('click');
+        await flushPromises();
+
+        const labels = ar.reports as unknown as Record<string, string>;
+        expect(labels.duplicate_open).toBe('افتح الموجود');
+        expect(labels.duplicate_create).toBe('أنشئ تقريراً آخر');
+        for (const key of ['duplicate_title', 'duplicate_open', 'duplicate_create']) {
+            expect(labels[key], `ar.reports.${key}`).toMatch(/[؀-ۿ]/);
+            expect((en.reports as unknown as Record<string, string>)[key], `en.reports.${key}`).toBeTruthy();
+        }
+        const dialog = wrapper.get('[data-testid="report-duplicate-dialog"]');
+        expect(dialog.get('[data-testid="report-duplicate-open"]').text()).toBe('افتح الموجود');
+        expect(dialog.get('[data-testid="report-duplicate-create"]').text()).toBe('أنشئ تقريراً آخر');
+        expect(dialog.text()).toContain(labels.duplicate_title);
+    });
 });

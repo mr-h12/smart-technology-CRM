@@ -200,14 +200,14 @@ final class ReportReceiveEndpointTest extends TestCase
         $id = $this->submitted($author, [$manager]);
         $this->acknowledge($manager, $id)->assertStatus(200);
 
-        // `D-131`: a note route answers 409 (the two-answers debt row in CHECKLIST.md).
+        // `D-131`: a note route answers 409; since 7.3 (owner, 2026-10-18) submit answers the same one.
         $this->note($author, $id, 'Too late.')
             ->assertStatus(409)
             ->assertJsonPath('error.details.0.code', 'report_not_editable');
         $this->submit($author, $id, [$manager])
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'report_not_draft');
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'state_transition_invalid')
+            ->assertJsonPath('error.details.0.code', 'report_not_editable');
         $this->returnReport($manager, $id, 'Changed my mind.')
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'business_rule_blocked');

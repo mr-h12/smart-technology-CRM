@@ -4,7 +4,9 @@
  * first, and the button that starts today's daily report (RPT-DY).
  *
  * The server decides the day, the number and who may write one (`report.create`,
- * §3.10); this screen lists what it returns and opens what it creates.
+ * §3.10); this screen lists what it returns and opens what it creates. A second
+ * daily for a day the author already has one is the server's warning (`409
+ * report_duplicate_period`, `D-127`): a dialog offers the two choices and the page decides nothing.
  */
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -16,6 +18,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDateRange } from '@/domain/displayDate';
 import ReportStatusChip from '@/pages/reports/ReportStatusChip.vue';
+import { useModalDialog } from '@/components/useModalDialog';
 import { createDailyReport, listMyReports, type ReportSummary } from '@/services/reports';
 
 const { t, locale } = useI18n();
@@ -28,6 +31,11 @@ const failed = ref(false);
 const denied = ref(false);
 const creating = ref(false);
 const createFailed = ref(false);
+/** The report the server named in its duplicate warning; non-null while the dialog is drawn. */
+const duplicate = ref<{ id: string; code: string } | null>(null);
+const duplicateDialog = ref<HTMLDialogElement | null>(null);
+
+useModalDialog(duplicateDialog);
 
 /** `OpenAPI §9.1`: one key per press, so a retried request is still one report. */
 let idempotencyKey = crypto.randomUUID();
@@ -52,16 +60,25 @@ async function load(page = 1): Promise<void> {
     }
 }
 
-async function startDaily(): Promise<void> {
+async function startDaily(confirmDuplicate: boolean): Promise<void> {
     creating.value = true;
     createFailed.value = false;
 
     try {
-        const created = await createDailyReport(idempotencyKey);
+        const created = await createDailyReport(idempotencyKey, confirmDuplicate);
         idempotencyKey = crypto.randomUUID();
+        duplicate.value = null;
         await router.push({ name: 'report-detail', params: { id: created.id } });
-    } catch {
-        createFailed.value = true;
+    } catch (error) {
+        const existing = error instanceof ApiError ? error.details.find((detail) => detail.code === 'report_duplicate_period')?.existing_report : undefined;
+
+        if (existing !== undefined) {
+            // The same key with `confirm_duplicate` added would be `idempotency_conflict`: the choice gets a new one.
+            idempotencyKey = crypto.randomUUID();
+            duplicate.value = existing;
+        } else {
+            createFailed.value = true;
+        }
     } finally {
         creating.value = false;
     }
@@ -83,7 +100,7 @@ onMounted(() => load());
                 class="create-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="creating"
                 data-testid="reports-new"
-                @click="startDaily"
+                @click="startDaily(false)"
             >
                 {{ creating ? t('reports.creating') : t('reports.new_daily') }}
             </button>
@@ -141,5 +158,45 @@ onMounted(() => load());
                 </button>
             </nav>
         </div>
+
+        <dialog
+            v-if="duplicate !== null"
+            ref="duplicateDialog"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            aria-labelledby="report-duplicate-title"
+            @cancel.prevent="duplicate = null"
+        >
+            <div class="dialog-scrim absolute inset-0" @click="duplicate = null" />
+
+            <div class="dialog-panel relative flex w-full max-w-md flex-col gap-4 rounded-2xl p-6" data-testid="report-duplicate-dialog">
+                <h2 id="report-duplicate-title" class="text-card-title">{{ t('reports.duplicate_title') }}</h2>
+                <i18n-t keypath="reports.duplicate_message" tag="p" class="text-pretty">
+                    <template #code><bdi dir="ltr" class="tabular-nums">{{ duplicate.code }}</bdi></template>
+                </i18n-t>
+                <span class="flex flex-wrap justify-end gap-2">
+                    <button type="button" class="row-action min-h-11 rounded-lg px-3" :disabled="creating" @click="duplicate = null">
+                        {{ t('action.cancel') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="row-action min-h-11 rounded-lg px-3"
+                        :disabled="creating"
+                        data-testid="report-duplicate-open"
+                        @click="router.push({ name: 'report-detail', params: { id: duplicate.id } })"
+                    >
+                        {{ t('reports.duplicate_open') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="create-action min-h-11 rounded-lg px-3 disabled:opacity-60"
+                        :disabled="creating"
+                        data-testid="report-duplicate-create"
+                        @click="startDaily(true)"
+                    >
+                        {{ t('reports.duplicate_create') }}
+                    </button>
+                </span>
+            </div>
+        </dialog>
     </section>
 </template>

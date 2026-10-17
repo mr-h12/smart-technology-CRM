@@ -90,10 +90,20 @@ export interface ReportNote {
     body: string;
 }
 
+/** `D-127`: a recipient's comment; the list is flat, oldest first, never edited or removed. */
+export interface ReportComment {
+    id: string;
+    body: string;
+    author: { id: string; name: string };
+    created_at: string;
+}
+
 export interface ReportDetail extends ReportSummary {
     author_name?: string;
     follow_ups: ReportFollowUp[];
     notes: ReportNote[];
+    /** The server always sends it (oldest first); optional so a payload without one — an older cached read — draws as no comments. */
+    comments?: ReportComment[];
     etag: string;
     activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
@@ -118,9 +128,13 @@ export async function listMyReports(page = 1): Promise<Page<ReportSummary>> {
     return collection<ReportSummary>(await apiGet(`/reports?page=${page}`));
 }
 
-/** Today's daily report; `OpenAPI §9.1`'s key makes a retried click one report. */
-export async function createDailyReport(idempotencyKey: string): Promise<{ id: string; code: string }> {
-    return (await apiPost<{ id: string; code: string }>('/reports', { type: 'daily' }, { 'Idempotency-Key': idempotencyKey })).data;
+/**
+ * Today's daily report; `OpenAPI §9.1`'s key makes a retried click one report. A second one for the
+ * same day is the server's `409 report_duplicate_period` until `confirmDuplicate` — which needs a NEW key,
+ * the same key with a changed body being `idempotency_conflict`.
+ */
+export async function createDailyReport(idempotencyKey: string, confirmDuplicate = false): Promise<{ id: string; code: string }> {
+    return (await apiPost<{ id: string; code: string }>('/reports', { type: 'daily', ...(confirmDuplicate ? { confirm_duplicate: true } : {}) }, { 'Idempotency-Key': idempotencyKey })).data;
 }
 
 export async function readReport(id: string): Promise<ReportDetail> {
@@ -172,6 +186,10 @@ export async function updateReportNote(id: string, noteId: string, body: string)
 
 export async function removeReportNote(id: string, noteId: string): Promise<void> {
     await apiDelete(`/reports/${id}/notes/${noteId}`);
+}
+
+export async function addReportComment(id: string, body: string): Promise<ReportComment> {
+    return (await apiPost<ReportComment>(`/reports/${id}/comments`, { body })).data;
 }
 
 export async function readRecipientCandidates(id: string): Promise<RecipientCandidate[]> {

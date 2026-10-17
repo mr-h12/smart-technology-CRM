@@ -46,7 +46,7 @@ final readonly class ShowReport
         ];
     }
 
-    /** @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
+    /** @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>} */
     public function one(string $reportId, string $actorId): array
     {
         $report = $this->access->reach($reportId, $actorId);
@@ -57,7 +57,7 @@ final readonly class ShowReport
     /**
      * A recipient reads the frozen copy (§11.3) and who wrote it.
      *
-     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name: string}
      */
     public function oneReceived(string $reportId, string $actorId): array
     {
@@ -91,12 +91,13 @@ final readonly class ShowReport
 
     /**
      * @param  array<string, mixed>|null  $frozen
-     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>}
+     * @return array{report: Report, version: int, follow_ups: list<array{id?: string, customer_id: string, customer_name: string, note: string}>, notes: list<array{id?: string, body: string}>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>}
      */
     private function read(Report $report, ?array $frozen): array
     {
         $ids = $this->reports->recipientIdsOf($report->id);
-        $names = $this->users->namesOf($ids);
+        $comments = $this->reports->commentsOf($report->id);
+        $names = $this->users->namesOf(array_values(array_unique([...$ids, ...array_column($comments, 'author_id')])));
 
         /** @var array<string, mixed> $activity the frozen copy holds what `DailyActivity::of()` answered at submit */
         $activity = is_array($frozen['activity'] ?? null) ? $frozen['activity'] : $this->activity->of($report->authorId, $report->periodStart, $report->periodEnd);
@@ -119,6 +120,12 @@ final readonly class ShowReport
             'version' => $report->shownVersion($frozen !== null),
             'follow_ups' => $followUps,
             'notes' => $notes,
+            // `D-127`: live whatever the status — a comment never freezes with a version.
+            'comments' => array_map(static fn (array $c): array => [
+                'id' => $c['id'], 'body' => $c['body'],
+                'author' => ['id' => $c['author_id'], 'name' => $names[$c['author_id']] ?? ''],
+                'created_at' => $c['created_at'],
+            ], $comments),
             'activity' => $activity,
             // `D-126`/`D-134`: a weekly report's own sections — the frozen copy's once submitted.
             'weekly' => $report->type !== 'weekly' ? [] : ($frozen === null ? $this->weekly->of($report) : array_intersect_key($frozen, array_flip(self::WEEKLY_KEYS))),

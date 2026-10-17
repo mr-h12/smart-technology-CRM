@@ -8,7 +8,7 @@ use App\Modules\Reports\Domain\Report;
 
 /**
  * The module's persistence port: `reports`, `report_versions`, `report_recipients`,
- * and `D-131`'s rows — kind `follow_up` (`report_follow_ups`) and `note` (`report_notes`).
+ * `D-131`'s rows — kind `follow_up` (`report_follow_ups`) and `note` (`report_notes`) — and `D-127`'s `report_comments`.
  */
 interface ReportDirectoryInterface
 {
@@ -18,6 +18,13 @@ interface ReportDirectoryInterface
      * @return array{id: string, code: string}
      */
     public function createDraft(string $type, string $codePrefix, string $authorId, string $periodStart, string $periodEnd): array;
+
+    /**
+     * `D-127`: the author's live daily report for the company day (any status), or null.
+     *
+     * @return array{id: string, code: string}|null
+     */
+    public function findDaily(string $authorId, string $day): ?array;
 
     /** `$lock` holds the row until the caller's transaction ends, so a row write and a submit never interleave. */
     public function find(string $reportId, bool $lock = false): ?Report;
@@ -50,6 +57,20 @@ interface ReportDirectoryInterface
 
     /** Soft-deleted (`DB-01`). */
     public function removeRow(string $kind, string $rowId, string $actorId): void;
+
+    /**
+     * `D-127`: a recipient's comment, appended; answers its id and when it was written (UTC, ATOM).
+     *
+     * @return array{id: string, created_at: string}
+     */
+    public function addComment(string $reportId, string $body, string $actorId): array;
+
+    /**
+     * A report's live comments, oldest first.
+     *
+     * @return list<array{id: string, body: string, author_id: string, created_at: string}>
+     */
+    public function commentsOf(string $reportId): array;
 
     /**
      * Submit under the token: status, the next frozen version and the

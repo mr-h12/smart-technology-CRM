@@ -125,6 +125,99 @@ final class ReportWriteEndpointTest extends TestCase
         self::assertSame($this->userWith(RoleName::IndoorSales)->id, $entry->user_id);
     }
 
+    // ── the duplicate-period warning (§3.10's acceptance criterion; `D-127`; Module 13 · 7.3) ──
+
+    /**
+     * Same type, period and employee → a warning and a choice. The daily is the only type created by hand.
+     * The warning is `409` (the owner, 2026-10-18); `error.code` is `state_transition_invalid` — the only
+     * `OpenAPI §5.1` 409 row that reads "the request violates the documented workflow", the rule being §11's
+     * "the same type, period and employee cannot be submitted twice". `details.0.code` is the stable code
+     * the page branches on, and it names the existing report so «افتح الموجود» can open it.
+     */
+    public function test_that_a_second_daily_for_the_same_day_is_warned_and_creates_nothing(): void
+    {
+        $first = $this->create(RoleName::IndoorSales);
+        $code = $this->code('reports', $first);
+
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'state_transition_invalid')
+            ->assertJsonPath('error.details.0.code', 'report_duplicate_period')
+            ->assertJsonPath('error.details.0.existing_report.id', $first)
+            ->assertJsonPath('error.details.0.existing_report.code', $code);
+
+        self::assertSame(1, DB::table('reports')->count(), 'The warning created a report.');
+        self::assertSame(1, DB::table('audit_log')->where('event', 'REPORT_CREATED')->count(), 'The warning was audited as a create.');
+    }
+
+    /** The existing report counts at every status (a Missed or Archived one too), and not once it is soft-deleted. */
+    public function test_that_the_existing_report_counts_at_any_status_but_not_when_deleted(): void
+    {
+        $existing = $this->create(RoleName::IndoorSales);
+
+        foreach (['draft', 'submitted', 'viewed', 'acknowledged', 'returned', 'archived', 'missed'] as $status) {
+            DB::table('reports')->where('id', $existing)->update(['status' => $status]);
+
+            $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))
+                ->assertStatus(409)
+                ->assertJsonPath('error.details.0.code', 'report_duplicate_period')
+                ->assertJsonPath('error.details.0.existing_report.id', $existing);
+        }
+        self::assertSame(1, DB::table('reports')->count());
+
+        DB::table('reports')->where('id', $existing)->update(['deleted_at' => now()]);
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))->assertStatus(201);
+    }
+
+    /** The choice «أنشئ تقريراً آخر»: the same request with `confirm_duplicate`, answered like any create. */
+    public function test_that_a_confirmed_duplicate_creates_a_second_report_and_audits_it(): void
+    {
+        $first = $this->create(RoleName::IndoorSales);
+        // The warning is what the confirmation answers; without it this test would pass on a create that ignores the flag.
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))->assertStatus(409);
+
+        $second = $this->postJson(self::ENDPOINT, ['type' => 'daily', 'confirm_duplicate' => true], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(201)
+            ->assertJsonStructure(['data' => ['id', 'code']]);
+
+        self::assertNotSame($first, $second->json('data.id'));
+        self::assertSame('RPT-DY-2026-0002', $second->json('data.code'));
+        self::assertSame(2, DB::table('reports')->where('period_start', '2026-10-15')->count());
+        self::assertSame(2, DB::table('audit_log')->where('event', 'REPORT_CREATED')->count());
+        self::assertNotNull(DB::table('audit_log')->where('event', 'REPORT_CREATED')->where('entity_id', $second->json('data.id'))->first());
+    }
+
+    /** `confirm_duplicate: false` is no confirmation. */
+    public function test_that_an_unconfirmed_flag_is_still_a_warning(): void
+    {
+        $this->create(RoleName::IndoorSales);
+
+        $this->postJson(self::ENDPOINT, ['type' => 'daily', 'confirm_duplicate' => false], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(409)
+            ->assertJsonPath('error.details.0.code', 'report_duplicate_period');
+
+        self::assertSame(1, DB::table('reports')->count());
+    }
+
+    /** No duplicate, no warning: another employee's daily, or my own on another day, are different (type, period, employee) keys. */
+    public function test_that_another_author_or_another_day_is_no_duplicate(): void
+    {
+        $this->create(RoleName::IndoorSales);
+
+        // The control: the same author and day IS a duplicate, so the 201s below are the key's doing and not a missing rule.
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))->assertStatus(409);
+        $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::Manager))->assertStatus(201);
+
+        $this->travelTo(now()->setDate(2026, 10, 16)->setTime(9, 0));
+        $tomorrow = $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertSame('2026-10-16', DB::table('reports')->where('id', $tomorrow)->value('period_start'));
+
+        // A confirmation with nothing to confirm is harmless.
+        $this->postJson(self::ENDPOINT, ['type' => 'daily', 'confirm_duplicate' => true], $this->bearerFor(RoleName::Procurement))->assertStatus(201);
+    }
+
     // ── list: "My reports" ─────────────────────────────────────────────────
 
     public function test_that_my_reports_lists_only_the_authors_own(): void

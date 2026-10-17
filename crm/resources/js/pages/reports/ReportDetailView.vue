@@ -419,8 +419,8 @@ onMounted(load);
                         :version="report.version"
                     />
                     <ReportStatusChip :status="report.status" data-testid="report-status" />
-                    <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
-                    <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
+                    <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
+                    <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table text-[var(--color-warning)]" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
                 </div>
             </header>
 

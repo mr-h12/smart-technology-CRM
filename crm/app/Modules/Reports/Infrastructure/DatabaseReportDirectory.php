@@ -82,9 +82,10 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return $row === null ? null : self::hydrate($row);
     }
 
-    public function forAuthor(string $authorId, int $page, int $perPage): array
+    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived): array
     {
-        $query = $this->connection->table('reports')->whereNull('deleted_at')->where('author_id', $authorId);
+        $query = $this->connection->table('reports')->whereNull('deleted_at')->where('author_id', $authorId)
+            ->when(! $includeArchived, static fn ($query) => $query->where('status', '<>', 'archived'));
         $total = (clone $query)->count();
 
         /**
@@ -311,13 +312,14 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return $ids;
     }
 
-    public function forRecipient(string $userId, int $page, int $perPage): array
+    public function forRecipient(string $userId, int $page, int $perPage, bool $includeArchived): array
     {
         $query = $this->connection->table('reports')
             ->join('report_recipients', 'report_recipients.report_id', '=', 'reports.id')
             ->where('report_recipients.user_id', $userId)
             ->whereNull('report_recipients.deleted_at')
-            ->whereNull('reports.deleted_at');
+            ->whereNull('reports.deleted_at')
+            ->when(! $includeArchived, static fn ($query) => $query->where('reports.status', '<>', 'archived'));
         $total = (clone $query)->count();
 
         /**
@@ -472,6 +474,33 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             ->pluck('id')->all();
 
         return $ids;
+    }
+
+    public function archiveOlderThan(\DateTimeInterface $cutoff): array
+    {
+        // `J-08`: one statement, so a report is archived once. The age counts from the submit;
+        // a Missed report has none, so from its day. `version_token` moves, as every status
+        // change does (J-04), so a write holding the old token answers 409 rather than
+        // un-archiving it.
+        $rows = $this->connection->select(
+            "UPDATE reports SET status = 'archived', version_token = reports.version_token + 1, updated_by = NULL, updated_at = now()
+             FROM (SELECT id, status FROM reports
+                   WHERE status NOT IN ('draft', 'archived') AND deleted_at IS NULL
+                     AND (submitted_at < ? OR (submitted_at IS NULL AND period_end < ?))
+                   FOR UPDATE) old
+             WHERE reports.id = old.id
+             RETURNING reports.id, old.status AS old_status",
+            [$cutoff->format('Y-m-d H:i:sP'), $cutoff->format('Y-m-d')],
+        );
+
+        $moved = [];
+        foreach ($rows as $row) {
+            if ($row instanceof \stdClass && is_string($row->id) && is_string($row->old_status)) {
+                $moved[$row->id] = $row->old_status;
+            }
+        }
+
+        return $moved;
     }
 
     /** The report's highest version number; 0 when it has none. */

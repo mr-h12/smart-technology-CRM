@@ -112,8 +112,9 @@ function addComment(comment: ReportComment): void {
     }
 }
 
-/** `D-132`: a submitted version has its stored PDF; a draft and a returned report (the author's next version) do not. */
-const hasStoredPdf = computed(() => ['submitted', 'viewed', 'acknowledged'].includes(report.value?.status ?? ''));
+/** `D-132`: a submitted version has its stored PDF; a draft and a returned report (the author's next version) do not. §11.4: an archived one keeps it, if it was ever submitted (a Missed one was not). */
+const hasStoredPdf = computed(() => ['submitted', 'viewed', 'acknowledged'].includes(report.value?.status ?? '')
+    || (report.value?.status === 'archived' && report.value.submitted_at !== null));
 
 /** `D-131`: one box per follow-up or note; `key` names its pause, `stored` is what the server holds. */
 interface FollowUpRow {

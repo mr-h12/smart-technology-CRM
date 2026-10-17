@@ -135,6 +135,7 @@ return [
             'acknowledged' => 'معتمَد',
             'returned' => 'مُرجَع',
             'missed' => 'فائت',
+            'archived' => 'مؤرشف',
         ],
         // `D-126`, `D-134`: a weekly report's own sections.
         'weekly' => [

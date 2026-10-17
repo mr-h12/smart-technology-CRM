@@ -472,13 +472,14 @@
     },
     "limits": {
         "title": "Limits & SLAs",
-        "subtitle": "The thresholds, deadlines and ceilings this system enforces. Five of the six have never been configured.",
+        "subtitle": "The thresholds, deadlines and ceilings this system enforces. Five of the seven have never been configured.",
         "loading": "Loading the limits…",
         "saved": "Limits saved.",
         "field": {
             "limits_stale_deal_days": "Stale-deal threshold",
             "limits_quotation_approval_sla_hours": "Quotation approval SLA",
             "limits_weekly_review_window_hours": "Weekly review window",
+            "limits_report_archive_months": "Report archive age",
             "limits_max_file_size_mb": "Maximum file size",
             "identity_lockout_minutes": "Account lockout duration",
             "limits_customer_similarity_threshold": "Similar-name threshold"
@@ -487,7 +488,8 @@
             "days": "days",
             "hours": "hours",
             "megabytes": "MB",
-            "minutes": "minutes"
+            "minutes": "minutes",
+            "months": "months"
         },
         "error": {
             "load": "These limits could not be loaded. Try again.",
@@ -497,6 +499,7 @@
             "limits_stale_deal_days": "How many days a deal may sit with no activity before the system flags it as stale.",
             "limits_quotation_approval_sla_hours": "How many hours an approval may wait before it counts as overdue.",
             "limits_weekly_review_window_hours": "How many hours the weekly review stays open.",
+            "limits_report_archive_months": "How many months a sent report stays in the main lists before the system archives it. Archived reports can still be opened. Until a number is saved, 6 is used.",
             "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
             "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again.",
             "limits_customer_similarity_threshold": "How alike a new customer's name must be to an existing one before saving warns about a possible duplicate: a number above 0, up to 1. Higher means the names must be closer. Blank means no warning."
@@ -1467,6 +1470,7 @@
         },
         "title": "My reports",
         "subtitle": "Your reports, newest day first.",
+        "show_archived": "Show archived",
         "new_daily": "New daily report",
         "creating": "Creating…",
         "loading": "Loading reports…",
@@ -1493,7 +1497,8 @@
             "viewed": "Viewed",
             "acknowledged": "Acknowledged",
             "returned": "Returned",
-            "missed": "Missed"
+            "missed": "Missed",
+            "archived": "Archived"
         },
         "late": "Delivered late",
         "not_reviewed": "Not reviewed",

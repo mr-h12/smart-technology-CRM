@@ -32,4 +32,14 @@ describe('ReportStatusChip', () => {
         expect(missed).toContain('rounded-full');
         expect(submitted).toContain('rounded-full');
     });
+
+    /** 7.4: `J-08` writes `archived`; the chip words it in both languages and does not warn. */
+    it('renders the archived status word in Arabic and English, without the warning tone', () => {
+        const archived = render('archived', 'ar');
+
+        expect(archived.text()).toBe(ar.reports.status.archived);
+        expect(archived.text()).not.toContain('reports.status');
+        expect(render('archived', 'en').text()).toBe(en.reports.status.archived);
+        expect(archived.classes()).not.toContain('text-[var(--color-warning)]');
+    });
 });

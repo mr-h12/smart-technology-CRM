@@ -856,6 +856,21 @@ describe('ReportDetailView — the stored PDF of a submitted version (D-132)', (
         expect(pdfReads(fetchMock)).toBe(0);
     });
 
+    /** §11.4 (7.4): an archived report is still exportable — but only one that was submitted has a stored PDF. */
+    it('draws the button on an archived report that was submitted, and none on an archived Missed one', async () => {
+        const submitted = pdfServer({ ...PDF_SUBMITTED, status: 'archived' }, [PDF_COMPLETED]);
+        const view = await render(submitted, 'en', AUTHOR_EXPORT);
+
+        expect(view.get('[data-testid="report-pdf-button"]').text()).toContain('Download PDF');
+        expect(pdfReads(submitted)).toBe(1);
+
+        const missed = pdfServer({ ...DRAFT, status: 'archived', version: 1, submitted_at: null }, [PDF_QUEUED]);
+        const missedView = await render(missed, 'en', AUTHOR_EXPORT);
+
+        expect(missedView.find('[data-testid="report-pdf-button"]').exists()).toBe(false);
+        expect(pdfReads(missed)).toBe(0);
+    });
+
     it('shows the author a disabled «Preparing the PDF…» that names its version, and reads again on a timer', async () => {
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         const fetchMock = pdfServer(PDF_SUBMITTED, [PDF_QUEUED, PDF_QUEUED, PDF_COMPLETED]);

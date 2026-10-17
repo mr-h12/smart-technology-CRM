@@ -29,8 +29,8 @@ interface ReportDirectoryInterface
     /** `$lock` holds the row until the caller's transaction ends, so a row write and a submit never interleave. */
     public function find(string $reportId, bool $lock = false): ?Report;
 
-    /** @return array{items: list<Report>, total: int} newest period first */
-    public function forAuthor(string $authorId, int $page, int $perPage): array;
+    /** @return array{items: list<Report>, total: int} newest period first; archived ones (`J-08`) only when asked for */
+    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived): array;
 
     /**
      * One kind's live rows of a report, in the order they were added, each with its `id`.
@@ -103,7 +103,7 @@ interface ReportDirectoryInterface
     public function recipientIdsOf(string $reportId): array;
 
     /** @return array{items: list<Report>, total: int} the reports sent to the user, newest period first */
-    public function forRecipient(string $userId, int $page, int $perPage): array;
+    public function forRecipient(string $userId, int $page, int $perPage, bool $includeArchived): array;
 
     /**
      * A recipient's answer under the token: the report moves to `$status`
@@ -143,4 +143,13 @@ interface ReportDirectoryInterface
      * @return list<string> the ids
      */
     public function staleWeeklyDraftIds(\DateTimeInterface $createdBefore): array;
+
+    /**
+     * `J-08`, §11.4: every non-draft report not yet archived whose submit (a Missed
+     * report's day, having none) is before `$cutoff` becomes `archived`. Only those
+     * move, so a second run moves none.
+     *
+     * @return array<string, string> the id of each report moved, with the status it had
+     */
+    public function archiveOlderThan(\DateTimeInterface $cutoff): array;
 }

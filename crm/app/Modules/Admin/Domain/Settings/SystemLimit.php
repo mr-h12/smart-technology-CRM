@@ -48,6 +48,12 @@ enum SystemLimit: string
     /** §13/6 "weekly review window" — §11.5's 24 hours is the rule it governs. */
     case WeeklyReviewWindowHours = 'limits.weekly_review_window_hours';
 
+    /**
+     * `J-08`'s archive age · `D-127` · Module 13 · 7.4: whole months, at least one.
+     * Declared and unvalued like the others: the job reads 6 (§11.4) while it is unset.
+     */
+    case ReportArchiveMonths = 'limits.report_archive_months';
+
     /** §13/6 "maximum file size" · `D-39` — "10 MB (configurable)". */
     case MaxFileSizeMb = 'limits.max_file_size_mb';
 
@@ -103,6 +109,7 @@ enum SystemLimit: string
         return match ($this) {
             self::StaleDealDays => 'days',
             self::QuotationApprovalSlaHours, self::WeeklyReviewWindowHours => 'hours',
+            self::ReportArchiveMonths => 'months',
             self::MaxFileSizeMb => 'megabytes',
             self::LockoutMinutes => 'minutes',
             // A similarity score is a ratio of trigrams. It has no unit —

@@ -11,6 +11,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 
@@ -386,6 +387,135 @@ final class ReportReceiveEndpointTest extends TestCase
         $this->patchJson(self::ENDPOINT.'/'.$id.'/return', ['reason' => 'x'], ['If-Match' => 'report:'.$id.':2'])->assertStatus(401);
     }
 
+    // ── 7.4: slice 2's guard gaps 1–4 (CHECKLIST.md, the debt row of 2026-10-16) ──
+
+    /**
+     * Gap 1 — `ReportWriteRefused::notAwaitingAnswer()`: acknowledge twice, return an
+     * acknowledged report, acknowledge a returned one, return a returned one. The
+     * code is the refusal's own (`report_not_awaiting_answer`), not only the envelope's.
+     */
+    public function test_that_a_report_not_awaiting_an_answer_is_refused_with_its_own_code(): void
+    {
+        $manager = $this->user(RoleName::Manager);
+        $acknowledged = $this->submitted($this->user(RoleName::IndoorSales, 'a'), [$manager]);
+        $returned = $this->submitted($this->user(RoleName::IndoorSales, 'b'), [$manager]);
+        $this->acknowledge($manager, $acknowledged)->assertStatus(200);
+        $this->returnReport($manager, $returned, 'Add the visit to Delta.')->assertStatus(200);
+
+        foreach ([$acknowledged, $returned] as $id) {
+            $this->acknowledge($manager, $id)
+                ->assertStatus(422)
+                ->assertJsonPath('error.code', 'business_rule_blocked')
+                ->assertJsonPath('error.details.0.code', 'report_not_awaiting_answer')
+                ->assertJsonPath('error.details.0.field', 'status');
+            $this->returnReport($manager, $id, 'Once more.')
+                ->assertStatus(422)
+                ->assertJsonPath('error.code', 'business_rule_blocked')
+                ->assertJsonPath('error.details.0.code', 'report_not_awaiting_answer');
+        }
+
+        self::assertSame('acknowledged', DB::table('reports')->where('id', $acknowledged)->value('status'));
+        self::assertSame('returned', DB::table('reports')->where('id', $returned)->value('status'));
+        self::assertSame(1, DB::table('audit_log')->where('event', 'REPORT_ACKNOWLEDGED')->where('entity_id', $acknowledged)->count());
+        self::assertSame(1, DB::table('audit_log')->where('event', 'REPORT_RETURNED')->where('entity_id', $returned)->count());
+    }
+
+    /** @return array<string, array{RoleName}> */
+    public static function receivingRoles(): array
+    {
+        return [
+            'team leader' => [RoleName::TeamLeader],
+            'outdoor supervisor' => [RoleName::OutdoorSupervisor],
+        ];
+    }
+
+    /**
+     * Gap 2 — §3.10 grants the Team Leader and the Outdoor Supervisor *view received*,
+     * *acknowledge* and *return*; what was sent to them is theirs to open and answer, what was
+     * not is a 404. The Outdoor Supervisor is sent a report by submit (`Out` covers outdoor
+     * staff); a Team Leader is a candidate for nobody until teams exist (`D-129`), so a report
+     * sent to one is a `report_recipients` row.
+     */
+    #[DataProvider('receivingRoles')]
+    public function test_that_a_team_leader_or_an_outdoor_supervisor_answers_what_was_sent_to_them_and_only_that(RoleName $role): void
+    {
+        $recipient = $this->user($role, 'a');
+        $outsider = $this->user($role, 'b');
+        $toAcknowledge = $this->sentTo($recipient, 'one');
+        $toReturn = $this->sentTo($recipient, 'two');
+        $notMine = $this->sentTo($recipient, 'three');
+
+        $this->getJson(self::RECEIVED, $this->bearer($recipient))->assertStatus(200);
+        $this->getJson(self::RECEIVED.'/'.$toAcknowledge, $this->bearer($recipient))
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'viewed');
+        $this->acknowledge($recipient, $toAcknowledge)->assertStatus(200)->assertJsonPath('data.status', 'acknowledged');
+        $this->returnReport($recipient, $toReturn, 'Add the visit to Delta.')->assertStatus(200)->assertJsonPath('data.status', 'returned');
+        self::assertSame($recipient->id, $this->version($toReturn, 1)->returned_by);
+
+        // The same role, not sent these: the recipient's own success above is the control.
+        foreach ([$toAcknowledge, $toReturn, $notMine] as $id) {
+            $this->getJson(self::RECEIVED.'/'.$id, $this->bearer($outsider))->assertStatus(404);
+        }
+        $this->acknowledge($outsider, $notMine)->assertStatus(404);
+        $this->returnReport($outsider, $notMine, 'Not mine to return.')->assertStatus(404);
+        self::assertSame('submitted', DB::table('reports')->where('id', $notMine)->value('status'));
+        self::assertSame([], $this->getJson(self::RECEIVED, $this->bearer($outsider))->assertStatus(200)->json('data'));
+    }
+
+    /** Gap 3 — the audit entries carry the status change, and the return carries its reason. */
+    public function test_that_acknowledge_and_return_audit_the_old_and_the_new_values_with_the_reason(): void
+    {
+        $manager = $this->user(RoleName::Manager);
+        $viewed = $this->submitted($this->user(RoleName::IndoorSales, 'a'), [$manager]);
+        $returned = $this->submitted($this->user(RoleName::IndoorSales, 'b'), [$manager]);
+        $this->getJson(self::RECEIVED.'/'.$viewed, $this->bearer($manager))->assertStatus(200);
+
+        $this->acknowledge($manager, $viewed)->assertStatus(200);
+        $this->returnReport($manager, $returned, 'Add the visit to Delta.')->assertStatus(200);
+
+        [$old, $new] = $this->auditValues('REPORT_ACKNOWLEDGED', $viewed);
+        self::assertEquals(['status' => 'viewed'], $old);
+        self::assertEquals(['status' => 'acknowledged'], $new);
+
+        [$old, $new] = $this->auditValues('REPORT_RETURNED', $returned);
+        self::assertEquals(['status' => 'submitted'], $old);
+        self::assertEquals(['status' => 'returned', 'return_reason' => 'Add the visit to Delta.'], $new);
+    }
+
+    /**
+     * Gap 4 — the author is never on their own recipient list. Submit is the only route that
+     * writes recipients (and J-06, whose own test covers a Manager's weekly draft): a Manager
+     * holds *view received* and so would be a candidate for their own report, yet is refused.
+     */
+    public function test_that_an_author_cannot_name_themselves_a_recipient_on_submit_or_resubmit(): void
+    {
+        $author = $this->user(RoleName::Manager, 'author');
+        $colleague = $this->user(RoleName::Manager, 'colleague');
+        $id = $this->create($author);
+
+        $candidates = $this->getJson(self::ENDPOINT.'/'.$id.'/recipient-candidates', $this->bearer($author))->assertStatus(200)->json('data');
+        self::assertIsArray($candidates);
+        self::assertContains($colleague->id, array_column($candidates, 'id'), 'The control: another Manager is a candidate.');
+        self::assertNotContains($author->id, array_column($candidates, 'id'));
+
+        foreach ([[$author], [$author, $colleague]] as $recipients) {
+            $this->submit($author, $id, $recipients)
+                ->assertStatus(422)
+                ->assertJsonPath('error.details.0.code', 'recipient_not_allowed')
+                ->assertJsonPath('error.details.0.field', 'recipient_ids');
+        }
+        self::assertSame('draft', DB::table('reports')->where('id', $id)->value('status'));
+        self::assertSame(0, DB::table('report_recipients')->where('report_id', $id)->count());
+
+        // After a Return the author resubmits through the same rule.
+        $this->submit($author, $id, [$colleague])->assertStatus(200);
+        $this->returnReport($colleague, $id, 'Add the visit to Delta.')->assertStatus(200);
+        $this->submit($author, $id, [$author])->assertStatus(422)->assertJsonPath('error.details.0.code', 'recipient_not_allowed');
+        self::assertSame([$colleague->id], DB::table('report_recipients')->where('report_id', $id)->whereNull('deleted_at')->pluck('user_id')->all());
+        self::assertSame('returned', DB::table('reports')->where('id', $id)->value('status'));
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
 
     private function assertAudited(string $event, string $id, User $user): void
@@ -393,6 +523,39 @@ final class ReportReceiveEndpointTest extends TestCase
         $entry = DB::table('audit_log')->where('event', $event)->where('entity_id', $id)->first();
         self::assertNotNull($entry, "AUD-01: no {$event} entry.");
         self::assertSame($user->id, $entry->user_id);
+    }
+
+    /**
+     * A report of a new author sent to $recipient: by submit where the recipient is a candidate
+     * for the author, else (a Team Leader, `D-129`) submitted to a Manager and re-pointed.
+     */
+    private function sentTo(User $recipient, string $tag): string
+    {
+        if ($recipient->role?->slug === RoleName::OutdoorSupervisor->value) {
+            return $this->submitted($this->user(RoleName::OutdoorSales, $tag), [$recipient]);
+        }
+
+        $id = $this->submitted($this->user(RoleName::IndoorSales, $tag), [$this->user(RoleName::Manager, 'holder'.$tag)]);
+        DB::table('report_recipients')->where('report_id', $id)->update(['user_id' => $recipient->id]);
+
+        return $id;
+    }
+
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>} the entry's old and new values */
+    private function auditValues(string $event, string $id): array
+    {
+        $entry = DB::table('audit_log')->where('event', $event)->where('entity_id', $id)->first();
+        self::assertNotNull($entry, "AUD-01: no {$event} entry.");
+        self::assertIsString($entry->old_values);
+        self::assertIsString($entry->new_values);
+        $old = json_decode($entry->old_values, true);
+        $new = json_decode($entry->new_values, true);
+        self::assertIsArray($old);
+        self::assertIsArray($new);
+
+        /** @var array<string, mixed> $old */
+        /** @var array<string, mixed> $new */
+        return [$old, $new];
     }
 
     /**

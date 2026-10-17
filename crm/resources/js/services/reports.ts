@@ -12,7 +12,7 @@ import { downloadFrom } from '@/services/files';
  */
 
 // §11.4's statuses; Missed is J-04's (`D-135`), Archived arrives with the slice that sets it.
-export type ReportStatus = 'draft' | 'submitted' | 'viewed' | 'acknowledged' | 'returned' | 'missed';
+export type ReportStatus = 'draft' | 'submitted' | 'viewed' | 'acknowledged' | 'returned' | 'missed' | 'archived';
 
 export interface ReportSummary {
     id: string;
@@ -124,8 +124,8 @@ export interface RecipientCandidate {
     is_default: boolean;
 }
 
-export async function listMyReports(page = 1): Promise<Page<ReportSummary>> {
-    return collection<ReportSummary>(await apiGet(`/reports?page=${page}`));
+export async function listMyReports(page = 1, includeArchived = false): Promise<Page<ReportSummary>> {
+    return collection<ReportSummary>(await apiGet(`/reports?page=${page}${includeArchived ? '&include_archived=1' : ''}`));
 }
 
 /**
@@ -200,8 +200,8 @@ export async function submitReport(id: string, etag: string, recipientIds: strin
     return (await apiPatch<ReportDetail>(`/reports/${id}/submit`, { recipient_ids: recipientIds }, { 'If-Match': etag })).data;
 }
 
-export async function listReceivedReports(page = 1): Promise<Page<ReceivedReportSummary>> {
-    return collection<ReceivedReportSummary>(await apiGet(`/reports/received?page=${page}`));
+export async function listReceivedReports(page = 1, includeArchived = false): Promise<Page<ReceivedReportSummary>> {
+    return collection<ReceivedReportSummary>(await apiGet(`/reports/received?page=${page}${includeArchived ? '&include_archived=1' : ''}`));
 }
 
 /** `D-127`: the server marks the report Viewed on a recipient's first open. */

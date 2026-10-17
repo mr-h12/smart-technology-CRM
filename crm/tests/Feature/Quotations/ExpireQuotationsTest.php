@@ -17,7 +17,6 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -31,7 +30,7 @@ use Tests\TestCase;
  * before today in `locale.timezone` ⇒ `expired`, audited with the system actor,
  * idempotent (§15.1). An unset or unknown time zone falls back to
  * `app.timezone` (owner, 2026-09-23, Q-A). No deal move (Q2). The startup
- * catch-up (`D-55`, `ST-05`) is `quotations:expire`, dispatched onto
+ * catch-up (`D-55`, `ST-05`) is `schedule:catch-up`, dispatched onto
  * `maintenance` like the daily entry (Q-B).
  */
 final class ExpireQuotationsTest extends TestCase
@@ -230,27 +229,6 @@ final class ExpireQuotationsTest extends TestCase
         $scheduled[0]->run($this->app);
 
         Queue::assertPushedOn(QueueName::Maintenance->value, ExpireQuotationsJob::class);
-    }
-
-    /** `D-55` / `ST-05`: the `scheduler` service runs this once on start. */
-    public function test_the_catch_up_command_dispatches_onto_maintenance(): void
-    {
-        Queue::fake();
-
-        self::assertSame(0, Artisan::call('quotations:expire'));
-
-        Queue::assertPushedOn(QueueName::Maintenance->value, ExpireQuotationsJob::class);
-    }
-
-    /** Not a silent success: `&&` in the `scheduler` service stops on it. */
-    public function test_the_catch_up_fails_loudly_when_j01_is_not_scheduled(): void
-    {
-        Queue::fake();
-        $this->app->instance(Schedule::class, new Schedule);
-
-        self::assertSame(1, Artisan::call('quotations:expire'));
-
-        Queue::assertNothingPushed();
     }
 
     // ──────────────────────────────────────────────────────────────── fixtures

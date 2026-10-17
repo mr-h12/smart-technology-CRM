@@ -34,6 +34,7 @@ import { displayDate, displayDateRange } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
+import ReportStatusChip from '@/pages/reports/ReportStatusChip.vue';
 import { useAuth } from '@/stores/auth';
 import {
     ACTIVITY_COUNTS,
@@ -417,9 +418,7 @@ onMounted(load);
                         :report-code="report.code"
                         :version="report.version"
                     />
-                    <span class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1" :class="{ 'text-[var(--color-warning)]': report.status === 'missed' }" data-testid="report-status">
-                        {{ t(`reports.status.${report.status}`) }}
-                    </span>
+                    <ReportStatusChip :status="report.status" data-testid="report-status" />
                     <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
                     <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-3 py-1 text-[var(--color-warning)]" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
                 </div>
@@ -554,7 +553,7 @@ onMounted(load);
                             <li v-for="row in report.daily_reports" :key="row.code" class="flex flex-wrap items-center gap-x-4 gap-y-1 py-3" data-testid="weekly-daily-report-row">
                                 <span class="tabular-nums"><bdi dir="ltr">{{ row.code }}</bdi></span>
                                 <span class="tabular-nums text-[var(--color-text-muted)]">{{ displayDate(row.period_start, locale) }}</span>
-                                <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table" :class="{ 'text-[var(--color-warning)]': row.status === 'missed' }">{{ t(`reports.status.${row.status}`) }}</span>
+                                <ReportStatusChip :status="row.status" />
                             </li>
                         </ul>
                     </section>

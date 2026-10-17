@@ -174,7 +174,9 @@ final class NoHardCodedTextTest extends TestCase
                 // every label is a `reports.*` key.
                 'ReportDetailView.vue',
                 // Module 13, slice 4 — the stored PDF button; every word is a `reports.pdf.*` key.
-                'ReportPdfButton.vue', 'ReportsView.vue',
+                'ReportPdfButton.vue',
+                // Module 13 · 7.1 — the report status chip; its word is a `reports.status.*` key.
+                'ReportStatusChip.vue', 'ReportsView.vue',
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.

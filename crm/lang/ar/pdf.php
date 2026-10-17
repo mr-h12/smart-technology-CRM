@@ -95,7 +95,7 @@ return [
             'quotations_created' => 'عروض أسعار أُنشئت',
             'quotations_sent' => 'عروض أسعار أُرسلت',
             'customer_responses' => 'ردود العملاء',
-            'purchase_orders' => 'أوامر الشراء',
+            'purchase_orders' => 'أوامر شراء سجّلها',
         ],
         'columns' => [
             'code' => 'الرقم',

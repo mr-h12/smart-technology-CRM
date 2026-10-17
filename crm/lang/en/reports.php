@@ -26,5 +26,6 @@ return [
         'report_not_editable' => 'This report can no longer be changed: only a draft or returned report can.',
         'report_follow_up_not_allowed' => 'Follow-ups belong to the daily report only; a weekly report takes notes.',
         'customer_not_allowed' => 'Choose one of your own customers.',
+        'report_pdf_not_retryable' => 'Only a PDF that failed can be retried.',
     ],
 ];

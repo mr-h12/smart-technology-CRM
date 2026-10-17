@@ -1462,7 +1462,8 @@
         "pdf": {
             "preparing": "جارٍ تجهيز ملف PDF… (النسخة {version})",
             "download": "تنزيل PDF (النسخة {version})",
-            "failed": "تعذّر تجهيز ملف PDF."
+            "failed": "تعذّر تجهيز ملف PDF.",
+            "retry": "أعد المحاولة"
         },
         "title": "تقاريري",
         "subtitle": "تقاريرك، الأحدث يوماً أولاً.",

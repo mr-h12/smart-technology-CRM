@@ -34,8 +34,13 @@ export async function fetchFileUrl(fileId: string): Promise<string> {
 }
 
 export async function downloadFile(fileId: string, filename: string): Promise<void> {
+    return downloadFrom(`/files/${fileId}/download`, filename);
+}
+
+/** Saves what an authorised GET answers, under `filename` — the files route's, or a parent's own (a report's audited PDF). */
+export async function downloadFrom(path: string, filename: string): Promise<void> {
     // Revoked as soon as the save gesture has it.
-    const url = await fetchFileUrl(fileId);
+    const url = URL.createObjectURL(await apiDownload(path));
 
     try {
         const anchor = document.createElement('a');

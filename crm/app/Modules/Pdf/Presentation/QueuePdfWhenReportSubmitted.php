@@ -20,7 +20,8 @@ use Throwable;
  * (a failed PDF never unwinds the submit): on the `sync` connection the job runs
  * inline, and its failure is already recorded on the row by `failed()`.
  * ponytail: a push that fails outright (Redis down) leaves the row `queued` with
- * no job; the manual retry `D-132` defers to a later slice is the way back.
+ * no job, and `RetryReportPdf` takes a `failed` row only (owner's choice, 7.2), so a
+ * stuck `queued` row is not retryable; upgrade: let a `queued` row older than a bound retry.
  */
 final readonly class QueuePdfWhenReportSubmitted
 {

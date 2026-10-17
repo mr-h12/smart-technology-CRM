@@ -942,4 +942,11 @@ Route::middleware('auth')->prefix('reports')->group(function (): void {
     Route::get('/{report}/versions/{version}/pdf', [ReportPdfController::class, 'show'])
         ->whereNumber('version')
         ->middleware('permission:report.export');
+    // 7.2: a failed version's retry, and the audited download (the files route audits nothing).
+    Route::post('/{report}/versions/{version}/pdf/retry', [ReportPdfController::class, 'retry'])
+        ->whereNumber('version')
+        ->middleware('permission:report.export');
+    Route::get('/{report}/versions/{version}/pdf/download', [ReportPdfController::class, 'download'])
+        ->whereNumber('version')
+        ->middleware('permission:report.export');
 });

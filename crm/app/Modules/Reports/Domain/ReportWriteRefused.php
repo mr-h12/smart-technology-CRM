@@ -29,6 +29,8 @@ final class ReportWriteRefused extends RuntimeException
 
     public const FOLLOW_UP_NOT_ALLOWED = 'report_follow_up_not_allowed';
 
+    public const PDF_NOT_RETRYABLE = 'report_pdf_not_retryable';
+
     private function __construct(
         public readonly string $reason,
         public readonly int $status,
@@ -71,6 +73,12 @@ final class ReportWriteRefused extends RuntimeException
     public static function followUpNotAllowed(): self
     {
         return new self(self::FOLLOW_UP_NOT_ALLOWED, 422, 'business_rule_blocked', 'type', null);
+    }
+
+    /** `D-132`: only a `failed` stored PDF is retried; a queued or completed one is refused, not hidden. */
+    public static function pdfNotRetryable(): self
+    {
+        return new self(self::PDF_NOT_RETRYABLE, 422, 'business_rule_blocked', 'status', null);
     }
 
     /** §11.4: only a Submitted or Viewed report is acknowledged or returned; Acknowledged is final. */

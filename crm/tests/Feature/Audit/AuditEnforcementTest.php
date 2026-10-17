@@ -431,7 +431,9 @@ final class AuditEnforcementTest extends TestCase
 
             // Module 13 slice 4 (`D-132`): the report PDF's twin of the row above. AUD-01 is satisfied
             // one layer out: the submit records the report's own audit entry in the transaction that
-            // queues the row; the updates are the render job's progress, not an actor decision.
+            // queues the row; the updates are the render job's progress, not an actor decision. Point 7.2's
+            // `requeue()` is an actor's retry, audited one layer out: RetryReportPdf records REPORT_PDF_RETRIED
+            // in the transaction that calls it.
             DatabaseReportPdfGenerations::class => 'AUD-01 is satisfied one layer out: the report submit records its '
                     .'audit entry in the transaction that queues the row. The updates are the render job\'s own '
                     .'progress on that request, not an actor decision, and each row carries the submitter in '

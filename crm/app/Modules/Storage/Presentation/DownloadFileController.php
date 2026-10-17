@@ -6,8 +6,8 @@ namespace App\Modules\Storage\Presentation;
 
 use App\Modules\Storage\Application\DownloadFile;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
+use App\Support\Http\PrivateFileResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -61,31 +61,7 @@ final class DownloadFileController
 
         $stream = $storage->readStream($stored->path);
 
-        return new StreamedResponse(
-            function () use ($stream): void {
-                fpassthru($stream);
-                fclose($stream);
-            },
-            200,
-            [
-                'Content-Type' => $stored->mimeType,
-                'Content-Length' => (string) $stored->sizeBytes,
-                // The stored MIME is one of D-40's six, checked from the bytes
-                // at upload (Point 5.3). nosniff stops a browser overriding it
-                // anyway and executing what it decides the content really is.
-                'X-Content-Type-Options' => 'nosniff',
-                // makeDisposition emits filename* per RFC 5987, which is what
-                // carries an Arabic name through a header that is ASCII only.
-                'Content-Disposition' => HeaderUtils::makeDisposition(
-                    HeaderUtils::DISPOSITION_ATTACHMENT,
-                    $stored->originalName,
-                    self::asciiFallback($stored->originalName),
-                ),
-                // Permission is re-checked per request (OpenAPI §8.3); a shared
-                // cache holding the bytes would serve the next caller without it.
-                'Cache-Control' => 'private, no-store, max-age=0',
-            ],
-        );
+        return PrivateFileResponse::make($stream, $stored->mimeType, $stored->sizeBytes, $stored->originalName, self::asciiFallback($stored->originalName));
     }
 
     /** Something a header can always carry, when the real name is not ASCII. */

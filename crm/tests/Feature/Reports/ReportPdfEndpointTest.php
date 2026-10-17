@@ -9,6 +9,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Pdf\Application\Generation\RenderReportPdf;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
+use App\Modules\Pdf\Presentation\RenderReportPdfJob;
 use App\Modules\Storage\Domain\AttachmentParent;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -154,15 +155,7 @@ final class ReportPdfEndpointTest extends TestCase
         $author = $this->user(RoleName::IndoorSales);
         $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
 
-        $role = new Role;
-        $role->fill(['slug' => 'auditor_without_grants', 'name' => 'Auditor', 'is_editable' => true]);
-        $role->save();
-        $user = new User;
-        $user->fill([
-            'name' => 'Grantless', 'email' => 'grantless@example.test', 'password' => self::PASSWORD,
-            'role_id' => $role->id, 'is_active' => true, 'is_hidden' => false,
-        ]);
-        $user->save();
+        $user = $this->userWithoutGrants();
 
         $this->pdfStatus($user, $id, 1)->assertStatus(403);
     }
@@ -242,6 +235,268 @@ final class ReportPdfEndpointTest extends TestCase
         $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($manager))->assertNotFound();
     }
 
+    // ── retry (7.2, `D-132`'s deferred items) ───────────────────────────────
+
+    /**
+     * `D-132`, point 7.2: `POST …/versions/{version}/pdf/retry` puts a `failed` version back to `queued`,
+     * pushes one `RenderReportPdfJob` on `pdf`, answers `202` with the status read's shape, and audits it.
+     */
+    public function test_that_a_failed_version_is_requeued_once_on_retry_and_audited(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+        $generation = $this->generation($id, 1);
+        $this->markFailed($generation);
+        Queue::fake();   // forget the job the submit pushed: the retry's is the one counted
+
+        $this->pdfRetry($author, $id, 1)
+            ->assertStatus(202)
+            ->assertJsonPath('data.status', 'queued')
+            ->assertJsonPath('data.file_id', null)
+            ->assertJsonPath('data.failure_reason', null)
+            ->assertJsonPath('data.finished_at', null)
+            ->assertJsonStructure(['data' => ['status', 'file_id', 'failure_reason', 'finished_at']]);
+
+        $row = DB::table('report_pdf_generations')->where('id', $generation)->first();
+        self::assertNotNull($row);
+        self::assertSame('queued', $row->status);
+        self::assertNull($row->failure_reason);
+        self::assertNull($row->finished_at);
+        Queue::assertPushed(RenderReportPdfJob::class, 1);
+        Queue::assertPushedOn('pdf', RenderReportPdfJob::class, fn (RenderReportPdfJob $job): bool => $job->generationId === $generation);
+
+        $audit = $this->audits('REPORT_PDF_RETRIED', $id);
+        self::assertCount(1, $audit);
+        self::assertSame($author->id, $audit[0]['user_id']);
+        self::assertSame('report', $audit[0]['entity_type']);
+        self::assertSame(1, $audit[0]['new']['version'] ?? null);
+
+        // The row is a real queued row again: the worker's next run completes it.
+        $this->render($generation);
+        self::assertSame('completed', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+    }
+
+    /** `D-132`: the people who read the PDF may retry it — a recipient too — and a file already attached stays. */
+    public function test_that_a_recipient_may_retry_and_an_attached_file_stays(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->submitted($author, [$manager]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
+        $this->markFailed($generation);
+        Queue::fake();
+
+        $this->pdfRetry($manager, $id, 1)
+            ->assertStatus(202)
+            ->assertJsonPath('data.status', 'queued')
+            ->assertJsonPath('data.file_id', $fileId);
+
+        self::assertSame($fileId, DB::table('report_pdf_generations')->where('id', $generation)->value('file_id'));
+        Queue::assertPushed(RenderReportPdfJob::class, 1);
+        $audit = $this->audits('REPORT_PDF_RETRIED', $id);
+        self::assertCount(1, $audit);
+        self::assertSame($manager->id, $audit[0]['user_id']);
+    }
+
+    /** `D-132`: only a `failed` generation retries; a `queued` or `completed` one refuses and leaves everything as it was. */
+    public function test_that_a_queued_or_completed_version_refuses_a_retry(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+        $generation = $this->generation($id, 1);
+        Queue::fake();
+
+        $this->pdfRetry($author, $id, 1)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'business_rule_blocked')
+            ->assertJsonPath('error.details.0.code', 'report_pdf_not_retryable');
+        self::assertSame('queued', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+
+        $this->render($generation);
+        $this->pdfRetry($author, $id, 1)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'business_rule_blocked')
+            ->assertJsonPath('error.details.0.code', 'report_pdf_not_retryable');
+        self::assertSame('completed', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+
+        Queue::assertNothingPushed();
+        self::assertSame(0, DB::table('audit_log')->where('event', 'REPORT_PDF_RETRIED')->count());
+    }
+
+    /** The first retry takes the row out of `failed`, so a second one in a row is refused and pushes nothing. */
+    public function test_that_a_second_retry_in_a_row_is_refused_and_pushes_nothing_more(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+        $this->markFailed($this->generation($id, 1));
+        Queue::fake();
+
+        $this->pdfRetry($author, $id, 1)->assertStatus(202);
+        $this->pdfRetry($author, $id, 1)->assertStatus(422)->assertJsonPath('error.details.0.code', 'report_pdf_not_retryable');
+
+        Queue::assertPushed(RenderReportPdfJob::class, 1);
+        self::assertCount(1, $this->audits('REPORT_PDF_RETRIED', $id));
+    }
+
+    /** `report.export` is the route's (403, ahead of any row rule); no sign-in is `401`. Neither changes the row. */
+    public function test_that_a_retry_without_report_export_is_403_and_without_a_sign_in_401(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+        $generation = $this->generation($id, 1);
+        $this->markFailed($generation);
+        Queue::fake();
+
+        $this->pdfRetry($this->userWithoutGrants(), $id, 1)->assertStatus(403);
+        $this->app['auth']->forgetGuards();
+        $this->postJson(self::ENDPOINT.'/'.$id.'/versions/1/pdf/retry')->assertStatus(401);
+
+        self::assertSame('failed', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+        Queue::assertNothingPushed();
+        self::assertSame(0, DB::table('audit_log')->where('event', 'REPORT_PDF_RETRIED')->count());
+    }
+
+    /** A removed recipient, a draft, a missing version and a version with no generation row: the report's `404`, never a `422`. */
+    public function test_that_a_retry_by_a_removed_recipient_or_on_a_draft_a_missing_version_or_no_generation_is_404(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $draft = $this->create($author);
+        $id = $this->submitted($author, [$manager]);
+        $generation = $this->generation($id, 1);
+        $this->markFailed($generation);
+        Queue::fake();
+
+        // Control: a live recipient may retry, so the 404s below are the rule's and not an unregistered route's.
+        $this->pdfRetry($manager, $id, 1)->assertStatus(202);
+        $this->markFailed($generation);
+        Queue::fake();
+
+        $this->pdfRetry($author, $draft, 1)->assertStatus(404);
+        $this->pdfRetry($author, $id, 9)->assertStatus(404);
+
+        DB::table('report_recipients')->where('report_id', $id)->where('user_id', $manager->id)->update(['deleted_at' => now()]);
+        $this->pdfRetry($manager, $id, 1)->assertStatus(404);
+
+        DB::table('report_pdf_generations')->where('report_id', $id)->delete();
+        $this->pdfRetry($author, $id, 1)->assertStatus(404);
+
+        Queue::assertNothingPushed();
+        self::assertCount(1, $this->audits('REPORT_PDF_RETRIED', $id), 'Only the control retry was audited.');
+    }
+
+    // ── the audited download (7.2) ──────────────────────────────────────────
+
+    /**
+     * `D-132`: `GET …/versions/{version}/pdf/download` streams the stored PDF to the author or a live recipient
+     * and writes one `REPORT_PDF_DOWNLOADED` entry per download — the shared files route stays unaudited.
+     */
+    public function test_that_a_download_writes_one_audit_entry_and_a_refusal_writes_none(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->submitted($author, [$manager]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
+
+        $response = $this->pdfDownload($author, $id, 1);
+        $response->assertOk();
+        self::assertStringStartsWith('application/pdf', (string) $response->headers->get('Content-Type'));
+        self::assertSame(self::PDF, $response->streamedContent());
+        $audit = $this->audits('REPORT_PDF_DOWNLOADED', $id);
+        self::assertCount(1, $audit);
+        self::assertSame($author->id, $audit[0]['user_id']);
+        self::assertSame('report', $audit[0]['entity_type']);
+        self::assertSame(1, $audit[0]['new']['version'] ?? null);
+        self::assertSame($fileId, $audit[0]['new']['file_id'] ?? null);
+
+        $recipient = $this->pdfDownload($manager, $id, 1);
+        $recipient->assertOk();
+        self::assertSame(self::PDF, $recipient->streamedContent());
+        self::assertSame([$author->id, $manager->id], array_column($this->audits('REPORT_PDF_DOWNLOADED', $id), 'user_id'));
+
+        // A refusal writes nothing: no report.export, no sign-in.
+        $this->pdfDownload($this->userWithoutGrants(), $id, 1)->assertStatus(403);
+        $this->app['auth']->forgetGuards();
+        $this->getJson(self::ENDPOINT.'/'.$id.'/versions/1/pdf/download')->assertStatus(401);
+        self::assertCount(2, $this->audits('REPORT_PDF_DOWNLOADED', $id));
+    }
+
+    /** Nothing is stored for a `queued` or `failed` version: a `404`, and no audit entry for a download that did not happen. */
+    public function test_that_a_queued_or_failed_version_has_no_download_and_no_audit(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+
+        $this->pdfDownload($author, $id, 1)->assertStatus(404);
+
+        $generation = $this->generation($id, 1);
+        $this->markFailed($generation);
+        $this->pdfDownload($author, $id, 1)->assertStatus(404);
+        self::assertSame(0, DB::table('audit_log')->where('event', 'REPORT_PDF_DOWNLOADED')->count());
+
+        // Control: once retried and rendered, the same route answers the file — so the 404s above were the status's.
+        $this->pdfRetry($author, $id, 1)->assertStatus(202);
+        $this->render($generation);
+        $this->pdfDownload($author, $id, 1)->assertOk();
+        self::assertCount(1, $this->audits('REPORT_PDF_DOWNLOADED', $id));
+    }
+
+    /** The row rule is the status route's: a draft, a missing version, no generation row and a removed recipient are all `404`. */
+    public function test_that_a_download_by_a_removed_recipient_or_on_a_draft_a_missing_version_or_no_generation_is_404(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $manager = $this->user(RoleName::Manager);
+        $draft = $this->create($author);
+        $id = $this->submitted($author, [$manager]);
+        $this->render($this->generation($id, 1));
+
+        // Control: a live recipient is served, so the 404s below are the rule's and not an unregistered route's.
+        $this->pdfDownload($manager, $id, 1)->assertOk();
+
+        $this->pdfDownload($author, $draft, 1)->assertStatus(404);
+        $this->pdfDownload($author, $id, 9)->assertStatus(404);
+
+        DB::table('report_recipients')->where('report_id', $id)->where('user_id', $manager->id)->update(['deleted_at' => now()]);
+        $this->pdfDownload($manager, $id, 1)->assertStatus(404);
+
+        DB::table('report_pdf_generations')->where('report_id', $id)->delete();
+        $this->pdfDownload($author, $id, 1)->assertStatus(404);
+
+        self::assertCount(1, $this->audits('REPORT_PDF_DOWNLOADED', $id), 'Only the control download was audited.');
+    }
+
+    #[DataProvider('outsiders')]
+    public function test_that_anyone_else_gets_a_404_on_the_retry_and_the_audited_download(RoleName $role): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $recipient = $this->user(RoleName::Manager, 'recipient');
+        $id = $this->submitted($author, [$recipient]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $outsider = $this->user($role, 'outsider');
+
+        $this->pdfDownload($outsider, $id, 1)->assertStatus(404);
+
+        // Control: the author is served and may retry, so the outsider's 404s are the rule's and not an unregistered route's.
+        $this->pdfDownload($author, $id, 1)->assertOk();
+        $this->markFailed($generation);
+        $this->pdfRetry($author, $id, 1)->assertStatus(202);
+        $this->markFailed($generation);
+        Queue::fake();
+
+        $this->pdfRetry($outsider, $id, 1)->assertStatus(404);
+
+        self::assertSame('failed', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+        Queue::assertNothingPushed();
+        self::assertSame(0, DB::table('audit_log')->whereIn('event', ['REPORT_PDF_DOWNLOADED', 'REPORT_PDF_RETRIED'])->where('user_id', $outsider->id)->count());
+    }
+
     // ── the version the payload shows ───────────────────────────────────────
 
     /** The SPA builds `…/versions/{version}/pdf` from `data.version` (spec §4.4: the label names its version). */
@@ -286,6 +541,56 @@ final class ReportPdfEndpointTest extends TestCase
     private function pdfStatus(User $caller, string $reportId, int $version): TestResponse
     {
         return $this->getJson(self::ENDPOINT.'/'.$reportId.'/versions/'.$version.'/pdf', $this->bearer($caller));
+    }
+
+    /** @return TestResponse<\Illuminate\Http\JsonResponse> */
+    private function pdfRetry(User $caller, string $reportId, int $version): TestResponse
+    {
+        return $this->postJson(self::ENDPOINT.'/'.$reportId.'/versions/'.$version.'/pdf/retry', [], $this->bearer($caller));
+    }
+
+    /** @return TestResponse<\Symfony\Component\HttpFoundation\Response> */
+    private function pdfDownload(User $caller, string $reportId, int $version): TestResponse
+    {
+        return $this->get(self::ENDPOINT.'/'.$reportId.'/versions/'.$version.'/pdf/download', $this->bearer($caller));
+    }
+
+    /** What the worker leaves after `--tries=3` is spent: failed, with a reason and a finish time (a file already attached stays). */
+    private function markFailed(string $generationId): void
+    {
+        DB::table('report_pdf_generations')->where('id', $generationId)->update([
+            'status' => 'failed', 'failure_reason' => 'The PDF could not be rendered.', 'finished_at' => now(),
+        ]);
+    }
+
+    /** @return list<array{user_id: string, entity_type: string, new: array<string, mixed>}> */
+    private function audits(string $event, string $reportId): array
+    {
+        $rows = [];
+        foreach (DB::table('audit_log')->where('event', $event)->where('entity_id', $reportId)->orderBy('created_at')->orderBy('id')->get() as $row) {
+            $new = is_string($row->new_values) ? json_decode($row->new_values, true) : [];
+            self::assertIsArray($new);
+            /** @var array<string, mixed> $new */
+            $rows[] = ['user_id' => is_string($row->user_id) ? $row->user_id : '', 'entity_type' => is_string($row->entity_type) ? $row->entity_type : '', 'new' => $new];
+        }
+
+        return $rows;
+    }
+
+    /** A role with no grants: it reaches no route that names a permission. */
+    private function userWithoutGrants(): User
+    {
+        $role = new Role;
+        $role->fill(['slug' => 'auditor_without_grants', 'name' => 'Auditor', 'is_editable' => true]);
+        $role->save();
+        $user = new User;
+        $user->fill([
+            'name' => 'Grantless', 'email' => 'grantless@example.test', 'password' => self::PASSWORD,
+            'role_id' => $role->id, 'is_active' => true, 'is_hidden' => false,
+        ]);
+        $user->save();
+
+        return $user;
     }
 
     private function render(string $generationId): void

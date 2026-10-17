@@ -1462,7 +1462,8 @@
         "pdf": {
             "preparing": "Preparing the PDF… (version {version})",
             "download": "Download PDF (version {version})",
-            "failed": "The PDF could not be prepared."
+            "failed": "The PDF could not be prepared.",
+            "retry": "Try again"
         },
         "title": "My reports",
         "subtitle": "Your reports, newest day first.",

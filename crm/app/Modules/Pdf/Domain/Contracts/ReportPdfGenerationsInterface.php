@@ -28,4 +28,10 @@ interface ReportPdfGenerationsInterface
     public function complete(string $id): void;
 
     public function fail(string $id, string $reason): void;
+
+    /**
+     * `failed` → `queued` for a manual retry, by `$actorId`; the attached file stays. A conditional write on
+     * `failed`, so of two concurrent retries only one returns true.
+     */
+    public function requeue(string $id, string $actorId): bool;
 }

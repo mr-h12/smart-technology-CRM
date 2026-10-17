@@ -406,6 +406,30 @@ final class ReportPdfGenerationTest extends TestCase
         }
     }
 
+    /**
+     * `D-132`, point 7.2 (6.3's naming applied to the PDF): the activity's PO group reads «أوامر شراء سجّلها»,
+     * in the summary tile and the group's heading; the weekly report's own «أوامر شراء وصلت على صفقاته» is not touched.
+     */
+    public function test_that_a_daily_pdf_reads_the_po_group_as_recorded_by_the_author(): void
+    {
+        $author = $this->user(RoleName::IndoorSales);
+        $order = (string) Str::uuid7();
+        DB::table('purchase_orders')->insert([
+            'id' => $order, 'quotation_id' => $this->insertQuotation($author->id),
+            'po_number' => 'PO-2026-0002', 'customer_po_reference' => 'REF-PO-2026-0002', 'po_date' => '2026-10-15', 'created_by' => $author->id,
+            'created_at' => '2026-10-15 08:50:00', 'updated_at' => '2026-10-15 08:50:00',
+        ]);
+        $this->activity($author->id, 'PURCHASE_ORDER_CREATED', 'purchase_order', '2026-10-15 08:50:00', $order);
+        $id = $this->submitted($author, [$this->user(RoleName::Manager)]);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        self::assertStringContainsString('PO-2026-0002', $text, 'The fixture must reach the PDF, or this test proves nothing.');
+        self::assertSame(2, substr_count($text, 'أوامر شراء سجّلها'), 'The tile and the group heading.');
+        self::assertStringNotContainsString('أوامر الشراء', $text, 'The old label is gone from the daily PDF.');
+        self::assertStringNotContainsString('أوامر شراء وصلت على صفقاته', $text);
+    }
+
     public function test_that_an_empty_weekly_pdf_prints_its_three_empty_lines(): void
     {
         $author = $this->user(RoleName::IndoorSales);

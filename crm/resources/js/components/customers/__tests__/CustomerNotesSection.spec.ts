@@ -201,6 +201,34 @@ describe('CustomerNotesSection — D-124, notes save themselves', () => {
         expect(box.attributes('aria-invalid')).toBe('true');
     });
 
+    it('after a save, a cleared note shows the required error and no longer says saved', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+        try {
+            const fetchMock = stub((_url, init) => (init?.method === 'PATCH'
+                ? json(200, { data: { ...DATED, body: 'Second wording.' }, meta: {} })
+                : listOf(DATED)));
+
+            const view = render(true, 'ar');
+            await vi.advanceTimersByTimeAsync(0);
+
+            const box = view.find('[data-testid="customer-note-body"]');
+            await box.setValue('Second wording.');
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(sent(fetchMock, 'PATCH')).toHaveLength(1);
+            expect(view.find('[data-testid="customer-note-status"]').text()).toBe(ar.customers.notes.saved);
+
+            await box.setValue('');
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(sent(fetchMock, 'PATCH')).toHaveLength(1);
+            expect(view.find('[data-testid="customer-note-body-error"]').text()).toBe(ar.customers.notes.required);
+            expect(view.find('[data-testid="customer-note-status"]').text()).not.toContain(ar.customers.notes.saved);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("puts the server's sentence under the box when it refuses, and keeps what was typed", async () => {
         stub((_url, init) => (init?.method === 'PATCH'
             ? json(422, { error: { code: 'validation_failed', message: 'Invalid.', details: [{ field: 'body', message: 'The note may not be longer than 5000 characters.' }] } })

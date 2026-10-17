@@ -19,6 +19,11 @@
     from and to status, a customer response its response, through `$word` from
     `lang/ar/pdf.php` (`report.deal_status.*`, `report.response.*`, kept equal to the
     SPA's words by `ReportPdfLabelsTest`). A code with no label prints raw; no from is a dash.
+
+    A weekly report (`D-126`, `D-134`) names its week (`meta.period_weekly`, `summary_weekly`), then
+    prints its own sections from `report.weekly.*` — its daily reports with their status
+    (`report.status.*`, the SPA's `reports.status.*`), the POs received, the new customers — and has
+    no follow-ups (`D-137`).
 --}}
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -55,15 +60,15 @@
         .report-meta .label { font-weight: 700; }
 
         .report-summary { margin-top: 6mm; }
-        .report-summary h2, .report-follow-ups h2, .report-notes h2 { font-size: 12.5pt; padding-bottom: 1.2mm; border-bottom: 0.75pt solid #bfbfbf; }
+        .report-summary h2, .report-weekly h2, .report-follow-ups h2, .report-notes h2 { font-size: 12.5pt; padding-bottom: 1.2mm; border-bottom: 0.75pt solid #bfbfbf; }
         .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-top: 3mm; }
         .kpi { background: #f2f2f2; border: 0.75pt solid #bfbfbf; padding: 2.4mm 3mm; break-inside: avoid; }
         .kpi .n { font-size: 17pt; font-weight: 700; line-height: 1.2; }
         .kpi .l { font-size: 9pt; color: #333; }
 
-        .report-group, .report-follow-ups, .report-notes { padding-top: 7mm; }
+        .report-group, .report-weekly, .report-follow-ups, .report-notes { padding-top: 7mm; }
         .report-group h3 { font-size: 11.5pt; margin-bottom: 2mm; break-after: avoid; break-inside: avoid; }
-        .report-group h3 .count { font-weight: 400; color: #555; }
+        .report-group h3 .count, .report-weekly h2 .count { font-weight: 400; color: #555; }
 
         table { border-collapse: collapse; width: 100%; }
         th, td { padding: 1.9mm 1.6mm; text-align: start; vertical-align: top; border-bottom: 0.5pt solid #d9d9d9; }
@@ -74,10 +79,10 @@
         thead { display: table-header-group; }
         tr { break-inside: avoid; page-break-inside: avoid; }
 
-        .report-follow-ups table { margin-top: 3mm; }
+        .report-weekly table, .report-follow-ups table { margin-top: 3mm; }
         .report-follow-ups td.note { width: 55%; }
-        .report-notes ol { margin: 3mm 0 0; padding-inline-start: 6mm; }
-        .report-notes li { margin-bottom: 1.5mm; break-inside: avoid; }
+        .report-weekly ol, .report-notes ol { margin: 3mm 0 0; padding-inline-start: 6mm; }
+        .report-weekly li, .report-notes li { margin-bottom: 1.5mm; break-inside: avoid; }
         .empty { margin: 3mm 0 0; color: #666; }
     </style>
 </head>
@@ -94,14 +99,14 @@
 <section class="report-meta">
     <div><span class="label">{{ $t('meta.version') }}</span> {{ $report['version'] }}</div>
     <div><span class="label">{{ $t('meta.author') }}</span> {{ $report['author_name'] !== '' ? $report['author_name'] : $t('no_value') }}</div>
-    <div><span class="label">{{ $t('meta.period') }}</span> {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif</div>
+    <div><span class="label">{{ $t($report['type'] === 'weekly' ? 'meta.period_weekly' : 'meta.period') }}</span> {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif</div>
     <div><span class="label">{{ $t('meta.submitted_at') }}</span> {{ $ltr($time($report['submitted_at'])) }}</div>
 </section>
 
 @php($groups = array_filter($report['activity']['sections']))
 
 <section class="report-summary">
-    <h2>{{ $t('summary') }}</h2>
+    <h2>{{ $t($report['type'] === 'weekly' ? 'summary_weekly' : 'summary') }}</h2>
 
     <div class="kpis">
         @foreach ($report['activity']['sections'] as $group => $rows)
@@ -159,6 +164,60 @@
     @endforeach
 </section>
 
+@if ($report['type'] === 'weekly')
+    @php($dailyReports = $report['daily_reports'] ?? [])
+    @php($ordersReceived = $report['purchase_orders_received'] ?? 0)
+    @php($newCustomers = $report['new_customers']['items'] ?? [])
+
+    <section class="report-weekly">
+        <h2>{{ $t('weekly.daily_reports') }}</h2>
+
+        @if ($dailyReports === [])
+            <p class="empty">{{ $t('weekly.no_daily_reports') }}</p>
+        @else
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ $t('columns.code') }}</th>
+                        <th>{{ $t('columns.day') }}</th>
+                        <th>{{ $t('columns.status') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($dailyReports as $row)
+                        <tr>
+                            <td class="num">{{ $ltr($row['code']) }}</td>
+                            <td class="when num">{{ $ltr($row['period_start']) }}</td>
+                            <td>{{ $word('status', $row['status']) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </section>
+
+    <section class="report-weekly">
+        <h2>{{ $t('weekly.purchase_orders_received') }}@if ($ordersReceived > 0) <span class="count num">({{ $ordersReceived }})</span>@endif</h2>
+
+        @if ($ordersReceived === 0)
+            <p class="empty">{{ $t('weekly.no_purchase_orders') }}</p>
+        @endif
+    </section>
+
+    <section class="report-weekly">
+        <h2>{{ $t('weekly.new_customers') }}@if ($newCustomers !== []) <span class="count num">({{ $report['new_customers']['count'] }})</span>@endif</h2>
+
+        @if ($newCustomers === [])
+            <p class="empty">{{ $t('weekly.no_new_customers') }}</p>
+        @else
+            <ol>
+                @foreach ($newCustomers as $customer)
+                    <li>{{ $customer['name'] }}</li>
+                @endforeach
+            </ol>
+        @endif
+    </section>
+@else
 <section class="report-follow-ups">
     <h2>{{ $t('follow_ups') }}</h2>
 
@@ -185,6 +244,7 @@
         </table>
     @endif
 </section>
+@endif
 
 <section class="report-notes">
     <h2>{{ $t('notes') }}</h2>

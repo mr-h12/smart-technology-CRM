@@ -20,7 +20,10 @@ interface SubmittedReportsInterface
      *     period_start: string, period_end: string, submitted_at: string,
      *     follow_ups: list<array{customer_id: string, customer_name: string, note: string, followed_up_at?: string}>,
      *     notes: list<array{body: string}>,
-     *     activity: array{counts: array<string, int>, sections: array<string, list<array<string, string|int|null>>>}
+     *     activity: array{counts: array<string, int>, sections: array<string, list<array<string, string|int|null>>>},
+     *     daily_reports?: list<array{code: string, period_start: string, status: string}>,
+     *     purchase_orders_received?: int,
+     *     new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}
      * }|null
      */
     public function version(string $reportId, int $version): ?array;

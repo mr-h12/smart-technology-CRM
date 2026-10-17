@@ -1,0 +1,127 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The sample quotation (sample-en.pdf) restyled after the Conta quote sample
+  (conta.com/us/quotation-invoice-template). Data is hard-coded from the sample.
+  Font is Inter, the face the system already embeds (the reference uses Arial).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Quotation — IT Offer</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #000;
+    --head: #f2f2f2;    /* column-title row */
+    --grid: #d9d9d9;    /* table lines */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Inter', Arial, sans-serif; font-size: 9pt; line-height: 1.4; color: var(--ink); }
+  .page { padding: 22mm 25mm 20mm; }
+
+  .label { font-weight: 700; text-transform: uppercase; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-start; }
+  header .logo { width: 50mm; }
+  header .company { text-align: right; }
+  header h1 { margin: 0 0 4mm; font-size: 14pt; font-weight: 700; }
+  hr { border: 0; border-top: 0.75pt solid #f1f1f1; margin: 6mm 0 7mm; }
+
+  .parties { display: flex; justify-content: space-between; }
+  .parties .meta { text-align: right; }
+  .parties .meta > div + div { margin-top: 4mm; }
+
+  .intro { margin: 10mm 0 3mm; }
+
+  table { border-collapse: collapse; }
+  table.items { width: 100%; }
+  .items th, .items td { border: 0.75pt solid var(--grid); padding: 2.4mm 2.2mm; }
+  .items th { background: var(--head); font-weight: 700; text-align: left; padding-top: 4.5mm; padding-bottom: 4.5mm; }
+  .items .n { text-align: right; white-space: nowrap; }
+  .items .q { text-align: center; font-weight: 700; }
+  .items .sn { width: 1%; }
+  .items .desc { width: 46%; }
+
+  .below { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 7mm; }
+  .terms p { margin: 0; }
+  .totals td { padding: 1.6mm 0 1.6mm 8mm; text-align: right; font-size: 7.5pt; text-transform: uppercase; white-space: nowrap; }
+  .totals tr.final td { padding-top: 4mm; }
+  .totals tr.final td:first-child { font-weight: 700; font-size: 10pt; }
+  .totals tr.final td + td { font-weight: 700; font-size: 12pt; }
+
+  .closing { margin-top: 9mm; }
+  .closing .name { font-weight: 700; margin-top: 1mm; }
+
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+    <div class="company">
+      <h1>QUOTATION</h1>
+      <div class="label">Smart Technology for Integrated Systems</div>
+      <div>5 El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</div>
+      <div>035829952 - info@smarttechegy.com</div>
+    </div>
+  </header>
+
+  <hr>
+
+  <div class="parties">
+    <div>
+      <div class="label">Prepared for</div>
+      <div>Vegatrone</div>
+      <div>Att: Mr. Medhat</div>
+    </div>
+    <div class="meta">
+      <div><div class="label">Subject</div>IT Offer</div>
+      <div><div class="label">Issue date</div>2026-07-14</div>
+      <div><div class="label">Valid until</div>2026-08-13</div>
+    </div>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead>
+      <tr><th class="sn">#</th><th class="desc">Description</th><th class="n">Unit Price</th><th class="q">Qty</th><th class="n">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="sn">1</td><td class="desc">Formatter M428dw</td><td class="n">5219.30</td><td class="q">2</td><td class="n">10438.60</td></tr>
+      <tr><td class="sn">2</td><td class="desc">Toner CF259A</td><td class="n">6332.50</td><td class="q">3</td><td class="n">18997.50</td></tr>
+      <tr><td class="sn">3</td><td class="desc">Fuser RM2-5399</td><td class="n">5418.00</td><td class="q">1</td><td class="n">5418.00</td></tr>
+    </tbody>
+  </table>
+
+  <div class="below">
+    <div class="terms">
+      <div class="label">Terms and Conditions</div>
+      <p>Offer currency: EGP.</p>
+      <p>Payment: 50% advance, balance upon delivery.</p>
+      <p>Warranty: One year.</p>
+      <p>Delivery: Within two weeks.</p>
+      <p>Offer validity: valid until 2026-08-13.</p>
+    </div>
+    <table class="totals">
+      <tr><td>Subtotal</td><td>34854.10</td></tr>
+      <tr><td>Delivery &amp; Installation</td><td>250.00</td></tr>
+      <tr><td>Discount (5%)</td><td>1742.71</td></tr>
+      <tr><td>VAT (14%)</td><td>4635.59</td></tr>
+      <tr class="final"><td>Total</td><td>37996.98 EGP</td></tr>
+    </table>
+  </div>
+
+  <div class="closing">
+    <div>Please do not hesitate to contact us in case you have any questions.</div>
+    <div style="margin-top:4mm">Best Regards,</div>
+    <div class="name">Ahmed Essam</div>
+  </div>
+</div>
+</body>
+</html>

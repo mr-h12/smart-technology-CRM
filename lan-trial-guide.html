@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دليل تجربة الشبكة</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2330; --muted: #5d6879; --border: #dde2ea;
+    --accent: #1f6feb; --accent-soft: #e7f0ff; --ok: #1a7f37; --ok-soft: #e6f4ea;
+    --warn: #9a6700; --warn-soft: #fff4d6; --danger: #b42318; --danger-soft: #fdecea;
+    --code-bg: #0f1724; --code-text: #e6edf3; --code-label: #8b98ab;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9aa5b4; --border: #2b333e;
+      --accent: #58a6ff; --accent-soft: #132840; --ok: #3fb950; --ok-soft: #12261a;
+      --warn: #d29922; --warn-soft: #2b2110; --danger: #f47067; --danger-soft: #2d1414;
+      --code-bg: #0a0e14; --code-text: #e6edf3; --code-label: #7d8899;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9aa5b4; --border: #2b333e;
+    --accent: #58a6ff; --accent-soft: #132840; --ok: #3fb950; --ok-soft: #12261a;
+    --warn: #d29922; --warn-soft: #2b2110; --danger: #f47067; --danger-soft: #2d1414;
+    --code-bg: #0a0e14; --code-text: #e6edf3; --code-label: #7d8899;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", Tahoma, "Geeza Pro", "Noto Sans Arabic", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 10px; }
+  .progress { display: flex; align-items: center; gap: 12px; }
+  .bar { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--ok); transition: width .25s; }
+  .progress span { font-size: .9rem; color: var(--muted); white-space: nowrap; }
+  .progress button { font: inherit; font-size: .85rem; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+  h2 { font-size: 1.25rem; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  .step { position: relative; }
+  .step.done { border-color: var(--ok); }
+  .step.done > .step-head h3 { color: var(--ok); }
+  .step-head { display: flex; align-items: center; gap: 10px; }
+  .step-head input { width: 20px; height: 20px; accent-color: var(--ok); flex-shrink: 0; cursor: pointer; }
+  .step-head h3 { margin: 0; font-size: 1.08rem; }
+  .callout { border-radius: 10px; padding: 12px 16px; margin: 12px 0; border: 1px solid; }
+  .callout.warn { background: var(--warn-soft); border-color: var(--warn); }
+  .callout.info { background: var(--accent-soft); border-color: var(--accent); }
+  .callout.danger { background: var(--danger-soft); border-color: var(--danger); }
+  .callout strong:first-child { display: block; margin-bottom: 2px; }
+  .expect { background: var(--ok-soft); border-inline-start: 4px solid var(--ok); padding: 6px 12px; border-radius: 6px; margin: 8px 0; }
+  .expect::before { content: "⇐ النتيجة: "; font-weight: 600; color: var(--ok); }
+  .codebox { margin: 10px 0; border-radius: 8px; overflow: hidden; background: var(--code-bg); }
+  .codebox .label { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font-size: .8rem; color: var(--code-label); border-bottom: 1px solid #ffffff14; }
+  .codebox button { font: inherit; font-size: .8rem; background: #ffffff14; color: var(--code-text); border: 0; border-radius: 5px; padding: 2px 12px; cursor: pointer; }
+  .codebox button.copied { background: var(--ok); color: #fff; }
+  pre { margin: 0; padding: 12px 14px; overflow-x: auto; direction: ltr; text-align: left; }
+  pre code { font-family: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace; font-size: .86rem; color: var(--code-text); white-space: pre; }
+  code.inline, td code { direction: ltr; unicode-bidi: isolate; font-family: ui-monospace, Consolas, Menlo, monospace; font-size: .88em; background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; }
+  ol, ul { padding-inline-start: 22px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: .95rem; }
+  th, td { text-align: start; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .tag { display: inline-block; font-size: .78rem; padding: 0 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-inline-start: 6px; vertical-align: middle; }
+  footer { margin-top: 40px; color: var(--muted); font-size: .9rem; }
+  footer code { direction: ltr; unicode-bidi: isolate; }
+  @media (max-width: 640px) { header { position: static; } h1 { font-size: 1.3rem; } }
+  @media print { header { position: static; } .codebox button, .progress button { display: none; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>تشغيل الـ CRM على جهاز واحد وفتحه من باقي أجهزة المكتب</h1>
+  <p class="sub">جهاز Windows واحد يشغّل النظام، والباقون يفتحونه من المتصفح على نفس الشبكة.</p>
+  <div class="progress">
+    <div class="bar"><div id="bar"></div></div>
+    <span id="count">0 / 0</span>
+    <button type="button" id="reset">تصفير</button>
+  </div>
+</header>
+
+<div class="callout warn">
+  <strong>⚠️ اعرف هذا قبل أن تبدأ</strong>
+  هذه الخطوات <b>لم تُجرَّب على Windows بعد</b>. نجحت على الـ Mac، والـ images تُبنى بنجاح لمعالجات Intel/AMD، لكن التشغيل نفسه على Windows لم يحدث.
+  خذ وقتاً كافياً (حوالي ساعتين). وإذا ظهر خطأ، صوّره وأرسله كما هو.
+</div>
+
+<div class="callout info">
+  <strong>🏠 للتجربة في البيت</strong>
+  الـ <b>Lenovo</b> يكون الجهاز المضيف (نفّذ عليه الخطوات 1–8). والـ <b>Mac</b> يكون «جهاز الموظف».
+  لا تفحص الاتصال بـ <code class="inline">ping</code>، لأن Windows يمنعه افتراضياً. افحص من Terminal على الـ Mac بهذا الأمر:
+  <div class="codebox"><div class="label"><span>Mac — Terminal</span><button type="button">نسخ</button></div><pre><code>nc -z -G 3 &lt;LENOVO-IP&gt; 443 &amp;&amp; echo OPEN</code></pre></div>
+  إذا طبع <code class="inline">OPEN</code> فالاتصال سليم. ولا تحتاج فلاشة ولا موافقة أحد.
+</div>
+
+<h2>قبل أن تذهب</h2>
+<div class="card step" data-step="pre">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>التجهيز</h3></div>
+  <ul>
+    <li>نزّل <b>Docker Desktop for Windows</b> من docker.com على فلاشة.</li>
+    <li>خذ <b>موافقة العميل</b> على تثبيت برامج في جهازه.</li>
+    <li>تأكد أن الأجهزة الثلاثة على <b>نفس الشبكة</b>، وليست شبكة ضيوف.</li>
+  </ul>
+</div>
+
+<h2>على الجهاز المضيف</h2>
+
+<div class="card step" data-step="1">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>1. هل الجهاز يدعم Docker؟</h3></div>
+  <p>افتح <code class="inline">cmd</code> واكتب:</p>
+  <div class="codebox"><div class="label"><span>cmd</span><button type="button">نسخ</button></div><pre><code>systeminfo</code></pre></div>
+  <div class="expect">في آخر النتيجة: <code class="inline">Virtualization Enabled In Firmware: Yes</code> أو <code class="inline">A hypervisor has been detected</code></div>
+  <p>أو من Task Manager، ثم Performance، ثم <b>CPU</b> (وليس Memory)، ستجد في الأسفل <b>Virtualization: Enabled</b>.</p>
+  <p>إذا كانت <b>No</b>: أعد التشغيل، واضغط <b>F2</b> عند ظهور شعار الشركة (أو <b>Del</b> / <b>F10</b> حسب الجهاز). ابحث عن <b>Intel Virtualization Technology</b> أو <b>SVM</b>، واجعلها <b>Enabled</b>، ثم <b>F10</b> للحفظ.</p>
+</div>
+
+<div class="card step" data-step="2">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>2. تثبيت Ubuntu</h3></div>
+  <p>اضغط بزر الماوس الأيمن على <b>PowerShell</b> واختر <b>Run as administrator</b>:</p>
+  <div class="codebox"><div class="label"><span>PowerShell — مسؤول</span><button type="button">نسخ</button></div><pre><code>wsl --install -d Ubuntu</code></pre></div>
+  <p>عندما ينتهي، <b>أعد تشغيل الجهاز</b>. بعد التشغيل تفتح نافذة Ubuntu وحدها وتطلب منك:</p>
+  <ul>
+    <li><b>username:</b> اكتب <code class="inline">crm</code></li>
+    <li><b>password:</b> اختر كلمة سر واكتبها في الورقة. لن تظهر أثناء الكتابة، وهذا طبيعي.</li>
+  </ul>
+  <div class="expect">يظهر سطر ينتهي بـ <code class="inline">$</code>. بعدها أغلق النافذة.</div>
+  <p class="sub">Ubuntu هنا برنامج داخل Windows ولا يغيّر نظام التشغيل. يُحذف بسهولة بعد التجربة.</p>
+</div>
+
+<div class="card step" data-step="3">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>3. تثبيت Docker Desktop</h3></div>
+  <ol>
+    <li>شغّل ملف التثبيت، وتأكد أن <b>Use WSL 2</b> مُعلَّم، ثم <b>OK</b>.</li>
+    <li>إذا طلب إعادة تشغيل، أعد التشغيل.</li>
+    <li>افتح <b>Docker Desktop</b>، ثم <b>Accept</b>، ثم <b>Skip</b> / <b>Continue without signing in</b>.</li>
+    <li>من ⚙️ <b>Settings</b> ثم <b>General</b>: تأكد أن <code class="inline">Start Docker Desktop when you sign in</code> مُعلَّم.</li>
+  </ol>
+  <div class="expect">أسفل يسار النافذة يظهر <b>Engine running</b> باللون الأخضر.</div>
+</div>
+
+<div class="card step" data-step="4">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>4. تنزيل المشروع <span class="tag">من هنا وحتى الخطوة 6: في Ubuntu</span></h3></div>
+  <p>افتح <b>Ubuntu</b> من قائمة Start.</p>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker version</code></pre></div>
+  <div class="expect">يظهر قسم اسمه <code class="inline">Server:</code></div>
+  <p>إذا لم يظهر: من Docker Desktop افتح <b>Settings</b>، ثم <b>Resources</b>، ثم <b>WSL integration</b>، وفعّل <b>Ubuntu</b>، ثم <b>Apply &amp; restart</b>. بعدها أغلق Ubuntu وافتحه مرة أخرى.</p>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>git clone https://github.com/mr-h12/smart-technology-CRM.git ~/crm-system</code></pre></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>cd ~/crm-system</code></pre></div>
+</div>
+
+<div class="card step" data-step="5">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>5. الإعداد (لصق فقط)</h3></div>
+  <p><b>أ.</b> الصق الكتلة كلها مرة واحدة واضغط Enter. عندما تسألك عن كلمة سر، اكتب <b>حروفاً وأرقاماً فقط</b>، 8 أو أكثر، بدون رموز (مثل <code class="inline">Trial2026abc</code>)، <b>واكتبها في الورقة</b>. هذه هي كلمة سر الدخول للموقع.</p>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>cp .env.example .env &amp;&amp; cp crm/.env.example crm/.env
+PG=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d " \n"); RD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d " \n"); MS=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d " \n")
+read -s -p "Test users password (letters+numbers): " SP; echo
+sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$PG/; s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$RD/; s/^MEILI_MASTER_KEY=.*/MEILI_MASTER_KEY=$MS/; s/^HTTP_PORT=.*/HTTP_PORT=80/; s/^HTTPS_PORT=.*/HTTPS_PORT=443/" .env
+sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$PG/; s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$RD/; s/^APP_DEBUG=.*/APP_DEBUG=false/; s/^SEED_TEST_USER_PASSWORD=.*/SEED_TEST_USER_PASSWORD=$SP/" crm/.env</code></pre></div>
+  <p><b>ب.</b> الصق هذه الكتلة كاملة. هي التي تسمح لباقي الأجهزة بفتح الموقع:</p>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>cat &gt; docker-compose.override.yml &lt;&lt;'EOF'
+services:
+  nginx:
+    ports: !override
+      - "0.0.0.0:${HTTP_PORT:-8080}:80"
+      - "0.0.0.0:${HTTPS_PORT:-8443}:443"
+EOF</code></pre></div>
+</div>
+
+<div class="card step" data-step="6">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>6. البناء والتشغيل (15 إلى 40 دقيقة)</h3></div>
+  <p>نفّذ الأوامر واحداً واحداً، وانتظر حتى ينتهي كل أمر قبل التالي.</p>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker compose build</code></pre></div>
+  <div class="expect">ينتهي بدون كلمة <code class="inline">ERROR</code></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker run --rm -v "$PWD/crm:/app" -w /app --user root crm-php:app sh -c 'composer install --no-interaction &amp;&amp; php artisan key:generate'</code></pre></div>
+  <div class="expect">آخر سطر: <code class="inline">Application key set successfully</code></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker compose up -d</code></pre></div>
+  <div class="expect">تظهر أسطر <code class="inline">Started</code> و <code class="inline">Healthy</code></div>
+  <div class="callout warn"><strong>نافذة جدار حماية Windows</strong>إذا ظهرت نافذة تخص Docker، اضغط <b>Allow</b>.</div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>until ls crm/public/build/manifest.json 2&gt;/dev/null; do sleep 10; done</code></pre></div>
+  <div class="expect">ينتظر عدة دقائق، ثم يطبع <code class="inline">crm/public/build/manifest.json</code></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker compose stop spa-build</code></pre></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker compose exec php php artisan migrate --seed --force</code></pre></div>
+  <div class="expect">أسطر كثيرة تنتهي بـ <code class="inline">DONE</code></div>
+  <div class="codebox"><div class="label"><span>Ubuntu</span><button type="button">نسخ</button></div><pre><code>docker compose ps</code></pre></div>
+  <div class="expect">أمام postgres و redis و php و nginx تظهر <code class="inline">healthy</code></div>
+</div>
+
+<div class="card step" data-step="7">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>7. العنوان والنوم</h3></div>
+  <div class="codebox"><div class="label"><span>cmd</span><button type="button">نسخ</button></div><pre><code>ipconfig</code></pre></div>
+  <p>خذ <b>IPv4 Address</b> من قسم <b>Wireless LAN adapter Wi-Fi</b> (أو <b>Ethernet</b> إذا كان بكابل). <b>لا تأخذه من <code class="inline">vEthernet (WSL)</code>.</b></p>
+  <div class="expect">مثال: <code class="inline">192.168.1.35</code> ⇐ فيكون الرابط <code class="inline">https://192.168.1.35</code>. اكتبه في الورقة.</div>
+  <p>من <b>Settings</b>، ثم <b>System</b>، ثم <b>Power</b>: عند التوصيل بالكهرباء اجعل <b>Sleep = Never</b>. وإذا كان لابتوب، اجعل إغلاق الغطاء = <b>Do nothing</b>.</p>
+</div>
+
+<div class="card step" data-step="8">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>8. جرّب على الجهاز نفسه</h3></div>
+  <p>افتح Chrome على <code class="inline">https://localhost</code>. سيظهر <b>Your connection is not private</b>، فاضغط <b>Advanced</b> ثم <b>Proceed</b>.</p>
+  <div class="expect">تظهر شاشة الدخول</div>
+</div>
+
+<h2>على جهاز كل شخص من الثلاثة</h2>
+<div class="card step" data-step="users">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>فتح الموقع وتسجيل الدخول</h3></div>
+  <ol>
+    <li>افتح Chrome على <code class="inline">https://&lt;IP&gt;</code> (العنوان الذي في الورقة).</li>
+    <li>سيظهر تحذير، فاضغط <b>Advanced</b> ثم <b>Proceed</b>. هذا طبيعي، ويحدث مرة واحدة فقط لكل جهاز.</li>
+    <li>اضغط ⭐ لحفظ الرابط في المفضلة.</li>
+    <li>سجّل الدخول بحساب من الجدول. كلمة السر هي التي كتبتها في الخطوة 5، وهي نفسها لكل الحسابات.</li>
+    <li>أنشئ عرض سعر واحفظه، ثم ولّد PDF ⇐ يجب أن يُفتح بالعربي.</li>
+  </ol>
+  <div class="tablewrap"><table>
+    <thead><tr><th>الإيميل</th><th>الدور</th></tr></thead>
+    <tbody>
+      <tr><td><code>indoor.sales@example.test</code></td><td>مبيعات مكتبية: ينشئ عروض الأسعار</td></tr>
+      <tr><td><code>manager@example.test</code></td><td>مدير: يعتمد العروض</td></tr>
+      <tr><td><code>procurement@example.test</code></td><td>مشتريات</td></tr>
+      <tr><td><code>ceo@example.test</code></td><td>المدير العام</td></tr>
+      <tr><td><code>outdoor.sales@example.test</code></td><td>مبيعات ميدانية</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><strong>تنبيهان</strong>
+    اكتب الرابط دائماً بـ <b>https://</b>، فشاشة عرض السعر لا تعمل على http.<br>
+    إذا أخطأ أحد في كلمة السر <b>5 مرات</b> يُقفل حسابه، فيستعمل حساباً آخر من الجدول.
+  </div>
+</div>
+
+<h2>قبل أن تغادر</h2>
+<div class="card step" data-step="restart">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>اختبار إعادة التشغيل</h3></div>
+  <p>أعد تشغيل الجهاز المضيف، وسجّل الدخول، وانتظر دقيقتين حتى يظهر الحوت 🐳 بجوار الساعة. ثم افتح الموقع من جهاز آخر.</p>
+  <div class="expect">الموقع يعمل <b>بدون كتابة أي أمر</b></div>
+</div>
+<div class="card step" data-step="rules">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>قل لصاحب الجهاز ثلاث قواعد</h3></div>
+  <ul>
+    <li>لا تغلق Docker Desktop (الحوت 🐳).</li>
+    <li>لا تطفئ الجهاز وزملاؤك يعملون.</li>
+    <li>بعد أي إعادة تشغيل، سجّل الدخول لـ Windows، فالموقع لا يعمل قبل ذلك.</li>
+  </ul>
+</div>
+
+<h2>إذا لم يعمل</h2>
+<div class="card">
+  <div class="tablewrap"><table>
+    <thead><tr><th>المشكلة</th><th>الحل</th></tr></thead>
+    <tbody>
+      <tr><td>الموقع يفتح على الجهاز المضيف ولا يفتح على باقي الأجهزة</td><td>نفّذ أمرَي جدار الحماية في الأسفل</td></tr>
+      <tr><td>ظهرت <code>port is already allocated</code> في الخطوة 6</td><td>نفّذ أمر تغيير المنفذ في الأسفل. يصبح الرابط <code>https://&lt;IP&gt;:8443</code></td></tr>
+      <tr><td>كان يعمل ثم توقف عند الجميع</td><td>الجهاز نام، أو Docker مغلق، أو الـ IP تغيّر. نفّذ <code>ipconfig</code> وقارن بالورقة</td></tr>
+      <tr><td>أي خطأ آخر</td><td>صوّره وأرسله كما هو</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>جدار الحماية</b> (PowerShell كمسؤول؛ إذا كان الجهاز موصولاً بكابل اكتب <code class="inline">Ethernet</code> بدل <code class="inline">Wi-Fi</code>):</p>
+  <div class="codebox"><div class="label"><span>PowerShell — مسؤول</span><button type="button">نسخ</button></div><pre><code>Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private</code></pre></div>
+  <div class="codebox"><div class="label"><span>PowerShell — مسؤول</span><button type="button">نسخ</button></div><pre><code>New-NetFirewallRule -DisplayName "CRM trial" -Direction Inbound -Protocol TCP -LocalPort 80,443,8080,8443 -Action Allow -Profile Private</code></pre></div>
+  <p><b>تغيير المنفذ</b>:</p>
+  <div class="codebox"><div class="label"><span>Ubuntu — داخل ~/crm-system</span><button type="button">نسخ</button></div><pre><code>sed -i "s/^HTTP_PORT=.*/HTTP_PORT=8080/; s/^HTTPS_PORT=.*/HTTPS_PORT=8443/" .env &amp;&amp; docker compose up -d</code></pre></div>
+  <div class="callout danger"><strong>🚫 ممنوع</strong><code class="inline">docker compose down -v</code>: هذا الأمر يمسح كل البيانات.</div>
+</div>
+
+<h2>بعد انتهاء التجربة (حذف كل شيء)</h2>
+<div class="card step" data-step="remove">
+  <div class="step-head"><input type="checkbox" aria-label="تم"><h3>إرجاع الجهاز كما كان</h3></div>
+  <ol>
+    <li>من <b>Settings</b>، ثم <b>Apps</b>: احذف <b>Docker Desktop</b>.</li>
+    <li>في PowerShell (<b>يمسح كل بيانات التجربة نهائياً</b>):</li>
+  </ol>
+  <div class="codebox"><div class="label"><span>PowerShell</span><button type="button">نسخ</button></div><pre><code>wsl --unregister Ubuntu</code></pre></div>
+</div>
+
+<footer>
+  <h2>ما تبحث عنه</h2>
+  <ul>
+    <li><code>wsl --install -d Ubuntu first time setup username</code></li>
+    <li><code>Docker Desktop Windows install Use WSL 2 Engine running</code></li>
+    <li><code>ipconfig IPv4 address Wireless LAN adapter</code></li>
+    <li><code>Chrome Your connection is not private Advanced Proceed</code></li>
+    <li><code>Windows Defender Firewall allow Docker Desktop private network</code></li>
+  </ul>
+</footer>
+
+</main>
+<script>
+  const KEY = 'lan-trial-steps';
+  const steps = [...document.querySelectorAll('.step')];
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+
+  function render() {
+    const done = steps.filter(s => s.querySelector('input').checked).length;
+    document.getElementById('count').textContent = done + ' / ' + steps.length;
+    document.getElementById('bar').style.width = (done / steps.length * 100) + '%';
+  }
+  steps.forEach(s => {
+    const box = s.querySelector('input');
+    box.checked = !!saved[s.dataset.step];
+    s.classList.toggle('done', box.checked);
+    box.addEventListener('change', () => {
+      saved[s.dataset.step] = box.checked;
+      s.classList.toggle('done', box.checked);
+      try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      render();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    saved = {};
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    steps.forEach(s => { s.querySelector('input').checked = false; s.classList.remove('done'); });
+    render();
+  });
+
+  document.querySelectorAll('.codebox button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.closest('.codebox').querySelector('code').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        // file:// or an old browser: fall back to a hidden textarea
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = 'تم النسخ ✓'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'نسخ'; btn.classList.remove('copied'); }, 1500);
+    });
+  });
+  render();
+</script>
+</body>
+</html>

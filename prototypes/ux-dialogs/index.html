@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.3 dialog options</title>
+<!-- F-42 · 3.3 mock-up, untracked. Real tokens only; no app code. -->
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  #page { padding: 16px; max-width: 1100px; margin-inline: auto; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block-end: 16px; }
+  h1 { font-size: 20px; margin: 0; margin-inline-end: auto; }
+  section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-block-end: 16px; box-shadow: var(--shadow-1); }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .note { color: var(--color-text-muted); font-size: 13px; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-block: 6px; border-block-end: 1px solid var(--color-border); }
+  .row:last-child { border: 0; }
+  .row > span { margin-inline-end: auto; }
+  button, select, input, textarea { font: inherit; min-height: 44px; border-radius: 6px; }
+  button { padding-inline: 14px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+  button:hover { background: var(--color-surface-muted); }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-text); }
+  button.primary:hover { background: var(--color-primary-hover); }
+  button.danger { color: var(--color-danger); border-color: var(--color-danger); }
+  input, select, textarea { padding-inline: 10px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); }
+  :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  label { display: grid; gap: 4px; font-size: 14px; }
+  .tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--color-border-strong); }
+  /* both options share one panel look; only the mechanism differs */
+  .panel { width: min(440px, calc(100vw - 32px)); background: var(--color-surface-raised); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-2); }
+  .panel h3 { margin: 0 0 12px; font-size: 17px; }
+  .panel .actions { display: flex; gap: 8px; justify-content: flex-end; margin-block-start: 16px; }
+  .panel form { display: grid; gap: 12px; }
+  dialog.panel { padding: 20px; }
+  dialog::backdrop { background: rgb(0 0 0 / 0.5); }        /* ponytail: stand-in for the owed --color-overlay (DS §10) */
+  .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / 0.5); display: grid; place-items: center; z-index: 10; }
+  .scrim[hidden] { display: none; }
+  .warning { border: 1px solid var(--color-warning); color: var(--color-warning); background: var(--color-surface-muted); border-radius: 8px; padding: 10px 12px; }
+  .inline-form { display: grid; gap: 8px; padding: 12px; margin-block-start: 8px; border: 1px solid var(--color-border-strong); border-radius: 8px; background: var(--color-surface-muted); }
+  .undo { position: fixed; inset-inline: 16px; inset-block-end: 16px; margin-inline: auto; max-width: 480px; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: var(--color-text); color: var(--color-canvas); box-shadow: var(--shadow-2); z-index: 20; }
+  .undo[hidden] { display: none; }
+  .undo button { background: transparent; color: inherit; border-color: currentColor; }
+  #log { font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 160px; overflow: auto; }
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <h1 data-t="title"></h1>
+    <button id="lang" type="button"></button>
+    <select id="theme" aria-label="theme">
+      <option value="">Warm Editorial</option><option value="clean-monochrome">Clean Monochrome</option><option value="midnight-obsidian">Midnight Obsidian</option>
+    </select>
+  </header>
+
+  <section>
+    <h2>A-04 · <span data-t="a04"></span></h2>
+    <p class="note" data-t="a04n"></p>
+    <div class="row"><span data-t="optA_native"></span><button type="button" id="a04a" data-t="newCustomer"></button></div>
+    <div class="row"><span data-t="optB_helper"></span><button type="button" id="a04b" data-t="newCustomer"></button></div>
+  </section>
+
+  <section>
+    <h2>A-02 · <span data-t="a02"></span></h2>
+    <p class="note" data-t="a02n"></p>
+    <div id="a02list-warning" class="warning" tabindex="-1" hidden data-t="similarList"></div>
+    <div class="row"><span data-t="a02A"></span><button type="button" id="a02a" data-t="newCustomer"></button></div>
+    <div class="row"><span data-t="a02B"></span><button type="button" id="a02b" data-t="newCustomer"></button></div>
+  </section>
+
+  <section>
+    <h2>A-09 · <span data-t="a09"></span></h2>
+    <p class="note" data-t="a09n"></p>
+    <div id="a09rows">
+      <div class="row"><span>QT-2026-0011 · <span data-t="optA_confirm"></span></span><button type="button" class="primary" id="a09a" data-t="approve"></button><button type="button" data-t="return"></button></div>
+      <div class="row"><span>QT-2026-0012 · <span data-t="optB_undo"></span></span><button type="button" class="primary" id="a09b" data-t="approve"></button><button type="button" data-t="return"></button></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A-35 · <span data-t="a35"></span></h2>
+    <p class="note" data-t="a35n"></p>
+    <div id="a35lines">
+      <div class="row"><span><span data-t="line"></span> 1 · <span data-t="optA_confirm"></span></span><input aria-label="qty 1" value="10" size="4"><button type="button" class="danger" id="a35a" data-t="remove1"></button></div>
+      <div class="row"><span><span data-t="line"></span> 2 · <span data-t="optB_undo"></span></span><input aria-label="qty 2" value="4" size="4"><button type="button" class="danger" id="a35b" data-t="remove2"></button></div>
+      <div class="row"><span><span data-t="line"></span> 3</span><input aria-label="qty 3" value="7" size="4"><button type="button" class="danger" data-t="remove3"></button></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A-22 · <span data-t="a22"></span></h2>
+    <p class="note" data-t="a22n"></p>
+    <div class="row"><span>QT-2026-0013 · <span data-t="a22A"></span></span><button type="button" id="a22a" aria-expanded="false" aria-controls="a22form" data-t="return"></button></div>
+    <form id="a22form" class="inline-form" hidden aria-labelledby="a22title">
+      <strong id="a22title" data-t="returnTitle"></strong>
+      <label><span data-t="note"></span><textarea id="a22note" required rows="2"></textarea></label>
+      <div style="display:flex;gap:8px"><button type="submit" class="primary" data-t="send"></button><button type="button" id="a22cancel" data-t="cancel"></button></div>
+    </form>
+    <div class="row"><span>QT-2026-0014 · <span data-t="a22B"></span></span><button type="button" id="a22b" data-t="return"></button></div>
+  </section>
+
+  <section><h2 data-t="log"></h2><div id="log" aria-live="off"></div></section>
+</div>
+
+<!-- Option A: the native element; the browser makes #page inert and owns Escape -->
+<dialog id="dlgNative" class="panel" aria-labelledby="dlgNativeTitle">
+  <h3 id="dlgNativeTitle"></h3>
+  <div id="dlgNativeBody"></div>
+  <div class="actions"><button type="button" class="primary" id="dlgNativeOk"></button><button type="button" id="dlgNativeCancel" data-t="cancel"></button></div>
+</dialog>
+
+<!-- Option B: today's markup (a fixed scrim + role=dialog) plus a ten-line helper -->
+<div id="scrim" class="scrim" hidden>
+  <div id="dlgDiv" class="panel" role="dialog" aria-modal="true" aria-labelledby="dlgDivTitle">
+    <h3 id="dlgDivTitle"></h3>
+    <div id="dlgDivBody"></div>
+    <div class="actions"><button type="button" class="primary" id="dlgDivOk"></button><button type="button" id="dlgDivCancel" data-t="cancel"></button></div>
+  </div>
+</div>
+
+<div id="undo" class="undo" role="status" hidden><span id="undoText"></span><button type="button" id="undoBtn" data-t="undo"></button></div>
+
+<script>
+const T = {
+  ar: { title: 'خيارات النوافذ والتأكيد (F-42 · 3.3)', lang: 'English', a04: 'سلوك النافذة المشترك', a04n: 'الخيار أ: عنصر <dialog> الأصلي مع showModal(). الخيار ب: الترميز الحالي مع مساعد صغير يجعل الصفحة خاملة (inert) ويعيد التركيز.', optA_native: 'الخيار أ: <dialog> الأصلي', optB_helper: 'الخيار ب: الترميز الحالي + مساعد', newCustomer: 'عميل جديد', a02: 'نافذة العميل بعد الحفظ الأول', a02n: 'عند وجود عملاء مشابهين: أ) تبقى النافذة وتتحول إلى «تعديل العميل» مع التحذير والتركيز عليه، ب) تُغلق ويظهر التحذير فوق القائمة مع التركيز عليه.', a02A: 'الخيار أ: تتحول إلى التعديل', a02B: 'الخيار ب: تُغلق والتحذير في القائمة', similarList: 'حُفظ العميل «شركة النور». يوجد عميل مشابه: «النور للتجارة». راجعه قبل المتابعة.', a09: 'زر الاعتماد', a09n: 'أ) نافذة تأكيد تذكر العرض. ب) الاعتماد فورًا مع شريط «تراجع» لمدة 8 ثوانٍ.', optA_confirm: 'الخيار أ: تأكيد', optB_undo: 'الخيار ب: تراجع', approve: 'اعتماد', return: 'إرجاع', a35: 'الحذف في منشئ العرض', a35n: 'أ) تأكيد قبل الحذف. ب) حذف فوري مع «تراجع».', line: 'السطر', remove1: 'إزالة السطر 1', remove2: 'إزالة السطر 2', remove3: 'إزالة السطر 3', a22: 'نماذج التأكيد داخل الصفحة', a22n: 'أ) يبقى النموذج في مكانه، يُسمّى ويُنقل التركيز إليه ويعود إلى الزر عند الإلغاء. ب) يصبح نافذة بنفس سلوك A-04.', a22A: 'الخيار أ: داخل الصفحة', a22B: 'الخيار ب: نافذة', returnTitle: 'إرجاع العرض QT-2026-0013', note: 'ملاحظة (مطلوب)', send: 'إرسال', cancel: 'إلغاء', undo: 'تراجع', log: 'سجل التركيز', name: 'الاسم (مطلوب)', save: 'حفظ', editCustomer: 'تعديل العميل «شركة النور»', saved: 'حُفظ. يوجد عميل مشابه: «النور للتجارة».', confirmApprove: 'اعتماد العرض QT-2026-0011؟', confirmApproveBody: 'سيُرسل العرض إلى العميل بعد الاعتماد.', approved: 'اعتُمد QT-2026-0012.', confirmRemove: 'إزالة السطر 1؟', confirmRemoveBody: 'تُحذف الكمية والهامش المكتوبان في هذا السطر.', removed: 'أُزيل السطر 2.', returnDlg: 'إرجاع العرض QT-2026-0014' },
+  en: { title: 'Dialog and confirmation options (F-42 · 3.3)', lang: 'العربية', a04: 'The shared dialog behaviour', a04n: 'Option A: the native <dialog> with showModal(). Option B: today\'s markup plus a small helper that makes the page inert and restores focus.', optA_native: 'Option A: native <dialog>', optB_helper: 'Option B: current markup + helper', newCustomer: 'New customer', a02: 'The customer dialog after its first save', a02n: 'When similar customers exist: A) the dialog stays and becomes "Edit customer" with the warning focused; B) it closes and the warning shows above the list, focused.', a02A: 'Option A: becomes Edit', a02B: 'Option B: closes, warning on the list', similarList: 'Customer "Al Noor Co." saved. A similar customer exists: "Al Noor Trading". Check it before going on.', a09: 'The Approve button', a09n: 'A) a confirm dialog naming the quotation. B) approve at once with an 8-second "Undo" bar.', optA_confirm: 'Option A: confirm', optB_undo: 'Option B: undo', approve: 'Approve', return: 'Return', a35: 'Removing in the builder', a35n: 'A) confirm before removing. B) remove at once with "Undo".', line: 'Line', remove1: 'Remove line 1', remove2: 'Remove line 2', remove3: 'Remove line 3', a22: 'Inline confirmation forms', a22n: 'A) the form stays inline, is named, takes focus and returns it to the trigger on cancel. B) it becomes a dialog with A-04\'s behaviour.', a22A: 'Option A: inline', a22B: 'Option B: dialog', returnTitle: 'Return quotation QT-2026-0013', note: 'Note (required)', send: 'Send', cancel: 'Cancel', undo: 'Undo', log: 'Focus log', name: 'Name (required)', save: 'Save', editCustomer: 'Edit customer "Al Noor Co."', saved: 'Saved. A similar customer exists: "Al Noor Trading".', confirmApprove: 'Approve QT-2026-0011?', confirmApproveBody: 'The quotation can be sent to the customer once approved.', approved: 'QT-2026-0012 approved.', confirmRemove: 'Remove line 1?', confirmRemoveBody: 'The quantity and margin typed on this line are deleted.', removed: 'Line 2 removed.', returnDlg: 'Return quotation QT-2026-0014' },
+};
+let L = 'ar';
+const $ = (id) => document.getElementById(id);
+const t = (k) => T[L][k];
+function paint() {
+  document.documentElement.lang = L; document.documentElement.dir = L === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
+  $('lang').textContent = t('lang');
+}
+$('lang').onclick = () => { L = L === 'ar' ? 'en' : 'ar'; paint(); };
+$('theme').onchange = (e) => { if (e.target.value) document.documentElement.dataset.theme = e.target.value; else delete document.documentElement.dataset.theme; };
+
+// The focus log is the walk-through's evidence: every focus change, named.
+const name = (n) => n === document.body || n === null ? '<body>' : (n.id ? '#' + n.id : n.tagName.toLowerCase()) + (n.textContent.trim() ? ' "' + n.textContent.trim().slice(0, 24) + '"' : '');
+document.addEventListener('focusin', (e) => { $('log').textContent += name(e.target) + '\n'; $('log').scrollTop = 1e9; });
+window.walk = () => $('log').textContent.trim().split('\n');
+window.walkReset = () => { $('log').textContent = ''; };
+
+// Body builders shared by both mechanisms, so A and B differ only in mechanism.
+function customerForm(prefix) { return '<form id="' + prefix + 'Form"><label><span>' + t('name') + '</span><input id="' + prefix + 'Name" required></label></form>'; }
+
+// ---- Option A: native <dialog>
+function openNative({ title, body, ok, onOk }) {
+  $('dlgNativeTitle').textContent = title; $('dlgNativeBody').innerHTML = body; $('dlgNativeOk').textContent = ok;
+  $('dlgNativeOk').onclick = () => onOk($('dlgNative'));
+  $('dlgNativeCancel').onclick = () => $('dlgNative').close();
+  $('dlgNative').showModal();
+}
+
+// ---- Option B: today's markup + the helper. ponytail: `inert` on #page is the whole trap; no Tab handler.
+let opener = null;
+function openDiv({ title, body, ok, onOk }) {
+  opener = document.activeElement;
+  $('dlgDivTitle').textContent = title; $('dlgDivBody').innerHTML = body; $('dlgDivOk').textContent = ok;
+  $('dlgDivOk').onclick = () => onOk();
+  $('scrim').hidden = false; $('page').inert = true;
+  ($('dlgDiv').querySelector('input, textarea') ?? $('dlgDivOk')).focus();
+}
+function closeDiv(focusTo) { $('scrim').hidden = true; $('page').inert = false; (focusTo ?? opener)?.focus(); }
+$('dlgDivCancel').onclick = () => closeDiv();
+$('scrim').addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDiv(); });
+
+// A-04
+$('a04a').onclick = () => openNative({ title: t('newCustomer'), body: customerForm('n'), ok: t('save'), onOk: (d) => d.close() });
+$('a04b').onclick = () => openDiv({ title: t('newCustomer'), body: customerForm('b'), ok: t('save'), onOk: () => closeDiv() });
+
+// A-02: A stays and becomes Edit with the warning focused; B closes and focuses the list warning
+$('a02a').onclick = () => openDiv({ title: t('newCustomer'), body: customerForm('c'), ok: t('save'), onOk: () => {
+  $('dlgDivTitle').textContent = t('editCustomer');
+  $('dlgDivBody').insertAdjacentHTML('afterbegin', '<p id="a02warn" class="warning" role="status" tabindex="-1">' + t('saved') + '</p>');
+  $('a02warn').focus();
+} });
+$('a02b').onclick = () => openDiv({ title: t('newCustomer'), body: customerForm('d'), ok: t('save'), onOk: () => {
+  $('a02list-warning').hidden = false; closeDiv($('a02list-warning'));
+} });
+
+// A-09 / A-35: A confirms first; B acts at once and offers Undo, with focus moved to Undo so it is not lost
+function undoBar(text, row, restoreFocus) {
+  row.hidden = true; $('undoText').textContent = text; $('undo').hidden = false; $('undoBtn').focus();
+  const timer = setTimeout(() => { $('undo').hidden = true; }, 8000);
+  $('undoBtn').onclick = () => { clearTimeout(timer); row.hidden = false; $('undo').hidden = true; restoreFocus.focus(); };
+}
+$('a09a').onclick = () => openNative({ title: t('confirmApprove'), body: '<p>' + t('confirmApproveBody') + '</p>', ok: t('approve'), onOk: (d) => { d.close(); } });
+$('a09b').onclick = (e) => undoBar(t('approved'), e.target.closest('.row'), e.target);
+$('a35a').onclick = () => openNative({ title: t('confirmRemove'), body: '<p>' + t('confirmRemoveBody') + '</p>', ok: t('remove1'), onOk: (d) => { d.close(); } });
+$('a35b').onclick = (e) => undoBar(t('removed'), e.target.closest('.row'), e.target);
+
+// A-22: A inline, named, focus in and back; B as a dialog
+$('a22a').onclick = (e) => { $('a22form').hidden = false; e.target.setAttribute('aria-expanded', 'true'); $('a22note').focus(); };
+$('a22cancel').onclick = () => { $('a22form').hidden = true; $('a22a').setAttribute('aria-expanded', 'false'); $('a22a').focus(); };
+$('a22form').addEventListener('keydown', (e) => { if (e.key === 'Escape') $('a22cancel').click(); });
+$('a22form').onsubmit = (e) => { e.preventDefault(); $('a22cancel').click(); };
+$('a22b').onclick = () => openDiv({ title: t('returnDlg'), body: '<label><span>' + t('note') + '</span><textarea required rows="2"></textarea></label>', ok: t('send'), onOk: () => closeDiv() });
+
+paint();
+</script>
+</body>
+</html>

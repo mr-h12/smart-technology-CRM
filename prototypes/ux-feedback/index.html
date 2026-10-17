@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.4 feedback options</title>
+<!-- F-42 · 3.4 mock-up, untracked. Real tokens only; no app code. -->
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  #page { padding: 16px; max-width: 1100px; margin-inline: auto; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block-end: 16px; }
+  h1 { font-size: 20px; margin: 0; margin-inline-end: auto; }
+  section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-block-end: 16px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .note { color: var(--color-text-muted); font-size: 13px; margin: 0 0 12px; }
+  .pair { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  button, input, select { font: inherit; min-height: 44px; border-radius: 6px; }
+  button { padding-inline: 14px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-text); }
+  input, select { padding-inline: 10px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); width: 100%; }
+  :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  label { display: grid; gap: 4px; font-size: 14px; }
+  /* the picker popup, as SearchCombobox draws it today: surface-raised list, surface-muted active row */
+  [role=listbox] { list-style: none; margin: 4px 0 0; padding: 4px 0; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-raised); box-shadow: var(--shadow-2); }
+  [role=option] { padding: 10px 12px; cursor: pointer; border-inline-start: 4px solid transparent; }
+  [role=option]:hover { background: var(--color-surface-muted); }
+  .optA [aria-selected=true] { background: var(--color-surface-muted); box-shadow: inset 0 0 0 2px var(--color-focus-ring); }   /* A: inset outline */
+  .optB [aria-selected=true] { background: var(--color-surface-muted); border-inline-start-color: var(--color-focus-ring); font-weight: 600; } /* B: start-edge bar + weight */
+  .inplace { min-height: 1.5em; margin-block-start: 8px; font-size: 14px; }
+  .inplace.ok { color: var(--color-success); }
+  .inplace.err { color: var(--color-danger); }
+  #toast { position: fixed; inset-inline-end: 16px; inset-block-end: 16px; max-width: min(360px, calc(100vw - 32px)); z-index: 20; }
+  #toast p { margin: 0; padding: 10px 14px; border-radius: 8px; background: var(--color-text); color: var(--color-canvas); box-shadow: var(--shadow-2); }
+  #toast p:empty { display: none; }
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <h1 data-t="title"></h1>
+    <button id="lang" type="button"></button>
+    <select id="theme" aria-label="theme" style="width:auto">
+      <option value="">Warm Editorial</option><option value="clean-monochrome">Clean Monochrome</option><option value="midnight-obsidian">Midnight Obsidian</option>
+    </select>
+  </header>
+
+  <section>
+    <h2>A-08 · <span data-t="a08"></span></h2>
+    <p class="note" data-t="a08n"></p>
+    <div class="pair">
+      <div class="optA"><label><span data-t="optA"></span><input id="pickA" role="combobox" aria-expanded="true" aria-controls="listA" aria-autocomplete="list" autocomplete="off"></label><ul id="listA" role="listbox"></ul></div>
+      <div class="optB"><label><span data-t="optB"></span><input id="pickB" role="combobox" aria-expanded="true" aria-controls="listB" aria-autocomplete="list" autocomplete="off"></label><ul id="listB" role="listbox"></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A-31 / A-32 · <span data-t="a31"></span></h2>
+    <p class="note" data-t="a31n"></p>
+    <div class="pair">
+      <div>
+        <strong data-t="optA_inplace"></strong>
+        <div style="display:flex;gap:8px;margin-block-start:8px"><button type="button" class="primary" id="inOk" data-t="approve"></button><button type="button" id="inErr" data-t="import"></button></div>
+        <p id="inStatus" class="inplace" role="status"></p>
+      </div>
+      <div>
+        <strong data-t="optB_toast"></strong>
+        <div style="display:flex;gap:8px;margin-block-start:8px"><button type="button" class="primary" id="toOk" data-t="approve"></button><button type="button" id="toErr" data-t="import"></button></div>
+      </div>
+    </div>
+  </section>
+</div>
+<!-- B: one region for the whole page, present from load -->
+<div id="toast" role="status"><p id="toastText"></p></div>
+
+<script>
+const T = {
+  ar: { title: 'خيارات التركيز والتمييز والإشعار (F-42 · 3.4)', lang: 'English', a08: 'الخيار المميَّز في قائمة الاختيار', a08n: 'بالأسهم ↑↓ يتحرك التمييز. أ) إطار داخلي بلون حلقة التركيز. ب) شريط عند بداية السطر بلون حلقة التركيز مع خط أثقل.', optA: 'الخيار أ: إطار داخلي — العميل', optB: 'الخيار ب: شريط البداية — العميل', a31: 'رسائل النتيجة', a31n: 'أ) رسالة في مكانها بجانب الزر، في منطقة role=status موجودة من البداية. ب) إشعار منبثق في زاوية الصفحة لمدة 5 ثوانٍ.', optA_inplace: 'الخيار أ: في المكان', optB_toast: 'الخيار ب: إشعار منبثق', approve: 'اعتماد', import: 'استيراد (يفشل)', ok: 'اعتُمد العرض QT-2026-0011.', err: 'رُفض الملف: السطر 4 بلا اسم عميل. صحّحه ثم أعد الاستيراد.' },
+  en: { title: 'Focus, highlight and feedback options (F-42 · 3.4)', lang: 'العربية', a08: 'The highlighted option in a picker', a08n: 'Arrow keys move the highlight. A) an inset outline in the focus-ring colour. B) a start-edge bar in the focus-ring colour plus a heavier weight.', optA: 'Option A: inset outline — customer', optB: 'Option B: start-edge bar — customer', a31: 'Result messages', a31n: 'A) a message in place beside the button, in a role=status region present from load. B) a toast in the page corner for 5 seconds.', optA_inplace: 'Option A: in place', optB_toast: 'Option B: toast', approve: 'Approve', import: 'Import (fails)', ok: 'QT-2026-0011 approved.', err: 'File refused: row 4 has no customer name. Fix it and import again.' },
+};
+const NAMES = ['شركة النور', 'مؤسسة الأمل', 'الرواد للتجارة', 'دار الهندسة', 'Smart Build Co.'];
+let L = 'ar';
+const $ = (id) => document.getElementById(id);
+const t = (k) => T[L][k];
+function paint() {
+  document.documentElement.lang = L; document.documentElement.dir = L === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
+  $('lang').textContent = t('lang');
+}
+$('lang').onclick = () => { L = L === 'ar' ? 'en' : 'ar'; paint(); };
+$('theme').onchange = (e) => { if (e.target.value) document.documentElement.dataset.theme = e.target.value; else delete document.documentElement.dataset.theme; };
+
+// A-08: a listbox driven by aria-activedescendant, as SearchCombobox does
+function picker(input, list) {
+  list.innerHTML = NAMES.map((n, i) => '<li role="option" id="' + list.id + '-' + i + '" aria-selected="false">' + n + '</li>').join('');
+  let active = -1;
+  const set = (i) => { active = (i + NAMES.length) % NAMES.length; [...list.children].forEach((o, j) => o.setAttribute('aria-selected', String(j === active))); input.setAttribute('aria-activedescendant', list.id + '-' + active); };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); set(active + 1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); set(active - 1); }
+    if (e.key === 'Enter' && active >= 0) { e.preventDefault(); input.value = NAMES[active]; }
+  });
+}
+picker($('pickA'), $('listA')); picker($('pickB'), $('listB'));
+
+// A-31/32 A: text set into a region that already exists
+$('inOk').onclick = () => { $('inStatus').className = 'inplace ok'; $('inStatus').textContent = t('ok'); };
+$('inErr').onclick = () => { $('inStatus').className = 'inplace err'; $('inStatus').textContent = t('err'); };
+// A-31/32 B: the shared toast region, cleared after 5 s
+let toastTimer;
+function toast(text) { clearTimeout(toastTimer); $('toastText').textContent = text; toastTimer = setTimeout(() => { $('toastText').textContent = ''; }, 5000); }
+$('toOk').onclick = () => toast(t('ok'));
+$('toErr').onclick = () => toast(t('err'));
+
+// Contrast, WCAG 2.x. Parses rgb()/rgba() and color(srgb …); a transparent colour falls back to its parent's background.
+function rgb(c) {
+  let m = c.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+  m = c.match(/rgba?\(([\d.]+),? ([\d.]+),? ([\d.]+)(?:,? \/? ?([\d.]+))?\)/);
+  return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+}
+function bgOf(el) { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c && c[3] > 0) return c; } return rgb(getComputedStyle(document.documentElement).backgroundColor) ?? [255, 255, 255, 1]; }
+const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+window.ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
+window.rgb = rgb; window.bgOf = bgOf;
+paint();
+</script>
+</body>
+</html>

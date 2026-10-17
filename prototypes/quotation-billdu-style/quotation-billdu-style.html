@@ -1,0 +1,136 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The sample quotation (sample-en.pdf) restyled after the Billdu "quote template (Word)"
+  layout (billdu.com/quote-template-word). Data is hard-coded from the sample.
+  Font is Inter, the face the system already embeds (the reference uses Arial).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Quotation — IT Offer</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #000;
+    --muted: #777;     /* sender line, secondary text */
+    --label: #444;     /* the TOTAL label, as in the reference */
+    --fill: #f3f3f3;   /* table header, sampled */
+    --line: #d4d4d4;   /* borders and footer rule, sampled */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Inter', Arial, sans-serif; font-size: 8.5pt; line-height: 1.45; color: var(--ink); }
+  .page { padding: 18mm 14mm 30mm 15mm; }
+
+  h1 { margin: 0; font-size: 17pt; font-weight: 400; letter-spacing: 0.4pt; }
+  .logo { display: block; width: 58mm; margin: 6mm 0 0 auto; }
+
+  .sender { margin-top: 9mm; color: var(--muted); }
+  .sender b { font-weight: 700; }
+
+  .parties { display: flex; justify-content: space-between; margin-top: 5mm; }
+  .label { font-weight: 700; text-transform: uppercase; margin-bottom: 1mm; }
+  .meta { border-collapse: collapse; margin-top: 5.3mm; }
+  .meta td { padding: 0; }
+  .meta td + td { text-align: right; font-weight: 700; padding-left: 18mm; }
+
+  .intro { margin: 9mm 0 3mm; }
+
+  table.items { width: 100%; border-collapse: collapse; border: 0.75pt solid var(--line); }
+  .items th {
+    background: var(--fill); font-weight: 700; text-transform: uppercase; text-align: left;
+    padding: 3.2mm 3mm; border-bottom: 0.75pt solid var(--line);
+  }
+  .items td { padding: 3mm 3mm 3.4mm; border-bottom: 0.75pt solid var(--line); vertical-align: top; }
+  .items .n { text-align: right; white-space: nowrap; }
+  .items .sn { width: 1%; color: var(--muted); padding-right: 0; }
+  .items .desc { width: 100%; }
+
+  table.totals { width: 50%; margin: 2.5mm 0 0 auto; border-collapse: collapse; border: 0.75pt solid var(--line); }
+  .totals td { padding: 2.2mm 3mm; }
+  .totals tr:first-child td { padding-top: 3.2mm; }
+  .totals tr:last-child td { padding-bottom: 3.2mm; }
+  .totals td:first-child { font-weight: 700; text-transform: uppercase; }
+  .totals td + td { text-align: right; white-space: nowrap; }
+  .totals tr.final td { color: var(--label); }
+
+  .terms { margin-top: 10mm; }
+  .terms p { margin: 0 0 0.8mm; }
+
+  .closing { margin-top: 7mm; }
+  .closing .name { font-weight: 700; margin-top: 1mm; }
+
+  footer {
+    position: fixed; left: 15mm; right: 14mm; bottom: 12mm;
+    border-top: 0.75pt solid var(--line); padding-top: 3mm;
+  }
+  footer b { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>QUOTATION</h1>
+  <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+
+  <div class="sender"><b>Smart Technology for Integrated Systems</b>, 5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt</div>
+
+  <div class="parties">
+    <div>
+      <div class="label">For</div>
+      <div>Vegatrone</div>
+      <div>Att: Mr. Medhat</div>
+    </div>
+    <table class="meta">
+      <tr><td>Subject:</td><td>IT Offer</td></tr>
+      <tr><td>Issue date:</td><td>2026-07-14</td></tr>
+      <tr><td>Valid until:</td><td>2026-08-13</td></tr>
+    </table>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead>
+      <tr><th class="sn">#</th><th class="desc">Description</th><th class="n">Quantity</th><th class="n">Unit price (EGP)</th><th class="n">Amount (EGP)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="sn">1</td><td class="desc">Formatter M428dw</td><td class="n">2</td><td class="n">5219.30</td><td class="n">10438.60</td></tr>
+      <tr><td class="sn">2</td><td class="desc">Toner CF259A</td><td class="n">3</td><td class="n">6332.50</td><td class="n">18997.50</td></tr>
+      <tr><td class="sn">3</td><td class="desc">Fuser RM2-5399</td><td class="n">1</td><td class="n">5418.00</td><td class="n">5418.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Subtotal:</td><td>34854.10</td></tr>
+    <tr><td>Delivery &amp; Installation:</td><td>250.00</td></tr>
+    <tr><td>Discount (5%):</td><td>1742.71</td></tr>
+    <tr><td>VAT (14%):</td><td>4635.59</td></tr>
+    <tr class="final"><td>Total (EGP):</td><td>37996.98</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="label">Terms &amp; Conditions</div>
+    <p>Offer currency: EGP.</p>
+    <p>Payment: 50% advance, balance upon delivery.</p>
+    <p>Warranty: One year.</p>
+    <p>Delivery: Within two weeks.</p>
+    <p>Offer validity: valid until 2026-08-13.</p>
+  </div>
+
+  <div class="closing">
+    <div>Please do not hesitate to contact us in case you have any questions.</div>
+    <div style="margin-top:4mm">Best Regards,</div>
+    <div class="name">Ahmed Essam</div>
+  </div>
+</div>
+
+<footer>
+  <b>Smart Technology for Integrated Systems</b>, 5 El-Fath St, Wezarra Station, Boulkly, Alexandria, Egypt
+  <br><b>Tel:</b> 035829952 &nbsp; <b>Email:</b> info@smarttechegy.com
+</footer>
+</body>
+</html>

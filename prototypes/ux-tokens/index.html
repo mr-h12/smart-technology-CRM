@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.8 — token options</title>
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  main { padding: 16px; display: grid; gap: 16px; }
+  h2 { margin: 0; font-size: 16px; }
+  .themes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .theme { position: relative; height: 150px; background: var(--color-canvas); border: 1px solid var(--color-border); overflow: hidden; }
+  .theme p { margin: 8px; color: var(--color-text); }
+  .scrim { position: absolute; inset: 0; }
+  .dialog { position: absolute; inset: 40px 30px; background: var(--color-surface); color: var(--color-text); border-radius: 12px; padding: 8px; box-shadow: var(--shadow-2); }
+  .radii { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .radii div { border: 1px solid var(--color-border-strong); background: var(--color-surface); padding: 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid var(--color-border); padding: 4px 6px; text-align: start; }
+  .pass { color: var(--color-success); font-weight: 600; } .fail { color: var(--color-danger); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <label>Option: <select id="opt"><option>today</option><option>A</option><option>B</option></select></label>
+
+  <h2>A-42 — scrim and color-scheme</h2>
+  <div class="themes" id="themes"></div>
+
+  <h2>A-63 — radius by role</h2>
+  <div class="radii" id="radii"></div>
+
+  <table><thead><tr><th>row</th><th>measure</th><th>today</th><th>A</th><th>B</th></tr></thead><tbody id="out"></tbody></table>
+</main>
+<script>
+const THEMES = ['warm-editorial', 'clean-monochrome', 'midnight-obsidian'];
+const DARK = { 'midnight-obsidian': true };
+
+// A-42. today: color-mix(--color-text 45%) as in 12 dialogs, no color-scheme.
+// A: a --color-overlay token, rgb(0 0 0 / 0.5) in every theme, plus color-scheme per theme.
+// B: no token; AppSidebar.vue's backdrop-filter: brightness(0.45), plus color-scheme per theme.
+const SCRIM = {
+  today: () => ({ background: 'color-mix(in srgb, var(--color-text) 45%, transparent)' }),
+  A: () => ({ background: 'rgb(0 0 0 / 0.5)' }),
+  B: () => ({ backdropFilter: 'brightness(0.45)' }),
+};
+const scheme = (opt, t) => opt === 'today' ? '' : (DARK[t] ? 'dark' : 'light');
+
+// A-63. Rendered px per role. today: AppContextBar's shell controls are rounded-xl (12), the
+// rest rounded-lg (8); cards rounded-xl (12: deal/quotation detail, table frames) and rounded-2xl
+// (16: customer detail, login, account security); dialogs rounded-2xl (16).
+const RADII = {
+  today: { control: [8, 12], card: [12, 16], dialog: [16] },
+  A: { control: [6], card: [8], dialog: [12] },   // §4.2 as written
+  B: { control: [8], card: [12], dialog: [16] },  // §4.2 amended to today's rendered steps
+};
+
+const rgb = s => s.match(/[\d.]+/g).map(Number);
+const lum = ([r, g, b]) => [r, g, b].map(v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+  .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+
+function measureScrim(opt, t) {
+  const probe = document.createElement('div');
+  probe.dataset.theme = t;
+  document.body.append(probe);
+  const canvas = rgb(getComputedStyle(probe).getPropertyValue('--color-canvas').trim()
+    .replace(/^#(..)(..)(..)$/, (_, r, g, b) => `${parseInt(r, 16)},${parseInt(g, 16)},${parseInt(b, 16)}`));
+  let under;
+  if (opt === 'B') {
+    under = canvas.map(v => v * 0.45); // ponytail: sRGB multiply; linearRGB is also a multiply, so darker either way
+  } else {
+    Object.assign(probe.style, SCRIM[opt]());
+    const bg = getComputedStyle(probe).backgroundColor; // color-mix computes to color(srgb 0–1 …)
+    const [r, g, b, a = 1] = rgb(bg).map((v, i) => bg.startsWith('color(') && i < 3 ? v * 255 : v);
+    under = canvas.map((c, i) => [r, g, b][i] * a + c * (1 - a));
+  }
+  probe.style.colorScheme = scheme(opt, t);
+  const cs = getComputedStyle(probe).colorScheme;
+  probe.remove();
+  return { darkens: lum(under) < lum(canvas), ratio: lum(canvas) / lum(under), cs };
+}
+
+function measureRadii(opt) {
+  const r = RADII[opt];
+  const one = Object.values(r).every(v => v.length === 1);
+  const ordered = Math.max(...r.control) < Math.min(...r.card) && Math.max(...r.card) < Math.min(...r.dialog);
+  return one && ordered;
+}
+
+const verdict = ok => `<span class="${ok ? 'pass' : 'fail'}">${ok ? 'pass' : 'fail'}</span>`;
+
+function draw() {
+  const opt = document.getElementById('opt').value;
+  document.getElementById('themes').innerHTML = THEMES.map(t => {
+    const s = SCRIM[opt]();
+    const style = Object.entries(s).map(([k, v]) => `${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}:${v}`).join(';');
+    return `<div class="theme" data-theme="${t}" style="color-scheme:${scheme(opt, t) || 'normal'}">
+      <p>${t} — نص الصفحة خلف الحوار</p><div class="scrim" style="${style}"></div>
+      <div class="dialog">حوار <select><option>قائمة</option></select></div></div>`;
+  }).join('');
+  const r = RADII[opt];
+  document.getElementById('radii').innerHTML = Object.entries(r).flatMap(([role, vs]) =>
+    vs.map(v => `<div style="border-radius:${v}px">${role} ${v}px</div>`)).join('');
+
+  const rows = [];
+  const cell = fn => ['today', 'A', 'B'].map(o => `<td>${fn(o)}</td>`).join('');
+  rows.push(`<tr><td>A-42</td><td>scrim darkens the canvas, all 3 themes (canvas÷under)</td>${cell(o => {
+    const ms = THEMES.map(t => measureScrim(o, t));
+    return verdict(ms.every(m => m.darkens)) + ' ' + ms.map(m => m.ratio.toFixed(2)).join(' / ');
+  })}</tr>`);
+  rows.push(`<tr><td>A-42</td><td>color-scheme follows the theme (light / light / dark)</td>${cell(o => {
+    const cs = THEMES.map(t => measureScrim(o, t).cs);
+    return verdict(cs.join() === 'light,light,dark') + ' ' + cs.join(' / ');
+  })}</tr>`);
+  rows.push(`<tr><td>A-63</td><td>one radius per role, control &lt; card &lt; dialog</td>${cell(o =>
+    verdict(measureRadii(o)) + ' ' + Object.entries(RADII[o]).map(([k, v]) => `${k} ${v.join('+')}`).join(', '))}</tr>`);
+  rows.push(`<tr><td>A-63</td><td>matches §4.2 as written (6 / 8 / 12)</td>${cell(o =>
+    verdict(RADII[o].control.join() === '6' && RADII[o].card.join() === '8' && RADII[o].dialog.join() === '12'))}</tr>`);
+  document.getElementById('out').innerHTML = rows.join('');
+}
+document.getElementById('opt').addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>

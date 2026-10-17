@@ -1,0 +1,667 @@
+# Handoff: **Module 13 slice 7 · 7.1 is green on PR 393 (`8372b74`, 8 of 9 checks SUCCESS, `tests (quotations-deals)` still running at session end) — not merged. Next: the owner reads CI on `8372b74`, merges #393 → main CI → `/next-point 13 7.2`.**
+
+## 1. Current Goal
+
+1. **The owner reads PR 393's CI on head `8372b74`** (the first run on `13b32a2` failed only on the shard assertion; `8372b74` fixed it) and **merges**. Then read main CI on the merge commit (`gh run list --branch main --limit 1`).
+2. **`/next-point 13 7.2`** — typed by the owner. 7.2 (CHECKLIST.md ~:5279): the PDF's activity PO group reads «أوامر شراء سجّلها»; a manual retry after a failed generation; an audit entry on download (`D-132`'s deferred items). Guard: `ReportPdfGenerationTest`, `ReportPdfEndpointTest`, one real render read as an image.
+3. **The owner's rules (carried, all in force):** the main session plans, briefs, reads evidence and reports; **subagents build on Opus 5.5**; every brief opens with the skills line (ponytail full, karpathy-guidelines, the needed superpowers; `ui-ux-pro-max` for frontend/PDF) and ends "start your report with the Skill calls you made"; the main session names the skills each turn. One test run at a time; auditors read-only while a suite runs. "Write the failing tests" stops at red; "go green" is a separate turn. The owner runs new-branch push, `gh pr create`, merges, and CI reads when they say so ("i will check on ci and merge my self"); a push to an existing PR branch is done when the owner says "push". Never touch `Server_Deployment_Notes.pdf`. Explain in Arabic. Full report first, then `wrap_up` without `ask`. A finding that changes an approved plan goes back to the owner (7.1's header-pill size went back and got choice A). The codeburn guard fires at $15: stop and hand the owner `codeburn guard allow <session id>`.
+
+## 2. Key Findings (verified at session end, 2026-10-17 ~03:00Z)
+
+### Repo
+- `origin/main` = **`2c1b75c`** (merge of #392). PR 391 MERGED (`de66430`, main CI success); PR 392 MERGED (`2c1b75c`, docs only, no CI).
+- **PR 393 OPEN**, base main, head **`8372b74`** = local branch `feature/reports-shared-catchup-cleanup`; tracked tree clean. Checks at the last read: build×2, bundle, static, verify, tests (identity-admin), tests (suppliers-customers) SUCCESS; publish SKIPPED; **tests (quotations-deals) IN_PROGRESS** → unverified.
+- Branch commits: `fbdf207` (red) · `1696d3f` (green, 7.1 ticked) · `b8766f6` (choice A: header pills resized) · `13b32a2` (debt row: go-live cannot be cleared) · `8372b74` (ci: `tests/Feature/Scheduling` into the `quotations-deals` shard).
+- **Counts on `1696d3f`:** full PHP suite **4066 passed (28271 assertions), 756 s** alone; vitest **1466 (72 files)**; pint PASS 870; phpstan OK; deptrac 0/3113 (layers) and 0/2010 (modules), no `internal_tag` warning. Test methods: origin/main 2995 → 2992 (−8 +5).
+- Next PR: **394**. Next decision: **D-138**.
+- **Dev:** 0 pending migrations; `/var/crm-files` = **98** (was 97; this session made no PDF — unattributed); go-live date **empty**; 8 weekly reports (0001 submitted + **0002…0008 drafts** made this session); `failed_jobs` = 3 (old J-06 rows from 2026-10-16 23:00 → 2026-10-17 01:00, pre-7.1).
+
+### What 7.1 built (`1696d3f`…`8372b74`)
+- `routes/console.php`: one closure command `schedule:catch-up` (`Artisan::command`, map `J-01/J-04/J-05/J-06 → Job::class`, runs the schedule's own entry, exit 1 naming the first missing one). Four command classes and their eight tests deleted; `bootstrap/app.php` entries removed; `docker-compose.yml` scheduler = `php artisan schedule:catch-up && exec php artisan schedule:work`. Test: `tests/Feature/Scheduling/CatchUpCommandTest` (3).
+- `App\Support\Database\UtcAtom::of(string): string` at `ShowReport.php:88`, `DatabaseReportDirectory.php:254, 348, 376`; admitted class-by-class in both deptrac files; **root key `parameters:` → `deptrac:`** in both (deptrac/deptrac#1418; `qossmic/deptrac` 2.0.4 is abandoned for `deptrac/deptrac` 4.7.2 — upgrade not taken). Test: `tests/Unit/Support/Database/UtcAtomTest` (2).
+- `pages/reports/ReportStatusChip.vue` (prop `status`; the old inline classes, not `.status-chip`) at `ReportsView.vue:112`, `ReceivedReportsView.vue:77`, `ReportDetailView.vue:421` (keeps `data-testid="report-status"` by fallthrough) and `:556`; the header's `report-late`/`report-not-reviewed` spans resized to the chip's classes (choice A). Listed in `NoHardCodedTextTest`. Spec: `ReportStatusChip.spec.ts` (2).
+- `CustomerNotesSection.vue:~109`: `row.status = 'idle'` in the cleared branch; spec "after a save, a cleared note…".
+- CHECKLIST: rows closed — pill, catch-up copies, go-live/deadline stale, note «تم الحفظ», UTC→ATOM, pre-D-131 snapshot, deptrac warning; rows added — `new_customers.count` copy, report chips not on §6.4's recipe, Pdf split UTC conversion, **go-live date cannot be cleared from the screen**; appended — schedule-lookup helper to the shared-trait row.
+
+### Facts that cost a failure to learn (new this session)
+- **A new directory under `crm/tests` must be named in a shard of `.github/workflows/php-image.yml` (~:300)**; the `build` job's "Assert every test directory is in exactly one shard" fails otherwise and no local gate catches it (PR 393's first run). Check with the step's own script from the repo root before pushing. (memory `project_test-shard-list.md`)
+- **`queue:work` keeps the classes it booted with.** J-06 failed on dev 3× (`BindingResolutionException … PurchaseOrderCountsInterface`) because `worker-maintenance` ran since 2026-10-16 16:09Z while the binding landed at 21:57Z. After any pull that adds a binding/job: `docker compose restart worker-maintenance worker-critical worker-reports worker-pdf php`.
+- **J-05 drafts a week only when "today" ≥ the Sunday after it** (`GenerateWeeklyReports::weeksSince`: this week's Sunday − 7). A go-live set on a Saturday drafts nothing until Sunday 01:00 UTC (04:00 Cairo). To draft early on dev: tinker with `Carbon::setTestNow(Carbon::parse('<next Sunday> 03:00', 'Africa/Cairo'))` → `app(GenerateWeeklyReports::class)->run()` → `setTestNow()`; drafts' `created_at` carry the frozen time, audit rows the real one.
+- **A set go-live date cannot be cleared from the settings screen** (`PATCH /api/v1/settings` → 422 «حقل تاريخ بدء التقارير مطلوب»; `UpdateSettingsRequest` requires each submitted setting, `SystemSetting::rule()` adds `date_format:Y-m-d`). Dev recipe: tinker `SettingsRepositoryInterface::put(SystemSetting::ReportsGoLiveDate, '')` then `SettingsCacheInterface::forgetSettings()`. Registered as a debt row; the fix (`nullable` for that setting + test) is a point the owner has not ordered.
+- `git checkout HEAD -- .` from a subagent rewrote `docker-compose.yml`'s inode → the php single-file mount went stale → `docker compose restart php` (the known recipe).
+- Read-only dev DB without the MCP: `docker compose exec -T postgres psql -U crm -d crm -Atc "<sql>"`. Table is `settings` (not `system_settings`); `users.role_id` → `roles` → `role_permissions` → `permissions(resource, action, scope)`; `audit_log.entity_id` is uuid.
+- Local `main` is stale at #303: measure a point with `git diff origin/main...HEAD`, never `main...HEAD`.
+
+### Open owner decisions raised this session (none blocks 7.2)
+- The go-live clearing defect (above): which point fixes it.
+- The report chips' look vs §6.4's `.status-chip` recipe, and the six `report-late`/`report-not-reviewed` spans still inline (debt row).
+- Three old `failed_jobs` rows on dev: `php artisan queue:retry all` (idempotent) or `queue:flush`.
+- The criteria 1 and 6 ticks; `created_by` vs current owner for new customers (`D-126` vs `D-134`); the items outside slice 7 (English PDF, draft PDF, twin PDF job, money at 2 places, silent download failure, shared test trait).
+
+## 3. Completed Actions (with evidence)
+- **Session start:** handoff verified; one stale claim (PR 391's last shard had finished: all 9 concluded).
+- **PR 391 merged by the owner** (`de66430`, main CI success) → docs PR 392 (`4bf231a`: slice 6 closed, slice 7's four points) merged (`2c1b75c`).
+- **7.1 red** (`fbdf207`, Opus subagent; re-run by the main session: CatchUpCommandTest 3× `CommandNotFoundException`, UtcAtomTest 2× class not found, ReportStatusChip.spec import unresolved, CustomerNotesSection 1 failed/14 passed on «تم الحفظ»).
+- **7.1 green** (`1696d3f`): full suite 4066 alone; vitest 1466; vue-tsc 0; pint; phpstan; deptrac ×2; waste audit (Opus, read-only): nothing created, four revealed → registered; permission/pricing auditors not triggered (no route, scope, export, permission or money change); rtl-ui-verifier ar/en × 1280/375 on `/reports`, `/reports/received`, RPT-WK-2026-0001, RPT-DY-2026-0019 and Soyven's notes — header pill mismatch found → owner chose A → `b8766f6`, re-measured (both 22.84 px / 13 px at 1280 and 375). Scheduler recreated: `J-01…J-06 dispatched.` then `schedule:work`.
+- **J-06 stale-worker failure** diagnosed and fixed by restarting `worker-maintenance`; the retried job ran DONE.
+- **Dev data at the owner's request:** go-live set to 2026-10-11 by the owner → J-05 alone drafted 0 (Sunday rule) → run once with "today" = 2026-10-18 → **7 weekly drafts (RPT-WK-2026-0002…0008, period 10-11 → 10-15, one per `report.create` holder; only Test Indoor Sales has activity)** → go-live cleared via artisan (screen refused, 422).
+- **PR 393 opened by the owner**, bound; first CI run failed on the shard assertion → `8372b74` pushed (owner said "push"); re-run in progress at session end.
+- Memory: `project_test-shard-list.md` added.
+
+## 4. Plan
+- **Now:** owner reads CI on `8372b74` → merges #393 → main CI → `/next-point 13 7.2`.
+- **Slice 7 (CHECKLIST.md ~:5277):** 7.1 `[x]` · **7.2** PDF: PO group label «أوامر شراء سجّلها», manual retry after a failed generation, audit entry on download · **7.3** criteria 4 and 5: flat append-only comments (CEO comment-only, `D-127`), duplicate-period warning and choice, one answer for a non-editable report · **7.4** lists: J-08 archiving after six months (uses the shared catch-up — add `J-08` to the `schedule:catch-up` map and `tests/Feature/Scheduling`), Team/Out scopes and the Team Leader's Missed badge (§3.10), slice 2's five guard gaps.
+- **After slice 7, still owed in Module 13:** RPT-MN (J-07; `D-138` questions: the monthly's "author" for `D-126`, profit per currency for the CEO, calendar month vs working weeks), RPT-DL, RPT-FN, RPT-PF, **RPT-VS** (details from the owner), the English PDF, the draft's PDF, the manual test list; the decisions listed as outside slice 7.
+
+## 5. Environment / gates (host PHP and npm don't work: run everything in containers, one test run at a time)
+```
+git fetch origin && git checkout -b <branch> origin/main   # never cut from local main (stale at #303)
+# Browser: tabId "seed" on http://localhost:8765 (preview_start "crm-http" fails: port in use → navigate instead); the owner signs in; agents never sign in
+docker compose exec -T spa-build npm run test:unit                     # 1466 (72 files) on 1696d3f
+docker compose exec -T spa-build npx vue-tsc --noEmit
+docker compose exec -T php php artisan test 2>&1 | grep -v "^\s*$" | tail -3   # ~12.5 min, 4066 on 1696d3f; background, alone
+docker compose exec -T php sh -c 'wc -l /opt/crm/docker-compose.yml /opt/crm/docs/CRM_Documentation_EN.md'   # error = docker compose restart php
+docker compose exec -T php ./vendor/bin/pint --test
+docker compose exec -T php ./vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml --no-progress    # 0 / 3113, no internal_tag line
+docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml --no-progress   # 0 / 2010
+docker compose exec -T php php artisan migrate:status | grep Pending
+docker compose exec -T php sh -c 'find /var/crm-files -type f | wc -l'      # 98
+docker compose exec -T postgres psql -U crm -d crm -Atc "<sql>"             # read-only looks at dev
+docker compose exec -T php php artisan tinker < script.php   # FQCNs only, no `use`; a write to dev goes through here and is said so
+docker compose up -d scheduler && docker compose logs --since 1m scheduler  # "J-01 dispatched." … then "Running scheduled tasks."
+docker compose restart worker-maintenance worker-critical worker-reports worker-pdf php   # after any pull adding a binding/job/Pdf class
+# new tests/ directory → add it to a shard in .github/workflows/php-image.yml (~:300) and run that step's script from the repo root
+gh pr view <n> --json state,headRefOid,statusCheckRollup --jq '…'          # read CI on the PR's current head SHA, never an older row
+# D-xx row by shell, keeping the inode:  python3 … > tmp ; cat tmp > docs/CRM_Documentation_EN.md
+```
+
+## 6. Non-code items (carried until resolved)
+- **New this session (2026-10-17, slice 7 · 7.1, PR 393):**
+  - **PR 393:** read CI on `8372b74` (the `quotations-deals` shard was still running), merge (owner), read main CI, then `/next-point 13 7.2`.
+  - **The client PC (after #391, #392, #393):** pull `main`; **`docker compose up -d`** (the `scheduler` command changed to `schedule:catch-up`); **restart php and every worker** (`worker-maintenance` especially: a stale worker failed J-06 on dev for two hours); rebuild the SPA; hard-reload report tabs. No migration.
+  - **Owner decisions open:** which point fixes "a set go-live date cannot be cleared from the screen" (`nullable` + test); the report chips vs §6.4's recipe and the six inline late/not-reviewed spans; `queue:retry all` or `queue:flush` for the 3 old `failed_jobs` rows; criteria 1 and 6 ticks; `created_by` vs current owner for new customers; the items outside slice 7.
+  - **Owner questions:** `/var/crm-files` 97 → 98 during this session with no PDF made by Claude — was it you? New baseline 98. (The earlier RPT-WK-2026-0001 23:01Z question is still open.)
+  - **Dev data:** 7 weekly drafts RPT-WK-2026-0002…0008 (authors: Indoor Sales, Manager, Outdoor Sales, Outdoor Supervisor, Procurement, Team Leader, test; `created_at` = 2026-10-18 00:00Z from the frozen clock; audit rows at 02:38Z); go-live **empty** (so J-04…J-07 do nothing; the 10 daily drafts of 10-16 stay drafts); Soyven's note «المندوب: هيثم» was edited and restored by the browser check (3 PATCHes, audit rows).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **4066 backend (28271)**, **1466 vitest (72 files)**.
+  - **Codeburn guard** fired at $15 this session; the owner lifted it (`codeburn guard allow <session id>`).
+  - **claude-mem:** capture ran this session.
+- **New this session (2026-10-17, slice 6 · 6.5, slice 7 planned):**
+  - **PR 391 merge** (owner) → main CI read → docs PR 392 (slice 6 close + slice 7 points) → `/next-point 13 7.1`.
+  - **The client PC:** after #389/#390 (still owed from the last handoff) — pull `main`, **`php artisan migrate`** (`2026_10_19_000200_add_not_reviewed_to_reports`), **`docker compose up -d`** (scheduler command), restart php and worker-pdf, rebuild the SPA, hard-reload report tabs. After #391: pull, **restart worker-pdf** (template re-read, but the `SubmittedReports` class changed), restart php; no migration, no SPA change.
+  - **Owner decisions open:** criteria 1 and 6 ticks; `created_by` vs current owner for new customers (`D-126` vs `D-134`); the items named "outside slice 7" (English PDF, draft PDF, twin PDF job, money at 2 places, silent download failure, shared test trait).
+  - **Owner question (carried):** RPT-WK-2026-0001 submitted 2026-10-16 23:01:07Z from Safari/Mac as Super Admin → Test Manager. Was it you? Files baseline 97.
+  - **Known ceiling (D-137):** a reactivated user, or one newly granted `report.create`, still gets every week since account creation.
+  - **Dev data:** RPT-WK-2026-0001 (submitted; its v1 PDF is the pre-6.5 layout, immutable); dev has no default recipient and an empty go-live date, so J-05/J-06 do nothing on dev.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **4066 backend (28277)**; vitest last **1463 (71 files)**.
+  - **claude-mem:** capture ran this session (observations recorded).
+- **New this session (2026-10-16, slices 4 close, D-134, slice 5):**
+  - **Resolved:**
+    - slice 4 closed (#386);
+    - slice 1 closed (#385);
+    - main CI on `63a5e10` → success.
+  - **The client PC (after #388 merges):**
+    - pull `main`;
+    - **`php artisan migrate`** (two migrations; without it every report page answers 500);
+    - **`docker compose up -d`** (the `scheduler` command changed);
+    - restart php;
+    - rebuild the SPA;
+    - hard-reload open report tabs.
+  - **The owner's call:**
+    - **acceptance criterion 1**: tick now for RPT-DY, or wait for all types (asked twice, unanswered);
+    - **`D-136`'s wording** (slice 6);
+    - the three debt rows from #388 (two added, plus the stale `SystemLimit::valueType()` docblock inside the first).
+  - **Display wording left as is (verifier's observation):**
+    - the /settings limits intro still says "deadlines";
+    - the go-live hint says "report deadlines";
+    - both are still true in the general sense.
+  - **Dev data:** `RPT-DY-2026-0019` (Super Admin) is now a submitted, late report to Test Manager, made by the browser check.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **4025 backend, 1451 vitest (71 files)**.
+  - **claude-mem:** capture was paused at session start (five-hour usage at 95%).
+- **New this session (2026-10-16, slice 4, `D-132`):**
+  - **The client PC (after #384):**
+    - pull `main`;
+    - `php artisan migrate` (`2026_10_18_000000_create_report_pdf_generations`);
+    - **restart php and worker-pdf** (new job class);
+    - rebuild the SPA;
+    - hard-reload an open report tab.
+  - **Owner's call:**
+    - tick acceptance criterion 1;
+    - close slice 4;
+    - the six new debt rows (above);
+    - whether the PDF should print status words for "deals created" and quotations too (left out of scope);
+    - the footer's English «Page x of y» and the money without thousands separators are the quotation's house style. Change both PDFs, or neither?
+  - **The owner tested as Super Admin**, so the author name is hidden by §3.1. A Sales user's report shows the name.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **4007 backend (27696 assertions)**, and **1446 vitest (71 files)**.
+- **New this session (2026-10-16, slice 3 · 3.3):**
+  - **The client PC (after #382 and #383):**
+    - Pull `main`.
+    - Run `php artisan migrate` (`2026_10_17_000000`, from #382; #383 has no migration).
+    - Restart php and rebuild the SPA.
+    - An open customer tab needs a hard reload.
+  - **The owner's call, `D-126`:**
+    - An Outdoor Supervisor reads customer names on received reports that the `out` scope cannot open.
+    - The same family: Sales sees a follow-up on its own customer from a report it cannot open. `D-133` accepts this.
+  - **Owner's call (debt rows):**
+    - the UTC→ATOM formatter;
+    - the customer notes' «تم الحفظ» beside their error;
+    - the recipient section's `report-conflict` test id;
+    - plus the earlier ones: the inert `PATCH /reports/{id}`, one code for a non-editable report, the scoped style copies, the shared Reports test trait, slice 2's receiving gaps.
+  - **Low, unregistered:**
+    - `ofCustomer` orders by the date only, so rows with equal timestamps can swap order;
+    - no pagination.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3960 backend (27171 assertions) + 3 negative tests**, and **1439 vitest (71 files)** on `27ef6f9`.
+- **New this session (2026-10-16, slice 3 · 3.2 close):**
+  - **PR 382 merged** (CI green). The codeburn guard fired at $15 this session; the owner lifted it.
+  - **The client PC (after PR 382 merges):** pull `main`, run `php artisan migrate` (migration `2026_10_17_000000`), restart php, rebuild the SPA.
+  - **Owner's call, `D-126`:** an Outdoor Supervisor reads customer names on received reports that `out` cannot open (§2).
+  - **Owner's call (debt rows):**
+    - the customer notes' «تم الحفظ» beside an error;
+    - the recipient section's `report-conflict` test id;
+    - plus the earlier ones: the inert `PATCH /reports/{id}`, one code for a non-editable report, the scoped style copies, the shared Reports test trait, slice 2's receiving gaps.
+  - **Unattributed console 401s** (two "Failed to load resource") appeared in every browser cell; no 401 showed in the network list.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3950 backend (27070 assertions)**, **1432 vitest (70 files)** on `13029b8`.
+  - **claude-mem:** capture was paused at session start (five-hour usage at 95%).
+- **New this session (2026-10-16, slice 2 close, slice 3 · 3.1–3.2):**
+  - **The client PC (after PR 382 merges):** pull `main`, run `php artisan migrate` (new migration `2026_10_17_000000`), restart php, rebuild the SPA. #381 had migration `2026_10_16_000000` (receiving columns).
+  - **Owner's call (debt register):** remove the inert `PATCH /reports/{id}`; one code for a non-editable report; delete the 21 + 5 scoped style copies; a shared Reports test trait; slice 2's five receiving gaps.
+  - **`~/.zprofile:3: unmatched "`** prints in every new terminal (an open quote on line 3); unrelated to the CRM.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3929 backend tests (26471 assertions)** on `7c1016f`, **1412 vitest (69 files)**; 3.2's tree reports 1431 vitest.
+- **New this session (2026-10-15, Module 13 slice 1 · R.1–R.3, D-130):**
+  - **The owner signs in on the Browser pane** (`http://localhost:8765`) so R.4's browser check can run.
+  - **Owner question:** the 20:15Z writes on dev. A Safari session on a Mac, under Login As, did the following in one minute: created a quotation PDF (files **88 → 89**), recorded a PO, moved a deal, created a report and edited its notes twice. Then it ended the impersonation at 20:16Z. Was this the owner? The new files baseline is **89**.
+  - **Owner's call:** a deal or quotation reassigned away from the author after they acted still shows (current status, total and customer) in the author's own report, and is frozen at submit. The permission auditor judged it acceptable; there is no test either way.
+  - **Unverified display edge:** totals show 2 decimals. A currency with rounding off and more stored decimals shows rounded on screen (display only).
+  - **The client PC (after PR 379 merges):** the same as slice 1 below. No extra migration from D-130; rebuild the SPA.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3902 backend tests (1 failing) · 26002 assertions** and **1395 vitest (68 files)**.
+  - **claude-mem** was signed out all session ("Claude Code reported the observer as signed out"); run `/login`.
+- **New this session (2026-10-15, Module 13 slice 1):**
+  - **The owner signs in on the Browser pane** (tab "seed", `http://localhost:8765`) so the browser check can run.
+  - **The client PC (after PR 379 merges):** pull `main`, `php artisan migrate` (the reports tables), `php artisan db:seed --class=SystemSettingsSeeder` (the 17:00 deadline), restart php, rebuild the SPA; an open tab needs a hard reload. The Super Admin then sets the default report recipient on the settings screen (until then every author picks).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: vitest **1390 (68 files)**; the full PHP count was not read.
+  - **claude-mem** is signed out ("Claude Code reported the observer as signed out"); run `/login`.
+- **New this session (2026-10-15, Module 13 Step 1):**
+  - **The client PC:** #375–#378 are docs only: no rebuild, no migration.
+  - **Revealed, not registered:**
+    - §11.4's lifecycle diagram has no Missed state.
+    - `.claude/agents/permission-matrix-auditor.md:27` still says "Check PDF, Excel" (D-128 dropped Excel).
+    - D-126 cites §12 (Dashboards) for "never mixed", and its "Sunday → Thursday" does not cite §2.6. The owner left both as worded.
+  - **§11.2's RPT-VS lists Outdoor Sales as an author, but §3.10 and §8 give Outdoor Sales no Reports screen.** This is pre-existing; Module 12's call.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034 tests; only its "Next action" was updated (to Module 13).
+  - **claude-mem** is signed out ("Claude Code reported the observer as signed out"); run `/login`.
+- **New this session (2026-10-15, F-50 · 4 withdrawn):**
+  - **The client PC:** nothing new from F-50 · 4, since none of it reached `main`. #374 is docs only. The F-50 · 2–3 items below still apply.
+  - **The dev Browser pane** is signed in on tab `seed` (the owner signed in 2026-10-15). The UI language is back to Arabic.
+  - **`CHECKLIST.md`'s F-27 · 1.1 line may be half stale:** `owner_name` already ships (F-41 · 1.6b). Confirm at that point's start.
+  - **Unasked, revealed by the withdrawn work and not registered:**
+    - `EloquentCustomerStatusWriter`'s docblock says a recompute "leaves `updated_at` alone". An Eloquent query `update()` adds `updated_at`, so that claim looks wrong. Unverified; read before relying on it.
+    - The customer page does not reload the customer after a deal status change made on the same page, so the derived status chip can be stale until reload. This was pre-existing.
+  - **claude-mem** was signed out at session start ("Claude Code reported the observer as signed out"); run `/login`. Nothing from this session was captured by it.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. The last measured on F-50 · 3's tree: about 3837 backend, 1366 vitest.
+- **New this session (2026-10-15, F-50 · 2–3):**
+  - **The client PC, after #371 and #372 merge:**
+    - Pull `main`, then run `php artisan migrate`. There are two migrations: the five link columns, and `customer_notes`, which copies each customer's old notes into a first note.
+    - Restart php and rebuild the SPA.
+    - An open customer tab needs a hard reload: the old form sends `notes`, which now gets a 422.
+  - **Behaviour changes:**
+    - Customers have five link fields.
+    - Notes are a list on the customer page that saves itself (D-124): there is no Save or Edit button, and the old notes box left the form.
+    - An imported `notes` column becomes the first note.
+  - **Owner's call (open):** D-121 says the links are "not shown in the customer list". The list *screen* doesn't show them, but the list *API* returns them (it shares `CustomerPayload`). Reword D-121, or drop the links from the list payload?
+  - **Debt (not registered yet):** `CustomerNotesSection.vue` holds one more scoped `.form-field` copy, under the existing scoped-copies row.
+  - **Dev data:** the owner's test notes on «Alex Scan» (8 notes, 14:05–14:11Z) are all soft-deleted. My two autosave test notes were removed.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3837 backend** (2 list tests then fixed) and **1366 vitest (66 files)**.
+- **New this session (2026-10-15, F-49 · 1.4b + F-50 · 1):**
+  - **The client PC:** pull `main` (`28dbaa9`), restart php, and **rebuild the SPA** (#370 changes the offer form). There is no migration. An open supplier-offer tab needs a hard reload, because the old form sends `total_price`, which now gets a 422.
+  - **Behaviour change:** the offer total is no longer typed. It is the sum of the lines, recomputed on every save, so an old offer's typed total changes at its next save.
+  - **Owner questions, unanswered:**
+    - DL-2026-0010's moves at 22:47Z (carried).
+    - The QT PDF at 23:12Z (files 84 → 85).
+    - The supplier offer, quotation and PDF at 00:40–00:43Z (files 87 → 88).
+    - Were these the owner? The baseline is now 88.
+  - **The owner's Safari session:** sign out once. The bearer token was pasted into this chat (local dev only), and signing out ends it.
+  - **Load-test data on dev:** DL-2026-0013 and DL-2026-0014, 100 quotations and 2 POs under «F44 اختبار قطاع» (now «عميل»). Archive them or keep them; the owner's call.
+  - **Not seen in the browser:** the reworded currency-list warning (it shows only when `/currencies` fails).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3815 backend (24987)** and **1350 vitest (65 files)**.
+  - **`~/.zprofile:3`** has an unmatched `"`. It prints on every new terminal; it is outside the repo and unchanged.
+  - **claude-mem:** capture was paused for the weekly quota at session start.
+- **New this session (2026-10-15, F-49 · 1.3–1.4a):**
+  - **The client PC:** pull `main` (`cb9272b`), restart php, and **rebuild the SPA** (#368 and #369 change Vue files). There is no migration. An open tab needs a hard reload; the old SPA still offers the 12-status select, which now gets a 422 except for the three.
+  - **Behaviour change:** by hand only «شراء» / «توريد» / «اكتمل التوريد», shown as one button. «خاسرة» comes only from a recorded rejection, so a deal that dies before any quotation can't be closed by hand (the owner chose this).
+  - **Owner question:** the DL-2026-0010 moves at 22:47Z (§1.3).
+  - **Owner's call (permission auditor, pre-existing):** §4.4's "Purchasing / Delivery · Procurement" column isn't enforced, because `change_status` lets Sales `Own` move their own deals too. Also, `test_that_procurement_may_mark_their_assigned_deal_delivery_complete` asserts 404, so its name contradicts it.
+  - **Revealed, not registered (cosmetic):** two stacked doc-comment blocks in `DealsView.vue:~322-335`; at 375 the customer row's title still wraps inside its link.
+  - **Not seen in the browser:** the «توريد» and «اكتمل التوريد» buttons (no dev deal at `purchasing` or `delivery`); any confirmed move; any role but Super Admin.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3803 backend (24943)** and **1350 vitest (65 files)**.
+  - **claude-mem:** capture was paused for the weekly quota at session start.
+- **New this session (2026-10-14/15, F-49 · 1.1–1.2):**
+  - **Resolved 2026-10-15:** «خاسرة» stays automatic only ("Only the three"); D-119 unchanged.
+  - **D-119 is the owner's** (asked via AskUserQuestion, and the wording approved with 1.1's restatement). Unlike D-110…D-118, it has no "proposed" tag.
+  - **The client PC:** pull `main` (`6b24391`) and restart php. There is no migration and no SPA change in #366/#367. **Behaviour change:** new deals start at «تم التواصل»; a new quotation moves its deal to «عرض المورّد»; Accept → «ناجحة»; Partial/Counter → «تفاوض». Existing deals are not moved again.
+  - **Not done:** `rtl-ui-verifier` was not run on 1.1 or 1.2, because no screen file changed. The owner checked 1.1 by hand on `DL-2026-0010`. 1.2 was not seen on screen.
+  - **Not registered (owner's call):** `AssignDeal` and `ReviewDealApproval` read then write a deal without a row lock, and `quotationSent` reads unlocked (pre-existing, revealed while reviewing 1.1).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3790 backend (24875)** and **1338 vitest (65 files)**.
+  - **claude-mem:** capture was paused for the weekly quota (99 %) at session start.
+- **New this session (2026-10-14, F-48 · 2):**
+  - **Resolved:** main CI on `a4a4985` → success (read 2026-10-15).
+  - **Resolved:** main CI on `318005b` → success.
+  - **The client PC:** pull `main` (`a4a4985`), then run **`php artisan migrate`**: two migrations, the new column `supplier_quotations.included_tax_percents` and the default-tax row archived. Restart php and rebuild the SPA. An open supplier-offer tab needs a hard reload: the old SPA sends a flagged offer with no rates, which now gets a 422.
+  - **Behaviour change:** the settings screen loses «الضريبة الافتراضيّة». Each tax-inclusive supplier offer now needs its rate typed (existing offers keep their 14).
+  - **Owner's call (debt row):** extract one `TaxRatesField.vue` to remove the duplicated rate list. This touches the merged builder.
+  - **Not seen in the browser:**
+    - saving an offer with rates;
+    - a server refusal on screen;
+    - Remove on row 1 with a single rate. The verifier said it saw one; the code (`v-if="taxes.length > 1"`) and a passing vitest say otherwise. Not reproduced.
+  - **The 11 px overflow at 375 on /supplier-quotations** was seen again; it is the existing debt row, not F-48's.
+  - **claude-mem:** capture was paused for the weekly quota at session start.
+- **New this session (2026-10-14, F-48 · 1):**
+  - **Main CI on `318005b` is unverified** (in progress at session end).
+  - **Resolved:** main CI on `018a7d1` → success.
+  - **The client PC:** pull `main` (`318005b`), then run **`php artisan migrate`** (new column `quotations.tax_percents`), restart php, and rebuild the SPA. An open builder tab needs a hard reload: the old SPA sends `tax_percent`, which the server now refuses with 422.
+  - **D-118 is "proposed".** The owner merged #363; confirm that counts as approval.
+  - **Not seen in the browser:**
+    - the «+» width fix;
+    - the new-quotation builder from a deal (only the edit page was checked);
+    - saving a quotation with two rates through the UI (the backend tests cover it).
+  - **claude-mem:** capture was paused for the weekly quota (98 % ≥ 93 %) at session start.
+- **New this session (2026-10-14, F-26 · 1.3 merge + F-26 · 1.1):**
+  - **Main CI on `018a7d1` is unverified** (in progress at session end).
+  - **Resolved:** main CI on `2f34546`, `17e4a73` and `3f72c68` → success.
+  - **The client PC:**
+    - Pull `main` (`018a7d1`).
+    - #362 changes `docker/nginx/default.conf`, so **restart the nginx container**; a reload is not enough after a pull replaces the file. It also adds `config/cors.php`, so **restart php**. No migration, no SPA change.
+    - #360: add `LOG_STACK=daily`, `LOG_DAILY_DAYS=7` and `LOG_LEVEL=info` to the client's `.env` by hand, restart php, and delete the old `laravel.log`.
+  - **HSTS on the client PC:** browsers ignore it on a clicked-through self-signed certificate or a bare IP. It only takes effect where the certificate is trusted (e.g. Cloudflare). The real server stays deployment debt (`OD-03`, `P-02`).
+  - **Not seen in the browser:**
+    - an image in the file viewer (the dev DB has no image files);
+    - a deal-attached PDF;
+    - Arabic home at 375.
+  - **Owner's call (debt rows):**
+    - the fixture flake;
+    - `always` on the two older headers;
+    - running `verify-headers.sh` in CI.
+  - **claude-mem:** capture was paused for a quota cooldown at session start.
+- **Carried from F-47 · 1–3 (2026-10-14):**
+  - **D-116 and D-117 are "proposed".** The owner merged #356 to #359; confirm whether that counts as approval.
+  - **`/var/crm-files` 74 → 75:** at 03:18:46Z `PURCHASE_ORDER_DOCUMENT_ATTACHED` was recorded on the dev DB (a file attached to a PO through the app). It was not Claude's. Was it the owner? The new baseline is 75.
+  - **Not seen in the browser:**
+    - deal documents and supplier attachments with «عرض» (they need an upload);
+    - a DOCX/XLSX row or a pending/infected row;
+    - the dark themes;
+    - a real iPhone (iOS Safari may show only a PDF's first page in an iframe; «تنزيل» in the dialog is the way out).
+  - **Optional tests the auditor listed, not added:**
+    - an unknown deal/PO id and a removed offer on DELETE;
+    - the Outdoor Supervisor on the deal DELETE.
+    They share the upload's reach code.
+  - **The per-test-class helper triplet** (`remove`/`uploadedId`/`isRemoved`) is now in three more files. It joins the open question on where shared test helpers live.
+  - **Untracked files outside the known exceptions:** `docker-compose.lan.yml`, `lan-trial-guide.html`, `prototypes/*` (plus `Server_Deployment_Notes.pdf`, never touched). They are unchanged.
+  - **claude-mem:** capture was paused for a quota cooldown at session start.
+- **New this session (2026-10-14, F-45 · 3, F-46 · 1–2, F-47 plan):**
+  - **Main CI on `512245e` is unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`512245e`), restart php, and rebuild the SPA. #353 changes FX pricing (PHP); #354 is lang only. Neither has a migration.
+  - **The dev row `EGP→USD = 51` (2026-10-12).** The owner chooses (a) a newer `USD→EGP = 51` or (b) leave it. Until then, USD supplier prices on EGP quotations convert at 1/51.
+  - **D-115 is "proposed".** The owner merged #353 and #354; confirm that counts as approved.
+  - **Draft quotations re-price at the current rate on every save** (unchanged behaviour). A draft re-saved after #353 picks up D-115.
+  - **Unanswered from F-45:** did you press «إنشاء PDF» between 00:59 and 01:03 UTC?
+- **New this session (2026-10-14, F-45 · 1–2):**
+  - **Resolved:** main CI on `cd6cbde` → success (read 2026-10-14).
+  - **The client PC:** pull `main` (`cd6cbde`), restart php, and rebuild the SPA. #350 changes the deals list query; #351 is SPA only. Neither has a migration. An open tab needs a hard reload.
+  - **D-114 is "proposed — awaiting the owner's approval at merge".** The owner merged #350 and #351; confirm it counts as approved.
+  - **Owner's question, unanswered:** did you press «إنشاء PDF» in the pane between 00:59 and 01:03 UTC? (Three PDFs for QT-2026-0015 and QT-2026-0016; the files baseline is now 74.)
+  - **Not seen in the browser:**
+    - the loading state;
+    - a long title at 375;
+    - any role but Super Admin (vitest covers the gates);
+    - a real save from «طلب جديد» (vitest covers the route to the new deal).
+  - **Owner's call:** a pager past 100 rows on the customer page; the empty request lists for a Team Leader or Outdoor Supervisor (scopes unbuilt).
+  - **Resolved:** main CI on `d6c0d47` → success; main CI on `8e81ccd` → success.
+- **New this session (2026-10-14, F-44 · 1–2):**
+  - **Main CI on `d6c0d47` unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`d6c0d47`) and rebuild the SPA. #348 and #349 have no migration; #349 changes the customer and catalog save code. An open tab needs a hard reload.
+  - **D-112 and D-113 are "proposed — awaiting the owner's approval at merge".** The owner merged both; confirm they count as approved.
+  - **The owner archives the browser check's test customer:** «F44 اختبار قطاع» (`01a137ac-8b25-7100-ae72-2e10ba6695f3`). It is still active (`is_archived=f`). Its sector «قطاع اختبار F44» (`ktaaa_akhtbar_f44`) stays in the sectors list until a Super Admin archives it on the lists screen.
+  - **Not seen in the browser:**
+    - the list column now naming the sector (fixed after the browser run; vitest only);
+    - a fractional percentage (12.5%), because the dev data has none.
+  - **Debt row added (#349):** `sectorLabel` is written three times beside `entryLabel`.
+  - **Behaviour change the owner approved via D-113:** typing an existing catalog company's **label** now reuses it instead of adding a near-duplicate.
+  - **Resolved:** main CI on `359d64c` → success; main CI on `729cd4a` → success; the codeburn guard was lifted by the owner.
+- **New this session (2026-10-14, F-43 · 1):**
+  - **Main CI on `359d64c`** → success (read 2026-10-14).
+  - **The client PC:** pull `main` (`359d64c`) and rebuild the SPA. #347 has no migration; the backend change is a new GET route plus a filter. An open tab needs a hard reload.
+  - **D-111 is "proposed — awaiting the owner's approval at merge".** The owner merged #347, so it may count as approved; confirm.
+  - **The owner checks by hand:**
+    - the tiles in the real catalog;
+    - a service tile, once a service exists;
+    - the «بدون شركة» option in the company select (unrequested; keep or drop).
+  - **The browser checker switched the app to English** in the owner's session.
+  - **Resolved:**
+    - main CI on `f660e31` → success;
+    - the new point's number → F-43.
+- **New this session (2026-10-14, F-42 · P7):**
+  - **Main CI on `f660e31` unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`f660e31`) and rebuild the SPA. #346 has no migration and no backend change. An open tab needs a hard reload.
+  - **The owner checks Safari:** reload a deal page and confirm the status box is now as tall as «عرض سعر جديد».
+  - **Owner's call:**
+    - the same Safari fix for the other selects (deals filters, the owner picker, and every `form-field min-h-11` select);
+    - a fixed width for the status box (a native select sizes to its longest option).
+  - **Resolved:**
+    - main CI on `da8a9ab` → success;
+    - the new point's number → F-42 · P7.
+  - **claude-mem:** capture was paused for a quota cooldown at session start.
+- **New this session (2026-10-14, F-42 · P6):**
+  - **Main CI on `da8a9ab` unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`da8a9ab`) and rebuild the SPA. #345 has no migration and no backend change. An open tab needs a hard reload.
+  - **Owner's decision made:** A-40 on deals means scroll below 640 and clip from 640 (recorded on the P6 tick).
+  - **Debt rows added (#345):**
+    - scoped table/form class copies;
+    - `deals.form.ownerCeiling` unread;
+    - `.file-pick` cursor.
+  - **Not seen in the browser:**
+    - A-09 confirm, A-33 Reject and A-55 approval chips (no dev deal has an approval);
+    - an empty timeline;
+    - a multi-page deals list;
+    - roles other than Super Admin (A-48's refused role: vitest only).
+  - **Unasked, the owner's call:** the deal form's Discard is still a secondary button. A-33 names only Reject.
+  - **The phone loses the sticky header on deals** (the frame scrolls there).
+  - **Console:** 401s before sign-in, unattributed, the same family as earlier sessions.
+- **New this session (2026-10-13 late, F-41 · 1.8 + P6 regroup):**
+  - **The owner runs F-41's manual test list:** the 31 checks under F-41 · 1.8 in `CHECKLIST.md`. Nothing in it was clicked by Claude.
+  - **The client PC:** pull `main` (`c904451`). #344 is docs only: no rebuild, no migration.
+  - **Gaps named in the list:**
+    - Team Leader, Procurement and Outdoor Supervisor have no owner filter (the Team Leader already has a debt row).
+    - The server's 422 for a later PO date isn't reachable by clicking.
+    - The owners call's error state, and «—» for a hidden or deleted owner, can't be produced from the screen.
+  - **Orphaned commit `ea8d2c0`** on `origin/fix/f-41-manual-test-list`. It is redundant with `7f2288f`. Delete the branch or keep it; the owner's call.
+  - **Resolved this session:** main CI on `b0acb64` → success.
+- **New this session (2026-10-13 late, F-41 · 1.6):**
+  - **Main CI on `b0acb64` unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`b0acb64`) and rebuild the SPA. #343 adds no migration; it adds a route (`GET /deals/owners`).
+  - **Not seen in the browser:** the select's absence for a Sales user, and the Manager or CEO view (only a Super Admin account was signed in). Vitest covers the hiding.
+  - **Owner's call (optional):** a negative `/owners` test for the Team and Asgn scopes. Both share `scoped()` with the tested Own scope.
+  - **Owner's call:** filters full width on phones (now 224 px on their own line at 375).
+  - **Owner's names sort by bytes, not Arabic collation** (`asort` in `ListDeals::owners`).
+  - **Untracked files outside the known exceptions** were present all session and are not from any point: `docker-compose.lan.yml`, `docs/ux-upgrade/raw/`, `lan-trial-guide.html`, `prototypes/*` (plus `Server_Deployment_Notes.pdf`, never touched). `/next-point`'s preflight lists them; this session went ahead and said so.
+- **New this session (2026-10-13 night, F-42 · P5):**
+  - **Main CI on `e457d5e`:** success, verified 2026-10-13 by the next session.
+  - **The client PC:** pull `main` (`e457d5e`) and rebuild the SPA. #342 adds no migration and no backend change; the blade view gains the `theme-color` meta. An open tab needs a hard reload.
+  - **Owner's calls (debt rows in `CHECKLIST.md`):**
+    - Which link token the shared `.row-link` should use (`--color-link` or `--color-primary`).
+    - Fixing the 11 px overflow on `/supplier-quotations` at 375.
+  - **Not seen in the browser:** the login password show/hide (login is unreachable while signed in), and A-37 and A-60 at phone width.
+  - **Cosmetic, unregistered:** the purchase-orders search placeholder is cut off at 375 (it was before the change too).
+  - **`/var/crm-files` 67 → 68,** source unattributed; this session generated no PDF.
+  - **Resolved this session:**
+    - Main CI on `a46b419` → success.
+    - P3's "the quotation page's Deal link shows a raw id" → now «فتح الصفقة» (A-18).
+- **New this session (2026-10-13 evening, F-42 · P4):**
+  - **Main CI on `a46b419` unverified** (in progress at session end).
+  - **The client PC:** pull `main` (`a46b419`) and rebuild the SPA. #341 adds no migration and no backend change except one test line. An open tab needs a hard reload.
+  - **Not seen in the browser:** Approvals' Return note, `rowgroup` and link style (empty queue; jsdom tests only); the 409 Reload; login in Arabic at 375.
+  - **Dev data:** the browser check created and archived the customer "Alfa textile" (`01a1364b-8444-72dd-888a-8ef631182bbd`).
+  - **Rule broken this session:** P4 was first reported without `php artisan test`; CI caught `NoHardCodedTextTest`.
+- **New this session (2026-10-13, F-42 · P3):**
+  - **D-110's row is unwritten** (§1). Until it lands, the screens follow a decision the master documentation does not record.
+  - **The client PC:** pull `main` (`fb372c5`) and rebuild the SPA. #340 adds no migration and no backend change. An open tab needs a hard reload.
+  - **Owner question, unanswered: 21 writes at 02:24–02:31Z.** A Super Admin in a Mac browser changed deal statuses, sent two quotations, made partial versions, deleted one, self-approved, accepted and recorded a PO (`audit_log`); three PDFs went into `/var/crm-files` (64 → 67). The browser verifier says from its transcript it made no writes. Was it the owner? Otherwise unattributed. The new baseline is 67.
+  - **Rule broken this session:** one single-file vitest ran beside the backend suite (the suite still passed in full).
+  - **Not seen in the browser:** the Approvals cards with rows (the dev list is empty); an additional-items table at 375; Purchase Orders at 375 in English; a long context-bar title truncating.
+  - **Revealed, not registered (owner's call):** the customer pager line reads «176 عميل» beside the count's «176 عميلاً» (`customers.pagination.position` is not a plural key); the quotation page's Deal link shows a raw id; margin and tax print `10.000%`; the Arabic customer status pill wraps at 375.
+  - **`rounding_unit`** shows through the money helper (`1.00`); a finer unit than 0.01 would show wrongly (pricing reviewer, low; D-52 lists only 1 and 0.01).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3684 backend (24218)** and **1192 vitest (62 files)**.
+  - **claude-mem:** capture was paused for a weekly-quota cooldown at session start; not re-checked.
+- **New this session (2026-10-13, F-42 · P2):**
+  - **The client PC:** pull `main` (`1864b43`) and rebuild the SPA. #339 adds no migration and no backend change. An open tab needs a hard reload.
+  - **Owner question, unanswered: QT-2026-0012.** Between 01:34 and 01:35Z a Super Admin in a Mac browser created it, requested its PDF twice, submitted it and self-approved it (`audit_log`). That is why `/var/crm-files` went 62 → 64. The browser verifier, also Super Admin then, reports no writes. Was it the owner? Otherwise it is unattributed. The new baseline is 64.
+  - **Residual, not registered (owner's call):**
+    - After Chrome's forced close and the re-open, focus lands on the `<form>`, not on the field being typed in. happy-dom can't show this.
+    - A failed Return drops its typed note with the dialog (a `ponytail:` comment in `ApprovalsView.vue`).
+  - **Not seen in the browser:**
+    - Approve's confirm and Return's dialog (the dev approvals list is empty; filling it needs a write);
+    - the approvals badge's spoken count;
+    - the panel's border and shadow by eye;
+    - the Catalog combobox Escape after the fix;
+    - the dirty-Escape path on SupplierQuotation.
+  - **`plan.md` A-22 names `QuotationPurchaseOrder.spec`** for the Record test; the button lives in `QuotationDetailView`, so the test is there. A one-line docs fix, if wanted.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3682 backend (24216)** and **1167 vitest (62 files)**.
+  - **claude-mem:** capture was paused for a quota cooldown at session start; not re-checked.
+- **New this session (2026-10-13, F-42 · P1):**
+  - **The client PC:** pull `main` (`e8fd8a2`) and rebuild the SPA; #338 adds no migration and no backend change. An open tab needs a hard reload.
+  - **Owner questions raised in the P1 report, unanswered:**
+    - Suppliers and Catalog onto the shared chip (2 lines each)? It is in the debt register; their scan exemption sits in `uiSourceRules.spec.ts`.
+    - The quotation PDF panel's "Generate PDF" is also a filled primary. It is in its own area, which I read as allowed (one per area).
+    - Both customer chips now use the list's neutral tone. The page's chip used to be grey with a border.
+  - **The A-33 Reject fix waits for step 15.** Approvals has no Reject button; the audit's "Reject styled primary" is on the deal page.
+- **New this session (2026-10-13, F-42 · 5.7 + regroup):**
+  - **The client PC:** pull `main` and rebuild the SPA. #336/#337 add no migration; an open tab needs a hard reload.
+  - **Owner decisions made this session:** A-51 widened to one global `.row-action` (16 copies removed, deals' 6 wait for step 15); Phase 5's open rows regrouped into P1–P5 (step 15 unchanged by default — the owner approved without choosing otherwise).
+  - **The owner should eyeball once:** `SupplierQuotationFormModal`'s attachment-download button (newly styled) with a supplier quotation that has a clean attachment.
+  - **Not measured in the browser:** the pressed state live (rule + colour only); hover live in the warm and dark themes (tokens only); Retry's hover; the quotation builder, PO, import modal and PDF panel pages individually.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034; measured this session **3678 backend (24212)** and **1136 vitest (59 files)** on `c335429`.
+  - **claude-mem:** capture was paused for a weekly-quota cooldown at session start; not re-checked.
+- **New this session (2026-10-12/13, F-42 · 5.2–5.6):**
+  - **The client PC:** pull `main` and rebuild the SPA. #331–#335 add no migration. An already-open tab needs a hard reload.
+  - **Owner decisions made this session (recorded on the tick lines):** D-73 → 23 tokens (shell write); the `segmented` tracks stay `xl`; the Arabic DS §4.2 line updated; all 24 `focus-visible:` triplets plus `RoleFormModal`'s scoped copy deleted; deals' 28 `focus:` triplets wait for step 15; the D-108 spec stops pinning ring classes; every picker row reserves 4 px.
+  - **Debt row added (#331):** an unqueried `data-testid="sidebar-backdrop"` (`AppSidebar.vue`).
+  - **Revealed, not registered (owner's call):** `uiSourceRules`' A-64 case guards `focus:outline|ring` only, not `focus:border|shadow` (0 today); A-63's scan guards `rounded-xl` controls only in `AppContextBar`, and nothing asserts a card *is* `xl`.
+  - **Not seen in the browser:** the login card's radius (would sign out); Approvals' row actions (the dev list is empty); the 375 blank strip at the right edge (not overflow, uninvestigated).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034; measured this session **3678 backend (24212)** and **1133 vitest (59 files)** on `ce8e2aa`.
+  - **claude-mem:** capture was paused for a provider quota cooldown at session start; not re-checked.
+- **New this session (2026-10-12, F-42 · 4.3–5.1):**
+  - **The client PC:** pull `main`. #328–#330 add no migration.
+  - **Order chosen by the owner:** Phase 5 started **before** F-37 · 1.5 and F-33 · 1.3 (recorded in the Phase 5 header). When those lists run, reread the lines `plan.md` §3 "Overlaps" tags.
+  - **5.25 (A-26) needs the owner's yes** for the D-xx amending D-82 (a shell write to `CRM_Documentation_EN.md`).
+  - **Revealed, registered:** two dead `--font-mono` fallbacks (`PermissionDiffModal.vue:165`, `RolesMatrixView.vue:625`) — debt row added in #330.
+  - **Revealed, not registered (owner's call):**
+    - `SupplierRatingChip.spec.ts:44` scans source outside the planned one-spec rule (`uiSourceRules.spec.ts`).
+    - The builder's header `default_margin` input has `inputmode="decimal"` (no minus on iOS), while line margins deliberately have none (D-106).
+    - `plan.md` A-04's Fix still names the drawer's `inert`; 5.33 (A-05) owns it (said on the 5.11 line).
+  - **Console:** four `401`s on /customers during 5.1's browser check, from before the owner re-signed in; URLs not attributed.
+  - **claude-mem:** the observer allowance was exhausted all session ("Provider reported the inference allowance exhausted"); nothing captured.
+  - **Codeburn guard** fired at $15 during #330's CI read; the owner lifted it for this session.
+- **New this session (2026-10-12, F-42 · 3.8–4.2):**
+  - **The owner's call: a D-xx amending D-82 for A-26.** The screen today cuts after the 3rd decimal (D-82); the owner's A-26 answer applies D-99's 2 dp half-up. This is recorded in `plan.md` A-26; it blocks only A-26's Phase 5 point.
+  - **The owner's call: F-numbers for the five proposals outside F-42** (A-03, A-15, A-18, A-25, A-45), listed unnumbered under 4.1 in `CHECKLIST.md`.
+  - **Approved and not yet applied:** the 23rd token `--color-overlay` plus `color-scheme`, and §4.2's radius at 8/12/16 (DS §10 "Token changes"). `ThemeTokenTest` changes with it in Phase 5.
+  - **New untracked mock-up:** `prototypes/ux-tokens/`. Keep or delete; the owner's call (with `ux-structure/`, `ux-lists/`, `ux-builder/`, `ux-dialogs/`, `ux-feedback/`).
+  - **Revealed, not registered:** `Ping.vue:110` uses `rounded-2xl` on a card; the 3 `state-plate` tiles use `2xl` (A-63's scan exempts them).
+  - **claude-mem:** capture was paused for a provider quota cooldown at session start; this was not re-checked.
+- **New this session (2026-10-12, F-42 · 3.5–3.7):**
+  - **Fix needed: my error in merged §5.** `design-options.md:359` says "3.7's sticky Save (A-11)"; it should say **A-20**. This one-word fix is offered to the owner and not made yet; it could ride in 3.8.
+  - **Fix needed: 3.7's CHECKLIST line lacks `#323`.** 3.8's first commit adds it (§1).
+  - **The owner's picks for 3.5 (6 rows), 3.6 (6) and 3.7 (4):** recommendations are in §2 above; nothing is chosen.
+  - **A-43's error copy** is Claude's draft, the owner's to approve. It makes the customer page's sentence the single wording for every record type.
+  - **Unmeasured:** the phone's soft keyboard over a sticky bottom Save (A-20, iOS). This waits for Phase 6's device check.
+  - **New untracked mock-ups:** `prototypes/ux-structure/`, `ux-lists/` and `ux-builder/`. Keep or delete; the owner's call.
+  - **claude-mem:** the observer allowance was exhausted all session ("Provider reported the inference allowance exhausted"). Nothing was captured.
+- **New this session (2026-10-12, F-42 · 2.3–3.4):**
+  - **The owner's 9 decisions, all deferred** (`design-options.md` §2, each with a recommendation). Each blocks its own rows:
+    - A-15: preview or save-then-see.
+    - A-25: interim landing.
+    - A-26: D-99's display form on screen.
+    - A-62: the margin's minus sign.
+    - A-03, A-18, A-45, A-54: the API requests.
+    - A-55: the dot on the status chip.
+    - Answer in one line, for example "1a 2a 3a 4 ok 5 ok 6 ok 7 ok 8 defer 9a".
+  - **The owner's picks for 3.3 (5 rows) and 3.4 (3 rows):** recommendations are given; nothing is chosen.
+  - **`audit.md` §2 leaves A-66 out of the F-41 list:** a one-word docs fix, if wanted.
+  - **`docs/ux-upgrade/raw/` is still untracked.** Commit or delete it; the owner's call.
+  - **New untracked mock-ups:** `prototypes/ux-dialogs/` and `prototypes/ux-feedback/`. Keep or delete; the owner's call.
+  - **claude-mem:** its observer allowance was exhausted the whole session ("Provider reported the inference allowance exhausted"), so nothing from this session was captured.
+- **New this session (2026-10-12, F-42 · 0.1–2.2):**
+  - **The owner's call: the number F-42.** Claude proposed it, and #312 recorded it as "the owner's to confirm".
+  - **Raw audit notes are now in `docs/ux-upgrade/raw/`, untracked** (owner's request). Commit them with 2.3, or delete them after it; the owner's call.
+  - **Not seen in the browser:**
+    - the login page, because checking it would sign the owner out;
+    - Approvals with rows, which needs a submit-for-approval write;
+    - dark themes by eye (their contrast was measured);
+    - themes for roles other than the Manager.
+  - **Findings that need a non-UI change** (they go to the owner at 2.3 and are not F-42's to build):
+    - per-row abilities on the quotation payload (B-31);
+    - a quotation total preview (B-33);
+    - `customer_name` on the quotation payload and the actor's name on the timeline (B-30, B-10);
+    - whether `D-99`'s display form applies on screen (B-14).
+  - **`CustomerDetailView.vue:32-35`'s comment is stale.** It says Module 5's deals "do not exist"; Module 5 closed 2026-09-09.
+  - **The dev quotation QT-2026-0006's PO date is 2056-11-14** (recorded before #305's rule): data, not UI.
+  - **claude-mem:** capture was paused for a quota cooldown at session start; this was not re-checked.
+  - **This handoff file is untracked**, as before.
+- **New this session (2026-10-12, F-41 · 1.6b–1.6c):**
+  - **The client PC:** pull `main`. #310 and #311 add no migration (#306's `deals.details` still needs `php artisan migrate` if not yet run there).
+  - **Owner's call: the dot on the deal status chip.** `QuotationStatusChip` has one, `DealStatusChip` does not (the owner approved "no icon" before Claude found the quotation chip). Both appear on the deal page. Unifying them is one line.
+  - **Debt row added:** status chips have three recipes, and the tone fill is copied in 4 files.
+  - **Not seen in a browser:** the filled approval badges (no dev deal has an approval), and the loading, error and 403 states of the redrawn table.
+  - **Console during the 1.6c check:** one 401 after load (the same family as the earlier notes) and two 404s that followed opening a stale deal id; not attributed.
+  - **`D-109` reads "proposed"** after merge, like D-99…D-108.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034. Measured this session: **3672 backend (24203)** and **1129 vitest (58 files)** on #311's tree.
+  - **claude-mem:** search and `work_state` work. Capture was paused for a provider quota cooldown at session start; it is not re-checked.
+- **New this session (2026-10-11/12, F-41 · 1.5–1.6b):**
+  - **The client PC:** pull `main`, then `php artisan migrate` (#306's `deals.details`); restart the workers (`ExpireQuotations`' `CompanyToday`). #308, #309, #310 add no migration.
+  - **Owner's call — debt or not:** the one-line `users->namesOf([$id])[$id] ?? null` read now exists in Customers, Deals and Pdf (the accepted one-reader-per-module shape; `waste-auditor`, 1.6b).
+  - **Owner's call — optional tests (`permission-matrix-auditor`, 1.6b):** a `403` on `GET /deals/{id}` for a grantless role; an out-of-scope `404` carrying no `owner_name`.
+  - **For the owner's information:** Procurement (`Asgn` scope) will see the deal owner's name — the same as `sales_owner_name` on customers; the matrix is silent.
+  - **`owner_id` of a Super-Admin-owned deal is still sent** (only the name is withheld), as before 1.6b.
+  - **The details pop-up does not flip above near the viewport's bottom** (a `ponytail:` ceiling in `DealsView.vue`).
+  - **`D-108` and `D-109` read "proposed"** after merge, like D-99…D-107.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still says 3519 / 1034; measured this session: **3670 backend (24200)** on #310's tree, **1123 vitest (58 files)** on `main`.
+  - **The data in `DL-2026-0006`'s details** ("jak cdsk…") is someone's dev typing, not Claude's.
+- **New this session (2026-10-11 evening, F-41 · 1.2–1.4 + CI):**
+  - **Resolved 2026-10-11:** the dev DB `php artisan migrate` (#306) ran at the start of 1.5; 0 Pending.
+  - **The client PC:**
+    - Pull `main`, then `php artisan migrate` (#306 adds `deals.details`).
+    - Restart the workers, so `ExpireQuotations` picks up its new constructor (`CompanyToday`), which matters most for `worker-maintenance`.
+    - #304, #305 and #307 have no migration.
+  - **`/var/crm-files` 60 → 61:** QT-2026-0009 was submitted, self-approved and sent by a signed-in user at 17:40Z, and the PDF was generated with the send. That was not Claude: it came before any agent was dispatched, and the verifier only opened 0007/0005. The new baseline is 61.
+  - **A legacy PO with a future `po_date`** (recorded before #305) stays as it is. No data migration was made; the owner's call if any exist.
+  - **Debt rows added:**
+    - `main` is not re-tested after a merge (the CI ceiling).
+    - Recount: 19 private `refusedWith()` copies.
+  - **`D-108` still reads "proposed"** after #303–#306 merged, like D-99…D-107.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** is still stale (3519 / 1034). Measured this session: **3666 backend (24170)** on #306's tree, and **1110 vitest (58 files)**.
+  - **Unasked, the owner's call:** the other `type="date"` inputs (`QuotationBuilderView`, `SupplierQuotationFormModal`, `QuotationsView`, `CustomerFormModal`) have no `max`/`min`. `D-108` covers only `po_date`.
+- **New this session (2026-10-11, F-40 · 1.7) — owner's calls:**
+  - **`D-107` wording** (a) and (b) — §1.3; recommendations given, unanswered.
+  - **The client PC:** pull `main`; `php artisan migrate` if #299's job-title migration was not run; restart `worker-pdf`; then run F-40's list (CHECKLIST, under F-40 · 1.7). #302 itself has no migration.
+  - **`/var/crm-files` = 60** — one owner generation at 16:13 after the merge.
+  - **Stale local branches:** `docs/f-40-manual-test-list`, `fix/f-40-page-one-template` (both merged).
+  - **Resolved this session:** F-40's, F-34's and F-35's header boxes (closed in #302, owner's yes to (a) of the 1.7 plan).
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** — measured this session: **3651 backend (24082)** on `c2bba6f`; vitest not re-run (1108 last measured). Still says 3519 / 1034.
+- **From the 2026-10-11 day session (F-40 · 1.6b–1.6d) and night session (F-40 · 1.5–1.6) — owner's calls:**
+  - **`feature/pdf-word-quotation-templates`** — the owner: "ignore both word files" (2026-10-11).
+  - **Optional test (pricing reviewer):** an exempt / additional-item view under `firstPageRows` 0–4, totals once.
+  - **The owner is editing the format** before the push (session-end words). Unknown scope.
+  - **14 PDFs of QT-2026-0008/0009/0010 generated on dev 21:58Z–00:32Z** — source unverified (not Claude); `/var/crm-files` baseline is now 45.
+  - **Offer currency prints the code (`EGP`)**, the references print the name ("Egyptian Pound" / «الجنيه المصري»); the view holds no currency name. Owner chose "keep the code" for 1.5; adding the name is a data change (a new point).
+  - **Possibly resolved, unverified:** the debt row "The English customer PDF draws Arabic text … in a system face" — the English stack is now `'CRM Sans', 'CRM Sans Arabic'` (reference CSS) and the PdfImage DejaVu check passes on the reference's English page, which carries an Arabic term. Not ticked; confirm with `pdffonts` and tick.
+- **New this session (2026-10-10/11, F-40 · 1.3–1.4) — owner's calls, unanswered:**
+  - **The client PC needs `php artisan migrate`** after pulling `main` (#299's job-title migration). #300 adds none.
+  - **Duplicated one-line "live list entry first" `orderByRaw`** — `EloquentCatalogItemLabels::unitsOf` and `EloquentCustomerContacts::contactOf`. **Created by 1.4** (the waste auditor filed it as revealed; corrected). A shared Admin-published label read would remove it. Keep, or register as debt?
+  - **Optional tests from `permission-matrix-auditor`:** 1.3 — a `job_title_*` PATCH to the hidden Super Admin (404, unchanged) and a POST negative case; 1.4 — a mapper-level test with a hidden signer through the real `UserFactsInterface`.
+  - **`UpdateUser`'s per-field change/before/after blocks** repeat (name, email, titles) — revealed by 1.3's waste audit; pre-existing pattern. Register or not.
+  - **`rtl-ui-verifier` could not prove edit-mode prefill with real titles** (no dev user has one) — vitest covers it; the owner can save a title once and reopen.
+  - **One console `401`** on the users page during the 1.3 browser check — the verifier thinks it was its own `fetch`; unconfirmed. Same family as F-38's note below.
+  - **`pricing-invariant-reviewer` 1.4 notes:** the cents case is tested at unit level only, not through the mapper; no test for a discount near 100%.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** now even staler: **3630 / 1108**.
+- **New this session (2026-10-10, F-40):**
+  - **The owner types `company.email`** (`info@smarttechegy.com`) on the settings screen — dev and client PC; 1.4/1.6 print it.
+  - **The 4 open defaults in `D-107`** (unit source, additional items as rows, exempt → no VAT column/term, term order) — open to correction before 1.4/1.5.
+  - **`/var/crm-files` went 29 → 31** between sessions — not Claude's.
+  - **`CLAUDE.md`/`AGENTS.md` "Current State"** still stale (see below); now 3596 / 1103.
+- **New this session (2026-10-10, F-39 · 1.4/1.6):**
+  - **SQ-2026-0006** (dev test offer): keep for the F-39 list or archive.
+  - **The 3 quotation PDFs made 02:03–02:25Z** on dev: source unverified; `/var/crm-files` baseline is now 29.
+  - **Escape does not close the supplier-quotation dialog with the checkbox focused (phone)** — `rtl-ui-verifier`; same family as F-37's combobox Escape note. Not registered.
+  - **Phone: the attachment file input looks slightly past the dialog's left edge** in a screenshot (geometry check found no overflow). Not registered.
+  - **`totalNet` reads the list record** (`props.editing`); correct while the dialog closes on save — a note if that ever changes.
+  - **`roles.name_ar` empty for every role** — screens show English role names.
+- **New this session (2026-10-09/10, F-39 · 1.3):**
+  - **The client PC needs `php artisan migrate` and `php artisan db:seed --class=SystemSettingsSeeder`** after pulling `main`: #294 adds a migration and seeds `defaults.tax_percent = 14` (the seeder never overwrites an existing value).
+  - **The owner's call — bound `defaults.tax_percent` in Admin** (`SystemSetting.php:84`, `numeric` only; `-100` / `1e2` / `1000` accepted by the settings screen). Registered as debt; 1.3 guards only its own reader.
+  - **The Arabic copy of §7.2** was not updated with the new row (the Arabic docs already lag).
+- **New this session (2026-10-09, F-39):**
+  - **A draft saved before #293 re-reads its stored line margin as an extra** (30 on 20 → 50% on the next save). D-106 documents it; the dev DB has no draft; **the client PC is unchecked** — the owner may want to look before using the new build on old drafts.
+  - **`POST /quotations` has no `edit_margin` check** (pre-existing; `CreateQuotation.php`). A creator sets margins freely; now negative ones too. Whether §3.5 means `edit_margin` to gate creation is the owner's question. Not registered.
+  - **Debt row added:** a margin above 999.999 is a 500 (no `lte` on `default_margin` / `lines.*.margin_percent`).
+  - **The client PC needs to pull `main`**; #293 has no migration. 1.3 will add one (`php artisan migrate`).
+  - `D-105` / `D-106` read "proposed" after merge, like D-99…D-104.
+  - The applied migration `2026_09_07_000200_create_quotation_items.php:17-45` still says a null margin "inherits (D-03)" — never edit an applied migration; D-106 is the correction.
+- **New this session (2026-10-09):**
+  - **The client PC needs `php artisan migrate`** before running the F-38 list (two migrations: 1.2 and 1.2b).
+  - **`CHECKLIST.md`'s F-38 header still says "«أ.» for both in Arabic"** and its top box `- [ ] **F-38**` is unticked though every sub-point is done. Asked the owner; no answer yet. (Same shape on F-37 until 1.5.)
+  - **One console `401 (Unauthorized)`** on every page the verifier opened, before any customer page; source unknown, probably not F-38. Not registered.
+  - **The browser check did not save** the `mrs` / name-only cases; vitest covers them. The owner's F-38 list rows 7–15 exercise them by hand.
+- **From the fifth session of 2026-10-08:**
+  - **Resolved:** `D-104`'s wording (accepted unchanged, #286), and its amendment (#288).
+  - **`CHECKLIST.md`'s F-38 header line still says "«أ.» for both in Arabic"** — superseded by the D-104 amendment; revealed by 1.1b's waste audit; the owner's call (or fix with 1.2b).
+  - **`RequestIdTest` flake** — root cause found (a random UUID can contain the rejected value's prefix `abc`); a test fix, not registered; the owner's call.
+  - **The live-list membership loop is written three times** (`SaveCustomer`, `SaveCatalogItem`, `ArchiveListEntry`) — debt row (#287).
+  - **The managed-list loader is written four times under `pages/customers/`** — debt row (in `dd71144`, unpushed).
+  - **The client PC needs `php artisan migrate`** after it next updates from `main` (1.2's migration; 1.2b will add another).
+  - **Other row-level 422s still name the request path:** `lines.*` (`SaveQuotationRequest.php:87-89`) and the supplier quotation's `items.*` (`SaveSupplierQuotationRequest.php:106-127`). A `CHECKLIST.md` debt row (#285); fix when the owner orders it.
+  - **The stock Arabic `validation.attributes.amount` reads «الكمية» (quantity)** and `title` reads «اللقب». Not touched; not registered.
+  - **Who generated the 4 QT-2026-0005 PDFs and sent it (06:53–07:24Z)** — unknown; harmless, noted for the dev-data baseline.
+- **From the third session of 2026-10-08:**
+  - **Resolved:** the detail view shows only terms with a body, «—» when none. The owner said yes on 2026-10-08, and it is recorded on F-37 · 1.4's CHECKLIST line.
+  - **`orNull` is written twice, with different rules.** The builder's version trims; `DealFormModal.vue:153` does not. This is a new debt row in `CHECKLIST.md`, revealed by 1.4's waste audit and not fixed.
+  - **`rtl-ui-verifier` findings that 1.4 did not cause:**
+    - F-32's `SearchCombobox` options are 38 px tall at 375, under the 44 px target.
+    - A recent-term chip repeats the text already in its field.
+    - Escape did not close the supplier-quotation modal while focus was in the combobox behind it.
+    - None is registered; the owner decides.
+  - **The `termError`/`itemError` shape is shared** and could become one `rowError` helper. This is the waste auditor's nit; it is not registered.
+- **From the second session of 2026-10-08:**
+  - **The owner's ruling on the PDF numbering:** Latin `1. 2. 3.` in both languages; on the Arabic page the number keeps the line's RTL direction (`.1`, like Word). Recorded on F-37 · 1.3's CHECKLIST line; not in `D-103`'s text.
+- **From the first session of 2026-10-08:**
+  - **`D-103` reads "proposed"** after its merge, like `D-99`…`D-101`.
+  - **The Arabic reading copies** (`arabic/docs/MVP_Build_Plan.md:244`, `arabic/CHECKLIST_AR.md`) still state `show_delivery_terms`. They already lagged on `D-100`/`D-101`.
+  - **`lang/{en,ar}/quotations.php:32`'s `unknown_field` message** names the three term fields in prose. Revealed by 1.2's waste audit; not fixed.
+  - **OpenAPI** never listed the term fields and does not list `terms`; the route comment at `routes/api.php:824` flags it. Whether to add it is the owner's call.
+  - **The F-number and the D-number of F-36** are still the owner's. `D-102` is held for it.
+- **From 2026-10-02, the owner's call:**
+  - **The English PDF and Arabic text typed into a quotation:**
+    - Add `'CRM Sans Arabic'` to the English stack, so Arabic stops falling to DejaVu?
+    - It is a `CHECKLIST.md` debt row. `D-101` keeps the English PDF unchanged, so it needs a ruling.
+  - **F-36's approval and the D-102 shell write** (§1).
+  - **`D-101` reads "proposed"** after its merge, like `D-99` and `D-100`.
+- **Carried from the previous handoff:**
+  - **The F-34 Arabic labels are Claude's drafts:** عرض سعر · مقدم إلى · تاريخ الإصدار · صالح حتى · الشروط والأحكام · # · الوصف. They fall under Q8.
+  - **The Arabic money order:** `0.40-`. Its `EGP 695.00` half goes away with F-36.
+  - **Unread labels** `pdf.totals.additional`, `tax_base` and `net`: delete them or print them? Registered.
+  - **`D-89`'s per-line *Delivery time* column** is not in D-100's table.
+  - **PDFs of QT-2026-0003 generated during the builds:** keep them or ignore them. There are now 14 files in `/var/crm-files`.
+  - **`prototypes/quotation-{billdu,conta,odoo}-style/`** are untracked: keep, commit or delete?
+  - **`D-99` does not mention the 0.01 display difference.**
+  - **R1 = D3:** a `SearchCombobox` inside a `<form>` submits on Enter.
+  - **Other open items:**
+    - the 8 dev `delivery_terms` entries are Claude's wording;
+    - the delivery-terms panel covers the whole-term line;
+    - shared `SearchCombobox` findings;
+    - F-24 · 1.6's `D-xx`;
+    - M14's coverage gap;
+    - F-24 · 1.1's verifier items;
+    - §10.2's "above" vs `>=`;
+    - whether `D-35`'s warning should come before the save;
+    - wording: the limits subtitle and «فارغ = لا تنبيه»;
+    - the `RequestIdTest` flake.
+- **`CLAUDE.md` and `AGENTS.md` "Current State"** still say 3519 / 1034 on `18a071d`. Measured 2026-10-08: **3562 backend (23514) on `ce6db26` (F-38 · 1.2)** and **1090 vitest (58 files) on `dd71144` (F-38 · 1.3, unpushed)**. Correcting them needs a docs point.
+- **Carried, not re-checked this session:**
+  - **Tell the second developer:**
+    - 5.2 (#268), #264, `storeContents()` (#261), `QuotationSent` (#262), the tearDown fix (#259, #261);
+    - `PdfAssetsInterface` lost `footerBand()`/`watermark()` (F-34 · 1.2);
+    - **the PDF's Arabic face is now Noto Naskh Arabic (F-35 · 1.2).**
+  - **Module 9 · 2.7:** Q15, the preselected document language. Module 9's manual list, items 19–24.
+  - **The owner's calls:** `D-61` and `idempotency_keys`; where shared test helpers live.
+  - **Code gaps:** `ImportModal.spec.ts` not-CSV; transitions that announce nothing; the import order; `SupplierQuotationsView.spec.ts`'s inline copies.
+  - **UI:** Layout A's sticky bar; E3-1; `CustomerPicker.vue:59-63`.
+  - **Stale comments:** `ImportBatchPayload.php:14-17`, `ImportSummary.php:10-13`, `CustomerRowScope.php:21`.
+  - **Decisions and contract:**
+    - `D-86` vs `D-94`; Design System §6.5; `D-93` and `D-96` not pasted;
+    - "proposed" rows: `D-81`, `D-84`–`D-90`, `D-92`, `D-94`, `D-97`–`D-101`;
+    - `D-88`'s "Not covered"; no OpenAPI imports paragraph.
+  - **Repository and CI:** docs-only PRs get no CI (#278 again); no required status checks on `main`; the Arabic docs lag.
+  - **The owner's open questions:** OD-03 and P-02 (server administrator); `locale.timezone`; the `Idempotency-Key` retention period.
+  - **Local housekeeping:**
+    - about 115 stale local branches, plus this session's 3 merged ones;
+    - `~/.zprofile:3`;
+    - claude-mem's expired Desktop OAuth token;
+    - MCP auth for Neon and the design plugins;
+    - the `:8765` proxy is a bare process.

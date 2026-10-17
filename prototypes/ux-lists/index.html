@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.6 list options</title>
+<!-- F-42 · 3.6 mock-up, untracked. Real tokens only; no app code. Contrast checker reused from ux-feedback (3.4). -->
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  /* the context bar, sticky like AppContextBar.vue:119 */
+  #bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 12px; background: var(--color-surface); border-block-end: 1px solid var(--color-border); }
+  #bar strong { margin-inline-end: auto; font-size: 16px; }
+  #page { padding: 16px; max-width: 1100px; margin-inline: auto; }
+  section.row { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-block-end: 16px; }
+  .rowhead { font-weight: 700; font-size: 16px; margin: 0 0 4px; }
+  .note { color: var(--color-text-muted); font-size: 13px; margin: 0 0 12px; }
+  .opts { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .opt { border: 1px dashed var(--color-border-strong); border-radius: 8px; padding: 12px; min-width: 0; background: var(--color-canvas); }
+  .optname { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--color-text-muted); }
+  .opt[data-opt=today] .optname { color: var(--color-danger); }
+  button, select, input { font: inherit; min-height: 44px; border-radius: 6px; }
+  button, select { padding-inline: 12px; cursor: pointer; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); }
+  input { padding-inline: 10px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); min-width: 0; }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-text); }
+  button.compact { min-height: 44px; padding-inline: 8px; font-size: 13px; background: transparent; border-color: transparent; color: var(--color-link); }
+  :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-block-end: 8px; }
+  .filters label { display: grid; gap: 4px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+  th, td { padding: 8px; border-block-end: 1px solid var(--color-border); text-align: start; white-space: nowrap; }
+  th { background: var(--color-surface-muted); }
+  thead.stick { position: sticky; top: var(--bar-h, 57px); z-index: 1; }
+  .code { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .num { text-align: end; font-variant-numeric: tabular-nums; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; background: var(--color-surface-muted); }
+  .region { position: relative; }
+  .overlay { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--color-surface) 60%, transparent); }
+  .busy { opacity: 0.5; }
+  .status { min-height: 1.5em; font-size: 13px; color: var(--color-text-muted); margin: 4px 0; }
+  .spinner { padding: 24px; text-align: center; color: var(--color-text-muted); }
+  .pager { display: flex; gap: 8px; justify-content: flex-end; margin-block-start: 8px; }
+  .cards { display: grid; gap: 8px; }
+  .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; display: grid; gap: 4px; }
+  .card .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .muted { color: var(--color-text-muted); font-size: 13px; }
+  .state { border: 1px solid var(--color-border); border-radius: 6px; padding: 8px; margin-block-end: 6px; font-size: 13px; }
+  .state .fbar { display: flex; gap: 6px; margin-block-end: 4px; }
+  .state .fbar input { min-height: 32px; width: 120px; }
+  .applied { font-size: 13px; margin: 6px 0 0; font-family: ui-monospace, monospace; }
+  /* A-39 A: card rows below 640 px */
+  @media (max-width: 639px) {
+    .t39A thead { display: none; }
+    .t39A table, .t39A tbody, .t39A tr, .t39A td { display: block; width: 100%; }
+    .t39A tr { border: 1px solid var(--color-border); border-radius: 8px; margin-block-end: 8px; padding: 6px; background: var(--color-surface); }
+    .t39A td { border: 0; padding: 2px 4px; white-space: normal; }
+    .t39A td[data-l]::before { content: attr(data-l) ': '; color: var(--color-text-muted); font-size: 13px; }
+    .t39B .sec { display: none; }
+    .t39A.w39 { overflow-x: visible; }
+  }
+  .w39 { overflow-x: auto; }
+  /* A-40 frames */
+  .w40-today { overflow-x: auto; }
+  .w40-A { overflow-x: clip; }
+  .w40-B { overflow: auto; max-height: 60vh; }
+  .w40-B thead.stick { top: 0; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong data-t="title"></strong>
+  <button id="lang" type="button"></button>
+  <select id="theme" aria-label="theme">
+    <option value="">Warm Editorial</option><option value="clean-monochrome">Clean Monochrome</option><option value="midnight-obsidian">Midnight Obsidian</option>
+  </select>
+</div>
+<div id="page">
+
+  <!-- A-14: reload without blanking -->
+  <section class="row" id="r14">
+    <p class="rowhead">A-14 · <span data-t="a14"></span></p>
+    <p class="note" data-t="a14n"></p>
+    <div class="opts">
+      <div class="opt" data-row="A-14" data-opt="today"><p class="optname" data-t="today14"></p><div class="region"></div></div>
+      <div class="opt" data-row="A-14" data-opt="A"><p class="optname" data-t="a14A"></p><div class="region"></div></div>
+      <div class="opt" data-row="A-14" data-opt="B"><p class="optname" data-t="a14B"></p><p class="status" role="status"></p><div class="region"></div></div>
+    </div>
+  </section>
+
+  <!-- A-19: the phone deals layout -->
+  <section class="row" id="r19">
+    <p class="rowhead">A-19 · <span data-t="a19"></span></p>
+    <p class="note" data-t="a19n"></p>
+    <div class="opts" style="grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))">
+      <div class="opt" data-row="A-19" data-opt="today"><p class="optname" data-t="today19"></p>
+        <p class="pagehead" style="font-size:22px;font-weight:700;margin:0 0 8px" data-t="deals"></p>
+        <div class="filters"><label><span data-t="search"></span><input></label><label><span data-t="status"></span><select><option data-t="all"></option></select></label><label><span data-t="owner"></span><select><option data-t="all"></option></select></label><label><span data-t="customer"></span><select><option data-t="all"></option></select></label><button data-t="apply"></button></div>
+        <table class="rows19"><tbody></tbody></table>
+      </div>
+      <div class="opt" data-row="A-19" data-opt="A"><p class="optname" data-t="a19A"></p>
+        <p class="pagehead" style="font-size:22px;font-weight:700;margin:0 0 8px" data-t="deals"></p>
+        <div class="filters"><button aria-expanded="false" data-t="filters2"></button></div>
+        <table class="rows19"><tbody></tbody></table>
+      </div>
+      <div class="opt" data-row="A-19" data-opt="B"><p class="optname" data-t="a19B"></p>
+        <p class="pagehead" style="font-size:22px;font-weight:700;margin:0 0 8px" data-t="deals"></p>
+        <div class="filters"><button aria-expanded="false" data-t="filters2"></button></div>
+        <div class="cards rows19"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-39: tables at 375 -->
+  <section class="row" id="r39">
+    <p class="rowhead">A-39 · <span data-t="a39"></span></p>
+    <p class="note" data-t="a39n"></p>
+    <div class="opts" style="grid-template-columns:minmax(0,1fr)">
+      <div class="opt" data-row="A-39" data-opt="today"><p class="optname" data-t="today39"></p><div class="w39 t39today"></div></div>
+      <div class="opt" data-row="A-39" data-opt="A"><p class="optname" data-t="a39A"></p><div class="w39 t39A"></div></div>
+      <div class="opt" data-row="A-39" data-opt="B"><p class="optname" data-t="a39B"></p><div class="w39 t39B"></div></div>
+    </div>
+  </section>
+
+  <!-- A-40: sticky header -->
+  <section class="row" id="r40">
+    <p class="rowhead">A-40 · <span data-t="a40"></span></p>
+    <p class="note" data-t="a40n"></p>
+    <div class="opt" data-row="A-40" data-opt="today"><p class="optname" data-t="today40"></p><div class="w40-today"></div></div>
+    <div class="opt" data-row="A-40" data-opt="A" style="margin-block-start:12px"><p class="optname" data-t="a40A"></p><div class="w40-A"></div></div>
+    <div class="opt" data-row="A-40" data-opt="B" style="margin-block-start:12px"><p class="optname" data-t="a40B"></p><div class="w40-B"></div></div>
+  </section>
+
+  <!-- A-48: when the filter bar shows -->
+  <section class="row" id="r48">
+    <p class="rowhead">A-48 · <span data-t="a48"></span></p>
+    <p class="note" data-t="a48n"></p>
+    <div class="opts">
+      <div class="opt" data-row="A-48" data-opt="today"><p class="optname" data-t="today48"></p><div class="states"></div></div>
+      <div class="opt" data-row="A-48" data-opt="A"><p class="optname" data-t="a48A"></p><div class="states"></div></div>
+      <div class="opt" data-row="A-48" data-opt="B"><p class="optname" data-t="a48B"></p><div class="states"></div></div>
+    </div>
+  </section>
+
+  <!-- A-49: one apply rule per bar -->
+  <section class="row" id="r49">
+    <p class="rowhead">A-49 · <span data-t="a49"></span></p>
+    <p class="note" data-t="a49n"></p>
+    <div class="opts">
+      <div class="opt" data-row="A-49" data-opt="today"><p class="optname" data-t="today49"></p>
+        <div class="filters"><label><span data-t="search"></span><input class="q"></label><label><span data-t="status"></span><select class="s"><option value="" data-t="all"></option><option value="won" data-t="won"></option></select></label><button class="ap" data-t="apply"></button></div><p class="applied"></p></div>
+      <div class="opt" data-row="A-49" data-opt="A"><p class="optname" data-t="a49A"></p>
+        <div class="filters"><label><span data-t="search"></span><input class="q"></label><label><span data-t="status"></span><select class="s"><option value="" data-t="all"></option><option value="won" data-t="won"></option></select></label><button class="ap primary" data-t="apply"></button></div><p class="pending status" role="status"></p><p class="applied"></p></div>
+      <div class="opt" data-row="A-49" data-opt="B"><p class="optname" data-t="a49B"></p>
+        <div class="filters"><label><span data-t="search"></span><input class="q"></label><label><span data-t="status"></span><select class="s"><option value="" data-t="all"></option><option value="won" data-t="won"></option></select></label></div><p class="applied"></p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const T = {
+  ar: { title: 'خيارات القوائم (F-42 · 3.6)', lang: 'English', deals: 'الصفقات', search: 'بحث', status: 'الحالة', owner: 'المسؤول', customer: 'العميل', all: 'الكل', apply: 'تطبيق', won: 'رابحة', filters2: 'عوامل التصفية (2)', next: 'التالي', prev: 'السابق', loading: 'جارٍ التحميل…', updating: 'جارٍ تحديث القائمة…', changeStatus: 'تغيير الحالة', statusShort: 'الحالة', approve: 'اعتماد', ret: 'إرجاع', total: 'الإجمالي', deal: 'الصفقة', by: 'مقدَّم من', at: 'التاريخ', code: 'الرمز', refused: 'لا تملك صلاحية الوصول', empty: 'لا صفقات', emptyF: 'لا نتائج لهذا البحث', data: '12 صفقة', applied: 'المطبَّق', unapplied: 'تغييرات لم تُطبَّق بعد',
+    a14: 'إعادة التحميل دون إفراغ الصفحة', a14n: 'اضغط «التالي». اليوم: يُستبدل الجدول بمؤشر تحميل فيضيع التركيز. أ) مؤشر فوق الجدول الباقي. ب) جدول باهت مع aria-busy وسطر حالة.', today14: 'اليوم (للمقارنة)', a14A: 'الخيار أ: مؤشر فوق الجدول', a14B: 'الخيار ب: جدول باهت + aria-busy',
+    a19: 'قائمة الصفقات على الهاتف', a19n: 'تقاس عند 375. أ) عوامل التصفية مطويّة + صفوف مضغوطة. ب) عوامل مطويّة + بطاقات.', today19: 'اليوم (للمقارنة)', a19A: 'الخيار أ: صفوف مضغوطة', a19B: 'الخيار ب: بطاقات',
+    a39: 'الجداول عند 375', a39n: 'جدول الاعتمادات. أ) بطاقات تحت 640. ب) إخفاء الأعمدة الثانوية تحت 640.', today39: 'اليوم (للمقارنة)', a39A: 'الخيار أ: بطاقات', a39B: 'الخيار ب: إخفاء أعمدة',
+    a40: 'رأس الجدول الثابت', a40n: 'الشريط العلوي ثابت، فيجب أن يثبت رأس الجدول تحته. أ) الإطار overflow-x: clip والصفحة هي التي تمرّر. ب) الإطار يمرّر داخله بارتفاع أقصى.', today40: 'اليوم (للمقارنة): overflow-x: auto', a40A: 'الخيار أ: overflow-x: clip', a40B: 'الخيار ب: إطار يمرّر داخله',
+    a48: 'متى يظهر شريط التصفية', a48n: 'أربع حالات: مرفوض، فارغ بلا تصفية، فارغ مع تصفية، فيه بيانات. أ) يظهر مع البيانات أو عند وجود تصفية. ب) يظهر دائماً إلا عند الرفض.', today48: 'اليوم (للمقارنة)', a48A: 'الخيار أ: مع البيانات أو التصفية', a48B: 'الخيار ب: إلا عند الرفض',
+    a49: 'قاعدة واحدة للتطبيق', a49n: 'اكتب نصّاً ثم غيّر الحالة. اليوم: الحالة تطبّق النصّ غير المطبَّق بصمت. أ) كل شيء بزرّ «تطبيق». ب) كل شيء مباشر، والنص بعد توقّف 400 ملّي ثانية.', today49: 'اليوم (للمقارنة)', a49A: 'الخيار أ: كل شيء بزرّ تطبيق', a49B: 'الخيار ب: كل شيء مباشر' },
+  en: { title: 'List options (F-42 · 3.6)', lang: 'العربية', deals: 'Deals', search: 'Search', status: 'Status', owner: 'Owner', customer: 'Customer', all: 'All', apply: 'Apply', won: 'Won', filters2: 'Filters (2)', next: 'Next', prev: 'Previous', loading: 'Loading…', updating: 'Updating the list…', changeStatus: 'Change status', statusShort: 'Status', approve: 'Approve', ret: 'Return', total: 'Total', deal: 'Deal', by: 'Submitted by', at: 'Date', code: 'Code', refused: 'You do not have access', empty: 'No deals', emptyF: 'No results for this search', data: '12 deals', applied: 'applied', unapplied: 'Changes not applied yet',
+    a14: 'Reload without blanking', a14n: 'Press Next. Today the table is swapped for a spinner and focus is lost. A) a spinner over the kept table. B) a dimmed table with aria-busy and a status line.', today14: 'Today (for comparison)', a14A: 'Option A: spinner over the table', a14B: 'Option B: dimmed table + aria-busy',
+    a19: 'The deals list on a phone', a19n: 'Measured at 375. A) folded filters + compact rows. B) folded filters + cards.', today19: 'Today (for comparison)', a19A: 'Option A: compact rows', a19B: 'Option B: cards',
+    a39: 'Tables at 375', a39n: 'The approvals table. A) cards below 640. B) secondary columns hidden below 640.', today39: 'Today (for comparison)', a39A: 'Option A: cards', a39B: 'Option B: hide columns',
+    a40: 'The sticky table header', a40n: 'The context bar is sticky, so the table header must stick under it. A) the frame is overflow-x: clip and the page scrolls. B) the frame scrolls inside, with a max height.', today40: 'Today (for comparison): overflow-x: auto', a40A: 'Option A: overflow-x: clip', a40B: 'Option B: a frame that scrolls inside',
+    a48: 'When the filter bar shows', a48n: 'Four states: refused, empty with no filter, empty with a filter, data. A) shown with data or an active filter. B) shown always except when refused.', today48: 'Today (for comparison)', a48A: 'Option A: with data or a filter', a48B: 'Option B: except when refused',
+    a49: 'One apply rule per bar', a49n: 'Type some text, then change the status. Today the status silently applies the unapplied text. A) everything on Apply. B) everything live; text after a 400 ms pause.', today49: 'Today (for comparison)', a49A: 'Option A: everything on Apply', a49B: 'Option B: everything live' },
+};
+let L = 'ar';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const t = (k) => T[L][k];
+const O = (row, opt) => $(`.opt[data-row="${row}"][data-opt="${opt}"]`);
+const CUST = ['شركة النور للمقاولات', 'مؤسسة الأمل', 'الرواد للتجارة', 'دار الهندسة', 'Smart Build Co.'];
+const deal = (i) => ({ code: 'DL-2026-' + String(i + 1).padStart(4, '0'), cust: CUST[i % 5], total: (104525 + i * 3110).toLocaleString('en-US') + '.00' });
+
+// A-14
+let page14 = 1;
+function table14(n) { return '<table><thead><tr><th>' + t('code') + '</th><th>' + t('customer') + '</th></tr></thead><tbody>' + Array.from({ length: 8 }, (_, i) => { const d = deal((n - 1) * 8 + i); return '<tr><td class="code">' + d.code + '</td><td>' + d.cust + '</td></tr>'; }).join('') + '</tbody></table>'; }
+function pager14() { return '<div class="pager"><button class="prev">' + t('prev') + '</button><button class="next">' + t('next') + '</button></div>'; }
+window.r14 = {};
+function build14(opt) {
+  const reg = $('.region', O('A-14', opt));
+  if (opt === 'today') { reg.innerHTML = table14(page14) + pager14(); }
+  else if (!reg.firstChild) { reg.innerHTML = table14(page14) + pager14(); }
+  else { reg.querySelector('tbody').outerHTML = table14(page14).match(/<tbody>.*<\/tbody>/)[0]; $$('.pager button', reg).forEach((b, i) => { b.textContent = t(i ? 'next' : 'prev'); }); }
+  $('.next', reg).onclick = () => reload14(opt);
+}
+function reload14(opt) {
+  const reg = $('.region', O('A-14', opt)); const next = $('.next', reg); const tbl = $('table', reg); const y = scrollY;
+  if (opt === 'today') reg.innerHTML = '<p class="spinner">' + t('loading') + '</p>';
+  if (opt === 'A') reg.insertAdjacentHTML('beforeend', '<div class="overlay"><span>' + t('loading') + '</span></div>');
+  if (opt === 'B') { reg.setAttribute('aria-busy', 'true'); reg.classList.add('busy'); $('.status', O('A-14', 'B')).textContent = t('updating'); }
+  const tableWhileLoading = !!$('table', reg);
+  setTimeout(() => {
+    page14++; build14(opt);
+    $('.overlay', reg)?.remove(); reg.removeAttribute('aria-busy'); reg.classList.remove('busy'); if (opt === 'B') $('.status', O('A-14', 'B')).textContent = '';
+    const a = document.activeElement;
+    window.r14[opt] = { focus: a === document.body ? 'body' : (a.className || a.tagName), nextKeptFocus: a === next, tableWhileLoading, tableKept: tbl.isConnected, scrollDelta: Math.round(scrollY - y) };
+  }, 300);
+}
+
+// A-19
+function build19() {
+  for (const opt of ['today', 'A', 'B']) {
+    const host = $('.rows19', O('A-19', opt));
+    const rows = Array.from({ length: 12 }, (_, i) => deal(i));
+    if (opt === 'B') host.innerHTML = rows.map((d) => '<div class="card r"><div class="top"><span class="code">' + d.code + '</span><span class="chip">' + t('won') + '</span></div><div>' + d.cust + '</div><div class="top"><span class="muted">EGP ' + d.total + '</span><button class="compact">' + t('statusShort') + '</button></div></div>').join('');
+    else $('tbody', host).innerHTML = rows.map((d) => '<tr class="r"><td' + (opt === 'today' ? ' style="white-space:normal;max-width:70px"' : '') + '><span class="code"' + (opt === 'today' ? ' style="white-space:normal"' : '') + '>' + d.code + '</span></td><td style="white-space:normal">' + d.cust + '</td><td>' + (opt === 'today' ? '<button>' + t('changeStatus') + '</button>' : '<button class="compact">' + t('statusShort') + '</button>') + '</td></tr>').join('');
+  }
+}
+
+// A-39
+function build39() {
+  const rows = Array.from({ length: 3 }, (_, i) => deal(i));
+  const head = '<thead><tr><th>' + t('code') + '</th><th class="sec">' + t('customer') + '</th><th class="sec">' + t('deal') + '</th><th class="sec">' + t('by') + '</th><th class="sec">' + t('at') + '</th><th class="num">' + t('total') + '</th><th></th></tr></thead>';
+  const body = rows.map((d, i) => '<tr><td class="code" data-l="' + t('code') + '">QT-2026-00' + (11 + i) + '</td><td class="sec" data-l="' + t('customer') + '">' + d.cust + '</td><td class="sec" data-l="' + t('deal') + '">' + d.code + '</td><td class="sec" data-l="' + t('by') + '">أحمد سامي</td><td class="sec" data-l="' + t('at') + '">2026-10-12</td><td class="num" data-l="' + t('total') + '">EGP ' + d.total + '</td><td><button class="primary approve">' + t('approve') + '</button> <button>' + t('ret') + '</button></td></tr>').join('');
+  for (const c of ['today', 'A', 'B']) $('.w39', O('A-39', c)).innerHTML = '<table>' + head + '<tbody>' + body + '</tbody></table>';
+}
+
+// A-40
+function build40() {
+  const rows = Array.from({ length: 40 }, (_, i) => deal(i));
+  const html = '<table><thead class="stick"><tr><th>' + t('code') + '</th><th>' + t('customer') + '</th><th class="num">' + t('total') + '</th></tr></thead><tbody>' + rows.map((d) => '<tr><td class="code">' + d.code + '</td><td>' + d.cust + '</td><td class="num">EGP ' + d.total + '</td></tr>').join('') + '</tbody></table>';
+  for (const c of ['today', 'A', 'B']) $('div[class^=w40]', O('A-40', c)).innerHTML = html;
+}
+
+// A-48
+const STATES = [{ k: 'refused', refused: true }, { k: 'empty', data: 0, filter: false }, { k: 'emptyF', data: 0, filter: true }, { k: 'data', data: 12, filter: false }];
+const SHOW = { today: () => true, A: (s) => !s.refused && (s.data > 0 || s.filter), B: (s) => !s.refused };
+function build48() {
+  for (const opt of ['today', 'A', 'B']) $('.states', O('A-48', opt)).innerHTML = STATES.map((s) => '<div class="state" data-state="' + s.k + '">' + (SHOW[opt](s) ? '<div class="fbar"><input aria-label="' + t('search') + '"' + (s.filter ? ' value="شر"' : '') + '><button>' + t('apply') + '</button></div>' : '') + '<span>' + t(s.k) + '</span></div>').join('');
+}
+
+// A-49: "applied" is what a request would carry; log every request.
+window.r49 = { today: [], A: [], B: [] };
+function wire49() {
+  for (const opt of ['today', 'A', 'B']) {
+    const o = O('A-49', opt); const q = $('.q', o); const s = $('.s', o); const out = $('.applied', o);
+    let committedQ = '';
+    const send = (why) => { const req = { q: q.value, s: s.value, why, committedQ }; window.r49[opt].push(req); out.textContent = t('applied') + ': q="' + req.q + '" status="' + req.s + '"'; };
+    if (opt === 'today') { s.onchange = () => send('select'); $('.ap', o).onclick = () => { committedQ = q.value; send('apply'); }; }
+    if (opt === 'A') { const p = $('.pending', o); const mark = () => { p.textContent = t('unapplied'); }; q.oninput = mark; s.onchange = mark; $('.ap', o).onclick = () => { committedQ = q.value; p.textContent = ''; send('apply'); }; }
+    if (opt === 'B') { let timer; q.oninput = () => { clearTimeout(timer); timer = setTimeout(() => { committedQ = q.value; send('debounce'); }, 400); }; s.onchange = () => { clearTimeout(timer); committedQ = q.value; send('select'); }; }
+  }
+}
+
+function paint() {
+  document.documentElement.lang = L; document.documentElement.dir = L === 'ar' ? 'rtl' : 'ltr';
+  $$('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
+  $('#lang').textContent = t('lang');
+  document.documentElement.style.setProperty('--bar-h', $('#bar').getBoundingClientRect().height + 'px');
+  ['today', 'A', 'B'].forEach((o) => { $('.region', O('A-14', o)).innerHTML = ''; build14(o); });
+  build19(); build39(); build40(); build48();
+}
+$('#lang').onclick = () => { L = L === 'ar' ? 'en' : 'ar'; paint(); };
+$('#theme').onchange = (e) => { if (e.target.value) document.documentElement.dataset.theme = e.target.value; else delete document.documentElement.dataset.theme; };
+addEventListener('resize', () => document.documentElement.style.setProperty('--bar-h', $('#bar').getBoundingClientRect().height + 'px'));
+
+// Contrast, WCAG 2.x (from ux-feedback).
+function rgb(c) {
+  let m = c.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+  m = c.match(/rgba?\(([\d.]+),? ([\d.]+),? ([\d.]+)(?:,? \/? ?([\d.]+))?\)/);
+  return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+}
+function bgOf(el) { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c && c[3] > 0) return c; } return rgb(getComputedStyle(document.documentElement).backgroundColor) ?? [255, 255, 255, 1]; }
+const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
+const fg = (el) => ratio(rgb(getComputedStyle(el).color), bgOf(el));
+window.ratio = ratio; window.rgb = rgb; window.bgOf = bgOf;
+
+// Geometry measurements §6 quotes (A-14 and A-49 come from real clicks/keys: window.r14, window.r49).
+window.measure = () => {
+  const r = {}; const barH = $('#bar').getBoundingClientRect().height;
+  for (const o of ['today', 'A', 'B']) {
+    // A-19: a page whose content starts under the bar; screen = 812.
+    const f = O('A-19', o); const top = $('.pagehead', f).getBoundingClientRect().top; const rows = $$('.r', f);
+    const y0 = Math.round(rows[0].getBoundingClientRect().top - top + barH);
+    const fit = rows.filter((x) => x.getBoundingClientRect().bottom - top + barH <= 812).length;
+    const code = $('.code', f); const codeLines = Math.round(code.getBoundingClientRect().height / (parseFloat(getComputedStyle(code).fontSize) * 1.2));
+    r['A-19 ' + o] = { firstRowY: y0, rowsIn812: fit, codeLines, pass: y0 <= 406 && codeLines === 1 };
+    // A-39
+    const w = $('.w39', O('A-39', o)); const ap = $('.approve', w).getBoundingClientRect(); const wr = w.getBoundingClientRect();
+    const sideways = w.scrollWidth - w.clientWidth;
+    r['A-39 ' + o] = { sidewaysPx: sideways, approveInView: ap.left >= wr.left - 1 && ap.right <= wr.right + 1 && ap.right <= innerWidth, pass: sideways <= 0 && ap.right <= wr.right + 1 && ap.left >= wr.left - 1 };
+    // A-48
+    const vis = Object.fromEntries($$('.state', O('A-48', o)).map((s) => [s.dataset.state, !!$('.fbar', s)]));
+    r['A-48 ' + o] = { bar: vis, pass: !vis.refused && vis.emptyF };
+  }
+  r.overflowX = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  return r;
+};
+// A-40: scroll so the table passes the bar, then read where its header sits.
+window.measure40 = () => {
+  const r = {}; const barB = $('#bar').getBoundingClientRect().bottom;
+  for (const o of ['today', 'A']) {
+    const w = $('div[class^=w40]', O('A-40', o)); scrollTo(0, w.getBoundingClientRect().top + scrollY - barB + 400);
+    const th = $('thead', w).getBoundingClientRect().top;
+    r['A-40 ' + o] = { theadTop: Math.round(th), barBottom: Math.round(barB), sideways: w.scrollWidth - w.clientWidth, pass: Math.abs(th - barB) <= 1 };
+  }
+  const wb = $('.w40-B', O('A-40', 'B')); scrollTo(0, wb.getBoundingClientRect().top + scrollY - barB - 8); wb.scrollTop = 400;
+  const thb = $('thead', wb).getBoundingClientRect().top; const boxTop = wb.getBoundingClientRect().top;
+  r['A-40 B'] = { theadTop: Math.round(thb), boxTop: Math.round(boxTop), boxH: Math.round(wb.clientHeight), pass: Math.abs(thb - boxTop) <= 1 };
+  wb.scrollTop = 0; scrollTo(0, 0);
+  return r;
+};
+window.contrast = () => ({ compactStatus: fg($('.compact', O('A-19', 'A'))), cardMuted: fg($('.muted', O('A-19', 'B'))), thHeader: fg($('th', O('A-40', 'A'))), pending49: (() => { const p = $('.pending', O('A-49', 'A')); p.textContent = t('unapplied'); const v = fg(p); p.textContent = ''; return v; })(), overlayText: (() => { const reg = $('.region', O('A-14', 'A')); reg.insertAdjacentHTML('beforeend', '<div class="overlay"><span>x</span></div>'); const s = $('.overlay span', reg); const v = ratio(rgb(getComputedStyle(s).color), rgb(getComputedStyle(s.parentElement).backgroundColor).slice(0,3).map((c, i) => c * 0.6 + bgOf($('table', reg))[i] * 0.4)); $('.overlay', reg).remove(); return v; })() });
+paint(); wire49();
+</script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The client's requested quotation layout, on QT-2026-0005.pdf.
+  Test values (not in that PDF): Attention name, Unit column, the "prepared by" name.
+  Delivery (التوصيل) is a table line with no VAT (D-62). No rounding row, so
+  Total = 12110.00 - 0.00 + 1555.40 = 13665.40 (owner's choice).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Quotation QT-2026-0005</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @font-face { font-family: 'Naskh'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/noto-naskh-arabic-400.woff2') format('woff2'); }
+  @page { size: A4; margin: 15mm 22mm 10mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Inter', 'Naskh', Arial, sans-serif; font-size: 9.5pt; line-height: 1.45; color: #000; }
+
+  /* every header: bold and bigger than the text under it */
+  .h { font-weight: 700; font-size: 11pt; }
+
+  .logo { width: 95mm; display: block; }
+  .title { text-align: center; margin-top: 6mm; font-size: 18pt; font-weight: 700; }
+  .title .code { margin-left: 6mm; }
+
+  .info { margin-top: 8mm; }
+  .info > div + div { margin-top: 3mm; }
+
+  .intro { margin: 8mm 0 5mm; }
+
+  table { border-collapse: collapse; }
+  .items { width: 100%; }
+  .items tr { break-inside: avoid; }
+  .items th, .items td { border: 0.75pt solid #bfbfbf; padding: 2.4mm 2mm; text-align: center; vertical-align: middle; }
+  .items th { background: #f2f2f2; }
+  .items .desc { width: 44%; }
+
+  .totals { margin: 5mm 0 0 auto; }
+  .totals td { padding: 1.4mm 0 1.4mm 10mm; text-align: right; white-space: nowrap; }
+  .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; font-size: 12pt; }
+
+  .terms { margin-top: 6mm; }
+  .terms ol { margin: 3mm 0 0; padding-left: 6mm; }
+
+  .contact { margin-top: 7mm; }
+  .closing { break-inside: avoid; display: flex; justify-content: space-between; align-items: flex-end; margin: 6mm 0 6mm; }
+  .closing .name { margin-top: 1mm; }
+  .sign { width: 60mm; text-align: center; }
+  .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
+  .sign .h { margin-top: 1.5mm; }
+
+  /* the footer repeats at every page bottom; the tfoot spacer keeps content off it */
+  table.sheet { width: 100%; }
+  table.sheet > tbody > tr > td, table.sheet > tfoot td { padding: 0 1px; } /* keeps the table's outer border inside the page */
+  table.sheet > tfoot td { height: 26mm; }
+  .totals { break-inside: avoid; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-size: 8.5pt; line-height: 1.6; }
+  footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
+  footer .k { display: inline-block; width: 16mm; font-weight: 700; }
+  /* one page (owner, 2026-10-05): same order, tighter spacing */
+  @page { margin-top: 10mm; }
+  body { font-size: 9pt; line-height: 1.35; }
+  .title { margin-top: 3mm; }
+  .info { margin-top: 5mm; }
+  .info > div + div { margin-top: 1.5mm; }
+  .intro { margin: 6mm 0 3mm; }
+  .items { font-size: 8.5pt; }
+  .items th, .items td { padding: 1.2mm 1.5mm; }
+  .totals { margin-top: 3mm; }
+  .totals td { padding: 0.7mm 0 0.7mm 10mm; }
+  .totals tr.final td { padding-top: 1.5mm; }
+  .terms { margin-top: 4mm; }
+  .terms ol { margin-top: 1.5mm; }
+  .contact { margin-top: 6mm; }
+  .closing { margin: 4mm 0 2mm; }
+  .sign .line { height: 10mm; }
+  table.sheet > tfoot td { height: 22mm; }
+  footer { line-height: 1.45; padding-top: 2mm; }
+</style>
+</head>
+<body>
+<table class="sheet"><tbody><tr><td>
+
+  <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+
+  <div class="title">QUOTATION<span class="code">QT-2026-0005</span></div>
+
+  <div class="info">
+    <div><span class="h">Issue Date:</span> 2026-10-05</div>
+    <div><div class="h">Prepared For</div>Dennis textile</div>
+    <div><span class="h">Attention:</span> Mr. Ahmed Ali</div>
+    <div><span class="h">Subject:</span> it offer</div>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead class="h">
+      <tr><th class="desc">Description</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">ATEN Enterprise Solutions</td><td>Pcs</td><td>10</td><td>110.00</td><td>1100.00</td></tr>
+      <tr><td class="desc">Access Points — tp-link /d-link</td><td>Pcs</td><td>10</td><td>110.00</td><td>1100.00</td></tr>
+      <tr><td class="desc">ID cards &amp; Printers — Evolis</td><td>Pcs</td><td>10</td><td>110.00</td><td>1100.00</td></tr>
+      <tr><td class="desc">Accessories camera — CABLE + BNC+ JACK POWER</td><td>Pcs</td><td>5</td><td>1100.00</td><td>5500.00</td></tr>
+      <tr><td class="desc">Access Control — HID/AssaAbloy /Idcube/Viotec Access</td><td>Pcs</td><td>10</td><td>110.00</td><td>1100.00</td></tr>
+      <tr><td class="desc">Accessories · CABLE · MOUSE · CONVERTER · stand NB · CHARGER · KEYBOARD · POWER · USB — ONTEN /GOLDEN TECH/Logitech</td><td>Pcs</td><td>10</td><td>110.00</td><td>1100.00</td></tr>
+      <tr><td class="desc">printer/ Professional Scanner — Brother</td><td>Pcs</td><td>1</td><td>110.00</td><td>110.00</td></tr>
+      <tr><td class="desc"><span dir="rtl">التوصيل</span></td><td>—</td><td>1</td><td>1000.00</td><td>1000.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td class="h">Total Amount Excl. VAT</td><td>12110.00</td></tr>
+    <tr><td class="h">Discount</td><td>0.00</td></tr>
+    <tr><td class="h">VAT 14%</td><td>1555.40</td></tr>
+    <tr class="final"><td>Total</td><td>13665.40 EGP</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="h">Terms and Conditions</div>
+    <ol>
+      <li>Offer currency: EGP.</li>
+      <li>Delivery: <span dir="rtl">خلال 2 إلى 4 أسابيع من استلام أمر الشراء</span></li>
+      <li>Offer validity: valid until 2026-10-08.</li>
+    </ol>
+  </div>
+
+  <div class="contact">Please do not hesitate to contact us in case you have any questions.</div>
+
+  <div class="closing">
+    <div>
+      <div>Best Regards,</div>
+      <div class="name">Ahmed Essam</div>
+    </div>
+    <div class="sign">
+      <div class="line"></div>
+      <div class="h">Sales Signature</div>
+    </div>
+  </div>
+
+  </td></tr></tbody><tfoot><tr><td></td></tr></tfoot></table>
+
+  <footer>
+    <div class="co">SMART TECHNOLOGY</div>
+    <div><span class="k">Address:</span>5-El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</div>
+    <div><span class="k">Tel:</span>0223456789 - 01001234567</div>
+  </footer>
+</body>
+</html>

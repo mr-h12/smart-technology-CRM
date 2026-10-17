@@ -1,0 +1,9 @@
+# LAN trial only — untracked, never committed. Opens nginx (and nothing else)
+# to the local network. postgres/redis stay on 127.0.0.1.
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d nginx
+# Revert: docker compose up -d nginx
+services:
+  nginx:
+    ports: !override
+      - "0.0.0.0:${HTTP_PORT:-8080}:80"
+      - "0.0.0.0:${HTTPS_PORT:-8443}:443"

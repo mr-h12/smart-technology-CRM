@@ -1,0 +1,125 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The client's requested quotation layout (owner's instructions, 2026-10-05),
+  variant with a per-line VAT column: line Total = Qty x Unit Price + line VAT (14%).
+  Data is QT-2026-0003-5.pdf. Test values (not in that PDF): Attention name,
+  Subject, Unit column, the "prepared by" name. Total has no rounding row,
+  so it is 610.00 - 0.00 + 85.40 = 695.40 (owner's choice).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Quotation QT-2026-0003</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @font-face { font-family: 'Naskh'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/noto-naskh-arabic-400.woff2') format('woff2'); }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Inter', 'Naskh', Arial, sans-serif; font-size: 9.5pt; line-height: 1.45; color: #000; }
+  .page { height: 297mm; padding: 15mm 22mm 10mm; display: flex; flex-direction: column; }
+
+  /* every header: bold and bigger than the text under it */
+  .h { font-weight: 700; font-size: 11pt; }
+
+  .logo { width: 95mm; display: block; }
+  .title { text-align: center; margin-top: 6mm; font-size: 18pt; font-weight: 700; }
+  .title .code { margin-left: 6mm; }
+
+  .info { margin-top: 8mm; }
+  .info > div + div { margin-top: 3mm; }
+
+  .intro { margin: 8mm 0 5mm; }
+
+  table { border-collapse: collapse; }
+  .items { width: 100%; }
+  .items th, .items td { border: 0.75pt solid #bfbfbf; padding: 2.4mm 2mm; text-align: center; vertical-align: middle; }
+  .items th { background: #f2f2f2; }
+  .items .desc { width: 46%; }
+
+  .totals { margin: 5mm 0 0 auto; }
+  .totals td { padding: 1.4mm 0 1.4mm 10mm; text-align: right; white-space: nowrap; }
+  .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; font-size: 12pt; }
+
+  .terms { margin-top: 6mm; }
+  .terms ol { margin: 3mm 0 0; padding-left: 6mm; }
+
+  .contact { margin-top: 7mm; }
+  .closing { display: flex; justify-content: space-between; align-items: flex-end; margin: 6mm 0 6mm; }
+  .closing .name { margin-top: 1mm; }
+  .sign { width: 60mm; text-align: center; }
+  .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
+  .sign .h { margin-top: 1.5mm; }
+
+  footer { margin-top: auto; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-size: 8.5pt; line-height: 1.6; }
+  footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
+  footer .k { display: inline-block; width: 16mm; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+
+  <div class="title">QUOTATION<span class="code">QT-2026-0003</span></div>
+
+  <div class="info">
+    <div><span class="h">Issue Date:</span> 2026-10-01</div>
+    <div><div class="h">Prepared For</div>Alex Scan</div>
+    <div><span class="h">Attention:</span> Mr. Ahmed Ali</div>
+    <div><span class="h">Subject:</span> Scanners &amp; Enterprise Solutions Offer</div>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead class="h">
+      <tr><th class="desc">Description</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>VAT</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">ATEN Enterprise Solutions</td><td>Pcs</td><td>1</td><td>110.00</td><td>15.40</td><td>125.40</td></tr>
+      <tr><td class="desc">printer/ Professional Scanner — Brother</td><td>Pcs</td><td>5</td><td>100.00</td><td>70.00</td><td>570.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td class="h">Total Amount Excl. VAT</td><td>610.00</td></tr>
+    <tr><td class="h">Discount</td><td>0.00</td></tr>
+    <tr><td class="h">VAT 14%</td><td>85.40</td></tr>
+    <tr class="final"><td>Total</td><td>695.40 EGP</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="h">Terms and Conditions</div>
+    <ol>
+      <li>Offer currency: EGP.</li>
+      <li>Warranty: test</li>
+      <li>Delivery: <span dir="rtl">خلال 2 إلى 4 أسابيع من استلام أمر الشراء</span></li>
+      <li>Offer validity: valid until 2026-10-02.</li>
+    </ol>
+  </div>
+
+  <div class="contact">Please do not hesitate to contact us in case you have any questions.</div>
+
+  <div class="closing">
+    <div>
+      <div>Best Regards,</div>
+      <div class="name">Ahmed Essam</div>
+    </div>
+    <div class="sign">
+      <div class="line"></div>
+      <div class="h">Sales Signature</div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="co">SMART TECHNOLOGY</div>
+    <div><span class="k">Address:</span>5-El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</div>
+    <div><span class="k">Tel:</span>0223456789 - 01001234567</div>
+    <div><span class="k">Email:</span>info@smarttech.example</div>
+  </footer>
+</div>
+</body>
+</html>

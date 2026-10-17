@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The sample quotation (sample-en.pdf) restyled after the Odoo standard quotation
+  layout (odoo.com blog "What is a Quotation?"). Data is hard-coded from the sample.
+  Render: see README line in the session report (headless Chrome --print-to-pdf).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Quotation — IT Offer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=block">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #232323;      /* headings, rules */
+    --text: #454545;     /* body copy */
+    --accent: #000;      /* title */
+    --rule-soft: #d9d9d9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body {
+    font-family: 'Lato', 'Inter', sans-serif;
+    font-size: 9pt;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .page { padding: 10mm 8mm 24mm; }
+
+  /* Header: company top-left, customer block offset to ~57% like the reference */
+  .company img { width: 52mm; display: block; }
+  .company .addr { margin-top: 2mm; }
+  .customer { margin: 10mm 0 0 57%; }
+  .customer .name { color: var(--ink); }
+
+  /* The face the system's PDFs embed (sample-en.pdf: Inter-Regular). */
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  h1 {
+    margin: 10mm 0 4mm;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 19pt;
+    letter-spacing: -0.2pt;
+    color: var(--accent);
+  }
+
+  .info { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 9mm; }
+  .info b { display: block; color: var(--ink); font-weight: 700; }
+
+  .intro { margin: 0 0 3mm; }
+
+  table { border-collapse: collapse; width: 100%; }
+  .items th {
+    font-weight: 400; color: var(--ink); text-align: left;
+    padding: 0 0 2mm; border-bottom: 1.4pt solid var(--ink);
+  }
+  .items td { padding: 2.6mm 0 1.4mm; vertical-align: top; }
+  .items .n { text-align: right; white-space: nowrap; padding-left: 6mm; }
+  .items .sn { padding-right: 4mm; color: #8a8a8a; }
+  .items .desc { color: var(--ink); width: 100%; } /* packs the number columns to the right, as Odoo does */
+
+  .totals { width: 40%; margin: 2mm 0 0 auto; }
+  .totals td { padding: 2mm 0; }
+  .totals td + td { text-align: right; white-space: nowrap; }
+  .totals tr:first-child td { border-top: 0.8pt solid var(--ink); padding-top: 2.6mm; }
+  .totals tr.final td { border-top: 0.8pt solid var(--ink); font-weight: 700; color: var(--text); padding-top: 2.6mm; }
+
+  .terms { margin-top: 10mm; }
+  .terms .label { color: var(--ink); margin-bottom: 2mm; }
+  .terms p { margin: 0 0 1mm; }
+
+  .closing { margin-top: 7mm; }
+  .closing .name { color: var(--ink); font-weight: 700; margin-top: 1mm; }
+
+  footer {
+    position: fixed; left: 8mm; right: 8mm; bottom: 8mm;
+    border-top: 0.8pt solid var(--ink); padding-top: 2mm;
+    display: flex; justify-content: space-between; gap: 6mm;
+    font-size: 8pt;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="company">
+    <img src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+    <div class="addr">
+      5 El-Fath St, Wezarra Station<br>
+      Boulkly, Alexandria<br>
+      Egypt
+    </div>
+  </div>
+
+  <div class="customer">
+    <div class="name">Vegatrone</div>
+    <div>Att: Mr. Medhat</div>
+  </div>
+
+  <h1>Quotation — IT Offer</h1>
+
+  <div class="info">
+    <div><b>Quotation Date</b>2026-07-14</div>
+    <div><b>Valid Until</b>2026-08-13</div>
+    <div><b>Salesperson</b>Ahmed Essam</div>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead>
+      <tr><th class="sn">#</th><th class="desc">Description</th><th class="n">Quantity</th><th class="n">Unit Price</th><th class="n">Amount</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="sn">1</td><td class="desc">Formatter M428dw</td><td class="n">2</td><td class="n">5219.30</td><td class="n">10438.60</td></tr>
+      <tr><td class="sn">2</td><td class="desc">Toner CF259A</td><td class="n">3</td><td class="n">6332.50</td><td class="n">18997.50</td></tr>
+      <tr><td class="sn">3</td><td class="desc">Fuser RM2-5399</td><td class="n">1</td><td class="n">5418.00</td><td class="n">5418.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Subtotal</td><td>34854.10</td></tr>
+    <tr><td>Delivery &amp; Installation</td><td>250.00</td></tr>
+    <tr><td>Discount (5%)</td><td>1742.71</td></tr>
+    <tr><td>VAT (14%)</td><td>4635.59</td></tr>
+    <tr class="final"><td>Total</td><td>37996.98 EGP</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="label">Terms &amp; Conditions:</div>
+    <p>Offer currency: EGP.</p>
+    <p>Payment: 50% advance, balance upon delivery.</p>
+    <p>Warranty: One year.</p>
+    <p>Delivery: Within two weeks.</p>
+    <p>Offer validity: valid until 2026-08-13.</p>
+  </div>
+
+  <div class="closing">
+    <div>Please do not hesitate to contact us in case you have any questions.</div>
+    <div style="margin-top:4mm">Best Regards,</div>
+    <div class="name">Ahmed Essam</div>
+  </div>
+</div>
+
+<footer>
+  <span>Tel: 035829952 · Fax: 035829950 · 01070757550 · info@smarttechegy.com</span>
+  <!-- ponytail: hard-coded for a one-page sample; the real renderer draws the page number in its margin -->
+  <span>Page 1 / 1</span>
+</footer>
+</body>
+</html>

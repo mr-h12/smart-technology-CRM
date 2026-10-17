@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.5 page structure options</title>
+<!-- F-42 · 3.5 mock-up, untracked. Real tokens only; no app code. Shell and contrast checker reused from ux-feedback (3.4). -->
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  #page { padding: 16px; max-width: 1100px; margin-inline: auto; }
+  #top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block-end: 16px; }
+  #top strong { font-size: 20px; margin-inline-end: auto; }
+  section.row { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-block-end: 16px; }
+  .rowhead { font-weight: 700; font-size: 16px; margin: 0 0 4px; }
+  .note { color: var(--color-text-muted); font-size: 13px; margin: 0 0 12px; }
+  .pair { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .opt { border: 1px dashed var(--color-border-strong); border-radius: 8px; padding: 12px; min-width: 0; background: var(--color-canvas); }
+  .optname { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--color-text-muted); }
+  button, select { font: inherit; min-height: 44px; border-radius: 6px; padding-inline: 14px; cursor: pointer; }
+  button, select { border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-text); }
+  button.ghost { background: transparent; border-color: transparent; }
+  button.danger-outline { background: transparent; border-color: var(--color-danger); color: var(--color-danger); }
+  button.danger-ghost { background: transparent; border-color: transparent; color: var(--color-danger); }
+  button.danger-filled { background: var(--color-danger); border-color: var(--color-danger); color: var(--color-text-inverse); }
+  :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  a { color: var(--color-link); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-block-end: 1px solid var(--color-border); background: var(--color-surface); margin: -12px -12px 12px; border-radius: 8px 8px 0 0; }
+  .bartitle { font-size: 16px; font-weight: 600; margin: 0; }
+  h1, .pagetitle { font-size: 22px; margin: 0; font-weight: 700; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; margin-block-end: 8px; }
+  .muted { color: var(--color-text-muted); margin: 0; min-height: 1.5em; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; background: var(--color-surface-muted); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--color-text-muted); margin: 4px 0 0; }
+  .hdr { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .total { text-align: end; }
+  .total dt { font-size: 13px; color: var(--color-text-muted); }
+  .total dd { margin: 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 8px; border-block-end: 1px solid var(--color-border); }
+  .scrollbox { height: 220px; overflow: auto; border: 1px solid var(--color-border); border-radius: 8px; position: relative; }
+  .sticky { position: sticky; inset-block-end: 0; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border-strong); padding: 8px 12px; display: flex; justify-content: space-between; font-weight: 700; }
+  .confirm { border: 1px solid var(--color-border-strong); border-radius: 8px; padding: 12px; margin-block-start: 8px; background: var(--color-surface-raised); }
+</style>
+</head>
+<body>
+<div id="page">
+  <div id="top">
+    <strong data-t="title"></strong>
+    <button id="lang" type="button"></button>
+    <select id="theme" aria-label="theme">
+      <option value="">Warm Editorial</option><option value="clean-monochrome">Clean Monochrome</option><option value="midnight-obsidian">Midnight Obsidian</option>
+    </select>
+  </div>
+
+  <!-- A-28: one h1 -->
+  <section class="row" id="r28">
+    <p class="rowhead">A-28 · <span data-t="a28"></span></p>
+    <p class="note" data-t="a28n"></p>
+    <div class="pair">
+      <div class="opt" data-row="A-28" data-opt="A">
+        <div class="bar"><p class="bartitle" data-t="deals"></p></div>
+        <p class="optname" data-t="a28A"></p>
+        <h1>DL-2026-0006</h1>
+      </div>
+      <div class="opt" data-row="A-28" data-opt="B">
+        <div class="bar"><h1 class="bartitle" data-t="deals"></h1></div>
+        <p class="optname" data-t="a28B"></p>
+        <p class="pagetitle">DL-2026-0006</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-21: section refusal -->
+  <section class="row" id="r21">
+    <p class="rowhead">A-21 · <span data-t="a21"></span></p>
+    <p class="note" data-t="a21n"></p>
+    <button type="button" id="deny" data-t="deny"></button>
+    <div class="pair" style="margin-block-start:8px">
+      <div class="opt" data-row="A-21" data-opt="A">
+        <p class="optname" data-t="a21A"></p>
+        <div class="card" id="pdfA"><h2 data-t="pdf"></h2><p class="muted" id="pdfAbody" data-t="loading"></p></div>
+        <div class="card" id="belowA"><h2 data-t="lines"></h2></div>
+      </div>
+      <div class="opt" data-row="A-21" data-opt="B">
+        <p class="optname" data-t="a21B"></p>
+        <div class="card" id="pdfB"><h2 data-t="pdf"></h2><p class="muted" data-t="loading"></p></div>
+        <div class="card" id="belowB"><h2 data-t="lines"></h2></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-33: one Primary, row-level Danger -->
+  <section class="row" id="r33">
+    <p class="rowhead">A-33 · <span data-t="a33"></span></p>
+    <p class="note" data-t="a33n"></p>
+    <div class="pair">
+      <div class="opt" data-row="A-33" data-opt="A">
+        <p class="optname" data-t="a33A"></p>
+        <div class="actions" data-context="quotation"><button class="primary" data-t="submit"></button><button data-t="send"></button><button class="danger-outline rowdanger" data-t="delDraft"></button></div>
+        <table data-context="rows"><tbody>
+          <tr><td>شركة النور</td><td class="actions"><button class="ghost" data-t="edit"></button><button class="danger-outline rowdanger" data-t="archive"></button></td></tr>
+          <tr><td>مؤسسة الأمل</td><td class="actions"><button class="ghost" data-t="edit"></button><button class="danger-outline rowdanger" data-t="archive"></button></td></tr>
+        </tbody></table>
+        <div class="confirm" data-context="confirm"><p class="muted" data-t="confirmQ"></p><div class="actions"><button data-t="cancel"></button><button class="danger-filled" data-t="archive"></button></div></div>
+      </div>
+      <div class="opt" data-row="A-33" data-opt="B">
+        <p class="optname" data-t="a33B"></p>
+        <div class="actions" data-context="quotation"><button class="primary" data-t="submit"></button><button data-t="send"></button><button class="danger-ghost rowdanger" data-t="delDraft"></button></div>
+        <table data-context="rows"><tbody>
+          <tr><td>شركة النور</td><td class="actions"><button class="ghost" data-t="edit"></button><button class="danger-ghost rowdanger" data-t="archive"></button></td></tr>
+          <tr><td>مؤسسة الأمل</td><td class="actions"><button class="ghost" data-t="edit"></button><button class="danger-ghost rowdanger" data-t="archive"></button></td></tr>
+        </tbody></table>
+        <div class="confirm" data-context="confirm"><p class="muted" data-t="confirmQ"></p><div class="actions"><button data-t="cancel"></button><button class="danger-filled" data-t="archive"></button></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-43: error wording with a next step -->
+  <section class="row" id="r43">
+    <p class="rowhead">A-43 · <span data-t="a43"></span></p>
+    <p class="note" data-t="a43n"></p>
+    <div class="pair">
+      <div class="opt" data-row="A-43" data-opt="A">
+        <p class="optname" data-t="a43A"></p>
+        <div class="card case"><p><span data-t="e404"></span> <a href="#deals" data-t="toDeals"></a></p></div>
+        <div class="card case"><p><span data-t="eNet"></span> <a href="#retry" data-t="retry"></a></p></div>
+        <div class="card case"><p><span data-t="e403"></span> <a href="#home" data-t="home"></a></p></div>
+      </div>
+      <div class="opt" data-row="A-43" data-opt="B">
+        <p class="optname" data-t="a43B"></p>
+        <div class="card case"><p data-t="e404"></p><div class="actions"><button data-t="toDeals"></button></div></div>
+        <div class="card case"><p data-t="eNet"></p><div class="actions"><button data-t="retry"></button></div></div>
+        <div class="card case"><p data-t="e403"></p><div class="actions"><button data-t="home"></button></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-53: the deal header -->
+  <section class="row" id="r53">
+    <p class="rowhead">A-53 · <span data-t="a53"></span></p>
+    <p class="note" data-t="a53n"></p>
+    <div class="pair">
+      <div class="opt" data-row="A-53" data-opt="A">
+        <p class="optname" data-t="a53A"></p>
+        <a href="#deals" class="back" data-t="backDeals"></a>
+        <div class="hdr"><h1>DL-2026-0006</h1><span class="chip" data-t="stNeg"></span></div>
+        <p class="meta"><span data-t="dealTitle"></span> · <a href="#customer" class="cust">شركة النور للمقاولات</a></p>
+      </div>
+      <div class="opt" data-row="A-53" data-opt="B">
+        <p class="optname" data-t="a53B"></p>
+        <a href="#deals" class="back" data-t="backDeals"></a>
+        <div class="hdr"><h1 data-t="dealTitle"></h1></div>
+        <p class="meta">DL-2026-0006 · <span class="chip" data-t="stNeg"></span> · <a href="#customer" class="cust">شركة النور للمقاولات</a></p>
+        <p class="note" style="margin-block-start:8px" data-t="nullTitle"></p>
+        <div class="hdr"><h1 class="nulltitle">—</h1></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-56: the total in the quotation header -->
+  <section class="row" id="r56">
+    <p class="rowhead">A-56 · <span data-t="a56"></span></p>
+    <p class="note" data-t="a56n"></p>
+    <div class="pair">
+      <div class="opt" data-row="A-56" data-opt="A">
+        <p class="optname" data-t="a56A"></p>
+        <div class="scrollbox"><div style="padding:8px">
+          <div class="hdr"><div><h1>QT-2026-0011</h1><span class="chip" data-t="stDraft"></span></div>
+            <dl class="total"><dt data-t="final"></dt><dd class="finaltotal">EGP 1,254,300.00</dd></dl></div>
+          <table class="lines"><tbody></tbody></table>
+        </div></div>
+      </div>
+      <div class="opt" data-row="A-56" data-opt="B">
+        <p class="optname" data-t="a56B"></p>
+        <div class="scrollbox"><div style="padding:8px">
+          <div class="hdr"><div><h1>QT-2026-0011</h1><span class="chip" data-t="stDraft"></span></div></div>
+          <table class="lines"><tbody></tbody></table>
+        </div>
+        <div class="sticky"><span data-t="final"></span><span class="finaltotal">EGP 1,254,300.00</span></div></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const T = {
+  ar: { title: 'خيارات بنية الصفحة (F-42 · 3.5)', lang: 'English', deals: 'الصفقات',
+    a28: 'عنوان h1 واحد', a28n: 'اليوم في الشريط العلوي h1 وفي الصفحة h1 آخر. أ) عنوان الشريط نصّ عادي، والصفحة تحمل h1. ب) يبقى h1 في الشريط، ويصير عنوان الصفحة نصّاً عادياً.', a28A: 'الخيار أ: عنوان الشريط ليس عنواناً', a28B: 'الخيار ب: حذف h1 الصفحة',
+    a21: 'قسم لا يملك المستخدم صلاحيته', a21n: 'الرفض يصل بعد الطلب (403). أ) سطر باهت واحد داخل البطاقة. ب) تُخفى البطاقة كلّها.', deny: 'محاكاة وصول 403', a21A: 'الخيار أ: سطر باهت', a21B: 'الخيار ب: إخفاء القسم', pdf: 'ملف PDF', lines: 'البنود', loading: 'جارٍ التحميل…', sectionDenied: 'هذا القسم غير متاح لك.',
+    a33: 'إجراء رئيسي واحد، وإجراء الخطر في الصف', a33n: 'زرّ رئيسي واحد لكل سياق. الخطر في الصفوف: أ) إطار أحمر. ب) نصّ أحمر بلا إطار. الأحمر المصمت داخل التأكيد فقط.', a33A: 'الخيار أ: إطار الخطر', a33B: 'الخيار ب: نص الخطر', submit: 'إرسال للاعتماد', send: 'إرسال للعميل', delDraft: 'حذف المسودة', edit: 'تعديل', archive: 'أرشفة', cancel: 'إلغاء', confirmQ: 'أرشفة «شركة النور»؟ يمكن استعادتها لاحقاً.',
+    a43: 'صياغة الخطأ مع خطوة تالية', a43n: 'مسودّة صياغة للمالك. أ) الخطوة التالية رابط داخل الجملة. ب) الخطوة التالية زرّ تحت الجملة.', a43A: 'الخيار أ: رابط في الجملة', a43B: 'الخيار ب: زرّ تحت الجملة', e404: 'السجل غير متاح. راجع الرابط، أو ارجع إلى قائمة الصفقات.', eNet: 'تعذّر الوصول إلى الخادم. تحقّق من الاتصال ثم أعد المحاولة.', e403: 'ليست لديك صلاحية عرض هذه الصفحة.', toDeals: 'قائمة الصفقات', retry: 'أعد المحاولة', home: 'الصفحة الرئيسية',
+    a53: 'رأس صفحة الصفقة', a53n: 'أ) الرمز عنوان، والعنوان والعميل تحته. ب) عنوان الصفقة هو العنوان، والرمز والعميل تحته.', a53A: 'الخيار أ: الرمز عنواناً', a53B: 'الخيار ب: عنوان الصفقة عنواناً', backDeals: '→ الصفقات', stNeg: 'تفاوض', dealTitle: 'توريد وتركيب أنظمة التكييف المركزي لمبنى الإدارة الجديد في المنطقة الصناعية الثالثة', nullTitle: 'صفقة بلا عنوان (الحقل اختياري):',
+    a56: 'الإجمالي في رأس عرض السعر', a56n: 'أ) الإجمالي النهائي يتكرّر في الرأس. ب) شريط ثابت أسفل الصفحة يحمل الإجمالي.', a56A: 'الخيار أ: في الرأس', a56B: 'الخيار ب: شريط ثابت', stDraft: 'مسودة', final: 'الإجمالي النهائي', line: 'بند' },
+  en: { title: 'Page structure options (F-42 · 3.5)', lang: 'العربية', deals: 'Deals',
+    a28: 'One h1', a28n: 'Today the bar has an h1 and the page has another. A) the bar title is plain text and the page keeps its h1. B) the bar keeps its h1 and the page title becomes plain text.', a28A: 'Option A: the bar title is not a heading', a28B: 'Option B: drop the page h1',
+    a21: 'A section the user may not see', a21n: 'The refusal arrives after the request (403). A) one muted line inside the card. B) the whole card is hidden.', deny: 'Simulate the 403 arriving', a21A: 'Option A: a muted line', a21B: 'Option B: hide the section', pdf: 'PDF file', lines: 'Lines', loading: 'Loading…', sectionDenied: 'This section is not available to you.',
+    a33: 'One Primary, row-level Danger', a33n: 'One Primary per context. Danger in rows: A) a red outline. B) red text, no border. Filled red only inside the confirm.', a33A: 'Option A: Danger outline', a33B: 'Option B: Danger text', submit: 'Submit for approval', send: 'Send to customer', delDraft: 'Delete draft', edit: 'Edit', archive: 'Archive', cancel: 'Cancel', confirmQ: 'Archive “Al Nour Co.”? It can be restored later.',
+    a43: 'Error wording with a next step', a43n: 'Draft copy, the owner’s to approve. A) the next step is a link in the sentence. B) the next step is a button under it.', a43A: 'Option A: a link in the sentence', a43B: 'Option B: a button under it', e404: 'The record is not available. Check the link, or return to the deal list.', eNet: 'The server could not be reached. Check the connection, then try again.', e403: 'You do not have permission to view this page.', toDeals: 'Deal list', retry: 'Try again', home: 'Home',
+    a53: 'The deal header', a53n: 'A) the code is the heading; title and customer under it. B) the deal title is the heading; code and customer under it.', a53A: 'Option A: code as heading', a53B: 'Option B: title as heading', backDeals: '← Deals', stNeg: 'Negotiation', dealTitle: 'Supply and installation of central air-conditioning for the new administration building, industrial zone three', nullTitle: 'A deal with no title (the field is optional):',
+    a56: 'The total in the quotation header', a56n: 'A) the final total repeated in the header. B) a sticky bar at the bottom carrying the total.', a56A: 'Option A: in the header', a56B: 'Option B: sticky bar', stDraft: 'Draft', final: 'Final total', line: 'Line' },
+};
+let L = 'ar';
+const $ = (id) => document.getElementById(id);
+const t = (k) => T[L][k];
+function paint() {
+  document.documentElement.lang = L; document.documentElement.dir = L === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
+  document.querySelectorAll('table.lines tbody').forEach((b) => { b.innerHTML = Array.from({ length: 12 }, (_, i) => '<tr><td>' + t('line') + ' ' + (i + 1) + '</td><td style="text-align:end">EGP 104,525.00</td></tr>').join(''); });
+  $('lang').textContent = t('lang');
+  if (denied) applyDeny();
+}
+$('lang').onclick = () => { L = L === 'ar' ? 'en' : 'ar'; paint(); };
+$('theme').onchange = (e) => { if (e.target.value) document.documentElement.dataset.theme = e.target.value; else delete document.documentElement.dataset.theme; };
+
+// A-21: the 403 arrives after load; record how far the next card moves.
+let denied = false;
+window.shift = {};
+function applyDeny() {
+  $('pdfAbody').textContent = t('sectionDenied'); $('pdfAbody').removeAttribute('data-t');
+  $('pdfB').hidden = true;
+}
+$('deny').onclick = () => {
+  const before = { A: $('belowA').getBoundingClientRect().top, B: $('belowB').getBoundingClientRect().top };
+  denied = true; applyDeny();
+  window.shift = { A: Math.round(before.A - $('belowA').getBoundingClientRect().top), B: Math.round(before.B - $('belowB').getBoundingClientRect().top) };
+};
+
+// Contrast, WCAG 2.x (from ux-feedback). Parses rgb()/rgba() and color(srgb …); transparent falls back to the parent's background.
+function rgb(c) {
+  let m = c.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+  m = c.match(/rgba?\(([\d.]+),? ([\d.]+),? ([\d.]+)(?:,? \/? ?([\d.]+))?\)/);
+  return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+}
+function bgOf(el) { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c && c[3] > 0) return c; } return rgb(getComputedStyle(document.documentElement).backgroundColor) ?? [255, 255, 255, 1]; }
+const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
+const fg = (el) => ratio(rgb(getComputedStyle(el).color), bgOf(el));
+const border = (el) => ratio(rgb(getComputedStyle(el).borderTopColor), bgOf(el.parentElement));
+window.ratio = ratio; window.rgb = rgb; window.bgOf = bgOf;
+
+// The per-option measurements §5 quotes. Each returns { pass, ...numbers }.
+const O = (row, opt) => document.querySelector(`.opt[data-row="${row}"][data-opt="${opt}"]`);
+window.measure = () => {
+  const r = {};
+  for (const o of ['A', 'B']) {
+    const e28 = O('A-28', o); const h1s = e28.querySelectorAll('h1');
+    r['A-28 ' + o] = { pass: h1s.length === 1, h1: h1s.length, h1Text: h1s[0]?.textContent };
+    const e21 = O('A-21', o);
+    const heads = [...e21.querySelectorAll('h2')].filter((h) => h.offsetParent !== null).length;
+    r['A-21 ' + o] = { pass: denied && window.shift[o] === 0, shiftPx: window.shift[o], visibleHeadings: heads, line: o === 'A' ? fg($('pdfAbody')) : null };
+    const e33 = O('A-33', o);
+    const primaries = [...e33.querySelectorAll('[data-context]')].map((c) => c.querySelectorAll('.primary').length);
+    const rd = e33.querySelector('.rowdanger'); const filled = e33.querySelector('.danger-filled');
+    const minH = Math.min(...[...e33.querySelectorAll('button')].map((b) => b.getBoundingClientRect().height));
+    const m33 = { primariesPerContext: primaries, dangerText: fg(rd), dangerBorder: o === 'A' ? border(rd) : null, filledText: fg(filled), minButtonH: Math.round(minH) };
+    m33.pass = primaries.every((n) => n <= 1) && m33.dangerText >= 4.5 && (o === 'B' || m33.dangerBorder >= 3) && m33.filledText >= 4.5 && minH >= 44;
+    r['A-33 ' + o] = m33;
+    const e43 = O('A-43', o); const cases = [...e43.querySelectorAll('.case')];
+    const steps = cases.map((c) => c.querySelectorAll('a, button').length);
+    const m43 = { nextStepPerCase: steps, link: o === 'A' ? Math.min(...[...e43.querySelectorAll('a')].map(fg)) : null, minButtonH: o === 'B' ? Math.round(Math.min(...[...e43.querySelectorAll('button')].map((b) => b.getBoundingClientRect().height))) : null };
+    m43.pass = steps.every((n) => n >= 1) && (o === 'A' ? m43.link >= 4.5 : m43.minButtonH >= 44);
+    r['A-43 ' + o] = m43;
+    const e53 = O('A-53', o); const h = e53.querySelector('h1');
+    const lh = parseFloat(getComputedStyle(h).lineHeight) || parseFloat(getComputedStyle(h).fontSize) * 1.2;
+    const m53 = { back: !!e53.querySelector('a.back'), customerLink: !!e53.querySelector('a.cust'), h1Text: h.textContent.slice(0, 40), h1Lines: Math.round(h.getBoundingClientRect().height / lh), nullTitleH1: e53.querySelector('.nulltitle')?.textContent ?? null };
+    m53.pass = m53.back && m53.customerLink && m53.h1Lines <= 2 && m53.nullTitleH1 === null;
+    r['A-53 ' + o] = m53;
+    const e56 = O('A-56', o); const box = e56.querySelector('.scrollbox'); const tot = e56.querySelector('.finaltotal');
+    box.scrollTop = 0; const top0 = tot.getBoundingClientRect().top - box.getBoundingClientRect().top;
+    box.scrollTop = box.scrollHeight; const visEnd = tot.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom + 1 && tot.getBoundingClientRect().top >= box.getBoundingClientRect().top - 1;
+    const sticky = e56.querySelector('.sticky');
+    box.scrollTop = 0;
+    const m56 = { totalTopAtLoadPx: Math.round(top0), visibleAtLoad: top0 < box.clientHeight, visibleAfterScroll: visEnd, coversPx: sticky ? Math.round(sticky.getBoundingClientRect().height) : 0, totalText: fg(tot) };
+    m56.pass = m56.visibleAtLoad && m56.totalText >= 4.5;
+    r['A-56 ' + o] = m56;
+  }
+  r.overflowX = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  return r;
+};
+paint();
+</script>
+</body>
+</html>

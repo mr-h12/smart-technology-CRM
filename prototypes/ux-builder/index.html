@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-42 · 3.7 builder options</title>
+<!-- F-42 · 3.7 mock-up, untracked. Real tokens only; no app code. Contrast checker reused from ux-feedback (3.4).
+     A-20 draws one option per load: ?a20=today|A|B (two sticky bars on one page would interfere). -->
+<link rel="stylesheet" href="../../crm/resources/css/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); color: var(--color-text); }
+  #bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 12px; background: var(--color-surface); border-block-end: 1px solid var(--color-border); }
+  #bar strong { margin-inline-end: auto; font-size: 16px; }
+  #page { padding: 16px; max-width: 1100px; margin-inline: auto; }
+  section.row { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-block-end: 16px; }
+  .rowhead { font-weight: 700; font-size: 16px; margin: 0 0 4px; }
+  .note { color: var(--color-text-muted); font-size: 13px; margin: 0 0 12px; }
+  .opts { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+  .opt { border: 1px dashed var(--color-border-strong); border-radius: 8px; padding: 12px; min-width: 0; background: var(--color-canvas); }
+  .optname { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--color-text-muted); }
+  .opt[data-opt=today] .optname { color: var(--color-danger); }
+  button, select, input { font: inherit; min-height: 44px; border-radius: 6px; }
+  button, select { padding-inline: 12px; cursor: pointer; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); }
+  input { padding-inline: 10px; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); width: 100%; min-width: 0; }
+  input[aria-invalid=true] { border-color: var(--color-danger); }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-text); }
+  :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  .field { display: grid; gap: 4px; margin-block-end: 10px; font-size: 14px; }
+  .err { color: var(--color-danger); font-size: 13px; margin: 0; }
+  .help { color: var(--color-text-muted); font-size: 13px; margin: 0; }
+  .req { color: var(--color-danger); }
+  .alert { border: 1px solid var(--color-danger); border-radius: 8px; padding: 8px 10px; margin-block-end: 10px; color: var(--color-danger); background: var(--color-surface); }
+  .alert:empty { display: none; }
+  .alert h2 { font-size: 15px; margin: 0 0 4px; }
+  .alert ul { margin: 0; padding-inline-start: 18px; }
+  .alert a { color: var(--color-danger); }
+  /* A-24 A: a translated button over a visually hidden input */
+  .vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .filebtn { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 12px; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--color-surface); cursor: pointer; }
+  .vh:focus-visible + .filebtn { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+  input[type=file]:not(.vh) { border: 0; padding: 0; background: transparent; }
+  /* A-20 */
+  #a20form .line { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actbar { display: flex; gap: 8px; padding: 10px 12px; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border-strong); }
+  .actbar.bottom { position: sticky; bottom: 0; z-index: 10; }
+  .actbar.top { position: sticky; top: var(--bar-h, 57px); z-index: 10; border-block-start: 0; border-block-end: 1px solid var(--color-border-strong); }
+  html.pad-end { scroll-padding-block-end: var(--act-h, 64px); }
+  html.pad-start { scroll-padding-block-start: calc(var(--bar-h, 57px) + var(--act-h, 64px)); }
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong data-t="title"></strong>
+  <button id="lang" type="button"></button>
+  <select id="theme" aria-label="theme">
+    <option value="">Warm Editorial</option><option value="clean-monochrome">Clean Monochrome</option><option value="midnight-obsidian">Midnight Obsidian</option>
+  </select>
+</div>
+<div id="page">
+
+  <!-- A-11: errors on a failed save -->
+  <section class="row" id="r11">
+    <p class="rowhead">A-11 · <span data-t="a11"></span></p>
+    <p class="note" data-t="a11n"></p>
+    <div class="opts">
+      <form class="opt" data-row="A-11" data-opt="today" novalidate></form>
+      <form class="opt" data-row="A-11" data-opt="A" novalidate></form>
+      <form class="opt" data-row="A-11" data-opt="B" novalidate></form>
+    </div>
+  </section>
+
+  <!-- A-24: the file control -->
+  <section class="row" id="r24">
+    <p class="rowhead">A-24 · <span data-t="a24"></span></p>
+    <p class="note" data-t="a24n"></p>
+    <div class="opts">
+      <div class="opt" data-row="A-24" data-opt="today"><p class="optname" data-t="today"></p>
+        <label class="field"><span data-t="doc"></span><input type="file" id="f24t"></label></div>
+      <div class="opt" data-row="A-24" data-opt="A"><p class="optname" data-t="a24A"></p>
+        <div class="field"><span id="f24aL" data-t="doc"></span>
+          <input type="file" id="f24a" class="vh" accept=".pdf,.jpg,.jpeg,.png" aria-labelledby="f24aL" aria-describedby="f24aH f24aN">
+          <label for="f24a" class="filebtn" data-t="choose"></label>
+          <p class="help" id="f24aN" data-t="noFile"></p>
+          <p class="help" id="f24aH" data-t="limits"></p></div></div>
+      <div class="opt" data-row="A-24" data-opt="B"><p class="optname" data-t="a24B"></p>
+        <label class="field"><span data-t="doc"></span><input type="file" id="f24b" accept=".pdf,.jpg,.jpeg,.png" aria-describedby="f24bH"><p class="help" id="f24bH" data-t="limits"></p></label></div>
+    </div>
+  </section>
+
+  <!-- A-50: required marker, help text, disabled reason -->
+  <section class="row" id="r50">
+    <p class="rowhead">A-50 · <span data-t="a50"></span></p>
+    <p class="note" data-t="a50n"></p>
+    <div class="opts">
+      <div class="opt" data-row="A-50" data-opt="today"><p class="optname" data-t="today"></p>
+        <label class="field"><span><span data-t="customer"></span> *</span><input></label>
+        <label class="field"><span><span data-t="currency"></span> <span data-t="reqWord"></span></span><input></label>
+        <label class="field"><span data-t="tax"></span><input data-tp="taxPh"></label>
+        <label class="field"><span><input type="checkbox" disabled style="width:auto;min-height:auto"> <span data-t="taxIncl"></span></span></label></div>
+      <div class="opt" data-row="A-50" data-opt="A"><p class="optname" data-t="a50A"></p>
+        <label class="field"><span><span data-t="customer"></span> <span class="req" data-t="reqWord"></span></span><input aria-required="true"></label>
+        <label class="field"><span><span data-t="currency"></span> <span class="req" data-t="reqWord"></span></span><input aria-required="true"></label>
+        <div class="field"><label for="tax50a" data-t="tax"></label><input id="tax50a" aria-describedby="tax50aH"><p class="help" id="tax50aH" data-t="taxHelp"></p></div>
+        <div class="field"><label><input type="checkbox" disabled aria-describedby="ti50aH" style="width:auto;min-height:auto"> <span data-t="taxIncl"></span></label><p class="help" id="ti50aH" data-t="taxInclWhy"></p></div></div>
+      <div class="opt" data-row="A-50" data-opt="B"><p class="optname" data-t="a50B"></p>
+        <p class="help" data-t="legend"></p>
+        <label class="field"><span><span data-t="customer"></span> <span class="req" aria-hidden="true">*</span></span><input aria-required="true"></label>
+        <label class="field"><span><span data-t="currency"></span> <span class="req" aria-hidden="true">*</span></span><input aria-required="true"></label>
+        <div class="field"><label for="tax50b" data-t="tax"></label><input id="tax50b" aria-describedby="tax50bH"><p class="help" id="tax50bH" data-t="taxHelp"></p></div>
+        <div class="field"><label><input type="checkbox" disabled aria-describedby="ti50bH" style="width:auto;min-height:auto"> <span data-t="taxIncl"></span></label><p class="help" id="ti50bH" data-t="taxInclWhy"></p></div></div>
+    </div>
+  </section>
+
+  <!-- A-20: where Save sits on a long builder (one option per load) -->
+  <section class="row" id="r20">
+    <p class="rowhead">A-20 · <span data-t="a20"></span> — <span id="a20name"></span></p>
+    <p class="note" data-t="a20n"></p>
+    <p class="note"><a href="?a20=today">today</a> · <a href="?a20=A">A</a> · <a href="?a20=B">B</a></p>
+    <form id="a20form" novalidate></form>
+  </section>
+</div>
+
+<script>
+const T = {
+  ar: { title: 'خيارات منشئ العرض (F-42 · 3.7)', lang: 'English', today: 'اليوم (للمقارنة)', customer: 'العميل', currency: 'العملة', margin: 'هامش البند (%)', save: 'حفظ', cancel: 'إلغاء', reqWord: '(مطلوب)', tax: 'نسبة الضريبة (%)', taxPh: 'فارغ = لا ضريبة', taxHelp: 'اتركه فارغاً إن كان العرض معفى من الضريبة.', taxIncl: 'السعر شامل الضريبة', taxInclWhy: 'غير متاح لأن العرض معفى من الضريبة.', legend: 'الحقول المعلَّمة بـ * مطلوبة.', doc: 'مستند الصفقة', choose: 'اختر ملفاً', noFile: 'لم يُختر ملف.', limits: 'PDF أو JPG أو PNG، حتى 30 ميغابايت.', line: 'بند', qty: 'الكمية', price: 'سعر الوحدة',
+    a11: 'الأخطاء عند فشل الحفظ', a11n: 'اضغط Enter في حقل. اليوم: سطر أحمر في الأعلى ويبقى التركيز مكانه، والأخطاء غير مربوطة بحقولها. أ) ملخّص أخطاء في الأعلى يأخذ التركيز وفيه روابط للحقول. ب) التركيز ينتقل إلى أول حقل خاطئ، والسطر العلوي يذكر العدد.', a11A: 'الخيار أ: ملخّص الأخطاء', a11B: 'الخيار ب: أول حقل خاطئ', errCust: 'اختر عميلاً.', errMargin: 'أدخل رقماً، مثل 12.5 أو ‎-5.', saveFailed: 'تعذّر الحفظ. راجع الحقول.', summaryH: 'يجب تصحيح حقلين', countLine: 'يجب تصحيح حقلين قبل الحفظ.',
+    a24: 'حقل رفع الملف', a24n: 'اليوم: زرّ المتصفح بلغته، ولا أنواع ولا حجم. أ) زرّ مترجم فوق حقل مخفي بصرياً، مع الأنواع والحجم. ب) زرّ المتصفح كما هو، مع الأنواع والحجم و accept.', a24A: 'الخيار أ: زرّ مترجم', a24B: 'الخيار ب: زرّ المتصفح + نص الحدود',
+    a50: 'علامة «مطلوب» والمساعدة وسبب التعطيل', a50n: 'اليوم: «*» في مكان و«(مطلوب)» في آخر، والقاعدة في placeholder، وخانة معطّلة بلا سبب. أ) الكلمة «(مطلوب)». ب) «*» مع سطر يشرحها.', a50A: 'الخيار أ: الكلمة', a50B: 'الخيار ب: النجمة + شرح',
+    a20: 'مكان زرّ الحفظ في منشئ طويل', a20n: 'الحفظ اليوم في أسفل الصفحة فقط. أ) شريط ثابت في الأسفل. ب) شريط ثابت تحت الشريط العلوي. يقاس ما يغطّيه وهل يُخفي الحقل الذي فيه التركيز عند التنقّل بـ Tab.', a20today: 'اليوم', a20A: 'الخيار أ: شريط سفلي ثابت', a20B: 'الخيار ب: شريط علوي ثابت' },
+  en: { title: 'Builder options (F-42 · 3.7)', lang: 'العربية', today: 'Today (for comparison)', customer: 'Customer', currency: 'Currency', margin: 'Line margin (%)', save: 'Save', cancel: 'Cancel', reqWord: '(required)', tax: 'Tax rate (%)', taxPh: 'Empty = no tax', taxHelp: 'Leave empty if the quotation is tax-exempt.', taxIncl: 'Price includes tax', taxInclWhy: 'Unavailable because the quotation is tax-exempt.', legend: 'Fields marked * are required.', doc: 'Deal document', choose: 'Choose a file', noFile: 'No file chosen.', limits: 'PDF, JPG or PNG, up to 30 MB.', line: 'Line', qty: 'Quantity', price: 'Unit price',
+    a11: 'Errors on a failed save', a11n: 'Press Enter in a field. Today: a red line at the top, focus stays put, errors not tied to fields. A) an error summary at the top takes focus, with links to the fields. B) focus moves to the first invalid field, and the top line gives the count.', a11A: 'Option A: error summary', a11B: 'Option B: first invalid field', errCust: 'Choose a customer.', errMargin: 'Enter a number, such as 12.5 or -5.', saveFailed: 'Could not save. Check the fields.', summaryH: 'Fix 2 fields', countLine: 'Fix 2 fields before saving.',
+    a24: 'The file control', a24n: 'Today: the browser’s button in its own language, no types or size. A) a translated button over a visually hidden input, with types and size. B) the browser’s button as it is, with types, size and accept.', a24A: 'Option A: translated button', a24B: 'Option B: browser button + limits text',
+    a50: 'Required marker, help and disabled reason', a50n: 'Today: “*” in one place, “(required)” in another, a rule only in a placeholder, a disabled box with no reason. A) the word “(required)”. B) “*” with a line explaining it.', a50A: 'Option A: the word', a50B: 'Option B: asterisk + legend',
+    a20: 'Where Save sits on a long builder', a20n: 'Today Save is only at the page bottom. A) a sticky bar at the bottom. B) a sticky bar under the context bar. Measured: what it covers, and whether Tab ever hides the focused field under it.', a20today: 'Today', a20A: 'Option A: sticky bottom bar', a20B: 'Option B: sticky top bar' },
+};
+let L = 'ar';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const t = (k) => T[L][k];
+const O = (row, opt) => $(`.opt[data-row="${row}"][data-opt="${opt}"]`);
+const A20 = new URLSearchParams(location.search).get('a20') || 'A';
+
+// A-11: three forms; Enter submits; customer empty and margin "1,5" are invalid.
+function build11() {
+  for (const o of ['today', 'A', 'B']) {
+    const f = O('A-11', o);
+    f.innerHTML = '<p class="optname">' + t(o === 'today' ? 'today' : o === 'A' ? 'a11A' : 'a11B') + '</p>'
+      + '<div class="alert" tabindex="-1" id="al-' + o + '"' + (o === 'today' ? ' role="alert"' : '') + '></div>'
+      + '<label class="field"><span>' + t('customer') + '</span><input id="c-' + o + '"></label>'
+      + '<label class="field"><span>' + t('currency') + '</span><input id="cur-' + o + '" value="EGP"></label>'
+      + '<label class="field"><span>' + t('margin') + '</span><input id="m-' + o + '" value="1,5"></label>'
+      + '<button class="primary" type="submit">' + t('save') + '</button>';
+    f.onsubmit = (e) => { e.preventDefault(); fail11(o); };
+  }
+}
+window.r11 = {};
+function fail11(o) {
+  const f = O('A-11', o); const al = $('#al-' + o); const bad = [['c-' + o, 'errCust'], ['m-' + o, 'errMargin']];
+  $$('.err', f).forEach((n) => n.remove());
+  if (o === 'today') { al.textContent = t('saveFailed'); bad.forEach(([id, k]) => $('#' + id).closest('.field').insertAdjacentHTML('beforeend', '<p class="err">' + t(k) + '</p>')); }
+  else {
+    bad.forEach(([id, k]) => { const i = $('#' + id); i.setAttribute('aria-invalid', 'true'); i.setAttribute('aria-describedby', 'e-' + id); i.closest('.field').insertAdjacentHTML('beforeend', '<p class="err" id="e-' + id + '">' + t(k) + '</p>'); });
+    if (o === 'A') { al.innerHTML = '<h2>' + t('summaryH') + '</h2><ul>' + bad.map(([id, k]) => '<li><a href="#' + id + '">' + t(k) + '</a></li>').join('') + '</ul>'; al.focus(); }
+    if (o === 'B') { al.setAttribute('role', 'alert'); al.textContent = t('countLine'); $('#' + bad[0][0]).focus(); }
+  }
+  // the measurement: where focus is, and whether each invalid field names its error
+  {
+    const tied = bad.map(([id]) => { const i = $('#' + id); const d = i.getAttribute('aria-describedby'); return i.getAttribute('aria-invalid') === 'true' && !!d && !!document.getElementById(d)?.textContent; });
+    const a = document.activeElement;
+    window.r11[o] = { focus: a === document.body ? 'body' : a.id || a.tagName, tied, pass: (a.id === 'al-' + o || a.id === bad[0][0]) && tied.every(Boolean) };
+  }
+}
+
+// A-20: a long builder with 14 lines; the chosen option's bar.
+function build20() {
+  const f = $('#a20form'); const rows = Array.from({ length: 14 }, (_, i) => '<div class="line"><label class="field"><span>' + t('line') + ' ' + (i + 1) + ' · ' + t('qty') + '</span><input inputmode="decimal" value="' + (i + 1) + '"></label><label class="field"><span>' + t('price') + '</span><input inputmode="decimal" value="1250.00"></label></div>').join('');
+  const bar = '<div class="actbar ' + (A20 === 'A' ? 'bottom' : A20 === 'B' ? 'top' : '') + '" id="act"><button class="primary" type="button">' + t('save') + '</button><button type="button">' + t('cancel') + '</button></div>';
+  f.innerHTML = (A20 === 'B' ? bar : '') + rows + (A20 !== 'B' ? bar : '');
+  $('#a20name').textContent = t(A20 === 'today' ? 'a20today' : A20 === 'A' ? 'a20A' : 'a20B');
+  document.documentElement.classList.toggle('pad-end', A20 === 'A');
+  document.documentElement.classList.toggle('pad-start', A20 === 'B');
+}
+window.focusLog20 = [];
+document.addEventListener('focusin', (e) => {
+  if (!e.target.closest('#a20form') || e.target.closest('#act')) return;
+  const act = $('#act'); const r = e.target.getBoundingClientRect(); const a = act.getBoundingClientRect(); const barB = $('#bar').getBoundingClientRect().bottom;
+  const underAct = A20 !== 'today' && r.bottom > a.top && r.top < a.bottom; const underBar = r.top < barB;
+  window.focusLog20.push(underAct || underBar ? 'HIDDEN' : 'ok');
+});
+
+function paint() {
+  document.documentElement.lang = L; document.documentElement.dir = L === 'ar' ? 'rtl' : 'ltr';
+  $$('[data-t]').forEach((n) => { n.textContent = t(n.dataset.t); });
+  $$('[data-tp]').forEach((n) => { n.placeholder = t(n.dataset.tp); });
+  $('#lang').textContent = t('lang');
+  build11(); build20(); setVars();
+}
+function setVars() { const s = document.documentElement.style; s.setProperty('--bar-h', $('#bar').getBoundingClientRect().height + 'px'); s.setProperty('--act-h', ($('#act')?.getBoundingClientRect().height ?? 64) + 'px'); }
+$('#lang').onclick = () => { L = L === 'ar' ? 'en' : 'ar'; paint(); };
+$('#theme').onchange = (e) => { if (e.target.value) document.documentElement.dataset.theme = e.target.value; else delete document.documentElement.dataset.theme; };
+addEventListener('resize', setVars);
+
+// Contrast, WCAG 2.x (from ux-feedback).
+function rgb(c) {
+  let m = c.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+  m = c.match(/rgba?\(([\d.]+),? ([\d.]+),? ([\d.]+)(?:,? \/? ?([\d.]+))?\)/);
+  return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+}
+function bgOf(el) { for (let n = el; n; n = n.parentElement) { const c = rgb(getComputedStyle(n).backgroundColor); if (c && c[3] > 0) return c; } return rgb(getComputedStyle(document.documentElement).backgroundColor) ?? [255, 255, 255, 1]; }
+const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
+const fg = (el) => ratio(rgb(getComputedStyle(el).color), bgOf(el));
+window.ratio = ratio; window.rgb = rgb; window.bgOf = bgOf;
+
+window.measure = () => {
+  const r = {};
+  // A-24: visible Arabic/English text on the control, limits shown, accept set
+  for (const o of ['today', 'A', 'B']) {
+    const box = O('A-24', o); const inp = $('input[type=file]', box);
+    r['A-24 ' + o] = { ownButtonText: $('.filebtn', box)?.textContent ?? null, limitsShown: !!$('.help[id$=H]', box), accept: inp.getAttribute('accept'), nativeChrome: !inp.classList.contains('vh') };
+    r['A-24 ' + o].pass = !!r['A-24 ' + o].ownButtonText && r['A-24 ' + o].limitsShown && !!r['A-24 ' + o].accept;
+  }
+  // A-50: one marker kind, help outside the placeholder, disabled control explained
+  for (const o of ['today', 'A', 'B']) {
+    const box = O('A-50', o);
+    const marks = $$('.field > span, .field > label', box).map((s) => s.textContent).filter((x) => /\*|مطلوب|required/.test(x)).map((x) => (x.includes('*') ? '*' : 'word'));
+    const kinds = [...new Set(marks)]; const placeholderOnly = $$('input', box).some((i) => i.placeholder && !i.getAttribute('aria-describedby'));
+    const dis = $('input[disabled]', box); const disReason = !!dis.getAttribute('aria-describedby');
+    const label = $('.field span', box); const markW = $('.req', box) ? Math.round($('.req', box).getBoundingClientRect().width) : null;
+    r['A-50 ' + o] = { markerKinds: kinds, markers: marks.length, placeholderOnly, disabledReason: disReason, markerWidthPx: markW, pass: kinds.length === 1 && marks.length === 2 && !placeholderOnly && disReason };
+  }
+  // A-20: Save in view mid-scroll, what the bar covers
+  const act = $('#act'); const f = $('#a20form'); scrollTo(0, f.getBoundingClientRect().top + scrollY + f.offsetHeight / 2 - innerHeight / 2);
+  const a = act.getBoundingClientRect(); const barB = $('#bar').getBoundingClientRect().bottom;
+  r['A-20 ' + A20] = { saveInView: a.top >= barB - 1 && a.bottom <= innerHeight + 1, barPx: Math.round(a.height), topStackPx: Math.round(A20 === 'B' ? a.bottom : barB), viewport: innerHeight };
+  scrollTo(0, 0);
+  r.overflowX = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  return r;
+};
+window.contrast = () => ({ err: fg($('.err') ?? $('.req')), req: fg($('.req', O('A-50', 'A'))), help: fg($('.help', O('A-50', 'A'))), alertLink: (() => { const a = $('#al-A a'); return a ? fg(a) : null; })(), fileBtn: fg($('.filebtn')) });
+paint();
+</script>
+</body>
+</html>

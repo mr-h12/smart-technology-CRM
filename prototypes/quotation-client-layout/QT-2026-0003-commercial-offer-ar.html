@@ -1,0 +1,129 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Arabic (RTL) twin of quotation-client-layout-line-vat.html.
+  Labels from crm/lang/ar/pdf.php where the system has them; item names stay as entered.
+  2026-10-07: the owner's English mark-up mirrored here (QT-2026-0003-commercial-offer-en.html).
+-->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>عرض تجاري QT-2026-0003</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @font-face { font-family: 'Naskh'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/noto-naskh-arabic-700.woff2') format('woff2'); }
+  @font-face { font-family: 'Naskh'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/noto-naskh-arabic-400.woff2') format('woff2'); }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Naskh', 'Inter', Arial, sans-serif; font-size: 11.5pt; line-height: 1.45; color: #000; }
+  .page { height: 297mm; padding: 8mm 22mm 4mm; display: flex; flex-direction: column; }
+
+  /* every header: bold and bigger than the text under it */
+  .h { font-weight: 700; font-size: 12.5pt; }
+
+  .logo { width: 75mm; display: block; margin-left: -1.58mm; margin-right: auto; /* left, as in English; the PNG has a blank inner margin */ }
+  .title { text-align: center; margin-top: 2.14mm; font-size: 14pt; font-weight: 700; }
+
+  .info { margin-top: 8mm; }
+  .info > div + div { margin-top: 1.5mm; }
+
+  .intro { margin: 12mm 0 4mm; }
+
+  table { border-collapse: collapse; }
+  .items { width: 100%; }
+  .items th, .items td { border: 0.75pt solid #bfbfbf; padding: 2.4mm 1.4mm; text-align: center; vertical-align: middle; }
+  .items th { background: #f2f2f2; white-space: nowrap; }
+  .items .desc { width: 52%; }
+  .items td.desc { text-align: right; }
+
+  .totals { margin: 5mm auto 0 0; }
+  .totals td { padding: 1.2mm 10mm 1.2mm 0; text-align: left; white-space: nowrap; font-size: 10.5pt; }
+  .totals td.h { font-size: 11pt; }
+  .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; }
+
+  .terms { margin-top: 6mm; }
+  .terms ol { margin: 3mm 0 0; padding-right: 6mm; }
+
+  .contact { margin-top: 10.9mm; } /* one empty line (11.5pt x 1.45) under the terms */
+  .closing { display: flex; justify-content: space-between; align-items: flex-start; margin: -2.9mm 0 0.5mm; } /* signature block stays put while the sentence above drops a line */
+  .closing > div:first-child { padding-top: 11.75mm; } /* "مع خالص التحية" sits on the signature line */
+  .closing .name { margin-top: 1mm; }
+  .closing .name, .closing .role { margin-right: 1.27mm; } /* level with the 1. 2. 3. 4. of the terms */
+  .sign { width: 60mm; text-align: center; }
+  .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
+  .sign .h { margin-top: 1.5mm; }
+
+  footer { margin-top: auto; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-size: 8.5pt; line-height: 1.6; }
+  footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
+  footer .k { display: inline-block; width: 16mm; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+
+  <div class="title">عرض تجاري</div>
+
+  <div class="info">
+    <div><span class="h">رقم العرض:</span> <span dir="ltr">QT-2026-0003</span></div>
+    <div><span class="h">تاريخ الإصدار:</span> <span dir="ltr">2026-10-01</span></div>
+    <div><span class="h">مقدم إلى:</span> Alex Scan</div>
+    <div><span class="h">عناية:</span> أ. أحمد علي</div>
+    <div><span class="h">الموضوع:</span> عرض ماسحات ضوئية وحلول مؤسسية</div>
+  </div>
+
+  <p class="intro">يسرّنا أن نتقدم إليكم بعرض الأسعار التالي:</p>
+
+  <table class="items">
+    <thead class="h">
+      <tr><th class="desc">الوصف</th><th>الوحدة</th><th>الكمية</th><th>سعر الوحدة</th><th>الضريبة</th><th>الإجمالي</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">ATEN Enterprise Solutions</td><td>قطعة</td><td>1</td><td>110.00</td><td>15.40</td><td>125.40</td></tr>
+      <tr><td class="desc">printer/ Professional Scanner — Brother</td><td>قطعة</td><td>5</td><td>100.00</td><td>70.00</td><td>570.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td class="h">الإجمالي غير شامل الضريبة</td><td>610.00</td></tr>
+    <tr><td class="h">الخصم</td><td>0.00</td></tr>
+    <tr><td class="h">ضريبة القيمة المضافة 14%</td><td>85.40</td></tr>
+    <tr class="final"><td class="h">الإجمالي النهائي</td><td>695.40 EGP</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="h">الشروط والأحكام</div>
+    <ol>
+      <li>عملة العرض: الجنيه المصري.</li>
+      <li>الضمان: test</li>
+      <li>التسليم: خلال 2 إلى 4 أسابيع من استلام أمر الشراء</li>
+      <li>صلاحية العرض: حتى تاريخ <span dir="ltr">2026-10-02</span>.</li>
+      <li>السعر يشمل ضريبة القيمة المضافة.</li>
+    </ol>
+  </div>
+
+  <div class="contact">يسعدنا تواصلكم معنا لأي استفسار.</div>
+
+  <div class="closing">
+    <div>
+      <div>مع خالص التحية،</div>
+      <div class="name">أحمد عصام</div>
+      <div class="role">قائد فريق</div>
+    </div>
+    <div class="sign">
+      <div class="line"></div>
+      <div class="h">توقيع المبيعات</div>
+    </div>
+  </div>
+
+  <footer dir="ltr" lang="en"> <!-- always English, as in the English version -->
+    <div class="co">Smart Technology For Integrated Systems</div>
+    <div><span class="k">Address:</span><span>5-El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</span></div>
+    <div><span class="k">Tel:</span><span>0223456789 - 01001234567</span></div>
+    <div><span class="k">Email:</span><span>info@smarttechegy.com</span></div>
+  </footer>
+</div>
+</body>
+</html>

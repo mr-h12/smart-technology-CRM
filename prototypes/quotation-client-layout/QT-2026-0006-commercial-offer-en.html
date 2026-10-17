@@ -1,0 +1,171 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not wired into the system.
+  The client's requested quotation layout (owner's instructions, 2026-10-05),
+  variant with a per-line VAT column: line Total = Qty x Unit Price + line VAT (14%).
+  2026-10-07: owner's mark-up applied (qt_eng_final.pdf) — Commercial Offer title,
+  Offer No. line, smaller logo/totals, left-aligned descriptions, signer title, email.
+  This file: QT-2026-0006.pdf in that final English format (2026-10-07).
+  Test values (not in that PDF): Unit column, the signer name and title. No Att. or
+  Warranty (none in the PDF). Delivery is a table line with no VAT (D-62).
+  No rounding row (owner, 2026-10-07): Total = 17110.00 - 0.00 + 2325.40 = 19435.40.
+  Two fixed pages: items 1-10 on page 1; page 2's block is centred between the page top
+  and the footer (owner, 2026-10-07).
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Commercial Offer QT-2026-0006</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url('../../crm/resources/pdf/fonts/inter-700.woff2') format('woff2'); }
+  @font-face { font-family: 'Naskh'; font-weight: 400; src: url('../../crm/resources/pdf/fonts/noto-naskh-arabic-400.woff2') format('woff2'); }
+  @page { size: A4; margin: 0; }
+  .page { height: 297mm; padding: 8mm 22mm 4mm; display: flex; flex-direction: column; break-after: page; }
+  .page:last-child { break-after: auto; }
+  .mid { margin: 33.7mm 0 auto; } /* page 2 block: top fixed where centring put it */
+  .mid + footer { margin-top: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: 'Inter', 'Naskh', Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #000; }
+
+  /* every header: bold and bigger than the text under it */
+  .h { font-weight: 700; font-size: 12.5pt; }
+
+  .logo { width: 75mm; display: block; margin-left: -1.58mm; /* the PNG has a blank inner margin */ }
+  .title { text-align: center; margin-top: 2.14mm; font-size: 14pt; font-weight: 700; }
+
+  .info { margin-top: 8mm; }
+  .info > div + div { margin-top: 1.5mm; }
+
+  .intro { margin: 12mm 0 4mm; }
+
+  table { border-collapse: collapse; }
+  .items { width: 100%; }
+  .items th, .items td { border: 0.75pt solid #bfbfbf; padding: 2.4mm 2mm; text-align: center; vertical-align: middle; }
+  .items th { background: #f2f2f2; white-space: nowrap; }
+  .items tr { break-inside: avoid; }
+  .items .desc { width: 52%; }
+  .items td.desc { text-align: left; }
+
+  .totals { margin: 5mm 0 0 auto; break-inside: avoid; }
+  .totals td { padding: 1.2mm 0 1.2mm 10mm; text-align: right; white-space: nowrap; font-size: 10.5pt; }
+  .totals td.h { font-size: 11pt; }
+  .totals tr.final td { border-top: 0.75pt solid #000; padding-top: 2.4mm; font-weight: 700; }
+
+  .terms { margin-top: 6mm; }
+  .terms ol { margin: 3mm 0 0; padding-left: 6mm; }
+
+  .contact { margin-top: 21mm; } /* owner: three 8 mm steps lower, then one back up (2026-10-07) */
+  .closing { break-inside: avoid; display: flex; justify-content: space-between; align-items: flex-start; margin: 3mm 0 3.7mm; }
+  .closing > div:first-child { padding-top: 11.55mm; } /* "Best Regards," sits on the signature line */
+  .closing .name { margin-top: 1mm; }
+  .closing .name, .closing .role { margin-left: 1.4mm; } /* level with the 1. 2. 3. 4. of the terms */
+  .sign { width: 60mm; text-align: center; }
+  .sign .line { border-bottom: 0.75pt solid #000; height: 16mm; }
+  .sign .h { margin-top: 1.5mm; }
+
+  footer { margin-top: auto; border-top: 0.75pt solid #bfbfbf; padding-top: 3mm; font-size: 8.5pt; line-height: 1.6; }
+  footer .co { font-weight: 700; font-size: 9.5pt; margin-bottom: 0.5mm; }
+  footer .k { display: inline-block; width: 16mm; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <img class="logo" src="../../crm/resources/pdf/letterhead/logo.png" alt="">
+
+  <div class="title">COMMERCIAL OFFER</div>
+
+  <div class="info">
+    <div><span class="h">Offer No.</span> QT-2026-0006</div>
+    <div><span class="h">Issue Date:</span> 2026-10-07</div>
+    <div><span class="h">Prepared For:</span> Dennis textile</div>
+    <div><span class="h">Subject:</span> it offer</div>
+  </div>
+
+  <p class="intro">We have the pleasure to provide you with the following offer:</p>
+
+  <table class="items">
+    <thead class="h">
+      <tr><th class="desc">Description</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>VAT</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Accessories · CABLE · MOUSE · CONVERTER · stand NB · CHARGER · KEYBOARD · POWER · USB — ONTEN /GOLDEN TECH/Logitech</td><td>Pcs</td><td>10</td><td>110.00</td><td>154.00</td><td>1254.00</td></tr>
+      <tr><td class="desc">Accessories · CABLE · MOUSE · CONVERTER · stand NB · CHARGER · KEYBOARD · POWER · USB — ONTEN /GOLDEN TECH/Logitech</td><td>Pcs</td><td>1</td><td>1100.00</td><td>154.00</td><td>1254.00</td></tr>
+      <tr><td class="desc">Access Control — HID/AssaAbloy /Idcube/Viotec Access</td><td>Pcs</td><td>4</td><td>110.00</td><td>61.60</td><td>501.60</td></tr>
+      <tr><td class="desc">ATEN Enterprise Solutions</td><td>Pcs</td><td>7</td><td>110.00</td><td>107.80</td><td>877.80</td></tr>
+      <tr><td class="desc">ID cards &amp; Printers — Evolis</td><td>Pcs</td><td>8</td><td>110.00</td><td>123.20</td><td>1003.20</td></tr>
+      <tr><td class="desc">Accessories camera — CABLE + BNC+ JACK POWER</td><td>Pcs</td><td>3</td><td>1100.00</td><td>462.00</td><td>3762.00</td></tr>
+      <tr><td class="desc">Access Points — tp-link /d-link</td><td>Pcs</td><td>1</td><td>110.00</td><td>15.40</td><td>125.40</td></tr>
+      <tr><td class="desc">printer/ Professional Scanner — Brother</td><td>Pcs</td><td>1</td><td>110.00</td><td>15.40</td><td>125.40</td></tr>
+      <tr><td class="desc">Antivirus — Adobe</td><td>Pcs</td><td>5</td><td>1100.00</td><td>770.00</td><td>6270.00</td></tr>
+      <tr><td class="desc">CABLES CAT6 — Hikvision /ZK</td><td>Pcs</td><td>10</td><td>110.00</td><td>154.00</td><td>1254.00</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <div class="co">Smart Technology For Integrated Systems</div>
+    <div><span class="k">Address:</span>5-El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</div>
+    <div><span class="k">Tel:</span>0223456789 - 01001234567</div>
+    <div><span class="k">Email:</span>info@smarttechegy.com</div>
+  </footer>
+</div>
+
+<div class="page">
+  <div class="mid">
+  <table class="items">
+    <thead class="h">
+      <tr><th class="desc">Description</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>VAT</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Accessories camera — CABLE + BNC+ JACK POWER</td><td>Pcs</td><td>1</td><td>110.00</td><td>15.40</td><td>125.40</td></tr>
+      <tr><td class="desc">Accessories nb — battery</td><td>Pcs</td><td>2</td><td>110.00</td><td>30.80</td><td>250.80</td></tr>
+      <tr><td class="desc">toner / ink</td><td>Pcs</td><td>7</td><td>110.00</td><td>107.80</td><td>877.80</td></tr>
+      <tr><td class="desc">scanner</td><td>Pcs</td><td>10</td><td>110.00</td><td>154.00</td><td>1254.00</td></tr>
+      <tr><td class="desc">Delivery</td><td>—</td><td>1</td><td>500.00</td><td>0.00</td><td>500.00</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td class="h">Total Amount Excl. VAT</td><td>17110.00</td></tr>
+    <tr><td class="h">Discount</td><td>0.00</td></tr>
+    <tr><td class="h">VAT 14%</td><td>2325.40</td></tr>
+    <tr class="final"><td class="h">Total</td><td>19435.40 EGP</td></tr>
+  </table>
+
+  <div class="terms">
+    <div class="h">Terms and Conditions</div>
+    <ol>
+      <li>Offer currency: Egyptian Pound.</li>
+      <li>Delivery: within 2 to 4 weeks from receipt of the purchase order.</li>
+      <li>Offer validity: valid until 2026-10-08.</li>
+      <li>The price includes VAT.</li>
+    </ol>
+  </div>
+
+  <div class="contact">Please do not hesitate to contact us in case you have any questions.</div>
+
+  <div class="closing">
+    <div>
+      <div>Best Regards,</div>
+      <div class="name">Ahmed Essam</div>
+      <div class="role">Team Leader</div>
+    </div>
+    <div class="sign">
+      <div class="line"></div>
+      <div class="h">Sales Signature</div>
+    </div>
+  </div>
+
+  </div>
+
+  <footer>
+    <div class="co">Smart Technology For Integrated Systems</div>
+    <div><span class="k">Address:</span>5-El-Fath St, Wezarra Station, Boulkly - Alexandria, Egypt</div>
+    <div><span class="k">Tel:</span>0223456789 - 01001234567</div>
+    <div><span class="k">Email:</span>info@smarttechegy.com</div>
+  </footer>
+</div>
+</body>
+</html>

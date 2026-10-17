@@ -10,7 +10,7 @@
 # transactions, the latter is where adapters live. Presentation may reach
 # Domain directly for types, but not for decisions — that is a rule about
 # behaviour, which no static tool can check, so it stays a review concern.
-parameters:
+deptrac:
   paths:
     - ./app/Modules
   layers:
@@ -93,6 +93,10 @@ parameters:
         # No ruleset moves: Infrastructure already holds `SharedContracts`.
         - type: classLike
           value: ^App\\Support\\Database\\SameText$
+        # `App\Support\Database\UtcAtom` — a stored timestamp as UTC `DATE_ATOM` (`DB-08`),
+        # Module 13 · 7.1; the one class, on `Precision`'s terms. No ruleset moves.
+        - type: classLike
+          value: ^App\\Support\\Database\\UtcAtom$
         # `App\Support\Csv` — the import file reader, moved out of Customers'
         # `CustomerCsv` unchanged in F-09 · 1.3 so the suppliers' import
         # (`D-85`) reads files by the same rules instead of a copy of them.

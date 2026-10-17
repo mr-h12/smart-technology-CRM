@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  * `J-04`'s queued entry point, `J-02`'s shape: onto `maintenance` (§15.1),
  * retried by the worker's `--tries=3`, the run logged with its outcome.
  * Dispatched daily by `routes/console.php` and once on start by
- * {@see MarkMissedDailyReportsCommand} (`D-55`).
+ * `schedule:catch-up` (`D-55`).
  */
 final class MarkMissedDailyReportsJob implements ShouldQueue
 {

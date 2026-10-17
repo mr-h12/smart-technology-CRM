@@ -13,7 +13,6 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -169,28 +168,6 @@ final class MissedDailyReportsTest extends TestCase
         $scheduled[0]->run($this->app);
 
         Queue::assertPushedOn(QueueName::Maintenance->value, MarkMissedDailyReportsJob::class);
-    }
-
-    /** `D-55` / `ST-05`: the `scheduler` service runs this once on start. */
-    public function test_that_the_catch_up_command_dispatches_j04_onto_maintenance(): void
-    {
-        Queue::fake();
-
-        self::assertSame(0, Artisan::call('reports:mark-missed'));
-
-        Queue::assertPushedOn(QueueName::Maintenance->value, MarkMissedDailyReportsJob::class);
-    }
-
-    /** Not a silent success: `&&` in the `scheduler` service stops on it. */
-    public function test_that_the_catch_up_fails_loudly_when_j04_is_not_scheduled(): void
-    {
-        Queue::fake();
-        $this->app->instance(Schedule::class, new Schedule);
-
-        self::assertSame(1, Artisan::call('reports:mark-missed'));
-        self::assertStringContainsString('J-04', Artisan::output());
-
-        Queue::assertNothingPushed();
     }
 
     // ── late ────────────────────────────────────────────────────────────────

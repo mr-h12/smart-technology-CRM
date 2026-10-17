@@ -14,7 +14,6 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -277,27 +276,6 @@ final class UnreviewedWeeklyReportsTest extends TestCase
         $this->runJob();
 
         self::assertSame('submitted', $this->statusOf($id));
-    }
-
-    /** `D-55` / `ST-05`: the `scheduler` service runs this once on start. */
-    public function test_that_the_catch_up_command_dispatches_j06_onto_maintenance(): void
-    {
-        Queue::fake();
-
-        self::assertSame(0, Artisan::call('reports:submit-unreviewed'));
-
-        Queue::assertPushedOn(QueueName::Maintenance->value, SubmitUnreviewedWeeklyReportsJob::class);
-    }
-
-    public function test_that_the_catch_up_fails_loudly_when_j06_is_not_scheduled(): void
-    {
-        Queue::fake();
-        $this->app->instance(Schedule::class, new Schedule);
-
-        self::assertSame(1, Artisan::call('reports:submit-unreviewed'));
-        self::assertStringContainsString('J-06', Artisan::output());
-
-        Queue::assertNothingPushed();
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────

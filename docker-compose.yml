@@ -306,9 +306,10 @@ services:
 
   # ── The scheduler (§15) ─────────────────────────────────────────────────────
   # `routes/console.php`'s entries fire only while something runs the scheduler.
-  # J-01's catch-up first (D-55, ST-05: a day missed while the stack was down is
-  # repaired on start), dispatched onto `maintenance`; then `schedule:work`,
-  # which fires J-01, J-02 and J-15 at 00:00 UTC. Module 10 · 2.1.
+  # `schedule:catch-up` first runs every job that has a catch-up — J-01, J-04,
+  # J-05, J-06 (D-55, ST-05: what was missed while the stack was down is repaired
+  # on start), dispatched onto `maintenance`; then `schedule:work` fires the whole
+  # schedule on time.
   scheduler:
     build: { context: docker/php, dockerfile: Dockerfile, target: app }
     image: crm-php:app
@@ -321,7 +322,7 @@ services:
       - ./crm:/var/www/html
       - laravel-storage:/var/www/html/storage
       - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
-    command: ["sh", "-c", "php artisan quotations:expire && php artisan reports:mark-missed && php artisan reports:generate-weekly && php artisan reports:submit-unreviewed && exec php artisan schedule:work"]
+    command: ["sh", "-c", "php artisan schedule:catch-up && exec php artisan schedule:work"]
     networks: [crm]
 
   # ── One-shot: local TLS certificate ──────────────────────────────────────────

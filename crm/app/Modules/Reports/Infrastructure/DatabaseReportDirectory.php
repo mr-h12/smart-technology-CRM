@@ -8,6 +8,7 @@ use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Report;
 use App\Support\Database\DocumentNumberAllocator;
+use App\Support\Database\UtcAtom;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
 
@@ -250,7 +251,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         /** @var array<string, mixed> $snapshot `SubmitReport` froze an object */
         return [
             'snapshot' => $snapshot,
-            'submitted_at' => (new \DateTimeImmutable($row->created_at))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            'submitted_at' => UtcAtom::of($row->created_at),
         ];
     }
 
@@ -344,8 +345,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             periodStart: $row->period_start,
             periodEnd: $row->period_end,
             versionToken: $row->version_token,
-            submittedAt: $row->submitted_at === null ? null : (new \DateTimeImmutable($row->submitted_at))
-                ->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            submittedAt: $row->submitted_at === null ? null : UtcAtom::of($row->submitted_at),
             submittedVersions: $row->submitted_versions,
             submittedLate: $row->submitted_late,
             notReviewed: $row->not_reviewed,
@@ -373,7 +373,7 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return array_map(static fn (object $row): array => [
             'note' => $row->note,
             'author_id' => $row->author_id,
-            'followed_up_at' => (new \DateTimeImmutable($row->followed_up_at))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            'followed_up_at' => UtcAtom::of($row->followed_up_at),
         ], $rows);
     }
 

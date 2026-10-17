@@ -8,6 +8,7 @@ use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Report;
+use App\Support\Database\UtcAtom;
 
 /**
  * The reads: "My reports" and "Received reports", and one report with its activity, its
@@ -84,7 +85,7 @@ final readonly class ShowReport
             'customer_name' => $names[$row['customer_id']] ?? '',
             'note' => $row['note'],
             // `D-133`: the row's first save, carried into the frozen copy at submit.
-            'followed_up_at' => (new \DateTimeImmutable($row['created_at']))->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            'followed_up_at' => UtcAtom::of($row['created_at']),
         ], $rows);
     }
 

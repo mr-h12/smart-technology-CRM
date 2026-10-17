@@ -34,12 +34,8 @@ use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
-use App\Modules\Quotations\Presentation\ExpireQuotationsCommand;
 use App\Modules\Reports\Domain\ReportNotFound;
 use App\Modules\Reports\Domain\ReportWriteRefused;
-use App\Modules\Reports\Presentation\GenerateWeeklyReportsCommand;
-use App\Modules\Reports\Presentation\MarkMissedDailyReportsCommand;
-use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsCommand;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
 use App\Modules\SupplierQuotations\Domain\Listing\InvalidSupplierQuotationListQuery;
 use App\Modules\SupplierQuotations\Domain\Listing\SupplierQuotationNotFound;
@@ -87,13 +83,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // `D-87`'s one-off correction, one per module (F-11 · 1.4).
         ClearIncompleteSuppliersCommand::class,
         ClearIncompleteCustomersCommand::class,
-        // `J-01`'s startup catch-up (`D-55`), run by the `scheduler` service.
-        ExpireQuotationsCommand::class,
-        // `J-04`'s startup catch-up (`D-55`, `D-135`), run by the `scheduler` service.
-        MarkMissedDailyReportsCommand::class,
-        // `J-05` and `J-06`'s startup catch-ups (`D-55`, `D-136`), run in that order by the `scheduler` service.
-        GenerateWeeklyReportsCommand::class,
-        SubmitUnreviewedWeeklyReportsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Runs on every request, web and API alike: §14.2 requires Arabic and

@@ -14,6 +14,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDateRange } from '@/domain/displayDate';
+import ReportStatusChip from '@/pages/reports/ReportStatusChip.vue';
 import { listReceivedReports, type ReceivedReportSummary } from '@/services/reports';
 
 const { t, locale } = useI18n();
@@ -73,7 +74,7 @@ onMounted(() => load());
                     <span>{{ report.author_name }}</span>
                     <span>{{ t(`reports.type.${report.type}`) }}</span>
                     <span class="tabular-nums text-[var(--color-text-muted)]" data-testid="report-period">{{ displayDateRange(report.period_start, report.period_end, locale) }}</span>
-                    <span class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table" :class="{ 'text-[var(--color-warning)]': report.status === 'missed' }">{{ t(`reports.status.${report.status}`) }}</span>
+                    <ReportStatusChip :status="report.status" />
                     <span v-if="report.submitted_late" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-table text-[var(--color-warning)]" data-testid="report-late">{{ t('reports.late') }}</span>
                     <span v-if="report.not_reviewed" class="rounded-full bg-[var(--color-surface-muted)] px-2.5 py-0.5 text-[var(--color-warning)] text-table" data-testid="report-not-reviewed">{{ t('reports.not_reviewed') }}</span>
                 </li>

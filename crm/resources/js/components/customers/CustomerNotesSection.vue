@@ -106,6 +106,7 @@ async function save(key: string): Promise<void> {
     if (draft.body === '') {
         // The empty box at the top waits quietly; a cleared note says why it is not saved.
         row.error = key === NEW ? null : t('customers.notes.required');
+        row.status = 'idle'; // the error speaks; «تم الحفظ» would claim what was not saved
 
         return;
     }

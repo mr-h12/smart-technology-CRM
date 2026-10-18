@@ -76,6 +76,17 @@ class User extends Authenticatable
     }
 
     /**
+     * `D-138`: the user's Team Leader. Never a hidden account (§3.12 rule 6): a
+     * leader later made Super Admin is not named on a member's row.
+     *
+     * @return BelongsTo<self, $this>
+     */
+    public function teamLeader(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'team_leader_id')->where('is_hidden', false);
+    }
+
+    /**
      * The signed-in devices `SEC-05` lists and allows force-logout on. Revoked
      * sessions are soft-deleted, so the default relation returns the live ones
      * — which is exactly what the device list shows.

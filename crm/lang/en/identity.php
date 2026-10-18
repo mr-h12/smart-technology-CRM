@@ -37,6 +37,9 @@ return [
         'password_policy_not_met' => 'The password must be at least 8 characters and contain both letters and numbers.',
         'role_not_found' => 'That role does not exist.',
         'no_fields_submitted' => 'Provide at least one field to change.',
+        // D-139: teams are one level deep.
+        'team_leader_not_allowed_for_role' => 'A Super Admin, CEO, Manager or Team Leader cannot have a Team Leader.',
+        'role_change_needs_team_leader_cleared' => 'Clear this user\'s Team Leader before giving them that role.',
     ],
 
     'impersonation' => [
@@ -88,6 +91,7 @@ return [
         'unknown_filter' => 'That filter is not available on this resource.',
         'not_a_boolean' => 'This filter accepts true or false.',
         'not_a_role_slug' => 'That is not a valid role identifier.',
+        'not_a_team_leader' => 'The value must be a Team Leader id or none.',
     ],
 
     'errors' => [

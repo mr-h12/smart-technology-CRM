@@ -17,7 +17,7 @@ namespace App\Modules\Identity\Domain\Administration;
  * ── What this resource declares ────────────────────────────────────────────
  *
  * §6.2 allows "only fields explicitly declared for that resource", so the two
- * allowlists below are that declaration: filter on `is_active` and `role`, sort
+ * allowlists below are that declaration: filter on `is_active`, `role` and `team_leader`, sort
  * by `name`, `email` or `created_at`. Anything else is `400 invalid_request` —
  * §6.2 is explicit that an unknown parameter must not be ignored.
  *
@@ -37,7 +37,7 @@ final readonly class UserListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['is_active', 'role'];
+    public const ALLOWED_FILTERS = ['is_active', 'role', 'team_leader'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'email', 'created_at'];
@@ -50,6 +50,8 @@ final readonly class UserListCriteria
         public int $perPage = self::DEFAULT_PER_PAGE,
         public ?bool $isActive = null,
         public ?string $roleSlug = null,
+        /** `D-139`: a Team Leader's id, or the literal `none` for users without one. */
+        public ?string $teamLeader = null,
         public string $sortField = self::DEFAULT_SORT,
         public bool $sortDescending = false,
     ) {}
@@ -79,6 +81,7 @@ final readonly class UserListCriteria
             perPage: $perPage,
             isActive: $filters['is_active'],
             roleSlug: $filters['role'],
+            teamLeader: $filters['team_leader'],
             sortField: $sortField,
             sortDescending: $sortDescending,
         );
@@ -138,14 +141,14 @@ final readonly class UserListCriteria
     }
 
     /**
-     * @return array{is_active: bool|null, role: string|null}
+     * @return array{is_active: bool|null, role: string|null, team_leader: string|null}
      *
      * @throws InvalidListQuery
      */
     private static function filters(mixed $value): array
     {
         if ($value === null) {
-            return ['is_active' => null, 'role' => null];
+            return ['is_active' => null, 'role' => null, 'team_leader' => null];
         }
 
         if (! is_array($value)) {
@@ -161,6 +164,7 @@ final readonly class UserListCriteria
         return [
             'is_active' => self::boolean($value['is_active'] ?? null),
             'role' => self::role($value['role'] ?? null),
+            'team_leader' => self::teamLeader($value['team_leader'] ?? null),
         ];
     }
 
@@ -191,6 +195,20 @@ final readonly class UserListCriteria
         // an empty page for a role that exists.
         if (! is_string($value) || preg_match('/^[a-z][a-z0-9_]{0,49}$/D', $value) !== 1) {
             throw InvalidListQuery::of('filter[role]', 'not_a_role_slug');
+        }
+
+        return $value;
+    }
+
+    /** @throws InvalidListQuery */
+    private static function teamLeader(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || ($value !== 'none' && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/Di', $value) !== 1)) {
+            throw InvalidListQuery::of('filter[team_leader]', 'not_a_team_leader');
         }
 
         return $value;

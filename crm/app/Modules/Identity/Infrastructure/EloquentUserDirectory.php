@@ -42,13 +42,19 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             });
         }
 
+        if ($criteria->teamLeader === 'none') {
+            $query->whereNull('users.team_leader_id');
+        } elseif ($criteria->teamLeader !== null) {
+            $query->where('users.team_leader_id', $criteria->teamLeader);
+        }
+
         // OpenAPI §6.1: "Pagination always happens **after** authorization
         // scoping" — the scope is already on the builder, and the count below
         // is taken from the same one rather than from a fresh query.
         $total = $query->count();
 
         $rows = $query
-            ->with('role')
+            ->with(['role', 'teamLeader'])
             ->orderBy($criteria->sortField, $criteria->sortDescending ? 'desc' : 'asc')
             // A deterministic tiebreak. Two people named Ahmed would otherwise
             // page non-deterministically: PostgreSQL is free to return equal
@@ -70,7 +76,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
 
     public function find(string $userId): ?AdministeredUser
     {
-        $row = $this->listable()->with('role')->whereKey($userId)->first();
+        $row = $this->listable()->with(['role', 'teamLeader'])->whereKey($userId)->first();
 
         return $row === null ? null : self::hydrate($row);
     }
@@ -94,7 +100,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
         ]);
         $user->save();
 
-        return self::hydrate($user->load('role'));
+        return self::hydrate($user->load(['role', 'teamLeader']));
     }
 
     public function update(string $userId, array $changes): AdministeredUser
@@ -111,7 +117,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
         $user->fill($changes);
         $user->save();
 
-        return self::hydrate($user->load('role'));
+        return self::hydrate($user->load(['role', 'teamLeader']));
     }
 
     public function setActive(string $userId, bool $isActive): void
@@ -191,6 +197,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             jobTitleEn: $user->job_title_en,
             jobTitleAr: $user->job_title_ar,
             teamLeaderId: $user->team_leader_id,
+            teamLeaderName: $user->teamLeader?->name,
         );
     }
 }

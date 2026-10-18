@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Presentation;
 
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -48,11 +49,9 @@ final class UpdateUserRequest extends FormRequest
             // ConvertEmptyStringsToNull turns into it) clears the title.
             'job_title_en' => ['sometimes', 'nullable', 'string', 'max:255'],
             'job_title_ar' => ['sometimes', 'nullable', 'string', 'max:255'],
-            // `D-138` — null clears it; never the user themself.
-            'team_leader_id' => [
-                'sometimes', 'nullable', 'uuid', ActiveTeamLeader::rule(),
-                Rule::notIn([is_string($userId) ? $userId : null]),
-            ],
+            // `D-138` — null clears it. Never the user themself: only a Team Leader
+            // could be their own leader, and `D-139` gives a Team Leader none.
+            'team_leader_id' => ['sometimes', 'nullable', 'uuid', ActiveTeamLeader::rule()],
         ];
     }
 
@@ -78,6 +77,49 @@ final class UpdateUserRequest extends FormRequest
                 (string) __('identity.administration.no_fields_submitted'),
             );
         });
+
+        $validator->after(function (Validator $validator): void {
+            $this->refuseLeaderOnLeadRole($validator);
+        });
+    }
+
+    /**
+     * `D-139` — the role and the leader as they will stand after this PATCH
+     * (a key that is not sent keeps its stored value) must not be a lead role
+     * with a leader. The field named is the one the caller just sent.
+     */
+    private function refuseLeaderOnLeadRole(Validator $validator): void
+    {
+        $userId = $this->route('user');
+
+        if (
+            ! is_string($userId)
+            || (! $this->has('role_id') && ! $this->has('team_leader_id'))
+            || $validator->errors()->hasAny(['role_id', 'team_leader_id'])
+        ) {
+            return;
+        }
+
+        $stored = DB::table('users')->where('id', $userId)->where('is_hidden', false)->whereNull('deleted_at')->first(['role_id', 'team_leader_id']);
+
+        // Not there, or hidden (§3.12 rule 6): the use case answers 404 for both.
+        if ($stored === null) {
+            return;
+        }
+
+        $leaderId = $this->has('team_leader_id') ? $this->input('team_leader_id') : $stored->team_leader_id;
+
+        if ($leaderId === null) {
+            return;
+        }
+
+        $roleId = $this->has('role_id') ? $this->input('role_id') : $stored->role_id;
+
+        if ($this->input('team_leader_id') !== null) {
+            ActiveTeamLeader::refuseLeadRole($validator, $roleId, 'team_leader_id', 'identity.administration.team_leader_not_allowed_for_role');
+        } else {
+            ActiveTeamLeader::refuseLeadRole($validator, $roleId, 'role_id', 'identity.administration.role_change_needs_team_leader_cleared');
+        }
     }
 
     /** @var list<string> */

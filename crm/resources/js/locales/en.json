@@ -143,6 +143,7 @@
             "name": "Name",
             "email": "Email",
             "role": "Role",
+            "teamLeader": "Team leader",
             "status": "Status",
             "actions": "Actions"
         },
@@ -154,7 +155,10 @@
             "status": "Status",
             "statusAll": "Any status",
             "role": "Role",
-            "roleAll": "Any role"
+            "roleAll": "Any role",
+            "teamLeader": "Team leader",
+            "teamLeaderAll": "Any team leader",
+            "noTeamLeader": "No team leader"
         },
         "pagination": {
             "label": "Employee pages",

@@ -143,6 +143,7 @@
             "name": "الاسم",
             "email": "البريد الإلكتروني",
             "role": "الدور",
+            "teamLeader": "قائد الفريق",
             "status": "الحالة",
             "actions": "إجراءات"
         },
@@ -154,7 +155,10 @@
             "status": "الحالة",
             "statusAll": "كل الحالات",
             "role": "الدور",
-            "roleAll": "كل الأدوار"
+            "roleAll": "كل الأدوار",
+            "teamLeader": "قائد الفريق",
+            "teamLeaderAll": "كل القادة",
+            "noTeamLeader": "بلا قائد"
         },
         "pagination": {
             "label": "صفحات الموظفين",

@@ -289,6 +289,26 @@ final class UserManagementTest extends TestCase
         self::assertTrue($hidden->is_active);
     }
 
+    /** `D-139`'s check reads the stored row; it must not answer 422 for an account rule 6 says does not exist. */
+    public function test_a_team_leader_patch_on_the_hidden_super_admin_is_still_a_not_found(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $hidden = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+
+        foreach ([
+            ['team_leader_id' => $leader->id],
+            ['role_id' => $this->roleId(RoleName::IndoorSales), 'team_leader_id' => $leader->id],
+        ] as $body) {
+            $response = $this->withToken($this->tokenFor($manager))->patchJson(self::ENDPOINT.'/'.$hidden->id, $body);
+
+            $response->assertStatus(404);
+            self::assertSame('resource_not_found', $response->json('error.code'));
+        }
+
+        self::assertNull(self::storedTeamLeader($hidden->id));
+    }
+
     // ── SEC-09 / §3.12 rule 1: enforcement at the API ───────────────────────
 
     /** @return array<string, array{string, string}> */
@@ -991,6 +1011,7 @@ final class UserManagementTest extends TestCase
             'page zero' => ['?page=0'],
             'unknown filter' => ['?filter[salary]=1000'],
             'non-boolean status' => ['?filter[is_active]=maybe'],
+            'team leader filter not a uuid' => ['?filter[team_leader]=abc'],
             'unknown sort field' => ['?sort=salary'],
             'two sort fields' => ['?sort=name,email'],
         ];
@@ -1164,7 +1185,9 @@ final class UserManagementTest extends TestCase
     public function test_an_invalid_team_leader_is_refused_by_field(string $case): void
     {
         $manager = $this->userWith(RoleName::Manager);
-        $target = $this->userWith(RoleName::TeamLeader, 'target.leader@example.test');
+        // D-139: a lead role may not have a leader at all, so the target holds a
+        // role that may — otherwise every case below is refused for that reason.
+        $target = $this->userWith(RoleName::IndoorSales, 'target.member@example.test');
 
         $leaderId = match ($case) {
             'missing' => '018f6a2c-2e7e-7d9a-a5e8-3b329495aa10',
@@ -1199,6 +1222,191 @@ final class UserManagementTest extends TestCase
             ->assertJsonPath('error.details.0.field', 'team_leader_id');
     }
 
+    // ── D-139 · 7.5b: who may be a team member; the list shows and filters by leader ──
+
+    /** @return array<string, array{RoleName}> */
+    public static function leadRoles(): array
+    {
+        return [
+            'Super Admin' => [RoleName::SuperAdmin],
+            'CEO' => [RoleName::Ceo],
+            'Manager' => [RoleName::Manager],
+            'Team Leader' => [RoleName::TeamLeader],
+        ];
+    }
+
+    private function giveLeader(User $member, User $leader): void
+    {
+        DB::table('users')->where('id', $member->id)->update(['team_leader_id' => $leader->id]);
+    }
+
+    /** `D-139`: the role after the change decides, so a lead role in the same request is refused on the leader. */
+    #[DataProvider('leadRoles')]
+    public function test_a_lead_role_cannot_be_given_a_team_leader(RoleName $role): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($admin))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['role_id' => $this->roleId($role), 'team_leader_id' => $leader->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'team_leader_id');
+
+        self::assertNull(self::storedTeamLeader($target->id));
+        self::assertSame($this->roleId(RoleName::IndoorSales), DB::table('users')->where('id', $target->id)->value('role_id'));
+        self::assertSame([], $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    /** `D-139`: the stored role decides when no `role_id` is sent. (A Super Admin is never a PATCH target — §3.12 rule 6.) */
+    #[DataProvider('storedLeadRoles')]
+    public function test_a_user_who_already_holds_a_lead_role_cannot_be_given_a_team_leader(RoleName $role): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader, 'the.leader@example.test');
+        $target = $this->userWith($role, 'lead.target@example.test');
+
+        $this->withToken($this->tokenFor($admin))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => $leader->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'team_leader_id');
+
+        self::assertNull(self::storedTeamLeader($target->id));
+        self::assertSame([], $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    /** @return array<string, array{RoleName}> */
+    public static function storedLeadRoles(): array
+    {
+        return array_diff_key(self::leadRoles(), ['Super Admin' => 0]);
+    }
+
+    #[DataProvider('leadRoles')]
+    public function test_a_lead_role_cannot_be_created_with_a_team_leader(RoleName $role): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+
+        $this->withToken($this->tokenFor($admin))->postJson(self::ENDPOINT, [
+            'name' => 'Nadia Salem',
+            'email' => 'nadia@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId($role),
+            'team_leader_id' => $leader->id,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'team_leader_id');
+
+        self::assertFalse(DB::table('users')->where('email', 'nadia@example.test')->exists());
+        self::assertSame([], $this->auditRows(IdentityAuditEvents::USER_CREATED));
+    }
+
+    #[DataProvider('leadRoles')]
+    public function test_a_role_change_to_a_lead_role_is_refused_while_a_leader_is_set(RoleName $role): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+        $this->giveLeader($target, $leader);
+
+        $this->withToken($this->tokenFor($admin))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['role_id' => $this->roleId($role)])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'role_id');
+
+        // The leader is never cleared for the user (D-139): both stay as they were.
+        self::assertSame($leader->id, self::storedTeamLeader($target->id));
+        self::assertSame($this->roleId(RoleName::IndoorSales), DB::table('users')->where('id', $target->id)->value('role_id'));
+        self::assertSame([], $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    /** Passes before the change too: it guards the refusal above from over-reaching. */
+    public function test_a_role_change_to_a_lead_role_with_the_leader_cleared_is_allowed(): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+        $this->giveLeader($target, $leader);
+
+        $this->withToken($this->tokenFor($admin))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['role_id' => $this->roleId(RoleName::Manager), 'team_leader_id' => null])
+            ->assertStatus(200)
+            ->assertJsonPath('data.role.slug', RoleName::Manager->value)
+            ->assertJsonPath('data.team_leader_id', null);
+
+        self::assertNull(self::storedTeamLeader($target->id));
+    }
+
+    public function test_the_listing_carries_each_row_s_team_leader(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader, 'the.leader@example.test');
+        $member = $this->userWith(RoleName::IndoorSales, 'member@example.test');
+        $this->giveLeader($member, $leader);
+
+        $response = $this->withToken($this->tokenFor($manager))->getJson(self::ENDPOINT)->assertStatus(200);
+
+        /** @var list<string> $ids */
+        $ids = $response->json('data.*.id');
+
+        $memberRow = array_search($member->id, $ids, true);
+        $leaderRow = array_search($leader->id, $ids, true);
+
+        self::assertIsInt($memberRow);
+        self::assertIsInt($leaderRow);
+        self::assertSame(['id' => $leader->id, 'name' => $leader->name], $response->json("data.{$memberRow}.team_leader"));
+        self::assertSame($leader->id, $response->json("data.{$memberRow}.team_leader_id"));
+        // The key is present and null — not absent — for a user without one.
+        $response->assertJsonPath("data.{$leaderRow}.team_leader", null);
+        self::assertArrayHasKey('team_leader', (array) $response->json("data.{$leaderRow}"));
+    }
+
+    /** Rule 6: a leader later made Super Admin is not named on the members' rows. */
+    public function test_a_hidden_leader_is_not_named_on_the_members_row(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader, 'the.leader@example.test');
+        $member = $this->userWith(RoleName::IndoorSales, 'member@example.test');
+        $this->giveLeader($member, $leader);
+        DB::table('users')->where('id', $leader->id)->update(['is_hidden' => true]);
+
+        $response = $this->withToken($this->tokenFor($manager))->getJson(self::ENDPOINT)->assertStatus(200);
+
+        /** @var list<string> $ids */
+        $ids = $response->json('data.*.id');
+        $memberRow = array_search($member->id, $ids, true);
+
+        self::assertIsInt($memberRow);
+        $response->assertJsonPath("data.{$memberRow}.team_leader", null);
+        self::assertStringNotContainsString($leader->name, (string) $response->getContent());
+    }
+
+    public function test_the_team_leader_filter_narrows_the_listing(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader, 'the.leader@example.test');
+        $member = $this->userWith(RoleName::IndoorSales, 'member@example.test');
+        $loner = $this->userWith(RoleName::Procurement, 'loner@example.test');
+        $this->giveLeader($member, $leader);
+
+        $token = $this->tokenFor($manager);
+
+        /** @var list<string> $ofLeader */
+        $ofLeader = $this->withToken($token)
+            ->getJson(self::ENDPOINT.'?filter[team_leader]='.$leader->id)
+            ->assertStatus(200)
+            ->json('data.*.id');
+
+        self::assertSame([$member->id], $ofLeader);
+
+        /** @var list<string> $without */
+        $without = $this->withToken($token)
+            ->getJson(self::ENDPOINT.'?filter[team_leader]=none')
+            ->assertStatus(200)
+            ->json('data.*.id');
+
+        self::assertEqualsCanonicalizing([$manager->id, $leader->id, $loner->id], $without);
+    }
+
     // ── the detail endpoint ─────────────────────────────────────────────────
 
     public function test_the_detail_endpoint_returns_the_documented_shape(): void
@@ -1212,7 +1420,7 @@ final class UserManagementTest extends TestCase
 
         self::assertSame([
             'id', 'name', 'email', 'role_id', 'role', 'is_active', 'job_title_en', 'job_title_ar',
-            'team_leader_id', 'created_at', 'updated_at',
+            'team_leader_id', 'team_leader', 'created_at', 'updated_at',
         ], array_keys((array) $response->json('data')));
 
         self::assertSame($target->id, $response->json('data.id'));

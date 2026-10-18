@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Presentation;
 
 use App\Modules\Identity\Domain\PasswordPolicy;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -62,5 +63,17 @@ final class CreateUserRequest extends FormRequest
             // `D-138` — optional; the Team Leader must be an active Team Leader.
             'team_leader_id' => ['nullable', 'uuid', ActiveTeamLeader::rule()],
         ];
+    }
+
+    /** `D-139` — a lead role never has a Team Leader. */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($this->input('team_leader_id') === null || $validator->errors()->hasAny(['role_id', 'team_leader_id'])) {
+                return;
+            }
+
+            ActiveTeamLeader::refuseLeadRole($validator, $this->input('role_id'), 'team_leader_id', 'identity.administration.team_leader_not_allowed_for_role');
+        });
     }
 }

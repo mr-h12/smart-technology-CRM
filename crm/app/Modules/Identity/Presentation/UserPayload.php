@@ -52,6 +52,7 @@ final class UserPayload
             'job_title_en' => $user->jobTitleEn,
             'job_title_ar' => $user->jobTitleAr,
             'team_leader_id' => $user->teamLeaderId,
+            'team_leader' => $user->teamLeaderName === null ? null : ['id' => $user->teamLeaderId, 'name' => $user->teamLeaderName],
             'created_at' => $user->createdAt->format(DATE_ATOM),
             'updated_at' => $user->updatedAt->format(DATE_ATOM),
         ];

@@ -27,6 +27,8 @@ export interface AdministeredUser {
     job_title_ar: string | null;
     /** `D-138`: the user's Team Leader, or null. */
     team_leader_id: string | null;
+    /** `D-139`: the leader's id and name, or null. */
+    team_leader: { id: string; name: string } | null;
     created_at: string;
     updated_at: string;
 }
@@ -127,6 +129,8 @@ export interface UserListQuery {
     page?: number;
     isActive?: boolean | null;
     roleSlug?: string | null;
+    /** `D-139`: a Team Leader's id, or `none` for users without one. */
+    teamLeader?: string | null;
 }
 
 /**
@@ -153,8 +157,8 @@ export async function listUsers(query: UserListQuery = {}): Promise<Page<Adminis
         parameters.set('page', String(query.page));
     }
 
-    // §6.2: only the fields the resource declares. `is_active` and `role` are
-    // `UserListCriteria::ALLOWED_FILTERS`; anything else is a 400, so an
+    // §6.2: only the fields the resource declares. `is_active`, `role` and `team_leader`
+    // are `UserListCriteria::ALLOWED_FILTERS`; anything else is a 400, so an
     // unset filter is omitted rather than sent empty.
     if (query.isActive !== undefined && query.isActive !== null) {
         parameters.set('filter[is_active]', query.isActive ? 'true' : 'false');
@@ -162,6 +166,10 @@ export async function listUsers(query: UserListQuery = {}): Promise<Page<Adminis
 
     if (query.roleSlug !== undefined && query.roleSlug !== null && query.roleSlug !== '') {
         parameters.set('filter[role]', query.roleSlug);
+    }
+
+    if (query.teamLeader !== undefined && query.teamLeader !== null && query.teamLeader !== '') {
+        parameters.set('filter[team_leader]', query.teamLeader);
     }
 
     const suffix = parameters.size === 0 ? '' : `?${parameters.toString()}`;

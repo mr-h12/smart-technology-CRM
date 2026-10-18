@@ -309,9 +309,11 @@ final class ReportSubmitEndpointTest extends TestCase
         $id = $this->create($author);
         $this->submit($author, $id, 'report:'.$id.':1', [$manager->id])->assertStatus(200);
 
+        // Module 13 · 7.3 (owner, 2026-10-18): one answer for a report that is no longer editable.
         $this->submit($author, $id, 'report:'.$id.':2', [$manager->id])
-            ->assertStatus(422)
-            ->assertJsonPath('error.details.0.code', 'report_not_draft');
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'state_transition_invalid')
+            ->assertJsonPath('error.details.0.code', 'report_not_editable');
 
         self::assertSame(1, DB::table('report_versions')->where('report_id', $id)->count());
         self::assertSame(1, DB::table('report_recipients')->where('report_id', $id)->count());

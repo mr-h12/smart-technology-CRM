@@ -568,7 +568,7 @@ final class ApiExceptionRenderer
         return ApiEnvelope::error($request, 404, 'resource_not_found', (string) __('reports.not_found'));
     }
 
-    /** Module 13 — `quotationWriteRefused()`'s answer for a report, `current_etag` on the 409. */
+    /** Module 13 — `quotationWriteRefused()`'s answer for a report: `current_etag` on a stale 409, `existing_report` on a duplicate 409. */
     public static function reportWriteRefused(ReportWriteRefused $exception, Request $request): JsonResponse
     {
         $message = (string) __('reports.errors.'.$exception->reason);
@@ -576,6 +576,10 @@ final class ApiExceptionRenderer
 
         if ($exception->currentEtag !== null) {
             $detail['current_etag'] = $exception->currentEtag;
+        }
+
+        if ($exception->existingReport !== null) {
+            $detail['existing_report'] = $exception->existingReport;
         }
 
         return ApiEnvelope::error($request, $exception->status, $exception->errorCode, $message, [$detail]);

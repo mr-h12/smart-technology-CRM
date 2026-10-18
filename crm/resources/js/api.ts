@@ -86,6 +86,8 @@ export interface ApiErrorDetail {
     field?: string;
     code?: string;
     message?: string;
+    /** Module 13 · 7.3: the `report_duplicate_period` warning names the report that is already there. */
+    existing_report?: { id: string; code: string };
 }
 
 /** `OpenAPI §5` — `{ error: { code, message, details } }`. */
@@ -93,7 +95,7 @@ interface ErrorEnvelope {
     error?: {
         code?: string;
         message?: string;
-        details?: { field?: string; code?: string; message?: string }[];
+        details?: ApiErrorDetail[];
     };
 }
 

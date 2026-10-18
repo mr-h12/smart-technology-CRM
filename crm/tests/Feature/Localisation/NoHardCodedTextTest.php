@@ -170,6 +170,8 @@ final class NoHardCodedTextTest extends TestCase
                 // Module 13, slice 2 — "Received reports"; every label is a `reports.*`
                 // key, the author's name is data drawn from the API.
                 'ReceivedReportsView.vue',
+                // Module 13 · 7.3 — a report's comments; every label is a `reports.comment*` key, the body and author are API data.
+                'ReportCommentsSection.vue',
                 // Module 13, first slice — "My reports" and one report's page;
                 // every label is a `reports.*` key.
                 'ReportDetailView.vue',

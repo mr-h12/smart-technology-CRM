@@ -38,7 +38,7 @@ final readonly class SubmitReport
             $before = $this->access->open($reportId, $ifMatch, $actorId);
 
             if (! $before->isEditable()) {
-                throw ReportWriteRefused::notDraft();
+                throw ReportWriteRefused::notEditable();
             }
 
             if (array_diff($recipientIds, $this->candidates->idsFor($before)) !== []) {

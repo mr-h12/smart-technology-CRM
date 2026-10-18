@@ -1158,3 +1158,182 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
         expect((await render(server({ report: { ...SUBMITTED, ...quiet } }), 'ar')).get('[data-testid="activity-empty"]').text()).toBe('لا نشاط مسجَّل في هذا اليوم.');
     });
 });
+
+/**
+ * Module 13, slice 7 · 7.3 — comments (§3.10 *comment*, `D-24`, `D-127`; the owner's rulings of
+ * 2026-10-18). One flat list, oldest first as the server gives it, in the page's SIDE column below the
+ * recipients and the acknowledge / return section. Only a recipient holding `report.comment` sees an
+ * add box; the author reads. A comment is never edited or removed. Who may add is the server's
+ * (`ReportCommentsEndpointTest`); the page only does not offer what it will be refused (`D-67`).
+ */
+const COMMENTS = [
+    { id: 'k1', body: 'Please add the visit to Delta.', author: { id: 'm1', name: 'Mona Manager' }, created_at: '2026-10-15T10:00:00+00:00' },
+    { id: 'k2', body: 'Noted, thank you.', author: { id: 'c1', name: 'Chris CEO' }, created_at: '2026-10-15T11:30:00+00:00' },
+];
+
+const RECEIVED_WITH_COMMENTS = { ...VIEWED, comments: COMMENTS };
+
+const VIEW_ONLY: AuthenticatedUser = {
+    id: 'x1', name: 'Tess Teamless', email: 'viewer@example.test',
+    role: { id: 'r4', slug: 'custom', name: 'Custom' },
+    permissions: ['report.view_received.all'],
+    is_active: true, unconditional_access: false,
+};
+
+interface CommentOptions {
+    report?: unknown;
+    post?: (init: RequestInit) => Response;
+}
+
+function commentServer(options: CommentOptions = {}): ReturnType<typeof vi.fn> {
+    return vi.fn(async (_input: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+            return options.post
+                ? options.post(init)
+                : json(201, { data: { id: 'k3', body: JSON.parse(init.body as string).body, author: { id: 'm1', name: 'Mona Manager' }, created_at: '2026-10-15T12:00:00+00:00' }, meta: { request_id: 'r' } });
+        }
+
+        return envelope(options.report ?? RECEIVED_WITH_COMMENTS);
+    });
+}
+
+function posts(fetchMock: ReturnType<typeof vi.fn>): Array<[string, RequestInit]> {
+    return fetchMock.mock.calls
+        .filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+        .map(([url, init]) => [String(url), init as RequestInit]);
+}
+
+describe('ReportDetailView — comments (D-127)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('lists the comments in the server\'s order, each with its author and a machine-readable time', async () => {
+        const view = await render(commentServer(), 'en', MANAGER, RECEIVED_PATH);
+
+        const items = view.get('[data-testid="report-comments"]').findAll('[data-testid="report-comment"]');
+        expect(items).toHaveLength(2);
+        expect(items[0]!.text()).toContain('Mona Manager');
+        expect(items[0]!.text()).toContain('Please add the visit to Delta.');
+        expect(items[0]!.get('time').attributes('datetime')).toBe('2026-10-15T10:00:00+00:00');
+        expect(items[1]!.text()).toContain('Chris CEO');
+        expect(items[1]!.text()).toContain('Noted, thank you.');
+        expect(items[1]!.get('time').attributes('datetime')).toBe('2026-10-15T11:30:00+00:00');
+    });
+
+    it('sits in the side column, after the recipients and after Acknowledge / Return', async () => {
+        const view = await render(commentServer(), 'en', MANAGER, RECEIVED_PATH);
+
+        const comments = view.get('[data-testid="report-comments"]').element;
+        const recipients = view.get('[data-testid="report-section-recipients"]').element;
+        const acknowledge = view.get('[data-testid="report-acknowledge"]').element;
+        expect(comments.parentElement).toBe(recipients.parentElement);
+        expect(recipients.compareDocumentPosition(comments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(acknowledge.compareDocumentPosition(comments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('lets a recipient holding report.comment add one: it POSTs the body and appends the answer', async () => {
+        const fetchMock = commentServer();
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-comment-body"]').setValue('  Seen, thanks.  ');
+        await view.get('[data-testid="report-comment-add"]').trigger('click');
+        await flushPromises();
+
+        const [url, init] = posts(fetchMock)[0]!;
+        expect(url).toMatch(/\/reports\/rep1\/comments$/);
+        expect(JSON.parse(init.body as string)).toEqual({ body: 'Seen, thanks.' });
+
+        const items = view.findAll('[data-testid="report-comment"]');
+        expect(items).toHaveLength(3);
+        expect(items[2]!.text()).toContain('Seen, thanks.');
+        expect((view.get('[data-testid="report-comment-body"]').element as HTMLTextAreaElement).value).toBe('');
+    });
+
+    it('lets the CEO comment on a report sent to them, with no Acknowledge or Return', async () => {
+        const view = await render(commentServer(), 'en', CEO, RECEIVED_PATH);
+
+        expect(view.find('[data-testid="report-comment-body"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-comment-add"]').exists()).toBe(true);
+        expect(view.find('[data-testid="report-acknowledge"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-return"]').exists()).toBe(false);
+    });
+
+    it('sends nothing for a blank comment', async () => {
+        const fetchMock = commentServer();
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-comment-body"]').setValue('   ');
+        await view.get('[data-testid="report-comment-add"]').trigger('click');
+        await flushPromises();
+
+        expect(posts(fetchMock)).toHaveLength(0);
+        expect(view.findAll('[data-testid="report-comment"]')).toHaveLength(2);
+    });
+
+    it('shows the list but no add box without report.comment', async () => {
+        const view = await render(commentServer(), 'en', VIEW_ONLY, RECEIVED_PATH);
+
+        expect(view.findAll('[data-testid="report-comment"]')).toHaveLength(2);
+        expect(view.find('[data-testid="report-comment-body"]').exists()).toBe(false);
+        expect(view.find('[data-testid="report-comment-add"]').exists()).toBe(false);
+    });
+
+    it('shows the author the list and no add box — even an author who holds report.comment', async () => {
+        const submittedWithComments = { ...SUBMITTED, comments: COMMENTS };
+
+        const sales = await render(commentServer({ report: submittedWithComments }), 'en', USER);
+        expect(sales.findAll('[data-testid="report-comment"]')).toHaveLength(2);
+        expect(sales.find('[data-testid="report-comment-body"]').exists()).toBe(false);
+
+        const manager = await render(commentServer({ report: submittedWithComments }), 'en', MANAGER, '/reports/rep1');
+        expect(manager.findAll('[data-testid="report-comment"]')).toHaveLength(2);
+        expect(manager.find('[data-testid="report-comment-body"]').exists()).toBe(false);
+        expect(manager.find('[data-testid="report-comment-add"]').exists()).toBe(false);
+    });
+
+    it('shows an empty-state line when there is no comment yet, and none when there are some', async () => {
+        const empty = await render(commentServer({ report: { ...VIEWED, comments: [] } }), 'en', MANAGER, RECEIVED_PATH);
+        expect(empty.find('[data-testid="report-comment"]').exists()).toBe(false);
+        expect(empty.get('[data-testid="report-comments-empty"]').text()).toBe(en.reports.comments_empty);
+
+        const full = await render(commentServer(), 'en', MANAGER, RECEIVED_PATH);
+        expect(full.find('[data-testid="report-comments-empty"]').exists()).toBe(false);
+    });
+
+    it('says the comment was not sent when the server refuses, and keeps the typed text', async () => {
+        const fetchMock = commentServer({ post: () => json(404, { error: { code: 'resource_not_found' }, meta: { request_id: 'r' } }) });
+        const view = await render(fetchMock, 'en', MANAGER, RECEIVED_PATH);
+
+        await view.get('[data-testid="report-comment-body"]').setValue('Will not go.');
+        await view.get('[data-testid="report-comment-add"]').trigger('click');
+        await flushPromises();
+
+        expect(view.get('[data-testid="report-comment-error"]').text()).toBe(en.reports.comments_failed);
+        expect((view.get('[data-testid="report-comment-body"]').element as HTMLTextAreaElement).value).toBe('Will not go.');
+        expect(view.findAll('[data-testid="report-comment"]')).toHaveLength(2);
+    });
+
+    it('offers no edit or remove on a comment', async () => {
+        const view = await render(commentServer(), 'en', MANAGER, RECEIVED_PATH);
+
+        const section = view.get('[data-testid="report-comments"]');
+        expect(section.findAll('[data-testid="report-comment"] button')).toHaveLength(0);
+        expect(section.find('[data-testid*="comment-edit"], [data-testid*="comment-remove"], [data-testid*="comment-delete"]').exists()).toBe(false);
+    });
+
+    it('draws the comments section in Arabic, with Arabic text from its own keys', async () => {
+        const view = await render(commentServer({ report: { ...VIEWED, comments: [] } }), 'ar', MANAGER, RECEIVED_PATH);
+
+        const labels = ar.reports as unknown as Record<string, string>;
+        for (const key of ['comments_title', 'comments_empty', 'comment_add', 'comments_failed']) {
+            expect(labels[key], `ar.reports.${key}`).toMatch(/[؀-ۿ]/);
+            expect(en.reports[key as keyof typeof en.reports], `en.reports.${key}`).toBeTruthy();
+        }
+        expect(view.get('[data-testid="report-comments"]').text()).toContain(labels.comments_title);
+        expect(view.get('[data-testid="report-comments-empty"]').text()).toBe(labels.comments_empty);
+        expect(view.get('[data-testid="report-comment-add"]').text()).toContain(labels.comment_add);
+    });
+});

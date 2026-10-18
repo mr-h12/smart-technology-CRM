@@ -17,13 +17,13 @@ final class ReportWriteRefused extends RuntimeException
 
     public const STALE_VERSION = 'stale_version';
 
-    public const NOT_DRAFT = 'report_not_draft';
-
     public const RECIPIENT_NOT_ALLOWED = 'recipient_not_allowed';
 
     public const NOT_AWAITING_ANSWER = 'report_not_awaiting_answer';
 
     public const NOT_EDITABLE = 'report_not_editable';
+
+    public const DUPLICATE_PERIOD = 'report_duplicate_period';
 
     public const CUSTOMER_NOT_ALLOWED = 'customer_not_allowed';
 
@@ -37,6 +37,8 @@ final class ReportWriteRefused extends RuntimeException
         public readonly string $errorCode,
         public readonly string $field,
         public readonly ?string $currentEtag,
+        /** @var array{id: string, code: string}|null the report a duplicate warning names */
+        public readonly ?array $existingReport = null,
     ) {
         parent::__construct('Report write refused: '.$reason);
     }
@@ -51,16 +53,21 @@ final class ReportWriteRefused extends RuntimeException
         return new self(self::STALE_VERSION, 409, 'concurrency_conflict', 'If-Match', $currentEtag);
     }
 
-    /** §11.4: past Draft, the content is the frozen copy's. */
-    public static function notDraft(): self
-    {
-        return new self(self::NOT_DRAFT, 422, 'business_rule_blocked', 'status', null);
-    }
-
-    /** `D-131`: a follow-up or note is written only while the report is a draft or returned. */
+    /** `D-131`: a follow-up or note — and a submit — is written only while the report is a draft, returned or missed. */
     public static function notEditable(): self
     {
         return new self(self::NOT_EDITABLE, 409, 'state_transition_invalid', 'status', null);
+    }
+
+    /**
+     * §11 / `D-127`: «the same type, period and employee cannot be submitted twice» — a warning the
+     * author may overrule with `confirm_duplicate`; it names the report that is already there.
+     *
+     * @param  array{id: string, code: string}  $existing
+     */
+    public static function duplicatePeriod(array $existing): self
+    {
+        return new self(self::DUPLICATE_PERIOD, 409, 'state_transition_invalid', 'type', null, $existing);
     }
 
     /** `D-131`: a follow-up's customer is one the author reaches under `customer.view` — never a hint that another exists. */

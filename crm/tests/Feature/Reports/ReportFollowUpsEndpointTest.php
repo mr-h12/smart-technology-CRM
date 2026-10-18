@@ -576,7 +576,8 @@ final class ReportFollowUpsEndpointTest extends TestCase
 
     private function create(User $author): string
     {
-        $id = $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearer($author))
+        // 7.3: a second same-day daily is a warning; these fixtures mean a second report, so they confirm it.
+        $id = $this->postJson(self::ENDPOINT, ['type' => 'daily', 'confirm_duplicate' => true], $this->bearer($author))
             ->assertStatus(201)
             ->json('data.id');
         self::assertIsString($id);

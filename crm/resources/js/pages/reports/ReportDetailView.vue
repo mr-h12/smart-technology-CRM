@@ -23,6 +23,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute } from 'vue-router';
 import { ApiError } from '@/api';
 import CustomerPicker from '@/components/customers/CustomerPicker.vue';
+import ReportCommentsSection from '@/components/reports/ReportCommentsSection.vue';
 import ReportPdfButton from '@/components/reports/ReportPdfButton.vue';
 import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
@@ -52,6 +53,7 @@ import {
     updateReportNote,
     type ActivityCount,
     type RecipientCandidate,
+    type ReportComment,
     type ReportDetail,
 } from '@/services/reports';
 
@@ -101,6 +103,14 @@ const isEditable = computed(() => !received && (['draft', 'returned', 'missed'].
 const awaitsAnswer = computed(() => received && (report.value?.status === 'submitted' || report.value?.status === 'viewed'));
 const canAcknowledge = computed(() => awaitsAnswer.value && auth.hasPermission('report.acknowledge'));
 const canReturn = computed(() => awaitsAnswer.value && auth.hasPermission('report.return_report'));
+/** `D-127`: only a recipient comments — the author reads. The server refuses anyone else. */
+const canComment = computed(() => received && auth.hasPermission('report.comment'));
+
+function addComment(comment: ReportComment): void {
+    if (report.value !== null) {
+        report.value.comments = [...(report.value.comments ?? []), comment];
+    }
+}
 
 /** `D-132`: a submitted version has its stored PDF; a draft and a returned report (the author's next version) do not. */
 const hasStoredPdf = computed(() => ['submitted', 'viewed', 'acknowledged'].includes(report.value?.status ?? ''));
@@ -779,6 +789,9 @@ onMounted(load);
                         </button>
                     </div>
                 </section>
+
+                <!-- `D-127`: comments, after the recipients and the answer. -->
+                <ReportCommentsSection :report-id="report.id" :comments="report.comments ?? []" :can-comment="canComment" @added="addComment" />
                 </div>
             </div>
 

@@ -14,6 +14,7 @@ final class CreateReportRequest extends FormRequest
     {
         return [
             'type' => ['required', 'string', 'in:daily'],
+            'confirm_duplicate' => ['sometimes', 'boolean'],
         ];
     }
 

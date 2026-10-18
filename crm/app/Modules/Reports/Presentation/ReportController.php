@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Presentation;
 
+use App\Modules\Reports\Application\AddReportComment;
 use App\Modules\Reports\Application\CreateReport;
 use App\Modules\Reports\Application\ManageReportRows;
 use App\Modules\Reports\Application\ReceiveReport;
@@ -74,7 +75,12 @@ final class ReportController
 
     public function store(CreateReportRequest $request, CreateReport $reports): JsonResponse
     {
-        return ApiEnvelope::single($request, $reports->daily(self::actorId($request)), 201);
+        return ApiEnvelope::single($request, $reports->daily(self::actorId($request), $request->boolean('confirm_duplicate')), 201);
+    }
+
+    public function addComment(ReportCommentRequest $request, string $report, AddReportComment $comments): JsonResponse
+    {
+        return ApiEnvelope::single($request, $comments->add($report, $request->body(), self::actorId($request)), 201);
     }
 
     public function show(Request $request, string $report, ShowReport $reports): JsonResponse
@@ -153,7 +159,7 @@ final class ReportController
     }
 
     /**
-     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
+     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
      * @return array<string, mixed>
      */
     private static function detail(array $read): array
@@ -163,6 +169,7 @@ final class ReportController
             ...(isset($read['author_name']) ? ['author_name' => $read['author_name']] : []),
             'follow_ups' => $read['follow_ups'],
             'notes' => $read['notes'],
+            'comments' => $read['comments'],
             'etag' => ReportEtag::of($read['report']),
             'activity' => $read['activity'],
             ...$read['weekly'],

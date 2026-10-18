@@ -62,7 +62,8 @@ enum SystemSetting: string
     case ReportsGoLiveDate = 'reports.go_live_date';
 
     /**
-     * `D-129` — the one Manager a report goes to by default until teams exist.
+     * `D-129` — the Manager a report goes to by default; the author's Team
+     * Leader joins as a second default (`D-138`).
      * Holds a user id; `UpdateSettingsRequest` checks it names an active Manager.
      */
     case ReportsDefaultRecipient = 'reports.default_recipient';

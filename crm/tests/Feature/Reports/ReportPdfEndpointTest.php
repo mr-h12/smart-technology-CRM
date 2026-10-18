@@ -29,7 +29,8 @@ use Tests\TestCase;
  * - A caller reaches it only with `report.export` (a refusal is `403`, from the route)
  *   and as the report's author or a live recipient (anything else is `404`, as opening the report is).
  * - No sign-in is `401`. A draft, a missing version and a version with no generation row are `404`.
- * - `Team` and `Out` narrow nothing until teams exist (`D-129`): a Team Leader who is not a recipient is `404`.
+ * - `Team` and `Out` open nothing by themselves: a Team Leader who is not a recipient is `404`, even one who
+ *   leads the author (7.5d).
  */
 final class ReportPdfEndpointTest extends TestCase
 {
@@ -137,6 +138,26 @@ final class ReportPdfEndpointTest extends TestCase
 
         $this->pdfStatus($outsider, $id, 1)->assertStatus(404)->assertJsonPath('error.code', 'resource_not_found');
         $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($outsider))->assertNotFound();
+    }
+
+    /** 7.5d, gap 5: leading the author is not being sent the report — the PDF stays a 404. */
+    public function test_that_a_team_leader_without_a_recipient_row_cannot_open_a_members_report(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $member = $this->user(RoleName::IndoorSales, 'member');
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+        $id = $this->submitted($member, [$this->user(RoleName::Manager)]);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
+
+        // The control: the author reaches it.
+        $this->pdfStatus($member, $id, 1)->assertStatus(200);
+
+        $this->pdfStatus($leader, $id, 1)->assertStatus(404)->assertJsonPath('error.code', 'resource_not_found');
+        $this->pdfDownload($leader, $id, 1)->assertNotFound();
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($leader))->assertNotFound();
     }
 
     public function test_that_a_caller_who_is_not_signed_in_gets_a_401(): void

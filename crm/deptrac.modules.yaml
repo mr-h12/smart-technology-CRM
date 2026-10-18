@@ -158,6 +158,8 @@ deptrac:
             - type: classLike
               value: ^App\\Modules\\Reports\\Domain\\Contracts\\ReportSubmitted$
             - type: classLike
+              value: ^App\\Modules\\Reports\\Domain\\Contracts\\MissedReportsInterface$
+            - type: classLike
               value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
             - type: classLike
               value: ^App\\Modules\\Reports\\Domain\\ReportWriteRefused$
@@ -355,6 +357,10 @@ deptrac:
           value: ^App\\Modules\\Reports\\Domain\\ReportNotFound$
         - type: classLike
           value: ^App\\Modules\\Reports\\Domain\\ReportWriteRefused$
+        # Module 13 · 7.5d: the Missed daily count Quotations' badges read for
+        # the sidebar's *Reports* counter.
+        - type: classLike
+          value: ^App\\Modules\\Reports\\Domain\\Contracts\\MissedReportsInterface$
 
     # `Idempotency` — `OpenAPI §9.1`'s store, added 2026-09-12 with Module 7
     # Point 3.7. One directory layer, **not** a Contract/Driver split: no
@@ -658,6 +664,9 @@ deptrac:
       # StorageContract, Module 10 · 2.2 (Q4: "Quotations gains StorageContract
       # for the PO's attachment"): `has_attachment` through `FileRepositoryInterface`.
       - StorageContract
+      # ReportsContract, Module 13 · 7.5d: the team's Missed daily count for the
+      # sidebar's *Reports* counter (`MissedReportsInterface`), read by `BadgeCounts`.
+      - ReportsContract
     # SupplierQuotations → Framework, added 2026-09-02 with Point 1.3, the
     # module's first code. **One entry, which is the shortest ruleset any module
     # has been granted**, and each absence is a decision:

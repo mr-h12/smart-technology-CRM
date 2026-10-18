@@ -104,6 +104,7 @@ use App\Modules\Quotations\Domain\Writing\QuotationSent;
 use App\Modules\Quotations\Infrastructure\EloquentQuotationDirectory;
 use App\Modules\Reports\Application\SubmittedReports;
 use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
+use App\Modules\Reports\Domain\Contracts\MissedReportsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Contracts\ReportSubmitted;
 use App\Modules\Reports\Domain\Contracts\SubmittedReportsInterface;
@@ -384,6 +385,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReportDirectoryInterface::class, DatabaseReportDirectory::class);
         // `D-133`: the follow-ups Customers shows, read from the same adapter.
         $this->app->bind(CustomerFollowUpsInterface::class, DatabaseReportDirectory::class);
+        // 7.5d: the Missed daily count the sidebar's *Reports* counter shows, same adapter.
+        $this->app->bind(MissedReportsInterface::class, DatabaseReportDirectory::class);
         // `D-132`: the submitted version the Pdf module renders, and who may open it.
         $this->app->bind(SubmittedReportsInterface::class, SubmittedReports::class);
 

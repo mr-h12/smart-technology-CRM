@@ -232,10 +232,10 @@ describe('AppSidebar — the counters', () => {
         unconditional_access: false,
     };
 
-    function server(badges: unknown): ReturnType<typeof vi.fn> {
+    function server(badges: unknown, user: AuthenticatedUser = MANAGER): ReturnType<typeof vi.fn> {
         return vi.fn(async (input: string) => {
             const body = /\/auth\/login$/.test(String(input))
-                ? { data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user: MANAGER } }
+                ? { data: { token: 'a'.repeat(64), token_type: 'Bearer', idle_timeout_seconds: 28800, user } }
                 : { data: badges, meta: { request_id: 'r1' } };
 
             return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -269,6 +269,26 @@ describe('AppSidebar — the counters', () => {
         expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/api/v1/badges'))).toBe(true);
         expect(wrapper.find('[data-testid="nav-badge-approvals"]').text()).toBe('3');
         expect(wrapper.find('[data-testid="nav-badge-quotations"]').exists()).toBe(false);
+    });
+
+    /** Module 13 · 7.5d — §5.1's *Reports* counter: the team's Missed daily reports, from the same `GET /badges`. */
+    it('draws the Reports count for a holder of report.create, and nothing for a zero', async () => {
+        const leader: AuthenticatedUser = {
+            ...MANAGER,
+            role: { id: '01a0-tl', slug: 'team_leader', name: 'Team Leader' },
+            permissions: ['report.create.team', 'report.view_received.team'],
+        };
+
+        const { wrapper } = await mountWithRouter(server({ approvals: 0, my_quotations: 0, reports: 3 }, leader));
+        expect(wrapper.findAll('nav a').some((link) => link.text().includes(ar.nav.item.reports))).toBe(true);
+        expect(wrapper.find('[data-testid="nav-badge-reports"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="nav-badge-reports"]').text()).toBe('3');
+
+        wrapper.unmount();
+        useAuth().forgetSession();
+        const zero = await mountWithRouter(server({ approvals: 0, my_quotations: 0, reports: 0 }, leader));
+        expect(zero.wrapper.findAll('nav a').some((link) => link.text().includes(ar.nav.item.reports))).toBe(true);
+        expect(zero.wrapper.find('[data-testid="nav-badge-reports"]').exists()).toBe(false);
     });
 
     /** F-42 · 5.33 (A-23): the collapsed rail drops the visible label; the link keeps it as its name, with the count. */

@@ -21,7 +21,8 @@ use Tests\TestCase;
  *
  * - Candidates: active users holding §3.10's `report.view_received` with a scope
  *   that covers the author (`D-127`, `D-129`). `All` covers everyone; `Out`
- *   covers outdoor authors; `Team` covers nobody until teams exist.
+ *   covers Outdoor Sales authors; `Team` covers the author's own Team Leader
+ *   (7.5d, `D-138`), who is a default beside the named Manager.
  * - Default: the one Manager the `reports.default_recipient` setting names, when
  *   that user is still an active Manager — and never on a Manager's own report.
  * - Submit: §11.3's frozen copy (`report_versions` v1) and the recipients, in
@@ -53,7 +54,7 @@ final class ReportSubmitEndpointTest extends TestCase
         $managerB = $this->user(RoleName::Manager, 'b');
         $ceo = $this->user(RoleName::Ceo);
         $this->user(RoleName::Manager, 'gone', active: false);
-        $this->user(RoleName::TeamLeader);          // `Team` covers nobody yet.
+        $this->user(RoleName::TeamLeader);          // `Team` covers only the author's own leader; this author has none.
         $this->user(RoleName::OutdoorSupervisor);   // `Out` does not cover an indoor author.
         $this->user(RoleName::Procurement);
         $this->user(RoleName::SuperAdmin);
@@ -79,6 +80,87 @@ final class ReportSubmitEndpointTest extends TestCase
 
         self::assertContains($supervisor->id, $ids);
         self::assertContains($manager->id, $ids);
+    }
+
+    /** 7.5d, `D-138`: the author's own Team Leader is a candidate, and a default beside the named Manager. */
+    public function test_that_the_authors_team_leader_is_a_candidate_and_a_default(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader, 'mine');
+        $author = $this->memberOf($leader);
+        $manager = $this->user(RoleName::Manager);
+        $this->setting('reports.default_recipient', $manager->id);
+
+        $defaults = array_column($this->candidates($author, $this->create($author)), 'is_default', 'id');
+
+        self::assertArrayHasKey($leader->id, $defaults, 'The author\'s own Team Leader is a candidate.');
+        self::assertTrue($defaults[$leader->id], 'The author\'s own Team Leader is a default.');
+        self::assertTrue($defaults[$manager->id], 'The named Manager stays a default.');
+    }
+
+    /** 7.5d, `D-138`: a leader whose role also holds `All` on *view received* is still a default for the team. */
+    public function test_that_a_leader_holding_another_scope_is_still_a_default(): void
+    {
+        DB::table('role_permissions')->insert([
+            'id' => (string) Str::uuid7(),
+            'role_id' => Role::query()->where('slug', RoleName::TeamLeader->value)->value('id'),
+            'permission_id' => DB::table('permissions')
+                ->where(['resource' => 'report', 'action' => 'view_received', 'scope' => 'all'])
+                ->value('id'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $leader = $this->user(RoleName::TeamLeader, 'mine');
+        $other = $this->user(RoleName::TeamLeader, 'other');
+        $author = $this->memberOf($leader);
+
+        $defaults = array_column($this->candidates($author, $this->create($author)), 'is_default', 'id');
+
+        self::assertArrayHasKey($other->id, $defaults, 'The control: `All` makes every Team Leader a candidate.');
+        self::assertFalse($defaults[$other->id], 'A leader of nobody here is no default.');
+        self::assertTrue($defaults[$leader->id] ?? false, 'The author\'s own Team Leader is a default.');
+    }
+
+    /** 7.5d: `Team` reaches the leader's own team only — another Team Leader is no candidate. */
+    public function test_that_another_team_leader_is_not_a_candidate(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader, 'mine');
+        $other = $this->user(RoleName::TeamLeader, 'other');
+        $this->memberOf($other, 'theirs');
+        $author = $this->memberOf($leader);
+        self::assertNotSame($leader->id, $other->id);
+
+        $ids = array_column($this->candidates($author, $this->create($author)), 'id');
+
+        self::assertContains($leader->id, $ids, 'The control: the author\'s own leader is there.');
+        self::assertNotContains($other->id, $ids);
+    }
+
+    /** 7.5d: an author with no leader is offered no Team Leader, even one who leads somebody else. */
+    public function test_that_an_author_without_a_leader_gets_no_team_leader(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $this->memberOf($leader, 'member');
+        $author = $this->user(RoleName::IndoorSales, 'alone');
+        $manager = $this->user(RoleName::Manager);
+        self::assertNull($author->team_leader_id);
+
+        $ids = array_column($this->candidates($author, $this->create($author)), 'id');
+
+        self::assertContains($manager->id, $ids, 'The control: the author has candidates.');
+        self::assertNotContains($leader->id, $ids);
+    }
+
+    /** 7.5d: `Out` covers Outdoor Sales authors only — an Outdoor Supervisor's report does not offer another one. */
+    public function test_that_an_outdoor_supervisors_report_does_not_offer_the_outdoor_supervisor(): void
+    {
+        $author = $this->user(RoleName::OutdoorSupervisor, 'author');
+        $other = $this->user(RoleName::OutdoorSupervisor, 'other');
+        $manager = $this->user(RoleName::Manager);
+
+        $ids = array_column($this->candidates($author, $this->create($author)), 'id');
+
+        self::assertContains($manager->id, $ids, 'The control: the author has candidates.');
+        self::assertNotContains($other->id, $ids);
     }
 
     /** `D-129`: the Manager the setting names is the default. */
@@ -261,6 +343,35 @@ final class ReportSubmitEndpointTest extends TestCase
         $this->submit($author, $id, 'report:'.$id.':1', [$colleague->id])
             ->assertStatus(422)
             ->assertJsonPath('error.details.0.field', 'recipient_ids');
+
+        $this->assertStillDraft($id);
+    }
+
+    /** 7.5d: a report goes to the author's own Team Leader by submit. */
+    public function test_that_submitting_to_the_authors_team_leader_is_accepted(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader, 'mine');
+        $author = $this->memberOf($leader);
+        $id = $this->create($author);
+
+        $this->submit($author, $id, 'report:'.$id.':1', [$leader->id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.recipients.0.id', $leader->id);
+
+        self::assertSame([$leader->id], DB::table('report_recipients')->where('report_id', $id)->pluck('user_id')->all());
+    }
+
+    /** 7.5d: a Team Leader who does not lead the author is refused like any non-candidate. */
+    public function test_that_submitting_to_another_team_leader_is_refused(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader, 'mine');
+        $other = $this->user(RoleName::TeamLeader, 'other');
+        $author = $this->memberOf($leader);
+        $id = $this->create($author);
+
+        $this->submit($author, $id, 'report:'.$id.':1', [$other->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.code', 'recipient_not_allowed');
 
         $this->assertStillDraft($id);
     }
@@ -620,6 +731,15 @@ final class ReportSubmitEndpointTest extends TestCase
         ]);
 
         return $dealId;
+    }
+
+    /** An Indoor Sales user whose `team_leader_id` is $leader's (7.5a). */
+    private function memberOf(User $leader, string $tag = 'member'): User
+    {
+        $member = $this->user(RoleName::IndoorSales, $tag);
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+
+        return $member;
     }
 
     private function user(RoleName $role, string $tag = '', bool $active = true): User

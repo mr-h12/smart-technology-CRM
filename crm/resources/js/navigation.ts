@@ -18,7 +18,7 @@
  * names a route app.ts does not register.
  *
  * §5.1 permits a badge only on Requests, Approvals, Reports and My Quotations.
- * The type says so; nothing counts anything yet.
+ * The type says so; `GET /badges` counts Approvals, My Quotations and Reports.
  */
 
 export type BadgeableItem = 'requests' | 'approvals' | 'reports' | 'my_quotations';
@@ -149,11 +149,12 @@ export const NAVIGATION: readonly NavigationGroup[] = [
             {
                 // §8's *Reports* — Module 13's "My reports" (first slice), keyed
                 // on `report.create`, the author's only report grant (§3.10).
-                // No badge yet: §5.1's Reports counter needs Missed (J-04).
+                // §5.1's Reports counter (7.5d): the team's Missed daily reports, `GET /badges`.
                 name: 'reports',
                 labelKey: 'nav.item.reports',
                 icon: 'M5 2h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm1.5 11V15H8v-2zm3-3V15H11v-5zm3-3V15H14V7z',
                 permission: 'report.create',
+                badge: 'reports',
             },
             {
                 // Module 13, slice 2 — "Received reports": the reports sent to

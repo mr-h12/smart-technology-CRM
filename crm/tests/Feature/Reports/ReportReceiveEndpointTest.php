@@ -20,7 +20,8 @@ use Tests\TestCase;
  * `D-127`; the owner's division of 2026-10-16).
  *
  * - "Received" is only what was sent to the caller (a `report_recipients` row),
- *   for the Manager and the CEO alike; `Team` and `Out` wait for teams (`D-129`).
+ *   for every receiving role alike; `Team` and `Out` choose who may be sent a report
+ *   (7.5d), never what a caller may open without a recipient row.
  * - Viewed: a recipient's first open; the author's own open does not count (`D-127`).
  * - Acknowledge and Return are `PATCH`es under `If-Match`, like slice 1's submit.
  * - The receiving facts live on the version row (`report_versions`), per version.
@@ -432,9 +433,9 @@ final class ReportReceiveEndpointTest extends TestCase
     /**
      * Gap 2 — §3.10 grants the Team Leader and the Outdoor Supervisor *view received*,
      * *acknowledge* and *return*; what was sent to them is theirs to open and answer, what was
-     * not is a 404. The Outdoor Supervisor is sent a report by submit (`Out` covers outdoor
-     * staff); a Team Leader is a candidate for nobody until teams exist (`D-129`), so a report
-     * sent to one is a `report_recipients` row.
+     * not is a 404. The Outdoor Supervisor is sent a report by submit (`Out` covers Outdoor
+     * Sales authors); for a Team Leader the fixture re-points a `report_recipients` row, so this
+     * test needs no team (submit to one's own leader is pinned in `ReportSubmitEndpointTest`).
      */
     #[DataProvider('receivingRoles')]
     public function test_that_a_team_leader_or_an_outdoor_supervisor_answers_what_was_sent_to_them_and_only_that(RoleName $role): void
@@ -461,6 +462,25 @@ final class ReportReceiveEndpointTest extends TestCase
         $this->returnReport($outsider, $notMine, 'Not mine to return.')->assertStatus(404);
         self::assertSame('submitted', DB::table('reports')->where('id', $notMine)->value('status'));
         self::assertSame([], $this->getJson(self::RECEIVED, $this->bearer($outsider))->assertStatus(200)->json('data'));
+    }
+
+    /** 7.5d, gap 5 — leading the author is not being sent the report: no recipient row, no open, no answer. */
+    public function test_that_a_team_leader_without_a_recipient_row_cannot_open_a_members_report(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $member = $this->user(RoleName::IndoorSales, 'member');
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+        $manager = $this->user(RoleName::Manager);
+        $id = $this->submitted($member, [$manager]);
+
+        // The control: the report is open to the one it was sent to.
+        $this->getJson(self::RECEIVED.'/'.$id, $this->bearer($manager))->assertStatus(200);
+
+        $this->getJson(self::RECEIVED.'/'.$id, $this->bearer($leader))->assertStatus(404);
+        self::assertSame([], $this->getJson(self::RECEIVED, $this->bearer($leader))->assertStatus(200)->json('data'));
+        $this->acknowledge($leader, $id)->assertStatus(404);
+        $this->returnReport($leader, $id, 'Not sent to me.')->assertStatus(404);
+        self::assertSame('viewed', DB::table('reports')->where('id', $id)->value('status'));
     }
 
     /** Gap 3 — the audit entries carry the status change, and the return carries its reason. */

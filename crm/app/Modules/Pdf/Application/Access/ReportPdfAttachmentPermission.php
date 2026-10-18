@@ -15,7 +15,7 @@ use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
  * PDF is read with `report.export` **and** as the report's author or a live
  * recipient — the status route's rule, where the route checks the first half.
  * Every refusal is the same `false`, which the download answers with a 404.
- * ponytail: `Team` / `Out` narrow nothing until teams exist (`D-129`).
+ * `Team` / `Out` choose recipients, not reach: no recipient row, no PDF (`D-138`).
  */
 final readonly class ReportPdfAttachmentPermission implements AttachmentPermissionInterface
 {

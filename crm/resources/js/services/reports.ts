@@ -7,7 +7,7 @@ import { downloadFrom } from '@/services/files';
  * `/follow-ups` and `/notes`, `D-131`) and, since
  * slice 2, the recipient's (`GET /reports/received[/{id}]`, `/acknowledge`, `/return`).
  *
- * The screen shows what the server returns: the counts, the default recipient
+ * The screen shows what the server returns: the counts, the default recipients
  * and every refusal are the server's (`D-67`, `AP-07`).
  */
 

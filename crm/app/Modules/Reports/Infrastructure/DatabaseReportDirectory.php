@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reports\Infrastructure;
 
 use App\Modules\Reports\Domain\Contracts\CustomerFollowUpsInterface;
+use App\Modules\Reports\Domain\Contracts\MissedReportsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\Report;
 use App\Support\Database\DocumentNumberAllocator;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
  * builder. A persistence adapter: the use cases own the transactions and the
  * audit entries (`AUD-01`).
  */
-final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterface, ReportDirectoryInterface
+final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterface, MissedReportsInterface, ReportDirectoryInterface
 {
     /** `D-131`: each row kind's table, and the columns it writes and reads. */
     private const ROWS = ['follow_up' => 'report_follow_ups', 'note' => 'report_notes'];
@@ -462,6 +463,13 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
             ->all();
 
         return $rows;
+    }
+
+    public function missedDailyCountOf(array $authorIds): int
+    {
+        return $this->connection->table('reports')
+            ->where('type', 'daily')->where('status', 'missed')->whereIn('author_id', $authorIds)->whereNull('deleted_at')
+            ->count();
     }
 
     public function staleWeeklyDraftIds(\DateTimeInterface $createdBefore): array

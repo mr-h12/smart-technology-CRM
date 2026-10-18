@@ -26,16 +26,19 @@ interface DealFactsInterface
     public function factsOf(string $dealId): ?DealFacts;
 
     /**
-     * The live deals one user owns (Point 5.1) — what a scoped `quotation.view`
-     * on the list becomes (`WHERE deal_id IN`) and what `filter[employee]`
-     * intersects. Soft-deleted deals are absent (`DB-01`).
+     * The live deals a set of users own (Point 5.1; a set since `D-138`, so a
+     * Team Leader's team is one `WHERE owner_id IN`) — what a scoped
+     * `quotation.view` on the list becomes (`WHERE deal_id IN`) and what
+     * `filter[employee]` intersects. Soft-deleted deals are absent (`DB-01`).
+     * The empty list answers `[]` without a query.
      *
      * ponytail: unbounded set. Denormalise `owner_id` onto `quotations` when a
      * Manager's `filter[employee]` on a ten-thousand-deal owner measures slow.
      *
+     * @param  list<string>  $ownerIds
      * @return list<string>
      */
-    public function dealIdsOwnedBy(string $ownerId): array;
+    public function dealIdsOwnedBy(array $ownerIds): array;
 
     /**
      * Deal id => owner id for one page's deals (`group_by=employee`). An

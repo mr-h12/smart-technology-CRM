@@ -11,6 +11,7 @@ use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealSummary;
 use App\Modules\Deals\Domain\Listing\DealTimelineCriteria;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 
 /**
  * §4.4's deal timeline — "every status change is written to the deal timeline:
@@ -45,6 +46,7 @@ final readonly class ListDealTimeline
     public function __construct(
         private DealDirectoryInterface $deals,
         private AuditEntryReaderInterface $audit,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -58,7 +60,7 @@ final readonly class ListDealTimeline
         array $heldScopes,
         string $actorId,
     ): AuditRecordPage {
-        $deal = $this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId));
+        $deal = $this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
 
         if (! $deal instanceof DealSummary) {
             // §5.1: 404 for "does not exist **or** is not visible to the

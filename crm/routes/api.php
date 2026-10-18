@@ -504,10 +504,7 @@ Route::middleware('auth')->prefix('customers')->group(function (): void {
     // `All · Team · — · — · — · — · —`, and `PermissionMatrix` carries one
     // `customer.archive` with no `customer.restore` beside it. Inventing a
     // second permission here would be a matrix row no document contains.
-    //
-    // ⚠️ A Team Leader holds `Team`, which has no mechanism today, so half of
-    // Flow 7's "Manager / TL only" is unreachable — the owner's deferral of
-    // 2026-08-29, tested rather than left to be discovered.
+    // A Team Leader's `Team` reaches the team's customers (`D-138`).
     Route::patch('/{customer}/archive', [CustomerController::class, 'archive'])
         ->middleware('permission:customer.archive');
 
@@ -669,12 +666,7 @@ Route::middleware('auth')->prefix('deals')->group(function (): void {
     // §3.4 grants `assign_owner` `All · Team · — · — · — · — · —` — its own
     // row beside `edit`, which five roles hold — so this checks
     // `deal.assign_owner` and never `deal.edit`, on `customers`'s precedent.
-    //
-    // ⚠️ `Team` has no mechanism (Point 2.1): a Team Leader holding only that
-    // scope reaches the use case for every deal in the company and finds
-    // none of them reachable — half of this permission row is currently
-    // unreachable, the same debt `customer.assign`'s `Team` grant already
-    // carries.
+    // A Team Leader's `Team` reaches the team's deals (`D-138`).
     Route::patch('/{deal}/assign', [DealController::class, 'assign'])
         ->middleware('permission:deal.assign_owner');
 
@@ -789,9 +781,8 @@ Route::middleware('auth')->prefix('supplier-quotations')->group(function (): voi
 //
 // §3.5's negative cases are all asserted as 403s: the CEO (`view` only), the
 // Outdoor Supervisor (a dash in every column) and Procurement (`Asgn` on
-// `view`, nothing under `create`). The Team Leader's `Team` is a 403 too, for
-// the recorded reason that `team` resolves to nothing until a team entity
-// exists — fail-closed, not granted.
+// `view`, nothing under `create`). The Team Leader's `Team` quotes the team's
+// deals (`D-138`); a deal outside the team is the own-scoped roles' 403.
 //
 // `GET /{id}` (3.5), `PATCH /{id}` (3.6) and the `OpenAPI §7.2` actions
 // (Step 4) follow in this group; every one that mutates carries `If-Match`
@@ -813,7 +804,7 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
     Route::patch('/{quotation}/submit-for-approval', [QuotationController::class, 'submit'])
         ->middleware('permission:quotation.submit_for_approval');
     // Module 8 Point 1.1 — `If-Match` only, as the submit; the Team Leader's
-    // `Team` fails closed (`D-a`) until a team entity exists.
+    // `Team` reaches the team's quotations (`D-138`).
     Route::patch('/{quotation}/approve', [QuotationController::class, 'approve'])
         ->middleware('permission:quotation.approve');
     // Module 8 Point 1.2 — the note is the body (`ReturnQuotationRequest`), the
@@ -883,8 +874,8 @@ Route::middleware('auth')->prefix('quotations')->group(function (): void {
         ->middleware('permission:quotation.export_pdf');
 
     // Module 9 · 3.5 — §3.5's *generate PDF* row: `RequestQuotationPdf` narrows the
-    // grant to the deal's owner under `own` and refuses `Asgn` and the Team
-    // Leader's `Team` by name (Q2, `D-a`); the answer is `OpenAPI §4.3`'s `202`.
+    // grant to the deal's owner under `own` (the team's under `Team`, `D-138`)
+    // and refuses `Asgn` by name (Q2); the answer is `OpenAPI §4.3`'s `202`.
     Route::post('/{quotation}/pdf', [QuotationPdfController::class, 'generate'])
         ->middleware('permission:quotation.generate_pdf');
 });

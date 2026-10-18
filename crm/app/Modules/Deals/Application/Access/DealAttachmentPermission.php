@@ -7,6 +7,7 @@ namespace App\Modules\Deals\Application\Access;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Storage\Domain\AttachmentLink;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
@@ -59,6 +60,7 @@ final readonly class DealAttachmentPermission implements AttachmentPermissionInt
     public function __construct(
         private AuthorizeAction $authorize,
         private DealDirectoryInterface $deals,
+        private UserFactsInterface $users,
     ) {}
 
     public function mayView(AttachmentLink $link, string $actorId): bool
@@ -68,7 +70,7 @@ final readonly class DealAttachmentPermission implements AttachmentPermissionInt
         }
 
         $decision = $this->authorize->decide($actorId, 'deal', 'view');
-        $scope = DealRowScope::resolve($decision->scopeValues(), $actorId);
+        $scope = DealRowScope::resolve($decision->scopeValues(), $actorId, $this->users->teamMemberIdsOf(...));
 
         return $this->deals->find($link->parentId, $scope) !== null;
     }

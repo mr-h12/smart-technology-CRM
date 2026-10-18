@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Application\Writing;
 
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
@@ -27,6 +28,7 @@ final readonly class QuotationWriteAccess
     public function __construct(
         private QuotationDirectoryInterface $quotations,
         private DealFactsInterface $deals,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -61,7 +63,7 @@ final readonly class QuotationWriteAccess
      */
     public function reach(string $quotationId, array $heldScopes, string $actorId): QuotationDetail
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
         $before = $this->quotations->find($quotationId);
 
         if (! $before instanceof QuotationDetail

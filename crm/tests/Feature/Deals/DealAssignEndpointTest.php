@@ -20,9 +20,8 @@ use Tests\TestCase;
  * reasoning throughout.
  *
  * §3.4 grants `assign_owner` to Manager (`All`) and Team Leader (`Team`)
- * only. `Team` has no mechanism (Point 2.1), so a Team Leader reaches this
- * endpoint for every deal in the company and finds none of them — the same
- * half-unreachable row `customer.assign` already carries.
+ * only. `Team` reaches the deals the leader's team owns (`D-138`, Module 13 ·
+ * 7.5c); a deal outside the team is 404, as `customer.assign` answers.
  */
 final class DealAssignEndpointTest extends TestCase
 {
@@ -148,16 +147,17 @@ final class DealAssignEndpointTest extends TestCase
         $this->assertDatabaseHas('deals', ['id' => $id, 'owner_id' => $owner->id]);
     }
 
-    /** The visible cost of the unbacked `team` scope, not a decision about Flow 10. */
-    public function test_that_a_team_leader_can_assign_nothing_while_team_is_unbacked(): void
+    /** `D-138` — a deal owned by a user with no leader is outside the team, so the Team Leader cannot reach it. */
+    public function test_that_a_team_leader_cannot_assign_a_deal_outside_the_team(): void
     {
-        $id = $this->deal();
+        $outsider = $this->userWith(RoleName::OutdoorSales)->id;
+        $id = $this->deal($outsider);
         $target = $this->userWith(RoleName::IndoorSales);
 
         $this->patchJson($this->assignUrl($id), ['owner_id' => $target->id], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
 
-        $this->assertDatabaseHas('deals', ['id' => $id, 'owner_id' => null]);
+        $this->assertDatabaseHas('deals', ['id' => $id, 'owner_id' => $outsider]);
     }
 
     // ─────────────────────────────── the happy path

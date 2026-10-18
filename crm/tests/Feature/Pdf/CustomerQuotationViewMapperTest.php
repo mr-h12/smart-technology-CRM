@@ -464,6 +464,12 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return [];
             }
+
+            /** @return list<string> */
+            public function teamMemberIdsOf(string $leaderId): array
+            {
+                return [$leaderId];
+            }
         };
     }
 

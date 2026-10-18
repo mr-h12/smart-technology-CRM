@@ -23,25 +23,22 @@ use Tests\TestCase;
  * sixth code added to §3.2 must fail here rather than be silently ignored by an
  * authorisation rule.
  *
- * ── Three of the five codes have no mechanism, and that is the finding ─────
+ * ── Two of the five codes have no mechanism, and that is the finding ───────
  *
- * `All` is "every record" and `Own` is `customers.sales_owner_id`, both of
- * which exist. The other three do not:
+ * `All` is "every record", `Own` is `customers.sales_owner_id`, and `Team`
+ * (`D-138`) is the sales owners of the caller's team — the leader and every user
+ * whose `team_leader_id` is theirs — which the caller resolves through
+ * Identity and passes in, because this module may reference nothing. The other
+ * two have no mechanism:
  *
- * - **Team** — §3.2 says "their team's records", and there is no team. §4.1's
- *   entity map has no team entity, §4.2 has no team field, and the `users`
- *   table has no team column (recorded already at Module 1 Point 3.2: "no team
- *   scoping, because `users` has no team column").
  * - **Out** — `D-44` confines the Outdoor Supervisor to "visits, visit
- *   customers, and their team's deals up to handover". `visits` is Module 12.
- * - **Asgn** — §3.2 says "deals handed over to them". `deals` is Module 5.
+ *   customers, and their team's deals up to handover". `visits` is Module 12
+ *   (`D-138`: on customers and deals, Out stays unbacked until then).
+ * - **Asgn** — §3.2 says "deals handed over to them"; it is not an owner.
  *
  * They therefore resolve to **no rows**, never to "all rows". A scope whose
  * mechanism is missing must fail closed, because the alternative is inventing
- * an authorisation rule the documentation does not state — and the failure mode
- * of guessing here is handing somebody else's customers to a role that should
- * not see them. This is an **open owner question**, not a finished behaviour:
- * a Team Leader currently resolves to nothing at all.
+ * an authorisation rule the documentation does not state.
  */
 final class CustomerRowScopeTest extends TestCase
 {
@@ -50,6 +47,8 @@ final class CustomerRowScopeTest extends TestCase
     private const ACTOR = '0192f3aa-0000-7000-8000-00000000000a';
 
     private const OTHER = '0192f3aa-0000-7000-8000-00000000000b';
+
+    private const MEMBER = '0192f3aa-0000-7000-8000-00000000000c';
 
     public function test_that_all_reaches_every_row(): void
     {
@@ -96,19 +95,35 @@ final class CustomerRowScopeTest extends TestCase
     public static function scopesWithNoMechanism(): array
     {
         return [
-            'team has no team table' => ['team'],
             'out has no visits table' => ['out'],
             'asgn has no deals table' => ['asgn'],
         ];
     }
 
-    /** Holding `own` as well must not let the unimplemented scope widen anything. */
-    public function test_that_team_adds_nothing_to_own(): void
+    /** `D-138` — Team reaches the rows the team owns: the leader and every member the caller passes in. */
+    public function test_that_team_reaches_the_team_members(): void
     {
-        $scope = CustomerRowScope::resolve(['own', 'team'], self::ACTOR);
+        $scope = CustomerRowScope::resolve(['team'], self::ACTOR, self::team(...));
 
         self::assertFalse($scope->unrestricted);
-        self::assertSame([self::ACTOR], $scope->ownerIds);
+        self::assertSame([self::ACTOR, self::MEMBER], $scope->ownerIds);
+        self::assertNotContains(self::OTHER, $scope->ownerIds);
+    }
+
+    /** `own` and `team` together list each owner once. */
+    public function test_that_team_and_own_together_list_each_owner_once(): void
+    {
+        $scope = CustomerRowScope::resolve(['own', 'team'], self::ACTOR, self::team(...));
+
+        self::assertSame([self::ACTOR, self::MEMBER], $scope->ownerIds);
+    }
+
+    /** Holding `team` with no member list is a defect at the call site, not an empty team (mirrors `own` with no actor). */
+    public function test_that_team_without_its_members_is_refused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        CustomerRowScope::resolve(['team'], self::ACTOR);
     }
 
     public function test_that_holding_no_scope_permits_nothing(): void
@@ -212,5 +227,15 @@ final class CustomerRowScopeTest extends TestCase
         self::assertCount(5, $codes, '§3.2 no longer defines exactly five scope codes.');
 
         return $codes;
+    }
+
+    /**
+     * Identity's `teamMemberIdsOf()` for the actor: the leader and one member.
+     *
+     * @return list<string>
+     */
+    private static function team(string $leaderId): array
+    {
+        return $leaderId === self::ACTOR ? [self::ACTOR, self::MEMBER] : [];
     }
 }

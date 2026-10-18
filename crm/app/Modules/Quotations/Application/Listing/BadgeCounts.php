@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Application\Listing;
 
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\Scope;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
@@ -26,6 +27,7 @@ final readonly class BadgeCounts
     public function __construct(
         private QuotationDirectoryInterface $directory,
         private AuthorizeAction $authorize,
+        private UserFactsInterface $users,
     ) {}
 
     /** @return array{approvals: int, my_quotations: int} */
@@ -36,7 +38,7 @@ final readonly class BadgeCounts
         $approve = $this->authorize->decide($actorId, 'quotation', 'approve')->scopeValues();
 
         return [
-            'approvals' => $this->total(new QuotationListCriteria(perPage: 1, statuses: ['pending']), QuotationRowScope::resolve($approve, $actorId)),
+            'approvals' => $this->total(new QuotationListCriteria(perPage: 1, statuses: ['pending']), QuotationRowScope::resolve($approve, $actorId, $this->users->teamMemberIdsOf(...))),
             'my_quotations' => $this->total(new QuotationListCriteria(perPage: 1, bucket: QuotationListCriteria::INCOMPLETE_BUCKET), QuotationRowScope::resolve([Scope::Own->value], $actorId)),
         ];
     }

@@ -16,6 +16,7 @@ use App\Modules\Customers\Domain\Listing\CustomerSummary;
 use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Customers\Domain\Writing\CustomerWriteResult;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Support\Settings\SettingReader;
 use Illuminate\Database\ConnectionInterface;
@@ -31,9 +32,10 @@ use Illuminate\Validation\ValidationException;
  * and there is no row yet to filter. The only thing a scope can constrain
  * before the row exists is **who it is filed under**, so that is what it
  * constrains: `all` files under anybody, `own` files under the actor and
- * refuses anybody else. The same {@see CustomerRowScope} answers it, which is
- * why `team`, `out` and `asgn` fail closed here exactly as they do on read —
- * a resolver that permits no rows cannot be asked to permit one new one.
+ * refuses anybody else; `team` files under the actor's team (`D-138`). The
+ * same {@see CustomerRowScope} answers it, which is why `out` and `asgn` fail
+ * closed here exactly as they do on read — a resolver that permits no rows
+ * cannot be asked to permit one new one.
  *
  * ── The audit is inside the transaction ────────────────────────────────────
  *
@@ -71,6 +73,7 @@ final readonly class SaveCustomer
         private ConnectionInterface $connection,
         private ManagedListRepositoryInterface $lists,
         private AddListEntry $sectors,
+        private UserFactsInterface $userFacts,
     ) {}
 
     /**
@@ -79,7 +82,7 @@ final readonly class SaveCustomer
      */
     public function create(array $validated, array $heldScopes, string $actorId): CustomerWriteResult
     {
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
         $this->assertListedTitle($validated);
 
         $validated = $this->ownedWithinScope($validated, $scope, $actorId);
@@ -116,7 +119,7 @@ final readonly class SaveCustomer
      */
     public function update(string $customerId, array $validated, array $heldScopes, ?string $actorId): CustomerWriteResult
     {
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
         $this->assertListedTitle($validated);
 
         [$customer, $draft] = $this->connection->transaction(function () use ($customerId, $validated, $scope, $actorId): array {
@@ -218,7 +221,7 @@ final readonly class SaveCustomer
     private function ownedWithinScope(array $validated, CustomerRowScope $scope, string $actorId): array
     {
         if ($scope->permitsNothing()) {
-            // `team`, `out` and `asgn` have no mechanism (owner's deferral,
+            // `out` and `asgn` have no mechanism (owner's deferral,
             // 2026-08-29). Refusing is the safe half of an undefined rule; the
             // alternative is filing a record under a rule nobody has written.
             throw AuthorizationRefused::of('customer', 'create');
@@ -244,7 +247,7 @@ final readonly class SaveCustomer
         }
 
         if ($requested === null) {
-            // `own` and no owner named: the actor is the owner. Leaving it null
+            // `own`/`team` and no owner named: the actor is the owner. Leaving it null
             // would create a row its own creator cannot then read.
             $validated['sales_owner_id'] = $actorId;
 
@@ -252,7 +255,8 @@ final readonly class SaveCustomer
         }
 
         // `own`: the actor's id is the only one in `ownerIds`, so this is
-        // §3.3's create scope read as "themselves and nobody else".
+        // §3.3's create scope read as "themselves and nobody else"; `team`
+        // adds the actor's team (`D-138`).
         if (! in_array($requested, $scope->ownerIds, true)) {
             throw AuthorizationRefused::of('customer', 'create');
         }

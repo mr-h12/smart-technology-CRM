@@ -24,7 +24,7 @@ use Tests\TestCase;
  * table, on the owner's Q2 ruling (#131): the **same row** goes back to
  * `draft`, `returned_at` and `return_note` are written, `submitted_at` is
  * cleared so `D-11`'s "days waiting" restarts on resubmit. §3.5's `return
- * with note` row: Manager All, Team Leader Team (`D-a`), nothing else. The
+ * with note` row: Manager All, Team Leader Team (`D-138`), nothing else. The
  * note is mandatory and non-blank (§6.4 "return with note", §9 Flow 7's
  * "mandatory reason"). `If-Match` on 3.6's terms; `QUOTATION_RETURNED`
  * audited with the note (`AUD-01`).
@@ -71,8 +71,8 @@ final class QuotationReturnEndpointTest extends TestCase
         $this->return($id, $etag, RoleName::Manager)->assertStatus(200);
     }
 
-    /** `D-a`: `team` is granted and unbacked — fails closed, as the approve does. */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 

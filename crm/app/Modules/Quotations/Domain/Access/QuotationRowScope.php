@@ -23,13 +23,13 @@ use InvalidArgumentException;
  * `| view | All | Team | — | Own | Own | Asgn | All |` across Manager, Team
  * Leader, Outdoor Supervisor, Outdoor Sales, Indoor Sales, Procurement and CEO.
  * Four of the five codes appear on one row, which is why this module needs the
- * resolver at all and why two of the four still reach nothing:
+ * resolver at all and why `out` and `asgn` still reach nothing:
  *
  * | code | what §3.2 says | what backs it today |
  * |---|---|---|
  * | `all` | every record in the system | no predicate needed — Manager and CEO |
  * | `own` | their own records only | the caller's id; **which column carries it is not decided here** — see below |
- * | `team` | their team's records | **nothing** — no team entity in §4.1, no team column on `users`; unchanged since Module 1 Point 3.2 found it |
+ * | `team` | their team's records | `D-138`: the quotations whose deal the caller's team owns — themself and every user whose `team_leader_id` is theirs — resolved by the caller through Identity's `teamMemberIdsOf()` and passed in |
  * | `out` | outdoor team records only | **nothing**, and §3.5 never grants it on a quotation anyway — Outdoor Supervisor's cell is `—` |
  * | `asgn` | deals handed over to them | **nothing** — and here it is Procurement's only way to see a quotation at all |
  *
@@ -78,10 +78,12 @@ final readonly class QuotationRowScope
      *
      * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
      * @param  string  $actorId  the caller's own user id — what `own` means
+     * @param  (\Closure(string): list<string>)|null  $teamOf  `D-138`: the caller's team (themself and every user they
+     *                                                         lead) — Identity's `teamMemberIdsOf()`; called only when `team` is held
      *
-     * @throws InvalidArgumentException on a code §3.2 does not define, or a blank actor
+     * @throws InvalidArgumentException on a code §3.2 does not define, a blank actor, or `team` without its members
      */
-    public static function resolve(array $heldScopes, string $actorId): self
+    public static function resolve(array $heldScopes, string $actorId, ?\Closure $teamOf = null): self
     {
         if (trim($actorId) === '') {
             // Never a legitimate call. Letting it through would make `own`
@@ -103,6 +105,14 @@ final readonly class QuotationRowScope
                     break;
 
                 case self::TEAM:
+                    if ($teamOf === null) {
+                        // `D-138`: the caller resolves the team through Identity; holding `team` without it is a defect, not an empty team.
+                        throw new InvalidArgumentException('The team scope needs the team it is being resolved for.');
+                    }
+
+                    $ownerIds = [...$ownerIds, ...$teamOf($actorId)];
+                    break;
+
                 case self::OUT:
                 case self::ASGN:
                     // Recognised, unbacked, and therefore contributing no rows.

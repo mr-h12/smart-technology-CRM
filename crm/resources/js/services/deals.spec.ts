@@ -22,7 +22,7 @@ import {
  * the query shape and the body. It proves **no authorization** — §3.12 rule 1
  * and `SEC-09` put that at the API, and the `tests/Feature/Deals` suites
  * already prove it there against the seeded matrix, including the 404 a Team
- * Leader gets on every row because `Team` has no mechanism.
+ * Leader gets on a row outside the team (`D-138`).
  *
  * ── The query shape is `DealListCriteria`'s, exactly ───────────────────────
  *

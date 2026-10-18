@@ -95,10 +95,10 @@ final class QuotationDeleteEndpointTest extends TestCase
         self::assertNull(DB::table('quotations')->where('id', $id)->value('deleted_at'));
     }
 
-    /** `team` is granted and unbacked — fails closed, as the read, the edit and the submit do. */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
-        [$id, $etag] = $this->quotation($this->deal($this->userWith(RoleName::TeamLeader)->id));
+        [$id, $etag] = $this->quotation($this->deal($this->userWith(RoleName::IndoorSales)->id));
 
         $this->remove($id, $etag, RoleName::TeamLeader)->assertStatus(404);
     }

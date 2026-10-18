@@ -30,7 +30,7 @@ final readonly class ListCustomers
      */
     public function handle(CustomerListCriteria $criteria, array $heldScopes, string $actorId): CustomerPage
     {
-        return $this->customers->list($criteria, CustomerRowScope::resolve($heldScopes, $actorId));
+        return $this->customers->list($criteria, CustomerRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
     }
 
     /**
@@ -40,7 +40,7 @@ final readonly class ListCustomers
      */
     public function one(string $customerId, array $heldScopes, string $actorId): CustomerSummary
     {
-        $customer = $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId));
+        $customer = $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
 
         if (! $customer instanceof CustomerSummary) {
             // §5.1: 404 for "does not exist **or** is not visible to the

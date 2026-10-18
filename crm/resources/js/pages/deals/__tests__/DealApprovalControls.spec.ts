@@ -10,12 +10,9 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
 /**
  * Module 5, Point 6.4 — Flow 3's decision at the screen.
  *
- * ⚠️ **The role the criterion names cannot demonstrate it today.** §3.4 grants
- * `deal.approve` to the Manager (`All`) and the Team Leader (`Team`) only, and
- * `Team` resolves to no rows at all (Point 2.1) — so a Team Leader holds the
- * permission, is drawn the buttons, and reaches no deal to press them on. That
- * is recorded backend debt, not a defect of this component, and the module's
- * manual test list says so in as many words.
+ * §3.4 grants `deal.approve` to the Manager (`All`) and the Team Leader
+ * (`Team`) only; `Team` reaches the leader's team's deals (`D-138`), which the
+ * API proves — this component only draws the buttons.
  */
 
 function json(status: number, body: unknown): Response {

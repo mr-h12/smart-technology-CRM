@@ -190,6 +190,21 @@ final class CustomerNotesEndpointTest extends TestCase
         $this->patchJson($this->notes($id).'/'.$note, ['body' => 'back'], $bearer)->assertStatus(404);
     }
 
+    /** `D-138` — a Team Leader's notes stop at the team: a customer owned by a user with no leader is 404 on every verb. */
+    public function test_that_a_team_leader_cannot_reach_the_notes_of_a_customer_outside_the_team(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+        $id = $this->customer('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+        $note = $this->note($id, 'private', null);
+        $bearer = $this->bearerFor(RoleName::TeamLeader);
+
+        $this->getJson($this->notes($id), $bearer)->assertStatus(404);
+        $this->postJson($this->notes($id), ['body' => 'ours now'], $bearer)->assertStatus(404);
+        $this->patchJson($this->notes($id).'/'.$note, ['body' => 'ours now'], $bearer)->assertStatus(404);
+        $this->deleteJson($this->notes($id).'/'.$note, [], $bearer)->assertStatus(404);
+    }
+
     public function test_that_a_note_of_another_customer_is_404(): void
     {
         $alpha = $this->customer('Alpha Trading');

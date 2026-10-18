@@ -145,7 +145,7 @@ final class EloquentQuotationDirectoryListTest extends TestCase
         DB::enableQueryLog();
         DB::flushQueryLog();
 
-        $page = $this->list(['page' => '2'], ['team'], $this->ids['A']);
+        $page = $this->list(['page' => '2'], ['out'], $this->ids['A']);
 
         self::assertSame([], $page->items);
         self::assertSame(0, $page->total);

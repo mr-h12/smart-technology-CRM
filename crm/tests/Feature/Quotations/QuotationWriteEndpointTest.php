@@ -119,17 +119,33 @@ final class QuotationWriteEndpointTest extends TestCase
     }
 
     /**
-     * §3.5 `create` = `Team` for the Team Leader, and `team` still resolves to
-     * nothing (no team entity). Fail-closed: 403 even on a deal they own
-     * themselves, and asserted by name so the gap is not mistaken for coverage.
+     * §3.5 `create` = `Team` for the Team Leader, backed by `D-138`: the deals
+     * the leader or a member (`team_leader_id` = the leader) owns are quotable.
      */
-    public function test_that_the_team_leader_is_refused_until_teams_exist(): void
+    public function test_that_the_team_leader_can_quote_their_own_and_a_members_deal(): void
     {
-        $ownerId = $this->userWith(RoleName::TeamLeader)->getKey();
-        self::assertIsString($ownerId);
-        $ownDeal = $this->deal($this->customerId, $ownerId);
+        $leaderId = $this->userWith(RoleName::TeamLeader)->getKey();
+        self::assertIsString($leaderId);
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $leaderId])->save();
+        $memberId = $member->getKey();
+        self::assertIsString($memberId);
 
-        $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $ownDeal]), $this->bearerFor(RoleName::TeamLeader))
+        // One bearer per POST: each carries a fresh `Idempotency-Key` (§9.1).
+        $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $this->deal($this->customerId, $leaderId)]), $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(201);
+        $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $this->deal($this->customerId, $memberId)]), $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(201);
+    }
+
+    /** … and a deal outside the team is the own-scoped roles' 403 that reveals nothing. */
+    public function test_that_the_team_leader_cannot_quote_a_deal_outside_the_team(): void
+    {
+        $outsiderId = $this->userWith(RoleName::OutdoorSales)->getKey();
+        self::assertIsString($outsiderId);
+        $outsidersDeal = $this->deal($this->customerId, $outsiderId);
+
+        $this->postJson(self::ENDPOINT, $this->payload(['deal_id' => $outsidersDeal]), $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(403);
     }
 

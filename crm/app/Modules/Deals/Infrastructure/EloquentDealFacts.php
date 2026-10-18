@@ -48,11 +48,15 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
         );
     }
 
-    public function dealIdsOwnedBy(string $ownerId): array
+    public function dealIdsOwnedBy(array $ownerIds): array
     {
+        if ($ownerIds === []) {
+            return [];
+        }
+
         $ids = [];
         /** @var object{id: string} $row */
-        foreach ($this->live()->where('owner_id', $ownerId)->select('id')->get() as $row) {
+        foreach ($this->live()->whereIn('owner_id', $ownerIds)->select('id')->get() as $row) {
             $ids[] = (string) $row->id;
         }
 

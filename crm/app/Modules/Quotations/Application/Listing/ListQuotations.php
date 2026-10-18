@@ -32,7 +32,7 @@ final readonly class ListQuotations
      */
     public function handle(QuotationListCriteria $criteria, array $heldScopes, string $actorId): QuotationPage
     {
-        $page = $this->quotations->list($criteria, QuotationRowScope::resolve($heldScopes, $actorId));
+        $page = $this->quotations->list($criteria, QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
         $names = $this->customers->namesOf(array_values(array_unique(array_map(static fn (QuotationSummary $row): string => $row->customerId, $page->items))));
 
         return new QuotationPage($page->items, $page->total, $page->page, $page->perPage, $names);

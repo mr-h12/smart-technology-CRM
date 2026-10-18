@@ -23,14 +23,16 @@ use Tests\TestCase;
  * ── What the row scope actually produces today ─────────────────────────────
  *
  * §3.4's view row reads `All · Team · Out · Own · Own · Asgn · All`, and
- * `DealRowScope` (Point 2.1) backs only `all` and `own`:
+ * `DealRowScope` (Point 2.1) backs `all`, `own` and — since `D-138`
+ * (Module 13 · 7.5c) — `team`:
  *
  * | role | sees |
  * |---|---|
  * | Super Admin | everything, on §3.1's unconditional access |
  * | Manager, CEO | everything (`all`) |
+ * | Team Leader | the deals their team owns — themself and every user whose `team_leader_id` is theirs (`team`) |
  * | Outdoor Sales, Indoor Sales | their own rows (`own`) |
- * | Team Leader, Outdoor Supervisor, Procurement | **nothing**, `team`/`out`/`asgn` have no mechanism |
+ * | Outdoor Supervisor, Procurement | **nothing**, `out`/`asgn` have no mechanism |
  *
  * ── An out-of-scope row is 404, not 403 ────────────────────────────────────
  *
@@ -77,6 +79,15 @@ final class DealListEndpointTest extends TestCase
         $user->save();
 
         return $this->users[$role->value] = $user;
+    }
+
+    /** `D-138` — the Team Leader, with this file's Indoor Sales user as their member. */
+    private function teamWithIndoorSalesMember(): User
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+
+        return $leader;
     }
 
     /** @return array<string, string> */
@@ -215,18 +226,34 @@ final class DealListEndpointTest extends TestCase
     }
 
     /**
-     * `Team`, `Out` and `Asgn` have no mechanism (Point 2.1) — three roles
-     * resolve to nothing, and that is tested rather than left implicit.
+     * `Out` and `Asgn` have no mechanism (Point 2.1) — two roles resolve to
+     * nothing, and that is tested rather than left implicit.
      */
     public function test_that_a_role_whose_scope_has_no_mechanism_sees_nothing(): void
     {
         $this->deal('Alpha', $this->userWith(RoleName::IndoorSales)->id);
 
-        foreach ([RoleName::TeamLeader, RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
+        foreach ([RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
             $this->getJson(self::ENDPOINT, $this->bearerFor($role))
                 ->assertStatus(200)
                 ->assertJsonPath('meta.pagination.total', 0);
         }
+    }
+
+    /** `D-138` — Team reaches the leader's own deals and every member's, and nobody else's. */
+    public function test_that_a_team_leader_sees_the_deals_their_team_owns(): void
+    {
+        $leader = $this->teamWithIndoorSalesMember();
+
+        $this->deal('Leaders Own', $leader->id);
+        $this->deal('Members', $this->userWith(RoleName::IndoorSales)->id);
+        $this->deal('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $titles = array_column((array) $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->json('data'), 'title');
+
+        self::assertEqualsCanonicalizing(['Leaders Own', 'Members'], $titles);
     }
 
     /** §3.1 — the Super Admin is granted without consulting a cell. */
@@ -289,6 +316,17 @@ final class DealListEndpointTest extends TestCase
         $id = $this->deal('Someone Elses', $this->userWith(RoleName::OutdoorSales)->id);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+    }
+
+    /** `D-138` — a Team Leader's detail read stops at the team: a deal owned by a user with no leader is 404. */
+    public function test_that_a_team_leader_cannot_read_a_deal_outside_the_team(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+        $id = $this->deal('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
     }
 
@@ -590,6 +628,20 @@ final class DealListEndpointTest extends TestCase
             ->assertJsonPath('meta.pagination.total', 0);
     }
 
+    /** `D-108` under `D-138`: a Team Leader narrows the team's deals to one member's. */
+    public function test_that_a_team_leader_filters_by_a_team_member(): void
+    {
+        $leader = $this->teamWithIndoorSalesMember();
+        $member = $this->userWith(RoleName::IndoorSales)->id;
+        $this->deal('Members', $member);
+        $this->deal('Leaders Own', $leader->id);
+
+        $this->getJson(self::ENDPOINT.'?filter[owner]='.$member, $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonPath('data.0.title', 'Members');
+    }
+
     /** OpenAPI §6.2: a malformed filter value is `400`, never a Postgres `22P02`. */
     public function test_that_an_owner_filter_that_is_not_a_uuid_is_400(): void
     {
@@ -680,6 +732,22 @@ final class DealListEndpointTest extends TestCase
             ->assertJsonPath('data.items', [['id' => $indoor->id, 'name' => $indoor->name]]);
     }
 
+    /** `SEC-08` · `D-138`: a Team Leader's choices are the team's owners — never an outsider's. */
+    public function test_that_the_owners_route_gives_a_team_leader_the_teams_owners(): void
+    {
+        $leader = $this->teamWithIndoorSalesMember();
+        $member = $this->userWith(RoleName::IndoorSales);
+        $this->deal('Leaders Own', $leader->id);
+        $this->deal('Members', $member->id);
+        $this->deal('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $ids = array_column((array) $this->getJson(self::ENDPOINT.'/owners', $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->json('data.items'), 'id');
+
+        self::assertEqualsCanonicalizing([$leader->id, $member->id], $ids);
+    }
+
     /** `SEC-09` · §3.12 rule 1 — the negative authorisation case for the new route. */
     public function test_that_the_owners_route_refuses_a_role_without_deal_view(): void
     {
@@ -714,6 +782,12 @@ final class DealListEndpointTest extends TestCase
             public function holdersOf(string $resource, string $action): array
             {
                 return [];
+            }
+
+            /** @return list<string> */
+            public function teamMemberIdsOf(string $leaderId): array
+            {
+                return [$leaderId];
             }
         };
         $this->app->instance(UserFactsInterface::class, $fake);

@@ -21,8 +21,8 @@ use Tests\TestCase;
  * `PATCH /api/v1/quotations/{id}/approve` — Module 8 Point 1.1.
  *
  * §6.4's `Pending ──approve──► Approved` through Point 4.1's edge table.
- * §3.5's `approve` row: Manager All, Team Leader Team (`D-a`: fails closed
- * until a team entity exists), nothing else. `If-Match` on 3.6's terms
+ * §3.5's `approve` row: Manager All, Team Leader Team (`D-138`: the deals
+ * the leader's team owns), nothing else. `If-Match` on 3.6's terms
  * (`DB-12`, `API-12`). §6.5 / `D-50`: when the approver is the quotation's
  * `created_by` (Q3) the row is flagged `is_self_approved` and the audit entry
  * is typed `SELF_APPROVAL` **instead of** `QUOTATION_APPROVED`.
@@ -67,12 +67,21 @@ final class QuotationApproveEndpointTest extends TestCase
         $this->approve($id, $etag, RoleName::Manager)->assertStatus(200);
     }
 
-    /** `D-a`: `team` is granted and unbacked — fails closed, as submit, edit and read do. */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
         $this->approve($id, $etag, RoleName::TeamLeader)->assertStatus(404);
+    }
+
+    /** `D-138` · Module 8's "Team Leader and Manager → same authority": a member's pending quotation. */
+    public function test_that_the_team_leader_approves_a_team_members_pending_quotation(): void
+    {
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        [$id, $etag] = $this->pending(RoleName::IndoorSales);
+
+        $this->approve($id, $etag, RoleName::TeamLeader)->assertStatus(200);
     }
 
     /**

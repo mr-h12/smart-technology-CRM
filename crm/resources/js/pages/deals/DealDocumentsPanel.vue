@@ -33,9 +33,8 @@
  * carries `admin.create_user` (§3.11: Super Admin and Manager); `assign_owner`
  * (§3.4) reaches the Manager and the Team Leader. The only role that would be
  * refused the list is the Team Leader — whose `assign_owner` is `Team`, which
- * resolves to no rows at all (Point 2.1), so they cannot reach a deal to assign
- * in the first place. Every role that can actually use this control today can
- * also list users.
+ * reaches the team's deals since `D-138` — and they get the identifier box
+ * below, since the list is fetched best-effort.
  *
  * So the list is fetched **best-effort**, exactly as `DealsView` fetches
  * customer names: a picker when it loads, and the identifier box when it does
@@ -43,12 +42,11 @@
  * still works. Reported by the owner, who could not assign a deal without
  * knowing a UUID by heart.
  *
- * ── Assign is its own permission, and its Team half is unreachable ─────────
+ * ── Assign is its own permission ───────────────────────────────────────────
  *
  * §3.4 gives `assign_owner` its own row — Manager (`All`) and Team Leader
- * (`Team`) — where `edit` reaches five roles. ⚠️ `Team` resolves to no rows
- * (Point 2.1), so half of this control's permission row is unreachable today,
- * exactly as `routes/api.php` already records against the route.
+ * (`Team`, the leader's team's deals since `D-138`) — where `edit` reaches
+ * five roles.
  */
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

@@ -13,6 +13,7 @@ use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealSummary;
 use App\Modules\Deals\Domain\Writing\DealDraft;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Validation\ValidationException;
@@ -65,6 +66,7 @@ final readonly class SaveDeal
         private UserDirectoryInterface $users,
         private ConnectionInterface $connection,
         private ChangeDealStatus $changeStatus,
+        private UserFactsInterface $userFacts,
     ) {}
 
     /**
@@ -73,7 +75,7 @@ final readonly class SaveDeal
      */
     public function create(array $validated, array $heldScopes, string $actorId): DealSummary
     {
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
 
         $draft = DealDraft::forCreate(
             $this->ownedWithinScope($validated, $scope, $actorId),
@@ -112,7 +114,7 @@ final readonly class SaveDeal
      */
     public function update(string $dealId, array $validated, array $heldScopes, string $actorId): DealSummary
     {
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
         $draft = DealDraft::forUpdate($validated);
 
         return $this->connection->transaction(function () use ($dealId, $draft, $scope, $actorId): DealSummary {
@@ -179,13 +181,13 @@ final readonly class SaveDeal
         }
 
         if ($requested === null) {
-            // `own` and no owner named: the actor is the owner.
+            // `own`/`team` and no owner named: the actor is the owner.
             $validated['owner_id'] = $actorId;
 
             return $validated;
         }
 
-        // `own`: the actor's id is the only one in `ownerIds`.
+        // `own`: the actor's id is the only one in `ownerIds`; `team` adds the actor's team (`D-138`).
         if (! in_array($requested, $scope->ownerIds, true)) {
             throw AuthorizationRefused::of('deal', 'create');
         }

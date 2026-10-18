@@ -135,6 +135,22 @@ final class QuotationPdfGenerateEndpointTest extends TestCase
         self::assertSame(0, DB::table('pdf_generations')->where('quotation_id', $others)->count());
     }
 
+    /** `D-138` — Team on generate: a member's deal's PDF is the leader's to ask for; an outsider's is 404. */
+    public function test_that_a_team_leader_asks_for_a_team_members_pdf_and_not_an_outsiders(): void
+    {
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $members = $this->insertQuotation($member->id);
+        $outsiders = $this->insertQuotation($this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->postJson($this->endpoint($members), [], $this->bearerFor(RoleName::TeamLeader))->assertStatus(202);
+        $this->postJson($this->endpoint($outsiders), [], $this->bearerFor(RoleName::TeamLeader))
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        self::assertSame(0, DB::table('pdf_generations')->where('quotation_id', $outsiders)->count());
+    }
+
     public function test_that_an_unowned_deals_pdf_is_nobodys_own(): void
     {
         $quotationId = $this->insertQuotation(null);
@@ -146,7 +162,6 @@ final class QuotationPdfGenerateEndpointTest extends TestCase
     public static function refusedByName(): array
     {
         return [
-            'Team Leader (Team on generate, D-a)' => [RoleName::TeamLeader],
             'Procurement (Asgn, Q2)' => [RoleName::Procurement],
             'CEO (no grant to generate)' => [RoleName::Ceo],
             'Outdoor Supervisor (a dash on the row)' => [RoleName::OutdoorSupervisor],

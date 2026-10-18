@@ -282,7 +282,7 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
 
         // Q2: `filter[employee]` intersects the same way — two `IN`s on one column.
         if ($criteria->employeeId !== null) {
-            $query->whereIn('quotations.deal_id', $this->deals->dealIdsOwnedBy($criteria->employeeId));
+            $query->whereIn('quotations.deal_id', $this->deals->dealIdsOwnedBy([$criteria->employeeId]));
         }
 
         if ($criteria->statuses !== []) {
@@ -443,23 +443,18 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
     {
         return PurchaseOrder::query()
             ->whereBetween('po_date', [$from, $to])
-            ->whereIn('quotation_id', Quotation::query()->whereIn('deal_id', $this->deals->dealIdsOwnedBy($ownerId))->select('id'))
+            ->whereIn('quotation_id', Quotation::query()->whereIn('deal_id', $this->deals->dealIdsOwnedBy([$ownerId]))->select('id'))
             ->count();
     }
 
     /**
-     * `SEC-08`'s `own` as a set of deal ids through the seam — never a join on `deals`.
+     * `SEC-08`'s `own` and `team` (`D-138`) as one set of deal ids through the seam — never a join on `deals`.
      *
      * @return list<string>
      */
     private function reach(QuotationRowScope $scope): array
     {
-        $reach = [];
-        foreach ($scope->ownerIds as $ownerId) {
-            $reach = [...$reach, ...$this->deals->dealIdsOwnedBy($ownerId)];
-        }
-
-        return $reach;
+        return $this->deals->dealIdsOwnedBy($scope->ownerIds);
     }
 
     private static function purchaseOrderOf(string $quotationId): ?PurchaseOrderSummary

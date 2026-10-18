@@ -24,8 +24,8 @@ use Tests\TestCase;
  * on a create cannot be a `WHERE`: the row does not exist. It is read here as
  * the owner the caller may file the record under — `all` means anyone, `own`
  * means themselves and nobody else. The same {@see CustomerRowScope} answers
- * both questions, so `team`, `out` and `asgn` fail closed on create exactly as
- * they do on read (owner's deferral, 2026-08-29).
+ * both questions, so `team` means the caller's team on create as on read
+ * (`D-138`), and `out` and `asgn` fail closed (owner's deferral, 2026-08-29).
  *
  * ── The owner is not editable through `PATCH` ──────────────────────────────
  *
@@ -283,6 +283,20 @@ final class CustomerWriteEndpointTest extends TestCase
         $id = $this->customer('Somebody Elses', $this->userWith(RoleName::OutdoorSales)->id);
 
         $this->patchJson(self::ENDPOINT.'/'.$id, ['region' => 'Riyadh'], $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->assertDatabaseMissing('customers', ['id' => $id, 'region' => 'Riyadh']);
+    }
+
+    /** `D-138` — a Team Leader's edit stops at the team: a customer owned by a user with no leader is 404. */
+    public function test_that_a_team_leader_cannot_update_a_customer_outside_the_team(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+        $id = $this->customer('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['region' => 'Riyadh'], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'resource_not_found');
 

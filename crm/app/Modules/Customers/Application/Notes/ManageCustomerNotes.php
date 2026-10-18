@@ -14,6 +14,7 @@ use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\CustomerPage;
 use App\Modules\Customers\Domain\Listing\CustomerSummary;
 use App\Modules\Customers\Domain\Notes\CustomerNote;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -33,6 +34,7 @@ final readonly class ManageCustomerNotes
         private CustomerNotesInterface $notes,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -128,7 +130,7 @@ final readonly class ManageCustomerNotes
      */
     private function reach(string $customerId, array $heldScopes, string $actorId): void
     {
-        if (! $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId)) instanceof CustomerSummary) {
+        if (! $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...))) instanceof CustomerSummary) {
             throw CustomerNotFound::of($customerId);
         }
     }

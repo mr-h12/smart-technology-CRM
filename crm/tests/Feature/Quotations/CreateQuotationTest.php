@@ -273,16 +273,30 @@ final class CreateQuotationTest extends TestCase
     }
 
     /**
-     * `team` resolves to nothing (no team entity — `QuotationRowScope`'s recorded
-     * gap), so a Team Leader's `Team` create permits no deal. Fail-closed, and
-     * asserted by name so the gap stays visible until a team exists.
+     * `D-138` — `team` reaches the deals the caller's team owns: a member is a
+     * user whose `team_leader_id` is the caller.
      */
-    public function test_that_a_team_scoped_caller_is_refused_until_teams_exist(): void
+    public function test_that_a_team_scoped_caller_can_quote_a_team_members_deal(): void
     {
+        $memberId = User::factory()->create(['team_leader_id' => $this->actorId])->getKey();
+        self::assertIsString($memberId);
+        $dealId = $this->deal($this->customerId, $memberId);
+
+        $result = $this->create($this->payload(lines: [], additional: [], overrides: ['deal_id' => $dealId]), ['team']);
+
+        self::assertSame($dealId, $this->stored($result->quotation->id)->getAttribute('deal_id'));
+    }
+
+    /** … and a deal whose owner is outside the caller's team is refused, fail-closed. */
+    public function test_that_a_team_scoped_caller_cannot_quote_a_deal_outside_the_team(): void
+    {
+        $outsiderId = User::factory()->create()->getKey();
+        self::assertIsString($outsiderId);
+
         $this->expectException(AuthorizationRefused::class);
 
         $this->create($this->payload(lines: [], additional: [], overrides: [
-            'deal_id' => $this->deal($this->customerId, $this->actorId),
+            'deal_id' => $this->deal($this->customerId, $outsiderId),
         ]), ['team']);
     }
 

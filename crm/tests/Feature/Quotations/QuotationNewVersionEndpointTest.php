@@ -98,10 +98,10 @@ final class QuotationNewVersionEndpointTest extends TestCase
             ->assertJsonPath('error.code', 'resource_not_found');
     }
 
-    /** `team` is granted and unbacked — fails closed, as every other quotation route does. */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
-        $id = $this->answered($this->deal($this->userWith(RoleName::TeamLeader)->id), 'counter');
+        $id = $this->answered($this->deal($this->userWith(RoleName::IndoorSales)->id), 'counter');
 
         $this->newVersion($id, RoleName::TeamLeader)->assertStatus(404);
     }

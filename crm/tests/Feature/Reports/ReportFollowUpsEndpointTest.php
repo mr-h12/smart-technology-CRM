@@ -171,6 +171,25 @@ final class ReportFollowUpsEndpointTest extends TestCase
         self::assertSame([$mine], DB::table('report_follow_ups')->where('report_id', $id)->pluck('customer_id')->all());
     }
 
+    /** `D-138`: a Team Leader author names the team's customers, never one owned by a user with no leader — the same 422. */
+    public function test_that_a_team_leader_author_cannot_name_a_customer_outside_the_team(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $member = $this->user(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+        $members = $this->customer('Nile Trading', $member);
+        $outsiders = $this->customer('Delta Foods', $this->user(RoleName::OutdoorSales));
+        $id = $this->create($leader);
+
+        $this->postJson($this->followUps($id), ['customer_id' => $members, 'note' => 'Team.'], $this->bearer($leader))
+            ->assertStatus(201);
+        $this->postJson($this->followUps($id), ['customer_id' => $outsiders, 'note' => 'Not ours.'], $this->bearer($leader))
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'customer_id');
+
+        self::assertSame([$members], DB::table('report_follow_ups')->where('report_id', $id)->pluck('customer_id')->all());
+    }
+
     /**
      * `D-131`, gap 1: an archived customer is out of reach even when the author owns
      * it — the same 422 `error` as a customer outside the scope (`meta.request_id` is per request), on add and on edit,

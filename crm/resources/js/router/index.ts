@@ -170,9 +170,9 @@ export const routes: RouteRecordRaw[] = [
         // sidebar on the matrix, so no screen a person may open is unreachable.
         // Recorded in `CHECKLIST.md` awaiting a `D-xx`.
         //
-        // ⚠️ Unlike §3.6's shared screen, §3.4 **is** scoped — and `Team`,
-        // `Out` and `Asgn` resolve to no rows at all (Point 2.1), so three of
-        // the roles admitted here are answered with an empty page rather than a
+        // ⚠️ Unlike §3.6's shared screen, §3.4 **is** scoped — and `Out` and
+        // `Asgn` resolve to no rows at all (Point 2.1), so two of the roles
+        // admitted here are answered with an empty page rather than a
         // refusal. The screen says "none are visible to you" for that reason.
         path: '/deals',
         name: 'deals',
@@ -196,10 +196,6 @@ export const routes: RouteRecordRaw[] = [
         // holds; §8 lists the screen for the CEO as read-only and the matrix
         // agrees (`view` All, no write cell). The owner's ruling of 2026-08-31
         // as on every list before it: route and sidebar follow the matrix.
-        //
-        // ⚠️ §3.5's `Team` scope resolves to no rows (Step 5's fail-closed
-        // owner scope), so a Team Leader is answered with an empty page and
-        // the screen says "none are visible to you" for that reason.
         path: '/quotations',
         name: 'quotations',
         component: QuotationsView,
@@ -207,8 +203,8 @@ export const routes: RouteRecordRaw[] = [
     },
     {
         // §8's *Approvals* (Module 8, Point 3.1) — the pending quotations the
-        // caller may approve, on §3.5's `quotation.approve`. The Team Leader's
-        // `Team` reaches no rows (`D-a`), so the page is empty for them.
+        // caller may approve, on §3.5's `quotation.approve` (the list itself is
+        // read under `quotation.view`; a debt row since 7.5c, `D-138`).
         path: '/approvals',
         name: 'approvals',
         component: ApprovalsView,

@@ -40,7 +40,7 @@ final readonly class RequestQuotationPdf
      * @param  'ar'|'en'  $locale  the document's language (Q15)
      * @return array{generationId: string, view: CustomerQuotationView}
      *
-     * @throws AuthorizationRefused when the caller's scope reaches no quotation (Procurement's `Asgn`, Q2; the Team Leader's `Team`, `D-a`)
+     * @throws AuthorizationRefused when the caller's scope reaches no quotation (Procurement's `Asgn`, Q2)
      * @throws QuotationNotFound when the quotation is absent or outside the caller's reach
      * @throws CustomerViewIncomplete when a fact the customer's document needs is missing
      */

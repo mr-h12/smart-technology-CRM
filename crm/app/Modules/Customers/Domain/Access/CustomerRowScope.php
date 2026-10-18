@@ -25,27 +25,25 @@ use InvalidArgumentException;
  * check the two transcriptions still agree. Duplication that a test pins is
  * cheaper here than a module boundary that leaks.
  *
- * ── Three of the five have no mechanism, and they fail closed ──────────────
+ * ── Two of the five have no mechanism, and they fail closed ────────────────
  *
  * | code | what §3.2 says | what backs it today |
  * |---|---|---|
  * | `all` | every record in the system | no predicate needed |
  * | `own` | their own records only | `customers.sales_owner_id` |
- * | `team` | their team's records | **nothing** — no team entity in §4.1, no team field in §4.2, no team column on `users` |
- * | `out` | outdoor team records only | **nothing** — `D-44` scopes it to "visits, visit customers"; `visits` is Module 12 |
- * | `asgn` | deals handed over to them | **nothing** — `deals` is Module 5 |
+ * | `team` | their team's records | `D-138`: the sales owners of the caller's team — themself and every user whose `team_leader_id` is theirs — resolved by the caller through Identity's `teamMemberIdsOf()` and passed in |
+ * | `out` | outdoor team records only | **nothing** — `D-44` scopes it to "visits, visit customers"; `visits` is Module 12 (`D-138`: unbacked on customers until then) |
+ * | `asgn` | deals handed over to them | **nothing** — "handed over" is not an owner |
  *
- * The three unbacked codes resolve to **no rows**. That is the safe half of an
- * undefined rule rather than the finished behaviour: guessing that `team` means
- * "everyone sharing a role" or "everyone this leader created" would invent an
- * authorisation rule no source states, and the way that fails is by handing one
- * person's customers to somebody the matrix never granted them to. A Team
- * Leader therefore resolves to nothing at all today, which is **an open owner
- * question recorded in `CHECKLIST.md`**, not a behaviour anybody signed off.
+ * The two unbacked codes resolve to **no rows**. That is the safe half of an
+ * undefined rule rather than the finished behaviour: guessing what they mean
+ * would invent an authorisation rule no source states, and the way that fails
+ * is by handing one person's customers to somebody the matrix never granted
+ * them to.
  *
  * ponytail: `ownerIds` is a set of owners rather than a boolean "mine only"
- * precisely so `team` and `out` become a wider set later without changing this
- * shape or any caller. `asgn` will not fit it — "deals handed over to them" is a
+ * precisely so `team` (`D-138`) and `out` become a wider set without changing
+ * this shape. `asgn` will not fit it — "deals handed over to them" is a
  * join, not an owner — and that arm is left for Module 5 rather than guessed at
  * now.
  */
@@ -76,10 +74,12 @@ final readonly class CustomerRowScope
      * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
      * @param  string|null  $actorId  the caller's own user id — what `own` means; null when the
      *                                system acts on its own behalf, which can hold `all` and nothing narrower
+     * @param  (\Closure(string): list<string>)|null  $teamOf  `D-138`: the caller's team (themself and every user they
+     *                                                         lead) — Identity's `teamMemberIdsOf()`; called only when `team` is held
      *
-     * @throws InvalidArgumentException on a code §3.2 does not define, or a blank actor
+     * @throws InvalidArgumentException on a code §3.2 does not define, a blank actor, or `team` without its members
      */
-    public static function resolve(array $heldScopes, ?string $actorId): self
+    public static function resolve(array $heldScopes, ?string $actorId, ?\Closure $teamOf = null): self
     {
         if ($actorId !== null && trim($actorId) === '') {
             // Never a legitimate call. Letting it through would make `own`
@@ -106,6 +106,14 @@ final readonly class CustomerRowScope
                     break;
 
                 case self::TEAM:
+                    if ($teamOf === null || $actorId === null) {
+                        // `D-138`: the caller resolves the team through Identity; holding `team` without it is a defect, not an empty team.
+                        throw new InvalidArgumentException('The team scope needs the team it is being resolved for.');
+                    }
+
+                    $ownerIds = [...$ownerIds, ...$teamOf($actorId)];
+                    break;
+
                 case self::OUT:
                 case self::ASGN:
                     // Recognised, unbacked, and therefore contributing no rows.

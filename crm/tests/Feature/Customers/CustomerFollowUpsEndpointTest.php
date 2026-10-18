@@ -184,11 +184,12 @@ final class CustomerFollowUpsEndpointTest extends TestCase
     }
 
     /**
-     * `D-133` · `SEC-07`: a role whose customer scope resolves to no rows (Team Leader)
-     * gets the parent's 404 even on a customer with a submitted follow-up. The owner's
-     * 200 first, so a missing route cannot pass this.
+     * `D-133` · `SEC-07`: a caller whose customer scope does not reach the owner (a Team
+     * Leader the owner is not a member of, `D-138`) gets the parent's 404 even on a
+     * customer with a submitted follow-up. The owner's 200 first, so a missing route
+     * cannot pass this.
      */
-    public function test_that_a_role_whose_scope_resolves_to_nothing_gets_404(): void
+    public function test_that_a_team_leader_outside_the_owners_team_gets_404(): void
     {
         $owner = $this->user(RoleName::IndoorSales);
         $manager = $this->user(RoleName::Manager);

@@ -16,14 +16,14 @@ use InvalidArgumentException;
  * check this transcription still agrees with Customers' — two modules quietly
  * drifting on what `own` means would be worse than either one being wrong.
  *
- * ── Three of the five have no mechanism, and one of them is a new gap ──────
+ * ── Two of the five have no mechanism, and one of them is a new gap ────────
  *
  * | code | what §3.2 says | what backs it today |
  * |---|---|---|
  * | `all` | every record in the system | no predicate needed |
  * | `own` | their own records only | `deals.owner_id` |
- * | `team` | their team's records | **nothing** — no team entity in §4.1, no team field anywhere, no team column on `users` (Module 1 Point 3.2's own finding, unchanged by this module existing) |
- * | `out` | outdoor team records only | **nothing** — `D-44` scopes it to "visits, visit customers"; `visits` is Module 12 |
+ * | `team` | their team's records | `D-138`: the deals owned by the caller's team — themself and every user whose `team_leader_id` is theirs — resolved by the caller through Identity's `teamMemberIdsOf()` and passed in |
+ * | `out` | outdoor team records only | **nothing** — `D-44` scopes it to "visits, visit customers"; `visits` is Module 12 (`D-138`: unbacked on deals until then) |
  * | `asgn` | §3.4's own reading: deals assigned to Procurement | **nothing** — `deals` has `owner_id` for "assigned sales employee" (§4.3) and no second assignment column; a procurement-facing one is not documented anywhere in §4 |
  *
  * `asgn` is worth pausing on precisely because it looks answered. Customers'
@@ -35,7 +35,7 @@ use InvalidArgumentException;
  * here, for a different and still-open reason — recorded rather than assumed
  * answered because the table changed.
  *
- * The three unbacked codes resolve to **no rows**, the same safe half of an
+ * The two unbacked codes resolve to **no rows**, the same safe half of an
  * undefined rule `CustomerRowScope` chose, and for the same reason: a guess
  * that widens access is the failure mode, not a guess that narrows it.
  */
@@ -65,10 +65,12 @@ final readonly class DealRowScope
      *
      * @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them
      * @param  string  $actorId  the caller's own user id — what `own` means
+     * @param  (\Closure(string): list<string>)|null  $teamOf  `D-138`: the caller's team (themself and every user they
+     *                                                         lead) — Identity's `teamMemberIdsOf()`; called only when `team` is held
      *
-     * @throws InvalidArgumentException on a code §3.2 does not define, or a blank actor
+     * @throws InvalidArgumentException on a code §3.2 does not define, a blank actor, or `team` without its members
      */
-    public static function resolve(array $heldScopes, string $actorId): self
+    public static function resolve(array $heldScopes, string $actorId, ?\Closure $teamOf = null): self
     {
         if (trim($actorId) === '') {
             // Never a legitimate call. Letting it through would make `own`
@@ -90,6 +92,14 @@ final readonly class DealRowScope
                     break;
 
                 case self::TEAM:
+                    if ($teamOf === null) {
+                        // `D-138`: the caller resolves the team through Identity; holding `team` without it is a defect, not an empty team.
+                        throw new InvalidArgumentException('The team scope needs the team it is being resolved for.');
+                    }
+
+                    $ownerIds = [...$ownerIds, ...$teamOf($actorId)];
+                    break;
+
                 case self::OUT:
                 case self::ASGN:
                     // Recognised, unbacked, and therefore contributing no rows.

@@ -33,10 +33,11 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
  *
  * ── The empty state cannot say "there are no deals" ────────────────────────
  *
- * §3.4 is scoped and `Team`, `Out` and `Asgn` resolve to **zero rows** (Point
- * 2.1), so a Team Leader is answered with an authenticated 200 and an empty
- * page. "None are visible to you" is true whether the table is empty or the
- * scope is unbacked; "there are no deals" would be a lie in the second case.
+ * §3.4 is scoped and `Out` and `Asgn` resolve to **zero rows** (Point 2.1;
+ * `Team` reaches the leader's team since `D-138`), so an Outdoor Supervisor or
+ * Procurement is answered with an authenticated 200 and an empty page.
+ * "None are visible to you" is true whether the table is empty or the scope is
+ * unbacked; "there are no deals" would be a lie in the second case.
  */
 
 function json(status: number, body: unknown): Response {
@@ -570,6 +571,28 @@ describe('the deals screen', () => {
     it('offers the owner filter to a deal.view.all user, from the server’s owners, and sends filter[owner]', async () => {
         const fetchMock = respondWithOwners();
         const wrapper = await render(fetchMock);
+
+        const select = wrapper.find('[data-testid="deals-filter-owner"]');
+        expect(select.exists()).toBe(true);
+        expect(select.text()).toContain('Sara Haddad');
+
+        await select.setValue('u9');
+        await flushPromises();
+
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bowner%5D=u9');
+    });
+
+    it('offers the owner filter to a deal.view.team user, so a Team Leader narrows to one member (D-138)', async () => {
+        const fetchMock = respondWithOwners();
+        const teamLeader: AuthenticatedUser = {
+            ...USER,
+            id: 'u6',
+            name: 'Test Team Leader',
+            email: 'team.leader@example.test',
+            role: { id: 'r6', slug: 'team_leader', name: 'Team Leader' },
+            permissions: ['deal.view.team', 'deal.create.all', 'deal.edit.team'],
+        };
+        const wrapper = await render(fetchMock, teamLeader);
 
         const select = wrapper.find('[data-testid="deals-filter-owner"]');
         expect(select.exists()).toBe(true);

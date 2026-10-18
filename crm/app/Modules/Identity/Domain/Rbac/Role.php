@@ -106,4 +106,15 @@ enum Role: string
             self::Procurement,
         ];
     }
+
+    /**
+     * `D-139`: the roles that never have a Team Leader — teams are one level
+     * deep. One list for the user requests' refusal and the team read.
+     *
+     * @return list<string>
+     */
+    public static function leadSlugs(): array
+    {
+        return [self::SuperAdmin->value, self::Ceo->value, self::Manager->value, self::TeamLeader->value];
+    }
 }

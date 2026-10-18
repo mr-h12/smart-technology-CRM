@@ -11,6 +11,7 @@ use App\Modules\Deals\Domain\Approval\DealApprovalRefused;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealSummary;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -39,6 +40,7 @@ final readonly class ReviewDealApproval
         private DealDirectoryInterface $deals,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
@@ -67,7 +69,7 @@ final readonly class ReviewDealApproval
         array $heldScopes,
         string $actorId,
     ): DealSummary {
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         return $this->connection->transaction(function () use ($dealId, $newApprovalStatus, $reason, $event, $scope, $actorId): DealSummary {
             $before = $this->deals->find($dealId, $scope);

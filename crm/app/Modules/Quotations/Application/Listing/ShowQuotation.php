@@ -9,6 +9,7 @@ use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
@@ -35,10 +36,10 @@ use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface
  * ── One 404 for absent and for out of reach ────────────────────────────────
  *
  * `OpenAPI §5.1`: "does not exist or is not visible to the caller. Do not
- * reveal which case applies." A scope that permits nothing (`team`, `asgn` —
+ * reveal which case applies." A scope that permits nothing (`asgn` —
  * granted by §3.5 and backed by nothing) is answered before the read, with
- * the same 404, so a Team Leader probing ids learns nothing from timing or
- * from the code.
+ * the same 404, so a caller probing ids learns nothing from timing or from
+ * the code.
  */
 final readonly class ShowQuotation
 {
@@ -52,6 +53,7 @@ final readonly class ShowQuotation
         private SupplierItemPricingInterface $supplierPrices,
         private CurrencyRepositoryInterface $currencies,
         private CatalogItemLabelsInterface $catalogLabels,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -61,7 +63,7 @@ final readonly class ShowQuotation
      */
     public function one(string $quotationId, array $heldScopes, string $actorId): QuotationDetail
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         if ($scope->permitsNothing()) {
             throw QuotationNotFound::of($quotationId);

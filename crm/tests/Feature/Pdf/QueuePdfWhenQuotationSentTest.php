@@ -80,7 +80,7 @@ final class QueuePdfWhenQuotationSentTest extends TestCase
 
     public function test_that_a_sender_whose_grant_cannot_print_it_leaves_the_send_alone(): void
     {
-        // The Team Leader's `generate_pdf` is `Team`, refused by name under `D-a`.
+        // The Team Leader's `generate_pdf` is `Team`, and this deal's owner is outside their team (`D-138`).
         $sender = $this->userWith(RoleName::TeamLeader);
         $quotationId = $this->insertQuotation($this->userWith(RoleName::IndoorSales)->id);
         $this->inTheSendersRequest($sender);

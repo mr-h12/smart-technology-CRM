@@ -23,7 +23,8 @@ use Tests\TestCase;
  * answer), so the boundary refuses it with 422 before §4.4's graph is asked.
  *
  * §3.4 grants `change_status` the same five roles and scopes as `view`/`edit`
- * — `Team`/`Out`/`Asgn` still have no mechanism (Point 2.1). `Delivery →
+ * — `Team` reaches the leader's team (`D-138`), `Out`/`Asgn` still have no
+ * mechanism (Point 2.1). `Delivery →
  * Delivery Complete` additionally needs `mark_delivery_complete` (`D-14`'s
  * four roles — a different set from `change_status`'s).
  */
@@ -169,10 +170,10 @@ final class DealStatusEndpointTest extends TestCase
         self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->where('entity_id', $id)->count());
     }
 
-    /** The visible cost of the unbacked `team` scope, not a decision about §4.4. */
-    public function test_that_a_team_leader_can_change_nothing_while_team_is_unbacked(): void
+    /** `D-138` — a deal owned by a user with no leader is outside the team, so the Team Leader cannot move it. */
+    public function test_that_a_team_leader_cannot_change_a_deal_outside_the_team(): void
     {
-        $id = $this->deal(overrides: ['status' => 'won']);
+        $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id, ['status' => 'won']);
 
         $this->patchJson($this->statusUrl($id), ['status' => 'purchasing'], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);

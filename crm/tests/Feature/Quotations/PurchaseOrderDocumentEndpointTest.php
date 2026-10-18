@@ -162,6 +162,16 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
         $this->upload($order['id'], $this->uploadedPdf(self::pdfBytes()), $role)->assertStatus(201);
     }
 
+    /** §3.5 `record_customer_response` · Team (`D-138`): the Team Leader attaches to a member's deal's order. */
+    public function test_the_team_leader_attaches_to_a_team_members_deals_order(): void
+    {
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $order = $this->accepted($this->deal($member->id), 'REF-1');
+
+        $this->upload($order['id'], $this->uploadedPdf(self::pdfBytes()), RoleName::TeamLeader)->assertStatus(201);
+    }
+
     /**
      * `AttachDealDocument`'s order: reach is decided before the file is read,
      * so a text file — a 422 if it were inspected — answers 404 here, and
@@ -173,7 +183,7 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
     {
         return [
             'another owner\'s deal (Own)' => ['theirs', RoleName::IndoorSales],
-            'the Team Leader (Team is unbacked, D-a)' => ['theirs', RoleName::TeamLeader],
+            'the Team Leader, the owner outside the team (D-138)' => ['theirs', RoleName::TeamLeader],
             'an unknown id' => ['unknown', RoleName::Manager],
             'a malformed id' => ['malformed', RoleName::Manager],
             'a deleted order' => ['deleted', RoleName::Manager],

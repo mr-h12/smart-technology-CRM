@@ -12,6 +12,7 @@ use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\CustomerSummary;
 use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Validation\ValidationException;
 
@@ -48,6 +49,7 @@ final readonly class AssignCustomer
         private UserDirectoryInterface $users,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $userFacts,
     ) {}
 
     /**
@@ -59,7 +61,7 @@ final readonly class AssignCustomer
     public function handle(string $customerId, string $newOwnerId, array $heldScopes, string $actorId): CustomerSummary
     {
         $this->ensureOwnerExists($newOwnerId);
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
 
         return $this->connection->transaction(fn (): CustomerSummary => $this->assignOne($customerId, $newOwnerId, $scope, $actorId));
     }
@@ -81,7 +83,7 @@ final readonly class AssignCustomer
     public function handleMany(array $customerIds, string $newOwnerId, array $heldScopes, string $actorId): array
     {
         $this->ensureOwnerExists($newOwnerId);
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
 
         return $this->connection->transaction(fn (): array => array_map(
             fn (string $customerId): CustomerSummary => $this->assignOne($customerId, $newOwnerId, $scope, $actorId),
@@ -112,10 +114,8 @@ final readonly class AssignCustomer
 
         if (! $before instanceof CustomerSummary) {
             // §5.1: 404 for absent **or** out of reach, never revealing
-            // which. A Team Leader reaches here for every customer in the
-            // company while `team` has no mechanism (owner's deferral,
-            // 2026-08-29), which is why half of §3.3's `assign` row is
-            // currently unreachable.
+            // which. A Team Leader reaches here for a customer outside the
+            // team (`D-138`).
             throw CustomerNotFound::of($customerId);
         }
 

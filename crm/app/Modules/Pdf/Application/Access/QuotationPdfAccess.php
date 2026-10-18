@@ -7,6 +7,7 @@ namespace App\Modules\Pdf\Application\Access;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 
 /**
@@ -16,9 +17,10 @@ use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
  *
  * "Own" is the deal owner's (owner ruling 2026-09-11): a quotation has no owner
  * column, so the reach is `DealRowScope` against the owner `DealFactsInterface`
- * reports. `Asgn` (Procurement, Q2) and `Team` (the Team Leader on *generate*,
- * `D-a`) resolve to nothing, so they are `Unbacked`. A soft-deleted quotation
- * is absent (`DB-01`).
+ * reports. `Team` (the Team Leader) reaches the deals the leader's team owns
+ * (`D-138`), so a quotation outside the team is `Outside`. `Asgn` (Procurement,
+ * Q2) resolves to nothing, so it is `Unbacked`. A soft-deleted quotation is
+ * absent (`DB-01`).
  *
  * In `Application`, not `Infrastructure`: `AuthorizeAction` is Identity's
  * Application-layer entry point, and `deptrac.layers.yaml` refuses
@@ -31,6 +33,7 @@ final readonly class QuotationPdfAccess
         private AuthorizeAction $authorize,
         private QuotationReaderInterface $quotations,
         private DealFactsInterface $deals,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -38,7 +41,7 @@ final readonly class QuotationPdfAccess
      */
     public function reach(string $action, string $quotationId, string $actorId): PdfReach
     {
-        $scope = DealRowScope::resolve($this->authorize->decide($actorId, 'quotation', $action)->scopeValues(), $actorId);
+        $scope = DealRowScope::resolve($this->authorize->decide($actorId, 'quotation', $action)->scopeValues(), $actorId, $this->users->teamMemberIdsOf(...));
 
         if ($scope->permitsNothing()) {
             return PdfReach::Unbacked;

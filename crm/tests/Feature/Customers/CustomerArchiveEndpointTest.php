@@ -25,12 +25,11 @@ use Tests\TestCase;
  * routes therefore check the same ability; inventing a second permission would
  * be a matrix row no document contains.
  *
- * ── ⚠️ A Team Leader can archive nothing today ─────────────────────────────
+ * ── A Team Leader archives their team's customers ──────────────────────────
  *
  * Flow 7 says "Manager / TL only" and §3.3 gives the Team Leader `Team`, which
- * has no mechanism (owner's deferral, 2026-08-29). `CustomerRowScope` fails it
- * closed, so half of Flow 7's authority is unreachable and the criterion is
- * only half met. Tested, so the cost is visible rather than surprising.
+ * `D-138` (Module 13 · 7.5c) backs: the leader and every user whose
+ * `team_leader_id` is theirs. A customer outside the team is 404.
  *
  * ── Both actions are idempotent ────────────────────────────────────────────
  *
@@ -177,8 +176,8 @@ final class CustomerArchiveEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'is_archived' => true]);
     }
 
-    /** ⚠️ The visible cost of the unbacked `team` scope, not a decision about Flow 7. */
-    public function test_that_a_team_leader_can_archive_nothing_while_team_is_unbacked(): void
+    /** `D-138` — a customer whose owner is outside the leader's team is not theirs to archive. */
+    public function test_that_a_team_leader_cannot_archive_a_customer_outside_the_team(): void
     {
         $id = $this->customer('Alpha Trading');
 
@@ -186,6 +185,18 @@ final class CustomerArchiveEndpointTest extends TestCase
             ->assertStatus(404);
 
         $this->assertDatabaseHas('customers', ['id' => $id, 'is_archived' => false]);
+    }
+
+    /** Flow 7 "Manager / TL only" — the Team Leader's half, on a member's customer (`D-138`). */
+    public function test_that_a_team_leader_archives_a_team_members_customer(): void
+    {
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $id = $this->customer('Alpha Trading', ownerId: $member->id);
+
+        $this->patchJson($this->archiveUrl($id), [], $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_archived', true);
     }
 
     // ─────────────────────────────── the happy path

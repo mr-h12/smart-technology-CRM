@@ -14,6 +14,7 @@ use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealSummary;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use Illuminate\Database\ConnectionInterface;
 
@@ -54,6 +55,7 @@ final readonly class ChangeDealStatus
         private AuthorizeAction $authorizeAction,
         private ConnectionInterface $connection,
         private RecomputeCustomerStatus $customerStatus,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -71,7 +73,7 @@ final readonly class ChangeDealStatus
         array $heldScopes,
         string $actorId,
     ): DealSummary {
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         return $this->connection->transaction(function () use ($dealId, $newStatus, $lostReason, $scope, $actorId): DealSummary {
             // D-119: locked, so a concurrent move waits and then reads the status this one left.
@@ -126,7 +128,7 @@ final readonly class ChangeDealStatus
     {
         $decision = $this->authorizeAction->authorize($actorId, 'deal', 'mark_delivery_complete');
 
-        $deliveryScope = DealRowScope::resolve($decision->scopeValues(), $actorId);
+        $deliveryScope = DealRowScope::resolve($decision->scopeValues(), $actorId, $this->users->teamMemberIdsOf(...));
 
         if ($deliveryScope->unrestricted) {
             return;

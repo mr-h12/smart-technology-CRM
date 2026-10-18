@@ -7,9 +7,8 @@
  * Every refusal is the API's (§3.5, `SEC-09`); the permission checks here only
  * decide what to draw (Design System §9 rule 3). Each holder of `generate_pdf`
  * also holds `export_pdf`, so a caller without the second has no panel at all.
- * A scope the server cannot back — Procurement's `Asgn` (Q2), the Team
- * Leader's `Team` on *generate* (`D-a`) — is still a grant here, and its 403
- * is drawn as the refusal it is.
+ * A scope the server cannot back — Procurement's `Asgn` (Q2) — is still a
+ * grant here, and its 403 is drawn as the refusal it is.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

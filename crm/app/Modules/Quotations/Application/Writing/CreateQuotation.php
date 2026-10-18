@@ -8,6 +8,7 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
@@ -41,8 +42,8 @@ use InvalidArgumentException;
  * only thing it can constrain is **which deal** is quoted. The owner ruled
  * (2026-09-11) that a quotation's "own" is its deal's `owner_id`, not the
  * tracking field `created_by`: an `own` caller quotes their own deals, `all`
- * quotes anybody's, `team` permits nothing until a team entity exists (the
- * gap {@see QuotationRowScope} records) and fails closed. The deal's owner and
+ * quotes anybody's, `team` quotes the deals the caller's team owns (`D-138`,
+ * through {@see QuotationRowScope}). The deal's owner and
  * customer come from {@see DealFactsInterface}; the same ruling holds the
  * request's `customer_id` to the deal's, since §6.2 carries both and a
  * quotation addressed to somebody other than its deal's customer is a defect.
@@ -58,6 +59,7 @@ final readonly class CreateQuotation
         private AuditRecorderInterface $audit,
         private TermSuggestions $terms,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -66,7 +68,7 @@ final readonly class CreateQuotation
      */
     public function create(array $validated, array $heldScopes, string $actorId): QuotationCreated
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         return $this->connection->transaction(function () use ($validated, $scope, $actorId): QuotationCreated {
             $this->guardDeal($validated, $scope);
@@ -108,8 +110,8 @@ final readonly class CreateQuotation
      * §3.5's create scope, applied to the one thing a create can be scoped by.
      *
      * Order matters and is the fail-closed order: a scope that permits no deal
-     * refuses before the deal is even looked up (`team`, and any code the
-     * resolver does not know); an unknown deal is the request's fault
+     * refuses before the deal is even looked up (`out`, `asgn`, and any code
+     * the resolver does not know); an unknown deal is the request's fault
      * (`deal_id`), not a permission; an owned deal outside the caller's reach
      * is a refusal that names nothing about the deal (§5.1's "do not reveal
      * which"); and only then is the addressee checked against the deal's.

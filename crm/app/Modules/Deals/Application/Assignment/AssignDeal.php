@@ -12,6 +12,7 @@ use App\Modules\Deals\Domain\Listing\DealNotFound;
 use App\Modules\Deals\Domain\Listing\DealSummary;
 use App\Modules\Deals\Domain\Writing\DealDraft;
 use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Validation\ValidationException;
 
@@ -21,11 +22,9 @@ use Illuminate\Validation\ValidationException;
  *
  * ── §3.4 grants this to Manager (`All`) and Team Leader (`Team`) only ──────
  *
- * `Team` has no mechanism (Point 2.1), so a Team Leader holding only that
- * scope reaches this use case for every deal in the company while
- * `DealRowScope` finds none of them — the same half-unreachable permission
- * row `AssignCustomer` already documented for Customers' own `Team` grant.
- * Not resolved here; the debt is Point 2.1's, not this one's.
+ * `Team` reaches the deals the leader's team owns (`D-138`); a deal outside
+ * the team is the same 404 as an absent one. The new owner is not checked
+ * against the team (owner, 2026-10-18).
  *
  * ── Nobody is notified, on §18's same closed list ──────────────────────────
  *
@@ -46,6 +45,7 @@ final readonly class AssignDeal
         private UserDirectoryInterface $users,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $userFacts,
     ) {}
 
     /**
@@ -62,7 +62,7 @@ final readonly class AssignDeal
             ]);
         }
 
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->userFacts->teamMemberIdsOf(...));
 
         return $this->connection->transaction(function () use ($dealId, $newOwnerId, $scope, $actorId): DealSummary {
             $before = $this->deals->find($dealId, $scope);

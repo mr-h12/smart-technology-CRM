@@ -10,6 +10,7 @@ use App\Modules\Customers\Domain\Access\CustomerRowScope;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Customers\Domain\Listing\CustomerNotFound;
 use App\Modules\Customers\Domain\Listing\CustomerSummary;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -43,6 +44,7 @@ final readonly class ArchiveCustomer
         private CustomerDirectoryInterface $customers,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /** @param  list<string>  $heldScopes  §3.2 codes, as the authorisation decision reports them */
@@ -73,17 +75,15 @@ final readonly class ArchiveCustomer
         array $heldScopes,
         string $actorId,
     ): CustomerSummary {
-        $scope = CustomerRowScope::resolve($heldScopes, $actorId);
+        $scope = CustomerRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         return $this->connection->transaction(function () use ($customerId, $archived, $event, $scope, $actorId): CustomerSummary {
             $before = $this->customers->find($customerId, $scope);
 
             if (! $before instanceof CustomerSummary) {
                 // §5.1: 404 for absent **or** out of reach, never revealing
-                // which. A Team Leader reaches here for every customer in the
-                // company while `team` has no mechanism — the owner's deferral
-                // of 2026-08-29, and the reason Flow 7's "Manager / TL only" is
-                // currently half met.
+                // which. A Team Leader reaches here for a customer outside the
+                // team (`D-138`).
                 throw CustomerNotFound::of($customerId);
             }
 

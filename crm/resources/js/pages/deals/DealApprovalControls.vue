@@ -9,11 +9,9 @@
  * `customer.archive`'s precedent for archive/restore. So one computed draws
  * both buttons, and a role that may approve may reject.
  *
- * ⚠️ §3.4 grants it to the **Manager** (`All`) and the **Team Leader**
- * (`Team`) only — and `Team` resolves to no rows at all (Point 2.1). So the
- * Team Leader, the very role the acceptance criterion names, can hold this
- * permission, see the buttons, and reach no deal to press them on. That is
- * backend debt, not a defect here, and the module's test list says so.
+ * §3.4 grants it to the **Manager** (`All`) and the **Team Leader** (`Team`)
+ * only; `Team` reaches the deals the leader's team owns (`D-138`), and a deal
+ * outside the team is the API's 404.
  *
  * ── The badge is a state, not a colour ─────────────────────────────────────
  *

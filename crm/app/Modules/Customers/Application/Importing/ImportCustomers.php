@@ -13,6 +13,7 @@ use App\Modules\Customers\Domain\Contracts\ImportBatchesInterface;
 use App\Modules\Customers\Domain\Importing\ImportSummary;
 use App\Modules\Customers\Domain\Writing\CustomerDraft;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
 use App\Support\Csv\RowRejected;
 use Illuminate\Database\ConnectionInterface;
@@ -77,6 +78,7 @@ final readonly class ImportCustomers
         private ConnectionInterface $connection,
         private AuthorizeAction $authorize,
         private ManageCustomerNotes $notes,
+        private UserFactsInterface $users,
     ) {}
 
     public function handle(string $path, string $originalFilename, string $actorId): ImportSummary
@@ -102,7 +104,7 @@ final readonly class ImportCustomers
 
             // The route carries only `customer.import`'s decision, and its one
             // row is `all`; what the importer may *read* is `customer.view`'s.
-            $scope = CustomerRowScope::resolve($this->authorize->decide($actorId, 'customer', 'view')->scopeValues(), $actorId);
+            $scope = CustomerRowScope::resolve($this->authorize->decide($actorId, 'customer', 'view')->scopeValues(), $actorId, $this->users->teamMemberIdsOf(...));
 
             foreach ($rows as $number => $row) {
                 try {

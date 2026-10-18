@@ -36,7 +36,7 @@ final readonly class ListDeals
      */
     public function handle(DealListCriteria $criteria, array $heldScopes, string $actorId): DealPage
     {
-        $page = $this->deals->list($criteria, DealRowScope::resolve($heldScopes, $actorId));
+        $page = $this->deals->list($criteria, DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
         $names = $this->customers->namesOf(array_values(array_unique(array_map(static fn (DealSummary $row): string => $row->customerId, $page->items))));
         $owners = $this->users->namesOf(array_values(array_unique(array_filter(array_map(static fn (DealSummary $row): ?string => $row->ownerId, $page->items)))));
 
@@ -57,7 +57,7 @@ final readonly class ListDeals
      */
     public function owners(array $heldScopes, string $actorId): array
     {
-        $names = $this->users->namesOf($this->deals->ownerIds(DealRowScope::resolve($heldScopes, $actorId)));
+        $names = $this->users->namesOf($this->deals->ownerIds(DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...))));
         asort($names);
 
         return array_map(static fn (string $id, string $name): array => ['id' => $id, 'name' => $name], array_keys($names), array_values($names));
@@ -70,7 +70,7 @@ final readonly class ListDeals
      */
     public function one(string $dealId, array $heldScopes, string $actorId): DealSummary
     {
-        $deal = $this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId));
+        $deal = $this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
 
         if (! $deal instanceof DealSummary) {
             // §5.1: 404 for "does not exist **or** is not visible to the

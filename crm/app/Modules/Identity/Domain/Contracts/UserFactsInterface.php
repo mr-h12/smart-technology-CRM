@@ -56,4 +56,15 @@ interface UserFactsInterface
      * @return array<string, array{name: string, role: string, scopes: list<string>, created_at: string}>
      */
     public function holdersOf(string $resource, string $action): array;
+
+    /**
+     * Module 13 · 7.5c (`D-138`) — a Team Leader's team: the leader first, then
+     * every user whose `team_leader_id` is theirs. A deactivated member stays in
+     * the team (owner, 2026-10-18); a hidden or soft-deleted account does not,
+     * nor does a lead role (`D-139`), whatever its `team_leader_id` says.
+     * Computed per call, never cached.
+     *
+     * @return list<string>
+     */
+    public function teamMemberIdsOf(string $leaderId): array;
 }

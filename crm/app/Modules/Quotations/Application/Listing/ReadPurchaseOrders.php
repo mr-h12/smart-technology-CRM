@@ -36,7 +36,7 @@ final readonly class ReadPurchaseOrders
     /** @param  list<string>  $heldScopes */
     public function page(PurchaseOrderListCriteria $criteria, array $heldScopes, string $actorId): PurchaseOrderPage
     {
-        $page = $this->quotations->purchaseOrders($criteria, QuotationRowScope::resolve($heldScopes, $actorId));
+        $page = $this->quotations->purchaseOrders($criteria, QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...)));
         $names = $this->customers->namesOf(array_values(array_unique(array_map(static fn (PurchaseOrderRecord $order): string => $order->customerId, $page->items))));
 
         return new PurchaseOrderPage($page->items, $page->total, $page->page, $page->perPage, $names);
@@ -89,7 +89,7 @@ final readonly class ReadPurchaseOrders
      */
     private function reach(string $purchaseOrderId, array $heldScopes, string $actorId): array
     {
-        $scope = QuotationRowScope::resolve($heldScopes, $actorId);
+        $scope = QuotationRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
         $order = $this->quotations->findPurchaseOrder($purchaseOrderId);
         $ownerId = $order === null ? null : $this->deals->factsOf($order->dealId)?->ownerId;
 

@@ -10,6 +10,7 @@ use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Documents\DealDocument;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Storage\Application\ScanStoredFile;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
@@ -64,6 +65,7 @@ final readonly class AttachDealDocument
         private ScanStoredFile $scan,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -79,7 +81,7 @@ final readonly class AttachDealDocument
         array $heldScopes,
         string $actorId,
     ): DealDocument {
-        $scope = DealRowScope::resolve($heldScopes, $actorId);
+        $scope = DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
         // Read before anything is validated or stored: an upload against a
         // deal the caller cannot reach is a 404, not a 422 about the file —

@@ -24,6 +24,8 @@ final class QuotationRowScopeTest extends TestCase
 
     private const OTHER = '0192f3aa-0000-7000-8000-0000000000c2';
 
+    private const MEMBER = '0192f3aa-0000-7000-8000-0000000000c3';
+
     public function test_that_all_reaches_every_row(): void
     {
         $scope = QuotationRowScope::resolve(['all'], self::ACTOR);
@@ -64,7 +66,6 @@ final class QuotationRowScopeTest extends TestCase
     public static function scopesWithNoMechanism(): array
     {
         return [
-            'team has no team entity' => ['team'],
             'out has no visits until Module 12' => ['out'],
             'asgn has no assignment column' => ['asgn'],
         ];
@@ -92,14 +93,30 @@ final class QuotationRowScopeTest extends TestCase
         self::assertTrue($scope->permitsNothing());
     }
 
-    public function test_that_team_adds_nothing_to_own(): void
+    public function test_that_team_reaches_the_team_members(): void
     {
-        // A Team Leader holds `team` on §3.5's view row. Until a team entity
-        // exists that grant must not quietly widen past their own rows.
-        $scope = QuotationRowScope::resolve(['own', 'team'], self::ACTOR);
+        // `D-138` — a Team Leader holds `team` on §3.5's view row; it reaches
+        // the quotations whose deal the leader or a member owns.
+        $scope = QuotationRowScope::resolve(['team'], self::ACTOR, self::team(...));
 
-        self::assertSame([self::ACTOR], $scope->ownerIds);
+        self::assertSame([self::ACTOR, self::MEMBER], $scope->ownerIds);
         self::assertFalse($scope->unrestricted);
+        self::assertNotContains(self::OTHER, $scope->ownerIds);
+    }
+
+    public function test_that_team_and_own_together_list_each_owner_once(): void
+    {
+        $scope = QuotationRowScope::resolve(['own', 'team'], self::ACTOR, self::team(...));
+
+        self::assertSame([self::ACTOR, self::MEMBER], $scope->ownerIds);
+    }
+
+    public function test_that_team_without_its_members_is_refused(): void
+    {
+        // A defect at the call site, not an empty team.
+        $this->expectException(InvalidArgumentException::class);
+
+        QuotationRowScope::resolve(['team'], self::ACTOR);
     }
 
     public function test_that_holding_no_scope_permits_nothing(): void
@@ -185,5 +202,15 @@ final class QuotationRowScopeTest extends TestCase
         self::assertCount(5, $codes, '§3.2 no longer defines exactly five scope codes.');
 
         return $codes;
+    }
+
+    /**
+     * Identity's `teamMemberIdsOf()` for the actor: the leader and one member.
+     *
+     * @return list<string>
+     */
+    private static function team(string $leaderId): array
+    {
+        return $leaderId === self::ACTOR ? [self::ACTOR, self::MEMBER] : [];
     }
 }

@@ -20,13 +20,12 @@ use App\Modules\Identity\Domain\Contracts\UserDirectoryInterface;
  *
  * `SEC-08` is row-level security, and §3.11 gives both roles that hold any
  * administration permission — Super Admin and Manager — scope **All** on every
- * row of that table. There is no Team column to honour: the "Others" column is
+ * row of that table. §3.11 has no Team scope to honour: the "Others" column is
  * `—` throughout, so the Team Leader never reaches this use case at all.
  *
- * ⚠️ **`users` also has no team column** (Point 1.2's approved schema), so if a
- * later decision gives the Team Leader a scoped employee list, this needs a
- * migration before it needs a filter. Recorded so that gap is not mistaken for
- * an oversight here.
+ * `users.team_leader_id` (`D-138`, 7.5a) names each user's Team Leader; if a
+ * later decision gives the Team Leader a scoped employee list, it filters on
+ * that column. No such list exists today.
  */
 final readonly class ListUsers
 {

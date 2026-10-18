@@ -249,7 +249,7 @@ describe('the customer PDF on its quotation (Module 9 · 5.1)', () => {
         expect(reads(fetchMock)).toBe(2);
     });
 
-    it('says so when the API refuses the render by name (the Team Leader under D-a)', async () => {
+    it('says so when the API refuses the render by name (Procurement under Asgn, Q2)', async () => {
         const wrapper = await render(server([state(NONE)], refusal(403)));
 
         await wrapper.get('[data-testid="pdf-generate"]').trigger('click');

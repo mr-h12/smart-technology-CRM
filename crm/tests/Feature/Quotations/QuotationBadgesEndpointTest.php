@@ -99,14 +99,26 @@ final class QuotationBadgesEndpointTest extends TestCase
             ->assertJson(['data' => ['approvals' => 0, 'my_quotations' => 0]]);
     }
 
-    /** `D-a`: the Team Leader's `approve · Team` reaches no rows until a team entity exists — zero, consistently with the 404 on the actions. */
-    public function test_that_the_team_leader_counts_nothing_until_team_exists(): void
+    /** `D-138`: the Team Leader's `approve · Team` does not reach a seller outside the team — zero, consistently with the 404 on the actions. */
+    public function test_that_the_team_leader_counts_nothing_outside_the_team(): void
     {
         $this->pending(RoleName::IndoorSales);
 
         $this->getJson(self::BADGES, $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(200)
             ->assertJson(['data' => ['approvals' => 0, 'my_quotations' => 0]]);
+    }
+
+    /** `D-138`: a member's pending quotation is in the Team Leader's `approvals`; an outsider's is not. */
+    public function test_that_the_team_leader_counts_a_team_members_pending_quotation(): void
+    {
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $this->pending(RoleName::IndoorSales);
+        $this->pending(RoleName::OutdoorSales);
+
+        $this->getJson(self::BADGES, $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->assertJson(['data' => ['approvals' => 1]]);
     }
 
     /**

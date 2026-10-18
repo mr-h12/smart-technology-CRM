@@ -83,7 +83,7 @@ final class DealFactsTest extends TestCase
         $deleted = $this->deal($customerId, $ownerId);
         DB::table('deals')->where('id', $deleted)->update(['deleted_at' => now()]);
 
-        $ids = $this->reader()->dealIdsOwnedBy($ownerId);
+        $ids = $this->reader()->dealIdsOwnedBy([$ownerId]);
 
         sort($ids);
         self::assertSame(collect([$mine, $mineToo])->sort()->values()->all(), $ids);

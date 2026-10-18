@@ -21,9 +21,6 @@ use Illuminate\Validation\Rules\Exists;
  */
 final class ActiveTeamLeader
 {
-    /** `D-139`: the roles that never have a Team Leader — teams are one level deep. */
-    private const LEAD_ROLES = [Role::SuperAdmin->value, Role::Ceo->value, Role::Manager->value, Role::TeamLeader->value];
-
     public static function rule(): Exists
     {
         return Rule::exists('users', 'id')->where(
@@ -47,7 +44,7 @@ final class ActiveTeamLeader
 
         $slug = DB::table('roles')->where('id', $roleId)->whereNull('deleted_at')->value('slug');
 
-        if (in_array($slug, self::LEAD_ROLES, true)) {
+        if (in_array($slug, Role::leadSlugs(), true)) {
             $validator->errors()->add($field, (string) __($messageKey));
         }
     }

@@ -429,6 +429,22 @@ final class DealDocumentUploadTest extends TestCase
         self::assertFalse($this->isRemoved($fileId));
     }
 
+    /** `D-138` — a Team Leader's reach stops at the team: on a deal owned by a user with no leader, upload, remove and download are 404. */
+    public function test_that_a_team_leader_cannot_touch_the_documents_of_a_deal_outside_the_team(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+        $dealId = $this->seedDeal($this->customer(), ['owner_id' => $this->userWith(RoleName::OutdoorSales)->id]);
+        $fileId = $this->uploadedId($dealId);
+
+        $this->upload($dealId, $this->uploadedPdf(self::pdfBytes()), RoleName::TeamLeader)->assertNotFound();
+        $this->remove($dealId, $fileId, RoleName::TeamLeader)->assertNotFound();
+        $this->get("/api/v1/files/{$fileId}/download", $this->bearerFor(RoleName::TeamLeader))->assertNotFound();
+
+        self::assertFalse($this->isRemoved($fileId));
+        self::assertSame(1, DB::table('deal_files')->where('deal_id', $dealId)->count());
+    }
+
     public function test_that_a_file_attached_to_another_deal_cannot_be_removed_through_this_one(): void
     {
         $customerId = $this->customer();

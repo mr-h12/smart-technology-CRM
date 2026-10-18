@@ -9,6 +9,7 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Customers\Domain\Access\CustomerRowScope;
 use App\Modules\Customers\Domain\Contracts\CustomerDirectoryInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Domain\ReportNotFound;
 use App\Modules\Reports\Domain\ReportWriteRefused;
@@ -33,6 +34,7 @@ final readonly class ManageReportRows
         private CustomerDirectoryInterface $customers,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -112,7 +114,7 @@ final readonly class ManageReportRows
             return;
         }
 
-        $scope = CustomerRowScope::resolve($this->authorize->decide($actorId, 'customer', 'view')->scopeValues(), $actorId);
+        $scope = CustomerRowScope::resolve($this->authorize->decide($actorId, 'customer', 'view')->scopeValues(), $actorId, $this->users->teamMemberIdsOf(...));
 
         // An archived customer is refused like one out of reach — same 422 (3.2's permission audit, gap 1).
         if ($this->customers->find($fields['customer_id'], $scope)->isArchived ?? true) {

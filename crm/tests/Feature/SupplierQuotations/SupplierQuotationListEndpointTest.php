@@ -481,9 +481,9 @@ final class SupplierQuotationListEndpointTest extends TestCase
                 return $this->real->factsOf($dealId);
             }
 
-            public function dealIdsOwnedBy(string $ownerId): array
+            public function dealIdsOwnedBy(array $ownerIds): array
             {
-                return $this->real->dealIdsOwnedBy($ownerId);
+                return $this->real->dealIdsOwnedBy($ownerIds);
             }
 
             public function ownersOf(array $dealIds): array

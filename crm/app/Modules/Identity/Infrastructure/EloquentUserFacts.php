@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Infrastructure;
 
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
+use App\Modules\Identity\Domain\Rbac\Role;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -104,5 +105,23 @@ final readonly class EloquentUserFacts implements UserFactsInterface
         }
 
         return $holders;
+    }
+
+    public function teamMemberIdsOf(string $leaderId): array
+    {
+        $members = [];
+        /** @var object{id: string} $row */
+        foreach ($this->connection->table('users')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->whereNull('users.deleted_at')
+            ->where('users.is_hidden', false)
+            ->where('users.team_leader_id', $leaderId)
+            ->whereNotIn('roles.slug', Role::leadSlugs())
+            ->select('users.id')
+            ->get() as $row) {
+            $members[] = (string) $row->id;
+        }
+
+        return [$leaderId, ...$members];
     }
 }

@@ -56,9 +56,10 @@
  *
  * §3.5 grants `quotation.view` to every role but the Outdoor Supervisor; the
  * route and the nav item key on it (the owner's ruling of 2026-08-31, as every
- * list before this one). `SEC-09` stands: the API is the gate, and a Team
- * Leader whose `Team` scope resolves to no rows is answered with an empty page
- * that says "none are visible to you", not "there are none".
+ * list before this one). `SEC-09` stands: the API is the gate, and a caller
+ * whose scope reaches no rows (`Out`, `Asgn`; `Team` reaches the leader's team
+ * since `D-138`) is answered with an empty page that says "none are visible to
+ * you", not "there are none".
  */
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';

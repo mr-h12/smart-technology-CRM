@@ -40,11 +40,11 @@
  * ── An empty list here can mean two different things ───────────────────────
  *
  * Unlike Module 6's shared screen, §3.4 is scoped: `All`, `Team`, `Out`, `Own`,
- * `Asgn`. ⚠️ **`Team`, `Out` and `Asgn` resolve to zero rows today** (Point
- * 2.1 — no team entity, no visit linkage, no procurement assignment column), so
- * a Team Leader, an Outdoor Supervisor and Procurement each hold `deal.view`
- * and are answered with an authenticated **200 and an empty page**, not a
- * refusal. The empty state cannot honestly say "there are no deals", and does
+ * `Asgn`. ⚠️ **`Out` and `Asgn` resolve to zero rows today** (Point 2.1 — no
+ * visit linkage, no procurement assignment column; `Team` reaches the leader's
+ * team since `D-138`), so an Outdoor Supervisor and Procurement each hold
+ * `deal.view` and are answered with an authenticated **200 and an empty page**,
+ * not a refusal. The empty state cannot honestly say "there are no deals", and does
  * not: it says none are visible to you, which is true in both cases and is the
  * only thing this screen can know.
  *
@@ -101,8 +101,8 @@ const auth = useAuth();
  */
 const canCreate = computed(() => auth.hasPermission('deal.create'));
 const canEdit = computed(() => auth.hasPermission('deal.edit'));
-/** `D-108`: offered at `all` only (Manager, CEO); the server's row scope applies to anyone who sends it. */
-const canFilterOwner = computed(() => auth.hasPermission('deal.view.all'));
+/** `D-108`: offered at `all` (Manager, CEO) and, since `D-138`, at `team` (a Team Leader narrows to one member); the server's row scope applies to anyone who sends it. */
+const canFilterOwner = computed(() => auth.hasPermission('deal.view.all') || auth.hasPermission('deal.view.team'));
 
 const formOpen = ref(false);
 const editing = ref<Deal | null>(null);
@@ -493,9 +493,9 @@ onMounted(async () => {
         <LoadingState v-if="loading && pagination === null" label-key="deals.loading" />
         <PermissionDeniedState v-else-if="denied" />
         <ErrorState v-else-if="failed" @retry="load" />
-        <!-- ⚠️ "None are visible to you", never "there are none": `Team`, `Out`
-             and `Asgn` resolve to no rows, so an empty page is as likely to be
-             a scope with no mechanism as an empty table. -->
+        <!-- ⚠️ "None are visible to you", never "there are none": `Out` and
+             `Asgn` resolve to no rows, so an empty page is as likely to be a
+             scope with no mechanism as an empty table. -->
         <EmptyState
             v-else-if="deals.length === 0"
             :title-key="filtering ? 'deals.empty.filtered.title' : 'deals.empty.title'"

@@ -87,10 +87,10 @@ final class QuotationSendEndpointTest extends TestCase
         self::assertSame('supplier_quotation', $this->statusOf('deals', $deal));
     }
 
-    /** `team` is granted and unbacked — fails closed (`D-a`). */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
-        [$id, $etag] = $this->approved($this->deal($this->userWith(RoleName::TeamLeader)->id, 'supplier_quotation'));
+        [$id, $etag] = $this->approved($this->deal($this->userWith(RoleName::IndoorSales)->id, 'supplier_quotation'));
 
         $this->send($id, $etag, RoleName::TeamLeader)->assertStatus(404);
     }

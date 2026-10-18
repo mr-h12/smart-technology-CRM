@@ -19,16 +19,17 @@ use Tests\TestCase;
  * ── What the row scope actually produces today ─────────────────────────────
  *
  * §3.3's view row reads `All · Team · Out · Own · Own · Asgn · All`, and
- * `CustomerRowScope` (Point 3.1) backs only `all` and `own`; `team`, `out` and
- * `asgn` fail closed by the owner's deferral of 2026-08-29. So this endpoint
- * answers:
+ * `CustomerRowScope` (Point 3.1) backs `all`, `own` and — since `D-138`
+ * (Module 13 · 7.5c) — `team`; `out` and `asgn` still fail closed by the
+ * owner's deferral of 2026-08-29. So this endpoint answers:
  *
  * | role | sees |
  * |---|---|
  * | Super Admin | everything, on §3.1's unconditional access |
  * | Manager, CEO | everything (`all`) |
+ * | Team Leader | the rows their team owns — themself and every user whose `team_leader_id` is theirs (`team`) |
  * | Outdoor Sales, Indoor Sales | their own rows (`own`) |
- * | Team Leader, Outdoor Supervisor, Procurement | **nothing**, until the debt closes |
+ * | Outdoor Supervisor, Procurement | **nothing**, until the debt closes |
  *
  * That last row is tested rather than left implicit: it is the visible cost of
  * the deferral, and a test is how it stops being a surprise.
@@ -198,18 +199,36 @@ final class CustomerListEndpointTest extends TestCase
     }
 
     /**
-     * The visible cost of the 2026-08-29 deferral: three scopes have no
-     * mechanism, so three roles resolve to nothing.
+     * The visible cost of the 2026-08-29 deferral: two scopes still have no
+     * mechanism, so two roles resolve to nothing.
      */
     public function test_that_a_role_whose_scope_has_no_mechanism_sees_nothing(): void
     {
         $this->customer('Alpha Trading', $this->userWith(RoleName::IndoorSales)->id);
 
-        foreach ([RoleName::TeamLeader, RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
+        foreach ([RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
             $this->getJson(self::ENDPOINT, $this->bearerFor($role))
                 ->assertStatus(200)
                 ->assertJsonPath('meta.pagination.total', 0);
         }
+    }
+
+    /** `D-138` — Team reaches the leader's own rows and every member's, and nobody else's. */
+    public function test_that_a_team_leader_sees_the_rows_their_team_owns(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+
+        $this->customer('Leaders Own', $leader->id);
+        $this->customer('Members', $member->id);
+        $this->customer('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $names = array_column((array) $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->json('data'), 'name');
+
+        self::assertEqualsCanonicalizing(['Leaders Own', 'Members'], $names);
     }
 
     /** §3.1 — the Super Admin is granted without consulting a cell. */
@@ -303,6 +322,17 @@ final class CustomerListEndpointTest extends TestCase
         $id = $this->customer('Someone Elses', $this->userWith(RoleName::OutdoorSales)->id);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(404);
+    }
+
+    /** `D-138` — a Team Leader's detail read stops at the team: a customer owned by a user with no leader is 404. */
+    public function test_that_a_team_leader_cannot_read_a_customer_outside_the_team(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $this->userWith(RoleName::IndoorSales)->forceFill(['team_leader_id' => $leader->id])->save();
+        $id = $this->customer('Outsiders', $this->userWith(RoleName::OutdoorSales)->id);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
     }
 

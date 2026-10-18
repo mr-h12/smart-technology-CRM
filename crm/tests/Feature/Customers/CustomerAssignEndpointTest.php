@@ -174,16 +174,38 @@ final class CustomerAssignEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $owner->id]);
     }
 
-    /** ⚠️ The visible cost of the unbacked `team` scope, not a decision about Flow 10. */
-    public function test_that_a_team_leader_can_assign_nothing_while_team_is_unbacked(): void
+    /** `D-138` — a customer owned by a user with no leader is outside the team, so the Team Leader cannot reach it. */
+    public function test_that_a_team_leader_cannot_assign_a_customer_outside_the_team(): void
     {
-        $id = $this->customer('Alpha Trading');
+        $outsider = $this->userWith(RoleName::OutdoorSales)->id;
+        $id = $this->customer('Alpha Trading', ownerId: $outsider);
         $target = $this->userWith(RoleName::IndoorSales);
 
         $this->patchJson($this->assignUrl($id), ['sales_owner_id' => $target->id], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
 
-        $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => null]);
+        $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $outsider]);
+    }
+
+    /** Flow 10, the Team Leader's half (`D-138`): a member's customer moves; the target is not checked against the team (owner, 2026-10-18). */
+    public function test_that_a_team_leader_assigns_a_team_members_customer(): void
+    {
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $to = $this->userWith(RoleName::OutdoorSales);
+        $id = $this->customer('Alpha Trading', ownerId: $member->id);
+
+        $this->patchJson($this->assignUrl($id), ['sales_owner_id' => $to->id], $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->assertJsonPath('data.sales_owner_id', $to->id);
+
+        /** @var object{old_values: string|null, new_values: string|null, user_id: string|null}|null $row */
+        $row = DB::table('audit_log')->where('event', self::EVENT)->where('entity_id', $id)->first();
+
+        self::assertNotNull($row);
+        self::assertSame(['sales_owner_id' => $member->id], json_decode((string) $row->old_values, true));
+        self::assertSame(['sales_owner_id' => $to->id], json_decode((string) $row->new_values, true));
+        self::assertSame($this->userWith(RoleName::TeamLeader)->id, $row->user_id);
     }
 
     // ─────────────────────────────── the happy path
@@ -425,11 +447,12 @@ final class CustomerAssignEndpointTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $id, 'sales_owner_id' => $owner->id]);
     }
 
-    /** `D-92`: `customer.assign` at its scope for every customer, so the unbacked `team` reaches none of them. */
-    public function test_that_a_team_leader_bulk_assigns_nothing_while_team_is_unbacked(): void
+    /** `D-92`: `customer.assign` at its scope for every customer; customers owned by a user with no leader are outside the team (`D-138`). */
+    public function test_that_a_team_leader_bulk_assigns_nothing_outside_the_team(): void
     {
-        $a = $this->customer('Alpha Trading');
-        $b = $this->customer('Beta Supplies');
+        $outsider = $this->userWith(RoleName::OutdoorSales)->id;
+        $a = $this->customer('Alpha Trading', ownerId: $outsider);
+        $b = $this->customer('Beta Supplies', ownerId: $outsider);
         $target = $this->userWith(RoleName::IndoorSales);
 
         // The customer's own refusal, not an unmatched route's: both are `404 resource_not_found`.
@@ -437,8 +460,8 @@ final class CustomerAssignEndpointTest extends TestCase
             ->assertStatus(404)
             ->assertJsonPath('error.message', (string) __('customers.not_found'));
 
-        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => null]);
-        $this->assertDatabaseHas('customers', ['id' => $b, 'sales_owner_id' => null]);
+        $this->assertDatabaseHas('customers', ['id' => $a, 'sales_owner_id' => $outsider]);
+        $this->assertDatabaseHas('customers', ['id' => $b, 'sales_owner_id' => $outsider]);
     }
 
     /** `D-92` and `OpenAPI §7.3`: one owner for the list, and a result per record, in the order asked. */

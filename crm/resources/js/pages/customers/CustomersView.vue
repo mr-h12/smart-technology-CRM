@@ -35,11 +35,11 @@
  * which must never shift a day. `displayDate` tells the two apart and draws
  * both in one day-first form with Western digits (F-42 · A-06).
  *
- * ── Three roles will see the empty state, and that is the backend's ────────
+ * ── Two roles will see the empty state, and that is the backend's ──────────
  *
- * `team`, `out` and `asgn` resolve to no rows (owner's deferral, 2026-08-29),
- * so the Team Leader, the Outdoor Supervisor and Procurement reach this screen
- * and see nothing. An empty result is rendered as empty — not as a refusal,
+ * `out` and `asgn` resolve to no rows (owner's deferral, 2026-08-29; `team`
+ * reaches the leader's team since `D-138`), so the Outdoor Supervisor and
+ * Procurement reach this screen and see nothing. An empty result is rendered as empty — not as a refusal,
  * which it is not.
  *
  * ── A 403 is the server's answer, shown as one ─────────────────────────────

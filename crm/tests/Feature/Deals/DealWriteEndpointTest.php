@@ -21,8 +21,8 @@ use Tests\TestCase;
  * §3.4's create row grants `All` to Manager and Team Leader, `Out` (unbacked)
  * to the Outdoor Supervisor, and `Own` to Outdoor and Indoor Sales — Procurement
  * and the CEO hold no `deal.create` grant at all. `edit` grants the same five
- * roles §3.4's view row does, `Team`/`Out`/`Asgn` unbacked exactly as they are
- * on read.
+ * roles §3.4's view row does, `Team` reaching the leader's team (`D-138`) and
+ * `Out`/`Asgn` unbacked exactly as they are on read.
  */
 final class DealWriteEndpointTest extends TestCase
 {
@@ -352,10 +352,19 @@ final class DealWriteEndpointTest extends TestCase
     {
         $id = $this->deal($this->userWith(RoleName::IndoorSales)->id);
 
-        foreach ([RoleName::TeamLeader, RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
+        foreach ([RoleName::OutdoorSupervisor, RoleName::Procurement] as $role) {
             $this->patchJson(self::ENDPOINT.'/'.$id, ['title' => 'Renamed'], $this->bearerFor($role))
                 ->assertStatus(404);
         }
+    }
+
+    /** `D-138` — an owner with no Team Leader is outside the leader's team. */
+    public function test_that_a_team_leader_cannot_update_a_deal_outside_the_team(): void
+    {
+        $id = $this->deal($this->userWith(RoleName::IndoorSales)->id);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id, ['title' => 'Renamed'], $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(404);
     }
 
     public function test_that_the_customer_cannot_be_transferred_through_a_generic_update(): void

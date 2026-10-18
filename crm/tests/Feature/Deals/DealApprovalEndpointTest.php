@@ -20,8 +20,8 @@ use Tests\TestCase;
  * §3.4 seeds one permission, `deal.approve`, for both directions — no
  * `deal.reject` row exists, on `customer.archive`'s precedent for
  * `archive`/`restore` sharing one row. Both routes are granted to Manager
- * (`All`) and Team Leader (`Team`) only; `Team` still has no mechanism
- * (Point 2.1).
+ * (`All`) and Team Leader (`Team`) only; `Team` reaches the deals the
+ * leader's team owns (`D-138`, Module 13 · 7.5c).
  *
  * Unlike archive/restore, deciding a deal that is not currently `pending` is
  * refused with `409 state_transition_invalid` rather than treated as an
@@ -154,10 +154,10 @@ final class DealApprovalEndpointTest extends TestCase
         $this->assertDatabaseHas('deals', ['id' => $id, 'approval_status' => 'pending']);
     }
 
-    /** The visible cost of the unbacked `team` scope, not a decision about Flow 3. */
-    public function test_that_a_team_leader_can_decide_nothing_while_team_is_unbacked(): void
+    /** `D-138` — a deal owned by a user with no leader is outside the team, so the Team Leader cannot decide it. */
+    public function test_that_a_team_leader_cannot_decide_a_deal_outside_the_team(): void
     {
-        $id = $this->deal(overrides: ['approval_status' => 'pending']);
+        $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id, ['approval_status' => 'pending']);
 
         $this->patchJson($this->approveUrl($id), [], $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);

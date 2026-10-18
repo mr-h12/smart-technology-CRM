@@ -62,8 +62,8 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $this->patchJson(self::ENDPOINT.'/'.Uuid::uuid4()->toString().'/edit-and-approve', $this->payload())->assertStatus(401);
     }
 
-    /** `D-a`: `team` is granted and unbacked — fails closed, as the approve does. */
-    public function test_that_the_team_leader_sees_nothing_until_teams_exist(): void
+    /** `D-138`: the deal's owner has no Team Leader, so the quotation is outside the leader's team — 404. */
+    public function test_that_the_team_leader_sees_nothing_outside_the_team(): void
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 

@@ -9,6 +9,7 @@ use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Deals\Domain\Access\DealRowScope;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\Listing\DealNotFound;
+use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
 use Illuminate\Database\ConnectionInterface;
@@ -28,6 +29,7 @@ final readonly class RemoveDealDocument
         private FileWriterInterface $files,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private UserFactsInterface $users,
     ) {}
 
     /**
@@ -37,7 +39,7 @@ final readonly class RemoveDealDocument
      */
     public function handle(string $dealId, string $fileId, array $heldScopes, string $actorId): void
     {
-        if ($this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId)) === null) {
+        if ($this->deals->find($dealId, DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...))) === null) {
             throw DealNotFound::of($dealId);
         }
 

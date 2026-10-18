@@ -32,9 +32,8 @@ use Tests\TestCase;
  * settled before the history is read: filtering afterwards would leak how busy
  * a deal somebody may not see has been, through the count alone.
  *
- * `Team`, `Out` and `Asgn` still resolve to nothing (Point 2.1), so a Team
- * Leader holding `view_timeline` as `Team` reaches no deal at all. Asserted
- * rather than worked around — it is the backend debt, visible here.
+ * A Team Leader holds `view_timeline` as `Team`, which reaches the deals the
+ * leader's team owns (`D-138`, Module 13 · 7.5c) and no other.
  */
 final class DealTimelineEndpointTest extends TestCase
 {
@@ -206,13 +205,24 @@ final class DealTimelineEndpointTest extends TestCase
 
     public function test_that_a_deal_outside_the_reach_is_a_404_and_not_a_403(): void
     {
-        // A Team Leader holds `view_timeline` as `Team`, and `Team` has no
-        // mechanism (Point 2.1) — so the permission passes and the row does
-        // not. §5.1: the answer must not say which case applies.
-        $id = $this->deal();
+        // A Team Leader holds `view_timeline` as `Team`, and a deal owned by a
+        // user with no leader is outside the team (`D-138`) — so the permission
+        // passes and the row does not. §5.1: the answer must not say which case applies.
+        $id = $this->deal($this->userWith(RoleName::OutdoorSales)->id);
 
         $this->getJson($this->timelineUrl($id), $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(404);
+    }
+
+    /** `D-138` — the Team Leader reads a member's deal's history. */
+    public function test_that_a_team_leader_reads_a_team_members_deal_timeline(): void
+    {
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $this->userWith(RoleName::TeamLeader)->id])->save();
+        $id = $this->deal($member->id);
+
+        $this->getJson($this->timelineUrl($id), $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200);
     }
 
     public function test_that_a_deal_that_does_not_exist_is_the_same_404(): void

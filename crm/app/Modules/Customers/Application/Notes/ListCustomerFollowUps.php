@@ -32,7 +32,7 @@ final readonly class ListCustomerFollowUps
      */
     public function list(string $customerId, array $heldScopes, string $actorId): array
     {
-        if (! $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId)) instanceof CustomerSummary) {
+        if (! $this->customers->find($customerId, CustomerRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...))) instanceof CustomerSummary) {
             throw CustomerNotFound::of($customerId);
         }
 

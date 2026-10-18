@@ -29,15 +29,15 @@ final readonly class ShowReport
     ) {}
 
     /** @return array{items: list<Report>, total: int} */
-    public function mine(string $actorId, int $page, int $perPage): array
+    public function mine(string $actorId, int $page, int $perPage, bool $includeArchived): array
     {
-        return $this->reports->forAuthor($actorId, $page, $perPage);
+        return $this->reports->forAuthor($actorId, $page, $perPage, $includeArchived);
     }
 
     /** @return array{items: list<array{report: Report, author_name: string}>, total: int} */
-    public function received(string $actorId, int $page, int $perPage): array
+    public function received(string $actorId, int $page, int $perPage, bool $includeArchived): array
     {
-        $sent = $this->reports->forRecipient($actorId, $page, $perPage);
+        $sent = $this->reports->forRecipient($actorId, $page, $perPage, $includeArchived);
         $names = $this->users->namesOf(array_values(array_unique(array_map(static fn (Report $r): string => $r->authorId, $sent['items']))));
 
         return [

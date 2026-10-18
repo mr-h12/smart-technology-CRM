@@ -54,6 +54,9 @@ final class SystemLimitEndpointTest extends TestCase
 
     private const LOCKOUT = AuthenticateUser::LOCKOUT_MINUTES_KEY;
 
+    /** Module 13 · 7.4 — `J-08`'s archive age (`D-127`), in whole months. */
+    private const ARCHIVE = 'limits.report_archive_months';
+
     /** `D-135` removed it; a string, because the enum case is gone. */
     private const DEADLINE = 'limits.daily_report_deadline';
 
@@ -152,10 +155,11 @@ final class SystemLimitEndpointTest extends TestCase
         // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
         // adds the seventh, `OD-08`'s similarity threshold, on the owner's
         // decision of 2026-08-30 · `D-135` removes the daily report deadline, which
-        // leaves six. The count is asserted first on purpose: a
+        // leaves six · 7.4 adds `J-08`'s archive age (`D-127`), which makes seven.
+        // The count is asserted first on purpose: a
         // limit added without a reader noticing is a field the screen will not
         // draw, and this line is what makes somebody notice.
-        self::assertCount(6, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline.');
+        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline, 7.4 added the archive age.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);
@@ -215,9 +219,10 @@ final class SystemLimitEndpointTest extends TestCase
             }
         }
 
-        // Was 6 until the threshold was seeded. A count, so a limit gaining a
-        // value cannot slip past this guard unremarked.
-        self::assertSame(4, $unvalued);
+        // Was 6 until the threshold was seeded; 7.4's archive age is unvalued too
+        // (the job reads 6 while it is unset, `D-127`), so 5. A count, so a limit
+        // gaining a value cannot slip past this guard unremarked.
+        self::assertSame(5, $unvalued);
 
         $threshold = $limits[SystemLimit::CustomerSimilarityThreshold->value];
         self::assertIsArray($threshold);
@@ -460,6 +465,84 @@ final class SystemLimitEndpointTest extends TestCase
             self::assertStringNotContainsString('limits.', $message, $locale);
             self::assertStringContainsString($words, $message, $locale);
             self::assertSame('limits.limits.customer_similarity_threshold', $response->json('error.details.0.field'));
+        }
+    }
+
+    // ── 7.4: `limits.report_archive_months` (`J-08`, `D-127`) ───────────────
+
+    /** Declared, unvalued, in months: the job reads 6 while the row is empty, so no number is invented here. */
+    public function test_that_the_report_archive_age_is_declared_unvalued_and_in_months(): void
+    {
+        $limits = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::SuperAdmin))->assertStatus(200)->json('data.limits');
+
+        self::assertIsArray($limits);
+        self::assertArrayHasKey(self::ARCHIVE, $limits, 'Module 13 · 7.4: the archive age is a system limit.');
+        $archive = $limits[self::ARCHIVE];
+        self::assertIsArray($archive);
+        self::assertNull($archive['value'], 'D-127 starts it at six months in the job, not in a seeded row.');
+        self::assertSame('months', $archive['unit']);
+        self::assertSame('integer', $archive['value_type']);
+    }
+
+    public function test_that_the_super_admin_saves_the_report_archive_age_and_reads_it_back_audited(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $saved = $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => '9']], $bearer)->assertStatus(200)->json('data.limits');
+        self::assertIsArray($saved);
+        self::assertIsArray($saved[self::ARCHIVE]);
+        self::assertSame('9', $saved[self::ARCHIVE]['value']);
+
+        $read = $this->getJson(self::ENDPOINT, $bearer)->assertStatus(200)->json('data.limits');
+        self::assertIsArray($read);
+        self::assertIsArray($read[self::ARCHIVE]);
+        self::assertSame('9', $read[self::ARCHIVE]['value']);
+        self::assertSame('months', DB::scalar('select unit from system_limits where key = ?', [self::ARCHIVE]));
+
+        $new = DB::scalar("select new_values::text from audit_log where event = 'SYSTEM_LIMITS_UPDATED' order by created_at desc limit 1");
+        self::assertIsString($new);
+        self::assertStringContainsString(self::ARCHIVE, $new);
+        self::assertStringContainsString('9', $new);
+    }
+
+    /** The control above saved a good value; here the minimum is one month — a zero would archive every report on the day it is sent. */
+    public function test_that_a_report_archive_age_below_one_month_or_not_whole_is_refused(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+        $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => '1']], $bearer)->assertStatus(200);
+
+        foreach (['0', '-1', '1.5', 'six months'] as $value) {
+            $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => $value]], $bearer)->assertStatus(422);
+        }
+
+        self::assertSame('1', DB::scalar('select value from system_limits where key = ?', [self::ARCHIVE]));
+    }
+
+    public function test_that_a_manager_may_not_change_the_report_archive_age(): void
+    {
+        // The control: the Super Admin's save works, so the Manager's 403 is not a missing key.
+        $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => '6']], $this->bearerFor(RoleName::SuperAdmin))->assertStatus(200);
+
+        $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => '3']], $this->bearerFor(RoleName::Manager))->assertStatus(403);
+
+        self::assertSame('6', DB::scalar('select value from system_limits where key = ?', [self::ARCHIVE]));
+    }
+
+    public function test_that_the_report_archive_age_refusal_names_the_limit_in_words(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        foreach (['en' => 'report archive', 'ar' => 'أرشف'] as $locale => $words) {
+            $response = $this->patchJson(self::ENDPOINT, ['limits' => [self::ARCHIVE => '0']], $bearer + ['Accept-Language' => $locale])->assertStatus(422);
+
+            $message = $response->json('error.details.0.message');
+
+            self::assertIsString($message);
+            self::assertStringNotContainsString('admin.', $message, $locale);
+            self::assertStringNotContainsString('limits.', $message, $locale);
+            self::assertStringNotContainsString('report_archive_months', $message, $locale);
+            self::assertStringContainsString($words, $message, $locale);
+            self::assertSame('limits.limits.report_archive_months', $response->json('error.details.0.field'));
         }
     }
 

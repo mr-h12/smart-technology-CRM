@@ -133,6 +133,7 @@ return [
             'acknowledged' => 'Acknowledged',
             'returned' => 'Returned',
             'missed' => 'Missed',
+            'archived' => 'Archived',
         ],
         'weekly' => [
             'daily_reports' => 'The week\'s daily reports',

@@ -34,7 +34,7 @@ final class ReportController
     public function index(Request $request, ShowReport $reports): JsonResponse
     {
         $page = max(1, $request->integer('page', 1));
-        $mine = $reports->mine(self::actorId($request), $page, self::PER_PAGE);
+        $mine = $reports->mine(self::actorId($request), $page, self::PER_PAGE, $request->boolean('include_archived'));
 
         return ApiEnvelope::collection($request, array_map(static fn (Report $r): array => self::summary($r, $r->shownVersion(! $r->isEditable())), $mine['items']), self::pagination($page, $mine['total']));
     }
@@ -42,7 +42,7 @@ final class ReportController
     public function received(Request $request, ShowReport $reports): JsonResponse
     {
         $page = max(1, $request->integer('page', 1));
-        $sent = $reports->received(self::actorId($request), $page, self::PER_PAGE);
+        $sent = $reports->received(self::actorId($request), $page, self::PER_PAGE, $request->boolean('include_archived'));
         $rows = array_map(static fn (array $row): array => [...self::summary($row['report'], $row['report']->shownVersion(true)), 'author_name' => $row['author_name']], $sent['items']);
 
         return ApiEnvelope::collection($request, $rows, self::pagination($page, $sent['total']));

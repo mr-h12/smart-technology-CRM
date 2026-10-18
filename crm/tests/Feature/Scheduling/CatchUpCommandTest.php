@@ -6,6 +6,7 @@ namespace Tests\Feature\Scheduling;
 
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
+use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
 use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
 use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
@@ -20,7 +21,8 @@ use Tests\TestCase;
  * Module 13, slice 7 · 7.1 — one startup catch-up (`D-55`, `ST-05`) for every
  * scheduled job that has one: `schedule:catch-up` replaces the four per-job
  * commands (`quotations:expire`, `reports:mark-missed`,
- * `reports:generate-weekly`, `reports:submit-unreviewed`). J-02 has no
+ * `reports:generate-weekly`, `reports:submit-unreviewed`). 7.4 adds J-08
+ * (`archive_old_reports`, the owner, 2026-10-18), last. J-02 has no
  * catch-up (`routes/console.php`). A missing entry fails loudly, as each
  * per-job command did.
  */
@@ -28,7 +30,7 @@ final class CatchUpCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_that_the_catch_up_dispatches_j01_j04_j05_and_j06_onto_maintenance_in_that_order(): void
+    public function test_that_the_catch_up_dispatches_j01_j04_j05_j06_and_j08_onto_maintenance_in_that_order(): void
     {
         Queue::fake();
 
@@ -38,9 +40,10 @@ final class CatchUpCommandTest extends TestCase
         Queue::assertPushedOn(QueueName::Maintenance->value, MarkMissedDailyReportsJob::class);
         Queue::assertPushedOn(QueueName::Maintenance->value, GenerateWeeklyReportsJob::class);
         Queue::assertPushedOn(QueueName::Maintenance->value, SubmitUnreviewedWeeklyReportsJob::class);
+        Queue::assertPushedOn(QueueName::Maintenance->value, ArchiveOldReportsJob::class);
 
         self::assertMatchesRegularExpression(
-            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\./s',
+            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\..*J-08 dispatched\./s',
             Artisan::output(),
         );
     }

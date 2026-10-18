@@ -5,7 +5,7 @@
  *
  * The server decides what was sent to whom; this screen lists what it returns.
  */
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ApiError, type Pagination } from '@/api';
@@ -24,6 +24,8 @@ const pagination = ref<Pagination | null>(null);
 const loading = ref(true);
 const failed = ref(false);
 const denied = ref(false);
+/** `J-08` archives old reports; the server hides them until asked (`include_archived`). */
+const showArchived = ref(false);
 
 async function load(page = 1): Promise<void> {
     loading.value = true;
@@ -31,7 +33,7 @@ async function load(page = 1): Promise<void> {
     denied.value = false;
 
     try {
-        const result = await listReceivedReports(page);
+        const result = await listReceivedReports(page, showArchived.value);
         reports.value = result.items;
         pagination.value = result.pagination;
     } catch (error) {
@@ -46,6 +48,7 @@ async function load(page = 1): Promise<void> {
 }
 
 onMounted(() => load());
+watch(showArchived, () => load());
 </script>
 
 <template>
@@ -54,6 +57,11 @@ onMounted(() => load());
             <h1 class="text-page-title">{{ t('reports.received_title') }}</h1>
             <p class="text-[var(--color-text-muted)] text-pretty">{{ t('reports.received_subtitle') }}</p>
         </header>
+
+        <label class="flex min-h-11 items-center gap-2 self-start">
+            <input v-model="showArchived" type="checkbox" data-testid="reports-show-archived" />
+            <span>{{ t('reports.show_archived') }}</span>
+        </label>
 
         <LoadingState v-if="loading && pagination === null" label-key="reports.loading" />
         <PermissionDeniedState v-else-if="denied" />

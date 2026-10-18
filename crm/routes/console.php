@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
+use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
 use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
 use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
@@ -83,6 +84,11 @@ Schedule::job(new GenerateWeeklyReportsJob, QueueName::Maintenance->value)->week
 // is the setting's, read inside the job; hourly so a draft past it goes out within the hour.
 Schedule::job(new SubmitUnreviewedWeeklyReportsJob, QueueName::Maintenance->value)->hourly();
 
+// J-08 archive_old_reports (§15, §11.4, D-127, Module 13 slice 7 · 7.4). J-04's shape,
+// onto `maintenance`, daily at 00:00 UTC, with its catch-up (`schedule:catch-up`), last
+// on start. The archive age is the `limits.report_archive_months` setting, read inside the job.
+Schedule::job(new ArchiveOldReportsJob, QueueName::Maintenance->value)->daily();
+
 // The startup catch-up (D-55, ST-05) for every job above that has one, run once by
 // the `scheduler` service before `schedule:work`. It runs the schedule's own entry,
 // so the queue is named once, and fails loudly on a missing entry rather than
@@ -93,6 +99,7 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
         'J-04' => MarkMissedDailyReportsJob::class,
         'J-05' => GenerateWeeklyReportsJob::class,
         'J-06' => SubmitUnreviewedWeeklyReportsJob::class,
+        'J-08' => ArchiveOldReportsJob::class,
     ];
 
     foreach ($jobs as $code => $job) {
@@ -109,4 +116,4 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
     }
 
     return Command::SUCCESS;
-})->purpose('Run the startup catch-up of J-01, J-04, J-05 and J-06 (D-55, ST-05)');
+})->purpose('Run the startup catch-up of J-01, J-04, J-05, J-06 and J-08 (D-55, ST-05)');

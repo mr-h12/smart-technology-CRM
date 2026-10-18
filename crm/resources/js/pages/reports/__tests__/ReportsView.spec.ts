@@ -290,3 +290,90 @@ describe('ReportsView — My reports', () => {
         expect(dialog.text()).toContain(labels.duplicate_title);
     });
 });
+
+/**
+ * Module 13, slice 7 · 7.4 — archived reports (`J-08`, `D-127`): "My reports" hides them
+ * until the author ticks «إظهار المؤرشف», which reads the list again with `include_archived=1`.
+ * The server decides what is archived and what the flag reveals.
+ */
+describe('ReportsView — the archived reports (7.4)', () => {
+    const ARCHIVED = {
+        id: 'rep7', code: 'RPT-DY-2026-0007', type: 'daily', status: 'archived',
+        period_start: '2026-04-10', period_end: '2026-04-10', submitted_at: '2026-04-10T09:00:00Z',
+    };
+
+    /** What the server answers: the archived row only when the flag is on the request. */
+    function withFlag(): ReturnType<typeof vi.fn> {
+        return vi.fn(async (input: string) => {
+            const rows = /include_archived=1/.test(String(input)) ? [REPORT, ARCHIVED] : [REPORT];
+
+            return json(200, { data: rows, meta: { request_id: 'r', pagination: { ...PAGINATION, total: rows.length } } });
+        });
+    }
+
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    it('offers an unchecked «show archived» box and asks for no archived report by default', async () => {
+        const fetchMock = withFlag();
+        const { wrapper } = await render(fetchMock);
+
+        const box = wrapper.get('[data-testid="reports-show-archived"]');
+        expect((box.element as HTMLInputElement).checked).toBe(false);
+        expect(wrapper.text()).toContain(en.reports.show_archived);
+        expect(fetchMock.mock.calls.some(([url]) => /include_archived/.test(String(url)))).toBe(false);
+        expect(wrapper.findAll('[data-testid="report-row"]')).toHaveLength(1);
+    });
+
+    it('reads the list again with include_archived=1 when ticked, draws the archived row, and drops it when unticked', async () => {
+        const fetchMock = withFlag();
+        const { wrapper } = await render(fetchMock);
+
+        await wrapper.get('[data-testid="reports-show-archived"]').setValue(true);
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls.at(-1)![0])).toMatch(/\/reports\?.*include_archived=1/);
+        const rows = wrapper.findAll('[data-testid="report-row"]');
+        expect(rows).toHaveLength(2);
+        expect(rows[1]!.text()).toContain('RPT-DY-2026-0007');
+        expect(rows[1]!.text()).toContain(en.reports.status.archived);
+
+        await wrapper.get('[data-testid="reports-show-archived"]').setValue(false);
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls.at(-1)![0])).not.toMatch(/include_archived=1/);
+        expect(wrapper.findAll('[data-testid="report-row"]')).toHaveLength(1);
+    });
+
+    it('keeps the box on screen over the empty state, so archived reports can still be asked for', async () => {
+        const fetchMock = vi.fn(async (input: string) => {
+            const rows = /include_archived=1/.test(String(input)) ? [ARCHIVED] : [];
+
+            return json(200, { data: rows, meta: { request_id: 'r', pagination: { ...PAGINATION, total: rows.length } } });
+        });
+        const { wrapper } = await render(fetchMock);
+
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="reports-show-archived"]').exists()).toBe(true);
+        await wrapper.get('[data-testid="reports-show-archived"]').setValue(true);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-testid="report-row"]')).toHaveLength(1);
+    });
+
+    it('words the box and the archived status in Arabic (إظهار المؤرشف) and in English', async () => {
+        expect(ar.reports.show_archived).toBe('إظهار المؤرشف');
+        expect(en.reports.show_archived.length).toBeGreaterThan(0);
+        expect(/[؀-ۿ]/.test(ar.reports.status.archived)).toBe(true);
+        expect(en.reports.status.archived).toBeTruthy();
+
+        const { wrapper } = await render(withFlag(), 'ar');
+        expect(wrapper.text()).toContain(ar.reports.show_archived);
+        await wrapper.get('[data-testid="reports-show-archived"]').setValue(true);
+        await flushPromises();
+        expect(wrapper.findAll('[data-testid="report-row"]')[1]!.text()).toContain(ar.reports.status.archived);
+    });
+});

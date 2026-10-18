@@ -25,6 +25,8 @@ export interface AdministeredUser {
     /** `D-107` ruling (2): the signer's optional job title (F-40 · 1.3). */
     job_title_en: string | null;
     job_title_ar: string | null;
+    /** `D-138`: the user's Team Leader, or null. */
+    team_leader_id: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -167,6 +169,20 @@ export async function listUsers(query: UserListQuery = {}): Promise<Page<Adminis
     return collection<AdministeredUser>(await apiGet(`/users${suffix}`));
 }
 
+/**
+ * The active users holding `roleSlug`, as select options; `[]` when the list
+ * cannot be loaded — the server still refuses a user outside the role.
+ * ponytail: the first page only (the server's default page size); page through
+ * when a role outgrows it.
+ */
+export async function activeUserOptions(roleSlug: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+        return (await listUsers({ isActive: true, roleSlug })).items.map((user) => ({ id: user.id, name: user.name }));
+    } catch {
+        return [];
+    }
+}
+
 export async function createUser(payload: {
     name: string;
     email: string;
@@ -174,13 +190,14 @@ export async function createUser(payload: {
     role_id: string;
     job_title_en: string | null;
     job_title_ar: string | null;
+    team_leader_id: string | null;
 }): Promise<AdministeredUser> {
     return (await apiPost<AdministeredUser>('/users', payload)).data;
 }
 
 export async function updateUser(
     id: string,
-    payload: { name?: string; email?: string; role_id?: string; job_title_en?: string | null; job_title_ar?: string | null },
+    payload: { name?: string; email?: string; role_id?: string; job_title_en?: string | null; job_title_ar?: string | null; team_leader_id?: string | null },
 ): Promise<AdministeredUser> {
     return (await apiPatch<AdministeredUser>(`/users/${id}`, payload)).data;
 }

@@ -48,6 +48,11 @@ final class UpdateUserRequest extends FormRequest
             // ConvertEmptyStringsToNull turns into it) clears the title.
             'job_title_en' => ['sometimes', 'nullable', 'string', 'max:255'],
             'job_title_ar' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // `D-138` — null clears it; never the user themself.
+            'team_leader_id' => [
+                'sometimes', 'nullable', 'uuid', ActiveTeamLeader::rule(),
+                Rule::notIn([is_string($userId) ? $userId : null]),
+            ],
         ];
     }
 
@@ -76,5 +81,5 @@ final class UpdateUserRequest extends FormRequest
     }
 
     /** @var list<string> */
-    private const UPDATABLE = ['name', 'email', 'role_id', 'job_title_en', 'job_title_ar'];
+    private const UPDATABLE = ['name', 'email', 'role_id', 'job_title_en', 'job_title_ar', 'team_leader_id'];
 }

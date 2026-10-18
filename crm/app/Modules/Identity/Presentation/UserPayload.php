@@ -51,6 +51,7 @@ final class UserPayload
             'is_active' => $user->isActive,
             'job_title_en' => $user->jobTitleEn,
             'job_title_ar' => $user->jobTitleAr,
+            'team_leader_id' => $user->teamLeaderId,
             'created_at' => $user->createdAt->format(DATE_ATOM),
             'updated_at' => $user->updatedAt->format(DATE_ATOM),
         ];

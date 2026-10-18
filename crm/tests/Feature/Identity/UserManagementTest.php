@@ -723,6 +723,23 @@ final class UserManagementTest extends TestCase
         self::assertSame(['job_title_en' => null, 'job_title_ar' => null], self::storedJobTitle($target->id));
     }
 
+    /** SEC-07, `D-138`: only `admin.create_user` writes a Team Leader — not even a Team Leader. */
+    public function test_a_role_without_admin_create_user_cannot_set_a_team_leader(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader, 'the.leader@example.test');
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        foreach ([RoleName::IndoorSales, RoleName::TeamLeader] as $role) {
+            $caller = $this->userWith($role, "caller.{$role->value}@example.test");
+
+            $this->withToken($this->tokenFor($caller))
+                ->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => $leader->id])
+                ->assertStatus(403);
+        }
+
+        self::assertNull(self::storedTeamLeader($target->id));
+    }
+
     public function test_a_role_change_writes_the_mandatory_rule_four_entry(): void
     {
         $manager = $this->userWith(RoleName::Manager);
@@ -1030,6 +1047,158 @@ final class UserManagementTest extends TestCase
         );
     }
 
+    // ── D-138 · 7.5a: a user's Team Leader ──────────────────────────────────
+    // 403 for a caller without `admin.create_user` on PATCH is already pinned by
+    // `test_a_role_without_administration_permission_is_refused` (protectedRoutes).
+
+    private static function storedTeamLeader(string $userId): mixed
+    {
+        return DB::table('users')->where('id', $userId)->value('team_leader_id');
+    }
+
+    public function test_the_super_admin_sets_a_team_leader_and_the_change_is_audited(): void
+    {
+        $admin = $this->userWith(RoleName::SuperAdmin);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($admin))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => $leader->id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.team_leader_id', $leader->id);
+
+        self::assertSame($leader->id, self::storedTeamLeader($target->id));
+
+        $rows = $this->auditRows(IdentityAuditEvents::USER_UPDATED);
+
+        self::assertCount(1, $rows);
+        self::assertSame(['team_leader_id' => null], self::decoded($rows[0]['old_values']));
+        self::assertSame(['team_leader_id' => $leader->id], self::decoded($rows[0]['new_values']));
+    }
+
+    public function test_a_manager_may_set_a_team_leader(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($manager))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => $leader->id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.team_leader_id', $leader->id);
+
+        self::assertSame($leader->id, self::storedTeamLeader($target->id));
+    }
+
+    public function test_a_team_leader_is_cleared_by_null_and_a_repeat_writes_no_audit(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $target = $this->userWith(RoleName::IndoorSales);
+        DB::table('users')->where('id', $target->id)->update(['team_leader_id' => $leader->id]);
+
+        $token = $this->tokenFor($manager);
+
+        $this->withToken($token)->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => null])
+            ->assertStatus(200)
+            ->assertJsonPath('data.team_leader_id', null);
+
+        self::assertNull(self::storedTeamLeader($target->id));
+
+        $rows = $this->auditRows(IdentityAuditEvents::USER_UPDATED);
+        self::assertCount(1, $rows);
+        self::assertSame(['team_leader_id' => $leader->id], self::decoded($rows[0]['old_values']));
+        self::assertSame(['team_leader_id' => null], self::decoded($rows[0]['new_values']));
+
+        // Nothing differs now: AUD-03 — no row saying nothing happened.
+        $this->withToken($token)->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => null])
+            ->assertStatus(200);
+
+        self::assertCount(1, $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    public function test_a_new_user_may_be_created_with_a_team_leader(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $leader = $this->userWith(RoleName::TeamLeader);
+
+        $response = $this->withToken($this->tokenFor($manager))->postJson(self::ENDPOINT, [
+            'name' => 'Nadia Salem',
+            'email' => 'nadia@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId(RoleName::IndoorSales),
+            'team_leader_id' => $leader->id,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.team_leader_id', $leader->id);
+
+        $id = $response->json('data.id');
+        self::assertIsString($id);
+        self::assertSame($leader->id, self::storedTeamLeader($id));
+    }
+
+    public function test_a_new_user_without_a_team_leader_stores_none(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+
+        $this->withToken($this->tokenFor($manager))->postJson(self::ENDPOINT, [
+            'name' => 'Omar Adel',
+            'email' => 'omar@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId(RoleName::IndoorSales),
+        ])->assertStatus(201)
+            ->assertJsonPath('data.team_leader_id', null);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function invalidTeamLeaders(): array
+    {
+        return [
+            'an id that does not exist' => ['missing'],
+            'a user who is not a Team Leader' => ['not_a_leader'],
+            'a Team Leader who is inactive' => ['inactive'],
+            'the user themself' => ['self'],
+        ];
+    }
+
+    #[DataProvider('invalidTeamLeaders')]
+    public function test_an_invalid_team_leader_is_refused_by_field(string $case): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $target = $this->userWith(RoleName::TeamLeader, 'target.leader@example.test');
+
+        $leaderId = match ($case) {
+            'missing' => '018f6a2c-2e7e-7d9a-a5e8-3b329495aa10',
+            'not_a_leader' => $this->userWith(RoleName::IndoorSales)->id,
+            'inactive' => $this->userWith(RoleName::TeamLeader, 'inactive.leader@example.test', false)->id,
+            'self' => $target->id,
+            default => self::fail("Unknown case {$case}."),
+        };
+
+        $this->withToken($this->tokenFor($manager))
+            ->patchJson(self::ENDPOINT.'/'.$target->id, ['team_leader_id' => $leaderId])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.0.field', 'team_leader_id');
+
+        self::assertNull(self::storedTeamLeader($target->id));
+        self::assertSame([], $this->auditRows(IdentityAuditEvents::USER_UPDATED));
+    }
+
+    public function test_an_invalid_team_leader_is_refused_on_create_too(): void
+    {
+        $manager = $this->userWith(RoleName::Manager);
+        $notALeader = $this->userWith(RoleName::IndoorSales);
+
+        $this->withToken($this->tokenFor($manager))->postJson(self::ENDPOINT, [
+            'name' => 'Nadia Salem',
+            'email' => 'nadia@example.test',
+            'password' => 'Str0ngpass',
+            'role_id' => $this->roleId(RoleName::IndoorSales),
+            'team_leader_id' => $notALeader->id,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'team_leader_id');
+    }
+
     // ── the detail endpoint ─────────────────────────────────────────────────
 
     public function test_the_detail_endpoint_returns_the_documented_shape(): void
@@ -1043,7 +1212,7 @@ final class UserManagementTest extends TestCase
 
         self::assertSame([
             'id', 'name', 'email', 'role_id', 'role', 'is_active', 'job_title_en', 'job_title_ar',
-            'created_at', 'updated_at',
+            'team_leader_id', 'created_at', 'updated_at',
         ], array_keys((array) $response->json('data')));
 
         self::assertSame($target->id, $response->json('data.id'));

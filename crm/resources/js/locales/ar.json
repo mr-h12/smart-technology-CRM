@@ -177,6 +177,8 @@
             "jobTitleAr": "المسمّى الوظيفي (بالعربية)",
             "role": "الدور",
             "rolePlaceholder": "اختر دوراً",
+            "teamLeader": "قائد الفريق",
+            "noTeamLeader": "بلا قائد",
             "noAssignableRoles": "لا يوجد دور مسموح لك بإسناده.",
             "password": "كلمة المرور الأولية",
             "passwordHint": "٨ خانات على الأقل، مع حروف وأرقام.",

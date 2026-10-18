@@ -32,7 +32,7 @@ import { useModalDialog } from '@/components/useModalDialog';
 import { ApiError } from '@/api';
 import { assignableBy } from '@/domain/roleAssignment';
 import type { AdministeredUser, RoleOption } from '@/services/identity';
-import { createUser, updateUser } from '@/services/identity';
+import { activeUserOptions, createUser, updateUser } from '@/services/identity';
 
 const props = defineProps<{
     open: boolean;
@@ -56,6 +56,9 @@ const password = ref('');
 const roleId = ref('');
 const jobTitleEn = ref('');
 const jobTitleAr = ref('');
+const teamLeaderId = ref('');
+/** `D-138` — the active Team Leaders; empty when the list could not be loaded. */
+const leaders = ref<{ id: string; name: string }[]>([]);
 const saving = ref(false);
 
 /** Lang-file keys, by field. `_form` holds anything not tied to one. */
@@ -74,7 +77,7 @@ const errors = ref<Record<string, string>>({});
 const serverErrors = ref<Record<string, string>>({});
 
 /** The fields a server refusal can name, which are the inputs this form has. */
-const FIELDS = ['name', 'email', 'role_id', 'password', 'job_title_en', 'job_title_ar'] as const;
+const FIELDS = ['name', 'email', 'role_id', 'password', 'job_title_en', 'job_title_ar', 'team_leader_id'] as const;
 
 function hasError(field: string): boolean {
     return errors.value[field] !== undefined || serverErrors.value[field] !== undefined;
@@ -119,6 +122,10 @@ watch(() => [props.open, props.editing] as const, ([open]) => {
     roleId.value = props.editing?.role_id ?? '';
     jobTitleEn.value = props.editing?.job_title_en ?? '';
     jobTitleAr.value = props.editing?.job_title_ar ?? '';
+    teamLeaderId.value = props.editing?.team_leader_id ?? '';
+    // No list, no choices: «بلا قائد» stays, and the server still refuses
+    // anyone who is not an active Team Leader.
+    void activeUserOptions('team_leader').then((options) => { leaders.value = options; });
 }, { immediate: true });
 
 function validate(): boolean {
@@ -229,6 +236,7 @@ async function save(): Promise<void> {
                 role_id: roleId.value,
                 job_title_en: jobTitleEn.value.trim() || null,
                 job_title_ar: jobTitleAr.value.trim() || null,
+                team_leader_id: teamLeaderId.value || null,
             })
             : await updateUser(props.editing.id, {
                 name: name.value.trim(),
@@ -236,6 +244,7 @@ async function save(): Promise<void> {
                 role_id: roleId.value,
                 job_title_en: jobTitleEn.value.trim() || null,
                 job_title_ar: jobTitleAr.value.trim() || null,
+                team_leader_id: teamLeaderId.value || null,
             });
 
         password.value = '';
@@ -322,6 +331,21 @@ async function save(): Promise<void> {
                     {{ t('users.form.noAssignableRoles') }}
                 </span>
                 <span v-if="hasError('role_id')" class="text-[var(--color-danger)]">{{ errorText('role_id') }}</span>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('users.form.teamLeader') }}</span>
+                <select
+                    v-model="teamLeaderId"
+                    :disabled="saving"
+                    :aria-invalid="hasError('team_leader_id')"
+                    class="form-field rounded-lg px-3 py-2"
+                    data-testid="user-team-leader"
+                >
+                    <option value="">{{ t('users.form.noTeamLeader') }}</option>
+                    <option v-for="leader in leaders" :key="leader.id" :value="leader.id">{{ leader.name }}</option>
+                </select>
+                <span v-if="hasError('team_leader_id')" class="text-[var(--color-danger)]">{{ errorText('team_leader_id') }}</span>
             </label>
 
             <label class="flex flex-col gap-1.5">

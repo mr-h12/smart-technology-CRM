@@ -75,7 +75,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
         return $row === null ? null : self::hydrate($row);
     }
 
-    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden, ?string $jobTitleEn, ?string $jobTitleAr): AdministeredUser
+    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden, ?string $jobTitleEn, ?string $jobTitleAr, ?string $teamLeaderId): AdministeredUser
     {
         $user = new User;
         $user->fill([
@@ -90,6 +90,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             'is_hidden' => $isHidden,
             'job_title_en' => $jobTitleEn,
             'job_title_ar' => $jobTitleAr,
+            'team_leader_id' => $teamLeaderId,
         ]);
         $user->save();
 
@@ -189,6 +190,7 @@ final class EloquentUserDirectory implements UserDirectoryInterface
             updatedAt: DateTimeImmutable::createFromInterface($updatedAt),
             jobTitleEn: $user->job_title_en,
             jobTitleAr: $user->job_title_ar,
+            teamLeaderId: $user->team_leader_id,
         );
     }
 }

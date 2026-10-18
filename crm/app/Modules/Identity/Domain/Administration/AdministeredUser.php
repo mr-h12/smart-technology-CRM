@@ -37,6 +37,8 @@ final readonly class AdministeredUser
         /** `D-107` ruling (2): the signer's optional job title (F-40 · 1.3). */
         public ?string $jobTitleEn,
         public ?string $jobTitleAr,
+        /** `D-138`: the user's Team Leader, or null. */
+        public ?string $teamLeaderId,
     ) {}
 
     /**

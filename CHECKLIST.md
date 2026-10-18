@@ -347,6 +347,7 @@ would hide them behind `OD-03` indefinitely.
       shape already anticipates it — `ownerIds` is a set, not a boolean — so `team` and `out` become
       a wider set later without changing a single caller. `asgn` will not fit that shape (it is a
       join on `deals`, not an owner) and is left for Module 5.
+      *(`team` closed 2026-10-18 by 13 · 7.5c under `D-138`: the three resolvers take the leader's team from `UserFactsInterface::teamMemberIdsOf`. `out` and `asgn` stay open, so the box stays unticked.)*
 
 - [ ] **`GET /users` still has no free-text `q`** — *owner decision, 2026-08-29: this stays debt, and
       Identity is not touched from a Customers task.* `UserListCriteria` records the gap in its own
@@ -1347,11 +1348,12 @@ would hide them behind `OD-03` indefinitely.
       `tests/PdfImage`: inline at `CustomerQuotationPdfTest.php:35`, in its own `pagesIn()`, and in
       `BrowsershotRenderTest.php:42`. The tests counting on their own is deliberate; the two copies
       inside `CustomerQuotationPdfTest` are not — the inline one could call `pagesIn()`.
-- [ ] **The Team Leader has no deals-list owner filter** — *created by `D-108`'s scoping, F-41 · 1.1,
+- [x] **The Team Leader has no deals-list owner filter** — *created by `D-108`'s scoping, F-41 · 1.1,
       2026-10-11; registered by design.* §3.4 grants the Team Leader `deal.view` at Team, but `team`
       returns no rows (`DealRowScope.php:25`: no team entity, no team column on `users`), so F-41 · 1.7
       offers the owner filter to `deal.view.all` holders only (Manager, CEO). It reaches the Team Leader
       when `team` scope is built — a separate item with its own `D-xx`.
+      *(Closed 2026-10-18 by 13 · 7.5c under `D-138`: `DealsView` offers the filter at `deal.view.team` too, and `/deals/owners` answers the team's owners.)*
 - [ ] **F-39's manual test list names a menu item that does not exist** — *revealed by F-40 · 1.7's waste
       audit, 2026-10-11; registered, not fixed.* Its checks #1 and #20 say «الإعدادات»; the menu reads
       «إعدادات النظام» (`ar.json` `nav.item.settings`). F-40 · 1.7's list uses the real name.
@@ -5291,7 +5293,7 @@ lands in the slice that first needs it.
     - [ ] **7.5** Teams, `D-138` (recorded 2026-10-18 with the owner's yes). The Team scope is backed in every module, at the owner's word (2026-10-18). Split into three points at the owner's word, the same day, then four (7.5b inserted with `D-139`, 2026-10-18); each point is a red turn, then a green turn, on its own branch:
       - [x] **7.5a** *(2026-10-18, #397 — `users.team_leader_id` + «قائد الفريق» on the user form; Manager list and leader list share `activeUserOptions`)* The team itself: `users.team_leader_id` (nullable self-FK, `ON DELETE SET NULL`, indexed, tested `down()`), set on the user screen by whoever holds `admin.create_user`. The leader must be an active Team Leader and not the user themself; the change is audited `USER_UPDATED`. Guard: `TeamLeaderMigrationTest`, `UserManagementTest`, `UserFormModal.spec`, and the browser on the user form.
       - [x] **7.5b** *(2026-10-18, #398 — lead roles refused a leader (422); `team_leader` {id, name} on each user row; `filter[team_leader]` = id | `none`; «قائد الفريق» column and filter)* Who may be a team member, and the users list (`D-139`, approved by the owner 2026-10-18): `team_leader_id` is refused (422 on `team_leader_id`) when the user's role, after the change, is Super Admin, CEO, Manager or Team Leader; a role change to one of those while a leader is set is refused (422 on `role_id`), the leader never cleared for the user; the users list carries each row's `team_leader` (id, name) and filters by `filter[team_leader]` (a leader's id, or `none`), behind `admin.create_user`; «قائد الفريق» as a column («—» when none) and a filter («بلا قائد») on the users screen. Guard: `UserManagementTest`, `UsersView.spec`, and the browser on the users screen.
-      - [ ] **7.5c** Team in every owned row: `UserFactsInterface::teamMemberIdsOf`; `CustomerRowScope`, `DealRowScope` and `QuotationRowScope` take the team's ids, with their call sites, POs, quotation PDFs, the create-owner checks, the Team Leader's owner filter on deals (debt row) and the team-wide approvals badge. The tests that pin "team = no rows" change. Guard: a scope test per role, and the browser as a Team Leader.
+      - [x] **7.5c** *(2026-10-18, #399 — Team reaches the team's customers, deals, quotations, POs and PDFs; `teamMemberIdsOf` excludes D-139's lead roles; the deals owner filter at `deal.view.team`; the badge counts the team)* Team in every owned row: `UserFactsInterface::teamMemberIdsOf`; `CustomerRowScope`, `DealRowScope` and `QuotationRowScope` take the team's ids, with their call sites, POs, quotation PDFs, the create-owner checks, the Team Leader's owner filter on deals (debt row) and the team-wide approvals badge. The tests that pin "team = no rows" change. Guard: a scope test per role, and the browser as a Team Leader.
       - [ ] **7.5d** Reports and the Missed badge: in `RecipientCandidates`, Team covers the author's leader and Out covers Outdoor Sales authors only; the author's Team Leader is a default recipient (`D-127`); reach stays on recipient rows (slice 2's gap 5 closed by `D-138`); the Team Leader's Missed badge (§11.5) through a Reports contract in `BadgeCounts` (one `ReportsContract` line in Quotations' deptrac ruleset). Guard: Report tests, `QuotationBadgesEndpointTest`, and the browser on both lists and the badge.
 
 ---

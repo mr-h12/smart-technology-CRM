@@ -15,11 +15,11 @@ use Illuminate\Database\ConnectionInterface;
 /**
  * `J-06` (§15; `D-136`): a weekly draft still unsubmitted after the review
  * window (`limits.weekly_review_window_hours`, 24 hours while unset — `D-127`)
- * is submitted unchanged to the default recipient (`D-129`), flagged Not
- * reviewed: the same frozen copy and recipient row as the author's submit.
- * With no valid default recipient it stays a draft and the next run tries
- * again. Daily reports are never touched. Idempotent (§15.1): only drafts
- * move. The audit carries no actor, and `ReportSubmitted` follows each commit
+ * is submitted unchanged to every default recipient — the named Manager
+ * (`D-129`) and the author's Team Leader (`D-138`) — flagged Not reviewed: the
+ * same frozen copy and recipient rows as the author's submit. With no valid
+ * default recipient it stays a draft and the next run tries again. Daily
+ * reports are never touched. Idempotent (§15.1): only drafts move. The audit carries no actor, and `ReportSubmitted` follows each commit
  * as `SubmitReport` dispatches it (`D-132`).
  */
 final readonly class SubmitUnreviewedWeeklyReports
@@ -57,15 +57,15 @@ final readonly class SubmitUnreviewedWeeklyReports
     private function submit(string $id): ?int
     {
         $report = $this->reports->find($id, true);
-        $recipient = $report === null || $report->status !== 'draft' ? null : $this->candidates->defaultFor($report);
+        $recipients = $report === null || $report->status !== 'draft' ? [] : $this->candidates->defaultsFor($report);
 
-        if ($report === null || $recipient === null
-            || ! $this->reports->submit($id, $report->versionToken, $this->frozen->of($report), [$recipient], null, true)) {
+        if ($report === null || $recipients === []
+            || ! $this->reports->submit($id, $report->versionToken, $this->frozen->of($report), $recipients, null, true)) {
             return null;
         }
 
         $this->audit->record(AuditEvent::of('REPORT_SUBMITTED'), 'report', $id, ['status' => 'draft'], [
-            'status' => 'submitted', 'recipient_ids' => [$recipient], 'not_reviewed' => true,
+            'status' => 'submitted', 'recipient_ids' => $recipients, 'not_reviewed' => true,
         ]);
 
         return $report->submittedVersions + 1;

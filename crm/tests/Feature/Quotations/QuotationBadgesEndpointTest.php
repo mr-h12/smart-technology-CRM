@@ -15,10 +15,12 @@ use Tests\TestCase;
 
 /**
  * `GET /api/v1/badges` — Module 8 Point 2.3 (Q5). §18.1 and Design System
- * §5.1 permit the *Approvals* and *My Quotations* sidebar counters; this is
- * the one read that feeds both: `approvals` is the `pending` quotations within
- * the caller's `quotation.approve` reach (`SEC-08`), `my_quotations` the
- * caller's own returned drafts (2.2's `incomplete`, `own` reach). `auth`
+ * §5.1 permit the *Approvals*, *My Quotations* and (Module 13 · 7.5d) *Reports*
+ * sidebar counters; this is the one read that feeds all three: `approvals` is
+ * the `pending` quotations within the caller's `quotation.approve` reach
+ * (`SEC-08`), `my_quotations` the caller's own returned drafts (2.2's
+ * `incomplete`, `own` reach), `reports` the team's Missed daily reports for a
+ * caller whose `report.view_received` scope is `team` (`D-138`). `auth`
  * only — a role without the grant is answered `0`, not `403`, because a
  * sidebar is drawn for everyone.
  */
@@ -64,7 +66,7 @@ final class QuotationBadgesEndpointTest extends TestCase
 
         $this->getJson(self::BADGES, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonCount(2, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJson(['data' => ['approvals' => 2, 'my_quotations' => 0]]);
     }
 
@@ -119,6 +121,82 @@ final class QuotationBadgesEndpointTest extends TestCase
         $this->getJson(self::BADGES, $this->bearerFor(RoleName::TeamLeader))
             ->assertStatus(200)
             ->assertJson(['data' => ['approvals' => 1]]);
+    }
+
+    /**
+     * 7.5d, §5.1's *Reports* counter: the team's daily reports J-04 marked Missed — the leader's own
+     * included; not an outsider's, not one archived, not one submitted late since, not a weekly one.
+     */
+    public function test_that_the_team_leader_counts_the_teams_missed_daily_reports(): void
+    {
+        $leader = $this->userWith(RoleName::TeamLeader);
+        $member = $this->userWith(RoleName::IndoorSales);
+        $member->forceFill(['team_leader_id' => $leader->id])->save();
+        $outsider = $this->userWith(RoleName::OutdoorSales);
+        self::assertNotSame($member->id, $outsider->id);
+        self::assertNull($outsider->team_leader_id, 'The outsider has no leader.');
+
+        $this->report($member, 'daily', 'missed', '2026-10-12');
+        $this->report($leader, 'daily', 'missed', '2026-10-12');
+        $this->report($outsider, 'daily', 'missed', '2026-10-12');
+        $this->report($member, 'daily', 'archived', '2026-10-13');
+        $this->report($member, 'daily', 'submitted', '2026-10-14', late: true);
+        $this->report($member, 'weekly', 'missed', '2026-10-05', '2026-10-09');
+        // Another team's member: a second, distinct Team Leader and a member of theirs.
+        $otherLeader = $this->freshUser(RoleName::TeamLeader, 'other');
+        $otherMember = $this->freshUser(RoleName::IndoorSales, 'theirs');
+        $otherMember->forceFill(['team_leader_id' => $otherLeader->id])->save();
+        self::assertNotSame($leader->id, $otherLeader->id);
+        self::assertNotSame($member->id, $otherMember->id);
+        $this->report($otherMember, 'daily', 'missed', '2026-10-12');
+
+        $this->getJson(self::BADGES, $this->bearerFor(RoleName::TeamLeader))
+            ->assertStatus(200)
+            ->assertJsonPath('data.reports', 2);
+    }
+
+    /** 7.5d: the *Reports* counter is the Team Leader's; every other role is answered `0`. */
+    public function test_that_others_count_no_missed_reports(): void
+    {
+        $roles = [RoleName::Manager, RoleName::Ceo, RoleName::IndoorSales, RoleName::Procurement, RoleName::OutdoorSupervisor, RoleName::OutdoorSales];
+        foreach ($roles as $role) {
+            $this->report($this->userWith($role), 'daily', 'missed', '2026-10-12');
+        }
+
+        foreach ($roles as $role) {
+            $this->getJson(self::BADGES, $this->bearerFor($role))
+                ->assertStatus(200)
+                ->assertJsonPath('data.reports', 0);
+        }
+    }
+
+    /** A user outside the per-role cache, for a second user of the same role. */
+    private function freshUser(RoleName $role, string $tag): User
+    {
+        $user = new User;
+        $user->fill([
+            'name' => 'Test '.$role->label().' '.$tag,
+            'email' => str_replace('_', '.', $role->value).'.'.$tag.'@example.test',
+            'password' => self::PASSWORD,
+            'role_id' => Role::query()->where('slug', $role->value)->firstOrFail()->id,
+            'is_active' => true,
+            'is_hidden' => false,
+        ]);
+        $user->save();
+
+        return $user;
+    }
+
+    /** A report row written straight to the table, as J-04 / J-08 leave it. */
+    private function report(User $author, string $type, string $status, string $start, ?string $end = null, bool $late = false): void
+    {
+        $id = Uuid::uuid4()->toString();
+        DB::table('reports')->insert([
+            'id' => $id, 'code' => ($type === 'weekly' ? 'RPT-WK-2026-' : 'RPT-DY-2026-').substr($id, -6), 'type' => $type,
+            'status' => $status, 'author_id' => $author->id, 'period_start' => $start, 'period_end' => $end ?? $start,
+            'submitted_at' => $status === 'missed' ? null : now(), 'submitted_late' => $late,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
     }
 
     /**

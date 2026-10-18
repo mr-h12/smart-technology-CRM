@@ -15,7 +15,8 @@ use App\Modules\Reports\Domain\ReportWriteRefused;
  * out of reach, then 400 for `If-Match`, then 409 for a stale token. The
  * author reaches their own; a recipient reaches what was sent to them — a live
  * `report_recipients` row (the owner, 2026-10-16).
- * ponytail: Team / Out scopes (`D-129`) narrow nothing yet — they wait for teams.
+ * `Team` and `Out` choose who may be sent a report, never what a caller reaches
+ * without a recipient row (`D-138`).
  */
 final readonly class ReportAccess
 {

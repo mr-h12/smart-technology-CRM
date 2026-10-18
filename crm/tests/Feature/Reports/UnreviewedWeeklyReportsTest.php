@@ -25,7 +25,8 @@ use Tests\TestCase;
 /**
  * Module 13, slice 6 · 6.1 — `D-136`: J-06 submits a weekly draft still
  * unsubmitted after the review window (`limits.weekly_review_window_hours`,
- * 24 hours while unset, `D-127`) unchanged to the default recipient (`D-129`),
+ * 24 hours while unset, `D-127`) unchanged to every default recipient — the
+ * named Manager (`D-129`) and the author's Team Leader (7.5d, `D-138`) —
  * flagged `not_reviewed`. With no valid default recipient the report stays a
  * draft and J-06 tries again on its next run. Only weekly reports are touched.
  *
@@ -120,6 +121,45 @@ final class UnreviewedWeeklyReportsTest extends TestCase
 
         self::assertSame('submitted', $this->statusOf($id), 'D-136: J-06 tries again on its next run.');
         self::assertTrue((bool) DB::table('reports')->where('id', $id)->value('not_reviewed'));
+    }
+
+    /** 7.5d: the author's own Team Leader is a default too — J-06 submits to both. */
+    public function test_that_j06_submits_to_the_manager_and_the_authors_team_leader(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $author = $this->user(RoleName::IndoorSales);
+        $author->forceFill(['team_leader_id' => $leader->id])->save();
+        $manager = $this->user(RoleName::Manager);
+        $this->defaultRecipient($manager);
+        $id = $this->weekly($author, hoursOld: 25);
+
+        $this->runJob();
+
+        self::assertSame('submitted', $this->statusOf($id));
+        self::assertTrue((bool) DB::table('reports')->where('id', $id)->value('not_reviewed'), 'D-136: flagged Not reviewed.');
+        self::assertEqualsCanonicalizing([$manager->id, $leader->id], DB::table('report_recipients')->where('report_id', $id)->pluck('user_id')->all());
+        $audit = DB::table('audit_log')->where('event', 'REPORT_SUBMITTED')->where('entity_id', $id)->first();
+        self::assertInstanceOf(stdClass::class, $audit);
+        self::assertIsString($audit->new_values);
+        $new = json_decode($audit->new_values, true);
+        self::assertIsArray($new);
+        self::assertEqualsCanonicalizing([$manager->id, $leader->id], $new['recipient_ids'] ?? null, 'AUD-01: the audit names both recipients.');
+    }
+
+    /** 7.5d: with no valid default Manager, the author's own Team Leader alone is enough for J-06. */
+    public function test_that_j06_submits_to_the_team_leader_alone_without_a_manager(): void
+    {
+        $leader = $this->user(RoleName::TeamLeader);
+        $author = $this->user(RoleName::IndoorSales);
+        $author->forceFill(['team_leader_id' => $leader->id])->save();
+        $this->user(RoleName::Manager);     // a Manager exists, but the setting names nobody.
+        $id = $this->weekly($author, hoursOld: 25);
+
+        $this->runJob();
+
+        self::assertSame('submitted', $this->statusOf($id));
+        self::assertTrue((bool) DB::table('reports')->where('id', $id)->value('not_reviewed'), 'D-136: flagged Not reviewed.');
+        self::assertSame([$leader->id], DB::table('report_recipients')->where('report_id', $id)->pluck('user_id')->all());
     }
 
     /** `D-129`: a default who lost `report.view_received` is no candidate, so no default. */

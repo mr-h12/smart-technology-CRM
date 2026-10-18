@@ -335,8 +335,8 @@ final class QuotationController
     }
 
     /**
-     * Module 8 Point 2.3 — `GET /badges` (Q5): the caller's two sidebar
-     * counters. `auth` only, so `heldScopes()` is not asked here; the use case
+     * Module 8 Point 2.3 — `GET /badges` (Q5): the caller's sidebar
+     * counters (7.5d added `reports`). `auth` only, so `heldScopes()` is not asked here; the use case
      * decides the `approve` reach itself and answers `0` where there is none.
      */
     public function badges(Request $request, BadgeCounts $badges): JsonResponse

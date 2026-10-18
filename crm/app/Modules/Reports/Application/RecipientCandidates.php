@@ -15,15 +15,14 @@ use App\Modules\Reports\Domain\Report;
  * Who a report may go to (`D-127`) and who it goes to by default (`D-129`).
  *
  * - A candidate is an active user holding §3.10's `report.view_received` with
- *   a scope that covers the author: `All` covers everyone, `Out` the outdoor
- *   staff. `Team` covers nobody until teams exist; the author is never one.
- * - The default is the Manager the `reports.default_recipient` setting names,
- *   when that user is still an active Manager — never on a Manager's report.
+ *   a scope that covers the author: `All` covers everyone, `Out` Outdoor Sales
+ *   authors, `Team` the holder's own team (`D-138`); the author is never one.
+ * - The defaults are the Manager the `reports.default_recipient` setting names,
+ *   when that user is still an active Manager — never on a Manager's report —
+ *   and the author's own Team Leader, the holder `Team` covers them through.
  */
 final readonly class RecipientCandidates
 {
-    private const OUTDOOR = [Role::OutdoorSales->value, Role::OutdoorSupervisor->value];
-
     public function __construct(
         private UserFactsInterface $users,
         private SettingsRepositoryInterface $settings,
@@ -38,10 +37,14 @@ final readonly class RecipientCandidates
         $candidates = [];
         foreach ($this->users->holdersOf('report', 'view_received') as $id => $holder) {
             $covers = in_array(Scope::All->value, $holder['scopes'], true)
-                || (in_array(Scope::Out->value, $holder['scopes'], true) && in_array($authorRole, self::OUTDOOR, true));
+                || (in_array(Scope::Out->value, $holder['scopes'], true) && $authorRole === Role::OutdoorSales->value);
+            // ponytail: one team query per `Team` holder; a `teamLeaderOf`
+            // lookup if Team Leaders grow many.
+            $leads = in_array(Scope::Team->value, $holder['scopes'], true)
+                && in_array($report->authorId, $this->users->teamMemberIdsOf($id), true);
 
-            if ($id !== $report->authorId && $covers) {
-                $candidates[] = ['id' => $id, 'name' => $holder['name'], 'is_default' => $id === $default];
+            if ($id !== $report->authorId && ($covers || $leads)) {
+                $candidates[] = ['id' => $id, 'name' => $holder['name'], 'is_default' => $leads || $id === $default];
             }
         }
 
@@ -54,16 +57,14 @@ final readonly class RecipientCandidates
         return array_column($this->for($report), 'id');
     }
 
-    /** `D-136`, J-06: the default recipient when that user is a candidate for this report, else null. */
-    public function defaultFor(Report $report): ?string
+    /**
+     * `D-136`, J-06: every default recipient that is a candidate for this report.
+     *
+     * @return list<string>
+     */
+    public function defaultsFor(Report $report): array
     {
-        foreach ($this->for($report) as $candidate) {
-            if ($candidate['is_default']) {
-                return $candidate['id'];
-            }
-        }
-
-        return null;
+        return array_column(array_filter($this->for($report), static fn (array $candidate): bool => $candidate['is_default']), 'id');
     }
 
     private function defaultRecipient(): ?string

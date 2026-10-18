@@ -290,7 +290,7 @@ async function load(): Promise<void> {
 
         if (isEditable.value) {
             candidates.value = await readRecipientCandidates(reportId);
-            // A returned report keeps who it went to (the owner, 2026-10-16); a draft starts from the default.
+            // A returned report keeps who it went to (the owner, 2026-10-16); a draft starts from the defaults.
             const previous = report.value!.recipients.map((recipient) => recipient.id);
             chosen.value = previous.length > 0
                 ? previous

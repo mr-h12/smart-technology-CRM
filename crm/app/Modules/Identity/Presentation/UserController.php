@@ -65,6 +65,7 @@ final class UserController
             $request->string('role_id')->toString(),
             $request->filled('job_title_en') ? $request->string('job_title_en')->toString() : null,
             $request->filled('job_title_ar') ? $request->string('job_title_ar')->toString() : null,
+            $request->filled('team_leader_id') ? $request->string('team_leader_id')->toString() : null,
         );
 
         // 201: OpenAPI §4.1 covers POST create with the single-resource
@@ -74,8 +75,8 @@ final class UserController
 
     public function update(UpdateUserRequest $request, string $user, UpdateUser $update): JsonResponse
     {
-        /** @var array{name?: string, email?: string, role_id?: string, job_title_en?: ?string, job_title_ar?: ?string} $submitted */
-        $submitted = $request->safe()->only(['name', 'email', 'role_id', 'job_title_en', 'job_title_ar']);
+        /** @var array{name?: string, email?: string, role_id?: string, job_title_en?: ?string, job_title_ar?: ?string, team_leader_id?: ?string} $submitted */
+        $submitted = $request->safe()->only(['name', 'email', 'role_id', 'job_title_en', 'job_title_ar', 'team_leader_id']);
 
         $updated = $update->handle(self::actorId($request), $user, $submitted);
 

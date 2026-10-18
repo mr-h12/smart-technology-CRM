@@ -177,6 +177,8 @@
             "jobTitleAr": "Job title (Arabic)",
             "role": "Role",
             "rolePlaceholder": "Choose a role",
+            "teamLeader": "Team leader",
+            "noTeamLeader": "No team leader",
             "noAssignableRoles": "There is no role you are permitted to assign.",
             "password": "Initial password",
             "passwordHint": "At least 8 characters, with letters and numbers.",

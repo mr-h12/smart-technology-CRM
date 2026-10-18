@@ -6,11 +6,12 @@ import ar from '@/locales/ar.json';
 import UserFormModal from '@/components/users/UserFormModal.vue';
 import { MANAGER_MAY_CREATE, assignableBy } from '@/domain/roleAssignment';
 import { ApiError } from '@/api';
-import { createUser, updateUser } from '@/services/identity';
+import { activeUserOptions, createUser, updateUser } from '@/services/identity';
 
 vi.mock('@/services/identity', () => ({
     createUser: vi.fn(),
     updateUser: vi.fn(),
+    activeUserOptions: vi.fn().mockResolvedValue([]),
 }));
 
 /**
@@ -198,6 +199,7 @@ describe('the job title', () => {
         role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
         job_title_en: 'Sales Manager',
         job_title_ar: 'مدير المبيعات',
+        team_leader_id: null,
         is_active: true,
         created_at: '2026-10-10T00:00:00+00:00',
         updated_at: '2026-10-10T00:00:00+00:00',
@@ -283,6 +285,126 @@ describe('the job title', () => {
                 expect(input.exists()).toBe(true);
                 expect(input.element.closest('label')?.textContent?.trim()).not.toBe('');
             }
+            expect(wrapper.text()).not.toMatch(/users\.form\./);
+        }
+    });
+});
+
+/** D-138 · 7.5a — a user's Team Leader, chosen on the same form. */
+describe('the team leader', () => {
+    const LEADERS = [
+        { id: 'tl-1', name: 'Huda Karim' },
+        { id: 'tl-2', name: 'Sami Nasr' },
+    ];
+
+    const EDITING = {
+        id: 'u-1',
+        name: 'Nadia Salem',
+        email: 'nadia@example.test',
+        role_id: 'r-indoor',
+        role: { slug: 'indoor_sales', name: 'Indoor Sales', label: 'Indoor Sales' },
+        job_title_en: null,
+        job_title_ar: null,
+        team_leader_id: 'tl-2',
+        is_active: true,
+        created_at: '2026-10-10T00:00:00+00:00',
+        updated_at: '2026-10-10T00:00:00+00:00',
+    };
+
+    beforeEach(() => {
+        vi.mocked(activeUserOptions).mockReset().mockResolvedValue(LEADERS);
+        vi.mocked(createUser).mockReset().mockResolvedValue(EDITING as never);
+        vi.mocked(updateUser).mockReset().mockResolvedValue(EDITING as never);
+    });
+
+    async function fillRequired(wrapper: ReturnType<typeof mountForm>) {
+        await wrapper.find('[data-testid="user-form-name"]').setValue('Nadia Salem');
+        await wrapper.find('[data-testid="user-form-email"]').setValue('nadia@example.test');
+        await wrapper.find('[data-testid="user-form-role"]').setValue('r-indoor');
+        await wrapper.find('[data-testid="user-form-password"]').setValue('Str0ngpass');
+    }
+
+    async function mountEditing() {
+        const wrapper = mount(UserFormModal, {
+            props: { open: false, editing: null, roles: ROLES, actorRole: 'super_admin' },
+            global: { plugins: [createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { ar, en } })] },
+        });
+        await wrapper.setProps({ open: true, editing: EDITING });
+        await flushPromises();
+
+        return wrapper;
+    }
+
+    it('loads only the active users who hold the Team Leader role', async () => {
+        mountForm('super_admin');
+        await flushPromises();
+
+        expect(activeUserOptions).toHaveBeenCalledWith('team_leader');
+    });
+
+    it('offers "no team leader" first, then each leader the server returned', async () => {
+        const wrapper = mountForm('super_admin');
+        await flushPromises();
+
+        const options = wrapper.findAll<HTMLOptionElement>('[data-testid="user-team-leader"] option');
+
+        expect(options.map((option) => option.element.value)).toEqual(['', 'tl-1', 'tl-2']);
+        expect(options[0]?.text()).toBe(en.users.form.noTeamLeader);
+        expect(options[1]?.text()).toContain('Huda Karim');
+        expect(options[2]?.text()).toContain('Sami Nasr');
+    });
+
+    it('sends the chosen leader when a user is created', async () => {
+        const wrapper = mountForm('super_admin');
+        await flushPromises();
+        await fillRequired(wrapper);
+        await wrapper.find('[data-testid="user-team-leader"]').setValue('tl-1');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ team_leader_id: 'tl-1' }));
+    });
+
+    it('sends null for "no team leader", so the field is explicit and optional', async () => {
+        const wrapper = mountForm('super_admin');
+        await flushPromises();
+        await fillRequired(wrapper);
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ team_leader_id: null }));
+    });
+
+    it('preselects the current leader when editing and sends the change back', async () => {
+        const wrapper = await mountEditing();
+        const select = wrapper.find<HTMLSelectElement>('[data-testid="user-team-leader"]');
+
+        expect(select.element.value).toBe('tl-2');
+
+        await select.setValue('tl-1');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(updateUser).toHaveBeenCalledWith('u-1', expect.objectContaining({ team_leader_id: 'tl-1' }));
+    });
+
+    it('sends null when an existing leader is cleared with "no team leader"', async () => {
+        const wrapper = await mountEditing();
+
+        await wrapper.find('[data-testid="user-team-leader"]').setValue('');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(updateUser).toHaveBeenCalledWith('u-1', expect.objectContaining({ team_leader_id: null }));
+    });
+
+    it('labels the select in both languages', () => {
+        for (const locale of ['en', 'ar'] as const) {
+            const wrapper = mountForm('super_admin', locale);
+            const select = wrapper.find('[data-testid="user-team-leader"]');
+
+            expect(select.exists()).toBe(true);
+            expect(select.element.closest('label')?.textContent?.trim()).not.toBe('');
             expect(wrapper.text()).not.toMatch(/users\.form\./);
         }
     });

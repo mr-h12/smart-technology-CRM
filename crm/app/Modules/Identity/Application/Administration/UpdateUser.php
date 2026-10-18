@@ -53,7 +53,7 @@ final readonly class UpdateUser
     ) {}
 
     /**
-     * @param  array{name?: string, email?: string, role_id?: string, job_title_en?: ?string, job_title_ar?: ?string}  $submitted
+     * @param  array{name?: string, email?: string, role_id?: string, job_title_en?: ?string, job_title_ar?: ?string, team_leader_id?: ?string}  $submitted
      *
      * @throws UserAdministrationRefused
      */
@@ -93,7 +93,8 @@ final readonly class UpdateUser
             }
 
             // `D-107` ruling (2), F-40 · 1.3 — optional; null clears it.
-            foreach (['job_title_en' => $existing->jobTitleEn, 'job_title_ar' => $existing->jobTitleAr] as $field => $stored) {
+            // `D-138` — the Team Leader goes through the same diff; null clears it.
+            foreach (['job_title_en' => $existing->jobTitleEn, 'job_title_ar' => $existing->jobTitleAr, 'team_leader_id' => $existing->teamLeaderId] as $field => $stored) {
                 if (array_key_exists($field, $submitted) && $submitted[$field] !== $stored) {
                     $changes[$field] = $submitted[$field];
                     $before[$field] = $stored;

@@ -78,7 +78,9 @@ final class UserSchemaMigrationTest extends TestCase
                 'name', 'email', 'password', 'role_id', 'is_active', 'is_hidden',
                 'failed_login_attempts', 'locked_until',
                 // F-40 · 1.3 (`D-107` ruling 2) — JobTitleMigrationTest owns them.
-                'job_title_en', 'job_title_ar'],
+                'job_title_en', 'job_title_ar',
+                // 13 · 7.5a (`D-138`) — TeamLeaderMigrationTest owns it.
+                'team_leader_id'],
             self::columns('users'),
         );
 

@@ -36,12 +36,12 @@ interface UserDirectoryInterface
     public function find(string $userId): ?AdministeredUser;
 
     /** Takes a hash (`SEC-02`); Domain never sees a plaintext password (`D-77`). */
-    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden, ?string $jobTitleEn, ?string $jobTitleAr): AdministeredUser;
+    public function create(string $name, string $email, string $passwordHash, string $roleId, bool $isHidden, ?string $jobTitleEn, ?string $jobTitleAr, ?string $teamLeaderId): AdministeredUser;
 
     /**
      * Applies the fields that were submitted, and only those.
      *
-     * @param  array{name?: string, email?: string, role_id?: string, is_hidden?: bool}  $changes
+     * @param  array{name?: string, email?: string, role_id?: string, is_hidden?: bool, job_title_en?: ?string, job_title_ar?: ?string, team_leader_id?: ?string}  $changes
      */
     public function update(string $userId, array $changes): AdministeredUser;
 

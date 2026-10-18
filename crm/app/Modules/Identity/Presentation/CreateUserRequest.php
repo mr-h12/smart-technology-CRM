@@ -59,6 +59,8 @@ final class CreateUserRequest extends FormRequest
             // `D-107` ruling (2) — the signer's optional job title.
             'job_title_en' => ['nullable', 'string', 'max:255'],
             'job_title_ar' => ['nullable', 'string', 'max:255'],
+            // `D-138` — optional; the Team Leader must be an active Team Leader.
+            'team_leader_id' => ['nullable', 'uuid', ActiveTeamLeader::rule()],
         ];
     }
 }

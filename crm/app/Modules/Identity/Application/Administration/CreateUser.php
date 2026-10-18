@@ -67,6 +67,7 @@ final readonly class CreateUser
         string $roleId,
         ?string $jobTitleEn = null,
         ?string $jobTitleAr = null,
+        ?string $teamLeaderId = null,
     ): AdministeredUser {
         $role = $this->users->findRole($roleId);
 
@@ -87,12 +88,12 @@ final readonly class CreateUser
         // documented as hidden is not hidden.
         $isHidden = Role::tryFrom($role->slug)?->isHidden() === true;
 
-        return $this->connection->transaction(function () use ($name, $email, $hash, $role, $isHidden, $jobTitleEn, $jobTitleAr): AdministeredUser {
+        return $this->connection->transaction(function () use ($name, $email, $hash, $role, $isHidden, $jobTitleEn, $jobTitleAr, $teamLeaderId): AdministeredUser {
             if ($this->users->emailIsTaken($email)) {
                 throw UserAdministrationRefused::because(AdministrationRefusal::EmailAlreadyTaken);
             }
 
-            $user = $this->users->create($name, $email, $hash, $role->id, $isHidden, $jobTitleEn, $jobTitleAr);
+            $user = $this->users->create($name, $email, $hash, $role->id, $isHidden, $jobTitleEn, $jobTitleAr, $teamLeaderId);
 
             // AUD-01. No password and no hash: AUD-03 makes the row permanent,
             // and a permanent copy of a credential outlives the account.
@@ -109,6 +110,7 @@ final readonly class CreateUser
                     'is_active' => $user->isActive,
                     'job_title_en' => $user->jobTitleEn,
                     'job_title_ar' => $user->jobTitleAr,
+                    'team_leader_id' => $user->teamLeaderId,
                 ],
             );
 

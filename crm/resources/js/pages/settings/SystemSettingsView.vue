@@ -63,7 +63,7 @@ import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { SETTING_KEYS, listCurrencies, readSettings, updateSettings, type SystemSettings } from '@/services/admin';
-import { listUsers } from '@/services/identity';
+import { activeUserOptions } from '@/services/identity';
 import { useAuth } from '@/stores/auth';
 import CurrenciesView from '@/pages/currencies/CurrenciesView.vue';
 import SystemLimitsView from '@/pages/limits/SystemLimitsView.vue';
@@ -319,14 +319,9 @@ onMounted(async () => {
         currencyCodes.value = [];
     }
 
-    try {
-        managers.value = (await listUsers({ isActive: true, roleSlug: 'manager' })).items
-            .map((user) => ({ id: user.id, name: user.name }));
-    } catch {
-        // No list, no choices: the stored value still shows, and the server
-        // still refuses anyone who is not an active Manager.
-        managers.value = [];
-    }
+    // No list, no choices: the stored value still shows, and the server still
+    // refuses anyone who is not an active Manager.
+    managers.value = await activeUserOptions('manager');
 });
 </script>
 

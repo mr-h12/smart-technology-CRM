@@ -275,6 +275,7 @@ return [
         'tag'                      => 'العلامة',
         'tags'                     => 'العلامات',
         'teacher'                  => 'المعلّم',
+        'team_leader_id'           => 'قائد الفريق',
         'terms'                    => 'الأحكام',
         'test_description'         => 'وصف الاختبار',
         'test_locale'              => 'لغة الاختبار',

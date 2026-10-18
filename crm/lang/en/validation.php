@@ -275,6 +275,7 @@ return [
         'tag'                      => 'tag',
         'tags'                     => 'tags',
         'teacher'                  => 'teacher',
+        'team_leader_id'           => 'team leader',
         'terms'                    => 'terms',
         'test_description'         => 'test description',
         'test_locale'              => 'test locale',

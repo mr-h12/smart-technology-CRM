@@ -13,7 +13,7 @@
  *
  * ── No search box, and that is not an omission ─────────────────────────────
  *
- * `UserListCriteria` declares two filters — `is_active` and `role` — and
+ * `UserListCriteria` declares three filters — `is_active`, `role` and `team_leader` — and
  * deliberately omits free text: `OpenAPI §6.2` routes `q` through
  * `SearchService`, which `CLAUDE.md` builds in **Module 3**. An input that sent
  * `?q=` would be silently ignored by the parser, which is a search box that
@@ -39,7 +39,7 @@ import ConfirmDialog from '@/components/users/ConfirmDialog.vue';
 import UserFormModal from '@/components/users/UserFormModal.vue';
 import UserDetailsDrawer from '@/components/users/UserDetailsDrawer.vue';
 import type { AdministeredUser, Pagination, RoleOption } from '@/services/identity';
-import { listAssignableRoles, listUsers, setUserActivation } from '@/services/identity';
+import { activeUserOptions, listAssignableRoles, listUsers, setUserActivation } from '@/services/identity';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -55,6 +55,8 @@ const busy = ref(false);
 const page = ref(1);
 const activeFilter = ref<'all' | 'active' | 'inactive'>('all');
 const roleFilter = ref('');
+const teamLeaderFilter = ref('');
+const leaders = ref<Array<{ id: string; name: string }>>([]);
 
 const editing = ref<AdministeredUser | null>(null);
 const formOpen = ref(false);
@@ -105,6 +107,7 @@ async function load(): Promise<void> {
             page: page.value,
             isActive: activeFilter.value === 'all' ? null : activeFilter.value === 'active',
             roleSlug: roleFilter.value === '' ? null : roleFilter.value,
+            teamLeader: teamLeaderFilter.value === '' ? null : teamLeaderFilter.value,
         });
 
         users.value = result.items;
@@ -201,7 +204,7 @@ async function loginAs(user: AdministeredUser): Promise<void> {
 }
 
 onMounted(async () => {
-    await Promise.all([load(), loadRoles()]);
+    await Promise.all([load(), loadRoles(), activeUserOptions('team_leader').then((options) => { leaders.value = options; })]);
 });
 </script>
 
@@ -261,6 +264,20 @@ onMounted(async () => {
                     <option v-for="role in roles" :key="role.id" :value="role.slug">{{ role.label }}</option>
                 </select>
             </label>
+
+            <label class="flex flex-col gap-1.5">
+                <span>{{ t('users.filter.teamLeader') }}</span>
+                <select
+                    v-model="teamLeaderFilter"
+                    class="form-field rounded-lg px-3 py-2"
+                    data-testid="users-filter-team-leader"
+                    @change="applyFilters"
+                >
+                    <option value="">{{ t('users.filter.teamLeaderAll') }}</option>
+                    <option value="none">{{ t('users.filter.noTeamLeader') }}</option>
+                    <option v-for="leader in leaders" :key="leader.id" :value="leader.id">{{ leader.name }}</option>
+                </select>
+            </label>
         </div>
 
         <LoadingState v-if="loading" label-key="users.loading" />
@@ -274,6 +291,7 @@ onMounted(async () => {
                         <th scope="col" class="p-3 text-start">{{ t('users.column.name') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('users.column.email') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('users.column.role') }}</th>
+                        <th scope="col" class="p-3 text-start">{{ t('users.column.teamLeader') }}</th>
                         <th scope="col" class="p-3 text-start">{{ t('users.column.status') }}</th>
                         <th scope="col" class="p-3 text-end">{{ t('users.column.actions') }}</th>
                     </tr>
@@ -287,6 +305,7 @@ onMounted(async () => {
                              tabular-nums keeps columns of figures aligned. -->
                         <td class="p-3 tabular-nums">{{ user.email }}</td>
                         <td class="p-3">{{ user.role.label }}</td>
+                        <td class="p-3">{{ user.team_leader?.name ?? '—' }}</td>
                         <td class="p-3">
                             <!-- §9.5: legible without relying on colour alone —
                                  the badge carries its own word. -->

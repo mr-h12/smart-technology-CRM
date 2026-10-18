@@ -147,7 +147,9 @@ async function mountUsers(
     return { wrapper, router, fetchMock, auth };
 }
 
-const LIST_OK = { match: /\/users(\?|$)/, response: () => page([user(), user({ id: '01a0-proc', name: 'Omar Procurement', role: { slug: 'procurement', name: 'Procurement', label: 'Procurement' }, is_active: false })]) };
+const LIST_OK = { match: /\/users(\?|$)/, response: () => page([user({ team_leader_id: '01a0-tl', team_leader: { id: '01a0-tl', name: 'Layla Leader' } }), user({ id: '01a0-proc', name: 'Omar Procurement', role: { slug: 'procurement', name: 'Procurement', label: 'Procurement' }, is_active: false, team_leader_id: null, team_leader: null })]) };
+/** `activeUserOptions('team_leader')` asks for the active Team Leaders; routed before `LIST_OK`, which matches every `/users` call. */
+const LEADERS_OK = { match: /filter%5Brole%5D=team_leader/, response: () => page([user({ id: '01a0-tl', name: 'Layla Leader' })]) };
 const ROLES_OK = { match: /\/roles/, response: () => page(ROLES) };
 
 beforeEach(() => {
@@ -164,6 +166,18 @@ describe('the table', () => {
         expect(rows[0]?.text()).toContain('Nadia Indoor');
         expect(rows[0]?.text()).toContain('indoor.sales@example.test');
         expect(rows[0]?.text()).toContain('Indoor Sales');
+    });
+
+    it('shows each row\'s Team Leader by name, and a dash when there is none (D-139)', async () => {
+        const { wrapper } = await mountUsers(SUPER_ADMIN, [LEADERS_OK, LIST_OK, ROLES_OK], 'ar');
+
+        const headers = wrapper.findAll('th').map((th) => th.text());
+        const rows = wrapper.findAll('[data-testid="users-row"]');
+
+        expect(headers).toContain('قائد الفريق');
+        expect(rows[0]?.text()).toContain('Layla Leader');
+        expect(rows[1]?.text()).toContain('—');
+        expect(rows[1]?.text()).not.toContain('Layla Leader');
     });
 
     it('says Active or Suspended in words, not only in colour', async () => {
@@ -214,8 +228,8 @@ describe('the table', () => {
 });
 
 describe('filtering and pagination (OpenAPI §6.2, §4.2)', () => {
-    it('sends only the two filters the resource declares', async () => {
-        const { wrapper, fetchMock } = await mountUsers(SUPER_ADMIN, [LIST_OK, ROLES_OK]);
+    it('sends only the filters that are set', async () => {
+        const { wrapper, fetchMock } = await mountUsers(SUPER_ADMIN, [LEADERS_OK, LIST_OK, ROLES_OK]);
 
         await wrapper.find('[data-testid="users-filter-status"]').setValue('inactive');
         await flushPromises();
@@ -227,6 +241,31 @@ describe('filtering and pagination (OpenAPI §6.2, §4.2)', () => {
         // §6.2 rejects an unknown parameter with 400 rather than ignoring it,
         // so an unset filter must be absent and not empty.
         expect(filtered.at(-1)).not.toContain('filter%5Brole%5D');
+        expect(filtered.at(-1)).not.toContain('filter%5Bteam_leader%5D');
+    });
+
+    it('offers «بلا قائد» and the active Team Leaders, and sends the choice (D-139)', async () => {
+        const { wrapper, fetchMock } = await mountUsers(SUPER_ADMIN, [LEADERS_OK, LIST_OK, ROLES_OK], 'ar');
+
+        const select = wrapper.find('[data-testid="users-filter-team-leader"]');
+
+        expect(select.exists()).toBe(true);
+
+        const options = select.findAll('option').map((option) => ({ value: option.attributes('value'), text: option.text() }));
+
+        expect(options.map((option) => option.value)).toEqual(['', 'none', '01a0-tl']);
+        expect(options[1]?.text).toBe('بلا قائد');
+        expect(options[2]?.text).toBe('Layla Leader');
+
+        await select.setValue('01a0-tl');
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('filter%5Bteam_leader%5D=01a0-tl');
+
+        await select.setValue('none');
+        await flushPromises();
+
+        expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('filter%5Bteam_leader%5D=none');
     });
 
     it('returns to page one when a filter changes', async () => {

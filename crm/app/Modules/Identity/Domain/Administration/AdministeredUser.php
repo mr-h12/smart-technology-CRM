@@ -39,6 +39,8 @@ final readonly class AdministeredUser
         public ?string $jobTitleAr,
         /** `D-138`: the user's Team Leader, or null. */
         public ?string $teamLeaderId,
+        /** `D-139`: the leader's name, so the list needs no second call. */
+        public ?string $teamLeaderName,
     ) {}
 
     /**

@@ -507,6 +507,11 @@ final class SupplierQuotationListEndpointTest extends TestCase
             {
                 return $this->real->cardsOf($dealIds);
             }
+
+            public function statusCountsCreatedBetween(\DateTimeInterface $from, \DateTimeInterface $to): array
+            {
+                return $this->real->statusCountsCreatedBetween($from, $to);
+            }
         };
         $this->app->instance(DealFactsInterface::class, $spy);
 

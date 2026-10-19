@@ -439,6 +439,17 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
         return $records;
     }
 
+    public function statusCountsSentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        /** @var array<string, int> $counts pdo_pgsql hands `count(*)` back as a native int */
+        $counts = Quotation::query()
+            ->where('sent_at', '>=', $from)->where('sent_at', '<', $to)
+            ->selectRaw('status, count(*) as n')->groupBy('status')
+            ->pluck('n', 'status')->all();
+
+        return $counts;
+    }
+
     public function countOnDealsOwnedBy(string $ownerId, string $from, string $to): int
     {
         return PurchaseOrder::query()

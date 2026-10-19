@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Infrastructure;
 
+use App\Modules\Deals\Domain\Access\DealStatusTransition;
 use App\Modules\Deals\Domain\Contracts\DealFacts;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
@@ -111,6 +112,18 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
         }
 
         return $cards;
+    }
+
+    public function statusCountsCreatedBetween(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        /** @var array<string, int> $counts pdo_pgsql hands `count(*)` back as a native int */
+        $counts = $this->live()
+            ->where('created_at', '>=', $from)->where('created_at', '<', $to)
+            ->selectRaw('status, count(*) as n')->groupBy('status')
+            ->pluck('n', 'status')->all();
+
+        // In pipeline order (§4.4), so the SPA and the PDF print what the server sends.
+        return array_replace(array_intersect_key(array_flip(DealStatusTransition::statuses()), $counts), $counts);
     }
 
     public function titlesOf(array $dealIds): array

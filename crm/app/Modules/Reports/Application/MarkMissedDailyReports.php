@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Reports\Application;
 
 use App\Modules\Admin\Application\Settings\CompanyToday;
-use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
@@ -23,7 +21,6 @@ final readonly class MarkMissedDailyReports
 {
     public function __construct(
         private ReportDirectoryInterface $reports,
-        private SettingsRepositoryInterface $settings,
         private CompanyToday $today,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
@@ -32,9 +29,9 @@ final readonly class MarkMissedDailyReports
     /** @return int how many reports were marked Missed */
     public function run(): int
     {
-        $goLive = $this->settings->all()[SystemSetting::ReportsGoLiveDate->value] ?? null;
+        $goLive = $this->today->goLiveDate();
 
-        if (! is_string($goLive) || $goLive === '') {
+        if ($goLive === null) {
             return 0;
         }
 

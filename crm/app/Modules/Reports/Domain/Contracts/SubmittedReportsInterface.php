@@ -11,7 +11,8 @@ namespace App\Modules\Reports\Domain\Contracts;
 interface SubmittedReportsInterface
 {
     /**
-     * One submitted version as it was frozen (`D-126`, `D-130`, `D-131`, `D-133`);
+     * One submitted version as it was frozen (`D-126`, `D-130`, `D-131`, `D-133`) —
+     * RPT-MN has no `activity` and carries its counts instead (`D-140`);
      * null for a draft or a version that does not exist. Times are UTC, ATOM.
      * Selling totals only — the frozen copy holds no cost, margin or profit.
      *
@@ -20,10 +21,12 @@ interface SubmittedReportsInterface
      *     period_start: string, period_end: string, submitted_at: string,
      *     follow_ups: list<array{customer_id: string, customer_name: string, note: string, followed_up_at?: string}>,
      *     notes: list<array{body: string}>,
-     *     activity: array{counts: array<string, int>, sections: array<string, list<array<string, string|int|null>>>},
+     *     activity?: array{counts: array<string, int>, sections: array<string, list<array<string, string|int|null>>>},
      *     daily_reports?: list<array{code: string, period_start: string, status: string}>,
      *     purchase_orders_received?: int,
-     *     new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}
+     *     new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>},
+     *     deals_by_status?: array<string, int>,
+     *     quotations?: array{sent: int, won: int, lost: int}
      * }|null
      */
     public function version(string $reportId, int $version): ?array;

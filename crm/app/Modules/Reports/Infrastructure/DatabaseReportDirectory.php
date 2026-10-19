@@ -443,10 +443,10 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return $ids;
     }
 
-    public function weeklyAuthorsOf(string $periodStart): array
+    public function authorsOf(string $type, string $periodStart): array
     {
         /** @var list<string> $ids `author_id` is a non-null uuid column */
-        $ids = $this->connection->table('reports')->where('type', 'weekly')->where('period_start', $periodStart)->pluck('author_id')->all();
+        $ids = $this->connection->table('reports')->where('type', $type)->where('period_start', $periodStart)->pluck('author_id')->all();
 
         return $ids;
     }

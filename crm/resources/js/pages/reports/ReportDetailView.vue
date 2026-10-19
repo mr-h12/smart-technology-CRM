@@ -96,7 +96,9 @@ const COLUMNS: Record<ActivityCount, string[]> = {
 /** `D-137`: a recipient reads the author's own counts in the third person — «سجّلها», not «سجّلتها». */
 const activityLabel = (key: ActivityCount): string => `reports.activity.${key === 'purchase_orders' && received ? 'purchase_orders_received' : key}`;
 
-const hasActivity = computed(() => report.value !== null && ACTIVITY_COUNTS.some((key) => report.value!.activity.sections[key].length > 0));
+const hasActivity = computed(() => ACTIVITY_COUNTS.some((key) => (report.value?.activity?.sections[key].length ?? 0) > 0));
+/** `D-140`: RPT-MN's three quotation counts, in the server's words. */
+const MONTHLY_QUOTATIONS = ['sent', 'won', 'lost'] as const;
 /** §11.4: the author writes a draft (a Missed one too, `D-135`), and a returned report on its way to the next version. */
 const isEditable = computed(() => !received && (['draft', 'returned', 'missed'].includes(report.value?.status ?? '')));
 /** The server refuses anyone else; the page draws the buttons only where they can work (§3.10). */
@@ -438,6 +440,8 @@ onMounted(load);
             <!-- D-131's order: ①–④ in the main column from 1024 px, ⑤⑥ beside them; one column ①→⑥ on a phone. -->
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
                 <div class="flex min-w-0 flex-col gap-8">
+                <!-- ①② the author's activity — none on RPT-MN, which is company-wide (`D-140`). -->
+                <template v-if="report.activity">
                 <!-- ① `D-126` RPT-DY: the counts. -->
                 <section class="flex flex-col gap-4" aria-labelledby="report-summary-heading" data-testid="report-section-summary">
                     <h2 id="report-summary-heading" class="text-section-title">{{ t(report.type === 'weekly' ? 'reports.summary_title_weekly' : 'reports.summary_title') }}</h2>
@@ -554,6 +558,7 @@ onMounted(load);
                         </section>
                     </template>
                 </section>
+                </template>
 
                 <!-- `D-126`/`D-134` RPT-WK: the week's own sections. -->
                 <template v-if="report.type === 'weekly'">
@@ -584,8 +589,31 @@ onMounted(load);
                     </section>
                 </template>
 
-                <!-- ③ D-131: follow-ups — a customer and a note per row, saved by themselves. -->
-                <section v-if="report.type !== 'weekly'" class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-follow-ups-heading" data-testid="report-section-follow-ups">
+                <!-- `D-140` RPT-MN: the company's month in counts, as the server counts them — no money. -->
+                <template v-if="report.type === 'monthly'">
+                    <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-monthly-deals-heading" data-testid="report-section-monthly-deals">
+                        <h2 id="report-monthly-deals-heading" class="text-section-title">{{ t('reports.monthly_deals_title') }}</h2>
+                        <p v-if="Object.keys(report.deals_by_status ?? {}).length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.monthly_deals_empty') }}</p>
+                        <ul v-else class="divide-y divide-[var(--color-border)]">
+                            <li v-for="(count, status) in report.deals_by_status" :key="status" class="flex items-center justify-between gap-4 py-3" data-testid="monthly-deals-row">
+                                <DealStatusChip :status="status" />
+                                <span class="tabular-nums">{{ count }}</span>
+                            </li>
+                        </ul>
+                    </section>
+                    <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-monthly-quotations-heading" data-testid="report-section-monthly-quotations">
+                        <h2 id="report-monthly-quotations-heading" class="text-section-title">{{ t('reports.monthly_quotations_title') }}</h2>
+                        <dl class="grid grid-cols-3 gap-2">
+                            <div v-for="key in MONTHLY_QUOTATIONS" :key="key" class="flex flex-col gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+                                <dt class="text-table text-[var(--color-text-muted)]">{{ t(`reports.monthly_quotations_${key}`) }}</dt>
+                                <dd class="text-page-title tabular-nums" :data-testid="`monthly-quotations-${key}`">{{ report.quotations?.[key] ?? 0 }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+                </template>
+
+                <!-- ③ D-131: follow-ups — a customer and a note per row, saved by themselves; RPT-DY's alone (`D-137`). -->
+                <section v-if="report.type === 'daily'" class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-follow-ups-heading" data-testid="report-section-follow-ups">
                     <h2 id="report-follow-ups-heading" class="text-section-title">
                         {{ t('reports.follow_ups_title') }}
                         <span v-if="isEditable" class="text-table font-normal text-[var(--color-text-muted)]">· {{ t('reports.filled.follow_ups') }}</span>

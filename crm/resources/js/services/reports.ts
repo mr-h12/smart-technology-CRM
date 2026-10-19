@@ -105,12 +105,16 @@ export interface ReportDetail extends ReportSummary {
     /** The server always sends it (oldest first); optional so a payload without one — an older cached read — draws as no comments. */
     comments?: ReportComment[];
     etag: string;
-    activity: { counts: Record<ActivityCount, number>; sections: ActivitySections };
+    /** The author's activity; absent on a monthly report, which is company-wide (`D-140`). */
+    activity?: { counts: Record<ActivityCount, number>; sections: ActivitySections };
     recipients: Array<{ id: string; name: string }>;
     /** `D-126`/`D-134`: RPT-WK's own sections; present only on a weekly report. */
     daily_reports?: Array<{ code: string; period_start: string; status: ReportStatus }>;
     purchase_orders_received?: number;
     new_customers?: { count: number; items: Array<{ customer_id: string; name: string }> };
+    /** `D-140`: RPT-MN's company-wide counts, as the server counts them; present only on a monthly report. */
+    deals_by_status?: Record<string, number>;
+    quotations?: { sent: number; won: number; lost: number };
 }
 
 /** A report sent to the caller: the list row and the detail both name its author. */

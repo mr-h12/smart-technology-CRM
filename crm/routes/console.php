@@ -6,6 +6,7 @@ use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
+use App\Modules\Reports\Presentation\GenerateMonthlyReportsJob;
 use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
 use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
@@ -84,6 +85,12 @@ Schedule::job(new GenerateWeeklyReportsJob, QueueName::Maintenance->value)->week
 // is the setting's, read inside the job; hourly so a draft past it goes out within the hour.
 Schedule::job(new SubmitUnreviewedWeeklyReportsJob, QueueName::Maintenance->value)->hourly();
 
+// J-07 generate_monthly_report (§15, D-140, Module 13 slice 8 · 8.1). J-05's shape,
+// onto `maintenance`, with its catch-up (`schedule:catch-up`), after J-06 on start.
+// On the 1st, 01:00 UTC (the owner declined a local-time schedule) — the company's
+// day and month are read inside the job; J-05's ponytail on zones west of UTC holds here too.
+Schedule::job(new GenerateMonthlyReportsJob, QueueName::Maintenance->value)->monthlyOn(1, '1:00');
+
 // J-08 archive_old_reports (§15, §11.4, D-127, Module 13 slice 7 · 7.4). J-04's shape,
 // onto `maintenance`, daily at 00:00 UTC, with its catch-up (`schedule:catch-up`), last
 // on start. The archive age is the `limits.report_archive_months` setting, read inside the job.
@@ -99,6 +106,7 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
         'J-04' => MarkMissedDailyReportsJob::class,
         'J-05' => GenerateWeeklyReportsJob::class,
         'J-06' => SubmitUnreviewedWeeklyReportsJob::class,
+        'J-07' => GenerateMonthlyReportsJob::class,
         'J-08' => ArchiveOldReportsJob::class,
     ];
 
@@ -116,4 +124,4 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
     }
 
     return Command::SUCCESS;
-})->purpose('Run the startup catch-up of J-01, J-04, J-05, J-06 and J-08 (D-55, ST-05)');
+})->purpose('Run the startup catch-up of J-01, J-04, J-05, J-06, J-07 and J-08 (D-55, ST-05)');

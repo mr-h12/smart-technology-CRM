@@ -20,6 +20,7 @@ use App\Modules\Reports\Domain\Report;
  * - The defaults are the Manager the `reports.default_recipient` setting names,
  *   when that user is still an active Manager — never on a Manager's report —
  *   and the author's own Team Leader, the holder `Team` covers them through.
+ *   On RPT-MN, every active CEO (`D-140`).
  */
 final readonly class RecipientCandidates
 {
@@ -44,7 +45,9 @@ final readonly class RecipientCandidates
                 && in_array($report->authorId, $this->users->teamMemberIdsOf($id), true);
 
             if ($id !== $report->authorId && ($covers || $leads)) {
-                $candidates[] = ['id' => $id, 'name' => $holder['name'], 'is_default' => $leads || $id === $default];
+                // `D-140`: RPT-MN goes to every active CEO by default.
+                $ceo = $report->type === 'monthly' && $holder['role'] === Role::Ceo->value;
+                $candidates[] = ['id' => $id, 'name' => $holder['name'], 'is_default' => $leads || $id === $default || $ceo];
             }
         }
 
@@ -67,7 +70,8 @@ final readonly class RecipientCandidates
         return array_column(array_filter($this->for($report), static fn (array $candidate): bool => $candidate['is_default']), 'id');
     }
 
-    private function defaultRecipient(): ?string
+    /** The Manager `reports.default_recipient` names while that user is an active Manager (`D-129`); J-07's author (`D-140`). */
+    public function defaultRecipient(): ?string
     {
         $named = $this->settings->all()[SystemSetting::ReportsDefaultRecipient->value] ?? null;
 

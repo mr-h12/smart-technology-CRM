@@ -159,7 +159,7 @@ final class ReportController
     }
 
     /**
-     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>, weekly: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
+     * @param  array{report: Report, version: int, follow_ups: list<array<string, string>>, notes: list<array<string, string>>, comments: list<array{id: string, body: string, author: array{id: string, name: string}, created_at: string}>, activity: array<string, mixed>|null, content: array<string, mixed>, recipients: list<array{id: string, name: string}>, author_name?: string}  $read
      * @return array<string, mixed>
      */
     private static function detail(array $read): array
@@ -171,8 +171,8 @@ final class ReportController
             'notes' => $read['notes'],
             'comments' => $read['comments'],
             'etag' => ReportEtag::of($read['report']),
-            'activity' => $read['activity'],
-            ...$read['weekly'],
+            ...($read['activity'] === null ? [] : ['activity' => $read['activity']]),
+            ...$read['content'],
             'recipients' => $read['recipients'],
         ];
     }

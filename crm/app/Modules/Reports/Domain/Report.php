@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Domain;
 
+use DateTimeImmutable;
+use DateTimeZone;
+
 /** One `reports` row, as the module reads it back. */
 final readonly class Report
 {
@@ -37,6 +40,12 @@ final readonly class Report
         return $this->status === 'submitted' || $this->status === 'viewed';
     }
 
+    /** `D-140`: RPT-MN is company-wide — it carries no author activity; every other report does. */
+    public function hasActivity(): bool
+    {
+        return $this->type !== 'monthly';
+    }
+
     /**
      * The version a read of it shows: the author's draft is the next one, a
      * frozen copy is the latest submitted (spec §4.4 builds the PDF link from it).
@@ -44,5 +53,20 @@ final readonly class Report
     public function shownVersion(bool $frozen): int
     {
         return $this->submittedVersions + ($frozen ? 0 : 1);
+    }
+
+    /**
+     * The period's company-time days as UTC instants, `[first day 00:00, the day after the last)`:
+     * stored instants are UTC and the query builder formats a bound date without its zone.
+     *
+     * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
+     */
+    public function utcPeriod(string $zone): array
+    {
+        $utc = new DateTimeZone('UTC');
+        $from = new DateTimeImmutable($this->periodStart.' 00:00:00', new DateTimeZone($zone));
+        $to = (new DateTimeImmutable($this->periodEnd.' 00:00:00', new DateTimeZone($zone)))->modify('+1 day');
+
+        return [$from->setTimezone($utc), $to->setTimezone($utc)];
     }
 }

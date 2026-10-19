@@ -1495,7 +1495,8 @@
         },
         "type": {
             "daily": "Daily report",
-            "weekly": "Weekly report"
+            "weekly": "Weekly report",
+            "monthly": "Monthly report"
         },
         "status": {
             "draft": "Draft",
@@ -1592,6 +1593,12 @@
         "weekly_purchase_orders_title_received": "POs received on their deals",
         "weekly_new_customers_title": "New customers this week",
         "weekly_new_customers_empty": "No customers were added this week.",
+        "monthly_deals_title": "Deals created this month, by status",
+        "monthly_deals_empty": "No deals were created this month.",
+        "monthly_quotations_title": "Quotations sent this month",
+        "monthly_quotations_sent": "Sent",
+        "monthly_quotations_won": "Won",
+        "monthly_quotations_lost": "Lost",
         "note_add": "+ Add note",
         "note_label": "Note {number}",
         "note_remove_confirm": "Remove this note?",

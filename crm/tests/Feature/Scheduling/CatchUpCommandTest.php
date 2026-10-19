@@ -7,6 +7,7 @@ namespace Tests\Feature\Scheduling;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
+use App\Modules\Reports\Presentation\GenerateMonthlyReportsJob;
 use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Reports\Presentation\MarkMissedDailyReportsJob;
 use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
@@ -22,7 +23,8 @@ use Tests\TestCase;
  * scheduled job that has one: `schedule:catch-up` replaces the four per-job
  * commands (`quotations:expire`, `reports:mark-missed`,
  * `reports:generate-weekly`, `reports:submit-unreviewed`). 7.4 adds J-08
- * (`archive_old_reports`, the owner, 2026-10-18), last. J-02 has no
+ * (`archive_old_reports`, the owner, 2026-10-18), last. 8.1 adds J-07
+ * (`generate_monthly_report`, `D-140`) between J-06 and J-08. J-02 has no
  * catch-up (`routes/console.php`). A missing entry fails loudly, as each
  * per-job command did.
  */
@@ -30,7 +32,7 @@ final class CatchUpCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_that_the_catch_up_dispatches_j01_j04_j05_j06_and_j08_onto_maintenance_in_that_order(): void
+    public function test_that_the_catch_up_dispatches_j01_j04_j05_j06_j07_and_j08_onto_maintenance_in_that_order(): void
     {
         Queue::fake();
 
@@ -40,10 +42,11 @@ final class CatchUpCommandTest extends TestCase
         Queue::assertPushedOn(QueueName::Maintenance->value, MarkMissedDailyReportsJob::class);
         Queue::assertPushedOn(QueueName::Maintenance->value, GenerateWeeklyReportsJob::class);
         Queue::assertPushedOn(QueueName::Maintenance->value, SubmitUnreviewedWeeklyReportsJob::class);
+        Queue::assertPushedOn(QueueName::Maintenance->value, GenerateMonthlyReportsJob::class);
         Queue::assertPushedOn(QueueName::Maintenance->value, ArchiveOldReportsJob::class);
 
         self::assertMatchesRegularExpression(
-            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\..*J-08 dispatched\./s',
+            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\..*J-07 dispatched\..*J-08 dispatched\./s',
             Artisan::output(),
         );
     }

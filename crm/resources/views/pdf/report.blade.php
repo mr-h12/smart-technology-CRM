@@ -24,6 +24,10 @@
     prints its own sections from `report.weekly.*` — its daily reports with their status
     (`report.status.*`, the SPA's `reports.status.*`), the POs received, the new customers — and has
     no follow-ups (`D-137`).
+
+    A monthly report (`D-140`) names its month (`heading_monthly`, `meta.period_monthly`) and prints
+    only company-wide counts from `report.monthly.*` — the deals created in it by status, the
+    quotations sent, won and lost — with no author activity, no follow-ups and no money (8.2's).
 --}}
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -87,11 +91,12 @@
     </style>
 </head>
 <body>
+@php($kind = ['weekly' => '_weekly', 'monthly' => '_monthly'][$report['type']] ?? '')
 
 <header class="report-header">
     <img class="logo" src="{{ $logo }}" alt="">
     <div>
-        <h1>{{ $t($report['type'] === 'weekly' ? 'heading_weekly' : 'heading') }}</h1>
+        <h1>{{ $t('heading'.$kind) }}</h1>
         <div class="code num">{{ $ltr($report['code']) }}</div>
     </div>
 </header>
@@ -99,10 +104,11 @@
 <section class="report-meta">
     <div><span class="label">{{ $t('meta.version') }}</span> {{ $report['version'] }}</div>
     <div><span class="label">{{ $t('meta.author') }}</span> {{ $report['author_name'] !== '' ? $report['author_name'] : $t('no_value') }}</div>
-    <div><span class="label">{{ $t($report['type'] === 'weekly' ? 'meta.period_weekly' : 'meta.period') }}</span> {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif</div>
+    <div><span class="label">{{ $t('meta.period'.$kind) }}</span> {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif</div>
     <div><span class="label">{{ $t('meta.submitted_at') }}</span> {{ $ltr($time($report['submitted_at'])) }}</div>
 </section>
 
+@if ($report['type'] !== 'monthly')
 @php($groups = array_filter($report['activity']['sections']))
 
 <section class="report-summary">
@@ -163,6 +169,7 @@
         </section>
     @endforeach
 </section>
+@endif
 
 @if ($report['type'] === 'weekly')
     @php($dailyReports = $report['daily_reports'] ?? [])
@@ -216,6 +223,49 @@
                 @endforeach
             </ol>
         @endif
+    </section>
+@elseif ($report['type'] === 'monthly')
+    @php($dealsByStatus = $report['deals_by_status'] ?? [])
+    @php($quotations = $report['quotations'] ?? [])
+
+    <section class="report-weekly">
+        <h2>{{ $t('monthly.deals_by_status') }}</h2>
+
+        @if ($dealsByStatus === [])
+            <p class="empty">{{ $t('monthly.no_deals') }}</p>
+        @else
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ $t('columns.status') }}</th>
+                        <th class="amount">{{ $t('monthly.count') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($dealsByStatus as $status => $count)
+                        <tr>
+                            <td>{{ $word('deal_status', (string) $status) }}</td>
+                            <td class="amount num">{{ $count }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </section>
+
+    <section class="report-weekly">
+        <h2>{{ $t('monthly.quotations') }}</h2>
+
+        <table>
+            <tbody>
+                @foreach (['sent', 'won', 'lost'] as $key)
+                    <tr>
+                        <td>{{ $t('monthly.quotations_'.$key) }}</td>
+                        <td class="amount num">{{ $quotations[$key] ?? 0 }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </section>
 @else
 <section class="report-follow-ups">

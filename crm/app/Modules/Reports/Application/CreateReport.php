@@ -12,13 +12,16 @@ use App\Modules\Reports\Domain\ReportWriteRefused;
 use Illuminate\Database\ConnectionInterface;
 
 /**
- * A daily report's draft for the company day it is written on (`D-126`
- * RPT-DY), numbered `RPT-DY-YYYY-NNNN` (§11.2's prefix) and audited (`AUD-01`). A second one
- * for a day the author already has a daily is a warning (`ReportWriteRefused::duplicatePeriod`)
- * until `confirm_duplicate` overrules it.
+ * Every report draft is minted here, numbered with §11.2's prefix and audited (`AUD-01`):
+ * the author's daily for the company day it is written on (`D-126` RPT-DY) — a second one
+ * for a day the author already has is a warning (`ReportWriteRefused::duplicatePeriod`)
+ * until `confirm_duplicate` overrules it — and through `draft()`, J-05's weekly (`D-136`
+ * RPT-WK) and J-07's monthly (`D-140` RPT-MN).
  */
 final readonly class CreateReport
 {
+    private const PREFIXES = ['daily' => 'RPT-DY', 'weekly' => 'RPT-WK', 'monthly' => 'RPT-MN'];
+
     public function __construct(
         private ReportDirectoryInterface $reports,
         private CompanyToday $today,
@@ -40,13 +43,26 @@ final readonly class CreateReport
                 throw ReportWriteRefused::duplicatePeriod($existing);
             }
 
-            $created = $this->reports->createDraft('daily', 'RPT-DY', $actorId, $day, $day);
-
-            $this->audit->record(AuditEvent::of('REPORT_CREATED'), 'report', $created['id'], null, [
-                'code' => $created['code'], 'type' => 'daily', 'period_start' => $day, 'period_end' => $day,
-            ]);
-
-            return $created;
+            return $this->draft('daily', $actorId, $day, $day);
         });
+    }
+
+    /**
+     * A draft of `$type`, numbered with §11.2's prefix and audited (`AUD-01`) — the
+     * author's daily, and J-05's weekly and J-07's monthly with no actor. The caller
+     * owns the transaction.
+     *
+     * @param  key-of<self::PREFIXES>  $type
+     * @return array{id: string, code: string}
+     */
+    public function draft(string $type, string $authorId, string $start, string $end): array
+    {
+        $created = $this->reports->createDraft($type, self::PREFIXES[$type], $authorId, $start, $end);
+
+        $this->audit->record(AuditEvent::of('REPORT_CREATED'), 'report', $created['id'], null, [
+            'code' => $created['code'], 'type' => $type, 'period_start' => $start, 'period_end' => $end,
+        ]);
+
+        return $created;
     }
 }

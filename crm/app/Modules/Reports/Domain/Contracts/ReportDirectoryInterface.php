@@ -123,12 +123,13 @@ interface ReportDirectoryInterface
     public function markMissed(string $goLive, string $today): array;
 
     /**
-     * `D-136`, J-05: the authors who already have a weekly report starting on
-     * `$periodStart` (soft-deleted ones included, so a deleted draft is not remade).
+     * `D-136` J-05, `D-140` J-07: the authors who already have a report of
+     * `$type` starting on `$periodStart` (soft-deleted ones included, so a
+     * deleted draft is not remade).
      *
      * @return list<string>
      */
-    public function weeklyAuthorsOf(string $periodStart): array;
+    public function authorsOf(string $type, string $periodStart): array;
 
     /**
      * `D-126`, RPT-WK: the author's daily reports whose day is in `[$from, $to]`, oldest first.

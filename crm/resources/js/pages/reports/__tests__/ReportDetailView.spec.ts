@@ -1175,6 +1175,64 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
 });
 
 /**
+ * Module 13, slice 8 · 8.1 — the monthly report (RPT-MN, `D-140`): company-wide counts the server
+ * gives — the deals created in the month by their current status, and the quotation versions sent in
+ * it, won and lost — and no money (8.2's). It carries no author activity and, like every report that
+ * is not RPT-DY, no follow-ups (`D-137`). The page computes none of it (`D-67`).
+ */
+describe('ReportDetailView — a monthly report (D-140)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    const MONTHLY = {
+        ...DRAFT, code: 'RPT-MN-2026-0001', type: 'monthly', period_start: '2026-09-01', period_end: '2026-09-30',
+        activity: undefined,
+        deals_by_status: { lead: 2, won: 1, lost: 1 },
+        quotations: { sent: 6, won: 2, lost: 2 },
+    };
+
+    it('draws the monthly type as Monthly report, and as تقرير شهري in Arabic', async () => {
+        expect((await render(server({ report: MONTHLY }), 'en', MANAGER)).text()).toContain('Monthly report');
+        expect((await render(server({ report: MONTHLY }), 'ar', MANAGER)).text()).toContain('تقرير شهري');
+    });
+
+    it('draws the deals by status and the quotations sent, won and lost, as the server counts them', async () => {
+        const wrapper = await render(server({ report: MONTHLY }), 'en', MANAGER);
+        const deals = wrapper.get('[data-testid="report-section-monthly-deals"]');
+        const rows = deals.findAll('[data-testid="monthly-deals-row"]');
+        expect(rows).toHaveLength(3);
+        expect(rows[0]!.text()).toContain('Lead');
+        expect(rows[0]!.text()).toContain('2');
+        expect(rows[1]!.text()).toContain('Won');
+        expect(rows[2]!.text()).toContain('Lost');
+
+        const quotations = wrapper.get('[data-testid="report-section-monthly-quotations"]');
+        expect(quotations.get('[data-testid="monthly-quotations-sent"]').text()).toBe('6');
+        expect(quotations.get('[data-testid="monthly-quotations-won"]').text()).toBe('2');
+        expect(quotations.get('[data-testid="monthly-quotations-lost"]').text()).toBe('2');
+
+        const arabic = await render(server({ report: MONTHLY }), 'ar', MANAGER);
+        expect(arabic.get('[data-testid="report-section-monthly-deals"]').findAll('[data-testid="monthly-deals-row"]')[0]!.text()).toContain('مبدئي');
+    });
+
+    it('shows no follow-ups and no author activity on a monthly report, and keeps the follow-ups on a daily one (D-137)', async () => {
+        const monthly = await render(server({ report: MONTHLY }), 'en', MANAGER);
+        expect(monthly.find('[data-testid="report-section-monthly-deals"]').exists()).toBe(true);
+        expect(monthly.find('[data-testid="report-section-follow-ups"]').exists()).toBe(false);
+        expect(monthly.find('[data-testid="report-section-activity"]').exists()).toBe(false);
+        expect(monthly.find('[data-testid="report-section-notes"]').exists()).toBe(true);
+
+        const daily = await render(server({ report: DRAFT }));
+        expect(daily.find('[data-testid="report-section-follow-ups"]').exists()).toBe(true);
+        expect(daily.find('[data-testid="report-section-monthly-deals"]').exists()).toBe(false);
+        expect(daily.find('[data-testid="report-section-monthly-quotations"]').exists()).toBe(false);
+    });
+});
+
+/**
  * Module 13, slice 7 · 7.3 — comments (§3.10 *comment*, `D-24`, `D-127`; the owner's rulings of
  * 2026-10-18). One flat list, oldest first as the server gives it, in the page's SIDE column below the
  * recipients and the acknowledge / return section. Only a recipient holding `report.comment` sees an

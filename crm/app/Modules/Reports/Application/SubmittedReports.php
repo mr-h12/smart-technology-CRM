@@ -39,10 +39,10 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
         $followUps = $snapshot['follow_ups'] ?? [];
         /** @var list<array{body: string}> $notes */
         $notes = $snapshot['notes'] ?? [];
-        /** @var array{daily_reports?: list<array{code: string, period_start: string, status: string}>, purchase_orders_received?: int, new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}} $weekly `WeeklyContent::of()`'s answer, frozen at submit (`D-126`, `D-134`) */
-        $weekly = $report->type === 'weekly' ? array_intersect_key($snapshot, array_flip(ShowReport::WEEKLY_KEYS)) : [];
+        /** @var array{daily_reports?: list<array{code: string, period_start: string, status: string}>, purchase_orders_received?: int, new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}, deals_by_status?: array<string, int>, quotations?: array{sent: int, won: int, lost: int}} $content `WeeklyContent::of()`'s or `MonthlyContent::of()`'s answer, frozen at submit (`D-126`, `D-134`, `D-140`) */
+        $content = array_intersect_key($snapshot, array_flip(ShowReport::CONTENT_KEYS[$report->type] ?? []));
 
-        return [
+        $read = [
             'report_id' => $report->id,
             'version' => $version,
             'code' => $report->code,
@@ -56,8 +56,14 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
             'follow_ups' => $followUps,
             'notes' => $notes,
             'activity' => $activity,
-            ...$weekly,
+            ...$content,
         ];
+
+        if (! $report->hasActivity()) {
+            unset($read['activity']);
+        }
+
+        return $read;
     }
 
     public function mayOpen(string $reportId, string $actorId): bool

@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Reports\Application;
 
 use App\Modules\Admin\Application\Settings\CompanyToday;
-use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
-use App\Modules\Admin\Domain\Settings\SystemSetting;
-use App\Modules\Audit\Domain\AuditEvent;
-use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use DateTimeImmutable;
@@ -32,19 +28,18 @@ final readonly class GenerateWeeklyReports
 {
     public function __construct(
         private ReportDirectoryInterface $reports,
-        private SettingsRepositoryInterface $settings,
         private CompanyToday $today,
         private UserFactsInterface $users,
-        private AuditRecorderInterface $audit,
+        private CreateReport $create,
         private ConnectionInterface $connection,
     ) {}
 
     /** @return int how many drafts were created */
     public function run(): int
     {
-        $goLive = $this->settings->all()[SystemSetting::ReportsGoLiveDate->value] ?? null;
+        $goLive = $this->today->goLiveDate();
 
-        if (! is_string($goLive) || $goLive === '') {
+        if ($goLive === null) {
             return 0;
         }
 
@@ -54,7 +49,7 @@ final readonly class GenerateWeeklyReports
         $created = 0;
 
         foreach (self::weeksSince($goLive, $this->today->date()) as [$start, $end]) {
-            $has = $this->reports->weeklyAuthorsOf($start);
+            $has = $this->reports->authorsOf('weekly', $start);
 
             foreach (array_diff($authors, $has) as $authorId) {
                 // ponytail: a reactivated user, or one newly granted `report.create`, still gets every week
@@ -65,13 +60,7 @@ final readonly class GenerateWeeklyReports
                     continue;
                 }
 
-                $this->connection->transaction(function () use ($authorId, $start, $end): void {
-                    $draft = $this->reports->createDraft('weekly', 'RPT-WK', $authorId, $start, $end);
-
-                    $this->audit->record(AuditEvent::of('REPORT_CREATED'), 'report', $draft['id'], null, [
-                        'code' => $draft['code'], 'type' => 'weekly', 'period_start' => $start, 'period_end' => $end,
-                    ]);
-                });
+                $this->connection->transaction(fn (): array => $this->create->draft('weekly', $authorId, $start, $end));
                 $created++;
             }
         }

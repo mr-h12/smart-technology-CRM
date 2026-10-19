@@ -14,6 +14,7 @@ use App\Modules\Pdf\Application\Generation\RenderReportPdf;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Domain\Rendering\PdfRenderingFailed;
 use App\Modules\Pdf\Presentation\RenderReportPdfJob;
+use App\Modules\Reports\Presentation\GenerateMonthlyReportsJob;
 use App\Modules\Reports\Presentation\GenerateWeeklyReportsJob;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -443,7 +444,74 @@ final class ReportPdfGenerationTest extends TestCase
         }
     }
 
+    // ── the monthly PDF (8.1, `D-140`; the owner, 2026-10-19) ────────────────
+
+    /**
+     * October, company-wide: three deals created in it (2 Lead, 1 Won) and their three
+     * quotation versions sent in it — Accepted, Partial, Rejected: sent 3, won 2, lost 1.
+     * 8.1 prints the heading, the month and the two count tables; no money (8.2).
+     */
+    public function test_that_a_monthly_pdf_holds_its_heading_its_month_the_deals_by_status_and_the_quotation_counts(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        foreach (['accepted', 'partial', 'rejected'] as $i => $status) {
+            $quotation = $this->insertQuotation();
+            DB::table('quotations')->where('id', $quotation)->update([
+                'status' => $status, 'sent_at' => '2026-10-0'.($i + 5).' 10:00:00',
+                'rejection_reason' => $status === 'rejected' ? 'Too dear.' : null,
+            ]);
+            if ($status === 'partial') {
+                DB::table('deals')->where('id', $this->dealOf($quotation))->update(['status' => 'won']);
+            }
+        }
+
+        $id = $this->monthly($author);
+        $this->submit($author, $id, [$ceo])->assertStatus(200);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        foreach (['تقرير شهري', 'الشهر:', '2026-10-01', '2026-10-31', 'الصفقات حسب الحالة', 'عروض الأسعار'] as $expected) {
+            self::assertStringContainsString($expected, $text);
+        }
+        self::assertMatchesRegularExpression('/مبدئي ?2/u', $text, 'Lead: two deals created in October.');
+        self::assertMatchesRegularExpression('/عروض أُرسلت ?3/u', $text);
+        self::assertMatchesRegularExpression('/عروض ناجحة ?2/u', $text, 'D-140: won = accepted + partial.');
+        self::assertMatchesRegularExpression('/عروض خاسرة ?1/u', $text, 'D-140: lost = rejected + expired.');
+        foreach (['تقرير يومي', 'اليوم:', 'ملخص اليوم', 'الأسبوع:', 'ملخص الأسبوع', 'التواصل والمتابعة'] as $otherType) {
+            self::assertStringNotContainsString($otherType, $text, 'A monthly PDF printed a daily or weekly label or the follow-ups section.');
+        }
+
+        // The PDF is Arabic only (`D-132`); its English group is kept in step (`lang/en/pdf.php`).
+        self::assertSame('تقرير شهري', trans('pdf.report.heading_monthly', [], 'ar'));
+        self::assertSame('Monthly report', trans('pdf.report.heading_monthly', [], 'en'));
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────
+
+    /**
+     * J-07 (`D-140`) drafts October's RPT-MN, authored by the Manager the
+     * `reports.default_recipient` setting names, run as the worker runs it at
+     * 01:00 UTC on 2026-11-01. Days on, every bearer token is past `D-29`'s
+     * eight idle hours, so each user logs in again.
+     */
+    private function monthly(User $author): string
+    {
+        $settings = $this->app->make(SettingsRepositoryInterface::class);
+        $settings->put(SystemSetting::ReportsGoLiveDate, '2026-10-01');
+        $settings->put(SystemSetting::ReportsDefaultRecipient, $author->id);
+        $this->app->make(SettingsCacheInterface::class)->forgetSettings();
+        $this->travelTo(now()->setDate(2026, 11, 1)->setTime(1, 0));
+        $this->tokens = [];
+        $this->app->instance('request', Request::create('http://localhost'));
+        $this->app->call([new GenerateMonthlyReportsJob, 'handle']);
+
+        $id = DB::table('reports')->where('type', 'monthly')->where('author_id', $author->id)->value('id');
+        self::assertIsString($id, 'J-07 drafted no monthly report for the author.');
+        self::assertSame(['2026-10-01', '2026-10-31'], [DB::table('reports')->where('id', $id)->value('period_start'), DB::table('reports')->where('id', $id)->value('period_end')]);
+
+        return $id;
+    }
 
     /**
      * J-05 (`D-136`) drafts the author's weekly report for 2026-10-11 → 2026-10-15,

@@ -59,4 +59,13 @@ interface QuotationReaderInterface
      * @return array<string, PurchaseOrderRecord>
      */
     public function purchaseOrdersOf(array $purchaseOrderIds): array;
+
+    /**
+     * Status => how many live quotation versions were sent (`sent_at`) in
+     * `[$from, $to)`, by their status now — RPT-MN's company-wide count
+     * (`D-140`). Unscoped; statuses with none have no entry.
+     *
+     * @return array<string, int>
+     */
+    public function statusCountsSentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
 }

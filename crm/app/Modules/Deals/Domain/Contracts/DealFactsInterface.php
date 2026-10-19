@@ -80,4 +80,13 @@ interface DealFactsInterface
      * @return array<string, array{code: string, status: string, customer_id: string}>
      */
     public function cardsOf(array $dealIds): array;
+
+    /**
+     * Status => how many live deals were created in `[$from, $to)`, by their
+     * status now, in §4.4's pipeline order — RPT-MN's company-wide count
+     * (`D-140`). Statuses with none have no entry.
+     *
+     * @return array<string, int>
+     */
+    public function statusCountsCreatedBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
 }

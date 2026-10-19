@@ -42,9 +42,19 @@ final class DealStatusTransition
         'won' => ['purchasing'],
         'purchasing' => ['delivery'],
         'delivery' => ['delivery_complete'],
-        'lost' => [],
         'delivery_complete' => [],
+        'lost' => [],
     ];
+
+    /**
+     * §4.4's twelve statuses in pipeline order — `deals_known_status`'s, and the SPA's `DEAL_STATUSES`.
+     *
+     * @return list<string>
+     */
+    public static function statuses(): array
+    {
+        return array_keys(self::EDGES);
+    }
 
     public static function isAllowed(string $from, string $to): bool
     {

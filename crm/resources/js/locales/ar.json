@@ -1495,7 +1495,8 @@
         },
         "type": {
             "daily": "تقرير يومي",
-            "weekly": "تقرير أسبوعي"
+            "weekly": "تقرير أسبوعي",
+            "monthly": "تقرير شهري"
         },
         "status": {
             "draft": "مسوّدة",
@@ -1592,6 +1593,12 @@
         "weekly_purchase_orders_title_received": "أوامر شراء وصلت على صفقاته",
         "weekly_new_customers_title": "العملاء الجدد هذا الأسبوع",
         "weekly_new_customers_empty": "لم يُضف أي عميل هذا الأسبوع.",
+        "monthly_deals_title": "الصفقات المُنشأة هذا الشهر حسب الحالة",
+        "monthly_deals_empty": "لم تُنشأ صفقات في هذا الشهر.",
+        "monthly_quotations_title": "عروض الأسعار المُرسلة هذا الشهر",
+        "monthly_quotations_sent": "أُرسلت",
+        "monthly_quotations_won": "ناجحة",
+        "monthly_quotations_lost": "خاسرة",
         "note_add": "+ إضافة ملاحظة",
         "note_label": "ملاحظة {number}",
         "note_remove_confirm": "حذف هذه الملاحظة؟",

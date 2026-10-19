@@ -11,7 +11,7 @@ use App\Modules\Reports\Domain\Report;
  * The copy a submit freezes (§11.3), the same whoever submits: `SubmitReport`
  * for the author, `SubmitUnreviewedWeeklyReports` (J-06) for the system.
  * `D-131`: the follow-ups with their customer's name as it is now, and the
- * notes — no row ids. `D-126`/`D-134`: a weekly report adds its own sections.
+ * notes — no row ids. `D-126`/`D-134`/`D-140`: a weekly or monthly report adds its own sections.
  */
 final readonly class FrozenCopy
 {
@@ -19,7 +19,6 @@ final readonly class FrozenCopy
         private ReportDirectoryInterface $reports,
         private ShowReport $show,
         private DailyActivity $activity,
-        private WeeklyContent $weekly,
     ) {}
 
     /** @return array<string, mixed> */
@@ -28,8 +27,8 @@ final readonly class FrozenCopy
         return [
             'follow_ups' => array_map(static fn (array $row): array => array_diff_key($row, ['id' => true]), $this->show->followUpsOf($report->id)),
             'notes' => array_map(static fn (array $note): array => ['body' => $note['body']], $this->reports->rowsOf('note', $report->id)),
-            'activity' => $this->activity->of($report->authorId, $report->periodStart, $report->periodEnd),
-            ...($report->type === 'weekly' ? $this->weekly->of($report) : []),
+            ...($report->hasActivity() ? ['activity' => $this->activity->of($report->authorId, $report->periodStart, $report->periodEnd)] : []),
+            ...$this->show->contentOf($report),
         ];
     }
 }

@@ -1,6 +1,6 @@
 ---
 name: point-gates
-description: Run the six quality gates for the current point and read the CI conclusion for the exact commit at HEAD. Use before reporting any point complete and before any merge. Refuses to call a point done on a green run that belongs to a different commit.
+description: Run the eight quality gates for the current point and read the CI conclusion for the exact commit at HEAD. Use before reporting any point complete and before any merge. Refuses to call a point done on a green run that belongs to a different commit.
 disable-model-invocation: true
 ---
 
@@ -33,18 +33,22 @@ There is a second, measured reason. `crm/node_modules/@rolldown/` contains
 tree is Linux-installed. That is why `npm run test:unit` on the macOS host dies with
 `Cannot find native binding`. The dependencies are fine; the host is the wrong platform for them.
 
-## The six gates
+## The eight gates
 
 | # | Command | Proves |
 |---|---|---|
-| 1 | `docker compose exec -T php php artisan test` | `DEV-07` — backend behaviour against real PostgreSQL |
-| 2 | `docker run --rm -v "$PWD/crm:/app" -w /app node:22-bookworm-slim npx vitest run` | frontend unit tests |
-| 3 | `docker compose exec -T php ./vendor/bin/pint --test` | style |
-| 4 | `docker compose exec -T php ./vendor/bin/phpstan analyse --memory-limit=1G` | strict typing |
-| 5 | `docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml` | `Presentation → Application → Domain → Infrastructure` |
-| 6 | `docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml` | module isolation |
+| 1 | `docker compose exec -T php ./vendor/bin/pint --test` | style |
+| 2 | `docker compose exec -T php ./vendor/bin/phpstan analyse --memory-limit=1G` | strict typing |
+| 3 | `docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml` | `Presentation → Application → Domain → Infrastructure` |
+| 4 | `docker compose exec -T php ./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml` | module isolation |
+| 5 | `docker compose exec -T spa-build npx vue-tsc --noEmit` | frontend type-check |
+| 6 | `docker run --rm -v "$PWD/crm:/app" -w /app node:22-bookworm-slim npx vitest run` | frontend unit tests |
+| 7 | `docker compose exec -T php php artisan test <the point's test files>` | the point's own behaviour |
+| 8 | `docker compose exec -T php php artisan test` — last, alone, after the auditors' findings are fixed | `DEV-07` — backend behaviour against real PostgreSQL |
 
-### Gate 2 — read this before deciding to skip it
+The auditors (`CLAUDE.md` § Subagents) run between gate 7 and gate 8, read-only and in parallel; a fix re-runs the gates it touched.
+
+### Gate 6 — read this before deciding to skip it
 
 The project has carried the belief that `npm run test:unit` "does not run on this host, CI only".
 That is true of the **host** and false of the **environment**. Measured 2026-09-04: the command in
@@ -55,9 +59,9 @@ Linux `node_modules` already in the tree.
   reinstall costs minutes and proves nothing new.
 - `node:22-bookworm-slim` is the image CI uses (`.github/workflows/php-image.yml`, step
   "Type-check, test and build the frontend"). Same image, same result, no third opinion.
-- This gate does **not** cover `vue-tsc --noEmit` or `vite build`. CI runs both in the same step.
-  A point that changes `.ts` or `.vue` is type-checked only in CI — say so rather than implying
-  gate 2 covered it.
+- `vue-tsc --noEmit` is now gate 5; only `vite build` stays CI-only. CI runs it in the same step.
+  A point that changes `.ts` or `.vue` is build-checked only in CI — say so rather than implying
+  gate 6 covered it.
 
 ## Then read CI — the part that gets skipped
 
@@ -79,7 +83,7 @@ CI result, and "CI should pass" is an unverified claim in a different costume.
 
 A point is reported complete only when every line below is a fact you have read:
 
-1. all six gates ran and their real output was read,
+1. all eight gates ran and their real output was read,
 2. CI `status` is `completed` and `conclusion` is `success`,
 3. the CI `headSha` equals local `HEAD`.
 

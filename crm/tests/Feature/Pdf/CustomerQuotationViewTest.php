@@ -246,7 +246,7 @@ final class CustomerQuotationViewTest extends TestCase
             signatoryName: $signatoryName,
             signatoryTitleEn: null,
             signatoryTitleAr: null,
-            lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1', '5219.30', '5219.30', null, null, null, '5219.30')],
+            lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1', '5219.30', '5219.30', null, null, null)],
             additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             subtotal: '5219.30',
             additionalTotal: '250.00',

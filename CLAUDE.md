@@ -76,7 +76,7 @@ Do not advance a module until its acceptance criteria, tests, permissions, audit
 Framework choices that satisfy a documented requirement. Where a Laravel default conflicts with the documentation, the documentation wins.
 
 - **Modules are directories with their own layers**, not Eloquent models carrying business rules. A module owns its domain rules, use cases, persistence interface, and API surface; cross-module work goes through interfaces or events, never another module's models.
-- **Money uses `decimal:` casts backed by NUMERIC columns**, with BCMath for arithmetic. PHP floats are forbidden anywhere near a price (`DB-07`). Never use `round()` on an intermediate value — only the final total, by the configured currency unit.
+- **Money uses `decimal:` casts backed by NUMERIC columns**, with BCMath for arithmetic. PHP floats are forbidden anywhere near a price (`DB-07`). Never use `round()` on an intermediate value — only the final total, by the configured currency unit, except a quotation line's unit price and line amount, each rounded to 2 places (`D-142`).
 - **Migrations always implement `down()`.** `migrate:rollback` must actually work before a module is done (`DEV-03`). Never edit an applied migration; add a correcting one.
 - **`SoftDeletes` on every business table** satisfies `DB-01`. No `forceDelete()` on business data, ever.
 - **Queues use the four documented names** — `critical`, `pdf`, `reports`, `maintenance`. Horizon supplies Queue Monitor (`OBS-02`) and the Scheduler view (`OBS-03`); prefer it over hand-built admin screens.

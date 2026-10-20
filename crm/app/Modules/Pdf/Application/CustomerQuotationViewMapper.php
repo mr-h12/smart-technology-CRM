@@ -216,7 +216,6 @@ final readonly class CustomerQuotationViewMapper
                 unitEn: $units[$line->supplierQuotationItemId]['en'] ?? null,
                 unitAr: $units[$line->supplierQuotationItemId]['ar'] ?? null,
                 vatAmount: CustomerLineFigures::vat($lineTotal, $discountPercent, $taxPercent),
-                total: CustomerLineFigures::total($lineTotal, $discountPercent, $taxPercent),
             );
         }
 

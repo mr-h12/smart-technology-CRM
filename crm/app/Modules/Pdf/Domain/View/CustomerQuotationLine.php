@@ -35,13 +35,12 @@ final readonly class CustomerQuotationLine
         public string $description,
         public string $quantity,
         public string $unitPrice,
+        /** The stored line amount, quantity × unit price — the PDF's *Total* cell (`D-142`): no discount, no VAT. */
         public string $lineTotal,
         /** F-40 · 1.4 (`D-107`): the catalog item's unit; both null when it has none (printed `—`). */
         public ?string $unitEn,
         public ?string $unitAr,
         /** `D-107` ruling (1), full scale; null on an exempt quotation (`D-63`). */
         public ?string $vatAmount,
-        /** The discounted line plus its VAT. */
-        public string $total,
     ) {}
 }

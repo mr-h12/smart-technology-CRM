@@ -12,7 +12,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * F-40 · 1.4 — `D-107` ruling (1): a line's VAT is charged after the discount
  * is spread over the lines. Line VAT = line total × (1 − discount/100) ×
- * tax/100; the line's *Total* = the discounted line + its VAT. The VAT row
+ * tax/100. `D-142` amends ruling (1) for the *Total* only: the line's *Total*
+ * is quantity × unit price — no discount, no VAT. The VAT row
  * stays §5.2's `tax_amount`, and a cents difference between the column's sum
  * and that row is accepted. Scale 6 like {@see QuotationTotals}; the PDF
  * rounds to 2 places only when it prints.
@@ -29,28 +30,24 @@ final class CustomerLineFiguresTest extends TestCase
     public function test_no_discount_gives_the_reference_figures(): void
     {
         self::assertSame('140.000000', CustomerLineFigures::vat('1000.00', '0', '14'));
-        self::assertSame('1140.000000', CustomerLineFigures::total('1000.00', '0', '14'));
     }
 
     public function test_a_ten_percent_discount_reduces_the_vat_base(): void
     {
         self::assertSame('126.000000', CustomerLineFigures::vat('1000.00', '10', '14'));
-        self::assertSame('1026.000000', CustomerLineFigures::total('1000.00', '10', '14'));
     }
 
     /** `D-64`'s three-decimal percentages, as `discount_percent` stores them. */
     public function test_fractional_percentages_keep_full_scale(): void
     {
-        // 10438.60 × 0.95 × 0.14 = 1388.3338; 9916.67 + 1388.3338.
+        // 10438.60 × 0.95 × 0.14 = 1388.3338.
         self::assertSame('1388.333800', CustomerLineFigures::vat('10438.60', '5.000', '14.000'));
-        self::assertSame('11305.003800', CustomerLineFigures::total('10438.60', '5.000', '14.000'));
     }
 
     /** `D-63`: an exempt quotation has no VAT at all — not a zero. */
-    public function test_an_exempt_line_has_no_vat_and_its_total_is_the_discounted_line(): void
+    public function test_an_exempt_line_has_no_vat(): void
     {
         self::assertNull(CustomerLineFigures::vat('1000.00', '10', null));
-        self::assertSame('900.000000', CustomerLineFigures::total('1000.00', '10', null));
     }
 
     /**

@@ -202,7 +202,12 @@ final class CreateQuotationTest extends TestCase
         self::assertSame('0.250000', $row->rounding_diff);
     }
 
-    /** Rounding off (`D-65`): the total is left exact and `rounding_diff` is zero. */
+    /**
+     * Rounding off (`D-65`): the total is left exact and `rounding_diff` is zero.
+     * Since `D-142` the unit price and the line amount are both at 2 places
+     * (100.76), so a sub-cent total comes from the discount: 100.76 − 0.5% =
+     * 100.76 − 0.5038 = 100.2562, which a 0.01 unit would have rounded to 100.26.
+     */
     public function test_that_rounding_off_leaves_the_total_unrounded(): void
     {
         $eur = $this->currency('EUR', '0.01', false, false);
@@ -211,13 +216,41 @@ final class CreateQuotationTest extends TestCase
         $result = $this->create($this->payload(
             lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
             additional: [],
-            overrides: ['currency' => 'EUR', 'default_margin' => '0', 'discount_percent' => '0'],
+            overrides: ['currency' => 'EUR', 'default_margin' => '0', 'discount_percent' => '0.5'],
         ));
 
         $row = $this->stored($result->quotation->id);
         self::assertFalse($row->rounding_enabled);
-        self::assertSame('100.755000', $row->final_total);
+        self::assertSame('100.256200', $row->final_total);
         self::assertSame('0.000000', $row->rounding_diff);
+    }
+
+    // ──────────────────────────────────────────────── D-142 the unit price at 2 places
+
+    /**
+     * `D-142`'s own case, priced end to end: a supplier price stored at six
+     * places (a tax-inclusive 30000 entering net at 14%, `D-105`) is sold at
+     * 26315.79, so the line is 26315.79 × 10 = 263157.90 and the subtotal
+     * adds that line. The cost columns keep `D-68`'s six places.
+     */
+    public function test_that_the_stored_unit_price_is_rounded_to_two_places_before_the_quantity(): void
+    {
+        $line = $this->supplierLine('26315.789474', '10', $this->egpId);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '10', 'margin_percent' => null]],
+            additional: [],
+            overrides: ['default_margin' => '0', 'discount_percent' => '0'],
+        ));
+
+        $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
+            ->first(['unit_cost_base', 'unit_price', 'line_total', 'line_cost']);
+        self::assertNotNull($item);
+        self::assertSame(
+            ['unit_cost_base' => '26315.789474', 'unit_price' => '26315.790000', 'line_total' => '263157.900000', 'line_cost' => '263157.894740'],
+            (array) $item,
+        );
+        self::assertSame('263157.900000', $this->stored($result->quotation->id)->subtotal);
     }
 
     // ──────────────────────────────────────────── §3.5 create scope · Point 3.4

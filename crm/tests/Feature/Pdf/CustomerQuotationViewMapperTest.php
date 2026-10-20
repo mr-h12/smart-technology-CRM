@@ -233,30 +233,67 @@ final class CustomerQuotationViewMapperTest extends TestCase
 
     // ── F-40 · 1.4: `D-107`'s data ──────────────────────────────────────────
 
-    /** `D-107` ruling (1), at full scale: the PDF rounds when it prints, not here. */
-    public function test_each_line_carries_its_unit_vat_and_discounted_total(): void
+    /**
+     * `D-107` ruling (1)'s VAT, at full scale: the PDF rounds when it prints,
+     * not here. `D-142`: the line's *Total* is quantity × unit price — the
+     * stored line amount, with no discount and no VAT. Compared at scale 6 so
+     * the figure is pinned, not the string's shape.
+     */
+    public function test_each_line_carries_its_unit_vat_and_undiscounted_total(): void
     {
         $lines = $this->mapper()->map(self::quotation())->lines;
 
         self::assertSame(
             [
-                ['Piece', 'قطعة', '1388.333800', '11305.003800'],
-                ['Box', 'علبة', '2526.667500', '20574.292500'],
-                ['Piece', 'قطعة', '720.594000', '5867.694000'],
+                ['Piece', 'قطعة', '1388.333800', '10438.600000'],
+                ['Box', 'علبة', '2526.667500', '18997.500000'],
+                ['Piece', 'قطعة', '720.594000', '5418.000000'],
             ],
-            array_map(static fn ($line): array => [$line->unitEn, $line->unitAr, $line->vatAmount, $line->total], $lines),
+            array_map(static fn ($line): array => [$line->unitEn, $line->unitAr, $line->vatAmount, self::atScale6($line->lineTotal)], $lines),
         );
         // The undiscounted figures the table also prints stay as they were.
         self::assertSame(['5219.30', '10438.60'], [$lines[0]->unitPrice, $lines[0]->lineTotal]);
     }
 
-    /** `D-63`: an exempt quotation carries no line VAT; the total is the discounted line. */
+    /** `D-63`: an exempt quotation carries no line VAT; `D-142`: the total is the undiscounted line. */
     public function test_an_exempt_quotation_has_no_line_vat(): void
     {
         $line = $this->mapper()->map(self::quotation(taxPercent: null))->lines[0];
 
         self::assertNull($line->vatAmount);
-        self::assertSame('9916.670000', $line->total);
+        self::assertSame('10438.600000', self::atScale6($line->lineTotal));
+    }
+
+    /** `D-142`: the *Total* column, the additional items included, sums to *Total Amount Excl. VAT*. */
+    public function test_the_total_column_with_the_additional_items_sums_to_the_total_excluding_vat(): void
+    {
+        $view = $this->mapper()->map(self::quotation());
+
+        $column = '0';
+        foreach ($view->lines as $line) {
+            $column = bcadd($column, self::atScale6($line->lineTotal), 6);
+        }
+        foreach ($view->additionalItems as $additional) {
+            $column = bcadd($column, self::atScale6($additional->amount), 6);
+        }
+
+        self::assertSame(self::atScale6($view->totalExcludingVat), $column);
+    }
+
+    /**
+     * `D-142`'s scope: a quotation priced before it keeps its stored figures.
+     * A six-place unit price is carried as stored, and the line's *Total* is
+     * the stored line amount (= quantity × the stored unit price), not
+     * re-derived from a rounded price — 263157.894740, never 263157.900000.
+     */
+    public function test_a_line_priced_before_d142_keeps_its_stored_figures(): void
+    {
+        $line = $this->mapper()->map(self::quotation(priced: [
+            ['10', '26315.789474', '263157.894740'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00'],
+        ]))->lines[0];
+
+        self::assertSame('26315.789474', $line->unitPrice);
+        self::assertSame('263157.894740', $line->lineTotal);
     }
 
     /** `D-107`: a catalog item with no unit prints `—`, so it maps, with no unit. */
@@ -621,16 +658,30 @@ final class CustomerQuotationViewMapperTest extends TestCase
     }
 
     /**
+     * A view figure at `D-68`'s scale, so a test pins the value and not the string's shape.
+     *
+     * @return numeric-string
+     */
+    private static function atScale6(string $value): string
+    {
+        self::assertIsNumeric($value);
+
+        return bcadd($value, '0', 6);
+    }
+
+    /**
      * @param  list<array{key: string|null, title: string|null, body: string|null}>  $terms
+     * @param  list<array{string, string, string}>|null  $priced  quantity, unit price and line total per supplier item
      */
     private static function quotation(
         bool $repeatFirstItem = false,
         ?string $createdBy = self::CREATOR_ID,
         array $terms = [],
         ?string $taxPercent = '14',
+        ?array $priced = null,
     ): QuotationDetail {
         // Quantity, unit price and line total per supplier item — the customer's figures.
-        $priced = [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
+        $priced ??= [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
         $ids = array_keys(self::SUPPLIER_ITEMS);
 
         $items = [];

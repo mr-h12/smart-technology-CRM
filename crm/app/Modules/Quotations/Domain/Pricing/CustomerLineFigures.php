@@ -11,8 +11,8 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * two places only when it prints (`D-99`).
  *
  * `D-107` ruling (1): the discount is spread over the lines before VAT, so
- * line VAT = line total × (1 − discount/100) × tax/100 and the line's *Total*
- * = the discounted line + its VAT. The VAT row stays §5.2's `tax_amount`; a
+ * line VAT = line total × (1 − discount/100) × tax/100. The line's *Total* is
+ * the stored line amount, printed as is (`D-142`). The VAT row stays §5.2's `tax_amount`; a
  * cents difference between the column's sum and that row is accepted, not
  * corrected. Published to Pdf through `QuotationsContract` (deptrac).
  */
@@ -43,21 +43,6 @@ final class CustomerLineFigures
         $scale = self::SCALE;
 
         return bcdiv(bcmul(self::discounted($lineTotal, $discountPercent), $taxPercent, $scale + 3), '100', $scale);
-    }
-
-    /**
-     * @param  numeric-string  $lineTotal
-     * @param  numeric-string  $discountPercent
-     * @param  numeric-string|null  $taxPercent
-     * @return numeric-string
-     */
-    public static function total(string $lineTotal, string $discountPercent, ?string $taxPercent): string
-    {
-        return bcadd(
-            self::discounted($lineTotal, $discountPercent),
-            self::vat($lineTotal, $discountPercent, $taxPercent) ?? '0',
-            self::SCALE,
-        );
     }
 
     /**

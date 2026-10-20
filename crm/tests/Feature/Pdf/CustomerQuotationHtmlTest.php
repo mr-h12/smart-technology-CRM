@@ -8,6 +8,9 @@ use App\Modules\Pdf\Application\CustomerQuotationHtml;
 use App\Modules\Pdf\Domain\View\CustomerAdditionalLine;
 use App\Modules\Pdf\Domain\View\CustomerQuotationLine;
 use App\Modules\Pdf\Domain\View\CustomerTerm;
+use App\Modules\Quotations\Domain\Pricing\CustomerLineFigures;
+use App\Modules\Quotations\Domain\Pricing\PricedLine;
+use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use Illuminate\Support\Facades\Lang;
 use Tests\Fixtures\CustomerQuotationViewFixture;
 use Tests\TestCase;
@@ -90,8 +93,9 @@ final class CustomerQuotationHtmlTest extends TestCase
         $source = (string) file_get_contents(base_path(self::TEMPLATE));
 
         // Blade comments, echoes and directives carry property names and keys,
-        // not text the customer reads.
-        $stripped = preg_replace(['/\{\{--.*?--\}\}/s', '/\{\{.*?\}\}/s', '/\{!!.*?!!\}/s', '/@\w+\s*\([^)]*\)/s'], '', $source);
+        // not text the customer reads. A directive's parentheses are matched
+        // balanced, so `@php(fn ($line) => …)` is stripped whole.
+        $stripped = preg_replace(['/\{\{--.*?--\}\}/s', '/\{\{.*?\}\}/s', '/\{!!.*?!!\}/s', '/@\w+\s*(\((?:[^()]++|(?1))*\))/s'], '', $source);
 
         return (string) $stripped;
     }
@@ -163,20 +167,22 @@ final class CustomerQuotationHtmlTest extends TestCase
     public function test_that_each_line_prints_its_unit_vat_and_total_with_a_dash_for_no_unit(): void
     {
         // F-40 · 1.4's figures, printed: the unit in the document's language,
-        // `—` when the item has none; the line's VAT; the discounted line + VAT.
+        // `—` when the item has none; the line's VAT; and, since `D-142`, the
+        // Total is quantity × unit price — no discount, no VAT — the view's
+        // stored `lineTotal`, not ruling (1)'s discounted-plus-VAT 11305.00.
         $cells = static fn (string ...$values): string => '/'.implode('\s*', array_map(
             static fn (string $v): string => '<td[^>]*>\s*'.preg_quote(e($v), '/').'\s*<\/td>',
             $values,
         )).'/u';
 
         $en = $this->html(locale: 'en');
-        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'Pcs', '2', '5219.30', '1388.33', '11305.00'), $en);
-        self::assertMatchesRegularExpression($cells('Toner CF259A', 'Box', '3', '6332.50', '2526.67', '20574.29'), $en);
-        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5867.69'), $en);
+        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'Pcs', '2', '5219.30', '1388.33', '10438.60'), $en);
+        self::assertMatchesRegularExpression($cells('Toner CF259A', 'Box', '3', '6332.50', '2526.67', '18997.50'), $en);
+        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5418.00'), $en);
 
         $ar = $this->html(locale: 'ar');
-        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'قطعة', '2', '5219.30', '1388.33', '11305.00'), $ar, 'The Arabic page does not print the Arabic unit.');
-        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5867.69'), $ar);
+        self::assertMatchesRegularExpression($cells('Formatter M428dw', 'قطعة', '2', '5219.30', '1388.33', '10438.60'), $ar, 'The Arabic page does not print the Arabic unit.');
+        self::assertMatchesRegularExpression($cells('Fuser RM2-5399', '—', '1', '5418.00', '720.59', '5418.00'), $ar);
     }
 
     public function test_that_an_additional_item_is_a_table_row_with_a_dash_unit_quantity_one_and_no_vat(): void
@@ -199,7 +205,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         $exempt = [
             'taxPercent' => null,
             'taxAmount' => null,
-            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', null, '9916.670000')],
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', null)],
         ];
 
         foreach (['ar', 'en'] as $locale) {
@@ -212,7 +218,8 @@ final class CustomerQuotationHtmlTest extends TestCase
             self::assertStringNotContainsString(e((string) Lang::get('pdf.conditions.vat_included', [], $locale)), $html);
             // Five cells a row: the additional item drops its 0.00 VAT cell too.
             self::assertMatchesRegularExpression('/<td[^>]*>\s*1\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>\s*<td[^>]*>\s*250\.00\s*<\/td>/u', $html);
-            self::assertMatchesRegularExpression('/<td[^>]*>\s*5219\.30\s*<\/td>\s*<td[^>]*>\s*9916\.67\s*<\/td>/u', $html);
+            // D-142: the exempt line's Total is 2 × 5219.30, not the discounted 9916.67.
+            self::assertMatchesRegularExpression('/<td[^>]*>\s*5219\.30\s*<\/td>\s*<td[^>]*>\s*10438\.60\s*<\/td>/u', $html);
 
             $taxed = $this->html(locale: $locale);
             self::assertMatchesRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $taxed, 'A taxed quotation must still show the column.');
@@ -239,6 +246,53 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
 
         self::assertStringNotContainsString(':percent', (string) Lang::get('pdf.totals.discount', [], 'en'), 'D-107: the discount label carries no percentage.');
+    }
+
+    /**
+     * `D-142`: the *Total* column — the lines and the additional items — adds
+     * up to *Total Amount Excl. VAT*, and *Discount* is printed once, in the
+     * totals block, not taken again inside the table.
+     */
+    public function test_that_the_total_column_sums_to_the_total_excluding_vat_and_the_discount_prints_once(): void
+    {
+        // A fractional quantity, priced by the real engine rather than typed:
+        // 13.65 × 2.5 twice. The view takes `PricedLine`'s line amounts and
+        // `QuotationTotals`' subtotal, as the stored row would carry them.
+        $priced = PricedLine::from('13.65', null, '0', '2.5');
+        $totals = QuotationTotals::from([$priced, $priced], [], '0', null);
+        $fractional = [
+            'lines' => [
+                new CustomerQuotationLine(1, 'Formatter M428dw', '2.5000', $priced->unitPrice(), $priced->lineTotal(), 'Pcs', 'قطعة', null),
+                new CustomerQuotationLine(2, 'Toner CF259A', '2.5000', $priced->unitPrice(), $priced->lineTotal(), 'Box', 'علبة', null),
+            ],
+            'additionalItems' => [],
+            'totalExcludingVat' => CustomerLineFigures::excludingVat($totals->subtotal(), $totals->additionalTotal()),
+            'discountAmount' => $totals->discountAmount(),
+            'taxPercent' => null,
+            'taxAmount' => null,
+        ];
+
+        foreach (['ar', 'en'] as $locale) {
+            foreach ([$this->html(locale: $locale), $this->html($locale, ...$fractional)] as $html) {
+                $column = '0.00';
+                foreach (self::itemTables($html) as $table) {
+                    preg_match_all('/<tr>(.*?)<\/tr>/s', (string) preg_replace('/<thead.*?<\/thead>/s', '', $table), $rows);
+                    foreach ($rows[1] as $row) {
+                        preg_match_all('/<td[^>]*>\s*(.*?)\s*<\/td>/s', $row, $cells);
+                        $last = end($cells[1]);
+                        self::assertIsNumeric($last);
+                        $column = bcadd($column, $last, 2);
+                    }
+                }
+
+                $excl = preg_quote(e((string) Lang::get('pdf.totals.excl_vat', [], $locale)), '/');
+                self::assertMatchesRegularExpression('/<td[^>]*>\s*'.$excl.'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($column, '/').'\s*<\/td>/u', $html,
+                    "The {$locale} Total column sums to {$column}, not to Total Amount Excl. VAT.");
+
+                $discount = preg_quote(e((string) Lang::get('pdf.totals.discount', [], $locale)), '/');
+                self::assertSame(1, preg_match_all('/<td[^>]*>\s*'.$discount.'\s*<\/td>/u', $html), "The {$locale} page prints Discount more than once.");
+            }
+        }
     }
 
     public function test_that_the_tax_row_says_vat_with_no_percentage(): void
@@ -627,7 +681,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         // Installation" on the page is the escaping working, not a defect.
         $text = html_entity_decode($html, ENT_QUOTES | ENT_HTML5);
 
-        foreach (['QT-2026-0001', 'Vegatrone', '5219.30', '11305.00', '35104.10', '37996.98', 'Formatter M428dw', 'Delivery & Installation'] as $shown) {
+        foreach (['QT-2026-0001', 'Vegatrone', '5219.30', '10438.60', '35104.10', '37996.98', 'Formatter M428dw', 'Delivery & Installation'] as $shown) {
             self::assertStringContainsString($shown, $text);
         }
     }
@@ -701,7 +755,7 @@ final class CustomerQuotationHtmlTest extends TestCase
         foreach (['ar', 'en'] as $locale) {
             $html = $this->html(
                 locale: $locale,
-                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000', 'Pcs', 'قطعة', '1000.005000', '100.125000')],
+                lines: [new CustomerQuotationLine(1, 'Formatter M428dw', '1.0000', '110.000000', '100.125000', 'Pcs', 'قطعة', '1000.005000')],
                 additionalItems: [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.000000')],
                 totalExcludingVat: '2000.005000',
                 discountAmount: '50.000500',
@@ -737,10 +791,10 @@ final class CustomerQuotationHtmlTest extends TestCase
             $html = $this->html(
                 locale: $locale,
                 lines: [
-                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000', null, null, '14.630000', '124.630000'),
-                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000', null, null, '36.575000', '311.575000'),
-                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000', null, null, '146.300000', '1246.300000'),
-                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000', null, null, '292.600000', '2492.600000'),
+                    new CustomerQuotationLine(6, 'Formatter M428dw', '1.0000', '110.000000', '110.000000', null, null, '14.630000'),
+                    new CustomerQuotationLine(7, 'Toner CF259A', '2.5000', '110.000000', '275.000000', null, null, '36.575000'),
+                    new CustomerQuotationLine(8, 'Fuser RM2-5399', '10.0000', '110.000000', '1100.000000', null, null, '146.300000'),
+                    new CustomerQuotationLine(9, 'Drum CF232A', '20', '110.000000', '2200.000000', null, null, '292.600000'),
                 ],
                 additionalItems: [],
                 taxPercent: '14.000',
@@ -905,7 +959,7 @@ final class CustomerQuotationHtmlTest extends TestCase
     private static function lines(int $count): array
     {
         return array_map(
-            static fn (int $n): CustomerQuotationLine => new CustomerQuotationLine($n, "Item {$n}", '1', '100.00', '100.00', 'Pcs', 'قطعة', '14.00', '114.00'),
+            static fn (int $n): CustomerQuotationLine => new CustomerQuotationLine($n, "Item {$n}", '1', '100.00', '100.00', 'Pcs', 'قطعة', '14.00'),
             range(1, $count),
         );
     }

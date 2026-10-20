@@ -120,6 +120,23 @@ final class QuotationTotalsTest extends TestCase
         self::assertSame('3.500000', $totals->additionalTotal());
     }
 
+    public function test_the_subtotal_is_the_sum_of_the_rounded_line_amounts(): void
+    {
+        // `D-142`: each line is its 2-place selling price × quantity, and the
+        // subtotal adds those — 26315.79 × 10 + 12.03 × 3 = 263157.90 + 36.09.
+        $totals = QuotationTotals::from(
+            [
+                PricedLine::from(unitCostBase: '26315.789474', marginPercent: null, defaultMargin: '0', quantity: '10'),
+                PricedLine::from(unitCostBase: '12.025', marginPercent: null, defaultMargin: '0', quantity: '3'),
+            ],
+            [],
+            '0',
+            null,
+        );
+
+        self::assertSame('263193.990000', $totals->subtotal());
+    }
+
     public function test_a_quotation_with_nothing_in_it_totals_a_scaled_zero(): void
     {
         // Not `'0'`. Every other total in the system carries `D-68`'s scale and
@@ -238,23 +255,25 @@ final class QuotationTotalsTest extends TestCase
 
     public function test_a_tax_beyond_the_money_scale_is_truncated_not_rounded(): void
     {
-        // 0.777777 at 1% is 0.00777777 exactly, so the sixth decimal has to be
+        // 0.77 at 1.007% is 0.0077539 exactly, so the sixth decimal has to be
         // decided here the same way it is for every other product in the chain.
-        $totals = QuotationTotals::from([self::lineTotalling('0.777777')], [], '0', '1.000');
+        // (A 2-place line since `D-142`: a selling price no longer carries six.)
+        $totals = QuotationTotals::from([self::lineTotalling('0.77')], [], '0', '1.007');
 
-        self::assertSame('0.007777', $totals->taxAmount());
-        self::assertNotSame('0.007778', $totals->taxAmount());
+        self::assertSame('0.007753', $totals->taxAmount());
+        self::assertNotSame('0.007754', $totals->taxAmount());
     }
 
     public function test_a_discount_beyond_the_money_scale_is_truncated_not_rounded(): void
     {
-        // 0.777777 × 1% is 0.00777777 exactly — eight decimals, so the sixth
-        // has to be decided. Truncation gives ...7777; half-up would give
-        // ...7778 and disagree with every other product in the chain.
-        $totals = QuotationTotals::from([self::lineTotalling('0.777777')], [], '1.000', null);
+        // 0.77 × 1.007% is 0.0077539 exactly — seven decimals, so the sixth
+        // has to be decided. Truncation gives ...7753; half-up would give
+        // ...7754 and disagree with every other product in the chain.
+        // (A 2-place line since `D-142`: a selling price no longer carries six.)
+        $totals = QuotationTotals::from([self::lineTotalling('0.77')], [], '1.007', null);
 
-        self::assertSame('0.007777', $totals->discountAmount());
-        self::assertNotSame('0.007778', $totals->discountAmount());
-        self::assertSame('0.770000', $totals->taxBase());
+        self::assertSame('0.007753', $totals->discountAmount());
+        self::assertNotSame('0.007754', $totals->discountAmount());
+        self::assertSame('0.762247', $totals->taxBase());
     }
 }

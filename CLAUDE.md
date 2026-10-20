@@ -442,6 +442,16 @@ Both are project-scoped and need a one-time approval when `claude` first starts 
 | `/manual-test-list <module>` | when a module's last point closes, before the next module's first point |
 | `/session-end` | last thing in every session |
 
+### pstack skills — read and followed by the agent at these moments
+
+| Skill | When | Where its output goes |
+|---|---|---|
+| `in-your-own-words` | before publishing any slice's point list | the first lines of the point-list message, for the owner to correct |
+| `blast-radius` | before any PR that adds or changes a permission check, a reach rule or a scoped query, beside `permission-matrix-auditor` | the PR description, with the one safety fact proved by running code (its step 5 script and output), or marked unproven |
+| `correct` | when the owner corrects the same agent mistake a second time | its own point: architecture, then types, then a lint, then a test, docs last; the check is proven to fail on the real past mistake |
+
+These pstack skills are marked `disable-model-invocation`, so the Skill tool refuses them. In Claude Code the agent reads `<pstack>/docs/harness/claude-code.md` once per session, then reads `<pstack>/skills/<name>/SKILL.md` and follows it, where `<pstack>` is `~/.claude/plugins/cache/cursor-plugins/pstack/<version>/`. blast-radius's step 6 (an `arena`) runs only when the owner asks. The owner types `/pstack:<name>`; `/pstack:ketchup` is the owner's, for coming back to a session. `/pstack:poteto-mode` never drives a point: the project's rituals do.
+
 ### Working-style skills — always on, every turn
 
 All three are used on every turn, not only when code is written, and each turn's first response

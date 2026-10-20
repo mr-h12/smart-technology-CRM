@@ -2087,6 +2087,7 @@ missing in the first place.
       that a single `gh issue create` would falsify silently, and the next divergence between the two
       guides will be caught by hand or not at all. `README.md` was not examined, as in `G-01`.
 - [x] **G-04** A point's checks run in one order in **both guides**, both Arabic twins and `/point-gates`: gates and the point's own tests, then the auditors read-only and their findings fixed, then the full PHP suite once, alone, last; vue-tsc becomes a gate. *(2026-10-20, owner's item 1, W.1.)*
+- [x] **G-05** A `pstack skills` subsection in **both guides** and both Arabic twins: `in-your-own-words` before a slice's point list, `blast-radius` before a PR that changes a permission check, a reach rule or a scoped query (its arena only on the owner's ask), `correct` when the owner corrects the same agent mistake twice; read from the plugin's `SKILL.md`, never the Skill tool. *(2026-10-20, owner's item 5 and item 4's rule row, W.4.)*
 
 ## Fix pass — owner-directed, 2026-09-16
 

@@ -83,10 +83,11 @@ final readonly class DatabaseReportDirectory implements CustomerFollowUpsInterfa
         return $row === null ? null : self::hydrate($row);
     }
 
-    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived): array
+    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived, bool $includeMonthly): array
     {
         $query = $this->connection->table('reports')->whereNull('deleted_at')->where('author_id', $authorId)
-            ->when(! $includeArchived, static fn ($query) => $query->where('status', '<>', 'archived'));
+            ->when(! $includeArchived, static fn ($query) => $query->where('status', '<>', 'archived'))
+            ->when(! $includeMonthly, static fn ($query) => $query->where('type', '<>', 'monthly'));
         $total = (clone $query)->count();
 
         /**

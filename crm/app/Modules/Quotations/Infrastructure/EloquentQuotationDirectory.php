@@ -450,6 +450,47 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
         return $counts;
     }
 
+    public function wonMoneySentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        // One query: walk each version sent in the month up `parent_id` to its chain's root,
+        // keep the chain's latest version sent in the month, then sum the won ones per currency
+        // in NUMERIC (`DB-07`). The walk starts from the month's versions only, never the table.
+        // ponytail: depth is unbounded but a chain is a handful of versions; a CYCLE clause if a loop ever appears.
+        $won = implode(', ', array_fill(0, count(self::WON), '?'));
+        /** @var list<object{currency_id: string, won_value: string, cost: string, profit: string}> $rows */
+        $rows = $this->connection->select(<<<SQL
+            WITH RECURSIVE up AS (
+                SELECT id AS start_id, id, parent_id FROM quotations
+                WHERE deleted_at IS NULL AND sent_at >= ? AND sent_at < ?
+                UNION ALL
+                SELECT up.start_id, p.id, p.parent_id FROM up JOIN quotations p ON p.id = up.parent_id
+            ), latest AS (
+                SELECT DISTINCT ON (up.id) q.id, q.status, q.currency_id, q.net_amount, q.additional_total
+                FROM up JOIN quotations q ON q.id = up.start_id
+                WHERE up.parent_id IS NULL
+                ORDER BY up.id, q.version DESC, q.sent_at DESC
+            )
+            SELECT l.currency_id,
+                SUM(l.net_amount) AS won_value,
+                SUM(COALESCE(c.cost, 0.000000)) AS cost,
+                SUM(l.net_amount - l.additional_total - COALESCE(c.cost, 0.000000)) AS profit
+            FROM latest l
+            LEFT JOIN (SELECT quotation_id, SUM(line_cost) AS cost FROM quotation_items WHERE deleted_at IS NULL GROUP BY quotation_id) c
+                ON c.quotation_id = l.id
+            WHERE l.status IN ({$won})
+            GROUP BY l.currency_id
+            SQL, [$from, $to, ...self::WON]);
+
+        $money = [];
+        foreach ($rows as $row) {
+            $code = $this->currencyCode($row->currency_id);
+            $money[$code] = ['currency' => $code, 'won_value' => $row->won_value, 'cost' => $row->cost, 'profit' => $row->profit];
+        }
+        ksort($money, SORT_STRING);
+
+        return array_values($money);
+    }
+
     public function countOnDealsOwnedBy(string $ownerId, string $from, string $to): int
     {
         return PurchaseOrder::query()

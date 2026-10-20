@@ -25,6 +25,7 @@ use DateTimeZone;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\View\Factory as ViewFactory;
 use Illuminate\Database\ConnectionInterface;
+use IntlDateFormatter;
 use Throwable;
 use UnexpectedValueException;
 
@@ -154,6 +155,9 @@ final readonly class RenderReportPdf
             'ltr' => static fn (?string $value): string => $value === null ? '' : "\u{2066}{$value}\u{2069}",
             // `D-133`, `D-132`: a stored UTC instant, shown in the company's zone (`locale.timezone`).
             'time' => static fn (string $utc): string => (new DateTimeImmutable($utc))->setTimezone($zone)->format('Y-m-d H:i'),
+            // RPT-MN names its month from its first day, «سبتمبر 2026», Western digits (`D-70`; the owner, 2026-10-20).
+            'month' => static fn (string $date): string => (string) (new IntlDateFormatter('ar-EG@numbers=latn', IntlDateFormatter::NONE, IntlDateFormatter::NONE, 'UTC', null, 'LLLL y'))
+                ->format(new DateTimeImmutable($date, new DateTimeZone('UTC'))),
             // Display only, BCMath at two places (`D-99`), never a float (`DB-07`).
             // ponytail: 2 places, as the quotation PDF. A currency unit finer than 0.01, or rounding off with more
             // than 2 stored places, would print a rounded figure; upgrade: the currency's scale from the Currencies contract.

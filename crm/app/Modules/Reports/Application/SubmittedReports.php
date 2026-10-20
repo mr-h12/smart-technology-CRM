@@ -39,7 +39,7 @@ final readonly class SubmittedReports implements SubmittedReportsInterface
         $followUps = $snapshot['follow_ups'] ?? [];
         /** @var list<array{body: string}> $notes */
         $notes = $snapshot['notes'] ?? [];
-        /** @var array{daily_reports?: list<array{code: string, period_start: string, status: string}>, purchase_orders_received?: int, new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}, deals_by_status?: array<string, int>, quotations?: array{sent: int, won: int, lost: int}} $content `WeeklyContent::of()`'s or `MonthlyContent::of()`'s answer, frozen at submit (`D-126`, `D-134`, `D-140`) */
+        /** @var array{daily_reports?: list<array{code: string, period_start: string, status: string}>, purchase_orders_received?: int, new_customers?: array{count: int, items: list<array{customer_id: string, name: string}>}, deals_by_status?: list<array{status: string, count: int}>, quotations?: array{sent: int, won: int, lost: int}, money?: list<array{currency: string, won_value: string, cost?: string, profit?: string}>} $content `WeeklyContent::of()`'s or `MonthlyContent::of()`'s answer, frozen at submit (`D-126`, `D-134`, `D-140`, `D-141`) */
         $content = array_intersect_key($snapshot, array_flip(ShowReport::CONTENT_KEYS[$report->type] ?? []));
 
         $read = [

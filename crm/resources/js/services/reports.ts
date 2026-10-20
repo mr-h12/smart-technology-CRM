@@ -112,9 +112,11 @@ export interface ReportDetail extends ReportSummary {
     daily_reports?: Array<{ code: string; period_start: string; status: ReportStatus }>;
     purchase_orders_received?: number;
     new_customers?: { count: number; items: Array<{ customer_id: string; name: string }> };
-    /** `D-140`: RPT-MN's company-wide counts, as the server counts them; present only on a monthly report. */
-    deals_by_status?: Record<string, number>;
+    /** `D-140`: RPT-MN's company-wide counts, as the server counts them, in §4.4's pipeline order; present only on a monthly report. */
+    deals_by_status?: Array<{ status: string; count: number }>;
     quotations?: { sent: number; won: number; lost: number };
+    /** `D-141`: RPT-MN's money per currency, sorted by code; cost and profit only under the author's view cost & margin (`D-126`). */
+    money?: Array<{ currency: string; won_value: string; cost?: string; profit?: string }>;
 }
 
 /** A report sent to the caller: the list row and the detail both name its author. */

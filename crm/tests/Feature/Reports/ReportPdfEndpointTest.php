@@ -10,6 +10,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Pdf\Application\Generation\RenderReportPdf;
 use App\Modules\Pdf\Domain\Contracts\PdfRendererInterface;
 use App\Modules\Pdf\Presentation\RenderReportPdfJob;
+use App\Modules\Reports\Application\ReportAccess;
 use App\Modules\Storage\Domain\AttachmentParent;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,7 @@ use Tests\TestCase;
  */
 final class ReportPdfEndpointTest extends TestCase
 {
+    use InsertsMonthlyReport;
     use RefreshDatabase;
     use RemovesOnlyFilesItStored;
 
@@ -254,6 +256,91 @@ final class ReportPdfEndpointTest extends TestCase
 
         $this->pdfStatus($manager, $id, 1)->assertStatus(404);
         $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($manager))->assertNotFound();
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function reportTypes(): array
+    {
+        return ['daily' => ['daily'], 'monthly' => ['monthly']];
+    }
+
+    /**
+     * `OpenAPI §3.2` ("export/download permission must never exceed view permission"), §3.10: a recipient reaches a
+     * report only while holding `report.view_received`. The Manager it was sent to, moved to Indoor Sales — no
+     * *view received* (§3.10), but `report.export` at Own, so the PDF routes' own gate lets the call through — gets
+     * 404 on the status, on both downloads and, once the render has failed, on the retry — and neither a download
+     * nor a retry is audited. The received read answers 403 at its route (`permission:report.view_received`) before
+     * `ReportAccess` runs; `reachReceived` is pinned below.
+     */
+    #[DataProvider('reportTypes')]
+    public function test_that_a_recipient_moved_to_a_role_without_view_received_gets_404_on_the_pdf_status_and_downloads(string $type): void
+    {
+        $recipient = $this->user(RoleName::Manager, 'recipient');
+        $id = $this->submittedOfType($type, $recipient);
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
+        $this->pdfStatus($recipient, $id, 1)->assertOk();
+
+        $this->moveTo($recipient, RoleName::IndoorSales);
+
+        $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($recipient))->assertStatus(403);
+        $this->assertNoPdfReach($recipient, $id, $generation, $fileId);
+    }
+
+    /** `OpenAPI §3.2`: the one rule every received route shares — `ReportAccess::reachReceived` refuses a recipient without `report.view_received`. */
+    #[DataProvider('reportTypes')]
+    public function test_that_reach_received_refuses_a_recipient_who_no_longer_holds_view_received(string $type): void
+    {
+        $recipient = $this->user(RoleName::Manager, 'recipient');
+        $id = $this->submittedOfType($type, $recipient);
+        $this->moveTo($recipient, RoleName::IndoorSales);
+
+        $this->assertThrowsNotFound(
+            fn () => $this->app->make(ReportAccess::class)->reachReceived($id, $recipient->id),
+            "OpenAPI §3.2: a {$type} report's recipient without report.view_received",
+        );
+    }
+
+    /**
+     * `D-141` (B-1): the author reaches a monthly report's PDF only while an active Manager holding `deal.view` and
+     * `quotation.view` at All — moved to Indoor Sales (which keeps `report.export` at Own), the author gets 404 on
+     * the stored PDF's status, both downloads and the retry, none of them audited, as on the report itself
+     * (`MonthlyReportsGenerationTest`).
+     */
+    public function test_that_a_monthly_author_moved_out_of_manager_gets_404_on_the_pdf_status_and_downloads(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->submitted($author, [$this->user(RoleName::Ceo)], $this->monthlyRow($author));
+        $generation = $this->generation($id, 1);
+        $this->render($generation);
+        $fileId = DB::table('report_pdf_generations')->where('id', $generation)->value('file_id');
+        self::assertIsString($fileId, 'The render did not complete.');
+        $this->pdfStatus($author, $id, 1)->assertOk();
+
+        $this->moveTo($author, RoleName::IndoorSales);
+
+        $this->assertNoPdfReach($author, $id, $generation, $fileId);
+    }
+
+    /**
+     * Out of reach, a v1 PDF answers 404 on its status and both downloads; failed, it answers 404 on the retry,
+     * stays failed and queues nothing; no download and no retry is audited.
+     */
+    private function assertNoPdfReach(User $caller, string $id, string $generation, string $fileId): void
+    {
+        $this->pdfStatus($caller, $id, 1)->assertStatus(404)->assertJsonPath('error.code', 'resource_not_found');
+        $this->pdfDownload($caller, $id, 1)->assertStatus(404);
+        $this->get('/api/v1/files/'.$fileId.'/download', $this->bearer($caller))->assertNotFound();
+        self::assertSame([], $this->audits('REPORT_PDF_DOWNLOADED', $id), 'A refused download writes no audit entry.');
+
+        $this->markFailed($generation);
+        Queue::fake();   // forget the job the submit pushed: only a retry would push another
+        $this->pdfRetry($caller, $id, 1)->assertStatus(404)->assertJsonPath('error.code', 'resource_not_found');
+        self::assertSame('failed', DB::table('report_pdf_generations')->where('id', $generation)->value('status'));
+        self::assertSame([], $this->audits('REPORT_PDF_RETRIED', $id), 'A refused retry writes no audit entry.');
+        Queue::assertNotPushed(RenderReportPdfJob::class);
     }
 
     // ── retry (7.2, `D-132`'s deferred items) ───────────────────────────────
@@ -627,17 +714,32 @@ final class ReportPdfEndpointTest extends TestCase
         return $id;
     }
 
-    /** @param list<User> $recipients */
-    private function submitted(User $author, array $recipients): string
+    /**
+     * `$id` submitted by its author — a new daily report unless a draft is given (an RPT-MN from `monthlyRow()`).
+     *
+     * @param  list<User>  $recipients
+     */
+    private function submitted(User $author, array $recipients, ?string $id = null): string
     {
-        $id = $this->create($author);
+        $id ??= $this->create($author);
         $this->patchJson(
             self::ENDPOINT.'/'.$id.'/submit',
             ['recipient_ids' => array_map(static fn (User $u): string => $u->id, $recipients)],
-            [...$this->bearer($author), 'If-Match' => 'report:'.$id.':1'],
+            [...$this->bearer($author), 'If-Match' => $this->etag($id)],
         )->assertStatus(200);
 
         return $id;
+    }
+
+    /** A submitted report sent to `$recipient`: a daily by an Indoor Sales author, or a monthly by a Manager author (`D-140`). */
+    private function submittedOfType(string $type, User $recipient): string
+    {
+        if ($type === 'daily') {
+            return $this->submitted($this->user(RoleName::IndoorSales), [$recipient]);
+        }
+        $author = $this->user(RoleName::Manager, 'author');
+
+        return $this->submitted($author, [$recipient], $this->monthlyRow($author));
     }
 
     private function create(User $author): string

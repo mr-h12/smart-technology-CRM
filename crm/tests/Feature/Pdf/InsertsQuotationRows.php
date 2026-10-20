@@ -12,7 +12,9 @@ use Ramsey\Uuid\Uuid;
  * customer, deal, currency and quotation Yousef's modules own, and a `files`
  * row. Moved out of `QuotationFilesTest` (1.3) when 3.3 became the second
  * caller, so every Step 3–5 test builds the same quotation the same way; 4.2
- * brought `insertGeneration` here from `PdfGenerationsTableTest` for the same reason.
+ * brought `insertGeneration` here from `PdfGenerationsTableTest` for the same reason,
+ * and Module 13 · 8.2 `pricedQuotation` — a priced version with lines — for RPT-MN's
+ * money in both `MonthlyReportsGenerationTest` and `ReportPdfGenerationTest`.
  */
 trait InsertsQuotationRows
 {
@@ -37,21 +39,8 @@ trait InsertsQuotationRows
         ]);
 
         // One base currency however many quotations a test builds.
-        $currencyId = DB::table('currencies')->where('code', 'EGP')->value('id');
+        $currencyId = $this->currencyId('EGP');
 
-        if (! is_string($currencyId)) {
-            $currencyId = Uuid::uuid7()->toString();
-
-            DB::table('currencies')->insert([
-                'id' => $currencyId,
-                'code' => 'EGP',
-                'rounding_unit' => '1',
-                'rounding_enabled' => true,
-                'is_base' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
         DB::table('quotations')->insert([
             'id' => $quotationId,
             'code' => 'QT-2026-'.substr(str_replace('-', '', $quotationId), -4),
@@ -114,5 +103,99 @@ trait InsertsQuotationRows
         ]);
 
         return $id;
+    }
+
+    /**
+     * A quotation version with §5.1's stored money, kept to the table's own checks (net = subtotal
+     * + additional − discount; final = net + tax + rounding_diff), and its lines' `line_cost`. A
+     * `$parentId` makes it that version's copy: its next version, on the same deal (`D-08`), in its own currency.
+     *
+     * @param  numeric-string  $subtotal
+     * @param  numeric-string  $additional
+     * @param  numeric-string  $discount
+     * @param  numeric-string|null  $tax
+     * @param  numeric-string  $roundingDiff
+     * @param  list<numeric-string>  $lineCosts
+     * @param  list<numeric-string>  $deletedLineCosts  soft-deleted lines
+     */
+    private function pricedQuotation(string $status, ?string $sentAt, string $currency, string $subtotal, string $additional = '0', string $discount = '0',
+        ?string $tax = null, string $roundingDiff = '0', array $lineCosts = [], array $deletedLineCosts = [], ?string $parentId = null): string
+    {
+        $currencyId = $this->currencyId($currency);
+        $id = $this->insertQuotation();
+        $net = bcadd(bcsub($subtotal, $discount, 6), $additional, 6);
+        $beforeRound = bcadd($net, $tax ?? '0', 6);
+        /** @var object{deal_id: string, customer_id: string, version: int}|null $parent */
+        $parent = $parentId === null ? null : DB::table('quotations')->where('id', $parentId)->first(['deal_id', 'customer_id', 'version']);
+
+        DB::table('quotations')->where('id', $id)->update([
+            'status' => $status, 'sent_at' => $sentAt, 'currency_id' => $currencyId,
+            'rejection_reason' => in_array($status, ['rejected', 'counter'], true) ? 'Too dear.' : null,
+            'subtotal' => $subtotal, 'additional_total' => $additional, 'discount_amount' => $discount,
+            'tax_base' => bcsub($subtotal, $discount, 6), 'tax_percent' => $tax === null ? null : '14', 'tax_amount' => $tax,
+            'net_amount' => $net, 'total_before_round' => $beforeRound,
+            'final_total' => bcadd($beforeRound, $roundingDiff, 6), 'rounding_diff' => $roundingDiff,
+            ...($parent === null ? [] : ['parent_id' => $parentId, 'version' => $parent->version + 1, 'deal_id' => $parent->deal_id, 'customer_id' => $parent->customer_id]),
+        ]);
+
+        if (bccomp($additional, '0', 6) !== 0) {
+            DB::table('quotation_additional_items')->insert([
+                'id' => Uuid::uuid7()->toString(), 'quotation_id' => $id, 'description' => 'Delivery', 'amount' => $additional, 'line_no' => 1,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        $supplierLine = $this->supplierLine();
+        foreach ([...array_map(static fn (string $c): array => [$c, null], $lineCosts), ...array_map(static fn (string $c): array => [$c, now()], $deletedLineCosts)] as $i => [$cost, $deletedAt]) {
+            DB::table('quotation_items')->insert([
+                'id' => Uuid::uuid7()->toString(), 'quotation_id' => $id, 'supplier_quotation_item_id' => $supplierLine, 'line_no' => $i + 1,
+                'unit_cost' => $cost, 'unit_cost_currency' => $currency, 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => $cost,
+                'unit_price' => $cost, 'quantity' => '1', 'line_total' => $cost, 'line_cost' => $cost,
+                'deleted_at' => $deletedAt, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        return $id;
+    }
+
+    /** EGP is the base currency `insertQuotation()` also uses; any other code is added beside it. */
+    private function currencyId(string $code): string
+    {
+        $id = DB::table('currencies')->where('code', $code)->value('id');
+        if (is_string($id)) {
+            return $id;
+        }
+        $id = Uuid::uuid7()->toString();
+        DB::table('currencies')->insert([
+            'id' => $id, 'code' => $code, 'rounding_unit' => $code === 'EGP' ? '1' : '0.01', 'rounding_enabled' => $code === 'EGP',
+            'is_base' => $code === 'EGP', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    /** The supplier line a `quotation_items` row must name (a NOT NULL foreign key), made once. */
+    private function supplierLine(): string
+    {
+        $line = DB::table('supplier_quotation_items')->value('id');
+        if (is_string($line)) {
+            return $line;
+        }
+        $supplier = Uuid::uuid7()->toString();
+        $item = Uuid::uuid7()->toString();
+        $offer = Uuid::uuid7()->toString();
+        $line = Uuid::uuid7()->toString();
+        DB::table('suppliers')->insert(['id' => $supplier, 'name' => 'Alpha Supplies', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('catalog_items')->insert(['id' => $item, 'kind' => 'product', 'name' => 'Widget', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('supplier_quotations')->insert([
+            'id' => $offer, 'code' => 'SQ-2026-0001', 'supplier_id' => $supplier, 'total_price' => '1000', 'currency_id' => $this->currencyId('EGP'),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('supplier_quotation_items')->insert([
+            'id' => $line, 'supplier_quotation_id' => $offer, 'catalog_item_id' => $item, 'unit_price' => '1000', 'quantity' => '1',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $line;
     }
 }

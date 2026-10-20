@@ -26,6 +26,9 @@ use App\Modules\Quotations\Domain\Listing\QuotationSummary;
  */
 interface QuotationReaderInterface
 {
+    /** `D-140`, `D-141`: the statuses a sent version counts as won — RPT-MN's won count and its money read this one list. */
+    public const WON = ['accepted', 'partial'];
+
     /**
      * The header and both child tables, or null when no live row has this id
      * (`DB-01`: a soft-deleted quotation is absent).
@@ -68,4 +71,16 @@ interface QuotationReaderInterface
      * @return array<string, int>
      */
     public function statusCountsSentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
+
+    /**
+     * RPT-MN's money (`D-141`), company-wide and unscoped: per currency, each
+     * quotation chain's latest live version sent (`sent_at`) in `[$from, $to)`,
+     * counted only when it is now `accepted` or `partial`. Won value =
+     * `net_amount`; cost = Σ `line_cost` of its live lines; profit = `net_amount`
+     * − `additional_total` − cost. Exact decimal strings at the stored scale,
+     * sorted by currency code; a currency with nothing won has no row.
+     *
+     * @return list<array{currency: string, won_value: string, cost: string, profit: string}>
+     */
+    public function wonMoneySentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
 }

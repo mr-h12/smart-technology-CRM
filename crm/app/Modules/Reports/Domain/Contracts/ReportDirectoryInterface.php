@@ -29,8 +29,8 @@ interface ReportDirectoryInterface
     /** `$lock` holds the row until the caller's transaction ends, so a row write and a submit never interleave. */
     public function find(string $reportId, bool $lock = false): ?Report;
 
-    /** @return array{items: list<Report>, total: int} newest period first; archived ones (`J-08`) only when asked for */
-    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived): array;
+    /** @return array{items: list<Report>, total: int} newest period first; archived ones (`J-08`) only when asked for; RPT-MN only when `$includeMonthly` (`D-141`) */
+    public function forAuthor(string $authorId, int $page, int $perPage, bool $includeArchived, bool $includeMonthly): array;
 
     /**
      * One kind's live rows of a report, in the order they were added, each with its `id`.

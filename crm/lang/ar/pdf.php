@@ -148,7 +148,7 @@ return [
             'new_customers' => 'العملاء الجدد هذا الأسبوع',
             'no_new_customers' => 'لم يُضف أي عميل هذا الأسبوع.',
         ],
-        // `D-140`: a monthly report's company-wide counts.
+        // `D-140`/`D-141`: a monthly report's company-wide counts and money.
         'monthly' => [
             'deals_by_status' => 'الصفقات حسب الحالة',
             'no_deals' => 'لم تُنشأ صفقات في هذا الشهر.',
@@ -157,6 +157,12 @@ return [
             'quotations_sent' => 'عروض أُرسلت',
             'quotations_won' => 'عروض ناجحة',
             'quotations_lost' => 'عروض خاسرة',
+            // `D-141`: the money per currency; cost and profit only under the author's view cost & margin.
+            'money' => 'المبالغ لكل عملة',
+            'currency' => 'العملة',
+            'won_value' => 'قيمة العروض الناجحة',
+            'cost' => 'التكلفة',
+            'profit' => 'الربح',
         ],
         'no_value' => '—',
         'none' => 'لا شيء مسجَّل.',

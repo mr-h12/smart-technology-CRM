@@ -113,6 +113,13 @@ describe('ReportsView — My reports', () => {
         }
     });
 
+    it('names a monthly report by its month and year, not a date range (the owner, 2026-10-20)', async () => {
+        const monthly = { ...REPORT, id: 'rep8', code: 'RPT-MN-2026-0001', type: 'monthly', period_start: '2026-09-01', period_end: '2026-09-30' };
+
+        expect((await render(list([monthly]))).wrapper.get('[data-testid="report-period"]').text()).toBe('September 2026');
+        expect((await render(list([monthly]), 'ar')).wrapper.get('[data-testid="report-period"]').text()).toBe('سبتمبر 2026');
+    });
+
     it('shows the empty state when the author has no report yet', async () => {
         const { wrapper } = await render(list([]));
 

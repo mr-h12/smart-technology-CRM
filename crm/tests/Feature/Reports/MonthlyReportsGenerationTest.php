@@ -7,6 +7,9 @@ namespace Tests\Feature\Reports;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Reports\Application\ShowReport;
+use App\Modules\Reports\Application\SubmitReport;
+use App\Modules\Reports\Domain\Contracts\ReportDirectoryInterface;
 use App\Modules\Reports\Presentation\GenerateMonthlyReportsJob;
 use App\Modules\Reports\Presentation\SubmitUnreviewedWeeklyReportsJob;
 use App\Support\Queue\QueueName;
@@ -17,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 use Tests\Feature\Pdf\InsertsQuotationRows;
@@ -29,15 +33,16 @@ use Tests\TestCase;
  * `reports.default_recipient` setting names (none, or not an active Manager → nothing,
  * and the next run tries again). Every active CEO is a default recipient, any other
  * Manager may be picked, the author never. One RPT-MN per month. Its content is
- * company-wide counts, no money (8.2 adds it): deals created in the month by their
- * current status; quotation versions sent in the month (`sent_at`), won = accepted +
- * partial, lost = rejected + expired, by their current status.
+ * company-wide: deals created in the month by their current status; quotation versions
+ * sent in the month (`sent_at`), won = accepted + partial, lost = rejected + expired, by
+ * their current status; and 8.2's money per currency (`D-141`).
  *
  * 2026-10-01 01:00 UTC: the month just ended is September 2026. The company zone is
  * `app.timezone` (UTC) unless a test sets `locale.timezone`.
  */
 final class MonthlyReportsGenerationTest extends TestCase
 {
+    use InsertsMonthlyReport;
     use InsertsQuotationRows;
     use RefreshDatabase;
 
@@ -143,7 +148,7 @@ final class MonthlyReportsGenerationTest extends TestCase
         $this->goLive('2026-09-01');
         $manager = $this->user(RoleName::Manager);
         $this->defaultRecipient($manager);
-        DB::table('users')->where('id', $manager->id)->update(['role_id' => Role::query()->where('slug', RoleName::IndoorSales->value)->firstOrFail()->id]);
+        $this->moveTo($manager, RoleName::IndoorSales);
 
         $this->runJob();
 
@@ -228,9 +233,9 @@ final class MonthlyReportsGenerationTest extends TestCase
         }
     }
 
-    // ── what the monthly report holds (`D-140`, 8.1: counts, no money) ──────
+    // ── what the monthly report holds (`D-140` counts, `D-141` money) ───────
 
-    public function test_that_the_draft_counts_the_months_deals_by_status_and_its_sent_quotations_and_carries_no_money_and_no_personal_activity(): void
+    public function test_that_the_draft_counts_the_months_deals_by_status_and_its_sent_quotations_carries_its_money_per_currency_and_no_personal_activity(): void
     {
         $this->goLive('2026-09-01');
         $author = $this->user(RoleName::Manager);
@@ -246,14 +251,290 @@ final class MonthlyReportsGenerationTest extends TestCase
             ->assertJsonMissingPath('data.activity');
         $this->assertTheMonthsCounts($response->json('data'));
 
+        // 8.2 (`D-141`): the money is there, in `money`'s shape — the month's accepted and partial
+        // versions are EGP at 0 here — and no quotation total under its own name.
+        $money = $response->json('data.money');
+        self::assertIsArray($money, 'D-141: the monthly report carries its money per currency.');
+        self::assertSame(['EGP'], array_column($money, 'currency'));
+        foreach ($money as $row) {
+            self::assertIsArray($row);
+            self::assertSame(['currency', 'won_value', 'cost', 'profit'], array_keys($row), 'D-141: one row per currency — its won value, cost and profit.');
+            foreach (['won_value', 'cost', 'profit'] as $figure) {
+                self::assertIsString($row[$figure], "{$figure} leaves the API as a decimal string (DB-07).");
+                self::assertMatchesRegularExpression('/^-?\d+\.\d{6}$/', $row[$figure], "{$figure} at the stored scale, numeric(18,6).");
+            }
+        }
         $body = $response->getContent();
         self::assertIsString($body);
-        foreach (['net_amount', 'final_total', 'subtotal', 'profit', 'won_value', 'amount'] as $money) {
-            self::assertStringNotContainsString($money, $body, "8.1 carries no money; {$money} is 8.2's.");
+        foreach (['"net_amount"', '"final_total"', '"subtotal"'] as $total) {
+            self::assertStringNotContainsString($total, $body, "D-141: the money is won_value, cost and profit; {$total} is a quotation's own.");
         }
     }
 
-    /** Submitting freezes the counts (§11.3): a deal created afterwards, dated inside the month, changes nothing. */
+    // ── the month's money (8.2, `D-141`) ────────────────────────────────────
+
+    /**
+     * `D-141`, figures in `seedTheMonthsMoney()`. Each wrong rule moves a total by its own amount:
+     * chain B's v1 counted too → EGP won +500.000001, its v2 (a one-level parent lookup stops
+     * there) → EGP won +300.300300; chain E's Partial v1 under its Rejected v2 → USD won
+     * +444.444444; the soft-deleted line → EGP cost
+     * +99.999999; the additional item kept in profit → EGP profit +50.250000; `final_total`
+     * for `net_amount` → EGP won +155.638899 (tax and rounding_diff); the Sent, Rejected and
+     * Expired versions → +777.333333, +999.111111, +888.222222; August's Accepted →
+     * +666.444444; the currencies mixed → one row.
+     */
+    public function test_that_the_money_counts_each_chains_latest_won_version_sent_in_the_month_per_currency_net_of_tax_and_rounding(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $this->seedTheMonthsMoney();
+
+        $money = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money');
+
+        self::assertSame([
+            ['currency' => 'EGP', 'won_value' => '1926.793210', 'cost' => '765.555557', 'profit' => '1110.987653'],
+            ['currency' => 'USD', 'won_value' => '2000.123456', 'cost' => '1500.000001', 'profit' => '500.123455'],
+        ], $money, 'D-141: per currency, sorted by code; won = net_amount; cost = Σ live line_cost; profit = net_amount − additional_total − cost.');
+    }
+
+    /** `D-126`, `D-141`: cost and profit only when the author holds §3.5's *view cost & margin*; the won value either way. */
+    public function test_that_without_view_cost_and_margin_the_author_sees_the_won_value_and_no_cost_or_profit(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->revoke(RoleName::Manager, 'quotation', 'view_cost_and_margin', 'all');
+
+        $response = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200);
+
+        self::assertSame([['currency' => 'EGP', 'won_value' => '1234.567890']], $response->json('data.money'), 'D-126: cost and profit are absent — not null, not zero.');
+        $body = $response->getContent();
+        self::assertIsString($body);
+        self::assertStringNotContainsString('234.567891', $body, 'The cost leaked under another key.');
+    }
+
+    /** §11.3: submitting freezes the money — a version accepted afterwards, sent inside the month, changes nothing. */
+    public function test_that_submitting_freezes_the_money(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '100.100100', lineCosts: ['40.000001']);
+        $later = $this->pricedQuotation('sent', '2026-09-06 10:00:00', 'EGP', subtotal: '200.200200', lineCosts: ['50.000000']);
+
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$ceo->id]], [...$this->bearer($author), 'If-Match' => $this->etag($id)])
+            ->assertStatus(200);
+        DB::table('quotations')->where('id', $later)->update(['status' => 'accepted']);
+
+        $frozen = [['currency' => 'EGP', 'won_value' => '100.100100', 'cost' => '40.000001', 'profit' => '60.100099']];
+        // `jsonb` reorders a frozen row's keys: the figures are compared, not their key order.
+        self::assertEquals($frozen, $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'));
+        self::assertEquals($frozen, $this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($ceo))->assertStatus(200)->json('data.money'));
+    }
+
+    /**
+     * `D-141`: only the chain's latest version sent *in the month* is read — a Partial v1 sent on 25 September
+     * stays September's money though its Accepted v2 was sent on 3 October (counting v2 instead → won 987.654321),
+     * and v2 is October's: "a chain won in two months still counts once in each month".
+     */
+    public function test_that_a_partial_v1_sent_in_the_month_counts_though_its_accepted_v2_was_sent_after_the_month(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $october = $this->monthlyRow($author, periodStart: '2026-10-01');
+        $v1 = $this->pricedQuotation('partial', '2026-09-25 10:00:00', 'EGP', subtotal: '321.123456', lineCosts: ['21.000001']);
+        $this->pricedQuotation('accepted', '2026-10-03 10:00:00', 'EGP', subtotal: '987.654321', lineCosts: ['87.000000'], parentId: $v1);
+
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '321.123456', 'cost' => '21.000001', 'profit' => '300.123455']],
+            $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            'D-141: September reads v1, the chain\'s latest version sent in September; v2 belongs to October.',
+        );
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '987.654321', 'cost' => '87.000000', 'profit' => '900.654321']],
+            $this->getJson(self::ENDPOINT.'/'.$october, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            'D-141: the same chain counts again in October, through v2.',
+        );
+    }
+
+    /** `D-141`, `DB-01`: a soft-deleted Accepted quotation adds nothing (counting it → won +555.000000). */
+    public function test_that_a_soft_deleted_accepted_quotation_adds_no_money(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '100.000001', lineCosts: ['10.000000']);
+        $gone = $this->pricedQuotation('accepted', '2026-09-06 10:00:00', 'EGP', subtotal: '555.000000', lineCosts: ['55.000000']);
+        DB::table('quotations')->where('id', $gone)->update(['deleted_at' => now()]);
+
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '100.000001', 'cost' => '10.000000', 'profit' => '90.000001']],
+            $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            'D-141: only live versions count.',
+        );
+    }
+
+    /**
+     * `D-141`, `D-140`: the month is `[first day 00:00, the day after the last)` in company time (`Report::utcPeriod`).
+     * In Cairo, September runs from 2026-08-31 21:00:00 to 2026-09-30 21:00:00 UTC: an Accepted version sent at
+     * exactly the lower bound is September's (an exclusive bound → won −200.000000); one sent at exactly the upper
+     * bound is October's and adds nothing; one sent a second before it is September's (an inclusive bound → won +555.000000).
+     */
+    public function test_that_the_months_company_time_bounds_count_the_lower_one_and_not_the_upper_one(): void
+    {
+        $this->patchJson('/api/v1/settings', ['settings' => ['locale.timezone' => 'Africa/Cairo']], $this->bearer($this->admin()))->assertStatus(200);
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $report = $this->app->make(ReportDirectoryInterface::class)->find($id);
+        self::assertNotNull($report);
+        [$from, $to] = $report->utcPeriod('Africa/Cairo');
+        $bound = $to->format('Y-m-d H:i:s');
+        self::assertNotSame('2026-10-01 00:00:00', $bound, 'The bound is company time (Cairo), not UTC midnight.');
+
+        $this->pricedQuotation('accepted', $from->format('Y-m-d H:i:s'), 'EGP', subtotal: '200.000000', lineCosts: ['20.000000']);
+        $this->pricedQuotation('accepted', $to->modify('-1 second')->format('Y-m-d H:i:s'), 'EGP', subtotal: '100.000001', lineCosts: ['10.000000']);
+        $this->pricedQuotation('accepted', $bound, 'EGP', subtotal: '555.000000', lineCosts: ['55.000000']);
+
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '300.000001', 'cost' => '30.000000', 'profit' => '270.000001']],
+            $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            "D-141: sent at {$from->format('Y-m-d H:i:s')} UTC is September's first instant in Cairo; at {$bound} UTC is past September.",
+        );
+    }
+
+    /**
+     * `D-141`: cost = Σ `line_cost` of the *live* lines — a won version whose only line is soft-deleted costs
+     * 0 (the `COALESCE`), so profit = `net_amount` − `additional_total` = 425.500000 − 25.500000.
+     */
+    public function test_that_a_won_version_whose_only_line_is_soft_deleted_costs_zero(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '400.000000', additional: '25.500000', deletedLineCosts: ['99.999999']);
+
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '425.500000', 'cost' => '0.000000', 'profit' => '400.000000']],
+            $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            'D-141: no live line → cost 0, never null; the additional item is left out of profit.',
+        );
+    }
+
+    /**
+     * `D-141`: a discount larger than the margin is a loss — net 80.000000 (100.000000 − 20.000000) against a cost of
+     * 95.500000 is a profit of −15.500000, sent with its sign (`DB-07`: a decimal string, never clamped or made absolute).
+     */
+    public function test_that_a_won_version_sold_below_its_cost_carries_a_negative_profit(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '100.000000', discount: '20.000000', lineCosts: ['95.500000']);
+
+        self::assertSame(
+            [['currency' => 'EGP', 'won_value' => '80.000000', 'cost' => '95.500000', 'profit' => '-15.500000']],
+            $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))->assertStatus(200)->json('data.money'),
+            'D-141: profit = net_amount − additional_total − cost, negative when sold below cost.',
+        );
+    }
+
+    // ── the author's reach (8.2, `D-141`) ───────────────────────────────────
+
+    /** `D-141`: only while the author is an active Manager — moved to Indoor Sales, the report and its submit are 404, and nothing of it leaks. */
+    public function test_that_an_author_moved_to_another_role_gets_404_on_the_monthly_report_and_on_its_submit(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->bearer($author);
+        $this->moveTo($author, RoleName::IndoorSales);
+
+        $this->assertOutOfReach($author, $ceo, $id);
+    }
+
+    /**
+     * `D-141`: the author's role must hold `deal.view` and `quotation.view` at All — either narrowed
+     * to Own, the report and its submit are 404.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function viewGrants(): array
+    {
+        return ['quotation.view' => ['quotation'], 'deal.view' => ['deal']];
+    }
+
+    #[DataProvider('viewGrants')]
+    public function test_that_an_author_whose_role_sees_only_its_own_gets_404_on_the_monthly_report_and_on_its_submit(string $resource): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->revoke(RoleName::Manager, $resource, 'view', 'all');
+        $this->grant(RoleName::Manager, $resource, 'view', 'own');
+
+        $this->assertOutOfReach($author, $ceo, $id);
+    }
+
+    /**
+     * `D-141` (m-1): "an active **Manager**" is a condition of its own — moved to Team Leader, whose
+     * role is granted `deal.view` at All beside the `quotation.view` at All §3.5 already seeds for it, the
+     * author still gets 404 on every author route of the monthly report.
+     */
+    public function test_that_an_author_moved_to_team_leader_with_deal_and_quotation_view_at_all_still_gets_404(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $id = $this->monthlyRow($author);
+        $this->pricedQuotation('accepted', '2026-09-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->grant(RoleName::TeamLeader, 'deal', 'view', 'all');
+        $leader = Role::query()->where('slug', RoleName::TeamLeader->value)->firstOrFail()->id;
+        self::assertSame(1, DB::table('role_permissions')->where('role_id', $leader)->whereNull('deleted_at')
+            ->whereIn('permission_id', DB::table('permissions')->where(['resource' => 'quotation', 'action' => 'view', 'scope' => 'all'])->pluck('id'))
+            ->count(), '§3.5 seeds quotation.view at All for the Team Leader.');
+        $this->bearer($author);
+        $this->moveTo($author, RoleName::TeamLeader);
+
+        $this->assertOutOfReach($author, $ceo, $id);
+    }
+
+    /**
+     * `D-141`: a deactivated author reaches neither. Over HTTP the bearer resolver already
+     * stops an inactive user at 401, so the rule is pinned where both endpoints route through.
+     */
+    public function test_that_a_deactivated_author_reaches_neither_the_monthly_report_nor_its_submit(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $id = $this->monthlyRow($author);
+        DB::table('users')->where('id', $author->id)->update(['is_active' => false]);
+        $this->app->instance('request', Request::create('http://localhost'));
+
+        $this->assertThrowsNotFound(fn () => $this->app->make(ShowReport::class)->one($id, $author->id), "D-141: a deactivated author's read");
+        $this->assertThrowsNotFound(fn () => $this->app->make(SubmitReport::class)->submit($id, [$ceo->id], $this->etag($id), $author->id), "D-141: a deactivated author's submit");
+        self::assertSame('draft', DB::table('reports')->where('id', $id)->value('status'));
+    }
+
+    /** Guard: `D-141` limits the author's reach, never a recipient's — the CEO still reads the frozen copy after its author stops being a Manager. */
+    public function test_that_a_recipient_still_reads_the_frozen_monthly_copy_after_its_author_stops_being_a_manager(): void
+    {
+        $this->goLive('2026-09-01');
+        $author = $this->user(RoleName::Manager);
+        $this->defaultRecipient($author);
+        $ceo = $this->user(RoleName::Ceo);
+        $this->seedTheMonth($author, $this->user(RoleName::IndoorSales));
+        $this->runJob();
+        $id = $this->monthly();
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$ceo->id]], [...$this->bearer($author), 'If-Match' => $this->etag($id)])
+            ->assertStatus(200);
+
+        $this->moveTo($author, RoleName::IndoorSales);
+
+        $this->assertTheMonthsCounts($this->getJson(self::ENDPOINT.'/received/'.$id, $this->bearer($ceo))->assertStatus(200)->json('data'));
+    }
+
+    /**
+     * Submitting freezes the counts (§11.3): a deal created afterwards, dated inside the month, changes nothing.
+     * The frozen `deals_by_status` keeps §4.4's pipeline order for the author and the recipient (`D-140`, the owner, 2026-10-20).
+     */
     public function test_that_submitting_freezes_the_counts(): void
     {
         $this->goLive('2026-09-01');
@@ -373,6 +654,36 @@ final class MonthlyReportsGenerationTest extends TestCase
         self::assertSame([[$id, 'monthly', $author->name]], array_map(static fn (array $r): array => [$r['id'], $r['type'], $r['author_name']], $received));
     }
 
+    /**
+     * `D-141`, the owner (2026-10-20): «تقاريري» hides an RPT-MN its author can no longer open — moved to Indoor
+     * Sales, the author's list keeps their daily report and drops the monthly one, and counts it nowhere; an
+     * active Manager's list still holds theirs.
+     * Asking for the archive (`include_archived=1`) never brings an archived one back: a query parameter narrows, never
+     * broadens (`OpenAPI §3.2`).
+     */
+    public function test_that_my_reports_hides_a_monthly_report_its_author_can_no_longer_open(): void
+    {
+        $demoted = $this->user(RoleName::Manager);
+        $manager = $this->user(RoleName::Manager, 'other');
+        $this->monthlyRow($demoted);
+        DB::table('reports')->where('id', $this->monthlyRow($demoted, periodStart: '2026-08-01'))->update(['status' => 'archived']);
+        $kept = $this->monthlyRow($manager);
+        $this->bearer($demoted);
+        $this->moveTo($demoted, RoleName::IndoorSales);
+        $daily = $this->postJson(self::ENDPOINT, ['type' => 'daily'], $this->bearer($demoted))->assertStatus(201)->json('data.id');
+
+        $mine = $this->getJson(self::ENDPOINT, $this->bearer($demoted))->assertStatus(200);
+        self::assertSame([$daily], array_column((array) $mine->json('data'), 'id'), 'D-141: the demoted author\'s list drops the RPT-MN they can no longer open.');
+        $mine->assertJsonPath('meta.pagination.total', 1);
+        self::assertSame(
+            [$daily],
+            array_column((array) $this->getJson(self::ENDPOINT.'?include_archived=1', $this->bearer($demoted))->assertStatus(200)->json('data'), 'id'),
+            'OpenAPI §3.2: include_archived widens the archive, never D-141\'s reach — the archived RPT-MN stays hidden.',
+        );
+
+        self::assertSame([$kept], array_column((array) $this->getJson(self::ENDPOINT, $this->bearer($manager))->assertStatus(200)->json('data'), 'id'), 'An active Manager still lists their RPT-MN.');
+    }
+
     /** Guard: `CreateReportRequest` accepts `daily` only; J-07 alone makes RPT-MN (`D-140`). */
     public function test_that_a_monthly_report_cannot_be_created_by_hand(): void
     {
@@ -433,17 +744,98 @@ final class MonthlyReportsGenerationTest extends TestCase
         ]);
     }
 
+    /**
+     * September's money (`D-141`), company time = UTC. Won and counted: chain A, EGP Accepted —
+     * subtotal 1234.567890, discount 123.456789, an additional item 50.250000 (net 1161.361101),
+     * tax 155.555554 and rounding_diff 0.083345 (final 1317.000000), live lines 400.123456 +
+     * 300.000001 and a soft-deleted 99.999999; chain B, v1 EGP Partial (500.000001) → v2 EGP
+     * Partial (300.300300) → v3 USD Accepted (2000.123456, line 1500.000001), all sent in
+     * September — v3 only, three levels deep (`parent_id` names the version just before); chain D,
+     * EGP Partial 765.432109, line 65.432100. Not counted: chain E, v1 USD Partial (444.444444)
+     * → v2 Rejected (333.333333), both sent in September — its latest is not won, so nothing
+     * (the owner, 2026-10-20); one Sent, one Rejected, one Expired in September, one Accepted sent
+     * on 31 August, one Draft.
+     */
+    private function seedTheMonthsMoney(): void
+    {
+        $this->pricedQuotation('accepted', '2026-09-02 10:00:00', 'EGP', subtotal: '1234.567890', additional: '50.250000', discount: '123.456789',
+            tax: '155.555554', roundingDiff: '0.083345', lineCosts: ['400.123456', '300.000001'], deletedLineCosts: ['99.999999']);
+        $v1 = $this->pricedQuotation('partial', '2026-09-08 10:00:00', 'EGP', subtotal: '500.000001', lineCosts: ['100.000000']);
+        $v2 = $this->pricedQuotation('partial', '2026-09-10 10:00:00', 'EGP', subtotal: '300.300300', lineCosts: ['30.000000'], parentId: $v1);
+        $this->pricedQuotation('accepted', '2026-09-12 10:00:00', 'USD', subtotal: '2000.123456', lineCosts: ['1500.000001'], parentId: $v2);
+        $this->pricedQuotation('partial', '2026-09-20 10:00:00', 'EGP', subtotal: '765.432109', lineCosts: ['65.432100']);
+
+        $e1 = $this->pricedQuotation('partial', '2026-09-14 10:00:00', 'USD', subtotal: '444.444444', lineCosts: ['4.000000']);
+        $this->pricedQuotation('rejected', '2026-09-15 10:00:00', 'USD', subtotal: '333.333333', lineCosts: ['3.000000'], parentId: $e1);
+
+        $this->pricedQuotation('sent', '2026-09-06 10:00:00', 'EGP', subtotal: '777.333333', lineCosts: ['1.000000']);
+        $this->pricedQuotation('rejected', '2026-09-03 10:00:00', 'EGP', subtotal: '999.111111', lineCosts: ['1.000000']);
+        $this->pricedQuotation('expired', '2026-09-04 10:00:00', 'USD', subtotal: '888.222222', lineCosts: ['1.000000']);
+        $this->pricedQuotation('accepted', '2026-08-31 23:00:00', 'EGP', subtotal: '666.444444', lineCosts: ['1.000000']);
+        $this->pricedQuotation('draft', null, 'EGP', subtotal: '555.555555', lineCosts: ['1.000000']);
+    }
+
+    private function grant(RoleName $role, string $resource, string $action, string $scope): void
+    {
+        $permission = DB::table('permissions')->where(['resource' => $resource, 'action' => $action, 'scope' => $scope])->value('id');
+        self::assertIsString($permission, "No {$resource}.{$action}.{$scope} permission is seeded.");
+        DB::table('role_permissions')->insert([
+            'id' => (string) Str::uuid7(), 'role_id' => Role::query()->where('slug', $role->value)->firstOrFail()->id,
+            'permission_id' => $permission, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * `D-141`'s 404: the author reads, submits, writes a note on and lists the candidates of nothing
+     * (every author route goes through `ReportAccess::reach`, B-1), and no count or money of the month leaks.
+     * The PDF's two routes need a submitted version: `ReportPdfEndpointTest` covers them.
+     */
+    private function assertOutOfReach(User $author, User $recipient, string $id): void
+    {
+        $read = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearer($author))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found')
+            ->getContent();
+        $submit = $this->patchJson(self::ENDPOINT.'/'.$id.'/submit', ['recipient_ids' => [$recipient->id]], [...$this->bearer($author), 'If-Match' => $this->etag($id)])
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found')
+            ->getContent();
+        $note = $this->postJson(self::ENDPOINT.'/'.$id.'/notes', ['body' => 'Out of reach.'], $this->bearer($author))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found')
+            ->getContent();
+        $candidates = $this->getJson(self::ENDPOINT.'/'.$id.'/recipient-candidates', $this->bearer($author))
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'resource_not_found')
+            ->getContent();
+        self::assertSame(0, DB::table('report_notes')->where('report_id', $id)->count(), 'D-141: the note was written.');
+
+        foreach (['read' => $read, 'submit' => $submit, 'note' => $note, 'candidates' => $candidates] as $call => $body) {
+            self::assertIsString($body);
+            foreach (['"deals_by_status"', '"quotations"', '"money"', '"won_value"', '1234.567890'] as $leak) {
+                self::assertStringNotContainsString($leak, $body, "The {$call} answer leaked {$leak}.");
+            }
+        }
+        self::assertSame('draft', DB::table('reports')->where('id', $id)->value('status'), 'D-141: the submit went through.');
+        self::assertSame(0, DB::table('report_versions')->where('report_id', $id)->count());
+    }
+
     /** @param mixed $data the report's `data` */
     private function assertTheMonthsCounts(mixed $data): void
     {
         self::assertIsArray($data);
-        /** @var array<string, int>|null $deals */
         $deals = $data['deals_by_status'] ?? null;
         self::assertIsArray($deals, 'D-140: the deals created in the month by their current status.');
-        self::assertSame(2, $deals['lead'] ?? null);
-        self::assertSame(1, $deals['won'] ?? null);
-        self::assertSame(1, $deals['lost'] ?? null);
-        self::assertSame(4, array_sum($deals), 'Deals created on 31 August and 1 October are outside September.');
+        // D-140 (the owner, 2026-10-20): an ordered list in §4.4's pipeline order — `jsonb` reorders a frozen map's keys (won before lead).
+        self::assertTrue(array_is_list($deals), 'D-140: deals_by_status is an ordered list of {status, count}, not a map.');
+        foreach ($deals as $row) {
+            self::assertIsArray($row);
+            $keys = array_keys($row);
+            sort($keys);
+            self::assertSame(['count', 'status'], $keys, 'D-140: each row is {status, count}.');
+        }
+        self::assertSame(['lead', 'won', 'lost'], array_column($deals, 'status'), 'D-140: §4.4 pipeline order (DealStatusTransition::statuses), live and frozen.');
+        self::assertSame([2, 1, 1], array_column($deals, 'count'), 'Deals created on 31 August and 1 October are outside September.');
 
         /** @var array<string, int>|null $quotations */
         $quotations = $data['quotations'] ?? null;
@@ -451,7 +843,7 @@ final class MonthlyReportsGenerationTest extends TestCase
         self::assertSame(6, $quotations['sent'] ?? null, 'Sent in September, whatever their status now; the August one is outside.');
         self::assertSame(2, $quotations['won'] ?? null, 'D-140: won = accepted + partial.');
         self::assertSame(2, $quotations['lost'] ?? null, 'D-140: lost = rejected + expired.');
-        self::assertCount(3, $quotations, 'sent, won and lost — nothing else, no money (8.2).');
+        self::assertCount(3, $quotations, 'sent, won and lost — nothing else; the money is under `money` (D-141).');
     }
 
     private function deal(string $status, string $createdAt, ?string $ownerId): string
@@ -474,20 +866,6 @@ final class MonthlyReportsGenerationTest extends TestCase
             'status' => $status, 'sent_at' => $sentAt,
             'rejection_reason' => in_array($status, ['rejected', 'counter'], true) ? 'Too dear.' : null,
         ]);
-    }
-
-    /** A monthly draft placed straight in the table, for the guards that need no J-07. */
-    private function monthlyRow(User $author, ?string $createdAt = null): string
-    {
-        $createdAt ??= now()->toDateTimeString();
-        $id = (string) Str::uuid7();
-        DB::table('reports')->insert([
-            'id' => $id, 'code' => 'RPT-MN-2026-0001', 'type' => 'monthly', 'status' => 'draft',
-            'author_id' => $author->id, 'period_start' => '2026-09-01', 'period_end' => '2026-09-30',
-            'created_at' => $createdAt, 'updated_at' => $createdAt,
-        ]);
-
-        return $id;
     }
 
     private function runJob(): void

@@ -517,6 +517,11 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 throw new LogicException('The mapper reads one quotation.');
             }
+
+            public function wonMoneySentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
+            }
         };
     }
 

@@ -4806,6 +4806,31 @@ confirmed 2026-09-24; `F-12` stays reserved for Arabic-Indic dates.
             closed unmerged as #373; its two migrations were rolled back on dev (no customer had a status set by hand).
             `D-123` is left unused, as `D-95` was.
 
+## Fix pass — owner-directed, 2026-10-20
+
+The client's complaint: «الأرقام في عرض السعر بتطلع مش مظبوطة». The owner, 2026-10-20: "we will stop
+working on module 13, we will start fixing some urgent problems" — Module 13 is paused at 8.3 and
+resumes after this pass unless the owner reorders. Nine problems (U-1…U-9) were found 2026-10-20 by
+read-only agents and re-checked by the main session; the engine itself is right (an independent recompute
+of all 135 live dev quotations: 0 header mismatches). The owner grouped them into four points, approved
+2026-10-20. Each point: its own branch off `origin/main`, a failing test first, the eight gates, the
+auditors read-only, the full suite last and alone, a seven-part report, and the owner's merge.
+
+- [ ] **F.1** PDF line math — U-1 (the printed unit price × quantity misses the printed line amount by up
+      to 0.06 in 21 of 134 dev quotations: the unit price is stored at six places and printed at two),
+      U-2 (a line's *Total* is already discounted and taxed, and the discount is printed again below it),
+      and the *Total* column's cent (4 of 134). `D-142`: the unit price is rounded to 2 places before × the
+      quantity; a line's *Total* = quantity × unit price.
+- [ ] **F.2** How numbers are written, no money changes — U-6 (a negative rounding prints «0.40-» in the
+      Arabic PDF; the money cells are not wrapped in `$ltr`), U-5 (the edit builder fills additional-item
+      amounts with six places and quantities raw), U-7 (the rounding label's unit below 0.01).
+- [ ] **F.3** Cost and margin on the staff screens — U-4 (the «تكلفة الوحدة» column shows the supplier's
+      raw price in the supplier's currency with no code; no `.vue` reads `unit_cost_base`), U-9
+      (QT-2026-0004's effective margin 15% beside a price priced at 5%). The owner's call on U-4 first.
+- [ ] **F.4** Exchange rates and re-pricing — U-3 (two reversed EGP→USD rows on dev priced QT-2026-0011
+      and QT-2026-0014; the client PC unchecked; a guard), U-8 (editing a draft re-prices it at today's rate
+      and supplier price, `D-09`). The client-PC fx query and the owner's answers first.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module
@@ -5236,6 +5261,9 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 ---
 
 ## Module 13 — Reports
+
+**Paused 2026-10-20 at 8.3 (the owner):** the urgent fix pass F.1…F.4 runs first; 8.3's three open
+questions (the per-employee columns, customers under `created_by`, the 8.3a/8.3b split) stay open.
 
 > As an employee, I want to submit my reports so they reach my Team Leader, so that management can
 > track the work.

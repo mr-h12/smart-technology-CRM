@@ -185,6 +185,7 @@
   > Before any other action, invoke these skills with the Skill tool and follow them: `ponytail:ponytail` (level full), `andrej-karpathy-skills:karpathy-guidelines`, and the superpowers skills this task needs — `superpowers:test-driven-development` (red before code), `superpowers:systematic-debugging` (root cause before any fix), `superpowers:verification-before-completion` (paste the command output). The rules in `CLAUDE.md` win over any skill default.
 
 - قواعد المشروع سارية جوه الوكيل الفرعي: نقطة واحدة في الدور، تشغيل اختبارات واحد في المرة، مفيش push ولا PR ولا merge، ومحاولتين وبعدين وقف.
+- **ترتيب فحوص النقطة:** الأول البوابات واختبارات النقطة نفسها (pint و PHPStan والـ deptrac الاتنين و vue-tsc و vitest وملفات اختبار النقطة)، وبعدين المدقّقين بالتوازي ومن غير ما يعدّلوا حاجة، وبعدين نصلّح اللي لقوه جوه النقطة ونعيد البوابات اللي التصليح لمسها، **وفي الآخر خالص** مجموعة اختبارات PHP كلها — مرة واحدة، لوحدها — ونقرا آخرها.
 - تقرير الوكيل الفرعي مش دليل لحد ما الجلسة الرئيسية تقرا مخرجاته أو تعيد تشغيل الفحص بنفسها.
 - قواعد المشروع والمصادر المرجعية أعلى من أي مهارة؛ ولو حصل تعارض، القاعدة هي اللي تتطبق والتعارض يتذكر.
 

@@ -363,18 +363,19 @@ way a seven-part report closes a point.
 - **Module isolation.** While working inside one module (`app/Modules/Identity/` vs `app/Modules/Admin/`), do not modify files outside it unless they are shared core components — `app/Support/`, configuration, or migrations the module owns. A cross-module need is an interface or a domain event, never an edit next door.
 - **Feature branching.** Every task or point is developed on its own branch, named `feature/<module-name>-<short-description>`.
 - **Quality gates before any merge.** Run all of these locally and read their output first:
-  - `php artisan test`
-  - `npm run test:unit`
   - `./vendor/bin/pint --test`
   - `./vendor/bin/phpstan analyse --memory-limit=1G`
   - `./vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml`
   - `./vendor/bin/deptrac analyse --config-file=deptrac.modules.yaml`
+  - `npx vue-tsc --noEmit`
+  - `npm run test:unit`
+  - `php artisan test` — last, alone
 - **No direct push to `main`.** Every merge needs a review confirming the deptrac boundaries hold and strict typing is intact.
 
 ## Delivery Protocol (per checklist point)
 
 1. Write failing tests first (TDD) before implementation.
-2. Run the full gate suite locally: lint, static analysis (PHPStan), unit + feature tests.
+2. Run the gates and the point's targeted tests: pint, PHPStan, both deptrac configs, vue-tsc, vitest, and the point's own test files. Then run the auditors (§ Subagents) in parallel and read-only, and fix what they find inside the point; after a fix, re-run the gates it touched. Only then run the full PHP suite — once, alone, last — and read its tail.
 3. Open a PR and WAIT for CI to go green on the *new* commit SHA (filter CI status by SHA, never trust the latest row).
 4. Report the actual command output as evidence — never claim 'tests pass' without pasting the result.
 5. Ask the user to merge (Claude cannot run `gh pr merge`).

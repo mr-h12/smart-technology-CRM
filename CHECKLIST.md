@@ -1967,6 +1967,8 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **Q-1: a recipient without `view_cost_and_margin` sees the frozen cost and profit** — *revealed by Module 13 · 8.2's permission audit, 2026-10-20 (low); `D-141` allows it.* `MonthlyContent` gates cost and profit on the **author**'s permission; the frozen copy then shows them to every recipient, whatever their role holds. Every default recipient (the CEO) holds it today. The same mechanism shows the frozen won value and counts to a recipient whose role lacks `quotation.view` (e.g. a Manager moved to Outdoor Supervisor keeps `view_received` at Out) — same cause, same call. The owner's call: leave it, or strip per reader in `ShowReport` and the PDF.
 - [ ] **Two pricing edges in `wonMoneySentBetween`** — *revealed by Module 13 · 8.2's pricing review, 2026-10-20 (low).* (1) The rows are keyed by currency **code**: two currency ids sharing a code (one live, one soft-deleted, which `currencies_code_unique_alive` allows) would overwrite each other's sums. (2) `currencyCode()` (`EloquentQuotationDirectory.php:574`) throws on a soft-deleted currency, so one won quotation in an archived currency fails the whole monthly report. Fix: key by id, and read the code with trashed rows.
 - [ ] **An English note in the Arabic report PDF prints its punctuation reversed** — *revealed by Module 13 · 8.2's real PDF render, 2026-10-20.* A note `1. September closed above plan.` prints as `.September closed above plan .1`: the notes list is RTL, and the Latin run has no isolate (UAX #9). The quotation PDF already isolates LTR runs (`$ltr`). Fix: wrap each note in `dir="auto"` or the `$ltr` isolate, with a render read as an image.
+- [ ] **`point-gates` names a CI step that does not exist** — *revealed by W.1's waste audit, 2026-10-20.* `.claude/skills/point-gates/SKILL.md` (gate 6's notes) says vitest runs in `php-image.yml` step "Type-check, test and build the frontend"; `grep -rn "Type-check, test and build" .github/workflows/` → nothing. Vitest and `npm run build` (= `vue-tsc --noEmit && vite build`) run in `frontend.yml` on `setup-node`, not on the node:22 image.
+- [ ] **`point-gates` reaches the node image two ways** — *revealed by W.1's waste audit, 2026-10-20.* Gate 5 runs `docker compose exec -T spa-build npx vue-tsc --noEmit`; gate 6 starts a fresh `docker run … node:22-bookworm-slim npx vitest run`. `spa-build` is the same image with `./crm` mounted, so gate 6 could be `docker compose exec -T spa-build npx vitest run` (the handoff already uses `spa-build npm run test:unit`).
 
 ## Agent guide revisions — owner-directed
 
@@ -2084,6 +2086,7 @@ missing in the first place.
       repository moves. Both carry measured claims — "never had an issue", "nine default labels" —
       that a single `gh issue create` would falsify silently, and the next divergence between the two
       guides will be caught by hand or not at all. `README.md` was not examined, as in `G-01`.
+- [x] **G-04** A point's checks run in one order in **both guides**, both Arabic twins and `/point-gates`: gates and the point's own tests, then the auditors read-only and their findings fixed, then the full PHP suite once, alone, last; vue-tsc becomes a gate. *(2026-10-20, owner's item 1, W.1.)*
 
 ## Fix pass — owner-directed, 2026-09-16
 

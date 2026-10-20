@@ -31,7 +31,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { useAutosave } from '@/components/useAutosave';
 import { useModalDialog } from '@/components/useModalDialog';
-import { displayDate, displayDateRange } from '@/domain/displayDate';
+import { displayDate, displayReportPeriod } from '@/domain/displayDate';
 import { displayDecimals } from '@/domain/displayDecimals';
 import DealStatusChip from '@/pages/deals/DealStatusChip.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
@@ -420,7 +420,7 @@ onMounted(load);
                     <h1 class="text-page-title"><bdi dir="ltr">{{ report.code }}</bdi></h1>
                     <p class="flex flex-wrap gap-x-3 text-[var(--color-text-muted)]">
                         <span>{{ t(`reports.type.${report.type}`) }}</span>
-                        <span class="tabular-nums" data-testid="report-period">{{ displayDateRange(report.period_start, report.period_end, locale) }}</span>
+                        <span class="tabular-nums" data-testid="report-period">{{ displayReportPeriod(report, locale) }}</span>
                         <span v-if="report.author_name">{{ t('reports.from_author', { name: report.author_name }) }}</span>
                     </p>
                 </div>
@@ -589,17 +589,17 @@ onMounted(load);
                     </section>
                 </template>
 
-                <!-- `D-140` RPT-MN: the company's month in counts, as the server counts them — no money. -->
+                <!-- `D-140` RPT-MN: the company's month in counts, as the server counts them; `D-141` its money. -->
                 <template v-if="report.type === 'monthly'">
                     <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-monthly-deals-heading" data-testid="report-section-monthly-deals">
                         <h2 id="report-monthly-deals-heading" class="text-section-title">{{ t('reports.monthly_deals_title') }}</h2>
-                        <p v-if="Object.keys(report.deals_by_status ?? {}).length === 0" class="text-[var(--color-text-muted)]">{{ t('reports.monthly_deals_empty') }}</p>
-                        <ul v-else class="divide-y divide-[var(--color-border)]">
-                            <li v-for="(count, status) in report.deals_by_status" :key="status" class="flex items-center justify-between gap-4 py-3" data-testid="monthly-deals-row">
-                                <DealStatusChip :status="status" />
-                                <span class="tabular-nums">{{ count }}</span>
-                            </li>
-                        </ul>
+                        <p v-if="!report.deals_by_status?.length" class="text-[var(--color-text-muted)]">{{ t('reports.monthly_deals_empty') }}</p>
+                        <dl v-else class="grid grid-cols-2 gap-2 md:grid-cols-3">
+                            <div v-for="row in report.deals_by_status" :key="row.status" class="flex flex-col gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3" data-testid="monthly-deals-row">
+                                <dt><DealStatusChip :status="row.status" /></dt>
+                                <dd class="text-page-title tabular-nums">{{ row.count }}</dd>
+                            </div>
+                        </dl>
                     </section>
                     <section class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-monthly-quotations-heading" data-testid="report-section-monthly-quotations">
                         <h2 id="report-monthly-quotations-heading" class="text-section-title">{{ t('reports.monthly_quotations_title') }}</h2>
@@ -609,6 +609,34 @@ onMounted(load);
                                 <dd class="text-page-title tabular-nums" :data-testid="`monthly-quotations-${key}`">{{ report.quotations?.[key] ?? 0 }}</dd>
                             </div>
                         </dl>
+                    </section>
+                    <!-- `D-141`: one row per currency as the server gives it, never added across; cost and profit only when sent (`D-126`). -->
+                    <section v-if="report.money?.length" class="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6" aria-labelledby="report-monthly-money-heading" data-testid="report-section-monthly-money">
+                        <h2 id="report-monthly-money-heading" class="text-section-title">{{ t('reports.monthly_money_title') }}</h2>
+                        <div class="overflow-x-clip rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+                            <table class="card-table w-full text-table">
+                                <thead>
+                                    <tr class="bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]">
+                                        <th scope="col" class="p-3 text-start font-medium">{{ t('reports.monthly_money_currency') }}</th>
+                                        <th scope="col" class="p-3 text-end font-medium">{{ t('reports.monthly_money_won_value') }}</th>
+                                        <template v-if="report.money[0]?.cost !== undefined">
+                                            <th scope="col" class="p-3 text-end font-medium">{{ t('reports.monthly_money_cost') }}</th>
+                                            <th scope="col" class="p-3 text-end font-medium">{{ t('reports.monthly_money_profit') }}</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="row in report.money" :key="row.currency" class="border-t border-[var(--color-border)]" data-testid="monthly-money-row">
+                                        <td :data-label="t('reports.monthly_money_currency')" class="p-3" data-testid="monthly-money-currency"><bdi dir="ltr">{{ row.currency }}</bdi></td>
+                                        <td :data-label="t('reports.monthly_money_won_value')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="monthly-money-won-value"><bdi dir="ltr">{{ displayDecimals(row.won_value) }}</bdi></td>
+                                        <template v-if="row.cost !== undefined">
+                                            <td :data-label="t('reports.monthly_money_cost')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="monthly-money-cost"><bdi dir="ltr">{{ displayDecimals(row.cost) }}</bdi></td>
+                                            <td :data-label="t('reports.monthly_money_profit')" class="whitespace-nowrap p-3 text-end tabular-nums" data-testid="monthly-money-profit"><bdi dir="ltr">{{ displayDecimals(row.profit) }}</bdi></td>
+                                        </template>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
                 </template>
 

@@ -140,6 +140,13 @@ describe('ReceivedReportsView — Received reports', () => {
         }
     });
 
+    it('names a received monthly report by its month and year, not a date range (the owner, 2026-10-20)', async () => {
+        const monthly = { ...RECEIVED, id: 'rep7', code: 'RPT-MN-2026-0001', type: 'monthly', period_start: '2026-09-01', period_end: '2026-09-30' };
+
+        expect((await render(list([monthly]))).get('[data-testid="report-period"]').text()).toBe('September 2026');
+        expect((await render(list([monthly]), 'ar')).get('[data-testid="report-period"]').text()).toBe('سبتمبر 2026');
+    });
+
     it('shows a received weekly report as Weekly report, with the Not reviewed label only on a flagged one (D-136)', async () => {
         const weekly = { ...RECEIVED, id: 'rep4', code: 'RPT-WK-2026-0001', type: 'weekly', submitted_late: false, not_reviewed: false };
         const flagged = { ...weekly, id: 'rep5', not_reviewed: true };

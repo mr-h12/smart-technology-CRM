@@ -18,10 +18,10 @@ use App\Support\Database\UtcAtom;
  */
 final readonly class ShowReport
 {
-    /** `D-126`/`D-134` RPT-WK's and `D-140` RPT-MN's own sections, beside the follow-ups and notes. */
+    /** `D-126`/`D-134` RPT-WK's and `D-140`/`D-141` RPT-MN's own sections, beside the follow-ups and notes. */
     public const CONTENT_KEYS = [
         'weekly' => ['daily_reports', 'purchase_orders_received', 'new_customers'],
-        'monthly' => ['deals_by_status', 'quotations'],
+        'monthly' => ['deals_by_status', 'quotations', 'money'],
     ];
 
     public function __construct(
@@ -34,10 +34,14 @@ final readonly class ShowReport
         private CustomerNamesInterface $customers,
     ) {}
 
-    /** @return array{items: list<Report>, total: int} */
+    /**
+     * «تقاريري» lists no RPT-MN its author can no longer open (`D-141`, the owner, 2026-10-20) — `ReportAccess`'s one rule.
+     *
+     * @return array{items: list<Report>, total: int}
+     */
     public function mine(string $actorId, int $page, int $perPage, bool $includeArchived): array
     {
-        return $this->reports->forAuthor($actorId, $page, $perPage, $includeArchived);
+        return $this->reports->forAuthor($actorId, $page, $perPage, $includeArchived, $this->access->seesTheCompany($actorId));
     }
 
     /** @return array{items: list<array{report: Report, author_name: string}>, total: int} */

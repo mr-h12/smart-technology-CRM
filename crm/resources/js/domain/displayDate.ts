@@ -20,8 +20,15 @@ export function displayDate(value: string | null, locale: string): string {
 }
 
 /** A weekly report's range, one inline string: `11/10/2026 – 15/10/2026`; a single day stays a single date. */
-export function displayDateRange(start: string, end: string, locale: string): string {
+function displayDateRange(start: string, end: string, locale: string): string {
     return start === end ? displayDate(start, locale) : `${displayDate(start, locale)} – ${displayDate(end, locale)}`;
+}
+
+/** A report's period: RPT-MN names its month from its first day — `September 2026`, `سبتمبر 2026` (the owner, 2026-10-20); any other type its range. */
+export function displayReportPeriod(report: { type: string; period_start: string; period_end: string }, locale: string): string {
+    return report.type === 'monthly'
+        ? new Date(report.period_start).toLocaleDateString(tag(locale), { month: 'long', year: 'numeric', timeZone: 'UTC' })
+        : displayDateRange(report.period_start, report.period_end, locale);
 }
 
 /** A timestamp to the minute: the seconds are noise on a screen. */

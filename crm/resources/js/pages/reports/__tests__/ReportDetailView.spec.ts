@@ -1177,7 +1177,7 @@ describe('ReportDetailView — a weekly report and its Not reviewed flag (D-136)
 /**
  * Module 13, slice 8 · 8.1 — the monthly report (RPT-MN, `D-140`): company-wide counts the server
  * gives — the deals created in the month by their current status, and the quotation versions sent in
- * it, won and lost — and no money (8.2's). It carries no author activity and, like every report that
+ * it, won and lost — and 8.2's money per currency (`D-141`). It carries no author activity and, like every report that
  * is not RPT-DY, no follow-ups (`D-137`). The page computes none of it (`D-67`).
  */
 describe('ReportDetailView — a monthly report (D-140)', () => {
@@ -1190,13 +1190,20 @@ describe('ReportDetailView — a monthly report (D-140)', () => {
     const MONTHLY = {
         ...DRAFT, code: 'RPT-MN-2026-0001', type: 'monthly', period_start: '2026-09-01', period_end: '2026-09-30',
         activity: undefined,
-        deals_by_status: { lead: 2, won: 1, lost: 1 },
+        // `D-140` (the owner, 2026-10-20): an ordered list in §4.4's pipeline order, so a frozen copy keeps it.
+        deals_by_status: [{ status: 'lead', count: 2 }, { status: 'won', count: 1 }, { status: 'lost', count: 1 }],
         quotations: { sent: 6, won: 2, lost: 2 },
     };
 
     it('draws the monthly type as Monthly report, and as تقرير شهري in Arabic', async () => {
         expect((await render(server({ report: MONTHLY }), 'en', MANAGER)).text()).toContain('Monthly report');
         expect((await render(server({ report: MONTHLY }), 'ar', MANAGER)).text()).toContain('تقرير شهري');
+    });
+
+    it('names its month and year, not a date range: September 2026, and سبتمبر 2026 in Arabic (the owner, 2026-10-20)', async () => {
+        expect((await render(server({ report: MONTHLY }), 'en', MANAGER)).get('[data-testid="report-period"]').text()).toBe('September 2026');
+        // `D-70`: Western digits in Arabic too.
+        expect((await render(server({ report: MONTHLY }), 'ar', MANAGER)).get('[data-testid="report-period"]').text()).toBe('سبتمبر 2026');
     });
 
     it('draws the deals by status and the quotations sent, won and lost, as the server counts them', async () => {
@@ -1229,6 +1236,57 @@ describe('ReportDetailView — a monthly report (D-140)', () => {
         expect(daily.find('[data-testid="report-section-follow-ups"]').exists()).toBe(true);
         expect(daily.find('[data-testid="report-section-monthly-deals"]').exists()).toBe(false);
         expect(daily.find('[data-testid="report-section-monthly-quotations"]').exists()).toBe(false);
+    });
+
+    /**
+     * 8.2 — `D-141`'s money, one row per currency as the server gives it (sorted by code), never
+     * added across currencies; cost and profit only when the server sends them (`D-126`, the
+     * author's *view cost & margin*). Drawn through `displayDecimals` (`D-110`), computed nowhere here (`D-67`).
+     */
+    const WITH_MONEY = {
+        ...MONTHLY,
+        money: [
+            { currency: 'EGP', won_value: '1926.793210', cost: '765.555557', profit: '1110.987653' },
+            { currency: 'USD', won_value: '2000.123456', cost: '1500.000001', profit: '500.123455' },
+        ],
+    };
+
+    it('draws the money per currency — won value, cost and profit at two places — in English and Arabic (D-141)', async () => {
+        const wrapper = await render(server({ report: WITH_MONEY }), 'en', MANAGER);
+        const money = wrapper.get('[data-testid="report-section-monthly-money"]');
+        expect(money.text()).toContain('Amounts per currency');
+        const rows = money.findAll('[data-testid="monthly-money-row"]');
+        expect(rows).toHaveLength(2);
+        expect(rows.map((row) => [
+            row.get('[data-testid="monthly-money-currency"]').text(),
+            row.get('[data-testid="monthly-money-won-value"]').text(),
+            row.get('[data-testid="monthly-money-cost"]').text(),
+            row.get('[data-testid="monthly-money-profit"]').text(),
+        ])).toEqual([
+            ['EGP', '1,926.79', '765.56', '1,110.99'],
+            ['USD', '2,000.12', '1,500.00', '500.12'],
+        ]);
+
+        const arabic = await render(server({ report: WITH_MONEY }), 'ar', MANAGER);
+        const arabicMoney = arabic.get('[data-testid="report-section-monthly-money"]');
+        expect(arabicMoney.text()).toContain('المبالغ لكل عملة');
+        expect(arabicMoney.findAll('[data-testid="monthly-money-row"]')[0]!.get('[data-testid="monthly-money-won-value"]').text()).toBe('1,926.79');
+    });
+
+    it('draws no cost and no profit when the payload omits them (D-126)', async () => {
+        const wonOnly = { ...MONTHLY, money: [{ currency: 'EGP', won_value: '1926.793210' }] };
+        const wrapper = await render(server({ report: wonOnly }), 'en', MANAGER);
+        const money = wrapper.get('[data-testid="report-section-monthly-money"]');
+        expect(money.get('[data-testid="monthly-money-won-value"]').text()).toBe('1,926.79');
+        expect(money.find('[data-testid="monthly-money-cost"]').exists()).toBe(false);
+        expect(money.find('[data-testid="monthly-money-profit"]').exists()).toBe(false);
+        expect(money.text()).not.toMatch(/cost|profit/i);
+        expect((await render(server({ report: wonOnly }), 'ar', MANAGER)).get('[data-testid="report-section-monthly-money"]').text()).not.toMatch(/التكلفة|الربح/);
+    });
+
+    it('draws no money section when nothing was won in the month, nor on a daily report', async () => {
+        expect((await render(server({ report: { ...MONTHLY, money: [] } }), 'en', MANAGER)).find('[data-testid="report-section-monthly-money"]').exists()).toBe(false);
+        expect((await render(server({ report: DRAFT }))).find('[data-testid="report-section-monthly-money"]').exists()).toBe(false);
     });
 });
 

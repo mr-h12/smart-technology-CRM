@@ -145,7 +145,7 @@ return [
             'new_customers' => 'New customers this week',
             'no_new_customers' => 'No customers were added this week.',
         ],
-        // `D-140`: a monthly report's company-wide counts.
+        // `D-140`/`D-141`: a monthly report's company-wide counts and money.
         'monthly' => [
             'deals_by_status' => 'Deals by status',
             'no_deals' => 'No deals were created this month.',
@@ -154,6 +154,12 @@ return [
             'quotations_sent' => 'Quotations sent',
             'quotations_won' => 'Quotations won',
             'quotations_lost' => 'Quotations lost',
+            // `D-141`: the money per currency; cost and profit only under the author's view cost & margin.
+            'money' => 'Amounts per currency',
+            'currency' => 'Currency',
+            'won_value' => 'Won value',
+            'cost' => 'Cost',
+            'profit' => 'Profit',
         ],
         'no_value' => '—',
         'none' => 'Nothing recorded.',

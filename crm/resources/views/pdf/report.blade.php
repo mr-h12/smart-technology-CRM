@@ -7,7 +7,8 @@
 
     Every word comes from `lang/ar/pdf.php`'s `report` group through `$t`. Times
     arrive in UTC and are printed through `$time`, in the company's zone
-    (`locale.timezone`). Selling totals only — never cost, margin or profit.
+    (`locale.timezone`). Selling totals only — never cost, margin or profit — except
+    the monthly report's money (`D-141`, amending `D-132` for RPT-MN only).
 
     Nothing is fetched: the faces and the logo are `data:` URIs from
     `PdfAssetsInterface`, as in `customer-quotation.blade.php`. The logo's
@@ -25,9 +26,11 @@
     (`report.status.*`, the SPA's `reports.status.*`), the POs received, the new customers — and has
     no follow-ups (`D-137`).
 
-    A monthly report (`D-140`) names its month (`heading_monthly`, `meta.period_monthly`) and prints
-    only company-wide counts from `report.monthly.*` — the deals created in it by status, the
-    quotations sent, won and lost — with no author activity, no follow-ups and no money (8.2's).
+    A monthly report (`D-140`) names its month (`heading_monthly`, `meta.period_monthly`), «سبتمبر 2026»
+    through `$month` rather than a range (the owner, 2026-10-20), and prints
+    only company-wide figures from `report.monthly.*` — the deals created in it by status, in the order sent, the
+    quotations sent, won and lost, and the money per currency (`D-141`) through `$money`, its cost
+    and profit columns only when the frozen rows carry them — with no author activity and no follow-ups.
 --}}
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -104,7 +107,13 @@
 <section class="report-meta">
     <div><span class="label">{{ $t('meta.version') }}</span> {{ $report['version'] }}</div>
     <div><span class="label">{{ $t('meta.author') }}</span> {{ $report['author_name'] !== '' ? $report['author_name'] : $t('no_value') }}</div>
-    <div><span class="label">{{ $t('meta.period'.$kind) }}</span> {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif</div>
+    <div><span class="label">{{ $t('meta.period'.$kind) }}</span>
+        @if ($report['type'] === 'monthly')
+            {{ $month($report['period_start']) }}
+        @else
+            {{ $ltr($report['period_start']) }}@if ($report['period_end'] !== $report['period_start']) – {{ $ltr($report['period_end']) }}@endif
+        @endif
+    </div>
     <div><span class="label">{{ $t('meta.submitted_at') }}</span> {{ $ltr($time($report['submitted_at'])) }}</div>
 </section>
 
@@ -242,10 +251,10 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($dealsByStatus as $status => $count)
+                    @foreach ($dealsByStatus as $row)
                         <tr>
-                            <td>{{ $word('deal_status', (string) $status) }}</td>
-                            <td class="amount num">{{ $count }}</td>
+                            <td>{{ $word('deal_status', $row['status']) }}</td>
+                            <td class="amount num">{{ $row['count'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -267,6 +276,39 @@
             </tbody>
         </table>
     </section>
+
+    @php($amounts = $report['money'] ?? [])
+    @php($withCost = isset($amounts[0]['cost']))
+    @if ($amounts !== [])
+        <section class="report-weekly">
+            <h2>{{ $t('monthly.money') }}</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ $t('monthly.currency') }}</th>
+                        <th class="amount">{{ $t('monthly.won_value') }}</th>
+                        @if ($withCost)
+                            <th class="amount">{{ $t('monthly.cost') }}</th>
+                            <th class="amount">{{ $t('monthly.profit') }}</th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($amounts as $row)
+                        <tr>
+                            <td class="num">{{ $ltr($row['currency']) }}</td>
+                            <td class="amount num">{{ $ltr($money($row['won_value'])) }}</td>
+                            @if ($withCost)
+                                <td class="amount num">{{ $ltr($money($row['cost'])) }}</td>
+                                <td class="amount num">{{ $ltr($money($row['profit'])) }}</td>
+                            @endif
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </section>
+    @endif
 @else
 <section class="report-follow-ups">
     <h2>{{ $t('follow_ups') }}</h2>

@@ -39,10 +39,12 @@ use Tests\TestCase;
  *   `RenderReportPdfJob` on the `pdf` queue; a refused submit queues nothing; v2 never touches v1's.
  * - Rendering: the fake renderer stands for Chromium (`P-01`'s real render is point 4.2's).
  *   Every attempt below is one `RenderReportPdf::handle()` — what the worker does between retries.
- * - Content: the frozen copy's (`D-126`, `D-130`, `D-131`, `D-133`), never cost, margin or profit.
+ * - Content: the frozen copy's (`D-126`, `D-130`, `D-131`, `D-133`), never cost, margin or profit —
+ *   except RPT-MN's money, whose cost and profit follow its author's *view cost & margin* (`D-141`).
  */
 final class ReportPdfGenerationTest extends TestCase
 {
+    use InsertsMonthlyReport;
     use InsertsQuotationRows;
     use RefreshDatabase;
     use RemovesOnlyFilesItStored;
@@ -449,7 +451,9 @@ final class ReportPdfGenerationTest extends TestCase
     /**
      * October, company-wide: three deals created in it (2 Lead, 1 Won) and their three
      * quotation versions sent in it — Accepted, Partial, Rejected: sent 3, won 2, lost 1.
-     * 8.1 prints the heading, the month and the two count tables; no money (8.2).
+     * 8.1 prints the heading, the month and the two count tables (the money is 8.2's tests below).
+     * The frozen deals keep §4.4's pipeline order, Lead before Won (`D-140`, the owner, 2026-10-20):
+     * `jsonb` puts a frozen map's shorter key `won` first.
      */
     public function test_that_a_monthly_pdf_holds_its_heading_its_month_the_deals_by_status_and_the_quotation_counts(): void
     {
@@ -471,10 +475,11 @@ final class ReportPdfGenerationTest extends TestCase
 
         $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
 
-        foreach (['تقرير شهري', 'الشهر:', '2026-10-01', '2026-10-31', 'الصفقات حسب الحالة', 'عروض الأسعار'] as $expected) {
+        foreach (['تقرير شهري', 'الشهر:', 'الصفقات حسب الحالة', 'عروض الأسعار'] as $expected) {
             self::assertStringContainsString($expected, $text);
         }
         self::assertMatchesRegularExpression('/مبدئي ?2/u', $text, 'Lead: two deals created in October.');
+        self::assertMatchesRegularExpression('/مبدئي ?2 ?ناجحة ?1/u', $text, 'D-140 (the owner, 2026-10-20): the frozen deals print in §4.4 pipeline order — Lead (2) then Won (1).');
         self::assertMatchesRegularExpression('/عروض أُرسلت ?3/u', $text);
         self::assertMatchesRegularExpression('/عروض ناجحة ?2/u', $text, 'D-140: won = accepted + partial.');
         self::assertMatchesRegularExpression('/عروض خاسرة ?1/u', $text, 'D-140: lost = rejected + expired.');
@@ -485,6 +490,89 @@ final class ReportPdfGenerationTest extends TestCase
         // The PDF is Arabic only (`D-132`); its English group is kept in step (`lang/en/pdf.php`).
         self::assertSame('تقرير شهري', trans('pdf.report.heading_monthly', [], 'ar'));
         self::assertSame('Monthly report', trans('pdf.report.heading_monthly', [], 'en'));
+    }
+
+    /**
+     * 8.2 (`D-141`, `D-126`; for RPT-MN `D-141` amends `D-132`'s "never shows cost, margin or profit"): the month's money per currency — «المبالغ لكل عملة», columns «العملة»,
+     * «قيمة العروض الناجحة», «التكلفة», «الربح» — at two places through the `money` closure (`D-99`):
+     * EGP won 1234.567890, cost 234.567891, profit 999.999999 → 1234.57, 234.57, 1000.00;
+     * USD won 10.005000, cost 2.000000, profit 8.005000 → 10.01, 2.00, 8.01.
+     */
+    public function test_that_a_monthly_pdf_prints_the_money_per_currency_with_its_cost_and_profit(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $this->pricedQuotation('accepted', '2026-10-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->pricedQuotation('partial', '2026-10-06 10:00:00', 'USD', subtotal: '10.005000', lineCosts: ['2.000000']);
+
+        $id = $this->monthly($author);
+        $this->submit($author, $id, [$ceo])->assertStatus(200);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        foreach (['المبالغ لكل عملة', 'العملة', 'قيمة العروض الناجحة', 'التكلفة', 'الربح'] as $label) {
+            self::assertStringContainsString($label, $text);
+        }
+        self::assertMatchesRegularExpression('/EGP\W*1234\.57\W*234\.57\W*1000\.00/u', $text, 'EGP: currency, won value, cost, profit — two places, half-up.');
+        self::assertMatchesRegularExpression('/USD\W*10\.01\W*2\.00\W*8\.01/u', $text, 'USD on its own row, never added to EGP.');
+
+        // The PDF is Arabic only (`D-132`); its English group is kept in step (`lang/en/pdf.php`).
+        self::assertSame('المبالغ لكل عملة', trans('pdf.report.monthly.money', [], 'ar'));
+        self::assertSame('Amounts per currency', trans('pdf.report.monthly.money', [], 'en'));
+    }
+
+    /** `D-126`: without §3.5's *view cost & margin* the author's frozen copy, and so its PDF, holds the won value alone. */
+    public function test_that_a_monthly_pdf_prints_no_cost_or_profit_when_its_author_lacks_view_cost_and_margin(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $ceo = $this->user(RoleName::Ceo);
+        $this->pricedQuotation('accepted', '2026-10-05 10:00:00', 'EGP', subtotal: '1234.567890', lineCosts: ['234.567891']);
+        $this->revoke(RoleName::Manager, 'quotation', 'view_cost_and_margin', 'all');
+
+        $id = $this->monthly($author);
+        $this->submit($author, $id, [$ceo])->assertStatus(200);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        self::assertStringContainsString('المبالغ لكل عملة', $text);
+        self::assertStringContainsString('قيمة العروض الناجحة', $text);
+        self::assertMatchesRegularExpression('/EGP\W*1234\.57/u', $text);
+        self::assertStringNotContainsString('التكلفة', $text, 'D-126: no cost column without view_cost_and_margin.');
+        self::assertStringNotContainsString('الربح', $text, 'D-126: no profit column without view_cost_and_margin.');
+        self::assertDoesNotMatchRegularExpression('/(?<![\d.])234\.57|1000\.00/u', $text, 'The cost or the profit printed without a column.');
+    }
+
+    /** `D-141`: a loss prints with its sign — net 80.000000 against a cost of 95.500000 → profit −15.50 at two places (`D-99`). */
+    public function test_that_a_monthly_pdf_prints_a_negative_profit_with_its_sign(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $this->pricedQuotation('accepted', '2026-10-05 10:00:00', 'EGP', subtotal: '100.000000', discount: '20.000000', lineCosts: ['95.500000']);
+
+        $id = $this->monthly($author);
+        $this->submit($author, $id, [$this->user(RoleName::Ceo)])->assertStatus(200);
+
+        $text = (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id)));
+
+        self::assertMatchesRegularExpression('/EGP\W*80\.00\W*95\.50\W*-15\.50/u', $text, 'D-141: currency, won value, cost, then the profit with its minus sign.');
+    }
+
+    /**
+     * The owner, 2026-10-20: a monthly report names its month, «الشهر: أكتوبر 2026» — Western digits
+     * (`D-70`) — and never the date range 2026-10-01 – 2026-10-31. The PDF is Arabic only (`D-132`).
+     * Bidi marks and isolates are invisible, so they are dropped before the words are read.
+     */
+    public function test_that_a_monthly_pdf_names_its_month_and_year_and_not_a_date_range(): void
+    {
+        $author = $this->user(RoleName::Manager);
+        $id = $this->monthly($author);
+        $this->submit($author, $id, [$this->user(RoleName::Ceo)])->assertStatus(200);
+
+        $text = (string) preg_replace('/[\x{200E}\x{200F}\x{2066}-\x{2069}]/u', '', (string) preg_replace('/\\s+/u', ' ', $this->textOf($this->renderedHtml($id))));
+
+        self::assertMatchesRegularExpression('/الشهر: ?أكتوبر 2026/u', $text, 'The owner, 2026-10-20: the month line reads «أكتوبر 2026».');
+        foreach (['2026-10-01', '2026-10-31'] as $day) {
+            self::assertStringNotContainsString($day, $text, 'The owner, 2026-10-20: a monthly report prints its month, not a date range.');
+        }
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────

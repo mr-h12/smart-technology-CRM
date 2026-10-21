@@ -10,8 +10,9 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * ```
  * unit_cost_base = unit_cost converted at fx_rate_at_time         (D-09, D-115)
  * margin_percent = the line's margin; if absent, the quotation's   (D-03)
- * unit_price     = unit_cost_base × (1 + margin_percent / 100)     (D-04)
- * line_total     = unit_price × quantity
+ * unit_price     = unit_cost_base × (1 + margin_percent / 100),
+ *                  rounded to 2 places half away from zero        (D-04, D-142)
+ * line_total     = unit_price × quantity, rounded to 2 places     (D-142)
  * line_cost      = unit_cost_base × quantity
  * ```
  *
@@ -20,9 +21,12 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * `App\Support`, nor another module. Every value in and out is a decimal string:
  * `DB-07` forbids float anywhere near a price, and §5.6 repeats it.
  *
- * **Absent on purpose:** no rounding. `D-06` confines rounding to the final
- * total, and `Admin\Domain\Money\RoundingRule::apply()` already is §5.2's last
- * two lines. A line never rounds — it quantizes, which is a different act.
+ * **Two roundings only**, both to 2 places half away from zero (`D-142`,
+ * amending `D-06` for them): the selling unit price, so the printed price ×
+ * quantity is the line; and the line amount, since a fractional quantity
+ * (NUMERIC(14,4)) can carry it past the cent the PDF prints. Every other
+ * figure — the cost ones included — quantizes; the final total's optional
+ * rounding stays `Admin\Domain\Money\RoundingRule::apply()` (§5.2, `D-65`).
  *
  * **Also absent:** any validation that the inputs are numeric. The parameters
  * are `numeric-string` and PHPStan level 10 enforces that at every call site;
@@ -85,7 +89,8 @@ final readonly class PricedLine
         // of 2026-09-07 pins truncation; §5 does not say, so this is a decision
         // rather than a reading.
         $unitCostBase = bcadd($unitCostBase, '0', self::SCALE);
-        $unitPrice = bcmul($unitCostBase, $multiplier, self::SCALE);
+        // D-142: the selling price rounds to 2 places (bcround: half away from zero), stored at the money scale.
+        $unitPrice = bcadd(bcround(bcmul($unitCostBase, $multiplier, self::SCALE), 2), '0', self::SCALE);
 
         // Both line figures multiply the **quantized** values above, not the
         // exact ones, because the quantized values are what the row stores. A
@@ -94,7 +99,8 @@ final readonly class PricedLine
         return new self(
             $unitCostBase,
             $unitPrice,
-            bcmul($unitPrice, $quantity, self::SCALE),
+            // D-142: the line amount rounds as the unit price does, so the printed lines sum to the subtotal.
+            bcadd(bcround(bcmul($unitPrice, $quantity, self::SCALE), 2), '0', self::SCALE),
             bcmul($unitCostBase, $quantity, self::SCALE),
         );
     }

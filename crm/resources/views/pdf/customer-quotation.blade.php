@@ -146,9 +146,9 @@
 
 <p class="intro">{{ $t('intro') }}</p>
 
-{{-- Each row's cells: description, unit, quantity, unit price, VAT (null when exempt), total.
+{{-- Each row's cells: description, unit, quantity, unit price, VAT (null when exempt), total (D-142: the stored line amount).
      D-107: an additional item is a row after the lines — no unit, one of it, untaxed (D-62). --}}
-@php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $taxed ? $money($line->vatAmount) : null, $money($line->total)])
+@php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $taxed ? $money($line->vatAmount) : null, $money($line->lineTotal)])
 @php($additionalCells = fn ($additional) => [$additional->description, '—', '1', $money($additional->amount), $taxed ? $money('0') : null, $money($additional->amount)])
 @php($rows = [...array_map($lineCells, $view->lines), ...array_map($additionalCells, $view->additionalItems)])
 {{-- F-40 · 1.6b (the owner, 2026-10-11): six rows on page one, at most eight on each later page, each page its own table.

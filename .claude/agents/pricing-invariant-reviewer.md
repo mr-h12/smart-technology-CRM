@@ -53,7 +53,7 @@ Code that always rounds, or treats the unit as a constant, is a defect.
 ## Blocking defects
 
 1. **Float anywhere near money.** DB-07 — `Decimal`/NUMERIC in storage and exact decimal types in code. No `float`, `double`, or IEEE-754 arithmetic.
-2. **Rounding an intermediate value.** D-06 — only `final_total` is rounded, by the configured unit for its currency, and only when rounding is enabled (D-65). Rounding `line_total`, `subtotal`, `discount_amount`, `tax_base`, or `tax_amount` is a defect.
+2. **Rounding an intermediate value.** D-06 — only `final_total` is rounded, by the configured unit for its currency, and only when rounding is enabled (D-65). Rounding `subtotal`, `discount_amount`, `tax_base`, or `tax_amount` is a defect. The one exception is `D-142`: a line's `unit_price` and `line_total` are each rounded to 2 places, half away from zero (BCMath `bcround`); `line_cost` and `unit_cost_base` are not.
 3. **`rounding_diff` not stored.**
 4. **Discount applied to the wrong base or at the wrong point.** D-07 sets the base: `subtotal` only, never per line and never on additional items. **D-64 sets the point: subtracted from the subtotal *before* tax, so it reduces the tax base.** Taxing the full subtotal and subtracting the discount afterwards is the old D-60 ordering and is now a defect.
 5. **A historical quotation recomputed with a current FX rate or current supplier price.** D-09 and §10.3 — a sent quotation is a fixed snapshot; changing an FX rate never alters an existing quotation.

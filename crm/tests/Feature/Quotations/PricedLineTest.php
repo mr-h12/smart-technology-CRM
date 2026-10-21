@@ -166,8 +166,80 @@ final class PricedLineTest extends TestCase
 
         self::assertSame('10.500000', $line->unitCostBase());
         self::assertSame('13.650000', $line->unitPrice());   // 10.5 × (1 + 0.20 + 0.10), D-106
-        self::assertSame('34.125000', $line->lineTotal());
+        self::assertSame('34.130000', $line->lineTotal());   // 34.125 rounded to 2 places, D-142
         self::assertSame('26.250000', $line->lineCost());
+    }
+
+    // ───────────────────────────────── D-142: the selling price at 2 places, then × quantity
+
+    public function test_the_selling_unit_price_is_rounded_to_two_places_before_it_is_multiplied(): void
+    {
+        // `D-142`'s own case (QT-2026-0135): a tax-inclusive 30000 entering net
+        // at 14% (`D-105`) is 26315.789474; printed 26315.79 × 10 must be the
+        // line, 263157.90 — not 263157.89. Only the selling price rounds: the
+        // cost figures stay at `D-68`'s scale.
+        $line = PricedLine::from(
+            unitCostBase: '26315.789474',
+            marginPercent: null,
+            defaultMargin: '0.000',
+            quantity: '10',
+        );
+
+        self::assertSame('26315.790000', $line->unitPrice());
+        self::assertSame('263157.900000', $line->lineTotal());
+        self::assertSame('26315.789474', $line->unitCostBase());
+        self::assertSame('263157.894740', $line->lineCost());
+    }
+
+    public function test_a_selling_price_exactly_on_the_half_rounds_away_from_zero(): void
+    {
+        // `D-142`: half away from zero (`bcround`'s default). 12.025 is the
+        // half whose even neighbour is below it, so truncation and half-even
+        // would both give 12.02.
+        $line = PricedLine::from(
+            unitCostBase: '12.025',
+            marginPercent: '0',
+            defaultMargin: '0',
+            quantity: '3',
+        );
+
+        self::assertSame('12.030000', $line->unitPrice());
+        self::assertSame('36.090000', $line->lineTotal());
+    }
+
+    public function test_an_fx_converted_price_is_rounded_after_the_margin_is_applied(): void
+    {
+        // `D-142` over `D-106`: 19.99 USD × 48.53 = 970.1147 EGP; × 1.20 =
+        // 1164.13764 → 1164.14; × 3 = 3492.42. The converted cost is not
+        // rounded (`D-09`, `D-68`), and the line cost is still taken on it.
+        $line = PricedLine::from(
+            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48.53')->convert('19.99', PricedLine::SCALE),
+            marginPercent: null,
+            defaultMargin: '20.000',
+            quantity: '3',
+        );
+
+        self::assertSame('970.114700', $line->unitCostBase());
+        self::assertSame('1164.140000', $line->unitPrice());
+        self::assertSame('3492.420000', $line->lineTotal());
+        self::assertSame('2910.344100', $line->lineCost());
+    }
+
+    public function test_a_fractional_quantity_line_amount_is_rounded_to_two_places_but_its_cost_is_not(): void
+    {
+        // `D-142` (owner, 2026-10-20): 13.65 × 2.5 = 34.125 would print 34.13 per
+        // cell yet add 34.125 to the subtotal; the line amount itself rounds,
+        // half away from zero. The cost keeps `D-68`'s six places.
+        $line = PricedLine::from(
+            unitCostBase: '13.65',
+            marginPercent: null,
+            defaultMargin: '0',
+            quantity: '2.5',
+        );
+
+        self::assertSame('13.650000', $line->unitPrice());
+        self::assertSame('34.130000', $line->lineTotal());
+        self::assertSame('34.125000', $line->lineCost());
     }
 
     // ───────────────────────────────── D-68, and how a value reaches scale 6

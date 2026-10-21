@@ -42,9 +42,9 @@ final class CustomerQuotationViewFixture
             'lines' => [
                 // D-107: VAT after the 5% discount is spread over the line; the
                 // third line has no unit, so the page prints `—`.
-                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
-                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
-                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
+                new CustomerQuotationLine(1, 'Formatter M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800'),
+                new CustomerQuotationLine(2, 'Toner CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500'),
+                new CustomerQuotationLine(3, 'Fuser RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '250.00')],
             'subtotal' => '34854.10',
@@ -83,8 +83,8 @@ final class CustomerQuotationViewFixture
             'customerContact' => 'Ahmed Ali',
             'subject' => 'Scanners & Enterprise Solutions Offer',
             'lines' => [
-                new CustomerQuotationLine(1, 'ATEN Enterprise Solutions', '1', '110.00', '110.00', 'Pcs', 'قطعة', '15.40', '125.40'),
-                new CustomerQuotationLine(2, 'printer/ Professional Scanner — Brother', '5', '100.00', '500.00', 'Pcs', 'قطعة', '70.00', '570.00'),
+                new CustomerQuotationLine(1, 'ATEN Enterprise Solutions', '1', '110.00', '110.00', 'Pcs', 'قطعة', '15.40'),
+                new CustomerQuotationLine(2, 'printer/ Professional Scanner — Brother', '5', '100.00', '500.00', 'Pcs', 'قطعة', '70.00'),
             ],
             'additionalItems' => [],
             'subtotal' => '610.00',
@@ -115,9 +115,9 @@ final class CustomerQuotationViewFixture
             'subject' => 'عرض أجهزة وطابعات',
             'signatoryName' => 'أحمد عصام',
             'lines' => [
-                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800', '11305.003800'),
-                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500', '20574.292500'),
-                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000', '5867.694000'),
+                new CustomerQuotationLine(1, 'وحدة تثبيت لطابعة HP LaserJet M428dw', '2', '5219.30', '10438.60', 'Pcs', 'قطعة', '1388.333800'),
+                new CustomerQuotationLine(2, 'خرطوشة حبر CF259A', '3', '6332.50', '18997.50', 'Box', 'علبة', '2526.667500'),
+                new CustomerQuotationLine(3, 'وحدة صهر RM2-5399', '1', '5418.00', '5418.00', null, null, '720.594000'),
             ],
             'additionalItems' => [new CustomerAdditionalLine(1, 'التوصيل والتركيب', '250.00')],
             'terms' => [

@@ -5410,8 +5410,8 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 
 **Slice 3 — money: revenue, profits, the Finance tab**
 - [x] **3.0** Two decisions the data forces, proposed for the owner's approval at merge: `D-148` (delivery cost = the won versions' additional items — they carry no type) and `D-149` (base figures at the rate in force when each version was created — a quotation stores no base amount) *(2026-10-21)*
-- [ ] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
-- [ ] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost)
+- [x] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
+- [x] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost) *(2026-10-21 — 3.1 red: 13 PHP + 3 vitest; 3.2 green: the version-grain projection, a month equals RPT-MN, full suite 4325 passed)*
 
 **Slice 4 — Sales tab I: pipeline figures**
 - [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload

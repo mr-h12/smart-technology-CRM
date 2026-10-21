@@ -5355,7 +5355,7 @@ point (failing tests, failing for the right reason) then a green point with its 
 - [x] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5 *(2026-10-21, #409 — D-147: a managed list on the Rejected response; point 5.0 added)*
 
 **Slice 1 — the dashboard opens per role, no figures yet**
-- [ ] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text
+- [x] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text *(2026-10-21, #410 — 12 PHP + 9 vitest red for the right reason; tabs derived from permissions, never role names)*
 - [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
 
 **Slice 2 — summary tables, J-09, the Overview counts**

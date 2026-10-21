@@ -26,6 +26,11 @@ use Illuminate\Database\Query\Builder;
  */
 final readonly class EloquentDealFacts implements DealFactsInterface, DealTitlesInterface
 {
+    /**
+     * `(created_at AT TIME ZONE ?)::date` — the day a `timestamptz` falls on in the company's zone.
+     */
+    private const DAY = '(created_at AT TIME ZONE ?)::date';
+
     public function __construct(
         private ConnectionInterface $connection,
         private SearchService $search,
@@ -146,6 +151,42 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
     }
 
     /** `deals` minus `DB-01`'s soft-deleted rows — the one filter every read here shares. */
+    public function createdCountsByDay(string $zone, ?array $days = null): array
+    {
+        if ($days === []) {
+            return [];
+        }
+
+        $query = $this->live()
+            ->selectRaw('('.self::DAY.')::text AS day, owner_id, status, count(*) AS deals', [$zone])
+            ->groupByRaw('1, owner_id, status')
+            ->orderByRaw('1')->orderBy('owner_id')->orderBy('status');
+
+        if ($days !== null) {
+            $query->whereRaw('('.self::DAY.')::text IN ('.implode(', ', array_fill(0, count($days), '?')).')', [$zone, ...$days]);
+        }
+
+        $rows = [];
+        /** @var object{day: string, owner_id: ?string, status: string, deals: int} $row */
+        foreach ($query->get() as $row) {
+            $rows[] = ['day' => $row->day, 'owner_id' => $row->owner_id, 'status' => $row->status, 'deals' => (int) $row->deals];
+        }
+
+        return $rows;
+    }
+
+    public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array
+    {
+        /** @var list<string> $days */
+        $days = $this->connection->table('deals')
+            ->where(fn (Builder $q) => $q->where('updated_at', '>', $since)->orWhere('deleted_at', '>', $since))
+            ->selectRaw('DISTINCT ('.self::DAY.')::text AS day', [$zone])
+            ->orderBy('day')
+            ->pluck('day')->all();
+
+        return $days;
+    }
+
     private function live(): Builder
     {
         return $this->connection->table('deals')->whereNull('deleted_at');

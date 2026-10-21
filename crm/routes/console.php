@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
+use App\Modules\Dashboard\Presentation\RefreshDashboardAggregatesJob;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
@@ -95,6 +96,12 @@ Schedule::job(new GenerateMonthlyReportsJob, QueueName::Maintenance->value)->mon
 // onto `maintenance`, daily at 00:00 UTC, with its catch-up (`schedule:catch-up`), last
 // on start. The archive age is the `limits.report_archive_months` setting, read inside the job.
 Schedule::job(new ArchiveOldReportsJob, QueueName::Maintenance->value)->daily();
+
+// J-09 refresh_dashboard_aggregates (§15, D-146, Module 14 · 2.1b), onto `maintenance`
+// (§15.1: aggregates): hourly over the days that changed, and in full nightly at
+// 00:30 UTC. No catch-up entry — §15 marks it "❌ recomputes": the next run does.
+Schedule::job(new RefreshDashboardAggregatesJob, QueueName::Maintenance->value)->hourly();
+Schedule::job(new RefreshDashboardAggregatesJob(full: true), QueueName::Maintenance->value)->dailyAt('00:30');
 
 // The startup catch-up (D-55, ST-05) for every job above that has one, run once by
 // the `scheduler` service before `schedule:work`. It runs the schedule's own entry,

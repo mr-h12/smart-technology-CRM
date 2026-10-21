@@ -48,6 +48,8 @@ use App\Modules\Customers\Infrastructure\EloquentCustomerNotes;
 use App\Modules\Customers\Infrastructure\EloquentCustomerStatusWriter;
 use App\Modules\Customers\Infrastructure\EloquentCustomerTaxStatus;
 use App\Modules\Customers\Infrastructure\EloquentImportBatches;
+use App\Modules\Dashboard\Domain\Contracts\DashboardAggregatesInterface;
+use App\Modules\Dashboard\Infrastructure\DatabaseDashboardAggregates;
 use App\Modules\Deals\Application\Access\DealAttachmentPermission;
 use App\Modules\Deals\Application\Approval\RecordQuotationOutcome;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
@@ -252,6 +254,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CustomerNamesInterface::class, EloquentCustomerNames::class);
         // `D-134`: the customers a user added, for the weekly report — the same adapter.
         $this->app->bind(NewCustomersInterface::class, EloquentCustomerNames::class);
+        // Module 14 · 2.1b (`D-146`): J-09's own summary tables.
+        $this->app->bind(DashboardAggregatesInterface::class, DatabaseDashboardAggregates::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 

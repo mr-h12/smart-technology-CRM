@@ -512,6 +512,16 @@ final class SupplierQuotationListEndpointTest extends TestCase
             {
                 return $this->real->statusCountsCreatedBetween($from, $to);
             }
+
+            public function createdCountsByDay(string $zone, ?array $days = null): array
+            {
+                return $this->real->createdCountsByDay($zone, $days);
+            }
+
+            public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array
+            {
+                return $this->real->creationDaysTouchedSince($since, $zone);
+            }
         };
         $this->app->instance(DealFactsInterface::class, $spy);
 

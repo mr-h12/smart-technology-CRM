@@ -30,6 +30,7 @@ use App\Support\Search\SearchService;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -796,5 +797,31 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
         }
 
         $this->connection->table($table)->insert($insert);
+    }
+
+    public function liveApprovalCountsByOwner(): array
+    {
+        // Per deal here, per owner through Deals' contract: Quotations never reads `deals`.
+        $perDeal = $this->connection->table('quotations')->whereNull('deleted_at')
+            ->where(fn (QueryBuilder $q) => $q->where('status', 'pending')->orWhere(fn (QueryBuilder $r) => $r->where('status', 'draft')->whereNotNull('returned_at')))
+            ->selectRaw("deal_id, count(*) FILTER (WHERE status = 'pending') AS pending, count(*) FILTER (WHERE status = 'draft') AS returned")
+            ->groupBy('deal_id')
+            ->get()->all();
+        /** @var list<object{deal_id: string, pending: int, returned: int}> $perDeal */
+        $owners = $this->deals->ownersOf(array_map(static fn (object $row): string => $row->deal_id, $perDeal));
+
+        $counts = [];
+        foreach ($perDeal as $row) {
+            $owner = $owners[$row->deal_id] ?? null;
+            if ($owner === null) {
+                continue;
+            }
+            $counts[$owner] ??= ['owner_id' => $owner, 'pending_approvals' => 0, 'returned' => 0];
+            $counts[$owner]['pending_approvals'] += (int) $row->pending;
+            $counts[$owner]['returned'] += (int) $row->returned;
+        }
+        ksort($counts);
+
+        return array_values($counts);
     }
 }

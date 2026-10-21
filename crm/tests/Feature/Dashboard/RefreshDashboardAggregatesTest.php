@@ -70,8 +70,9 @@ final class RefreshDashboardAggregatesTest extends TestCase
         self::assertSame([
             ['2026-10-05', $sara->id, 'contacted', 2],
             ['2026-10-05', $sara->id, 'won', 1],
-            ['2026-10-07', null, 'lead', 1],
+            // PostgreSQL sorts an unowned deal's NULL after every owner.
             ['2026-10-07', $omar->id, 'lost', 1],
+            ['2026-10-07', null, 'lead', 1],
         ], $this->rows('dashboard_daily_deals', ['day', 'owner_id', 'status', 'deals']));
     }
 
@@ -121,9 +122,10 @@ final class RefreshDashboardAggregatesTest extends TestCase
 
         $this->refresh(full: false);
 
+        // By owner id: Sara was made first, so her uuid7 sorts first.
         self::assertSame([
-            [$omar->id, 0, 1],
             [$sara->id, 2, 1],
+            [$omar->id, 0, 1],
         ], $this->rows('dashboard_live_counts', ['owner_id', 'pending_approvals', 'returned'], orderBy: 'owner_id'));
     }
 

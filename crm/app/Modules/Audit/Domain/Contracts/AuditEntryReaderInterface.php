@@ -62,4 +62,21 @@ interface AuditEntryReaderInterface
      * @return list<AuditRecord>
      */
     public function byActorBetween(string $actorId, DateTimeImmutable $from, DateTimeImmutable $to, array $events): array;
+
+    /**
+     * Module 14's J-09 (`D-144`): how many `$event` entries each actor wrote per day
+     * (`Y-m-d` in `$zone`). `$days` narrows it to those days; null is every day.
+     * Entries with no actor are left out.
+     *
+     * @param  list<string>|null  $days
+     * @return list<array{day: string, actor_id: string, entries: int}>
+     */
+    public function countsByDay(string $event, string $zone, ?array $days = null): array;
+
+    /**
+     * The days (`Y-m-d` in `$zone`) that gained an `$event` entry after `$since`.
+     *
+     * @return list<string>
+     */
+    public function daysWithEntriesSince(string $event, \DateTimeInterface $since, string $zone): array;
 }

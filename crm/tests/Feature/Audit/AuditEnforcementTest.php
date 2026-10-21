@@ -14,6 +14,7 @@ use App\Modules\Catalog\Infrastructure\EloquentCatalogItemDirectory;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Notes\ManageCustomerNotes;
 use App\Modules\Customers\Application\Writing\SaveCustomer;
+use App\Modules\Dashboard\Infrastructure\DatabaseDashboardAggregates;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
 use App\Modules\Deals\Application\Writing\SaveDeal;
 use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
@@ -438,6 +439,12 @@ final class AuditEnforcementTest extends TestCase
                     .'audit entry in the transaction that queues the row. The updates are the render job\'s own '
                     .'progress on that request, not an actor decision, and each row carries the submitter in '
                     .'DB-02\'s created_by / updated_by.',
+            // Module 14 · 2.1b (`D-145`, `D-146`): J-09's summary tables, rebuilt from rows that
+            // were each audited when written. No actor decides anything here.
+            DatabaseDashboardAggregates::class => 'AUD-01 does not apply: J-09 rewrites derived summary rows '
+                    .'(counts of deals, customers, self-approvals and pending or returned quotations) from records '
+                    .'already audited when they were written, on a schedule with no actor; dashboard_refreshes logs '
+                    .'each run, and the nightly run rebuilds everything from the source.',
         ];
     }
 

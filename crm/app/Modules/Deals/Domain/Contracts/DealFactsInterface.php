@@ -89,4 +89,22 @@ interface DealFactsInterface
      * @return array<string, int>
      */
     public function statusCountsCreatedBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
+
+    /**
+     * Module 14's J-09 (`D-144`, `D-146`): live deals by creation day in `$zone`,
+     * current owner and current status. `$days` (`Y-m-d`) narrows it to those days;
+     * null is every day. Read-only.
+     *
+     * @param  list<string>|null  $days
+     * @return list<array{day: string, owner_id: ?string, status: string, deals: int}>
+     */
+    public function createdCountsByDay(string $zone, ?array $days = null): array;
+
+    /**
+     * The creation days (`Y-m-d` in `$zone`) of deals changed after `$since` — the
+     * days J-09's hourly run rebuilds. Deleted rows count: their day lost a deal.
+     *
+     * @return list<string>
+     */
+    public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array;
 }

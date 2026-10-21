@@ -523,7 +523,8 @@
             "service_types": "Service types",
             "delivery_terms": "Delivery terms",
             "companies": "Companies",
-            "contact_titles": "Contact titles"
+            "contact_titles": "Contact titles",
+            "lost_reasons": "Lost reasons"
         },
         "column": {
             "code": "Code",
@@ -1316,7 +1317,12 @@
             "additionalTotal": "Additional items",
             "rounding": "Rounding (to {unit})",
             "finalTotal": "Final total",
-            "openDeal": "Open the deal"
+            "openDeal": "Open the deal",
+            "respondReasonCode": "Why the customer rejected it",
+            "respondReasonCodePick": "Choose a reason…",
+            "respondReasonOptional": "Note (optional)",
+            "recordNeedsReasonCode": "Choose why the customer rejected it to record the response.",
+            "rejectionReasonCode": "Why it was rejected"
         },
         "builder": {
             "title": "New quotation",
@@ -1682,6 +1688,17 @@
             "deal_size": "Average deal size",
             "funnel": "Sales funnel",
             "workload": "Open deals per employee"
+        },
+        "breakdowns": {
+            "lost_by_reason": "Lost deals by reason",
+            "by_employee": "By employee",
+            "by_sector": "By sector",
+            "top_customers": "Top customers",
+            "best_products": "Best-selling products",
+            "worst_products": "Least-selling products",
+            "won_deals": "{count} won",
+            "none": "Not set",
+            "empty": "Nothing in this period."
         }
     }
 }

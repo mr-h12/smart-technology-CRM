@@ -66,3 +66,28 @@ export interface DashboardSales {
 export async function readDashboardSales(period: { from: string; to: string }): Promise<DashboardSales> {
     return (await apiGet<DashboardSales>(`/dashboard/sales?from=${period.from}&to=${period.to}`)).data;
 }
+
+/** `GET /dashboard/breakdowns` (`D-144`, `D-145`, `D-147`, `D-150`): each part present only for whom it is shown. */
+export interface DashboardMoneyLine {
+    currency: string;
+    won_value: string;
+}
+
+export interface DashboardRanked {
+    name: string;
+    base_value: string | null;
+    money: DashboardMoneyLine[];
+}
+
+export interface DashboardBreakdowns {
+    base_currency: string | null;
+    lost_by_reason: { code: string; deals: number }[];
+    by_employee?: { owner_id: string; name: string; won_deals: number; money?: DashboardMoneyLine[] }[];
+    by_sector?: { sector: string | null; won_chains: number; money: DashboardMoneyLine[] }[];
+    top_customers?: (DashboardRanked & { customer_id: string })[];
+    products?: { best: (DashboardRanked & { catalog_item_id: string })[]; worst: (DashboardRanked & { catalog_item_id: string })[] };
+}
+
+export async function readDashboardBreakdowns(period: { from: string; to: string }): Promise<DashboardBreakdowns> {
+    return (await apiGet<DashboardBreakdowns>(`/dashboard/breakdowns?from=${period.from}&to=${period.to}`)).data;
+}

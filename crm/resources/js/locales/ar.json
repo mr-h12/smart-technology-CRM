@@ -523,7 +523,8 @@
             "service_types": "أنواع الخدمات",
             "delivery_terms": "شروط التسليم",
             "companies": "الشركات",
-            "contact_titles": "ألقاب جهة الاتصال"
+            "contact_titles": "ألقاب جهة الاتصال",
+            "lost_reasons": "أسباب الخسارة"
         },
         "column": {
             "code": "الرمز",
@@ -1316,7 +1317,12 @@
             "additionalTotal": "البنود الإضافية",
             "rounding": "التقريب (إلى {unit})",
             "finalTotal": "الإجمالي النهائي",
-            "openDeal": "فتح الصفقة"
+            "openDeal": "فتح الصفقة",
+            "respondReasonCode": "سبب رفض العميل",
+            "respondReasonCodePick": "اختر السبب…",
+            "respondReasonOptional": "ملاحظة (اختيارية)",
+            "recordNeedsReasonCode": "اختر سبب رفض العميل لتسجيل الرد.",
+            "rejectionReasonCode": "سبب الرفض"
         },
         "builder": {
             "title": "عرض سعر جديد",
@@ -1682,6 +1688,17 @@
             "deal_size": "متوسط حجم الصفقة",
             "funnel": "مسار المبيعات",
             "workload": "الصفقات المفتوحة لكل موظف"
+        },
+        "breakdowns": {
+            "lost_by_reason": "الصفقات الخاسرة حسب السبب",
+            "by_employee": "حسب الموظف",
+            "by_sector": "حسب القطاع",
+            "top_customers": "أعلى العملاء",
+            "best_products": "الأكثر مبيعًا",
+            "worst_products": "الأقل مبيعًا",
+            "won_deals": "{count} فوز",
+            "none": "غير محدد",
+            "empty": "لا شيء في هذه الفترة."
         }
     }
 }

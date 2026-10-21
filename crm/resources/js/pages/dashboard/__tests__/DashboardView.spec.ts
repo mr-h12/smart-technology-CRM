@@ -361,7 +361,10 @@ const SALES = {
 function salesApi(sales: unknown = SALES): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string) => {
         const url = String(input);
-        const data = /\/dashboard\/sales\?/.test(url) ? sales : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
+        // The Sales tab also mounts the breakdowns (5.2); the server always sends `lost_by_reason`.
+        const data = /\/dashboard\/sales\?/.test(url) ? sales
+            : /\/dashboard\/breakdowns\?/.test(url) ? { base_currency: 'EGP', lost_by_reason: [] }
+                : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
         return json(200, { data, meta: { request_id: 'r' } });
     });
 }
@@ -402,5 +405,60 @@ describe('the Sales tab', () => {
         expect(wrapper.find('[data-testid^="dashboard-deal-size-"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="dashboard-workload"]').exists()).toBe(false);
         expect(wrapper.get('[data-testid="dashboard-conversion"]').text()).toContain('—');
+    });
+});
+
+/**
+ * Module 14, slice 5 · 5.1 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-150`):
+ * lost by reason, by employee, by sector, top customers, best and worst products —
+ * each drawn only when the answer carries it.
+ */
+const BREAKDOWNS = {
+    base_currency: 'EGP',
+    lost_by_reason: [{ code: 'price_too_high', deals: 3 }, { code: 'other', deals: 1 }],
+    by_employee: [{ owner_id: 'u1', name: 'Mona Member', won_deals: 2, money: [{ currency: 'EGP', won_value: '1500.000000' }] }],
+    by_sector: [{ sector: 'medical', won_chains: 2, money: [{ currency: 'EGP', won_value: '1500.000000' }] }],
+    top_customers: [{ customer_id: 'c1', name: 'Delta Medical', base_value: '1000.000000', money: [{ currency: 'EGP', won_value: '1000.000000' }] }],
+    products: {
+        best: [{ catalog_item_id: 'p1', name: 'Widget', base_value: '1400.000000', money: [{ currency: 'EGP', won_value: '1400.000000' }] }],
+        worst: [{ catalog_item_id: 'p2', name: 'Gadget', base_value: '1100.000000', money: [{ currency: 'EGP', won_value: '100.000000' }] }],
+    },
+};
+
+function breakdownsApi(breakdowns: unknown = BREAKDOWNS): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        const data = /\/dashboard\/breakdowns\?/.test(url) ? breakdowns
+            : /\/dashboard\/sales\?/.test(url) ? SALES
+                : /\/dashboard\/money\?/.test(url) ? MONEY
+                    : /\/dashboard\/overview\?/.test(url) ? OVERVIEW
+                        : /\/managed-lists\/lost_reasons/.test(url) ? [{ code: 'price_too_high', label_en: 'Price too high', label_ar: 'السعر أعلى من المتوقع', position: 1 }, { code: 'other', label_en: 'Other', label_ar: 'أخرى', position: 7 }]
+                            : /\/managed-lists\/sectors/.test(url) ? [{ code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 1 }]
+                                : MANAGER_META;
+        return json(200, { data, meta: { request_id: 'r', pagination: { page: 1, per_page: 25, total: 1, total_pages: 1, has_next_page: false, has_previous_page: false } } });
+    });
+}
+
+describe('the Sales tab II', () => {
+    it('draws each breakdown with its labels', async () => {
+        const wrapper = await openSales(breakdownsApi());
+
+        expect(wrapper.get('[data-testid="dashboard-lost-by-reason"]').text()).toContain('Price too high');
+        expect(wrapper.get('[data-testid="dashboard-lost-by-reason"]').text()).toContain('3');
+        expect(wrapper.get('[data-testid="dashboard-by-employee"]').text()).toContain('Mona Member');
+        expect(wrapper.get('[data-testid="dashboard-by-employee"]').text()).toContain('1,500.00');
+        expect(wrapper.get('[data-testid="dashboard-by-sector"]').text()).toContain('Medical');
+        expect(wrapper.get('[data-testid="dashboard-top-customers"]').text()).toContain('Delta Medical');
+        expect(wrapper.get('[data-testid="dashboard-products-best"]').text()).toContain('Widget');
+        expect(wrapper.get('[data-testid="dashboard-products-worst"]').text()).toContain('Gadget');
+    });
+
+    it('draws only what the answer carries', async () => {
+        const wrapper = await openSales(breakdownsApi({ base_currency: 'EGP', lost_by_reason: [], by_employee: [{ owner_id: 'u1', name: 'Mona Member', won_deals: 2 }] }));
+
+        expect(wrapper.find('[data-testid="dashboard-by-employee"]').text()).not.toContain('.00');
+        for (const part of ['by-sector', 'top-customers', 'products-best', 'products-worst']) {
+            expect(wrapper.find(`[data-testid="dashboard-${part}"]`).exists()).toBe(false);
+        }
     });
 });

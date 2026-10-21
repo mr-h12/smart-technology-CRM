@@ -72,10 +72,11 @@ final readonly class ChangeDealStatus
         ?string $lostReason,
         array $heldScopes,
         string $actorId,
+        ?string $lostReasonCode = null,
     ): DealSummary {
         $scope = DealRowScope::resolve($heldScopes, $actorId, $this->users->teamMemberIdsOf(...));
 
-        return $this->connection->transaction(function () use ($dealId, $newStatus, $lostReason, $scope, $actorId): DealSummary {
+        return $this->connection->transaction(function () use ($dealId, $newStatus, $lostReason, $scope, $actorId, $lostReasonCode): DealSummary {
             // D-119: locked, so a concurrent move waits and then reads the status this one left.
             $before = $this->deals->find($dealId, $scope, forUpdate: true);
 
@@ -91,7 +92,7 @@ final readonly class ChangeDealStatus
                 $this->authoriseDeliveryComplete($before, $actorId);
             }
 
-            $after = $this->deals->changeStatus($dealId, $newStatus, $lostReason, $scope, $actorId);
+            $after = $this->deals->changeStatus($dealId, $newStatus, $lostReason, $scope, $actorId, $lostReasonCode);
 
             if (! $after instanceof DealSummary) {
                 // Unreachable: the same scope found the row one statement ago,

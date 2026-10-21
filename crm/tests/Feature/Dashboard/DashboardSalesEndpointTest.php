@@ -154,7 +154,8 @@ final class DashboardSalesEndpointTest extends TestCase
 
     private function outcomes(string $day, ?string $ownerId, string $outcome, int $deals, int $cycleDays): void
     {
-        DB::table('dashboard_daily_outcomes')->insert(['day' => $day, 'owner_id' => $ownerId, 'outcome' => $outcome, 'deals' => $deals, 'cycle_days' => $cycleDays]);
+        // Since 5.2 a lost row names its `lost_reasons` code (`D-147`).
+        DB::table('dashboard_daily_outcomes')->insert(['day' => $day, 'owner_id' => $ownerId, 'outcome' => $outcome, 'deals' => $deals, 'cycle_days' => $cycleDays, 'reason_code' => $outcome === 'lost' ? 'other' : null]);
     }
 
     private function user(RoleName $role, string $tag, ?User $leader = null): User

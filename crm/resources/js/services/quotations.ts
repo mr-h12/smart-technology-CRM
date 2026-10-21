@@ -100,6 +100,7 @@ export interface QuotationDetail extends QuotationSummary {
     /** `D-103`: up to 15 terms in their printed order. */
     terms: QuotationTerm[];
     rejection_reason: string | null;
+    rejection_reason_code?: string | null;
     sent_at: string | null;
     /** Module 8 · 1.2's note, set by a return and cleared by the next submit; `returned_at` is on the wire too but nothing reads it yet. */
     return_note: string | null;
@@ -361,6 +362,8 @@ export async function sendQuotation(id: string, etag: string): Promise<Quotation
 export interface CustomerResponse {
     response: 'accepted' | 'partial' | 'counter' | 'rejected';
     reason?: string;
+    /** `D-147`: a Rejected answer's `lost_reasons` code. */
+    reason_code?: string;
     customer_po_reference?: string;
     po_date?: string;
 }

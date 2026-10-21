@@ -9,6 +9,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
+import BreakdownsSection from '@/pages/dashboard/BreakdownsSection.vue';
 import { displayDecimals } from '@/domain/displayDecimals';
 import { readDashboardSales, type DashboardSales } from '@/services/dashboard';
 
@@ -101,5 +102,7 @@ const rate = (value: string | null): string => (value === null ? '—' : `${valu
                 </li>
             </ul>
         </section>
+
+        <BreakdownsSection :from="from" :to="to" />
     </div>
 </template>

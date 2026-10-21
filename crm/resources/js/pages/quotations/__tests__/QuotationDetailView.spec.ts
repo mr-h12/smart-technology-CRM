@@ -148,6 +148,17 @@ function respond(options: {
             return json(200, envelope(CUSTOMER));
         }
 
+        // `D-147`: the Rejected answer's reasons come from the managed list.
+        if (url.includes('/managed-lists/lost_reasons')) {
+            return json(200, {
+                data: [
+                    { code: 'price_too_high', label_en: 'Price too high', label_ar: 'السعر أعلى من المتوقع', position: 1 },
+                    { code: 'other', label_en: 'Other', label_ar: 'أخرى', position: 7 },
+                ],
+                meta: { request_id: 'r1', pagination: { page: 1, per_page: 25, total: 2, total_pages: 1, has_next_page: false, has_previous_page: false } },
+            });
+        }
+
         // Module 10 · 3.3's block reads its order's files on its own.
         if (url.includes('/purchase-orders/')) {
             return json(200, envelope({ documents: [] }));
@@ -639,11 +650,15 @@ describe('the quotation detail view', () => {
             expect(hint().text()).toBe(en.quotations.detail.recordNeedsPo);
             expect(wrapper.get('[data-testid="quotation-respond-record"]').attributes('aria-describedby')).toBe(hint().attributes('id'));
 
+            // `D-147`: a rejection first asks why, from the list.
             await wrapper.find('[data-testid="quotation-respond-outcome-rejected"]').setValue(true);
-            expect(hint().text()).toBe(en.quotations.detail.recordNeedsReason);
+            expect(hint().text()).toBe(en.quotations.detail.recordNeedsReasonCode);
 
-            await wrapper.find('[data-testid="quotation-respond-reason"]').setValue('Too dear');
+            await wrapper.find('[data-testid="quotation-respond-reason-code"]').setValue('price_too_high');
             expect(hint().exists()).toBe(false);
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-counter"]').setValue(true);
+            expect(hint().text()).toBe(en.quotations.detail.recordNeedsReason);
         });
 
         // The ring itself is app.css's one :focus-visible rule (A-34), pinned in uiSourceRules.spec.ts.
@@ -697,6 +712,28 @@ describe('the quotation detail view', () => {
             }
         });
 
+        /** `D-147`: the reason is picked from `lost_reasons`; the note is optional, except for "other". */
+        it('sends the chosen reason code, with a note only when one is written, and asks for the note on "other"', async () => {
+            const { wrapper, fetchMock } = await openDialog('sent', (url) =>
+                url.endsWith('/respond') ? json(200, envelope({ ...QUOTATION, status: 'rejected', etag: '"v2"', deal_lost: true })) : null,
+            );
+            const record = () => wrapper.find('[data-testid="quotation-respond-record"]');
+
+            await wrapper.find('[data-testid="quotation-respond-outcome-rejected"]').setValue(true);
+            expect(wrapper.findAll('[data-testid="quotation-respond-reason-code"] option').map((o) => o.attributes('value'))).toEqual(['', 'price_too_high', 'other']);
+
+            await wrapper.find('[data-testid="quotation-respond-reason-code"]').setValue('other');
+            expect(record().attributes('disabled')).toBeDefined();
+
+            await wrapper.find('[data-testid="quotation-respond-reason-code"]').setValue('price_too_high');
+            expect(record().attributes('disabled')).toBeUndefined();
+
+            await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
+            await flushPromises();
+
+            expect(respondBody(fetchMock)).toEqual({ response: 'rejected', reason_code: 'price_too_high' });
+        });
+
         it('says whether the rejection made the deal Lost', async () => {
             for (const [dealLost, words] of [[true, 'The deal is now Lost.'], [false, 'The deal keeps its status']] as const) {
                 const { wrapper, fetchMock } = await openDialog('expired', (url) =>
@@ -706,7 +743,8 @@ describe('the quotation detail view', () => {
                 await wrapper.find('[data-testid="quotation-respond-dialog"]').trigger('submit');
                 await flushPromises();
 
-                expect(respondBody(fetchMock)).toEqual({ response: 'rejected', reason: 'No response' });
+                // An expired quotation's 'no response' is no reason on the list: `other`, with that note (`D-147`).
+                expect(respondBody(fetchMock)).toEqual({ response: 'rejected', reason_code: 'other', reason: 'No response' });
                 expect(wrapper.find('[data-testid="quotation-detail-deal-outcome"]').text()).toContain(words);
             }
         });

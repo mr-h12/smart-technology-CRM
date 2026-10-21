@@ -34,4 +34,13 @@ interface NewCustomersInterface
      * @return list<string>
      */
     public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array;
+
+    /**
+     * Module 14's by-sector (`D-144`): each customer's sector code now (`DB-05`), null
+     * when it has none; an absent id has no entry. Archived customers included. Read-only.
+     *
+     * @param  list<string>  $customerIds
+     * @return array<string, ?string>
+     */
+    public function sectorsOf(array $customerIds): array;
 }

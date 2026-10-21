@@ -145,6 +145,43 @@ final class DealListEndpointTest extends TestCase
         return $id;
     }
 
+    // ─────────────────────────────── Module 14 · 6.1: the dashboard's drill-down filters
+
+    /** `D-145`: the dashboard counts by the company's day, so the list it opens filters by the same day. */
+    public function test_that_created_from_and_to_filter_by_the_companys_day(): void
+    {
+        $this->patchJson('/api/v1/settings', ['settings' => ['locale.timezone' => 'Africa/Cairo']], $this->bearerFor(RoleName::SuperAdmin))->assertStatus(200);
+        $this->deal('Late on the 4th in UTC, the 5th in Cairo', null, ['created_at' => '2026-10-04 22:30:00']);
+        $this->deal('The 6th in Cairo', null, ['created_at' => '2026-10-05 22:30:00']);
+        $this->deal('The 4th in Cairo', null, ['created_at' => '2026-10-04 20:00:00']);
+
+        $titles = $this->getJson(self::ENDPOINT.'?filter[created_from]=2026-10-05&filter[created_to]=2026-10-05', $this->bearerFor(RoleName::Manager))
+            ->assertOk()->json('data.*.title');
+
+        self::assertSame(['Late on the 4th in UTC, the 5th in Cairo'], $titles);
+    }
+
+    /** `D-144`: closed is `won` or later, or `lost`; open is everything before `won`. */
+    public function test_that_progress_filters_open_and_closed_deals(): void
+    {
+        foreach (['lead', 'negotiations', 'won', 'delivery', 'lost'] as $status) {
+            $this->deal($status, null, ['status' => $status, 'lost_reason' => $status === 'lost' ? 'Price.' : null]);
+        }
+        $bearer = $this->bearerFor(RoleName::Manager);
+        $titles = fn (string $progress): array => (array) $this->getJson(self::ENDPOINT.'?sort=code&filter[progress]='.$progress, $bearer)->assertOk()->json('data.*.title');
+
+        self::assertEqualsCanonicalizing(['lead', 'negotiations'], $titles('open'));
+        self::assertEqualsCanonicalizing(['won', 'delivery', 'lost'], $titles('closed'));
+    }
+
+    public function test_that_a_bad_drill_down_filter_is_400(): void
+    {
+        $bearer = $this->bearerFor(RoleName::Manager);
+
+        $this->getJson(self::ENDPOINT.'?filter[created_from]=2026-13-01', $bearer)->assertStatus(400);
+        $this->getJson(self::ENDPOINT.'?filter[progress]=maybe', $bearer)->assertStatus(400);
+    }
+
     // ─────────────────────────────── the envelope and the contract
 
     public function test_that_an_unauthenticated_caller_is_refused(): void

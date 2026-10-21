@@ -17,4 +17,21 @@ interface NewCustomersInterface
      * @return list<array{customer_id: string, name: string}>
      */
     public function createdBetween(string $creatorId, \DateTimeInterface $from, \DateTimeInterface $to): array;
+
+    /**
+     * Module 14's J-09 (`D-144`, `D-146`): live customers by creation day in `$zone`
+     * and current sales owner; archived ones count. `$days` (`Y-m-d`) narrows it to
+     * those days; null is every day. Read-only.
+     *
+     * @param  list<string>|null  $days
+     * @return list<array{day: string, owner_id: ?string, customers: int}>
+     */
+    public function createdCountsByDay(string $zone, ?array $days = null): array;
+
+    /**
+     * The creation days (`Y-m-d` in `$zone`) of customers changed after `$since`.
+     *
+     * @return list<string>
+     */
+    public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array;
 }

@@ -1645,6 +1645,18 @@
         "pending": {
             "title": "لا توجد أرقام بعد",
             "message": "أرقام هذا القسم قيد الإنشاء."
+        },
+        "last_updated": "آخر تحديث {time}",
+        "stale": "أقدم من ساعتين",
+        "overview": {
+            "customers": "عملاء جدد",
+            "deals_total": "الصفقات",
+            "deals_open": "صفقات مفتوحة",
+            "deals_closed": "صفقات مغلقة",
+            "self_approvals": "اعتمادات ذاتية",
+            "pending_approvals": "بانتظار الاعتماد",
+            "returned": "عروض معادة",
+            "now": "الآن"
         }
     }
 }

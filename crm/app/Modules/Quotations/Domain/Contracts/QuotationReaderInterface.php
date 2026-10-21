@@ -83,4 +83,14 @@ interface QuotationReaderInterface
      * @return list<array{currency: string, won_value: string, cost: string, profit: string}>
      */
     public function wonMoneySentBetween(\DateTimeInterface $from, \DateTimeInterface $to): array;
+
+    /**
+     * Module 14's "now" figures (`D-144`, `D-146`), per owner — the deal's owner,
+     * §3.5's "own": live quotations `pending` approval, and `draft` ones returned
+     * (`returned_at` set, 2.2's "incomplete"). Owners with neither, and quotations
+     * whose deal has no owner, have no row. Read-only.
+     *
+     * @return list<array{owner_id: string, pending_approvals: int, returned: int}>
+     */
+    public function liveApprovalCountsByOwner(): array;
 }

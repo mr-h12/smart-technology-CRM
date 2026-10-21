@@ -14,8 +14,9 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
-import { displayDateRange } from '@/domain/displayDate';
+import { displayDateRange, displayTimestamp } from '@/domain/displayDate';
 import { PERIOD_KINDS, periodFor, rememberedPeriod, rememberPeriod, type Period, type PeriodKind } from '@/domain/dashboardPeriod';
+import OverviewPanel from '@/pages/dashboard/OverviewPanel.vue';
 import { readDashboardMeta, type DashboardMeta, type DashboardTab } from '@/services/dashboard';
 
 const { t, locale } = useI18n();
@@ -26,6 +27,12 @@ const failed = ref(false);
 const denied = ref(false);
 const active = ref<DashboardTab>('overview');
 const period = ref<Period | null>(null);
+/** J-09's newest finished run (`D-145`): from the meta, then from each Overview answer. */
+const lastUpdatedAt = ref<string | null>(null);
+
+/** `D-145`: "Last updated" turns amber past two hours. */
+const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+const stale = computed(() => lastUpdatedAt.value !== null && Date.now() - new Date(lastUpdatedAt.value).getTime() > STALE_AFTER_MS);
 
 /** The tabs Modules 11 and 12 fill (`D-143`); until then, an empty state naming the module. */
 const EMPTY_TABS: readonly DashboardTab[] = ['procurement', 'outdoor'];
@@ -39,6 +46,7 @@ async function load(): Promise<void> {
         meta.value = await readDashboardMeta();
         active.value = meta.value.tabs[0] ?? 'overview';
         period.value = rememberedPeriod(meta.value.today);
+        lastUpdatedAt.value = meta.value.last_updated_at;
     } catch (error) {
         meta.value = null;
         if (error instanceof ApiError && error.status === 403) {
@@ -78,8 +86,14 @@ onMounted(() => load());
     <section class="flex flex-col gap-4">
         <header class="flex flex-col gap-1">
             <h1 class="text-page-title">{{ t('dashboard.title') }}</h1>
-            <p v-if="meta !== null" class="text-[var(--color-text-muted)]" data-testid="dashboard-last-updated">
-                {{ t('dashboard.last_updated_never') }}
+            <p
+                v-if="meta !== null"
+                :class="stale ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'"
+                :data-stale="String(stale)"
+                data-testid="dashboard-last-updated"
+            >
+                {{ lastUpdatedAt === null ? t('dashboard.last_updated_never') : t('dashboard.last_updated', { time: displayTimestamp(lastUpdatedAt, locale) }) }}
+                <span v-if="stale">— {{ t('dashboard.stale') }}</span>
             </p>
         </header>
 
@@ -148,7 +162,8 @@ onMounted(() => load());
                 <div v-if="EMPTY_TABS.includes(active)" :data-testid="`dashboard-empty-${active}`">
                     <EmptyState :title-key="`dashboard.tab.${active}`" :message-key="`dashboard.empty.${active}`" />
                 </div>
-                <!-- ponytail: slice 2 replaces this with the figures; until then a tab without data says so. -->
+                <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" @refreshed="lastUpdatedAt = $event" />
+                <!-- ponytail: slices 3–5 replace this for Sales and Finance; until then a tab without data says so. -->
                 <EmptyState v-else title-key="dashboard.pending.title" message-key="dashboard.pending.message" />
             </div>
         </template>

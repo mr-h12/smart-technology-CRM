@@ -1645,6 +1645,18 @@
         "pending": {
             "title": "No figures yet",
             "message": "The figures for this section are being built."
+        },
+        "last_updated": "Last updated {time}",
+        "stale": "older than two hours",
+        "overview": {
+            "customers": "New customers",
+            "deals_total": "Deals",
+            "deals_open": "Open deals",
+            "deals_closed": "Closed deals",
+            "self_approvals": "Self-approvals",
+            "pending_approvals": "Pending approvals",
+            "returned": "Returned quotations",
+            "now": "now"
         }
     }
 }

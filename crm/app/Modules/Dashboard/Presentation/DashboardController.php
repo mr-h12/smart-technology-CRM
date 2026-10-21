@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Dashboard\Presentation;
 
 use App\Modules\Dashboard\Application\DashboardMeta;
+use App\Modules\Dashboard\Application\DashboardOverview;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,11 @@ final class DashboardController
     public function meta(Request $request, DashboardMeta $meta): JsonResponse
     {
         return ApiEnvelope::single($request, $meta->for(self::actorId($request)));
+    }
+
+    public function overview(DashboardPeriodRequest $request, DashboardOverview $overview): JsonResponse
+    {
+        return ApiEnvelope::single($request, $overview->for(self::actorId($request), $request->from(), $request->to()));
     }
 
     private static function actorId(Request $request): string

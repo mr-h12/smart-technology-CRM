@@ -10,6 +10,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -125,6 +126,20 @@ final class DashboardMetaEndpointTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.money', false)
             ->assertJsonPath('data.tabs', ['overview', 'sales', 'procurement', 'outdoor']);
+    }
+
+    /** 2.2a: "Last updated" (`D-145`) is J-09's newest finished run, as the Overview reports it. */
+    public function test_that_last_updated_at_is_j09s_newest_finished_run(): void
+    {
+        foreach (['2026-10-21 06:00:00', '2026-10-21 08:30:00'] as $finishedAt) {
+            DB::table('dashboard_refreshes')->insert([
+                'id' => (string) Str::uuid7(), 'kind' => 'hourly', 'started_at' => $finishedAt, 'finished_at' => $finishedAt,
+            ]);
+        }
+
+        $this->getJson(self::ENDPOINT, $this->bearer($this->user(RoleName::Manager)))
+            ->assertOk()
+            ->assertJsonPath('data.last_updated_at', '2026-10-21T08:30:00+00:00');
     }
 
     private function revoke(RoleName $role, string $resource, string $action): void

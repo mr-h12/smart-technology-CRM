@@ -155,6 +155,8 @@ final class NoHardCodedTextTest extends TestCase
                 // Module 2 Point 5.4 — `DB-05`'s managed lists, on the same
                 // terms: added after the scan below passed on it.
                 'ManagedListsView.vue',
+                // Module 14 · 2.2b — the Overview's tiles. Added after the scan passed on it.
+                'OverviewPanel.vue',
                 'PermissionDeniedState.vue', 'PermissionDiffModal.vue', 'Ping.vue',
                 // Module 10 Point 3.3 — §4.6's purchase orders: the list and the
                 // block on its quotation. Added on the same terms: the scan below

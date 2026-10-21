@@ -17,3 +17,16 @@ export interface DashboardMeta {
 export async function readDashboardMeta(): Promise<DashboardMeta> {
     return (await apiGet<DashboardMeta>('/dashboard/meta')).data;
 }
+
+/** `GET /dashboard/overview` (`D-144`): the period's counts, and the "now" figures whatever the period. */
+export interface DashboardOverview {
+    customers: number;
+    deals: { total: number; open: number; closed: number };
+    self_approvals: number;
+    now: { pending_approvals: number; returned: number };
+    last_updated_at: string | null;
+}
+
+export async function readDashboardOverview(period: { from: string; to: string }): Promise<DashboardOverview> {
+    return (await apiGet<DashboardOverview>(`/dashboard/overview?from=${period.from}&to=${period.to}`)).data;
+}

@@ -887,8 +887,18 @@ deptrac:
       # IdentityContract, 1.2: `AuthorizeAction::decide` on `dashboard.view`,
       # `dashboard.drill_down` and `quotation.view_cost_and_margin` (`D-145`).
       - IdentityContract
-      # AdminContract, 1.2: `CompanyToday`, the company's day the period is drawn from.
+      # AdminContract, 1.2: `CompanyToday`, the company's day the period is drawn from;
+      # 2.1b: its zone and go-live date for J-09.
       - AdminContract
+      # 2.1b — J-09 reads, never writes, through each module's published contract:
+      # DealsContract: `DealFactsInterface::createdCountsByDay` / `creationDaysTouchedSince`.
+      - DealsContract
+      # CustomersContract: `NewCustomersInterface::createdCountsByDay` / `creationDaysTouchedSince`.
+      - CustomersContract
+      # QuotationsContract: `QuotationReaderInterface::liveApprovalCountsByOwner`.
+      - QuotationsContract
+      # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`).
+      - AuditContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.

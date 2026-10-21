@@ -155,4 +155,41 @@ final readonly class DatabaseAuditEntryReader implements AuditEntryReaderInterfa
         // other forty and says nothing about that field.
         return is_array($decoded) ? $decoded : null;
     }
+
+    public function countsByDay(string $event, string $zone, ?array $days = null): array
+    {
+        if ($days === []) {
+            return [];
+        }
+
+        $query = $this->connection->table(self::TABLE)
+            ->where('event', $event)->whereNotNull('user_id')
+            ->selectRaw('((created_at AT TIME ZONE ?)::date)::text AS day, user_id AS actor_id, count(*) AS entries', [$zone])
+            ->groupByRaw('1, user_id')
+            ->orderByRaw('1')->orderBy('user_id');
+
+        if ($days !== null) {
+            $query->whereRaw('((created_at AT TIME ZONE ?)::date)::text IN ('.implode(', ', array_fill(0, count($days), '?')).')', [$zone, ...$days]);
+        }
+
+        $rows = [];
+        /** @var object{day: string, actor_id: string, entries: int} $row */
+        foreach ($query->get() as $row) {
+            $rows[] = ['day' => $row->day, 'actor_id' => $row->actor_id, 'entries' => (int) $row->entries];
+        }
+
+        return $rows;
+    }
+
+    public function daysWithEntriesSince(string $event, \DateTimeInterface $since, string $zone): array
+    {
+        /** @var list<string> $days */
+        $days = $this->connection->table(self::TABLE)
+            ->where('event', $event)->where('created_at', '>', $since->format(DATE_ATOM))
+            ->selectRaw('DISTINCT ((created_at AT TIME ZONE ?)::date)::text AS day', [$zone])
+            ->orderBy('day')
+            ->pluck('day')->all();
+
+        return $days;
+    }
 }

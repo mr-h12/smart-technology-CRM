@@ -5361,7 +5361,7 @@ point (failing tests, failing for the right reason) then a green point with its 
 
 **Slice 1 — the dashboard opens per role, no figures yet**
 - [x] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text *(2026-10-21, #410 — 12 PHP + 9 vitest red for the right reason; tabs derived from permissions, never role names)*
-- [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
+- [x] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px) *(2026-10-21, #410 — no migration: the seeder, as `catalog.import`; the meta carries the company's `today`; full suite 4275 passed; browser check NOT done — the in-app browser refused localhost)*
 
 **Slice 2 — summary tables, J-09, the Overview counts**
 - [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, no catch-up entry (§15 "❌ recomputes", `D-146`)

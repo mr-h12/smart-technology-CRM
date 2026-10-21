@@ -101,6 +101,7 @@ from fighting over the same eleven files.
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
 | **9 — PDF Generation** | second developer | **finished** — 24 of 30 boxes (6 `[~]`; 5.2, Module 7's line, on #268), Steps 1–5 on #116–#268, closed 2026-09-29, archived in `checklist/module-09.md` |
 | **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
+| **14 — Dashboard** | mohanadmm | **in progress** — claimed 2026-10-21 under `D-143`, alongside Module 13's remaining work |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -1972,6 +1973,17 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **An English note in the Arabic report PDF prints its punctuation reversed** — *revealed by Module 13 · 8.2's real PDF render, 2026-10-20.* A note `1. September closed above plan.` prints as `.September closed above plan .1`: the notes list is RTL, and the Latin run has no isolate (UAX #9). The quotation PDF already isolates LTR runs (`$ltr`). Fix: wrap each note in `dir="auto"` or the `$ltr` isolate, with a render read as an image.
 - [ ] **`point-gates` names a CI step that does not exist** — *revealed by W.1's waste audit, 2026-10-20.* `.claude/skills/point-gates/SKILL.md` (gate 6's notes) says vitest runs in `php-image.yml` step "Type-check, test and build the frontend"; `grep -rn "Type-check, test and build" .github/workflows/` → nothing. Vitest and `npm run build` (= `vue-tsc --noEmit && vite build`) run in `frontend.yml` on `setup-node`, not on the node:22 image.
 - [ ] **`point-gates` reaches the node image two ways** — *revealed by W.1's waste audit, 2026-10-20.* Gate 5 runs `docker compose exec -T spa-build npx vue-tsc --noEmit`; gate 6 starts a fresh `docker run … node:22-bookworm-slim npx vitest run`. `spa-build` is the same image with `./crm` mounted, so gate 6 could be `docker compose exec -T spa-build npx vitest run` (the handoff already uses `spa-build npm run test:unit`).
+- [ ] **Sales by Area and Most-delayed supplier are not on the dashboard** — *the owner's ruling, 2026-10-21
+      (`D-145`).* §12.2 puts both behind a feature flag, and no flag system exists; a flag that is off is
+      the same as not built. Sales by Area waits for regions to become a managed list (R-03); Most-delayed
+      supplier waits for a recorded delivery date. **The cost, stated:** neither figure is shown anywhere.
+- [ ] **The dashboard's Procurement and Outdoor tabs are empty** — *the owner's ruling, 2026-10-21
+      (`D-143`, `D-145`).* §12.2's procurement and outdoor figures read Modules 11 and 12, which are
+      paused. Each tab shows an empty state naming its module, never zeros; Module 11 and Module 12 each
+      fill their own tab, and Module 12 adds the visits-based rejected-companies list.
+- [ ] **The dashboard's net profit equals its gross profit** — *the owner's ruling, 2026-10-21 (`D-144`).*
+      Net profit is §5.5's `final_profit`, and the saving it adds is recorded only by Module 11. Until
+      then the figure is labelled as equal to gross profit.
 
 ## Agent guide revisions — owner-directed
 
@@ -5223,13 +5235,13 @@ Arabic manual test list handed over 2026-09-24 (#225).
 Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
 the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒
 No Response") and `J-02`'s missing catch-up stay in the debt register above; the post-QA fix pass
-(F-17…F-30, 2026-09-24) runs before Module 11 — paused under `D-125` (2026-10-15); Module 13 runs next.
+(F-17…F-30, 2026-09-24) runs before Module 11 — paused under `D-125` (2026-10-15); Module 13 runs next, and Module 14 beside it (`D-143`, 2026-10-21).
 
 ---
 
 ## Module 11 — Procurement
 
-**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 14 (`D-143`, 2026-10-21) unless the owner reorders.
 
 > As a procurement employee, I want to renegotiate with the supplier and calculate the final profit,
 > so that the company earns the best possible margin.
@@ -5246,7 +5258,7 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 ## Module 12 — Outdoor Visits 📱
 
-**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 14 (`D-143`, 2026-10-21) unless the owner reorders.
 
 > As an Outdoor employee, I want to record a visit outcome from my phone with minimal typing, so that
 > I can finish my day quickly.
@@ -5360,8 +5372,47 @@ lands in the slice that first needs it.
 - [ ] Selected period → figures match the underlying data exactly
 - [ ] Two currencies → each shown separately, aggregation an optional toggle
 - [ ] CEO → **no drill-down** on any figure
-- [ ] Sales by Area stays behind a feature flag
+- [ ] Sales by Area stays behind a feature flag — *answered by `D-145`: left out of the MVP (no flag system; a flag that is off is the same as not built); debt row below*
 - [ ] ❌ Not in MVP: Outstanding Payments · Cheques Due
+
+### Point list — approved 2026-10-21 (mohanadmm, in chat; `D-143`)
+
+Each slice runs database → API → screen and ends in something the owner can open; each is a red
+point (failing tests, failing for the right reason) then a green point with its evidence.
+
+**Step 0 — Decisions and bookkeeping (docs only)**
+- [x] **0.1** Order and ownership: `D-143` (Module 14 next, alongside Module 13; amends `D-125`'s order), this section's point list, the ownership row, the four agent guides *(2026-10-21, #406 — D-142 was taken by #405, so D-143)*
+- [x] **0.2** The spec as decisions: the metric definitions, the role matrix, `dashboard.view` / `dashboard.drill_down`, freshness and the go-live data window, the empty Procurement and Outdoor tabs, the deferred widgets *(2026-10-21, #407 — D-144 the figures, D-145 who sees what, §3.13 the two permissions)*
+- [x] **0.3** Where the code lives: a `Dashboard` module beside AP-02's twelve, its deptrac ruleset reading other modules' contracts only; J-09 on `maintenance` (§15.1: aggregates), no startup catch-up (§15: "❌ recomputes") *(2026-10-21, #408 — D-146; 2.1's catch-up struck, §15 rules it out)*
+- [x] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5 *(2026-10-21, #409 — D-147: a managed list on the Rejected response; point 5.0 added)*
+
+**Slice 1 — the dashboard opens per role, no figures yet**
+- [ ] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text
+- [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
+
+**Slice 2 — summary tables, J-09, the Overview counts**
+- [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, no catch-up entry (§15 "❌ recomputes", `D-146`)
+- [ ] **2.2** Green: contract readers, daily summary tables, J-09 and its schedule, the Overview endpoint and tiles, "Last updated" amber after 2 h
+
+**Slice 3 — money: revenue, profits, the Finance tab**
+- [ ] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
+- [ ] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost)
+
+**Slice 4 — Sales tab I: pipeline figures**
+- [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload
+- [ ] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table
+
+**Slice 5 — Sales tab II: rankings and breakdowns**
+- [ ] **5.0** Lost reasons as a managed list (`D-147`), in Quotations (Module 10) and Deals (Module 5), with their owner told first: `lost_reasons` seeded; `quotations.rejection_reason_code` and `deals.lost_reason_code`, with the CHECK loosened for Rejected only (Counter's text still required, the note required on `other`); existing rows backfilled to `other`; the Rejected response form takes the code; `quotationRejected` carries it to the deal; red first, both migrations reversible
+- [ ] **5.1** Red: by employee (Manager money + count, TL count), by sector, best/worst products, top 20 customers, lost by reason; the CEO gets none of §12.4's hidden figures
+- [ ] **5.2** Green: product and customer summaries, the endpoint, the ranked tables
+
+**Slice 6 — drill-down**
+- [ ] **6.1** Red: each figure opens its list with the right filters and the list's own scope; CEO: no links, 403
+- [ ] **6.2** Green: Deals and Customers date-range filters (only Quotations has `from`/`to` today), the links
+
+**Slice 7 — closing**
+- [ ] **7.1** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-14.md`
 
 ---
 

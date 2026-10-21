@@ -5351,7 +5351,7 @@ point (failing tests, failing for the right reason) then a green point with its 
 **Step 0 — Decisions and bookkeeping (docs only)**
 - [x] **0.1** Order and ownership: `D-143` (Module 14 next, alongside Module 13; amends `D-125`'s order), this section's point list, the ownership row, the four agent guides *(2026-10-21, #406 — D-142 was taken by #405, so D-143)*
 - [x] **0.2** The spec as decisions: the metric definitions, the role matrix, `dashboard.view` / `dashboard.drill_down`, freshness and the go-live data window, the empty Procurement and Outdoor tabs, the deferred widgets *(2026-10-21, #407 — D-144 the figures, D-145 who sees what, §3.13 the two permissions)*
-- [ ] **0.3** Where the code lives: a `Dashboard` module beside AP-02's twelve, its deptrac ruleset reading other modules' contracts only; J-09 on `maintenance`, as every J-job today
+- [x] **0.3** Where the code lives: a `Dashboard` module beside AP-02's twelve, its deptrac ruleset reading other modules' contracts only; J-09 on `maintenance` (§15.1: aggregates), no startup catch-up (§15: "❌ recomputes") *(2026-10-21, #408 — D-146; 2.1's catch-up struck, §15 rules it out)*
 - [ ] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5
 
 **Slice 1 — the dashboard opens per role, no figures yet**
@@ -5359,7 +5359,7 @@ point (failing tests, failing for the right reason) then a green point with its 
 - [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
 
 **Slice 2 — summary tables, J-09, the Overview counts**
-- [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, startup catch-up
+- [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, no catch-up entry (§15 "❌ recomputes", `D-146`)
 - [ ] **2.2** Green: contract readers, daily summary tables, J-09 and its schedule, the Overview endpoint and tiles, "Last updated" amber after 2 h
 
 **Slice 3 — money: revenue, profits, the Finance tab**

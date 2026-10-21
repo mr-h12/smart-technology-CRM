@@ -4859,7 +4859,7 @@ auditors read-only, the full suite last and alone, a seven-part report, and the 
       and supplier price, `D-09`). The client-PC fx query and the owner's answers first.
 - [x] **F.5** The deals table's header floats over its rows on a phone (owner's iPhone report, 2026-10-21).
       Below 640 the frame scrolls sideways (owner, 2026-10-14), so the sticky header stuck to the frame,
-      123 px down, over the second row. *(2026-10-21, PR pending — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
+      123 px down, over the second row. *(2026-10-21, #416 — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
 
 ## Shell revisions — owner-directed
 

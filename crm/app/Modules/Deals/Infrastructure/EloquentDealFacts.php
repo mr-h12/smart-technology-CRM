@@ -194,9 +194,9 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
         }
 
         $facts = [];
-        /** @var object{id: string, created_at: string, owner_id: ?string} $row */
-        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'created_at', 'owner_id')->get() as $row) {
-            $facts[$row->id] = ['created_at' => $row->created_at, 'owner_id' => $row->owner_id];
+        /** @var object{id: string, created_at: string, owner_id: ?string, lost_reason_code: ?string} $row */
+        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'created_at', 'owner_id', 'lost_reason_code')->get() as $row) {
+            $facts[$row->id] = ['created_at' => $row->created_at, 'owner_id' => $row->owner_id, 'lost_reason_code' => $row->lost_reason_code];
         }
 
         return $facts;

@@ -65,8 +65,12 @@ final class DashboardBreakdownsEndpointTest extends TestCase
             ['sector' => 'medical', 'won_chains' => 2, 'money' => [['currency' => 'EGP', 'won_value' => '1500.000000']]],
             ['sector' => 'banks', 'won_chains' => 1, 'money' => [['currency' => 'USD', 'won_value' => '20.000000']]],
         ], $data['by_sector']);
+        self::assertIsArray($data['top_customers']);
         self::assertSame(['Delta Medical', 'Nile Bank', 'Cairo Clinic'], array_column($data['top_customers'], 'name'));
         self::assertSame('EGP', $data['base_currency']);
+        self::assertIsArray($data['products']);
+        self::assertIsArray($data['products']['best']);
+        self::assertIsArray($data['products']['worst']);
         self::assertSame(['Widget', 'Gadget'], array_column($data['products']['best'], 'name'));
         self::assertSame(['Gadget', 'Widget'], array_column($data['products']['worst'], 'name'));
     }
@@ -103,6 +107,8 @@ final class DashboardBreakdownsEndpointTest extends TestCase
         }
 
         $top = $this->breakdowns(RoleName::Manager)['top_customers'];
+        self::assertIsArray($top);
+        self::assertIsArray($top[0]);
 
         self::assertCount(20, $top);
         self::assertSame('Customer 22', $top[0]['name']);
@@ -192,6 +198,7 @@ final class DashboardBreakdownsEndpointTest extends TestCase
         $data = $this->getJson(self::ENDPOINT, $this->bearer($who))->assertOk()->json('data');
         self::assertIsArray($data);
 
+        /** @var array<string, mixed> $data */
         return $data;
     }
 

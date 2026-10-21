@@ -8,11 +8,13 @@ use App\Modules\Admin\Application\Settings\CompanyToday;
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
+use App\Modules\Admin\Domain\Money\ExchangeRate;
 use App\Modules\Audit\Domain\Contracts\AuditEntryReaderInterface;
 use App\Modules\Customers\Domain\Contracts\NewCustomersInterface;
 use App\Modules\Dashboard\Domain\Contracts\DashboardAggregatesInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
+use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 
@@ -40,6 +42,7 @@ final readonly class RefreshDashboardAggregates
         private ConnectionInterface $connection,
         private CurrencyRepositoryInterface $currencies,
         private FxRateRepositoryInterface $rates,
+        private SupplierItemPricingInterface $supplierPrices,
     ) {}
 
     /** @return int|null how many days were rebuilt; null when every day was */
@@ -60,7 +63,9 @@ final readonly class RefreshDashboardAggregates
                 array_filter($this->audit->countsByDay(self::SELF_APPROVAL, $zone, $days), $live),
             )));
             $this->aggregates->replaceLiveCounts($this->quotations->liveApprovalCountsByOwner());
-            $this->aggregates->replaceSentVersions($this->sentVersions($zone, $goLive));
+            [$versions, $rates] = $this->sentVersions($zone, $goLive);
+            $this->aggregates->replaceSentVersions($versions);
+            $this->aggregates->replaceSentLines($this->sentLines($rates));
             $this->aggregates->replaceOutcomes($this->outcomes($zone, $goLive));
             $this->aggregates->replaceWorkload($this->deals->openCountsByOwner());
             $this->aggregates->recordRefresh($full ? 'nightly' : 'hourly', $startedAt, CarbonImmutable::now());
@@ -74,15 +79,19 @@ final readonly class RefreshDashboardAggregates
      * its deal's owner now, and its amounts in the base currency at the rate in force
      * when the version was created — null when that pair had no rate then.
      *
-     * @return list<array{quotation_id: string, chain_id: string, version: int, sent_day: string, owner_id: ?string, currency: string, status: string, net_amount: string, additional_total: string, cost: string, base_net_amount: ?string, base_additional_total: ?string, base_cost: ?string}>
+     * Also returns each kept version's rate (null without one), for its lines.
+     *
+     * @return array{0: list<array{quotation_id: string, chain_id: string, version: int, sent_day: string, owner_id: ?string, currency: string, status: string, net_amount: string, additional_total: string, cost: string, base_net_amount: ?string, base_additional_total: ?string, base_cost: ?string, customer_id: string, sector: ?string}>, 1: array<string, ?ExchangeRate>}
      */
     private function sentVersions(string $zone, ?string $goLive): array
     {
         $versions = $this->quotations->sentVersions();
         $owners = $this->deals->ownersOf(array_values(array_unique(array_column($versions, 'deal_id'))));
+        $sectors = $this->customers->sectorsOf(array_values(array_unique(array_column($versions, 'customer_id'))));
         $base = $this->currencies->base()?->code();
 
         $rows = [];
+        $kept = [];
         foreach ($versions as $v) {
             $sentDay = CarbonImmutable::parse($v['sent_at'])->setTimezone($zone)->toDateString();
             if ($goLive !== null && $sentDay < $goLive) {
@@ -98,6 +107,37 @@ final readonly class RefreshDashboardAggregates
                 'base_net_amount' => $rate?->convert($v['net_amount'], 6),
                 'base_additional_total' => $rate?->convert($v['additional_total'], 6),
                 'base_cost' => $rate?->convert($v['cost'], 6),
+                'customer_id' => $v['customer_id'], 'sector' => $sectors[$v['customer_id']] ?? null,
+            ];
+            $kept[$v['quotation_id']] = $rate;
+        }
+
+        return [$rows, $kept];
+    }
+
+    /**
+     * Each live line of a kept version, its product (through its supplier line —
+     * `SupplierItemPricingInterface`, as the quotation page names its lines), and
+     * its total in the base currency at the version's rate (`D-149`).
+     *
+     * @param  array<string, ?ExchangeRate>  $rates  quotation id => its rate
+     * @return list<array{quotation_id: string, catalog_item_id: ?string, line_total: string, base_line_total: ?string}>
+     */
+    private function sentLines(array $rates): array
+    {
+        $products = [];
+        $rows = [];
+        foreach ($this->quotations->sentVersionLines() as $line) {
+            if (! array_key_exists($line['quotation_id'], $rates)) {
+                continue;
+            }
+            // ponytail: one lookup per distinct supplier line; a bulk reader when the catalog grows past a few thousand lines.
+            $products[$line['supplier_quotation_item_id']] ??= $this->supplierPrices->priceFor($line['supplier_quotation_item_id'])?->catalogItemId;
+            $rows[] = [
+                'quotation_id' => $line['quotation_id'],
+                'catalog_item_id' => $products[$line['supplier_quotation_item_id']],
+                'line_total' => $line['line_total'],
+                'base_line_total' => $rates[$line['quotation_id']]?->convert($line['line_total'], 6),
             ];
         }
 
@@ -108,7 +148,10 @@ final readonly class RefreshDashboardAggregates
      * `D-150`: each deal's first move into `won` or `lost` (its `DEAL_STATUS_CHANGED`
      * entries), by company day and current owner; for won, the days from creation.
      *
-     * @return list<array{day: string, owner_id: ?string, outcome: string, deals: int, cycle_days: int}>
+     * A lost deal keeps its `lost_reasons` code (`D-147`); one lost before the code
+     * existed counts as `other`, as its migration filed it.
+     *
+     * @return list<array{day: string, owner_id: ?string, outcome: string, deals: int, cycle_days: int, reason_code: ?string}>
      */
     private function outcomes(string $zone, ?string $goLive): array
     {
@@ -128,8 +171,9 @@ final readonly class RefreshDashboardAggregates
             $cycle = $move['value'] === 'won'
                 ? max(0, (int) CarbonImmutable::parse($deal['created_at'])->setTimezone($zone)->startOfDay()->diffInDays($day))
                 : 0;
-            $key = $day->toDateString().'|'.($deal['owner_id'] ?? '').'|'.$move['value'];
-            $grouped[$key] ??= ['day' => $day->toDateString(), 'owner_id' => $deal['owner_id'], 'outcome' => $move['value'], 'deals' => 0, 'cycle_days' => 0];
+            $reason = $move['value'] === 'lost' ? ($deal['lost_reason_code'] ?? 'other') : null;
+            $key = $day->toDateString().'|'.($deal['owner_id'] ?? '').'|'.$move['value'].'|'.($reason ?? '');
+            $grouped[$key] ??= ['day' => $day->toDateString(), 'owner_id' => $deal['owner_id'], 'outcome' => $move['value'], 'deals' => 0, 'cycle_days' => 0, 'reason_code' => $reason];
             $grouped[$key]['deals']++;
             $grouped[$key]['cycle_days'] += $cycle;
         }

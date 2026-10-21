@@ -77,7 +77,7 @@ final class RefreshDashboardBreakdownsTest extends TestCase
 
         self::assertSame(
             [['other', 1], ['price_too_high', 1]],
-            array_map(static fn (object $r): array => [$r->reason_code, (int) $r->deals],
+            array_map(static fn (object $r): array => [$r->reason_code, is_numeric($r->deals) ? (int) $r->deals : null],
                 DB::table('dashboard_daily_outcomes')->where('outcome', 'lost')->orderBy('reason_code')->get(['reason_code', 'deals'])->all()),
         );
         self::assertNotSame($coded, $older);

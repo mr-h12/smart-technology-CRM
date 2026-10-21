@@ -73,6 +73,8 @@ final class NoHardCodedTextTest extends TestCase
                 // Module 8 Point 3.1 — §8's Approvals screen; every label is
                 // an `approvals.*` or reused `quotations.detail.*` key.
                 'ApprovalsView.vue',
+                // Module 14 · 5.2 — the Sales tab's breakdowns. Added after the scan passed on it.
+                'BreakdownsSection.vue',
                 // Module 4 Point 4.4 — §7.3's catalog add/edit form. Added on
                 // the same terms: the scan below was run against it first and
                 // passed. Its labels are looked up by the *field name* —

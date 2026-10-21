@@ -1688,6 +1688,17 @@
             "deal_size": "Average deal size",
             "funnel": "Sales funnel",
             "workload": "Open deals per employee"
+        },
+        "breakdowns": {
+            "lost_by_reason": "Lost deals by reason",
+            "by_employee": "By employee",
+            "by_sector": "By sector",
+            "top_customers": "Top customers",
+            "best_products": "Best-selling products",
+            "worst_products": "Least-selling products",
+            "won_deals": "{count} won",
+            "none": "Not set",
+            "empty": "Nothing in this period."
         }
     }
 }

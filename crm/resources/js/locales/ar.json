@@ -1688,6 +1688,17 @@
             "deal_size": "متوسط حجم الصفقة",
             "funnel": "مسار المبيعات",
             "workload": "الصفقات المفتوحة لكل موظف"
+        },
+        "breakdowns": {
+            "lost_by_reason": "الصفقات الخاسرة حسب السبب",
+            "by_employee": "حسب الموظف",
+            "by_sector": "حسب القطاع",
+            "top_customers": "أعلى العملاء",
+            "best_products": "الأكثر مبيعًا",
+            "worst_products": "الأقل مبيعًا",
+            "won_deals": "{count} فوز",
+            "none": "غير محدد",
+            "empty": "لا شيء في هذه الفترة."
         }
     }
 }

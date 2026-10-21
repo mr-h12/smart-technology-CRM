@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Dashboard\Presentation;
 
+use App\Modules\Dashboard\Application\DashboardBreakdowns;
 use App\Modules\Dashboard\Application\DashboardMeta;
 use App\Modules\Dashboard\Application\DashboardMoney;
 use App\Modules\Dashboard\Application\DashboardOverview;
@@ -37,6 +38,11 @@ final class DashboardController
     public function sales(DashboardPeriodRequest $request, DashboardSales $sales): JsonResponse
     {
         return ApiEnvelope::single($request, $sales->for(self::actorId($request), $request->from(), $request->to()));
+    }
+
+    public function breakdowns(DashboardPeriodRequest $request, DashboardBreakdowns $breakdowns): JsonResponse
+    {
+        return ApiEnvelope::single($request, $breakdowns->for(self::actorId($request), $request->from(), $request->to()));
     }
 
     private static function actorId(Request $request): string

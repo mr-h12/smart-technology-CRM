@@ -897,8 +897,13 @@ deptrac:
       - CustomersContract
       # QuotationsContract: `QuotationReaderInterface::liveApprovalCountsByOwner`.
       - QuotationsContract
-      # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`).
+      # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`);
+      # 4.2: `firstEntriesInto` (`DEAL_STATUS_CHANGED`, `D-150`).
       - AuditContract
+      # SupplierQuotationsContract, 5.2: `SupplierItemPricingInterface::priceFor` — a sold line's product.
+      - SupplierQuotationsContract
+      # CatalogContract, 5.2: `CatalogItemLabelsInterface::labelsOf` — the products' names.
+      - CatalogContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.

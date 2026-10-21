@@ -5352,7 +5352,7 @@ point (failing tests, failing for the right reason) then a green point with its 
 - [x] **0.1** Order and ownership: `D-143` (Module 14 next, alongside Module 13; amends `D-125`'s order), this section's point list, the ownership row, the four agent guides *(2026-10-21, #406 — D-142 was taken by #405, so D-143)*
 - [x] **0.2** The spec as decisions: the metric definitions, the role matrix, `dashboard.view` / `dashboard.drill_down`, freshness and the go-live data window, the empty Procurement and Outdoor tabs, the deferred widgets *(2026-10-21, #407 — D-144 the figures, D-145 who sees what, §3.13 the two permissions)*
 - [x] **0.3** Where the code lives: a `Dashboard` module beside AP-02's twelve, its deptrac ruleset reading other modules' contracts only; J-09 on `maintenance` (§15.1: aggregates), no startup catch-up (§15: "❌ recomputes") *(2026-10-21, #408 — D-146; 2.1's catch-up struck, §15 rules it out)*
-- [ ] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5
+- [x] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5 *(2026-10-21, #409 — D-147: a managed list on the Rejected response; point 5.0 added)*
 
 **Slice 1 — the dashboard opens per role, no figures yet**
 - [ ] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text

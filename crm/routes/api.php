@@ -872,6 +872,7 @@ Route::middleware(['auth', 'permission:dashboard.view'])->prefix('dashboard')->g
     Route::get('/meta', [DashboardController::class, 'meta']);
     Route::get('/overview', [DashboardController::class, 'overview']);
     Route::get('/money', [DashboardController::class, 'money']);
+    Route::get('/sales', [DashboardController::class, 'sales']);
 });
 
 // Module 9 · 4.2 — the job status `OpenAPI §4.3` leaves to "the module

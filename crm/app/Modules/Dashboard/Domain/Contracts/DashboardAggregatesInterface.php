@@ -69,4 +69,20 @@ interface DashboardAggregatesInterface
      * }
      */
     public function moneyBetween(string $from, string $to): array;
+
+    /** @param  list<array{day: string, owner_id: ?string, outcome: string, deals: int, cycle_days: int}>  $rows */
+    public function replaceOutcomes(array $rows): void;
+
+    /** @param  list<array{owner_id: string, open_deals: int}>  $rows */
+    public function replaceWorkload(array $rows): void;
+
+    /**
+     * The Sales tab's counts over `[$from, $to]` (`D-144`): deals created by current
+     * status, the won and lost moves with the won cycle days summed, and "now" the
+     * open deals per owner. `$ownerIds` as in `overviewBetween`.
+     *
+     * @param  list<string>|null  $ownerIds
+     * @return array{deals_by_status: array<string, int>, won: int, lost: int, cycle_days: int, workload: list<array{owner_id: string, open_deals: int}>}
+     */
+    public function salesBetween(string $from, string $to, ?array $ownerIds): array;
 }

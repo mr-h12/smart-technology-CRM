@@ -18,6 +18,7 @@ import { displayDateRange, displayTimestamp } from '@/domain/displayDate';
 import { PERIOD_KINDS, periodFor, rememberedPeriod, rememberPeriod, type Period, type PeriodKind } from '@/domain/dashboardPeriod';
 import FinancePanel from '@/pages/dashboard/FinancePanel.vue';
 import OverviewPanel from '@/pages/dashboard/OverviewPanel.vue';
+import SalesPanel from '@/pages/dashboard/SalesPanel.vue';
 import { readDashboardMeta, type DashboardMeta, type DashboardTab } from '@/services/dashboard';
 
 const { t, locale } = useI18n();
@@ -165,7 +166,8 @@ onMounted(() => load());
                 </div>
                 <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" :money="meta.money" @refreshed="lastUpdatedAt = $event" />
                 <FinancePanel v-else-if="active === 'finance'" :from="period.from" :to="period.to" />
-                <!-- ponytail: slices 4–5 replace this for Sales; until then a tab without data says so. -->
+                <SalesPanel v-else-if="active === 'sales'" :from="period.from" :to="period.to" />
+                <!-- Every tab with figures is listed above; this is only reached by a tab added without a panel. -->
                 <EmptyState v-else title-key="dashboard.pending.title" message-key="dashboard.pending.message" />
             </div>
         </template>

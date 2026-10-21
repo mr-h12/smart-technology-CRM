@@ -55,6 +55,7 @@ final class DashboardSalesEndpointTest extends TestCase
 
         $data = $this->getJson(self::ENDPOINT, $this->bearer(RoleName::Manager))->assertOk()->json('data');
         self::assertIsArray($data);
+        self::assertIsArray($data['funnel']);
 
         self::assertSame(['lead' => 1, 'contacted' => 3, 'won' => 1, 'purchasing' => 1, 'lost' => 1], array_filter(array_column($data['funnel'], 'deals', 'status')));
         self::assertSame(array_column($data['funnel'], 'status')[0], 'lead', 'Every status, in §4.4 order.');

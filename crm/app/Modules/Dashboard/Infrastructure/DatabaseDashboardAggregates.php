@@ -139,6 +139,43 @@ final readonly class DatabaseDashboardAggregates implements DashboardAggregatesI
         ];
     }
 
+    public function replaceOutcomes(array $rows): void
+    {
+        $this->replace('dashboard_daily_outcomes', null, $rows);
+    }
+
+    public function replaceWorkload(array $rows): void
+    {
+        $this->replace('dashboard_live_workload', null, $rows);
+    }
+
+    public function salesBetween(string $from, string $to, ?array $ownerIds): array
+    {
+        /** @var array<string, int|string> $byStatus */
+        $byStatus = $this->scoped($this->connection->table('dashboard_daily_deals')->whereBetween('day', [$from, $to]), 'owner_id', $ownerIds)
+            ->groupBy('status')->selectRaw('status, SUM(deals) AS n')->pluck('n', 'status')->all();
+
+        $outcomes = $this->scoped($this->connection->table('dashboard_daily_outcomes')->whereBetween('day', [$from, $to]), 'owner_id', $ownerIds)
+            ->selectRaw("COALESCE(SUM(deals) FILTER (WHERE outcome = 'won'), 0) AS won, COALESCE(SUM(deals) FILTER (WHERE outcome = 'lost'), 0) AS lost, COALESCE(SUM(cycle_days), 0) AS cycle_days")
+            ->first();
+        $int = static fn (mixed $v): int => is_numeric($v) ? (int) $v : 0;
+
+        $workload = [];
+        /** @var object{owner_id: string, open_deals: int} $row */
+        foreach ($this->scoped($this->connection->table('dashboard_live_workload'), 'owner_id', $ownerIds)
+            ->orderByDesc('open_deals')->orderBy('owner_id')->get() as $row) {
+            $workload[] = ['owner_id' => $row->owner_id, 'open_deals' => (int) $row->open_deals];
+        }
+
+        return [
+            'deals_by_status' => array_map(static fn (int|string $n): int => (int) $n, $byStatus),
+            'won' => $int(is_object($outcomes) ? $outcomes->won : 0),
+            'lost' => $int(is_object($outcomes) ? $outcomes->lost : 0),
+            'cycle_days' => $int(is_object($outcomes) ? $outcomes->cycle_days : 0),
+            'workload' => $workload,
+        ];
+    }
+
     /**
      * Null keeps every row (All, unowned included); a list keeps only those owners —
      * an unowned row never matches one (`D-138`).

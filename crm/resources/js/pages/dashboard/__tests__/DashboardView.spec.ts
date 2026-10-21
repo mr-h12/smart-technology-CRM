@@ -381,8 +381,8 @@ describe('the Sales tab', () => {
         expect(fetchMock.mock.calls.map(([u]) => String(u)).some((u) => /\/dashboard\/sales\?from=2026-10-01&to=2026-10-31$/.test(u))).toBe(true);
         const stages = wrapper.findAll('[data-testid="dashboard-funnel-stage"]');
         expect(stages).toHaveLength(12);
-        expect(stages[0].attributes('data-status')).toBe('lead');
-        expect(stages[11].attributes('data-status')).toBe('lost');
+        expect(stages[0]!.attributes('data-status')).toBe('lead');
+        expect(stages[11]!.attributes('data-status')).toBe('lost');
     });
 
     it('shows the rates, the cycle and the deal size', async () => {

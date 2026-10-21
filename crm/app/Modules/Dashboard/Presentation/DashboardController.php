@@ -7,6 +7,7 @@ namespace App\Modules\Dashboard\Presentation;
 use App\Modules\Dashboard\Application\DashboardMeta;
 use App\Modules\Dashboard\Application\DashboardMoney;
 use App\Modules\Dashboard\Application\DashboardOverview;
+use App\Modules\Dashboard\Application\DashboardSales;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,11 @@ final class DashboardController
     public function money(DashboardPeriodRequest $request, DashboardMoney $money): JsonResponse
     {
         return ApiEnvelope::single($request, $money->for(self::actorId($request), $request->from(), $request->to()));
+    }
+
+    public function sales(DashboardPeriodRequest $request, DashboardSales $sales): JsonResponse
+    {
+        return ApiEnvelope::single($request, $sales->for(self::actorId($request), $request->from(), $request->to()));
     }
 
     private static function actorId(Request $request): string

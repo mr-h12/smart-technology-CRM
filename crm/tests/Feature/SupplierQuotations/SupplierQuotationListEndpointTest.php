@@ -522,6 +522,16 @@ final class SupplierQuotationListEndpointTest extends TestCase
             {
                 return $this->real->creationDaysTouchedSince($since, $zone);
             }
+
+            public function creationAndOwnerOf(array $dealIds): array
+            {
+                return $this->real->creationAndOwnerOf($dealIds);
+            }
+
+            public function openCountsByOwner(): array
+            {
+                return $this->real->openCountsByOwner();
+            }
         };
         $this->app->instance(DealFactsInterface::class, $spy);
 

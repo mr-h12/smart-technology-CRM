@@ -5385,8 +5385,8 @@ lands in the slice that first needs it.
 **Closed 27 of 27 boxes** · full point history: [checklist/module-14.md](checklist/module-14.md) ·
 Arabic manual test list handed over 2026-10-22 (#417).
 
-Still open (not boxes — owner items): `D-148`, `D-149` and `D-150` read "proposed" until the owner approves
-them at merge; the stack #412 → #413 → #414 → #415 → #417 merges in that order; the Procurement and Outdoor
+Still open (not boxes — owner items): `D-148`, `D-149` and `D-150` approved by the owner 2026-10-22; the
+stack #412 → #413 → #414 → #415 → #417 merges in that order (the owner's, 2026-10-22); the Procurement and Outdoor
 tabs stay empty until Modules 11 and 12; the dashboard's debt rows (net = gross, Sales by Area, the won-chain
 rule written twice, no company-time-zone test for J-09, untyped additional items) stay in the register above.
 

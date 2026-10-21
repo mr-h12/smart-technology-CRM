@@ -1980,6 +1980,9 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **An English note in the Arabic report PDF prints its punctuation reversed** — *revealed by Module 13 · 8.2's real PDF render, 2026-10-20.* A note `1. September closed above plan.` prints as `.September closed above plan .1`: the notes list is RTL, and the Latin run has no isolate (UAX #9). The quotation PDF already isolates LTR runs (`$ltr`). Fix: wrap each note in `dir="auto"` or the `$ltr` isolate, with a render read as an image.
 - [ ] **`point-gates` names a CI step that does not exist** — *revealed by W.1's waste audit, 2026-10-20.* `.claude/skills/point-gates/SKILL.md` (gate 6's notes) says vitest runs in `php-image.yml` step "Type-check, test and build the frontend"; `grep -rn "Type-check, test and build" .github/workflows/` → nothing. Vitest and `npm run build` (= `vue-tsc --noEmit && vite build`) run in `frontend.yml` on `setup-node`, not on the node:22 image.
 - [ ] **`point-gates` reaches the node image two ways** — *revealed by W.1's waste audit, 2026-10-20.* Gate 5 runs `docker compose exec -T spa-build npx vue-tsc --noEmit`; gate 6 starts a fresh `docker run … node:22-bookworm-slim npx vitest run`. `spa-build` is the same image with `./crm` mounted, so gate 6 could be `docker compose exec -T spa-build npx vitest run` (the handoff already uses `spa-build npm run test:unit`).
+- [ ] **The deals table cuts off its Edit column in English at 1280** — *revealed by F.5's browser check, 2026-10-21; on `main` before F.5.* At 1280×800 in English the frame is 974 px and the table 1029 px (wide English status buttons such as «Move to Delivery complete»); `sm:overflow-x-clip` (`DealsView.vue:510`) hides the last 55 px, so the Edit button is out of sight and out of reach. Arabic fits (974/974). Fix: the owner's call — scroll from 640 too (then no sticky header there, A-40), or narrow the columns.
+- [ ] **app.css's A-40 comment says every long list's frame clips** — *revealed by F.5's waste audit, 2026-10-21.* `crm/resources/css/app.css:262-267`; the deals frame scrolls below 640 (owner, 2026-10-14), and its header is static there since F.5. A comment only. Fix: one line naming the exception.
+- [ ] **The A-40 guard decides per file, not per frame** — *revealed by F.5's waste audit, 2026-10-21; the same before F.5.* `uiSourceRules.spec.ts` (the A-40 test) bans a sticky `<thead>` anywhere in a file holding any always-scrolling `overflow-x-auto` frame (12 files today), even under a second, clipped frame. No file hit today. Fix: pair each thead with its own frame, when a file first needs both.
 - [ ] **Sales by Area and Most-delayed supplier are not on the dashboard** — *the owner's ruling, 2026-10-21
       (`D-145`).* §12.2 puts both behind a feature flag, and no flag system exists; a flag that is off is
       the same as not built. Sales by Area waits for regions to become a managed list (R-03); Most-delayed
@@ -4854,6 +4857,9 @@ auditors read-only, the full suite last and alone, a seven-part report, and the 
 - [ ] **F.4** Exchange rates and re-pricing — U-3 (two reversed EGP→USD rows on dev priced QT-2026-0011
       and QT-2026-0014; the client PC unchecked; a guard), U-8 (editing a draft re-prices it at today's rate
       and supplier price, `D-09`). The client-PC fx query and the owner's answers first.
+- [x] **F.5** The deals table's header floats over its rows on a phone (owner's iPhone report, 2026-10-21).
+      Below 640 the frame scrolls sideways (owner, 2026-10-14), so the sticky header stuck to the frame,
+      123 px down, over the second row. *(2026-10-21, PR pending — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
 
 ## Shell revisions — owner-directed
 

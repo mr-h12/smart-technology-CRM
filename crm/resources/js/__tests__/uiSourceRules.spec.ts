@@ -131,15 +131,21 @@ describe('UI source rules (F-42)', () => {
         ).toEqual([]);
     });
 
-    it('a sticky header that sticks (A-40): no sticky <thead> inside an overflow-x-auto frame', () => {
-        // An overflow-x-auto frame is a scroll container, so a sticky header sticks to it and never moves.
-        // A frame that scrolls only below 640 (`sm:overflow-x-clip`) still sticks where the header is used:
-        // the deals table stays a table on a phone (A-19), so it scrolls there (owner, 2026-10-14).
-        const framed = SOURCES.filter(([, text]) =>
-            [...text.matchAll(/class="[^"]*\boverflow-x-auto\b[^"]*"/g)].some(([attr]) => !/\bsm:overflow-x-clip\b/.test(attr)),
-        ).map(([path]) => path);
+    it('a sticky header that sticks (A-40): no sticky <thead> where its overflow-x-auto frame scrolls', () => {
+        // An overflow-x-auto frame is a scroll container, so a sticky header sticks to the frame, not the page.
+        // A frame that scrolls only below 640 (`sm:overflow-x-clip`, the deals table on a phone, A-19) floats
+        // such a header over its rows there (owner, 2026-10-21), so the header is `max-sm:static`; a frame
+        // that scrolls at every width takes no sticky header at all.
+        const frames = (text: string): string[] => [...text.matchAll(/class="[^"]*\boverflow-x-auto\b[^"]*"/g)].map(([attr]) => attr);
+        const framed = SOURCES.filter(([, text]) => frames(text).length > 0).map(([path]) => path);
+        const alwaysScrolls = SOURCES.filter(([, text]) => frames(text).some((attr) => !/\bsm:overflow-x-clip\b/.test(attr))).map(([path]) => path);
 
-        expect(linesMatching(/<thead\b[^>]*\bsticky\b/, (_, path) => framed.includes(path))).toEqual([]);
+        expect(
+            linesMatching(
+                /<thead\b[^>]*\bsticky\b/,
+                (line, path) => alwaysScrolls.includes(path) || (framed.includes(path) && !/\bmax-sm:static\b/.test(line)),
+            ),
+        ).toEqual([]);
     });
 
     it('long text stays inside (A-52): every truncate class sits on an element with a title', () => {

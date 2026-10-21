@@ -648,7 +648,9 @@
             "ownerInactive": "عملاء الموظفين المعطَّلين",
             "archived": "السجلات",
             "archivedActive": "النشطة",
-            "archivedArchived": "المؤرشفة"
+            "archivedArchived": "المؤرشفة",
+            "fromDashboard": "من لوحة المتابعة: أُضيفوا {from} – {to}",
+            "clearDashboard": "مسح"
         },
         "empty": {
             "filtered": {
@@ -1053,7 +1055,13 @@
             "source": "المصدر",
             "sourceAll": "كل المصادر",
             "ownerAll": "كل المسؤولين",
-            "toggle": "عوامل التصفية ({count})"
+            "toggle": "عوامل التصفية ({count})",
+            "fromDashboard": "من لوحة المتابعة: أُنشئت {from} – {to}",
+            "clearDashboard": "مسح",
+            "progress": {
+                "open": "صفقات مفتوحة",
+                "closed": "صفقات مغلقة"
+            }
         },
         "column": {
             "code": "الرمز",

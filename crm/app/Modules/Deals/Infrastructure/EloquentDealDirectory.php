@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Deals\Infrastructure;
 
 use App\Modules\Deals\Domain\Access\DealRowScope;
+use App\Modules\Deals\Domain\Access\DealStatusTransition;
 use App\Modules\Deals\Domain\Contracts\DealDirectoryInterface;
 use App\Modules\Deals\Domain\CustomerStatus\DealActivitySnapshot;
 use App\Modules\Deals\Domain\Listing\DealListCriteria;
@@ -273,6 +274,22 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
 
         if ($criteria->customerId !== null) {
             $query->where('deals.customer_id', $criteria->customerId);
+        }
+
+        // Module 14 · 6.1 (`D-145`): the dashboard's days are the company's, so these are too.
+        if ($criteria->createdFrom !== null) {
+            $query->whereRaw('(deals.created_at AT TIME ZONE ?)::date >= ?::date', [$criteria->zone, $criteria->createdFrom]);
+        }
+
+        if ($criteria->createdTo !== null) {
+            $query->whereRaw('(deals.created_at AT TIME ZONE ?)::date <= ?::date', [$criteria->zone, $criteria->createdTo]);
+        }
+
+        if ($criteria->progress !== null) {
+            // §4.4: `won` and every status after it, and `lost`, are past the sales decision (`D-144`).
+            $statuses = DealStatusTransition::statuses();
+            $closed = [...array_slice($statuses, (int) array_search('won', $statuses, true)), 'lost'];
+            $criteria->progress === 'closed' ? $query->whereIn('deals.status', $closed) : $query->whereNotIn('deals.status', $closed);
         }
 
         if ($criteria->q !== null) {

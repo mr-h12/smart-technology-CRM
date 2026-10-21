@@ -35,7 +35,10 @@ final readonly class DealListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status', 'owner', 'customer'];
+    public const ALLOWED_FILTERS = ['status', 'service_type', 'source', 'approval_status', 'owner', 'customer', 'created_from', 'created_to', 'progress'];
+
+    /** Module 14 · 6.1 (`D-144`): open is before `won`; closed is `won` or later, or `lost`. */
+    public const PROGRESS = ['open', 'closed'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['code', 'created_at', 'last_activity_at'];
@@ -57,6 +60,11 @@ final readonly class DealListCriteria
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => true]],
         public ?string $ownerId = null,
         public ?string $customerId = null,
+        // Module 14 · 6.1, the dashboard's drill-down: creation days in `$zone`, both included.
+        public ?string $createdFrom = null,
+        public ?string $createdTo = null,
+        public ?string $progress = null,
+        public string $zone = 'UTC',
     ) {}
 
     /**
@@ -64,7 +72,7 @@ final readonly class DealListCriteria
      *
      * @throws InvalidDealListQuery
      */
-    public static function fromQuery(array $query): self
+    public static function fromQuery(array $query, string $zone = 'UTC'): self
     {
         $page = self::positiveInteger($query['page'] ?? null, 'page', 1);
         $perPage = self::positiveInteger($query['per_page'] ?? null, 'per_page', self::DEFAULT_PER_PAGE);
@@ -87,6 +95,10 @@ final readonly class DealListCriteria
             sorts: self::sorts($query['sort'] ?? null),
             ownerId: $filters['owner'],
             customerId: $filters['customer'],
+            createdFrom: $filters['created_from'],
+            createdTo: $filters['created_to'],
+            progress: $filters['progress'],
+            zone: $zone,
         );
     }
 
@@ -165,7 +177,7 @@ final readonly class DealListCriteria
     }
 
     /**
-     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null, owner: string|null, customer: string|null}
+     * @return array{status: string|null, service_type: string|null, source: string|null, approval_status: string|null, owner: string|null, customer: string|null, created_from: string|null, created_to: string|null, progress: string|null}
      *
      * @throws InvalidDealListQuery
      */
@@ -178,6 +190,9 @@ final readonly class DealListCriteria
             'approval_status' => null,
             'owner' => null,
             'customer' => null,
+            'created_from' => null,
+            'created_to' => null,
+            'progress' => null,
         ];
 
         if ($value === null) {
@@ -204,6 +219,9 @@ final readonly class DealListCriteria
             'owner' => self::id($value['owner'] ?? null, 'filter[owner]'),
             // `D-114`: the customer page's requests, under the same row scope.
             'customer' => self::id($value['customer'] ?? null, 'filter[customer]'),
+            'created_from' => self::day($value['created_from'] ?? null, 'filter[created_from]'),
+            'created_to' => self::day($value['created_to'] ?? null, 'filter[created_to]'),
+            'progress' => self::progress($value['progress'] ?? null),
         ];
     }
 
@@ -212,6 +230,33 @@ final readonly class DealListCriteria
      *
      * @throws InvalidDealListQuery
      */
+    /** Module 14 · 6.1: a calendar day (`Y-m-d`) that exists; the company's zone reads it (`D-145`). */
+    private static function day(mixed $value, string $parameter): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $m) !== 1 || ! checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            throw InvalidDealListQuery::of($parameter, 'not_a_date');
+        }
+
+        return $value;
+    }
+
+    private static function progress(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || ! in_array($value, self::PROGRESS, true)) {
+            throw InvalidDealListQuery::of('filter[progress]', 'not_a_code');
+        }
+
+        return $value;
+    }
+
     private static function id(mixed $value, string $parameter): ?string
     {
         if ($value === null || $value === '') {

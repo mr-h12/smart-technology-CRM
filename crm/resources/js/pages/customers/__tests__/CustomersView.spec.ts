@@ -445,6 +445,7 @@ function customerCalls(asked: string[]): string[] {
 
 describe('CustomersView — Module 14 · 6.1, the dashboard\'s drill-down', () => {
     it('carries the dashboard\'s created-date filter', async () => {
+        await signIn(READER);
         const asked = stubScreen();
         const router = createAppRouter();
         await router.push('/customers?created_from=2026-10-01&created_to=2026-10-31');

@@ -115,6 +115,9 @@ const page = ref(arrivedPage > 1 ? arrivedPage : 1);
 const search = ref(address.arrived('q'));
 const statusFilter = ref(address.arrived('status'));
 const sectorFilter = ref(address.arrived('sector'));
+/** Module 14 · 6.1: the dashboard's "new customers" period — carried, shown, cleared together. */
+const createdFrom = ref(address.arrived('created_from'));
+const createdTo = ref(address.arrived('created_to'));
 const incompleteOnly = ref(address.arrived('incomplete') === 'true');
 const ownerInactiveOnly = ref(address.arrived('owner_inactive') === 'true');
 /** `CustomerListCriteria::DEFAULT_SORT`; an undeclared field from the address would be a 400. */
@@ -219,6 +222,8 @@ address.keep(() => ({
     incomplete: incompleteOnly.value,
     owner_inactive: ownerInactiveOnly.value,
     archived: archivedOnly.value,
+    created_from: createdFrom.value,
+    created_to: createdTo.value,
     sort: sortParameter.value === 'name' ? '' : sortParameter.value,
     page: page.value > 1 ? page.value : '',
 }));
@@ -256,6 +261,8 @@ async function load(): Promise<void> {
             // default to the same thing, but a screen that shows one half of
             // the records should say which half rather than leave it implied.
             isArchived: archivedOnly.value,
+            createdFrom: createdFrom.value === '' ? null : createdFrom.value,
+            createdTo: createdTo.value === '' ? null : createdTo.value,
         });
 
         customers.value = result.items;
@@ -577,6 +584,13 @@ onMounted(async () => {
 
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a
              declared parameter and nothing narrows anything in the browser. -->
+        <p v-if="createdFrom !== '' || createdTo !== ''" class="flex flex-wrap items-center gap-2 self-start rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="customers-dashboard-filter">
+            <span>{{ t('customers.filter.fromDashboard', { from: createdFrom || '…', to: createdTo || '…' }) }}</span>
+            <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="customers-dashboard-filter-clear" @click="createdFrom = ''; createdTo = ''; applyFilters()">
+                {{ t('customers.filter.clearDashboard') }}
+            </button>
+        </p>
+
         <form v-if="showFilters" class="flex flex-wrap items-end gap-3" data-testid="customers-search-form" @submit.prevent="applyFilters">
             <label class="flex flex-col gap-1.5">
                 <span>{{ t('customers.filter.search') }}</span>

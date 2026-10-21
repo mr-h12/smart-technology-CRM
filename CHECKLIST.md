@@ -1990,6 +1990,15 @@ would hide them behind `OD-03` indefinitely.
       `quotation_additional_items` has `description` and `amount` only. The dashboard's delivery cost is
       every additional item of a won version, labelled "Delivery & installation". A type column (Quotations,
       Module 7) would let it narrow to delivery.
+- [ ] **The won-chain rule is written twice in the Dashboard's adapter** — *revealed by Module 14 · 5.2's waste audit, 2026-10-21.*
+      `DatabaseDashboardAggregates::moneyBetween` spells `D-141`'s "latest version sent in the period, won when
+      accepted or partial" in its own CTE; `wonChains()` (5.2) is the same CTE, scoped. `moneyBetween` can use it.
+- [ ] **No test sets a company time zone for J-09** — *Module 14 · 2.1b/3.2/4.2, 2026-10-21.* Every J-09 grouping reads
+      `CompanyToday::zone()`; the J-09 tests run with `locale.timezone` unset (UTC). The list filters of 6.1 are tested
+      in Africa/Cairo; J-09's day boundaries are not yet.
+- [ ] **The dashboard was not opened in a browser by the agent** — *Module 14, 2026-10-21.* The in-app browser refused
+      `https://localhost:8543` and `http://localhost:8180`; `rtl-ui-verifier` did not run. The owner's manual test list
+      (Module 14 · 7.1) is the check.
 - [ ] **The dashboard's net profit equals its gross profit** — *the owner's ruling, 2026-10-21 (`D-144`).*
       Net profit is §5.5's `final_profit`, and the saving it adds is recorded only by Module 11. Until
       then the figure is labelled as equal to gross profit.
@@ -5378,11 +5387,11 @@ lands in the slice that first needs it.
 **Tables** summary tables (pre-aggregation) — job J-09
 
 **Acceptance criteria**
-- [ ] Selected period → figures match the underlying data exactly
-- [ ] Two currencies → each shown separately, aggregation an optional toggle
-- [ ] CEO → **no drill-down** on any figure
-- [ ] Sales by Area stays behind a feature flag — *answered by `D-145`: left out of the MVP (no flag system; a flag that is off is the same as not built); debt row below*
-- [ ] ❌ Not in MVP: Outstanding Payments · Cheques Due
+- [x] Selected period → figures match the underlying data exactly *(2026-10-21 — each figure against its own source rows: `DashboardOverviewEndpointTest`, `DashboardMoneyEndpointTest` incl. a month equal to RPT-MN's `wonMoneySentBetween`, `DashboardSalesEndpointTest`, `DashboardBreakdownsEndpointTest`; J-09's rows against the records: `RefreshDashboard*Test`)*
+- [x] Two currencies → each shown separately, aggregation an optional toggle *(2026-10-21 — per-currency rows and the base-currency `combined`, unconverted counted: `DashboardMoneyEndpointTest`; the toggle: `DashboardView.spec` "combines into the base currency on request"; `D-149`)*
+- [x] CEO → **no drill-down** on any figure *(2026-10-21 — the CEO holds no `dashboard.drill_down` (§3.13): `DashboardMetaEndpointTest`; no figure is a link without it: `DashboardView.spec` "draws no link without drill-down"; drill-down opens the existing lists under their own scopes, so it never widens what a role can read)*
+- [x] Sales by Area stays behind a feature flag — *answered by `D-145`: left out of the MVP (no flag system; a flag that is off is the same as not built); debt row below*
+- [x] ❌ Not in MVP: Outstanding Payments · Cheques Due *(nothing built for them, `D-25`)*
 
 ### Point list — approved 2026-10-21 (mohanadmm, in chat; `D-143`)
 
@@ -5424,11 +5433,11 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 - [x] **5.2** Green: product and customer summaries, the endpoint, the ranked tables *(2026-10-21 — 5.1 red: 8 PHP + 2 vitest; 5.2 green: line projection via the supplier line's product; full suite 4351 passed)*
 
 **Slice 6 — drill-down**
-- [ ] **6.1** Red: each figure opens its list with the right filters and the list's own scope; CEO: no links, 403
-- [ ] **6.2** Green: Deals and Customers date-range filters (only Quotations has `from`/`to` today), the links
+- [x] **6.1** Red: each figure opens its list with the right filters and the list's own scope; CEO: no links, 403 *(2026-10-22 — 4932154: Deals `filter[created_from|created_to|progress]`, Customers `filter[created_from|created_to]`, 400 on a bad value; DealsView/CustomersView carry them; Overview tiles, funnel stages and workload rows link only with `drill_down`; red for the right reason)*
+- [x] **6.2** Green: Deals and Customers date-range filters (only Quotations has `from`/`to` today), the links *(2026-10-22 — creation day read in the company zone (`CompanyToday`, deptrac `AdminContract` for Deals and CustomersDriver); progress closed = `won` and later, or `lost`; one «من لوحة المتابعة» chip with «مسح» on each list; full PHP suite 4355 passed alone (31382); vitest 1553; pint, phpstan, deptrac ×2, vue-tsc green; browser not opened by the agent)*
 
 **Slice 7 — closing**
-- [ ] **7.1** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-14.md`
+- [ ] **7.1** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-14.md` *(2026-10-22 — criteria ticked with evidence, debt rows added, the manual test list given to the owner in Arabic; open: the owner's browser check, then the archive)*
 
 ---
 

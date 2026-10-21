@@ -164,9 +164,9 @@ onMounted(() => load());
                 <div v-if="EMPTY_TABS.includes(active)" :data-testid="`dashboard-empty-${active}`">
                     <EmptyState :title-key="`dashboard.tab.${active}`" :message-key="`dashboard.empty.${active}`" />
                 </div>
-                <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" :money="meta.money" @refreshed="lastUpdatedAt = $event" />
+                <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" :money="meta.money" :drill="meta.drill_down" @refreshed="lastUpdatedAt = $event" />
                 <FinancePanel v-else-if="active === 'finance'" :from="period.from" :to="period.to" />
-                <SalesPanel v-else-if="active === 'sales'" :from="period.from" :to="period.to" />
+                <SalesPanel v-else-if="active === 'sales'" :from="period.from" :to="period.to" :drill="meta.drill_down" />
                 <!-- Every tab with figures is listed above; this is only reached by a tab added without a panel. -->
                 <EmptyState v-else title-key="dashboard.pending.title" message-key="dashboard.pending.message" />
             </div>

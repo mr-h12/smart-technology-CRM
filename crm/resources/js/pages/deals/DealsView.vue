@@ -126,6 +126,11 @@ const arrivedPage = Number.parseInt(address.arrived('page'), 10);
 const page = ref(arrivedPage > 1 ? arrivedPage : 1);
 const search = ref(address.arrived('q'));
 const statusFilter = ref(address.arrived('status'));
+/** Module 14 · 6.1: a dashboard figure's own filters — carried, shown as one chip, cleared together. */
+const createdFrom = ref(address.arrived('created_from'));
+const createdTo = ref(address.arrived('created_to'));
+const progressFilter = ref(address.arrived('progress'));
+const fromDashboard = computed(() => createdFrom.value !== '' || createdTo.value !== '' || progressFilter.value !== '');
 const serviceTypeFilter = ref(address.arrived('type'));
 const sourceFilter = ref(address.arrived('source'));
 const approvalFilter = ref(address.arrived('approval'));
@@ -152,7 +157,7 @@ const total = computed(() => pagination.value?.total ?? 0);
 const sortParameter = computed(() => `${sortDescending.value ? '-' : ''}${sortField.value}`);
 /** A-19: how many filters are set, for the folded button's count. */
 const activeFilters = computed(
-    () => [search, statusFilter, serviceTypeFilter, sourceFilter, approvalFilter, ownerFilter].filter((filter) => filter.value !== '').length,
+    () => [search, statusFilter, serviceTypeFilter, sourceFilter, approvalFilter, ownerFilter, createdFrom, createdTo, progressFilter].filter((filter) => filter.value !== '').length,
 );
 const filtering = computed(() => activeFilters.value > 0);
 
@@ -163,6 +168,9 @@ address.keep(() => ({
     approval: approvalFilter.value,
     type: serviceTypeFilter.value,
     source: sourceFilter.value,
+    created_from: createdFrom.value,
+    created_to: createdTo.value,
+    progress: progressFilter.value,
     sort: sortParameter.value === DEFAULT_SORT ? '' : sortParameter.value,
     page: page.value > 1 ? page.value : '',
 }));
@@ -206,6 +214,9 @@ async function load(): Promise<void> {
             source: sourceFilter.value === '' ? null : sourceFilter.value,
             approvalStatus: approvalFilter.value === '' ? null : approvalFilter.value,
             owner: ownerFilter.value === '' ? null : ownerFilter.value,
+            createdFrom: createdFrom.value === '' ? null : createdFrom.value,
+            createdTo: createdTo.value === '' ? null : createdTo.value,
+            progress: progressFilter.value === 'open' || progressFilter.value === 'closed' ? progressFilter.value : null,
         });
 
         deals.value = result.items;
@@ -219,6 +230,14 @@ async function load(): Promise<void> {
     } finally {
         loading.value = false;
     }
+}
+
+/** Module 14 · 6.1: drops the dashboard's filters together, keeping the person's own. */
+async function clearDashboardFilters(): Promise<void> {
+    createdFrom.value = '';
+    createdTo.value = '';
+    progressFilter.value = '';
+    await applyFilters();
 }
 
 /** Any change to the question invalidates the page number. */
@@ -393,6 +412,13 @@ onMounted(async () => {
         >
             {{ t('deals.filter.toggle', { count: activeFilters }) }}
         </button>
+
+        <p v-if="fromDashboard" class="flex flex-wrap items-center gap-2 self-start rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="deals-dashboard-filter">
+            <span>{{ t('deals.filter.fromDashboard', { from: createdFrom || '…', to: createdTo || '…' }) }}<template v-if="progressFilter !== ''"> · {{ t(`deals.filter.progress.${progressFilter}`) }}</template></span>
+            <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="deals-dashboard-filter-clear" @click="clearDashboardFilters()">
+                {{ t('deals.filter.clearDashboard') }}
+            </button>
+        </p>
 
         <form
             v-if="showFilters"

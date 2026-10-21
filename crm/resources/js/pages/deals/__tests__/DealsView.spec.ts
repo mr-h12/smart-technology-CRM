@@ -881,6 +881,8 @@ describe('the deals screen after F-41 (F-42 · P6)', () => {
         expect(dealsUrl(fetchMock)).toContain('filter%5Bcreated_to%5D=2026-10-31');
         expect(dealsUrl(fetchMock)).toContain('filter%5Bprogress%5D=open');
         expect(wrapper.get('[data-testid="deals-dashboard-filter"]').text()).toContain('dashboard');
+        // The owner's browser check (2026-10-22): the days as every screen draws them, never raw ISO (scrambled in Arabic).
+        expect(wrapper.get('[data-testid="deals-dashboard-filter"]').text()).toContain('01/10/2026 – 31/10/2026');
 
         await wrapper.get('[data-testid="deals-dashboard-filter-clear"]').trigger('click');
         await flushPromises();

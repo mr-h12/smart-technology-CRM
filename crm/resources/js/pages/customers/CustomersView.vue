@@ -585,7 +585,7 @@ onMounted(async () => {
         <!-- §5.2's "server-side filters/sort/search". Every control below sends a
              declared parameter and nothing narrows anything in the browser. -->
         <p v-if="createdFrom !== '' || createdTo !== ''" class="flex flex-wrap items-center gap-2 self-start rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="customers-dashboard-filter">
-            <span>{{ t('customers.filter.fromDashboard', { from: createdFrom || '…', to: createdTo || '…' }) }}</span>
+            <span>{{ t('customers.filter.fromDashboard', { from: createdFrom === '' ? '…' : displayDate(createdFrom, locale), to: createdTo === '' ? '…' : displayDate(createdTo, locale) }) }}</span>
             <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="customers-dashboard-filter-clear" @click="createdFrom = ''; createdTo = ''; applyFilters()">
                 {{ t('customers.filter.clearDashboard') }}
             </button>

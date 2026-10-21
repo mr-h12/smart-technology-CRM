@@ -414,7 +414,7 @@ onMounted(async () => {
         </button>
 
         <p v-if="fromDashboard" class="flex flex-wrap items-center gap-2 self-start rounded-full bg-[var(--color-surface-muted)] px-3 py-1" data-testid="deals-dashboard-filter">
-            <span>{{ t('deals.filter.fromDashboard', { from: createdFrom || '…', to: createdTo || '…' }) }}<template v-if="progressFilter !== ''"> · {{ t(`deals.filter.progress.${progressFilter}`) }}</template></span>
+            <span>{{ t('deals.filter.fromDashboard', { from: createdFrom === '' ? '…' : displayDate(createdFrom, locale), to: createdTo === '' ? '…' : displayDate(createdTo, locale) }) }}<template v-if="progressFilter !== ''"> · {{ t(`deals.filter.progress.${progressFilter}`) }}</template></span>
             <button type="button" class="row-action min-h-11 rounded-lg px-3" data-testid="deals-dashboard-filter-clear" @click="clearDashboardFilters()">
                 {{ t('deals.filter.clearDashboard') }}
             </button>

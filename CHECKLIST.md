@@ -5414,6 +5414,7 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 - [x] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost) *(2026-10-21 — 3.1 red: 13 PHP + 3 vitest; 3.2 green: the version-grain projection, a month equals RPT-MN, full suite 4325 passed)*
 
 **Slice 4 — Sales tab I: pipeline figures**
+- [x] **4.0** `D-150`, proposed for the owner's approval at merge: per-employee figures follow `dashboard.drill_down` (the CEO has none); Won and Lost dates from `DEAL_STATUS_CHANGED` audit entries *(2026-10-21)*
 - [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload
 - [ ] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table
 

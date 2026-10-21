@@ -101,6 +101,7 @@ from fighting over the same eleven files.
 | **8 — Approvals** | Yousef | **finished** — 17 of 17 boxes, Steps 1–4 on #131–#141, closed 2026-09-16, archived in `checklist/module-08.md`. Reassigned to Yousef 2026-09-13 by owner direction (#94, the second developer's draft list, closed unmerged and superseded by #131). |
 | **9 — PDF Generation** | second developer | **finished** — 24 of 30 boxes (6 `[~]`; 5.2, Module 7's line, on #268), Steps 1–5 on #116–#268, closed 2026-09-29, archived in `checklist/module-09.md` |
 | **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
+| **14 — Dashboard** | mohanadmm | **in progress** — claimed 2026-10-21 under `D-143`, alongside Module 13's remaining work |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -5194,13 +5195,13 @@ Arabic manual test list handed over 2026-09-24 (#225).
 Still open (not boxes — owner items): `D-90` (with rules **a** and **b**) still reads "proposed" in
 the master; the Team Leader's writes (send, respond) are refused under `D-a`; §4.5 row 3 ("Expired with no reply ⇒
 No Response") and `J-02`'s missing catch-up stay in the debt register above; the post-QA fix pass
-(F-17…F-30, 2026-09-24) runs before Module 11 — paused under `D-125` (2026-10-15); Module 13 runs next.
+(F-17…F-30, 2026-09-24) runs before Module 11 — paused under `D-125` (2026-10-15); Module 13 runs next, and Module 14 beside it (`D-143`, 2026-10-21).
 
 ---
 
 ## Module 11 — Procurement
 
-**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 14 (`D-143`, 2026-10-21) unless the owner reorders.
 
 > As a procurement employee, I want to renegotiate with the supplier and calculate the final profit,
 > so that the company earns the best possible margin.
@@ -5217,7 +5218,7 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 ## Module 12 — Outdoor Visits 📱
 
-**Paused (`D-125`, 2026-10-15)** — resumes after Module 13 unless the owner reorders.
+**Paused (`D-125`, 2026-10-15)** — resumes after Module 14 (`D-143`, 2026-10-21) unless the owner reorders.
 
 > As an Outdoor employee, I want to record a visit outcome from my phone with minimal typing, so that
 > I can finish my day quickly.
@@ -5330,6 +5331,44 @@ lands in the slice that first needs it.
 - [ ] CEO → **no drill-down** on any figure
 - [ ] Sales by Area stays behind a feature flag
 - [ ] ❌ Not in MVP: Outstanding Payments · Cheques Due
+
+### Point list — approved 2026-10-21 (mohanadmm, in chat; `D-143`)
+
+Each slice runs database → API → screen and ends in something the owner can open; each is a red
+point (failing tests, failing for the right reason) then a green point with its evidence.
+
+**Step 0 — Decisions and bookkeeping (docs only)**
+- [x] **0.1** Order and ownership: `D-143` (Module 14 next, alongside Module 13; amends `D-125`'s order), this section's point list, the ownership row, the four agent guides *(2026-10-21, #406 — D-142 was taken by #405, so D-143)*
+- [ ] **0.2** The spec as decisions: the metric definitions, the role matrix, `dashboard.view` / `dashboard.drill_down`, freshness and the go-live data window, the empty Procurement and Outdoor tabs, the deferred widgets
+- [ ] **0.3** Where the code lives: a `Dashboard` module beside AP-02's twelve, its deptrac ruleset reading other modules' contracts only; J-09 on `maintenance`, as every J-job today
+- [ ] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5
+
+**Slice 1 — the dashboard opens per role, no figures yet**
+- [ ] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text
+- [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
+
+**Slice 2 — summary tables, J-09, the Overview counts**
+- [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, startup catch-up
+- [ ] **2.2** Green: contract readers, daily summary tables, J-09 and its schedule, the Overview endpoint and tiles, "Last updated" amber after 2 h
+
+**Slice 3 — money: revenue, profits, the Finance tab**
+- [ ] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
+- [ ] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost)
+
+**Slice 4 — Sales tab I: pipeline figures**
+- [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload
+- [ ] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table
+
+**Slice 5 — Sales tab II: rankings and breakdowns**
+- [ ] **5.1** Red: by employee (Manager money + count, TL count), by sector, best/worst products, top 20 customers, lost by reason; the CEO gets none of §12.4's hidden figures
+- [ ] **5.2** Green: product and customer summaries, the endpoint, the ranked tables
+
+**Slice 6 — drill-down**
+- [ ] **6.1** Red: each figure opens its list with the right filters and the list's own scope; CEO: no links, 403
+- [ ] **6.2** Green: Deals and Customers date-range filters (only Quotations has `from`/`to` today), the links
+
+**Slice 7 — closing**
+- [ ] **7.1** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-14.md`
 
 ---
 

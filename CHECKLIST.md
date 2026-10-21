@@ -1970,6 +1970,17 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **An English note in the Arabic report PDF prints its punctuation reversed** — *revealed by Module 13 · 8.2's real PDF render, 2026-10-20.* A note `1. September closed above plan.` prints as `.September closed above plan .1`: the notes list is RTL, and the Latin run has no isolate (UAX #9). The quotation PDF already isolates LTR runs (`$ltr`). Fix: wrap each note in `dir="auto"` or the `$ltr` isolate, with a render read as an image.
 - [ ] **`point-gates` names a CI step that does not exist** — *revealed by W.1's waste audit, 2026-10-20.* `.claude/skills/point-gates/SKILL.md` (gate 6's notes) says vitest runs in `php-image.yml` step "Type-check, test and build the frontend"; `grep -rn "Type-check, test and build" .github/workflows/` → nothing. Vitest and `npm run build` (= `vue-tsc --noEmit && vite build`) run in `frontend.yml` on `setup-node`, not on the node:22 image.
 - [ ] **`point-gates` reaches the node image two ways** — *revealed by W.1's waste audit, 2026-10-20.* Gate 5 runs `docker compose exec -T spa-build npx vue-tsc --noEmit`; gate 6 starts a fresh `docker run … node:22-bookworm-slim npx vitest run`. `spa-build` is the same image with `./crm` mounted, so gate 6 could be `docker compose exec -T spa-build npx vitest run` (the handoff already uses `spa-build npm run test:unit`).
+- [ ] **Sales by Area and Most-delayed supplier are not on the dashboard** — *the owner's ruling, 2026-10-21
+      (`D-145`).* §12.2 puts both behind a feature flag, and no flag system exists; a flag that is off is
+      the same as not built. Sales by Area waits for regions to become a managed list (R-03); Most-delayed
+      supplier waits for a recorded delivery date. **The cost, stated:** neither figure is shown anywhere.
+- [ ] **The dashboard's Procurement and Outdoor tabs are empty** — *the owner's ruling, 2026-10-21
+      (`D-143`, `D-145`).* §12.2's procurement and outdoor figures read Modules 11 and 12, which are
+      paused. Each tab shows an empty state naming its module, never zeros; Module 11 and Module 12 each
+      fill their own tab, and Module 12 adds the visits-based rejected-companies list.
+- [ ] **The dashboard's net profit equals its gross profit** — *the owner's ruling, 2026-10-21 (`D-144`).*
+      Net profit is §5.5's `final_profit`, and the saving it adds is recorded only by Module 11. Until
+      then the figure is labelled as equal to gross profit.
 
 ## Agent guide revisions — owner-directed
 
@@ -5329,7 +5340,7 @@ lands in the slice that first needs it.
 - [ ] Selected period → figures match the underlying data exactly
 - [ ] Two currencies → each shown separately, aggregation an optional toggle
 - [ ] CEO → **no drill-down** on any figure
-- [ ] Sales by Area stays behind a feature flag
+- [ ] Sales by Area stays behind a feature flag — *answered by `D-145`: left out of the MVP (no flag system; a flag that is off is the same as not built); debt row below*
 - [ ] ❌ Not in MVP: Outstanding Payments · Cheques Due
 
 ### Point list — approved 2026-10-21 (mohanadmm, in chat; `D-143`)

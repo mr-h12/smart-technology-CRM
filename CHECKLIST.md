@@ -5415,8 +5415,8 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 
 **Slice 4 — Sales tab I: pipeline figures**
 - [x] **4.0** `D-150`, proposed for the owner's approval at merge: per-employee figures follow `dashboard.drill_down` (the CEO has none); Won and Lost dates from `DEAL_STATUS_CHANGED` audit entries *(2026-10-21)*
-- [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload
-- [ ] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table
+- [x] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload
+- [x] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table *(2026-10-21 — 4.1 red: 8 PHP + 3 vitest; 4.2 green: outcomes from DEAL_STATUS_CHANGED, full suite 4335 passed)*
 
 **Slice 5 — Sales tab II: rankings and breakdowns**
 - [ ] **5.0** Lost reasons as a managed list (`D-147`), in Quotations (Module 10) and Deals (Module 5), with their owner told first: `lost_reasons` seeded; `quotations.rejection_reason_code` and `deals.lost_reason_code`, with the CHECK loosened for Rejected only (Counter's text still required, the note required on `other`); existing rows backfilled to `other`; the Rejected response form takes the code; `quotationRejected` carries it to the deal; red first, both migrations reversible

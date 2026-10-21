@@ -61,6 +61,8 @@ final readonly class RefreshDashboardAggregates
             )));
             $this->aggregates->replaceLiveCounts($this->quotations->liveApprovalCountsByOwner());
             $this->aggregates->replaceSentVersions($this->sentVersions($zone, $goLive));
+            $this->aggregates->replaceOutcomes($this->outcomes($zone, $goLive));
+            $this->aggregates->replaceWorkload($this->deals->openCountsByOwner());
             $this->aggregates->recordRefresh($full ? 'nightly' : 'hourly', $startedAt, CarbonImmutable::now());
         });
 
@@ -100,6 +102,39 @@ final readonly class RefreshDashboardAggregates
         }
 
         return $rows;
+    }
+
+    /**
+     * `D-150`: each deal's first move into `won` or `lost` (its `DEAL_STATUS_CHANGED`
+     * entries), by company day and current owner; for won, the days from creation.
+     *
+     * @return list<array{day: string, owner_id: ?string, outcome: string, deals: int, cycle_days: int}>
+     */
+    private function outcomes(string $zone, ?string $goLive): array
+    {
+        $moves = $this->audit->firstEntriesInto('DEAL_STATUS_CHANGED', 'deal', 'status', ['won', 'lost']);
+        $deals = $this->deals->creationAndOwnerOf(array_values(array_unique(array_column($moves, 'entity_id'))));
+
+        $grouped = [];
+        foreach ($moves as $move) {
+            $deal = $deals[$move['entity_id']] ?? null;
+            if ($deal === null) {
+                continue;
+            }
+            $day = CarbonImmutable::parse($move['at'])->setTimezone($zone)->startOfDay();
+            if ($goLive !== null && $day->toDateString() < $goLive) {
+                continue;
+            }
+            $cycle = $move['value'] === 'won'
+                ? max(0, (int) CarbonImmutable::parse($deal['created_at'])->setTimezone($zone)->startOfDay()->diffInDays($day))
+                : 0;
+            $key = $day->toDateString().'|'.($deal['owner_id'] ?? '').'|'.$move['value'];
+            $grouped[$key] ??= ['day' => $day->toDateString(), 'owner_id' => $deal['owner_id'], 'outcome' => $move['value'], 'deals' => 0, 'cycle_days' => 0];
+            $grouped[$key]['deals']++;
+            $grouped[$key]['cycle_days'] += $cycle;
+        }
+
+        return array_values($grouped);
     }
 
     /** @return list<string> */

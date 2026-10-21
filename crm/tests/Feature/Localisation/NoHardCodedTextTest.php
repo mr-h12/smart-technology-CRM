@@ -189,6 +189,8 @@ final class NoHardCodedTextTest extends TestCase
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.
+                // Module 14 · 4.2 — the Sales tab. Added after the scan passed on it.
+                'SalesPanel.vue',
                 'SearchCombobox.vue', 'SelfApprovedBadge.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run

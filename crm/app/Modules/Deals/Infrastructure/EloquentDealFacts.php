@@ -187,6 +187,37 @@ final readonly class EloquentDealFacts implements DealFactsInterface, DealTitles
         return $days;
     }
 
+    public function creationAndOwnerOf(array $dealIds): array
+    {
+        if ($dealIds === []) {
+            return [];
+        }
+
+        $facts = [];
+        /** @var object{id: string, created_at: string, owner_id: ?string} $row */
+        foreach ($this->live()->whereIn('id', $dealIds)->select('id', 'created_at', 'owner_id')->get() as $row) {
+            $facts[$row->id] = ['created_at' => $row->created_at, 'owner_id' => $row->owner_id];
+        }
+
+        return $facts;
+    }
+
+    public function openCountsByOwner(): array
+    {
+        // §4.4: `won` and every status after it, and `lost`, are past the sales decision.
+        $statuses = DealStatusTransition::statuses();
+        $closed = [...array_slice($statuses, (int) array_search('won', $statuses, true)), 'lost'];
+
+        $rows = [];
+        /** @var object{owner_id: string, open_deals: int} $row */
+        foreach ($this->live()->whereNotNull('owner_id')->whereNotIn('status', $closed)
+            ->groupBy('owner_id')->selectRaw('owner_id, count(*) AS open_deals')->orderBy('owner_id')->get() as $row) {
+            $rows[] = ['owner_id' => $row->owner_id, 'open_deals' => (int) $row->open_deals];
+        }
+
+        return $rows;
+    }
+
     private function live(): Builder
     {
         return $this->connection->table('deals')->whereNull('deleted_at');

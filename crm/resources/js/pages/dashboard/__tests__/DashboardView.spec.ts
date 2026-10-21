@@ -338,3 +338,69 @@ describe('money', () => {
         expect(combined).toContain('1');
     });
 });
+
+/**
+ * Module 14, slice 4 · 4.1 — the Sales tab I (`D-144`, `D-150`): the funnel,
+ * conversion and win/loss rates, the sales cycle, average deal size (money only)
+ * and workload (drill-down holders only).
+ */
+const SALES = {
+    funnel: [
+        { status: 'lead', deals: 1 }, { status: 'contacted', deals: 3 }, { status: 'waiting_customer_request', deals: 0 },
+        { status: 'supplier_rfq', deals: 0 }, { status: 'supplier_quotation', deals: 0 }, { status: 'quotation_sent', deals: 0 },
+        { status: 'negotiations', deals: 0 }, { status: 'won', deals: 1 }, { status: 'purchasing', deals: 1 },
+        { status: 'delivery', deals: 0 }, { status: 'delivery_complete', deals: 0 }, { status: 'lost', deals: 1 },
+    ],
+    conversion: { created: 7, reached_won: 2, rate_percent: '28.57' },
+    win_loss: { won: 3, lost: 1, win_rate_percent: '75.00' },
+    average_sales_cycle_days: '10.00',
+    average_deal_size: [{ currency: 'EGP', value: '800.000000' }],
+    workload: [{ owner_id: 'u1', name: 'Mona Member', open_deals: 4 }],
+};
+
+function salesApi(sales: unknown = SALES): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        const data = /\/dashboard\/sales\?/.test(url) ? sales : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
+        return json(200, { data, meta: { request_id: 'r' } });
+    });
+}
+
+async function openSales(fetchMock: ReturnType<typeof vi.fn>) {
+    const wrapper = await render(fetchMock);
+    await wrapper.get('[data-testid="dashboard-tab-sales"]').trigger('click');
+    await flushPromises();
+    return wrapper;
+}
+
+describe('the Sales tab', () => {
+    it('asks for the period and draws every funnel stage in order', async () => {
+        const fetchMock = salesApi();
+        const wrapper = await openSales(fetchMock);
+
+        expect(fetchMock.mock.calls.map(([u]) => String(u)).some((u) => /\/dashboard\/sales\?from=2026-10-01&to=2026-10-31$/.test(u))).toBe(true);
+        const stages = wrapper.findAll('[data-testid="dashboard-funnel-stage"]');
+        expect(stages).toHaveLength(12);
+        expect(stages[0]!.attributes('data-status')).toBe('lead');
+        expect(stages[11]!.attributes('data-status')).toBe('lost');
+    });
+
+    it('shows the rates, the cycle and the deal size', async () => {
+        const wrapper = await openSales(salesApi());
+
+        expect(wrapper.get('[data-testid="dashboard-conversion"]').text()).toContain('28.57');
+        expect(wrapper.get('[data-testid="dashboard-win-rate"]').text()).toContain('75.00');
+        expect(wrapper.get('[data-testid="dashboard-sales-cycle"]').text()).toContain('10.00');
+        expect(wrapper.get('[data-testid="dashboard-deal-size-EGP"]').text()).toContain('800.00');
+        expect(wrapper.get('[data-testid="dashboard-workload"]').text()).toContain('Mona Member');
+    });
+
+    it('leaves out what the answer leaves out, and says "—" for a rate with nothing to divide', async () => {
+        const { average_deal_size: _size, workload: _load, ...counts } = SALES;
+        const wrapper = await openSales(salesApi({ ...counts, conversion: { created: 0, reached_won: 0, rate_percent: null } }));
+
+        expect(wrapper.find('[data-testid^="dashboard-deal-size-"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="dashboard-workload"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="dashboard-conversion"]').text()).toContain('—');
+    });
+});

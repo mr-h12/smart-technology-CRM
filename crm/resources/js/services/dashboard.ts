@@ -52,3 +52,17 @@ export interface DashboardMoney {
 export async function readDashboardMoney(period: { from: string; to: string }): Promise<DashboardMoney> {
     return (await apiGet<DashboardMoney>(`/dashboard/money?from=${period.from}&to=${period.to}`)).data;
 }
+
+/** `GET /dashboard/sales` (`D-144`, `D-150`): `average_deal_size` only with money, `workload` only with drill-down. */
+export interface DashboardSales {
+    funnel: { status: string; deals: number }[];
+    conversion: { created: number; reached_won: number; rate_percent: string | null };
+    win_loss: { won: number; lost: number; win_rate_percent: string | null };
+    average_sales_cycle_days: string | null;
+    average_deal_size?: { currency: string; value: string }[];
+    workload?: { owner_id: string; name: string; open_deals: number }[];
+}
+
+export async function readDashboardSales(period: { from: string; to: string }): Promise<DashboardSales> {
+    return (await apiGet<DashboardSales>(`/dashboard/sales?from=${period.from}&to=${period.to}`)).data;
+}

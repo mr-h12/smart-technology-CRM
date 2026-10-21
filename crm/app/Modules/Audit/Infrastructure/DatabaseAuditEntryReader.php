@@ -192,4 +192,29 @@ final readonly class DatabaseAuditEntryReader implements AuditEntryReaderInterfa
 
         return $days;
     }
+
+    public function firstEntriesInto(string $event, string $entityType, string $field, array $values): array
+    {
+        if ($values === []) {
+            return [];
+        }
+
+        // One literal for the key in every clause: DISTINCT ON must match ORDER BY
+        // expression for expression, and two bound parameters are two expressions.
+        // The keys a caller may ask for are listed, so no input reaches the SQL.
+        $key = match ($field) {
+            'status' => "new_values ->> 'status'",
+            default => throw new \InvalidArgumentException("firstEntriesInto reads new_values->{$field}, which is not a listed key."),
+        };
+
+        /** @var list<object{entity_id: string, value: string, at: string}> $rows */
+        $rows = $this->connection->table(self::TABLE)
+            ->where('event', $event)->where('entity_type', $entityType)
+            ->whereIn($this->connection->raw($key), $values)
+            ->selectRaw("DISTINCT ON (entity_id, {$key}) entity_id, {$key} AS value, created_at AS at")
+            ->orderBy('entity_id')->orderByRaw($key)->orderBy('created_at')
+            ->get()->all();
+
+        return array_map(static fn (object $row): array => ['entity_id' => $row->entity_id, 'value' => $row->value, 'at' => $row->at], $rows);
+    }
 }

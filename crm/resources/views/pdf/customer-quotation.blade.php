@@ -193,9 +193,9 @@
     @if ($taxed)
         <tr id="tax-row"><td class="h">{{ $t('totals.tax') }}</td><td>{{ $money($view->taxAmount) }}</td></tr>
     @endif
-    {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. --}}
+    {{-- D-99: keyed on the printed figure — the stored `0.000000` of D-65's "rounding off" is no row. U-6: the one figure that can be negative is isolated, so «-0.40» keeps its minus in Arabic. --}}
     @if ($money($view->roundingDiff) !== '0.00')
-        <tr id="rounding-row"><td class="h">{{ $t('totals.rounding') }}</td><td>{{ $money($view->roundingDiff) }}</td></tr>
+        <tr id="rounding-row"><td class="h">{{ $t('totals.rounding') }}</td><td>{{ $ltr($money($view->roundingDiff)) }}</td></tr>
     @endif
     <tr class="final"><td class="h">{{ $t('totals.final') }}</td><td>{{ $money($view->finalTotal) }} {{ $view->currencyCode }}</td></tr>
 </table>

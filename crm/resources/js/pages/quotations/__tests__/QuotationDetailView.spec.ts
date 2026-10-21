@@ -292,6 +292,50 @@ describe('the quotation detail view', () => {
         expect(wrapper.find('[data-testid="quotation-total-final_total"]').exists()).toBe(true);
     });
 
+    it('keeps a negative rounding’s minus before its digits, amount and currency in one left-to-right run (U-6, A-26)', async () => {
+        // U-6: bare in an RTL page the minus is a bidi neutral, so Arabic read «EGP 0.40-».
+        const { wrapper } = await render(respond({ quotation: { ...QUOTATION, rounding_diff: '-0.400000' } }), USER, 'ar');
+        const run = wrapper.get('[data-testid="quotation-total-rounding_diff"] bdi');
+
+        expect(run.attributes('dir')).toBe('ltr');
+        expect(run.text()).toBe('-0.40 EGP');
+    });
+
+    it('draws every total and the header total as one left-to-right run, so Arabic does not put the code first (A-26)', async () => {
+        // The pattern the quotations list pins (QuotationsView.spec.ts, A-26).
+        const { wrapper } = await render(respond(), USER, 'ar');
+
+        for (const [testid, text] of [
+            ['quotation-total-subtotal', '1,000.00 EGP'],
+            ['quotation-total-discount_amount', '100.00 EGP'],
+            ['quotation-total-tax_base', '900.00 EGP'],
+            ['quotation-total-tax_amount', '126.00 EGP'],
+            ['quotation-total-additional_total', '100.00 EGP'],
+            ['quotation-total-rounding_diff', '24.00 EGP'],
+            ['quotation-total-final_total', '1,150.00 EGP'],
+            ['quotation-detail-header-total', '1,150.00 EGP'],
+        ]) {
+            const run = wrapper.find(`[data-testid="${testid}"] bdi`);
+
+            expect(run.exists(), testid).toBe(true);
+            expect(run.attributes('dir'), testid).toBe('ltr');
+            expect(run.text(), testid).toBe(text);
+        }
+    });
+
+    it('labels a rounding unit below 0.01 with the places it needs, never 0.00 (U-7)', async () => {
+        // Two places, more only when needed (owner, 2026-10-21); 1.000000 → 1.00 is pinned above.
+        for (const [unit, label] of [
+            ['0.010000', 'Rounding (to 0.01)'],
+            ['0.001000', 'Rounding (to 0.001)'],
+            ['0.005000', 'Rounding (to 0.005)'],
+        ]) {
+            const { wrapper } = await render(respond({ quotation: { ...QUOTATION, rounding_unit: unit } }));
+
+            expect(wrapper.find('[data-testid="quotation-detail-totals"]').text(), unit).toContain(label);
+        }
+    });
+
     it('shows the cost columns only when the body carries them', async () => {
         const bare = await render(respond());
         expect(bare.wrapper.find('[data-testid="quotation-line-unit_cost"]').exists()).toBe(false);

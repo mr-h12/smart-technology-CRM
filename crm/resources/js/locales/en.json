@@ -102,7 +102,8 @@
             "approvals": "Approvals",
             "purchaseOrders": "Purchase Orders",
             "reports": "Reports",
-            "receivedReports": "Received reports"
+            "receivedReports": "Received reports",
+            "dashboard": "Dashboard"
         }
     },
     "theme": {
@@ -1615,5 +1616,35 @@
             "failed": "Could not save. Your text is still here; try again."
         },
         "submit_title": "Submit the report"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "loading": "Loading the dashboard…",
+        "last_updated_never": "Not refreshed yet",
+        "tabs_label": "Dashboard sections",
+        "tab": {
+            "overview": "Overview",
+            "sales": "Sales",
+            "finance": "Finance",
+            "procurement": "Procurement",
+            "outdoor": "Outdoor"
+        },
+        "period": {
+            "label": "Period",
+            "week": "Week",
+            "month": "Month",
+            "year": "Year",
+            "custom": "Custom",
+            "from": "From",
+            "to": "To"
+        },
+        "empty": {
+            "procurement": "Available once Procurement is live.",
+            "outdoor": "Available once Visits is live."
+        },
+        "pending": {
+            "title": "No figures yet",
+            "message": "The figures for this section are being built."
+        }
     }
 }

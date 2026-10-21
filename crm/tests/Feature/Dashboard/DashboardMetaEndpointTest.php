@@ -41,6 +41,8 @@ final class DashboardMetaEndpointTest extends TestCase
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
+        // The company's day comes from the server (`CompanyToday`), never the browser.
+        $this->travelTo(now()->setDate(2026, 10, 21)->setTime(9, 0));
     }
 
     public function test_that_an_anonymous_caller_is_refused(): void
@@ -72,6 +74,7 @@ final class DashboardMetaEndpointTest extends TestCase
                 'tabs' => ['overview', 'sales', 'finance', 'procurement', 'outdoor'],
                 'drill_down' => true,
                 'money' => true,
+                'today' => '2026-10-21',
                 'last_updated_at' => null,
             ]);
     }
@@ -85,6 +88,7 @@ final class DashboardMetaEndpointTest extends TestCase
                 'tabs' => ['overview', 'sales', 'outdoor'],
                 'drill_down' => true,
                 'money' => false,
+                'today' => '2026-10-21',
                 'last_updated_at' => null,
             ]);
     }
@@ -98,6 +102,7 @@ final class DashboardMetaEndpointTest extends TestCase
                 'tabs' => ['overview', 'sales', 'finance', 'outdoor'],
                 'drill_down' => false,
                 'money' => true,
+                'today' => '2026-10-21',
                 'last_updated_at' => null,
             ]);
     }

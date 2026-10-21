@@ -119,6 +119,9 @@ final class NoHardCodedTextTest extends TestCase
                 // passed. Its two vocabularies are rendered through
                 // `deals.source.*` and `deals.serviceType.*` keys, so the bare
                 // strings in the template are stored codes, never a sentence.
+                // Module 14 · 1.2 — the dashboard (`D-145`). Added on the same
+                // terms: the scan below was run against it first.
+                'DashboardView.vue',
                 // Module 5 Point 6.4 — Flow 3's decision. Added on the same
                 // terms: the scan below was run against it first and passed.
                 // The badges carry an icon character beside a dictionary key;

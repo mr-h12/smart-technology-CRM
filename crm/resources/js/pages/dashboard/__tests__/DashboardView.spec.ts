@@ -42,7 +42,7 @@ const USER: AuthenticatedUser = {
 
 const MANAGER_META = {
     scope: 'all', tabs: ['overview', 'sales', 'finance', 'procurement', 'outdoor'],
-    drill_down: true, money: true, last_updated_at: null,
+    drill_down: true, money: true, today: '2026-10-21', last_updated_at: null,
 };
 
 function meta(data: unknown = MANAGER_META): ReturnType<typeof vi.fn> {

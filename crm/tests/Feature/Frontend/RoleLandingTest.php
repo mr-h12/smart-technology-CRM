@@ -93,11 +93,12 @@ final class RoleLandingTest extends TestCase
      *
      * One entry per registered landing route, added by the point that registers
      * it. `customers` — §8's first screen for Indoor Sales — arrived with
-     * Module 3 Point 4.0.
+     * Module 3 Point 4.0; `dashboard` — the CEO's, Manager's and Team Leader's —
+     * with Module 14 · 1.2 (`guards.spec.ts` lands the CEO there).
      *
      * @var list<string>
      */
-    private const BUILT = ['customers'];
+    private const BUILT = ['customers', 'dashboard'];
 
     /**
      * The landing targets a module has **not** built yet, which must still fall back.
@@ -106,9 +107,10 @@ final class RoleLandingTest extends TestCase
      * the assertion below told whoever registered it to do — and the other half
      * of that instruction was carried out too: `guards.spec.ts` now asserts that
      * an Indoor Sales caller redirected off `/login` lands on `customers`, and
-     * that a Manager still lands on the fallback.
+     * that Outdoor Sales still lands on the fallback (a Manager did until
+     * Module 14 · 1.2 built `dashboard`).
      *
-     * Everything else remains unbuilt: Dashboard is Module 14, Deals Module 5,
+     * Everything else remains unbuilt: Deals Module 5,
      * Visits Module 12, §13's administration later still. `landingRouteFor`
      * falls back rather than redirecting into a blank screen — `navigation.ts`
      * calls that defect by its name: "a dead link is not a permission problem,

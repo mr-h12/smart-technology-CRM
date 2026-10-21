@@ -137,12 +137,13 @@ describe('an authenticated visitor', () => {
 
     /** The fallback still has to work, and every other role's §8 screen is still unbuilt. */
     it('still lands on the fallback for a role whose §8 screen does not exist yet', async () => {
-        // §8 opens the Manager with *Dashboard*, which is Module 14.
+        // §8 opens Outdoor Sales with *Today's Visits*, which is Module 12.
+        // (It named the Manager's *Dashboard* until Module 14 · 1.2 built it.)
         const router = await freshRouter({
             ...PROFILE,
-            name: 'Test Manager',
-            email: 'manager@example.test',
-            role: { id: '01a0-manager', slug: 'manager', name: 'Manager' },
+            name: 'Test Outdoor Sales',
+            email: 'outdoor.sales@example.test',
+            role: { id: '01a0-outdoor-sales', slug: 'outdoor_sales', name: 'Outdoor Sales' },
         });
 
         await router.push('/login');

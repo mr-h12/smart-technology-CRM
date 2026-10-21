@@ -142,6 +142,13 @@ deptrac:
       collectors:
         - type: directory
           value: app/Modules/Outdoor/.*
+    # Module 14, `D-146`: beside AP-02's twelve, as Storage and Pdf are. It owns
+    # its summary tables, J-09 and `/api/v1/dashboard`, and reads every other
+    # module through that module's contract layer only.
+    - name: Dashboard
+      collectors:
+        - type: directory
+          value: app/Modules/Dashboard/.*
     # `D-133`: `CustomerFollowUpsInterface` lives in `ReportsContract` alone, on
     # `Deals`' terms above, so Customers is allowed the contract, not the module.
     - name: Reports
@@ -872,6 +879,16 @@ deptrac:
       # ReportsContract (`D-133`): its own published interface back —
       # `DatabaseReportDirectory` implements it, as Deals does `DealsContract`.
       - ReportsContract
+    # Module 14, `D-146` — each contract added in the point that first reads it.
+    Dashboard:
+      - Framework
+      # SharedContracts: the envelope.
+      - SharedContracts
+      # IdentityContract, 1.2: `AuthorizeAction::decide` on `dashboard.view`,
+      # `dashboard.drill_down` and `quotation.view_cost_and_margin` (`D-145`).
+      - IdentityContract
+      # AdminContract, 1.2: `CompanyToday`, the company's day the period is drawn from.
+      - AdminContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.

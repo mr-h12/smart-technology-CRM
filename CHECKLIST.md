@@ -173,6 +173,11 @@ every "are we ready to ship" conversation — not at the end.
       `ST-05` missed-job catch-up, `ST-07` transactional integrity, `ST-08` `/health` per service
 - [ ] **Missed-job catch-up on startup** (`D-55`, `ST-05`)
 - [ ] **Restart recovery** (`D-54`) — power down, power up, everything returns on its own
+- [ ] **The dashboard's permissions reach the server's database** — *Module 14 · 1.2, 2026-10-21 (`D-145`).*
+      `dashboard.view` and `dashboard.drill_down` live in `PermissionMatrix`, as `catalog.import` did
+      (F-09 · 1.4), and reach a database only through `php artisan db:seed --class=RolePermissionSeeder`
+      (safe to repeat); `php artisan rbac:verify` must then say the grants match §3. Until that runs on
+      the server, the CEO, Manager and Team Leader get 403 on `/dashboard`.
 - [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
 - [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
 - [ ] **ClamAV daemon** (`SEC-15`, `§17`) — added 2026-08-22 with Point 5.5. The application

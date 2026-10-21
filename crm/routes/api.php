@@ -10,6 +10,7 @@ use App\Modules\Admin\Presentation\SettingsController;
 use App\Modules\Admin\Presentation\SystemLimitController;
 use App\Modules\Catalog\Presentation\CatalogItemController;
 use App\Modules\Customers\Presentation\CustomerController;
+use App\Modules\Dashboard\Presentation\DashboardController;
 use App\Modules\Deals\Presentation\DealController;
 use App\Modules\Identity\Presentation\ChangePasswordController;
 use App\Modules\Identity\Presentation\ImpersonateController;
@@ -864,6 +865,12 @@ Route::middleware(['auth', 'permission:quotation.create'])
 // without `quotation.approve` is answered `approvals: 0`, not `403`. Not in
 // `OpenAPI §7`: flagged on the point list (#131) as a new requirement.
 Route::middleware('auth')->get('badges', [QuotationController::class, 'badges']);
+
+// Module 14 (`D-145`, `D-146`) — the dashboard. `dashboard.view` at any scope
+// opens it; which tabs and figures follow is `DashboardMeta`'s answer.
+Route::middleware(['auth', 'permission:dashboard.view'])->prefix('dashboard')->group(function (): void {
+    Route::get('/meta', [DashboardController::class, 'meta']);
+});
 
 // Module 9 · 4.2 — the job status `OpenAPI §4.3` leaves to "the module
 // contract": one quotation's newest PDF generation and newest completed file,

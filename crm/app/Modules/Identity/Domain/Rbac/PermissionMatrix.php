@@ -527,6 +527,21 @@ final class PermissionMatrix
                 Role::IndoorSales->value => Grant::scoped(Scope::All),
                 Role::Procurement->value => Grant::scoped(Scope::All),
             ], '§3.11'),
+
+            /**
+             * Dashboard — `D-145`. The view row first, so a ✅ under `drill down`
+             * resolves to the role's dashboard scope: All for the Manager, Team
+             * for the Team Leader. The CEO views at All and never drills down.
+             */
+            new Permission('dashboard', 'view', [
+                Role::Manager->value => Grant::scoped(Scope::All),
+                Role::TeamLeader->value => Grant::scoped(Scope::Team),
+                Role::Ceo->value => Grant::scoped(Scope::All),
+            ], '§3.13'),
+            new Permission('dashboard', 'drill_down', [
+                Role::Manager->value => Grant::checkmark(Scope::All),
+                Role::TeamLeader->value => Grant::checkmark(Scope::Team),
+            ], '§3.13'),
         ];
     }
 }

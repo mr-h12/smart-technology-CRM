@@ -65,8 +65,8 @@ final class IdentitySeederAndModelsTest extends TestCase
         // The literals, second. If the matrix changes these fail together and
         // the disagreement is visible rather than absorbed.
         self::assertSame(8, Role::count());
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
-        self::assertSame(218, DB::table('role_permissions')->count());
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-145 adds four (→ 142)
+        self::assertSame(223, DB::table('role_permissions')->count()); // D-145: +5 dashboard grants
     }
 
     /**
@@ -121,8 +121,8 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         // A seeder that did nothing would pass every comparison below, so the
         // rows are asserted present before anything is compared.
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
-        self::assertSame(218, DB::table('role_permissions')->count());
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-145 adds four (→ 142)
+        self::assertSame(223, DB::table('role_permissions')->count()); // D-145: +5 dashboard grants
 
         $before = self::snapshot();
 
@@ -239,7 +239,7 @@ final class IdentitySeederAndModelsTest extends TestCase
 
         $this->seedMatrix();
 
-        self::assertSame(138, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138)
+        self::assertSame(142, Permission::count()); // D-91 retired seven `team`/`asgn` triples (145 → 138); D-145 adds four (→ 142)
     }
 
     public function test_that_a_missing_password_stops_the_seeder(): void
@@ -305,7 +305,7 @@ final class IdentitySeederAndModelsTest extends TestCase
             $throughRelations += $role->permissions->count();
         }
 
-        self::assertSame(218, $throughRelations,
+        self::assertSame(223, $throughRelations,
             'Walking the relation finds a different number of grants than the table holds.');
     }
 

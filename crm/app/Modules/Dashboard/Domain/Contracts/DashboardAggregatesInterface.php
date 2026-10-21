@@ -36,4 +36,18 @@ interface DashboardAggregatesInterface
     public function replaceLiveCounts(array $rows): void;
 
     public function recordRefresh(string $kind, \DateTimeImmutable $startedAt, \DateTimeImmutable $finishedAt): void;
+
+    /** The newest run's `finished_at` as stored — "Last updated" (`D-145`). Null before the first. */
+    public function lastFinishedAt(): ?string;
+
+    /**
+     * The Overview's sums (`D-144`) over the days `[$from, $to]` (`Y-m-d`, both
+     * included); the "now" counts whatever the days. `$ownerIds` keeps only the
+     * rows owned (or self-approved) by those users; null keeps every row, unowned
+     * ones included.
+     *
+     * @param  list<string>|null  $ownerIds
+     * @return array{customers: int, deals_by_status: array<string, int>, self_approvals: int, pending_approvals: int, returned: int}
+     */
+    public function overviewBetween(string $from, string $to, ?array $ownerIds): array;
 }

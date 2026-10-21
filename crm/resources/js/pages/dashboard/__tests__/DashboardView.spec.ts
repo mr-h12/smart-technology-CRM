@@ -45,8 +45,14 @@ const MANAGER_META = {
     drill_down: true, money: true, today: '2026-10-21', last_updated_at: null,
 };
 
+/** Answers the meta with `data`; since 2.2b the Overview also asks for its figures, answered with zeros. */
 function meta(data: unknown = MANAGER_META): ReturnType<typeof vi.fn> {
-    return vi.fn(async () => json(200, { data, meta: { request_id: 'r' } }));
+    return vi.fn(async (input: string) => json(200, {
+        data: /\/dashboard\/overview\?/.test(String(input))
+            ? { customers: 0, deals: { total: 0, open: 0, closed: 0 }, self_approvals: 0, now: { pending_approvals: 0, returned: 0 }, last_updated_at: null }
+            : data,
+        meta: { request_id: 'r' },
+    }));
 }
 
 async function render(fetchMock: ReturnType<typeof vi.fn>, locale = 'en') {
@@ -235,7 +241,11 @@ describe('the Overview tab', () => {
         expect(fresh.get('[data-testid="dashboard-last-updated"]').attributes('data-stale')).toBe('false');
         fresh.unmount();
 
-        const stale = await render(api({ meta: { ...MANAGER_META, last_updated_at: '2026-10-21T06:30:00+00:00' } }));
+        // The Overview's answer carries the newest run too, so both say 06:30 (09:00 now).
+        const stale = await render(api({
+            meta: { ...MANAGER_META, last_updated_at: '2026-10-21T06:30:00+00:00' },
+            overview: { ...OVERVIEW, last_updated_at: '2026-10-21T06:30:00+00:00' },
+        }));
         expect(stale.get('[data-testid="dashboard-last-updated"]').attributes('data-stale')).toBe('true');
     });
 

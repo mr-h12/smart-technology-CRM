@@ -5419,7 +5419,7 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 - [x] **4.2** Green: the endpoint and the Sales section, the SVG funnel, the rate tiles, the workload table *(2026-10-21 — 4.1 red: 8 PHP + 3 vitest; 4.2 green: outcomes from DEAL_STATUS_CHANGED, full suite 4335 passed)*
 
 **Slice 5 — Sales tab II: rankings and breakdowns**
-- [ ] **5.0** Lost reasons as a managed list (`D-147`), in Quotations (Module 10) and Deals (Module 5), with their owner told first: `lost_reasons` seeded; `quotations.rejection_reason_code` and `deals.lost_reason_code`, with the CHECK loosened for Rejected only (Counter's text still required, the note required on `other`); existing rows backfilled to `other`; the Rejected response form takes the code; `quotationRejected` carries it to the deal; red first, both migrations reversible
+- [x] **5.0** Lost reasons as a managed list (`D-147`), in Quotations (Module 10) and Deals (Module 5), with their owner told first: `lost_reasons` seeded; `quotations.rejection_reason_code` and `deals.lost_reason_code`, with the CHECK loosened for Rejected only (Counter's text still required, the note required on `other`); existing rows backfilled to `other`; the Rejected response form takes the code; `quotationRejected` carries it to the deal; red first, both migrations reversible *(2026-10-21 — in Quotations and Deals; the DB accepts a code or a text so history stays valid, the API requires the code)*
 - [ ] **5.1** Red: by employee (Manager money + count, TL count), by sector, best/worst products, top 20 customers, lost by reason; the CEO gets none of §12.4's hidden figures
 - [ ] **5.2** Green: product and customer summaries, the endpoint, the ranked tables
 

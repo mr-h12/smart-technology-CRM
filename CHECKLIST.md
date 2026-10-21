@@ -5401,7 +5401,7 @@ Self-approvals are dated by their `SELF_APPROVAL` audit entries (no `approved_at
 Quotations); J-09 reads Deals, Customers and Quotations through new read-only contract methods, named in the PR.*
 - [x] **2.1a** Red: J-09 — deals by creation day, current owner and current status; customers by creation day and current sales owner; self-approvals by `SELF_APPROVAL` day and approver; pending and returned quotations "now" by owner; the go-live window; idempotent; hourly rebuilds touched days only; nightly full rebuild repairs; scheduled hourly and nightly on `maintenance`, no catch-up entry (§15 "❌ recomputes", `D-146`) *(2026-10-21, #412 — 10 red for the right reason, the catch-up guard green by construction)*
 - [x] **2.1b** Green: the summary tables and `dashboard_refreshes`, the contract readers, J-09 and its schedule *(2026-10-21, #412 — read-only methods added to Deals, Customers, Quotations and Audit contracts; full suite 4295 passed; migration up/down/up clean)*
-- [ ] **2.2a** Red: `GET /dashboard/overview` — each count equals a direct query of its definition for the period; Team scope (`D-138`); the "now" figures; `last_updated_at` from the last refresh; the tiles; "Last updated" amber after 2 h
+- [x] **2.2a** Red: `GET /dashboard/overview` — each count equals a direct query of its definition for the period; Team scope (`D-138`); the "now" figures; `last_updated_at` from the last refresh; the tiles; "Last updated" amber after 2 h *(2026-10-21, #412 — 13 PHP + 6 vitest red for the right reason)*
 - [ ] **2.2b** Green: the Overview endpoint and tiles
 
 **Slice 3 — money: revenue, profits, the Finance tab**

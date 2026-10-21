@@ -258,6 +258,64 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame('Too expensive', $new['rejection_reason'] ?? null);
     }
 
+    /** `D-147`: a rejection names its reason from `lost_reasons`; the note is optional, and the lost deal carries the code. */
+    public function test_a_rejection_records_its_reason_code_on_the_quotation_and_the_lost_deal(): void
+    {
+        $deal = $this->deal(null);
+        [$id, $etag] = $this->sent($deal);
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'price_too_high'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'rejected')
+            ->assertJsonPath('data.rejection_reason_code', 'price_too_high')
+            ->assertJsonPath('data.deal_lost', true);
+
+        self::assertSame(['price_too_high', null], array_values((array) DB::table('quotations')->where('id', $id)->first(['rejection_reason_code', 'rejection_reason'])));
+        self::assertSame(['price_too_high', null], array_values((array) DB::table('deals')->where('id', $deal)->first(['lost_reason_code', 'lost_reason'])));
+        [, $new] = $this->audited('QUOTATION_REJECTED', $id);
+        self::assertSame('price_too_high', $new['rejection_reason_code'] ?? null);
+    }
+
+    /** @return array<string, array{array<string, string>, string, string}> */
+    public static function rejectionsWithoutAUsableCode(): array
+    {
+        return [
+            'no code, a note' => [['response' => 'rejected', 'reason' => 'Too dear'], 'reason_code', 'rejection_reason_code_required'],
+            'an unknown code' => [['response' => 'rejected', 'reason_code' => 'too_cold'], 'reason_code', 'rejection_reason_code_required'],
+            '"other" without a note' => [['response' => 'rejected', 'reason_code' => 'other'], 'reason', 'rejection_reason_required'],
+            '"other" with a blank note' => [['response' => 'rejected', 'reason_code' => 'other', 'reason' => '   '], 'reason', 'rejection_reason_required'],
+        ];
+    }
+
+    /**
+     * `D-147`: a rejection is refused, and writes nothing, without a live `lost_reasons` code — and "other" needs its note.
+     *
+     * @param  array<string, string>  $body
+     */
+    #[DataProvider('rejectionsWithoutAUsableCode')]
+    public function test_a_rejection_without_a_usable_reason_code_is_refused(array $body, string $field, string $code): void
+    {
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, $body)
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', $field)
+            ->assertJsonPath('error.details.0.code', $code);
+
+        $this->assertNothingWritten($id);
+    }
+
+    public function test_a_reason_code_on_any_other_response_is_refused(): void
+    {
+        [$id, $etag] = $this->sent($this->deal(null));
+
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'counter', 'reason' => 'Lower please', 'reason_code' => 'price_too_high'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.details.0.field', 'reason_code');
+
+        $this->assertNothingWritten($id);
+    }
+
     /** The point's proof (Q12): two live quotations on one deal — the first rejection leaves it, the second makes it `lost`. */
     public function test_the_deal_is_lost_only_when_its_last_live_quotation_is_rejected(): void
     {

@@ -564,6 +564,11 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 throw new LogicException('The mapper reads one quotation.');
             }
+
+            public function sentVersions(): array
+            {
+                throw new LogicException('The mapper reads one quotation.');
+            }
         };
     }
 

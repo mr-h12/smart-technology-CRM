@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Dashboard\Application;
 
 use App\Modules\Admin\Application\Settings\CompanyToday;
+use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
+use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
+use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Audit\Domain\Contracts\AuditEntryReaderInterface;
 use App\Modules\Customers\Domain\Contracts\NewCustomersInterface;
 use App\Modules\Dashboard\Domain\Contracts\DashboardAggregatesInterface;
@@ -35,6 +38,8 @@ final readonly class RefreshDashboardAggregates
         private DashboardAggregatesInterface $aggregates,
         private CompanyToday $today,
         private ConnectionInterface $connection,
+        private CurrencyRepositoryInterface $currencies,
+        private FxRateRepositoryInterface $rates,
     ) {}
 
     /** @return int|null how many days were rebuilt; null when every day was */
@@ -47,7 +52,7 @@ final readonly class RefreshDashboardAggregates
         $goLive = $this->today->goLiveDate();
         $live = static fn (array $row): bool => $goLive === null || $row['day'] >= $goLive;
 
-        $this->connection->transaction(function () use ($days, $zone, $live, $full, $startedAt): void {
+        $this->connection->transaction(function () use ($days, $zone, $live, $full, $startedAt, $goLive): void {
             $this->aggregates->replaceDeals($days, array_values(array_filter($this->deals->createdCountsByDay($zone, $days), $live)));
             $this->aggregates->replaceCustomers($days, array_values(array_filter($this->customers->createdCountsByDay($zone, $days), $live)));
             $this->aggregates->replaceSelfApprovals($days, array_values(array_map(
@@ -55,10 +60,46 @@ final readonly class RefreshDashboardAggregates
                 array_filter($this->audit->countsByDay(self::SELF_APPROVAL, $zone, $days), $live),
             )));
             $this->aggregates->replaceLiveCounts($this->quotations->liveApprovalCountsByOwner());
+            $this->aggregates->replaceSentVersions($this->sentVersions($zone, $goLive));
             $this->aggregates->recordRefresh($full ? 'nightly' : 'hourly', $startedAt, CarbonImmutable::now());
         });
 
         return $days === null ? null : count($days);
+    }
+
+    /**
+     * The money projection, whole (`D-141`, `D-149`): each sent version's company day,
+     * its deal's owner now, and its amounts in the base currency at the rate in force
+     * when the version was created — null when that pair had no rate then.
+     *
+     * @return list<array{quotation_id: string, chain_id: string, version: int, sent_day: string, owner_id: ?string, currency: string, status: string, net_amount: string, additional_total: string, cost: string, base_net_amount: ?string, base_additional_total: ?string, base_cost: ?string}>
+     */
+    private function sentVersions(string $zone, ?string $goLive): array
+    {
+        $versions = $this->quotations->sentVersions();
+        $owners = $this->deals->ownersOf(array_values(array_unique(array_column($versions, 'deal_id'))));
+        $base = $this->currencies->base()?->code();
+
+        $rows = [];
+        foreach ($versions as $v) {
+            $sentDay = CarbonImmutable::parse($v['sent_at'])->setTimezone($zone)->toDateString();
+            if ($goLive !== null && $sentDay < $goLive) {
+                continue;
+            }
+            $rate = $base === null || CurrencyCode::tryFrom($v['currency']) === null
+                ? null
+                : $this->rates->effectiveRate(CurrencyCode::from($v['currency']), $base, CarbonImmutable::parse($v['created_at']));
+            $rows[] = [
+                'quotation_id' => $v['quotation_id'], 'chain_id' => $v['chain_id'], 'version' => $v['version'], 'sent_day' => $sentDay,
+                'owner_id' => $owners[$v['deal_id']] ?? null, 'currency' => $v['currency'], 'status' => $v['status'],
+                'net_amount' => $v['net_amount'], 'additional_total' => $v['additional_total'], 'cost' => $v['cost'],
+                'base_net_amount' => $rate?->convert($v['net_amount'], 6),
+                'base_additional_total' => $rate?->convert($v['additional_total'], 6),
+                'base_cost' => $rate?->convert($v['cost'], 6),
+            ];
+        }
+
+        return $rows;
     }
 
     /** @return list<string> */

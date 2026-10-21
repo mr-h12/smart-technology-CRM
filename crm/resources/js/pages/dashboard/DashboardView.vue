@@ -16,6 +16,7 @@ import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
 import { displayDateRange, displayTimestamp } from '@/domain/displayDate';
 import { PERIOD_KINDS, periodFor, rememberedPeriod, rememberPeriod, type Period, type PeriodKind } from '@/domain/dashboardPeriod';
+import FinancePanel from '@/pages/dashboard/FinancePanel.vue';
 import OverviewPanel from '@/pages/dashboard/OverviewPanel.vue';
 import { readDashboardMeta, type DashboardMeta, type DashboardTab } from '@/services/dashboard';
 
@@ -162,8 +163,9 @@ onMounted(() => load());
                 <div v-if="EMPTY_TABS.includes(active)" :data-testid="`dashboard-empty-${active}`">
                     <EmptyState :title-key="`dashboard.tab.${active}`" :message-key="`dashboard.empty.${active}`" />
                 </div>
-                <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" @refreshed="lastUpdatedAt = $event" />
-                <!-- ponytail: slices 3–5 replace this for Sales and Finance; until then a tab without data says so. -->
+                <OverviewPanel v-else-if="active === 'overview'" :from="period.from" :to="period.to" :money="meta.money" @refreshed="lastUpdatedAt = $event" />
+                <FinancePanel v-else-if="active === 'finance'" :from="period.from" :to="period.to" />
+                <!-- ponytail: slices 4–5 replace this for Sales; until then a tab without data says so. -->
                 <EmptyState v-else title-key="dashboard.pending.title" message-key="dashboard.pending.message" />
             </div>
         </template>

@@ -1657,6 +1657,20 @@
             "pending_approvals": "Pending approvals",
             "returned": "Returned quotations",
             "now": "now"
+        },
+        "money": {
+            "currency": "Currency",
+            "won_value": "Revenue",
+            "cost": "Cost",
+            "gross_profit": "Gross profit",
+            "net_profit": "Net profit",
+            "margin": "Margin",
+            "delivery_cost": "Delivery & installation",
+            "net_profit_note": "Net profit equals gross profit until Procurement is live.",
+            "combine": "Combine into the base currency",
+            "unconverted": "{count} won quotation(s) had no exchange rate at the time and are left out.",
+            "monthly": "By month: revenue / gross profit",
+            "none": "Nothing won in this period."
         }
     }
 }

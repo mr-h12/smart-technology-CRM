@@ -87,6 +87,7 @@ final class DashboardMoneyEndpointTest extends TestCase
 
     public function test_that_the_combined_figures_sum_the_base_amounts_and_count_the_unconverted(): void
     {
+        $this->currencyId('EGP'); // the base currency (`is_base`), as the seeded system has one
         $this->version('A', 1, '2026-10-05', 'EGP', 'accepted', '1100', '100', '600', base: ['1100', '100', '600']);
         $this->version('B', 1, '2026-10-06', 'USD', 'accepted', '20', '2', '8', base: ['1000', '100', '400']);
         $this->version('C', 1, '2026-10-07', 'EUR', 'accepted', '10', '0', '5', base: null);

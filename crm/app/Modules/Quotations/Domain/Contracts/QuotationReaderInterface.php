@@ -93,4 +93,15 @@ interface QuotationReaderInterface
      * @return list<array{owner_id: string, pending_approvals: int, returned: int}>
      */
     public function liveApprovalCountsByOwner(): array;
+
+    /**
+     * Module 14's money projection (`D-141`, `D-144`, `D-149`): every live version
+     * that was sent, with its chain (the root version's id), its moments, its deal,
+     * its currency code, its status now, its stored `net_amount` and
+     * `additional_total`, and Σ `line_cost` of its live lines. Exact decimal
+     * strings. Read-only.
+     *
+     * @return list<array{quotation_id: string, chain_id: string, version: int, sent_at: string, created_at: string, deal_id: string, currency: string, status: string, net_amount: numeric-string, additional_total: numeric-string, cost: numeric-string}>
+     */
+    public function sentVersions(): array;
 }

@@ -30,3 +30,25 @@ export interface DashboardOverview {
 export async function readDashboardOverview(period: { from: string; to: string }): Promise<DashboardOverview> {
     return (await apiGet<DashboardOverview>(`/dashboard/overview?from=${period.from}&to=${period.to}`)).data;
 }
+
+/** `GET /dashboard/money` (`D-141`, `D-144`, `D-148`, `D-149`): exact decimal strings, never mixed across currencies. */
+export interface DashboardCurrencyMoney {
+    currency: string;
+    won_value: string;
+    cost: string;
+    gross_profit: string;
+    net_profit: string;
+    margin_percent: string;
+    delivery_cost: string;
+    won_chains: number;
+}
+
+export interface DashboardMoney {
+    currencies: DashboardCurrencyMoney[];
+    combined: { currency: string | null; won_value: string; gross_profit: string; net_profit: string; delivery_cost: string; unconverted: number };
+    monthly: { month: string; currency: string; won_value: string; gross_profit: string }[];
+}
+
+export async function readDashboardMoney(period: { from: string; to: string }): Promise<DashboardMoney> {
+    return (await apiGet<DashboardMoney>(`/dashboard/money?from=${period.from}&to=${period.to}`)).data;
+}

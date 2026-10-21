@@ -25,6 +25,8 @@ final class RespondQuotationRequest extends FormRequest
         return [
             'response' => ['required', 'string', Rule::in(['accepted', 'partial', 'counter', 'rejected'])],
             'reason' => ['nullable', 'string', 'max:2000', 'prohibited_unless:response,counter,rejected'],
+            // `D-147`: the `lost_reasons` code of a Rejected answer; its validity is the use case's to refuse.
+            'reason_code' => ['nullable', 'string', 'max:64', 'prohibited_unless:response,rejected'],
             // Owner B (1.6): a reference with a character (`TrimStrings` makes a
             // blank one null, so `required_if` refuses it) and a real date, on or
             // before the company's today (`D-108`, superseding 1.6's "future
@@ -48,6 +50,11 @@ final class RespondQuotationRequest extends FormRequest
     public function reason(): ?string
     {
         return $this->optional('reason');
+    }
+
+    public function reasonCode(): ?string
+    {
+        return $this->optional('reason_code');
     }
 
     public function customerPoReference(): ?string

@@ -175,6 +175,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
         ?string $lostReason,
         DealRowScope $scope,
         string $actorId,
+        ?string $lostReasonCode = null,
     ): ?DealSummary {
         $query = $this->scoped($scope);
 
@@ -190,6 +191,7 @@ final readonly class EloquentDealDirectory implements DealDirectoryInterface
 
         $row->status = $newStatus;
         $row->lost_reason = $lostReason;
+        $row->lost_reason_code = $newStatus === 'lost' ? $lostReasonCode : null;
         $row->last_activity_at = now();
         $row->updated_by = $actorId;
         $row->save();

@@ -99,6 +99,7 @@ interface DealDirectoryInterface
         ?string $lostReason,
         DealRowScope $scope,
         string $actorId,
+        ?string $lostReasonCode = null,
     ): ?DealSummary;
 
     /**

@@ -90,6 +90,16 @@ final class ManagedLists
                 new ListEntry('mr', 'Mr.', 'أستاذ', 1),
                 new ListEntry('mrs', 'Mrs.', 'أستاذة', 2),
             ],
+            // `D-147`'s starting list; `other` asks for a note.
+            ManagedList::LostReasons => [
+                new ListEntry('price_too_high', 'Price too high', 'السعر أعلى من المتوقع', 1),
+                new ListEntry('chose_competitor', 'Chose a competitor', 'اختار عرض منافس', 2),
+                new ListEntry('budget_cancelled', 'Budget cancelled or postponed', 'الميزانية اتلغت أو اتأجلت', 3),
+                new ListEntry('delivery_time', 'Delivery time too long', 'مدة التوريد طويلة', 4),
+                new ListEntry('specs_not_met', 'Specifications not met', 'المواصفات مش مطابقة', 5),
+                new ListEntry('no_need', 'Need no longer exists', 'الاحتياج اتلغى', 6),
+                new ListEntry('other', 'Other', 'أخرى', 7),
+            ],
         };
     }
 

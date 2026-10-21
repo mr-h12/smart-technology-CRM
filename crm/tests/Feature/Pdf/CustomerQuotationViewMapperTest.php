@@ -748,6 +748,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             version: 1,
             parentId: null,
             rejectionReason: null,
+            rejectionReasonCode: null,
             sentAt: null,
             submittedAt: '2026-07-14T09:00:00+00:00',
             returnedAt: null,

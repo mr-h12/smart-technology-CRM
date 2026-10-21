@@ -173,6 +173,7 @@ final class QuotationController
             $quotation,
             $request->customerResponse(),
             $request->reason(),
+            $request->reasonCode(),
             $request->customerPoReference(),
             $request->poDate(),
             $request->headers->get('If-Match'),

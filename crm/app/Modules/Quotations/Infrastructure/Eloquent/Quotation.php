@@ -80,6 +80,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $version
  * @property string|null $parent_id
  * @property string|null $rejection_reason
+ * @property string|null $rejection_reason_code
  * @property string|null $sent_at
  * @property \Illuminate\Support\Carbon|null $submitted_at
  * @property \Illuminate\Support\Carbon|null $returned_at

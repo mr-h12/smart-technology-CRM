@@ -48,7 +48,7 @@
  * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
  * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
  */
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@/api';
@@ -62,6 +62,7 @@ import DealStatusControl from '@/pages/deals/DealStatusControl.vue';
 import QuotationPurchaseOrder from '@/pages/quotations/QuotationPurchaseOrder.vue';
 import QuotationStatusChip from '@/pages/quotations/QuotationStatusChip.vue';
 import SelfApprovedBadge from '@/pages/quotations/SelfApprovedBadge.vue';
+import { entryLabel, listEntries, type ListEntry } from '@/services/admin';
 import { readCustomer, type Customer } from '@/services/customers';
 import { readDeal, type Deal } from '@/services/deals';
 import {
@@ -104,6 +105,32 @@ const confirmingDelete = ref(false);
 const responding = ref(false);
 const outcome = ref<CustomerResponse['response']>('accepted');
 const reason = ref('');
+/** `D-147`: a Rejected answer's `lost_reasons` code, chosen from the live list. */
+const reasonCode = ref('');
+const lostReasons = ref<ListEntry[]>([]);
+
+/** A recorded rejection names its reason by code: its label is read from the same list, once. */
+watch(
+    () => quotation.value?.rejection_reason_code,
+    async (code) => {
+        if (code && lostReasons.value.length === 0) {
+            try {
+                lostReasons.value = (await listEntries('lost_reasons', 1)).items;
+            } catch {
+                // The code itself is shown instead.
+            }
+        }
+    },
+);
+const rejectionReasonLabel = computed(() => {
+    const code = quotation.value?.rejection_reason_code;
+    if (!code) {
+        return null;
+    }
+    const entry = lostReasons.value.find((e) => e.code === code);
+
+    return entry === undefined ? code : entryLabel(entry, locale.value);
+});
 const poReference = ref('');
 const poDate = ref('');
 /**
@@ -140,10 +167,15 @@ const printedTerms = computed(() => (quotation.value?.terms ?? []).filter((term)
 const outcomes = computed<Array<CustomerResponse['response']>>(() =>
     quotation.value?.status === 'expired' ? ['rejected'] : ['accepted', 'partial', 'counter', 'rejected'],
 );
-const needsReason = computed(() => outcome.value === 'counter' || outcome.value === 'rejected');
+/** §6.3 as `D-147` amends it: Counter needs its text; Rejected a code, and its text only for "other". */
+const needsReason = computed(() => outcome.value === 'counter' || (outcome.value === 'rejected' && reasonCode.value === 'other'));
+const takesReason = computed(() => outcome.value === 'counter' || outcome.value === 'rejected');
 /** `RespondQuotationRequest`'s rules, mirrored for the person; the server still decides. */
 const canRecord = computed(() =>
-    !busy.value && (outcome.value === 'accepted' ? poReference.value.trim() !== '' && poDate.value !== '' : !needsReason.value || reason.value.trim() !== ''),
+    !busy.value
+    && (outcome.value === 'accepted'
+        ? poReference.value.trim() !== '' && poDate.value !== ''
+        : (outcome.value !== 'rejected' || reasonCode.value !== '') && (!needsReason.value || reason.value.trim() !== '')),
 );
 
 /** A-22: a greyed Record says what it waits for; busy is said on the page already. */
@@ -152,7 +184,11 @@ const recordHint = computed(() => {
         return '';
     }
 
-    return outcome.value === 'accepted' ? t('quotations.detail.recordNeedsPo') : t('quotations.detail.recordNeedsReason');
+    if (outcome.value === 'accepted') {
+        return t('quotations.detail.recordNeedsPo');
+    }
+
+    return outcome.value === 'rejected' && reasonCode.value === '' ? t('quotations.detail.recordNeedsReasonCode') : t('quotations.detail.recordNeedsReason');
 });
 
 /** Q7: the line carries the cost keys or it does not; the header follows the first line. */
@@ -287,6 +323,13 @@ async function send(): Promise<void> {
 async function openResponse(): Promise<void> {
     outcome.value = outcomes.value[0] ?? 'rejected';
     reason.value = quotation.value?.status === 'expired' ? t('quotations.detail.noResponse') : '';
+    // An expired quotation's "no response" is no reason on the list: it is "other", with that note.
+    reasonCode.value = quotation.value?.status === 'expired' ? 'other' : '';
+    try {
+        lostReasons.value = (await listEntries('lost_reasons', 1)).items;
+    } catch {
+        lostReasons.value = [];
+    }
     poReference.value = '';
     poDate.value = '';
     const now = new Date();
@@ -314,9 +357,11 @@ async function recordResponse(): Promise<void> {
     const body: CustomerResponse =
         outcome.value === 'accepted'
             ? { response: 'accepted', customer_po_reference: poReference.value.trim(), po_date: poDate.value }
-            : needsReason.value
-              ? { response: outcome.value, reason: reason.value.trim() }
-              : { response: outcome.value };
+            : outcome.value === 'rejected'
+              ? { response: 'rejected', reason_code: reasonCode.value, ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }) }
+              : needsReason.value
+                ? { response: outcome.value, reason: reason.value.trim() }
+                : { response: outcome.value };
 
     await act(async () => {
         const answered = await respondToQuotation(current.id, current.etag, body);
@@ -468,6 +513,10 @@ onMounted(refresh);
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.returnNote') }}</dt>
                     <dd data-testid="quotation-detail-return_note">{{ quotation.return_note }}</dd>
                 </div>
+                <div v-if="rejectionReasonLabel !== null" class="flex flex-col gap-1">
+                    <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.rejectionReasonCode') }}</dt>
+                    <dd data-testid="quotation-detail-rejection_reason_code">{{ rejectionReasonLabel }}</dd>
+                </div>
                 <div v-if="quotation.rejection_reason !== null" class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.rejectionReason') }}</dt>
                     <dd data-testid="quotation-detail-rejection_reason">{{ quotation.rejection_reason }}</dd>
@@ -589,11 +638,18 @@ onMounted(refresh);
                         {{ t(`quotations.status.${option}`) }}
                     </label>
                 </fieldset>
-                <label v-if="needsReason" class="flex flex-col gap-1">
-                    <span>{{ t('quotations.detail.respondReason') }}</span>
+                <label v-if="outcome === 'rejected'" class="flex flex-col gap-1">
+                    <span>{{ t('quotations.detail.respondReasonCode') }}</span>
+                    <select v-model="reasonCode" required class="form-field min-h-11 rounded-lg px-3" data-testid="quotation-respond-reason-code">
+                        <option value="" disabled>{{ t('quotations.detail.respondReasonCodePick') }}</option>
+                        <option v-for="entry in lostReasons" :key="entry.code" :value="entry.code">{{ entryLabel(entry, locale) }}</option>
+                    </select>
+                </label>
+                <label v-if="takesReason" class="flex flex-col gap-1">
+                    <span>{{ outcome === 'rejected' && !needsReason ? t('quotations.detail.respondReasonOptional') : t('quotations.detail.respondReason') }}</span>
                     <textarea
                         v-model="reason"
-                        required
+                        :required="needsReason"
                         rows="3"
                         maxlength="2000"
                         :placeholder="t('quotations.detail.respondReasonHint')"

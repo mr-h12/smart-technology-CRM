@@ -523,7 +523,8 @@
             "service_types": "أنواع الخدمات",
             "delivery_terms": "شروط التسليم",
             "companies": "الشركات",
-            "contact_titles": "ألقاب جهة الاتصال"
+            "contact_titles": "ألقاب جهة الاتصال",
+            "lost_reasons": "أسباب الخسارة"
         },
         "column": {
             "code": "الرمز",
@@ -1316,7 +1317,12 @@
             "additionalTotal": "البنود الإضافية",
             "rounding": "التقريب (إلى {unit})",
             "finalTotal": "الإجمالي النهائي",
-            "openDeal": "فتح الصفقة"
+            "openDeal": "فتح الصفقة",
+            "respondReasonCode": "سبب رفض العميل",
+            "respondReasonCodePick": "اختر السبب…",
+            "respondReasonOptional": "ملاحظة (اختيارية)",
+            "recordNeedsReasonCode": "اختر سبب رفض العميل لتسجيل الرد.",
+            "rejectionReasonCode": "سبب الرفض"
         },
         "builder": {
             "title": "عرض سعر جديد",

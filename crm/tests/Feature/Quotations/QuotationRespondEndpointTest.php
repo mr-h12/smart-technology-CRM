@@ -135,8 +135,7 @@ final class QuotationRespondEndpointTest extends TestCase
         return [
             'counter, missing' => [['response' => 'counter']],
             'counter, blank' => [['response' => 'counter', 'reason' => '   ']],
-            'rejected, missing' => [['response' => 'rejected']],
-            'rejected, blank' => [['response' => 'rejected', 'reason' => '   ']],
+            // A rejection's own refusals — the code, then the note on `other` — are `rejectionsWithoutAUsableCode` (`D-147`).
         ];
     }
 
@@ -240,7 +239,7 @@ final class QuotationRespondEndpointTest extends TestCase
         $deal = $this->deal(null);
         [$id, $etag] = $this->sent($deal);
 
-        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'Too expensive'])
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'Too expensive'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'rejected')
             ->assertJsonPath('data.deal_lost', true)
@@ -280,6 +279,7 @@ final class QuotationRespondEndpointTest extends TestCase
     public static function rejectionsWithoutAUsableCode(): array
     {
         return [
+            'nothing at all' => [['response' => 'rejected'], 'reason_code', 'rejection_reason_code_required'],
             'no code, a note' => [['response' => 'rejected', 'reason' => 'Too dear'], 'reason_code', 'rejection_reason_code_required'],
             'an unknown code' => [['response' => 'rejected', 'reason_code' => 'too_cold'], 'reason_code', 'rejection_reason_code_required'],
             '"other" without a note' => [['response' => 'rejected', 'reason_code' => 'other'], 'reason', 'rejection_reason_required'],
@@ -323,12 +323,12 @@ final class QuotationRespondEndpointTest extends TestCase
         [$first, $firstEtag] = $this->sent($deal);
         [$second, $secondEtag] = $this->sent($deal);
 
-        $this->respond($first, $firstEtag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'One'])
+        $this->respond($first, $firstEtag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'One'])
             ->assertStatus(200)
             ->assertJsonPath('data.deal_lost', false);
         self::assertSame('quotation_sent', $this->statusOf('deals', $deal));
 
-        $this->respond($second, $secondEtag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'Two'])
+        $this->respond($second, $secondEtag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'Two'])
             ->assertStatus(200)
             ->assertJsonPath('data.deal_lost', true);
         self::assertSame('lost', $this->statusOf('deals', $deal));
@@ -343,7 +343,7 @@ final class QuotationRespondEndpointTest extends TestCase
         [$draft] = $this->sent($deal);
         DB::table('quotations')->where('id', $draft)->update(['status' => 'draft']);
 
-        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x'])
             ->assertStatus(200)
             ->assertJsonPath('data.deal_lost', false);
 
@@ -354,7 +354,7 @@ final class QuotationRespondEndpointTest extends TestCase
         [$finished] = $this->sent($deal);
         DB::table('quotations')->where('id', $finished)->update(['status' => 'counter', 'rejection_reason' => 'x']);
 
-        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x'])
             ->assertStatus(200)
             ->assertJsonPath('data.deal_lost', true);
     }
@@ -366,7 +366,7 @@ final class QuotationRespondEndpointTest extends TestCase
         [$id, $etag] = $this->sent($deal);
         DB::table('quotations')->where('id', $id)->update(['status' => 'expired']);
 
-        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'no response'])
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'no response'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'rejected')
             ->assertJsonPath('data.deal_lost', true);
@@ -387,7 +387,7 @@ final class QuotationRespondEndpointTest extends TestCase
         $deal = $this->deal(null, $status);
         [$id, $etag] = $this->sent($deal);
 
-        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason' => 'x'])
+        $this->respond($id, $etag, RoleName::Manager, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'rejected')
             ->assertJsonPath('data.deal_lost', false);
@@ -421,7 +421,7 @@ final class QuotationRespondEndpointTest extends TestCase
             $statements[] = strtolower($query->sql);
         });
 
-        $this->patchJson(self::ENDPOINT.'/'.$id.'/respond', ['response' => 'rejected', 'reason' => 'x'], [...$bearer, 'If-Match' => $etag])
+        $this->patchJson(self::ENDPOINT.'/'.$id.'/respond', ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x'], [...$bearer, 'If-Match' => $etag])
             ->assertStatus(200);
 
         $lock = $this->firstIndex($statements, fn (string $sql): bool => str_contains($sql, 'from "quotations"') && str_contains($sql, 'for update'));
@@ -438,7 +438,7 @@ final class QuotationRespondEndpointTest extends TestCase
         $deal = $this->deal($this->userWith(RoleName::Manager)->id);
         [$id, $etag] = $this->sent($deal);
 
-        $this->respond($id, $etag, $role, ['response' => 'rejected', 'reason' => 'x'])
+        $this->respond($id, $etag, $role, ['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x'])
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'resource_not_found');
 
@@ -588,7 +588,7 @@ final class QuotationRespondEndpointTest extends TestCase
             'reason on partial' => [['response' => 'partial', 'reason' => 'x'], 'reason'],
             'po reference on partial' => [['response' => 'partial', 'customer_po_reference' => 'PO-7'], 'customer_po_reference'],
             'po date on counter' => [['response' => 'counter', 'reason' => 'x', 'po_date' => '2026-09-23'], 'po_date'],
-            'po reference on rejected' => [['response' => 'rejected', 'reason' => 'x', 'customer_po_reference' => 'PO-7'], 'customer_po_reference'],
+            'po reference on rejected' => [['response' => 'rejected', 'reason_code' => 'other', 'reason' => 'x', 'customer_po_reference' => 'PO-7'], 'customer_po_reference'],
             'accepted without a reference' => [['response' => 'accepted', 'po_date' => '2026-09-23'], 'customer_po_reference'],
             'accepted with a blank reference' => [['response' => 'accepted', 'customer_po_reference' => '   ', 'po_date' => '2026-09-23'], 'customer_po_reference'],
             'accepted without a date' => [['response' => 'accepted', 'customer_po_reference' => '4500123987'], 'po_date'],

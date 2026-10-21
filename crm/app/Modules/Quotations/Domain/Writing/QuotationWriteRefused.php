@@ -38,6 +38,9 @@ final class QuotationWriteRefused extends RuntimeException
 
     public const REASON_REQUIRED = 'rejection_reason_required';
 
+    /** `D-147`: a Rejected answer names a live `lost_reasons` code. */
+    public const REASON_CODE_REQUIRED = 'rejection_reason_code_required';
+
     private function __construct(
         public readonly string $reason,
         public readonly int $status,
@@ -83,5 +86,10 @@ final class QuotationWriteRefused extends RuntimeException
     public static function reasonRequired(): self
     {
         return new self(self::REASON_REQUIRED, 422, 'validation_failed', 'reason', null);
+    }
+
+    public static function reasonCodeRequired(): self
+    {
+        return new self(self::REASON_CODE_REQUIRED, 422, 'validation_failed', 'reason_code', null);
     }
 }

@@ -135,6 +135,7 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
             version: $row->version,
             parentId: $row->parent_id,
             rejectionReason: $row->rejection_reason,
+            rejectionReasonCode: $row->rejection_reason_code,
             sentAt: $row->sent_at,
             submittedAt: $row->submitted_at?->toIso8601String(),
             returnedAt: $row->returned_at?->toIso8601String(),
@@ -624,7 +625,7 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
         // the key and the timestamps; the answer's own marks are listed here.
         $copy = $parent->replicate([
             'code', 'status', 'version', 'parent_id', 'version_token',
-            'rejection_reason', 'sent_at', 'submitted_at', 'is_self_approved',
+            'rejection_reason', 'rejection_reason_code', 'sent_at', 'submitted_at', 'is_self_approved',
             'created_by', 'updated_by', 'deleted_at', 'returned_at', 'return_note',
         ]);
         $copy->code = (new DocumentNumberAllocator($this->connection, self::CODE_PREFIX))->next();

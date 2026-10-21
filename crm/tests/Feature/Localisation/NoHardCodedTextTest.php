@@ -141,6 +141,8 @@ final class NoHardCodedTextTest extends TestCase
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 // F-47 · 1 (`D-116`) — the in-page file viewer; the file's own name is data.
                 'FileViewerDialog.vue',
+                // Module 14 · 3.2 — the Finance tab. Added after the scan passed on it.
+                'FinancePanel.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue',
                 // Module 3 Point 4.6's `CustomerImportModal.vue`, shared as

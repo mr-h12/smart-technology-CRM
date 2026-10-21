@@ -263,3 +263,78 @@ describe('the Overview tab', () => {
         expect(wrapper.find('[data-testid="dashboard-period-kind"]').exists()).toBe(true);
     });
 });
+
+/**
+ * Module 14, slice 3 · 3.1 — money (`D-141`, `D-144`, `D-145`, `D-148`, `D-149`).
+ * Asked for only when the meta says `money`; the Overview shows each currency's
+ * revenue and profits, the Finance tab the rest, the combine toggle the base totals.
+ */
+const MONEY = {
+    currencies: [
+        { currency: 'EGP', won_value: '1600.000000', cost: '900.000000', gross_profit: '600.000000', net_profit: '600.000000', margin_percent: '37.50', delivery_cost: '100.000000', won_chains: 2 },
+        { currency: 'USD', won_value: '20.000000', cost: '8.000000', gross_profit: '10.000000', net_profit: '10.000000', margin_percent: '50.00', delivery_cost: '2.000000', won_chains: 1 },
+    ],
+    combined: { currency: 'EGP', won_value: '2100.000000', gross_profit: '900.000000', net_profit: '900.000000', delivery_cost: '200.000000', unconverted: 1 },
+    monthly: [
+        { month: '2026-09', currency: 'EGP', won_value: '1000.000000', gross_profit: '400.000000' },
+        { month: '2026-10', currency: 'EGP', won_value: '500.000000', gross_profit: '400.000000' },
+        { month: '2026-10', currency: 'USD', won_value: '20.000000', gross_profit: '10.000000' },
+    ],
+};
+
+function moneyApi(metaData: unknown = { ...MANAGER_META, last_updated_at: OVERVIEW.last_updated_at }): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        const data = /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : metaData;
+        return json(200, { data, meta: { request_id: 'r' } });
+    });
+}
+
+const moneyCalls = (fetchMock: ReturnType<typeof vi.fn>): string[] =>
+    fetchMock.mock.calls.map(([input]) => String(input)).filter((url) => /\/dashboard\/money\?/.test(url));
+
+describe('money', () => {
+    it('shows each currency\'s revenue and profits on the Overview', async () => {
+        const fetchMock = moneyApi();
+        const wrapper = await render(fetchMock);
+
+        expect(moneyCalls(fetchMock)[0]).toMatch(/\/api\/v1\/dashboard\/money\?from=2026-10-01&to=2026-10-31$/);
+        const egp = wrapper.get('[data-testid="dashboard-money-EGP"]').text();
+        expect(egp).toContain('1,600.00');
+        expect(egp).toContain('600.00');
+        expect(wrapper.get('[data-testid="dashboard-money-USD"]').text()).toContain('20.00');
+        expect(wrapper.get('[data-testid="dashboard-net-profit-note"]').text()).toContain('equals gross profit until Procurement');
+    });
+
+    it('never asks for money without the meta\'s money', async () => {
+        const fetchMock = moneyApi({ ...MANAGER_META, scope: 'team', tabs: ['overview', 'sales', 'outdoor'], money: false });
+        const wrapper = await render(fetchMock);
+
+        expect(moneyCalls(fetchMock)).toHaveLength(0);
+        expect(wrapper.find('[data-testid^="dashboard-money-"]').exists()).toBe(false);
+    });
+
+    it('lists margin and delivery cost per currency on the Finance tab, with a bar per month', async () => {
+        const wrapper = await render(moneyApi());
+        await wrapper.get('[data-testid="dashboard-tab-finance"]').trigger('click');
+        await flushPromises();
+
+        const egp = wrapper.get('[data-testid="dashboard-finance-EGP"]').text();
+        expect(egp).toContain('37.50');
+        expect(egp).toContain('100.00');
+        expect(wrapper.findAll('[data-testid="dashboard-month-bar"]')).toHaveLength(3);
+    });
+
+    it('combines into the base currency on request, naming what could not be converted', async () => {
+        const wrapper = await render(moneyApi());
+        await wrapper.get('[data-testid="dashboard-tab-finance"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="dashboard-combined"]').exists()).toBe(false);
+
+        await wrapper.get('[data-testid="dashboard-combine"]').setValue(true);
+
+        const combined = wrapper.get('[data-testid="dashboard-combined"]').text();
+        expect(combined).toContain('2,100.00');
+        expect(combined).toContain('1');
+    });
+});

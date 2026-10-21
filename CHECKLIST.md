@@ -1986,6 +1986,10 @@ would hide them behind `OD-03` indefinitely.
       (`D-143`, `D-145`).* §12.2's procurement and outdoor figures read Modules 11 and 12, which are
       paused. Each tab shows an empty state naming its module, never zeros; Module 11 and Module 12 each
       fill their own tab, and Module 12 adds the visits-based rejected-companies list.
+- [ ] **Additional items carry no type, so "delivery cost" counts installation too** — *Module 14 · 3.0, 2026-10-21 (`D-148`).*
+      `quotation_additional_items` has `description` and `amount` only. The dashboard's delivery cost is
+      every additional item of a won version, labelled "Delivery & installation". A type column (Quotations,
+      Module 7) would let it narrow to delivery.
 - [ ] **The dashboard's net profit equals its gross profit** — *the owner's ruling, 2026-10-21 (`D-144`).*
       Net profit is §5.5's `final_profit`, and the saving it adds is recorded only by Module 11. Until
       then the figure is labelled as equal to gross profit.
@@ -5405,8 +5409,9 @@ Quotations); J-09 reads Deals, Customers and Quotations through new read-only co
 - [x] **2.2b** Green: the Overview endpoint and tiles *(2026-10-21, #412 — 34 dashboard PHP + 16 page tests green; full suite 4310 passed)*
 
 **Slice 3 — money: revenue, profits, the Finance tab**
-- [ ] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
-- [ ] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost)
+- [x] **3.0** Two decisions the data forces, proposed for the owner's approval at merge: `D-148` (delivery cost = the won versions' additional items — they carry no type) and `D-149` (base figures at the rate in force when each version was created — a quotation stores no base amount) *(2026-10-21)*
+- [x] **3.1** Red: revenue, gross and net profit, margin, delivery cost against `D-141`; a month equals its RPT-MN; the combine toggle sums `base_amount`; no money keys for the TL or without `view_cost_and_margin`
+- [x] **3.2** Green: the money summary, the Overview money tiles, the Finance tab (monthly bars, margin, revenue by currency, delivery cost) *(2026-10-21 — 3.1 red: 13 PHP + 3 vitest; 3.2 green: the version-grain projection, a month equals RPT-MN, full suite 4325 passed)*
 
 **Slice 4 — Sales tab I: pipeline figures**
 - [ ] **4.1** Red: funnel, conversion rate, win/loss rate, average sales cycle, average deal size, live workload

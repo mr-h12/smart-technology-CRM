@@ -824,4 +824,31 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
 
         return array_values($counts);
     }
+
+    public function sentVersions(): array
+    {
+        // Each sent version walked up `parent_id` to its chain's root, as `wonMoneySentBetween` walks.
+        /** @var list<object{quotation_id: string, chain_id: string, version: int, sent_at: string, created_at: string, deal_id: string, currency_id: string, status: string, net_amount: numeric-string, additional_total: numeric-string, cost: numeric-string}> $rows */
+        $rows = $this->connection->select(<<<'SQL'
+            WITH RECURSIVE up AS (
+                SELECT id AS start_id, id, parent_id FROM quotations
+                WHERE deleted_at IS NULL AND sent_at IS NOT NULL
+                UNION ALL
+                SELECT up.start_id, p.id, p.parent_id FROM up JOIN quotations p ON p.id = up.parent_id
+            )
+            SELECT q.id AS quotation_id, up.id AS chain_id, q.version, q.sent_at, q.created_at, q.deal_id, q.currency_id, q.status,
+                q.net_amount, q.additional_total,
+                COALESCE((SELECT SUM(i.line_cost) FROM quotation_items i WHERE i.quotation_id = q.id AND i.deleted_at IS NULL), 0.000000) AS cost
+            FROM up JOIN quotations q ON q.id = up.start_id
+            WHERE up.parent_id IS NULL
+            ORDER BY q.sent_at, q.id
+            SQL);
+
+        return array_map(fn (object $row): array => [
+            'quotation_id' => $row->quotation_id, 'chain_id' => $row->chain_id, 'version' => (int) $row->version,
+            'sent_at' => $row->sent_at, 'created_at' => $row->created_at, 'deal_id' => $row->deal_id,
+            'currency' => $this->currencyCode($row->currency_id), 'status' => $row->status,
+            'net_amount' => $row->net_amount, 'additional_total' => $row->additional_total, 'cost' => $row->cost,
+        ], $rows);
+    }
 }

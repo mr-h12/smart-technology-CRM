@@ -50,4 +50,23 @@ interface DashboardAggregatesInterface
      * @return array{customers: int, deals_by_status: array<string, int>, self_approvals: int, pending_approvals: int, returned: int}
      */
     public function overviewBetween(string $from, string $to, ?array $ownerIds): array;
+
+    /**
+     * Replaces the whole money projection (`D-141`, `D-149`).
+     *
+     * @param  list<array{quotation_id: string, chain_id: string, version: int, sent_day: string, owner_id: ?string, currency: string, status: string, net_amount: string, additional_total: string, cost: string, base_net_amount: ?string, base_additional_total: ?string, base_cost: ?string}>  $rows
+     */
+    public function replaceSentVersions(array $rows): void;
+
+    /**
+     * `D-141`'s won money over `[$from, $to]`: per chain the latest version sent in
+     * the period, kept when `accepted` or `partial`. Exact decimal strings.
+     *
+     * @return array{
+     *     currencies: list<array{currency: string, won_value: string, cost: string, gross_profit: string, margin_percent: string, delivery_cost: string, won_chains: int}>,
+     *     combined: array{won_value: string, gross_profit: string, delivery_cost: string, unconverted: int},
+     *     monthly: list<array{month: string, currency: string, won_value: string, gross_profit: string}>
+     * }
+     */
+    public function moneyBetween(string $from, string $to): array;
 }

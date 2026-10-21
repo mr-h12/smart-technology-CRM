@@ -686,7 +686,7 @@ describe('the quotation builder (edit)', () => {
         expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
         expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Ex works');
         expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2');
         expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25');
         // D-106: the field is an extra on top of the quotation margin, and says so.
         expect(wrapper.find(id('existing-0-margin_percent')).element.closest('label')?.textContent).toContain('Extra line margin % (optional)');
@@ -700,7 +700,30 @@ describe('the quotation builder (edit)', () => {
         expect(wrapper.find(id('existing-1-product')).exists()).toBe(false);
         expect((wrapper.find(id('existing-1-margin_percent')).element as HTMLInputElement).value).toBe('');
         expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
-        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100.000000');
+        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100');
+    });
+
+    it('pre-fills a quantity and an amount without trailing zeros, every significant digit kept (U-5, D-99)', async () => {
+        // U-5: the stored `2.000` / `100.000000` above load as `2` / `100`; a trim, never a rounding —
+        // `0.125000` stays `0.125` (displayDecimals would print `0.13`), and a re-save sends the same number.
+        const fractional = {
+            ...QUOTATION,
+            items: [{ ...QUOTATION.items[0], quantity: '1.2500' }],
+            additional_items: [{ ...QUOTATION.additional_items[0], amount: '0.125000' }],
+        };
+        const fetchMock = respond({ quotations: [fractional] });
+        const { wrapper } = await render(fetchMock, EDIT);
+
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1.25');
+        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('0.125');
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({
+            lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '1.25' }],
+            additional_items: [{ description: 'Delivery', amount: '0.125' }],
+        });
     });
 
     it('sends back to the quotation’s page when it is no longer a Draft', async () => {
@@ -736,7 +759,7 @@ describe('the quotation builder (edit)', () => {
                 { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25' },
                 { supplier_quotation_item_id: 'sqi1', quantity: '4' },
             ],
-            additional_items: [{ description: 'Delivery', amount: '100.000000' }],
+            additional_items: [{ description: 'Delivery', amount: '100' }],
         });
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
@@ -774,7 +797,7 @@ describe('the quotation builder (edit)', () => {
         await flushPromises();
 
         expect(wrapper.find(id('conflict')).exists()).toBe(false);
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2.000');
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -894,7 +917,7 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         expect(save?.path).toBe('/quotations/q1/edit-and-approve');
         expect(save?.ifMatch).toBe('"v1"');
         expect(save?.idempotencyKey).toBeNull();
-        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.000', margin_percent: '25' }, { supplier_quotation_item_id: 'sqi2', quantity: '1.000' }], additional_items: [{ description: 'Delivery', amount: '100.000000' }] });
+        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2', margin_percent: '25' }, { supplier_quotation_item_id: 'sqi2', quantity: '1' }], additional_items: [{ description: 'Delivery', amount: '100' }] });
         expect(save?.body).not.toHaveProperty('deal_id');
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
@@ -1472,7 +1495,7 @@ describe('the quotation builder (F-42 · P5)', () => {
         await wrapper.find(id('existing-0-remove')).trigger('click');
         await nextTick();
 
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1.000');
+        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1');
         expect(wrapper.find(id('existing-1-quantity')).exists()).toBe(false);
         expect(wrapper.find(id('undo-bar')).attributes('role')).toBe('status');
 

@@ -346,16 +346,17 @@ function applyDetail(quotation: QuotationDetail): void {
     };
     taxes.value = quotation.tax_percents.length > 0 ? quotation.tax_percents.map((rate) => displayPercent(rate) ?? rate) : [''];
     terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
+    // U-5: a stored quantity or amount is offered without its trailing zeros — trimmed, never rounded.
     existing.value = quotation.items.map((line) => ({
         supplier_quotation_item_id: line.supplier_quotation_item_id,
         line_no: line.line_no,
         product_name: line.product_name,
-        quantity: line.quantity,
+        quantity: displayQuantity(line.quantity),
         margin: displayPercent(line.margin_percent) ?? '',
         unit_cost: line.unit_cost ?? null,
     }));
     blocks.value = [];
-    items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: item.amount }));
+    items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: displayQuantity(item.amount) }));
     etag.value = quotation.etag;
     quotationCode.value = quotation.code;
     dealId.value = quotation.deal_id;

@@ -743,6 +743,20 @@ final class CustomerQuotationHtmlTest extends TestCase
         self::assertStringContainsString("\u{2066}2026-07-14\u{2069}", $this->html(locale: 'en'));
     }
 
+    public function test_that_a_negative_rounding_keeps_its_minus_on_the_arabic_page(): void
+    {
+        // U-6 (F.2): QT-2026-0003's Arabic PDF printed «0.40-». A leading minus
+        // is a bidi neutral, so an RTL paragraph moves it after the digits. The
+        // rounding difference is the only money figure that can be negative
+        // (D-65, D-99: `-0.400000` → `-0.40`), so its cell is isolated the way
+        // the dates are — U+2066…U+2069 — in both languages, one template.
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html(locale: $locale, roundingDiff: '-0.400000');
+
+            self::assertStringContainsString("\u{2066}-0.40\u{2069}", $html, "The rounding difference on the {$locale} page is not isolated.");
+        }
+    }
+
     public function test_that_money_prints_at_two_places_rounded_half_up(): void
     {
         // F-33 · 1.2, D-99. The figures arrive at the scale D-68 stores them —
@@ -772,7 +786,8 @@ final class CustomerQuotationHtmlTest extends TestCase
                 'total excl. VAT' => '2000.01',
                 'discount' => '50.00',
                 'tax' => '133.99',
-                'rounding difference' => '-0.13',
+                // U-6: the one money figure that can be negative is isolated (the test above).
+                'rounding difference' => "\u{2066}-0.13\u{2069}",
                 'final total' => '695.00 EGP',
             ] as $figure => $value) {
                 self::assertMatchesRegularExpression('/<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>/', $html, "The {$figure} on the {$locale} page is not at two places, half-up (D-99).");

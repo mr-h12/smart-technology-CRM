@@ -558,6 +558,8 @@ deptrac:
       # `CustomerFollowUpsInterface`, never Reports' tables.
       - ReportsContract
     CustomersDriver:
+      # AdminContract, Module 14 · 6.1: `CompanyToday::zone()` — the list filters creation days in the company's zone (`D-145`).
+      - AdminContract
       - CustomersContract
       - Framework
       - SharedContracts
@@ -600,6 +602,8 @@ deptrac:
     # *contract* half only; nothing points at `StorageDriver`, and nothing
     # should.
     Deals:
+      # AdminContract, Module 14 · 6.1: `CompanyToday::zone()` — the list filters creation days in the company's zone, as the dashboard counts them (`D-145`).
+      - AdminContract
       - Framework
       - SharedContracts
       - IdentityContract

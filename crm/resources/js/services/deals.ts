@@ -97,6 +97,10 @@ export interface DealListQuery {
     owner?: string | null;
     /** `D-114`: the customer page's requests. */
     customer?: string | null;
+    /** Module 14 · 6.1, the dashboard's drill-down: creation days (company time) and open/closed. */
+    createdFrom?: string | null;
+    createdTo?: string | null;
+    progress?: 'open' | 'closed' | null;
 }
 
 /**
@@ -180,6 +184,9 @@ export async function listDeals(query: DealListQuery = {}): Promise<Page<DealRow
         ['filter[approval_status]', query.approvalStatus],
         ['filter[owner]', query.owner],
         ['filter[customer]', query.customer],
+        ['filter[created_from]', query.createdFrom],
+        ['filter[created_to]', query.createdTo],
+        ['filter[progress]', query.progress],
     ] as const) {
         if (typeof value === 'string' && value !== '') {
             parameters.set(key, value);

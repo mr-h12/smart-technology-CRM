@@ -7,13 +7,15 @@
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import BreakdownsSection from '@/pages/dashboard/BreakdownsSection.vue';
 import { displayDecimals } from '@/domain/displayDecimals';
 import { readDashboardSales, type DashboardSales } from '@/services/dashboard';
 
-const props = defineProps<{ from: string; to: string }>();
+/** `drill`: the meta's `drill_down` (`D-145`) — stages and rows open their lists, or are only text. */
+const props = defineProps<{ from: string; to: string; drill: boolean }>();
 const { t } = useI18n();
 
 const sales = ref<DashboardSales | null>(null);
@@ -84,7 +86,12 @@ const rate = (value: string | null): string => (value === null ? '—' : `${valu
             <h2 class="font-semibold">{{ t('dashboard.sales.funnel') }}</h2>
             <ul class="flex flex-col gap-1">
                 <li v-for="stage in sales.funnel" :key="stage.status" class="flex items-center gap-2" data-testid="dashboard-funnel-stage" :data-status="stage.status">
-                    <span class="w-40 shrink-0 text-table">{{ t(`deals.status.${stage.status}`) }}</span>
+                    <RouterLink
+                        v-if="drill"
+                        :to="{ name: 'deals', query: { status: stage.status, created_from: from, created_to: to } }"
+                        class="row-link w-40 shrink-0 text-table"
+                    >{{ t(`deals.status.${stage.status}`) }}</RouterLink>
+                    <span v-else class="w-40 shrink-0 text-table">{{ t(`deals.status.${stage.status}`) }}</span>
                     <span class="h-3 flex-1 rounded-full bg-[var(--color-surface-muted)]" aria-hidden="true">
                         <span class="block h-3 rounded-full bg-[var(--color-primary)]" :style="{ width: `${(stage.deals / widest) * 100}%` }" />
                     </span>
@@ -97,7 +104,8 @@ const rate = (value: string | null): string => (value === null ? '—' : `${valu
             <h2 class="font-semibold">{{ t('dashboard.sales.workload') }} <span class="text-table text-[var(--color-text-muted)]">· {{ t('dashboard.overview.now') }}</span></h2>
             <ul class="flex flex-col gap-1">
                 <li v-for="row in sales.workload" :key="row.owner_id" class="flex justify-between gap-2 border-b border-[var(--color-border)] py-1">
-                    <span>{{ row.name }}</span>
+                    <RouterLink v-if="drill" :to="{ name: 'deals', query: { owner: row.owner_id, progress: 'open' } }" class="row-link">{{ row.name }}</RouterLink>
+                    <span v-else>{{ row.name }}</span>
                     <span class="tabular-nums">{{ row.open_deals }}</span>
                 </li>
             </ul>

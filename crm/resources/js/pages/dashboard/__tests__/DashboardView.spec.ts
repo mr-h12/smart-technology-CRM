@@ -462,3 +462,37 @@ describe('the Sales tab II', () => {
         }
     });
 });
+
+/**
+ * Module 14, slice 6 · 6.1 — drill-down (`D-145`): for a holder of `drill_down`,
+ * a figure opens the list it counts, with that list's filters; for anyone else
+ * (the CEO) it is a number, never a link.
+ */
+describe('drill-down', () => {
+    const href = (wrapper: Awaited<ReturnType<typeof render>>, testid: string): string | undefined =>
+        wrapper.find(`[data-testid="${testid}"] a`).attributes('href');
+
+    it('turns the Overview figures into links to their lists', async () => {
+        const wrapper = await render(api());
+
+        expect(href(wrapper, 'dashboard-tile-deals-total')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31');
+        expect(href(wrapper, 'dashboard-tile-deals-open')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31&progress=open');
+        expect(href(wrapper, 'dashboard-tile-deals-closed')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31&progress=closed');
+        expect(href(wrapper, 'dashboard-tile-customers')).toBe('/customers?created_from=2026-10-01&created_to=2026-10-31');
+        expect(href(wrapper, 'dashboard-tile-pending-approvals')).toBe('/approvals');
+        expect(href(wrapper, 'dashboard-tile-returned')).toBe('/quotations');
+    });
+
+    it('links each funnel stage and each workload row', async () => {
+        const wrapper = await openSales(salesApi());
+
+        expect(wrapper.findAll('[data-testid="dashboard-funnel-stage"] a')[0]!.attributes('href')).toBe('/deals?status=lead&created_from=2026-10-01&created_to=2026-10-31');
+        expect(wrapper.find('[data-testid="dashboard-workload"] a').attributes('href')).toBe('/deals?owner=u1&progress=open');
+    });
+
+    it('draws no link without drill-down', async () => {
+        const wrapper = await render(api({ meta: { ...MANAGER_META, drill_down: false, tabs: ['overview', 'sales', 'finance', 'outdoor'], last_updated_at: OVERVIEW.last_updated_at } }));
+
+        expect(wrapper.find('[data-testid^="dashboard-tile-"] a').exists()).toBe(false);
+    });
+});

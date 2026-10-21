@@ -88,6 +88,9 @@ export interface CustomerListQuery {
     isArchived?: boolean | null;
     isIncomplete?: boolean | null;
     ownerInactive?: boolean | null;
+    /** Module 14 · 6.1, the dashboard's drill-down: creation days in company time. */
+    createdFrom?: string | null;
+    createdTo?: string | null;
 }
 
 /** §4.2's user-entered fields. `customer_status`, `is_archived` and `is_incomplete` are refused with a 422. */
@@ -142,6 +145,13 @@ export async function listCustomers(query: CustomerListQuery = {}): Promise<Page
 
     if (typeof query.sector === 'string' && query.sector !== '') {
         parameters.set('filter[sector]', query.sector);
+    }
+
+    // Module 14 · 6.1: the dashboard's drill-down period, as calendar days.
+    for (const [key, value] of [['filter[created_from]', query.createdFrom], ['filter[created_to]', query.createdTo]] as const) {
+        if (typeof value === 'string' && value !== '') {
+            parameters.set(key, value);
+        }
     }
 
     for (const [key, value] of [

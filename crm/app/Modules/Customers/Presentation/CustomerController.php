@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Customers\Presentation;
 
+use App\Modules\Admin\Application\Settings\CompanyToday;
 use App\Modules\Customers\Application\Archiving\ArchiveCustomer;
 use App\Modules\Customers\Application\Assignment\AssignCustomer;
 use App\Modules\Customers\Application\Importing\ImportCustomers;
@@ -34,13 +35,13 @@ use RuntimeException;
  */
 final class CustomerController
 {
-    public function index(Request $request, ListCustomers $customers): JsonResponse
+    public function index(Request $request, ListCustomers $customers, CompanyToday $today): JsonResponse
     {
         // Parsed in Domain rather than by a Form Request: OpenAPI §6.1 and §6.2
         // require `400 invalid_request` for a bad page size or an unknown
         // filter, and a Form Request failure is a 422.
         $page = $customers->handle(
-            CustomerListCriteria::fromQuery($request->query()),
+            CustomerListCriteria::fromQuery($request->query(), $today->zone()),
             self::heldScopes($request),
             self::actorId($request),
         );

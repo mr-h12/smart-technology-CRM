@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Deals\Presentation;
 
+use App\Modules\Admin\Application\Settings\CompanyToday;
 use App\Modules\Deals\Application\Approval\ChangeDealStatus;
 use App\Modules\Deals\Application\Approval\ReviewDealApproval;
 use App\Modules\Deals\Application\Assignment\AssignDeal;
@@ -32,13 +33,13 @@ use RuntimeException;
  */
 final class DealController
 {
-    public function index(Request $request, ListDeals $deals): JsonResponse
+    public function index(Request $request, ListDeals $deals, CompanyToday $today): JsonResponse
     {
         // Parsed in Domain rather than by a Form Request: OpenAPI §6.1 and §6.2
         // require `400 invalid_request` for a bad page size or an unknown
         // filter, and a Form Request failure is a 422.
         $page = $deals->handle(
-            DealListCriteria::fromQuery($request->query()),
+            DealListCriteria::fromQuery($request->query(), $today->zone()),
             self::heldScopes($request),
             self::actorId($request),
         );

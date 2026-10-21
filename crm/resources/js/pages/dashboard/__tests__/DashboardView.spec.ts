@@ -160,3 +160,96 @@ describe('DashboardView', () => {
         expect(wrapper.findAll('[data-testid^="dashboard-tab-"]')).toHaveLength(0);
     });
 });
+
+/**
+ * Module 14, slice 2 · 2.2a — the Overview tab (`D-144`, `D-145`). Its figures
+ * come from `GET /dashboard/overview` for the chosen period; the "now" figures
+ * are labelled as such; "Last updated" turns amber past two hours.
+ */
+const OVERVIEW = {
+    customers: 3,
+    deals: { total: 5, open: 3, closed: 2 },
+    self_approvals: 1,
+    now: { pending_approvals: 2, returned: 1 },
+    last_updated_at: '2026-10-21T08:00:00+00:00',
+};
+
+function api(answers: { meta?: unknown; overview?: unknown; overviewStatus?: number } = {}): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        if (/\/dashboard\/overview\?/.test(url)) {
+            return (answers.overviewStatus ?? 200) === 200
+                ? json(200, { data: answers.overview ?? OVERVIEW, meta: { request_id: 'r' } })
+                : json(answers.overviewStatus!, { error: { code: 'server_error', message: 'x' } });
+        }
+        return json(200, { data: answers.meta ?? { ...MANAGER_META, last_updated_at: OVERVIEW.last_updated_at }, meta: { request_id: 'r' } });
+    });
+}
+
+const overviewCalls = (fetchMock: ReturnType<typeof vi.fn>): string[] =>
+    fetchMock.mock.calls.map(([input]) => String(input)).filter((url) => /\/dashboard\/overview\?/.test(url));
+
+describe('the Overview tab', () => {
+    it('asks for the current month in company time', async () => {
+        const fetchMock = api();
+        await render(fetchMock);
+
+        expect(overviewCalls(fetchMock)).toHaveLength(1);
+        expect(overviewCalls(fetchMock)[0]).toMatch(/\/api\/v1\/dashboard\/overview\?from=2026-10-01&to=2026-10-31$/);
+    });
+
+    it('draws a tile for each figure', async () => {
+        const wrapper = await render(api());
+        const tile = (name: string) => wrapper.get(`[data-testid="dashboard-tile-${name}"]`).text();
+
+        expect(tile('customers')).toContain('3');
+        expect(tile('deals-total')).toContain('5');
+        expect(tile('deals-open')).toContain('3');
+        expect(tile('deals-closed')).toContain('2');
+        expect(tile('self-approvals')).toContain('1');
+        expect(tile('pending-approvals')).toContain('2');
+        expect(tile('returned')).toContain('1');
+    });
+
+    it('labels the live figures "now"', async () => {
+        const wrapper = await render(api());
+
+        for (const name of ['pending-approvals', 'returned']) {
+            expect(wrapper.get(`[data-testid="dashboard-tile-${name}"]`).text()).toContain('now');
+        }
+        expect(wrapper.get('[data-testid="dashboard-tile-customers"]').text()).not.toContain('now');
+    });
+
+    it('asks again when the period changes', async () => {
+        const fetchMock = api();
+        const wrapper = await render(fetchMock);
+
+        await wrapper.get('[data-testid="dashboard-period-kind"]').setValue('year');
+        await flushPromises();
+
+        expect(overviewCalls(fetchMock).at(-1)).toMatch(/from=2026-01-01&to=2026-12-31$/);
+    });
+
+    it('marks "Last updated" stale past two hours', async () => {
+        const fresh = await render(api());
+        expect(fresh.get('[data-testid="dashboard-last-updated"]').attributes('data-stale')).toBe('false');
+        fresh.unmount();
+
+        const stale = await render(api({ meta: { ...MANAGER_META, last_updated_at: '2026-10-21T06:30:00+00:00' } }));
+        expect(stale.get('[data-testid="dashboard-last-updated"]').attributes('data-stale')).toBe('true');
+    });
+
+    it('still says "Not refreshed yet" before J-09 has run', async () => {
+        const wrapper = await render(api({ meta: MANAGER_META, overview: { ...OVERVIEW, last_updated_at: null } }));
+
+        expect(wrapper.get('[data-testid="dashboard-last-updated"]').text()).toContain('Not refreshed yet');
+    });
+
+    it('keeps the tabs and the period when the figures fail', async () => {
+        const wrapper = await render(api({ overviewStatus: 500 }));
+
+        expect(wrapper.find('[data-testid="dashboard-overview-error"]').exists()).toBe(true);
+        expect(tabNames(wrapper)).toEqual(['overview', 'sales', 'finance', 'procurement', 'outdoor']);
+        expect(wrapper.find('[data-testid="dashboard-period-kind"]').exists()).toBe(true);
+    });
+});

@@ -361,7 +361,10 @@ const SALES = {
 function salesApi(sales: unknown = SALES): ReturnType<typeof vi.fn> {
     return vi.fn(async (input: string) => {
         const url = String(input);
-        const data = /\/dashboard\/sales\?/.test(url) ? sales : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
+        // The Sales tab also mounts the breakdowns (5.2); the server always sends `lost_by_reason`.
+        const data = /\/dashboard\/sales\?/.test(url) ? sales
+            : /\/dashboard\/breakdowns\?/.test(url) ? { base_currency: 'EGP', lost_by_reason: [] }
+                : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
         return json(200, { data, meta: { request_id: 'r' } });
     });
 }

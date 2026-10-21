@@ -173,6 +173,11 @@ every "are we ready to ship" conversation — not at the end.
       `ST-05` missed-job catch-up, `ST-07` transactional integrity, `ST-08` `/health` per service
 - [ ] **Missed-job catch-up on startup** (`D-55`, `ST-05`)
 - [ ] **Restart recovery** (`D-54`) — power down, power up, everything returns on its own
+- [ ] **The dashboard's permissions reach the server's database** — *Module 14 · 1.2, 2026-10-21 (`D-145`).*
+      `dashboard.view` and `dashboard.drill_down` live in `PermissionMatrix`, as `catalog.import` did
+      (F-09 · 1.4), and reach a database only through `php artisan db:seed --class=RolePermissionSeeder`
+      (safe to repeat); `php artisan rbac:verify` must then say the grants match §3. Until that runs on
+      the server, the CEO, Manager and Team Leader get 403 on `/dashboard`.
 - [ ] **Backups** `BK-01`…`BK-08` — daily set, checksums, off-server copy, and a **real restore test**
 - [ ] **External heartbeat** (`OBS-07`) — a down server cannot report itself down
 - [ ] **ClamAV daemon** (`SEC-15`, `§17`) — added 2026-08-22 with Point 5.5. The application
@@ -5387,8 +5392,8 @@ point (failing tests, failing for the right reason) then a green point with its 
 - [x] **0.4** Lost reasons: `deals.lost_reason` is free text, so "lost deals by reason" cannot be grouped — the owner's decision, before slice 5 *(2026-10-21, #409 — D-147: a managed list on the Rejected response; point 5.0 added)*
 
 **Slice 1 — the dashboard opens per role, no figures yet**
-- [ ] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text
-- [ ] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px)
+- [x] **1.1** Red: `dashboard.view` All/Team, `dashboard.drill_down`, Sales roles 403; tabs per role; period default (current month) and remembered choice; the empty-state text *(2026-10-21, #410 — 12 PHP + 9 vitest red for the right reason; tabs derived from permissions, never role names)*
+- [x] **1.2** Green: permissions migration, module skeleton + deptrac, the meta endpoint, the `dashboard` route and page (tabs, period picker, empty tabs, loading/empty/error, RTL/LTR, 375 px) *(2026-10-21, #410 — no migration: the seeder, as `catalog.import`; the meta carries the company's `today`; full suite 4275 passed; browser check NOT done — the in-app browser refused localhost)*
 
 **Slice 2 — summary tables, J-09, the Overview counts**
 - [ ] **2.1** Red: each count equals a direct query of its definition; Team scope (`D-138`); go-live window; J-09 idempotent, touched days only, nightly full rebuild, no catch-up entry (§15 "❌ recomputes", `D-146`)

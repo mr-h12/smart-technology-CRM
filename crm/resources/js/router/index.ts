@@ -35,6 +35,7 @@ import SystemSettingsView from '@/pages/settings/SystemSettingsView.vue';
 import AccountSecurityView from '@/pages/profile/AccountSecurityView.vue';
 import ManagedListsView from '@/pages/lists/ManagedListsView.vue';
 import CustomersView from '@/pages/customers/CustomersView.vue';
+import DashboardView from '@/pages/dashboard/DashboardView.vue';
 import CustomerDetailView from '@/pages/customers/CustomerDetailView.vue';
 import SuppliersView from '@/pages/suppliers/SuppliersView.vue';
 import CatalogView from '@/pages/catalog/CatalogView.vue';
@@ -102,6 +103,15 @@ export const routes: RouteRecordRaw[] = [
         name: 'home',
         component: Ping,
         meta: { requiresAuth: true, titleKey: 'nav.item.home' },
+    },
+    {
+        // §8's *Dashboard*, Module 14 — the CEO's, Manager's and Team Leader's
+        // landing screen (`LANDING_ROUTE`). `dashboard.view` at any scope; which
+        // tabs follow is the server's answer (`D-145`).
+        path: '/dashboard',
+        name: 'dashboard',
+        component: DashboardView,
+        meta: { requiresAuth: true, requiredPermission: 'dashboard.view', titleKey: 'dashboard.title' },
     },
     {
         // §8's *Customers* screen — Manager · Team Leader · Outdoor Supervisor ·

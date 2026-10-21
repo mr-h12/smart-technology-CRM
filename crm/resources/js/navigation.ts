@@ -57,6 +57,14 @@ export const NAVIGATION: readonly NavigationGroup[] = [
         labelKey: 'nav.group.sales',
         items: [
             {
+                // §8 opens the CEO's, Manager's and Team Leader's lists with
+                // *Dashboard* (Module 14, `D-145`).
+                name: 'dashboard',
+                labelKey: 'nav.item.dashboard',
+                icon: 'M3 3h6v8H3zm8 0h6v5h-6zm0 7h6v7h-6zM3 13h6v4H3z',
+                permission: 'dashboard.view',
+            },
+            {
                 // §8 puts *Customers* on six roles' screens; the permission is
                 // §3.3's `view` row, which is what `GET /customers` names.
                 // Scope is deliberately absent: a caller holding `own` must

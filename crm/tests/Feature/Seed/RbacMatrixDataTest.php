@@ -51,6 +51,7 @@ final class RbacMatrixDataTest extends TestCase
         '§3.9' => 4,   // Procurement
         '§3.10' => 6,  // Reports
         '§3.11' => 10, // Administration — 9 documented rows + D-80's `currency.view`
+        '§3.13' => 2,  // Dashboard — `D-145`: view dashboard · drill down
     ];
 
     // ─────────────────────────────────────────────────── coverage
@@ -75,7 +76,7 @@ final class RbacMatrixDataTest extends TestCase
         );
     }
 
-    public function test_the_matrix_holds_exactly_the_fifty_nine_documented_permissions(): void
+    public function test_the_matrix_holds_exactly_the_sixty_one_documented_permissions(): void
     {
         $counted = [];
 
@@ -84,7 +85,7 @@ final class RbacMatrixDataTest extends TestCase
         }
 
         self::assertSame(self::SECTION_ROWS, $counted);
-        self::assertCount(59, PermissionMatrix::all());
+        self::assertCount(61, PermissionMatrix::all()); // 59 + §3.13's two (`D-145`)
     }
 
     /**

@@ -4,6 +4,10 @@ The twelve modules `AP-02` names, each with the four layers `AP-03` requires.
 Empty for now — the structure exists before the code so that no module is ever
 "temporarily" put somewhere else.
 
+Beside them sit modules a decision added: Storage, Pdf, SupplierQuotations,
+Idempotency, and `Dashboard` (`D-146`), which reads every other module through
+its contract layer only.
+
 ## The layers, and what may depend on what
 
 ```

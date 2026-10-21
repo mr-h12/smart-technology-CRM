@@ -461,6 +461,68 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.unit_price', '13.000000');
     }
 
+    /**
+     * `D-148` (`U-9`, QT-2026-0004): the margin shown is the one the stored figures achieve —
+     * a line priced at 5 % before `D-106` shows 5, not the 10 + 5 its margins now sum to.
+     */
+    public function test_that_the_effective_margin_is_the_margin_the_stored_figures_achieve(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('quotations')->where('id', $id)->update(['default_margin' => '10']);
+        $this->storeLine($id, cost: '100', price: '105', lineMargin: '5');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', '5.000');
+    }
+
+    /** `D-148`: no cost, no margin to speak of — null, which the SPA shows as "—". */
+    public function test_that_the_effective_margin_is_null_when_the_cost_is_zero(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->storeLine($id, cost: '0', price: '0');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', null);
+    }
+
+    /** `D-148` over `D-142`: cost 0.02 at 20 % rounds to a 0.02 price, so 0 % is achieved, not 20. */
+    public function test_that_the_effective_margin_shows_what_d142s_rounding_left(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->storeLine($id, cost: '0.02', price: '0.02');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', '0.000');
+    }
+
+    /** `D-148`: three places, half away from zero — 0.05 / 3 = 1.6666… is 1.667, not truncated to 1.666. */
+    public function test_that_the_effective_margin_rounds_half_up_to_three_places(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->storeLine($id, cost: '3', price: '3.05');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', '1.667');
+    }
+
+    /**
+     * `D-148` (`U-4`, QT-2026-0018): the margin is over the converted cost, not the supplier's raw one —
+     * (18.27 − 16.61) / 16.61 × 100 = 9.99398… → "9.994"; over the raw 877.19 it would be −97.917.
+     */
+    public function test_that_the_effective_margin_reads_the_converted_cost_not_the_suppliers_raw_one(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->storeLine($id, cost: '877.19', price: '18.27', base: '16.61');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', '9.994');
+    }
+
     /** §3.5 `view cost & margin`: withdrawn, the cost fields are absent — not null, not zero. */
     public function test_that_without_the_cost_grant_the_cost_fields_are_absent(): void
     {
@@ -603,6 +665,17 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertIsString($lineId);
 
         DB::table('supplier_quotation_items')->where('id', $lineId)->update(['unit_price' => $unitPrice]);
+    }
+
+    /** Overwrites the quotation's only line with chosen stored figures, rate 1, as a line priced earlier would hold them. */
+    private function storeLine(string $quotationId, string $cost, string $price, ?string $lineMargin = null, ?string $base = null): void
+    {
+        DB::table('quotation_items')->where('quotation_id', $quotationId)->update([
+            'unit_cost' => $cost,
+            'unit_cost_base' => $base ?? $cost,
+            'unit_price' => $price,
+            'margin_percent' => $lineMargin,
+        ]);
     }
 
     /** The `supplier_quotations` id behind the quotation's only line. */

@@ -342,11 +342,30 @@ describe('the quotation detail view', () => {
         expect(bare.wrapper.find('[data-testid="quotation-lines"]').text()).not.toContain('Cost');
 
         const costed = await render(respond({ quotation: { ...QUOTATION, default_margin: '20.000', items: [COSTED_LINE] } }));
-        expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.00');
-        // D-106, the owner's ruling (b): the column is the line's whole margin as
-        // the server computed it, never the line's own extra (5.00).
+        expect(costed.wrapper.find('[data-testid="quotation-line-unit_cost"]').text()).toBe('400.00 EGP');
+        // D-148: the column is the margin the stored figures achieve, as the server
+        // computed it, never the line's own extra (5.00).
         expect(costed.wrapper.find('[data-testid="quotation-line-effective_margin_percent"]').text()).toBe('25.5%');
         expect(costed.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('20%');
+    });
+
+    // D-148 (U-4, QT-2026-0018): the cost converted into the quotation's currency, with its code — not the supplier's raw price.
+    it('shows a cross-currency line’s cost in the quotation’s currency, with its code', async () => {
+        const line = { ...COSTED_LINE, unit_cost: '877.190000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '0.018936', unit_cost_base: '16.610000' };
+        const { wrapper } = await render(respond({ quotation: { ...QUOTATION, currency: 'USD', currency_id: 'cur-usd', items: [line] } }));
+
+        const cell = wrapper.find('[data-testid="quotation-line-unit_cost"]');
+        expect(cell.text()).toBe('16.61 USD');
+        expect(cell.text()).not.toContain('877.19');
+        // A-26: money and its code stay one left-to-right run inside the RTL table.
+        expect(cell.find('bdi[dir="ltr"]').exists()).toBe(true);
+    });
+
+    // D-148: no cost, no margin — the server sends null and the cell says so.
+    it('shows a dash for a line whose margin is null', async () => {
+        const { wrapper } = await render(respond({ quotation: { ...QUOTATION, items: [{ ...COSTED_LINE, unit_cost: '0.000000', unit_cost_base: '0.000000', effective_margin_percent: null }] } }));
+
+        expect(wrapper.find('[data-testid="quotation-line-effective_margin_percent"]').text()).toBe('—');
     });
 
     it('lists the additional items and the line’s quantity and price', async () => {

@@ -69,8 +69,8 @@ const QUOTATION = {
     terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
     rejection_reason: null, sent_at: null, is_self_approved: false, etag: '"v1"',
     items: [
-        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', margin_percent: '25.000' },
-        { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', product_name: null, quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', margin_percent: null },
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', product_name: 'Split unit 1.5HP', quantity: '2.000', unit_price: '500.000000', line_total: '1000.000000', unit_cost: '400.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '400.000000', margin_percent: '25.000' },
+        { id: 'l2', line_no: 2, supplier_quotation_item_id: 'sqi2', product_name: null, quantity: '1.000', unit_price: '300.000000', line_total: '300.000000', unit_cost: '250.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '250.000000', margin_percent: null },
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
     created_by: 'u1', updated_by: 'u1',
@@ -121,8 +121,10 @@ function respond(options: {
     /** `GET /managed-lists/delivery_terms` (F-32); none, or anything but 200, is what the plain text area answers. */
     terms?: typeof TERMS;
     termsStatus?: number;
+    /** `GET /supplier-quotations/sq1`. */
+    offer?: unknown;
 } = {}): ReturnType<typeof vi.fn> {
-    const { dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {}, currenciesStatus = 200, terms = [], termsStatus = 200 } = options;
+    const { offer = SQ_DETAIL, dealStatus = 200, saves = [json(201, envelope(CREATED))], quotations = [QUOTATION], updates = [json(200, envelope(QUOTATION))], suggestions = {}, currenciesStatus = 200, terms = [], termsStatus = 200 } = options;
     let saved = 0;
     let read = 0;
     let updated = 0;
@@ -181,7 +183,7 @@ function respond(options: {
         }
 
         if (url.includes('/supplier-quotations/sq1')) {
-            return json(200, envelope(SQ_DETAIL));
+            return json(200, envelope(offer));
         }
 
         if (url.includes('/supplier-quotations')) {
@@ -328,6 +330,25 @@ describe('the quotation builder (create)', () => {
         // A-16: the balance is said once, in the line above; the box itself stays empty.
         expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBeUndefined();
         expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
+    });
+
+    // D-148: the supplier's price says its currency — the offer's currency_id looked up in GET /currencies.
+    it('shows the recorded supplier price with the offer’s currency code, and without one when the list is refused', async () => {
+        const offer = { ...SQ_DETAIL, total_price: '1000.000000', currency_id: 'cur-usd' };
+        const listed = await render(respond({ offer }));
+        await listed.wrapper.find(id('add-supplier')).trigger('click');
+        await listed.wrapper.find(id('supplier-0-pick')).setValue('sq1');
+        await flushPromises();
+
+        expect(listed.wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00 USD');
+
+        const refused = await render(respond({ offer, currenciesStatus: 403 }));
+        await refused.wrapper.find(id('add-supplier')).trigger('click');
+        await refused.wrapper.find(id('supplier-0-pick')).setValue('sq1');
+        await flushPromises();
+
+        expect(refused.wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00');
+        expect(refused.wrapper.find(id('line-0-0-recorded')).text()).not.toContain('USD');
     });
 
     /** F-42 · 5.16 (A-41): a block says it is loading its offer, and an offer that fails says so in the block, not at the page top. */
@@ -694,13 +715,22 @@ describe('the quotation builder (edit)', () => {
         expect(wrapper.find(id('existing-0-margin_percent')).attributes('inputmode')).not.toBe('decimal');
         // Design System §3 l.128: a negative extra reads "-20", never "20-", inside an RTL page.
         expect(wrapper.find(id('existing-0-margin_percent')).attributes('dir')).toBe('ltr');
-        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.00');
+        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.00 EGP');
         expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('400.000000');
         expect(wrapper.find(id('existing-0-product')).text()).toBe('Split unit 1.5HP');
         expect(wrapper.find(id('existing-1-product')).exists()).toBe(false);
         expect((wrapper.find(id('existing-1-margin_percent')).element as HTMLInputElement).value).toBe('');
         expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
         expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100');
+    });
+
+    // D-148 (U-4, QT-2026-0018): an existing line's cost converted into the quotation's currency, with its code.
+    it('shows an existing line’s cost in the quotation’s currency, not the supplier’s raw price', async () => {
+        const line = { ...QUOTATION.items[0], unit_cost: '877.190000', unit_cost_fx_rate_at_time: '0.018936', unit_cost_base: '16.610000' };
+        const { wrapper } = await render(respond({ quotations: [{ ...QUOTATION, currency: 'USD', currency_id: 'cur-usd', items: [line] }] }), EDIT);
+
+        expect(wrapper.find(id('existing-0-cost')).text()).toContain('16.61 USD');
+        expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('877.19');
     });
 
     it('pre-fills a quantity and an amount without trailing zeros, every significant digit kept (U-5, D-99)', async () => {

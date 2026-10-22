@@ -102,6 +102,7 @@ from fighting over the same eleven files.
 | **9 — PDF Generation** | second developer | **finished** — 24 of 30 boxes (6 `[~]`; 5.2, Module 7's line, on #268), Steps 1–5 on #116–#268, closed 2026-09-29, archived in `checklist/module-09.md` |
 | **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
 | **14 — Dashboard** | mohanadmm | **finished** — 27 of 27 boxes, Steps 0–7 on #406–#417, closed 2026-10-22, archived in `checklist/module-14.md` |
+| **16 — Alerts** | mohanadmm | **in progress** — claimed 2026-10-22 under `D-153` |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -5421,6 +5422,34 @@ rule written twice, no company-time-zone test for J-09, untyped additional items
 - [ ] Create or update → indexing happens immediately via a job
 
 📏 **Trigger:** if customer search ever exceeds **500 ms**, pull this module forward immediately.
+
+---
+
+## Module 16 — Alerts
+
+> As a user, I want to be told when something of mine needs attention, so that nothing expires or breaks unnoticed.
+
+**Tables** `alerts` — one open row per kind and record, addressed to a user · `backup_runs` (`J-10`'s record) · jobs `J-10`, `J-14`, `J-16`
+
+**Acceptance criteria**
+- [ ] A user never sees an alert addressed to someone else
+- [ ] A quotation inside the window raises one alert for its owner and one for the owner's Team Leader; running `J-16` again adds none
+- [ ] Each alert clears itself when its cause is fixed
+- [ ] Marking an alert read lowers the bell's count; nothing is ever deleted
+- [ ] A failed backup, a locked account, a failed job or storage over its limit each reaches every Super Admin
+- [ ] ❌ Not in this module: push, email, priorities, the daily budget, quiet hours (`D-33`, §18.3)
+
+### Point list — approved 2026-10-22 (mohanadmm, in chat; `D-153`)
+
+Each point is a red turn, then a green turn, on its own branch.
+
+- [ ] **0** `D-153` written; this section and the ownership row; the agent guides' next action
+- [ ] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en
+- [ ] **2** Quotation expiring soon: `quotations.expiry_alert_days`, `J-16` with its catch-up, owner + Team Leader, clearing
+- [ ] **3** Account locked and job failed, to every Super Admin
+- [ ] **4** Storage over limit: `J-14` and its limit setting
+- [ ] **5** Minimal backups (`J-10`: database + files, checksum, success/failure record) and the backup-failed alert
+- [ ] **6** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-16.md`
 
 ---
 

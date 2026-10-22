@@ -73,6 +73,8 @@ final class NoHardCodedTextTest extends TestCase
                 // Module 8 Point 3.1 — §8's Approvals screen; every label is
                 // an `approvals.*` or reused `quotations.detail.*` key.
                 'ApprovalsView.vue',
+                // Module 14 · 5.2 — the Sales tab's breakdowns. Added after the scan passed on it.
+                'BreakdownsSection.vue',
                 // Module 4 Point 4.4 — §7.3's catalog add/edit form. Added on
                 // the same terms: the scan below was run against it first and
                 // passed. Its labels are looked up by the *field name* —
@@ -141,6 +143,8 @@ final class NoHardCodedTextTest extends TestCase
                 'EmailChallengeModal.vue', 'EmptyState.vue', 'ErrorState.vue',
                 // F-47 · 1 (`D-116`) — the in-page file viewer; the file's own name is data.
                 'FileViewerDialog.vue',
+                // Module 14 · 3.2 — the Finance tab. Added after the scan passed on it.
+                'FinancePanel.vue',
                 'ForbiddenView.vue',
                 'ImpersonationBanner.vue',
                 // Module 3 Point 4.6's `CustomerImportModal.vue`, shared as
@@ -187,6 +191,8 @@ final class NoHardCodedTextTest extends TestCase
                 'RoleFormModal.vue', 'RolesMatrixView.vue',
                 // F-18 · 1.1 — the one server-searched combobox the customer and
                 // supplier pickers share; every sentence is a lang key the caller names.
+                // Module 14 · 4.2 — the Sales tab. Added after the scan passed on it.
+                'SalesPanel.vue',
                 'SearchCombobox.vue', 'SelfApprovedBadge.vue',
                 // Module 4 Point 4.2 — §7.1's supplier add/edit form. Added on
                 // the same terms as every entry here: the scan below was run

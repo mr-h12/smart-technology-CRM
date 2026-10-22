@@ -155,7 +155,7 @@ final class ManagedListSchemaMigrationTest extends TestCase
         }
 
         self::assertSame(
-            ['companies', 'contact_titles'],
+            ['companies', 'contact_titles', 'lost_reasons'],
             array_values(array_diff($cases, ['sectors', 'units', 'service_types', 'delivery_terms'])),
             'A list outside DB-05 was added without being named here.',
         );
@@ -179,7 +179,9 @@ final class ManagedListSchemaMigrationTest extends TestCase
         $this->insertEntry('sectors', 'other');
         $this->insertEntry('units', 'other');
 
-        self::assertSame(2, DB::table(self::TABLE)->where('code', 'other')->count());
+        // `lost_reasons` (`D-147`) is seeded with its own `other` by its migration.
+        self::assertSame(2, DB::table(self::TABLE)->where('code', 'other')->whereIn('list', ['sectors', 'units'])->count());
+        self::assertSame(3, DB::table(self::TABLE)->where('code', 'other')->count());
     }
 
     public function test_that_an_archived_code_may_be_taken_again(): void

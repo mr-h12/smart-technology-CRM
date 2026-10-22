@@ -107,4 +107,21 @@ interface DealFactsInterface
      * @return list<string>
      */
     public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array;
+
+    /**
+     * Module 14 (`D-151`, `D-147`): each live deal's creation instant, current owner and lost-reason code. An
+     * absent or soft-deleted id has no entry. Read-only.
+     *
+     * @param  list<string>  $dealIds
+     * @return array<string, array{created_at: string, owner_id: ?string, lost_reason_code: ?string}>
+     */
+    public function creationAndOwnerOf(array $dealIds): array;
+
+    /**
+     * Module 14's workload (`D-144`): live open deals — before `won`, not `lost` —
+     * per owner; unowned deals have no row. Read-only.
+     *
+     * @return list<array{owner_id: string, open_deals: int}>
+     */
+    public function openCountsByOwner(): array;
 }

@@ -127,6 +127,7 @@ describe('ManagedListsView', () => {
             'companies',
             // D-104 (F-38 · 1.3): the owner approved the sixth tab, 2026-10-08.
             'contact_titles',
+            'lost_reasons',
         ]);
     });
 

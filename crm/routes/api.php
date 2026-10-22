@@ -871,6 +871,9 @@ Route::middleware('auth')->get('badges', [QuotationController::class, 'badges'])
 Route::middleware(['auth', 'permission:dashboard.view'])->prefix('dashboard')->group(function (): void {
     Route::get('/meta', [DashboardController::class, 'meta']);
     Route::get('/overview', [DashboardController::class, 'overview']);
+    Route::get('/money', [DashboardController::class, 'money']);
+    Route::get('/sales', [DashboardController::class, 'sales']);
+    Route::get('/breakdowns', [DashboardController::class, 'breakdowns']);
 });
 
 // Module 9 · 4.2 — the job status `OpenAPI §4.3` leaves to "the module

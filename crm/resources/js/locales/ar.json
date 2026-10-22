@@ -527,7 +527,8 @@
             "service_types": "أنواع الخدمات",
             "delivery_terms": "شروط التسليم",
             "companies": "الشركات",
-            "contact_titles": "ألقاب جهة الاتصال"
+            "contact_titles": "ألقاب جهة الاتصال",
+            "lost_reasons": "أسباب الخسارة"
         },
         "column": {
             "code": "الرمز",
@@ -651,7 +652,9 @@
             "ownerInactive": "عملاء الموظفين المعطَّلين",
             "archived": "السجلات",
             "archivedActive": "النشطة",
-            "archivedArchived": "المؤرشفة"
+            "archivedArchived": "المؤرشفة",
+            "fromDashboard": "من لوحة المتابعة: أُضيفوا {from} – {to}",
+            "clearDashboard": "مسح"
         },
         "empty": {
             "filtered": {
@@ -1056,7 +1059,13 @@
             "source": "المصدر",
             "sourceAll": "كل المصادر",
             "ownerAll": "كل المسؤولين",
-            "toggle": "عوامل التصفية ({count})"
+            "toggle": "عوامل التصفية ({count})",
+            "fromDashboard": "من لوحة المتابعة: أُنشئت {from} – {to}",
+            "clearDashboard": "مسح",
+            "progress": {
+                "open": "صفقات مفتوحة",
+                "closed": "صفقات مغلقة"
+            }
         },
         "column": {
             "code": "الرمز",
@@ -1320,7 +1329,12 @@
             "additionalTotal": "البنود الإضافية",
             "rounding": "التقريب (إلى {unit})",
             "finalTotal": "الإجمالي النهائي",
-            "openDeal": "فتح الصفقة"
+            "openDeal": "فتح الصفقة",
+            "respondReasonCode": "سبب رفض العميل",
+            "respondReasonCodePick": "اختر السبب…",
+            "respondReasonOptional": "ملاحظة (اختيارية)",
+            "recordNeedsReasonCode": "اختر سبب رفض العميل لتسجيل الرد.",
+            "rejectionReasonCode": "سبب الرفض"
         },
         "builder": {
             "title": "عرض سعر جديد",
@@ -1661,6 +1675,42 @@
             "pending_approvals": "بانتظار الاعتماد",
             "returned": "عروض معادة",
             "now": "الآن"
+        },
+        "money": {
+            "currency": "العملة",
+            "won_value": "الإيرادات",
+            "cost": "التكلفة",
+            "gross_profit": "إجمالي الربح",
+            "net_profit": "صافي الربح",
+            "margin": "هامش الربح",
+            "delivery_cost": "التوصيل والتركيب",
+            "net_profit_note": "صافي الربح يساوي إجمالي الربح حتى تفعيل وحدة المشتريات.",
+            "combine": "التجميع بالعملة الأساسية",
+            "unconverted": "{count} عرض فائز بلا سعر صرف وقتها، ولم يُحتسب.",
+            "monthly": "حسب الشهر: الإيرادات / إجمالي الربح",
+            "none": "لا توجد صفقات فائزة في هذه الفترة."
+        },
+        "sales": {
+            "conversion": "نسبة التحويل",
+            "of_created": "{won} من {created} وصلت للفوز",
+            "win_rate": "نسبة الفوز",
+            "won_lost": "{won} فوز · {lost} خسارة",
+            "cycle": "متوسط دورة البيع",
+            "days": "{days} يوم",
+            "deal_size": "متوسط حجم الصفقة",
+            "funnel": "مسار المبيعات",
+            "workload": "الصفقات المفتوحة لكل موظف"
+        },
+        "breakdowns": {
+            "lost_by_reason": "الصفقات الخاسرة حسب السبب",
+            "by_employee": "حسب الموظف",
+            "by_sector": "حسب القطاع",
+            "top_customers": "أعلى العملاء",
+            "best_products": "الأكثر مبيعًا",
+            "worst_products": "الأقل مبيعًا",
+            "won_deals": "{count} فوز",
+            "none": "غير محدد",
+            "empty": "لا شيء في هذه الفترة."
         }
     }
 }

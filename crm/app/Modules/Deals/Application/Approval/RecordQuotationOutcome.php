@@ -65,19 +65,19 @@ final readonly class RecordQuotationOutcome implements DealOutcomeInterface
         $this->moveIfAllowed($dealId, 'negotiations', null, $actorId);
     }
 
-    public function quotationRejected(string $dealId, string $reason, string $actorId): bool
+    public function quotationRejected(string $dealId, ?string $reason, string $actorId, ?string $reasonCode = null): bool
     {
-        return $this->moveIfAllowed($dealId, 'lost', $reason, $actorId);
+        return $this->moveIfAllowed($dealId, 'lost', $reason, $actorId, $reasonCode);
     }
 
     /** Locked read, then the move only when §4.4 has the edge (D-90 rule b's shape, D-119). */
-    private function moveIfAllowed(string $dealId, string $to, ?string $reason, string $actorId): bool
+    private function moveIfAllowed(string $dealId, string $to, ?string $reason, string $actorId, ?string $reasonCode = null): bool
     {
         if (! DealStatusTransition::isAllowed($this->statusOf($dealId, $actorId, forUpdate: true), $to)) {
             return false;
         }
 
-        $this->changeStatus->handle($dealId, $to, $reason, self::ALL, $actorId);
+        $this->changeStatus->handle($dealId, $to, $reason, self::ALL, $actorId, $reasonCode);
 
         return true;
     }

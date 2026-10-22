@@ -200,8 +200,8 @@ final class TestUsersDataTest extends TestCase
         // scopes and two bare checkmarks (2026-10-21): → 223.
         self::assertSame(223, DB::table('seed_probe_permissions')->count());
         self::assertSame(3, DB::table('seed_probe_currencies')->count());
-        // 13, then D-104's two contact titles (2026-10-08): → 15.
-        self::assertSame(15, DB::table('seed_probe_lists')->count());
+        // 13, then D-104's two contact titles (2026-10-08): → 15; D-147's seven lost reasons (2026-10-21): → 22.
+        self::assertSame(22, DB::table('seed_probe_lists')->count());
         self::assertSame(8, DB::table('seed_probe_users')->count());
 
         // Spot the far end of each chain, not just the count.

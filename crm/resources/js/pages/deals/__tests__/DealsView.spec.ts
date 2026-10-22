@@ -872,6 +872,28 @@ describe('the deals screen after F-41 (F-42 · P6)', () => {
         wrapper.unmount();
     });
 
+    /** Module 14 · 6.1: a dashboard figure opens this list with its own filters; one control drops them. */
+    it('carries the dashboard\'s drill-down filters and clears them together', async () => {
+        const fetchMock = respond();
+        const { wrapper, router } = await renderAt(fetchMock, '/deals?created_from=2026-10-01&created_to=2026-10-31&progress=open&owner=u9');
+
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bcreated_from%5D=2026-10-01');
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bcreated_to%5D=2026-10-31');
+        expect(dealsUrl(fetchMock)).toContain('filter%5Bprogress%5D=open');
+        expect(wrapper.get('[data-testid="deals-dashboard-filter"]').text()).toContain('dashboard');
+        // The owner's browser check (2026-10-22): the days as every screen draws them, never raw ISO (scrambled in Arabic).
+        expect(wrapper.get('[data-testid="deals-dashboard-filter"]').text()).toContain('01/10/2026 – 31/10/2026');
+
+        await wrapper.get('[data-testid="deals-dashboard-filter-clear"]').trigger('click');
+        await flushPromises();
+
+        expect(dealsUrl(fetchMock)).not.toContain('created_from');
+        expect(dealsUrl(fetchMock)).not.toContain('progress');
+        expect(router.currentRoute.value.query).not.toHaveProperty('progress');
+        expect(wrapper.find('[data-testid="deals-dashboard-filter"]').exists()).toBe(false);
+        wrapper.unmount();
+    });
+
     it('keeps the table on a reload, busy and dimmed, with the focus on the pager (A-14)', async () => {
         let release: (value: Response) => void = () => {};
         let reads = 0;

@@ -60,7 +60,7 @@ final class ManagedListsDataTest extends TestCase
     public function test_the_lists_this_system_keeps_are_defined(): void
     {
         self::assertSame(
-            ['sectors', 'units', 'service_types', 'delivery_terms', 'companies', 'contact_titles'],
+            ['sectors', 'units', 'service_types', 'delivery_terms', 'companies', 'contact_titles', 'lost_reasons'],
             array_map(static fn (ManagedList $l): string => $l->value, ManagedList::cases()),
         );
     }
@@ -176,7 +176,7 @@ final class ManagedListsDataTest extends TestCase
             }
         }
 
-        self::assertSame(15, $checked, 'The registry is not the size the documents describe.');
+        self::assertSame(22, $checked, 'The registry is not the size the documents describe.'); // + D-147's seven lost reasons
     }
 
     public function test_every_entry_carries_both_languages(): void

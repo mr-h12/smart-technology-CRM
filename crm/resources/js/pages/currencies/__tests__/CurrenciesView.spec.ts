@@ -444,6 +444,74 @@ describe('recording a rate', () => {
     });
 });
 
+// Fix pass F.4, U-3 (`D-152`): a rate typed the wrong way round (EGP→USD 51,
+// where 1 EGP is about 0.02 USD) is visible before it is saved. The line reads
+// the typed number as `D-115` does — 1 `from` = r `to` — and states the other
+// direction as the server stores it: `ExchangeRate::inverseOf()`'s 1 ÷ r,
+// truncated at `D-68`'s FX scale (8 places), trailing zeros dropped. A preview,
+// never sent; the server still decides. Each equation is its own
+// left-to-right run (A-26), so Arabic does not reverse "1 EGP = 51 USD".
+describe('what a typed rate means, before it is saved', () => {
+    async function typeRate(from: string, to: string, rate: string, locale: 'ar' | 'en' = 'en') {
+        const { wrapper } = await mountCurrencies(MANAGER, [RATES_OK], locale);
+
+        await wrapper.get('[data-testid="rates-from"]').setValue(from);
+        await wrapper.get('[data-testid="rates-to"]').setValue(to);
+        await wrapper.get('[data-testid="rates-rate"]').setValue(rate);
+
+        return wrapper;
+    }
+
+    function equations(wrapper: Awaited<ReturnType<typeof typeRate>>): string[] {
+        return wrapper.get('[data-testid="rates-meaning"]').findAll('bdi[dir="ltr"]').map((run) => run.text());
+    }
+
+    it.each([
+        // The two reversed rows on dev: 1 USD would be 0.0196 EGP.
+        ['EGP', 'USD', '51', '1 EGP = 51 USD', '1 USD = 0.01960784 EGP'],
+        ['EGP', 'USD', '52.80', '1 EGP = 52.8 USD', '1 USD = 0.01893939 EGP'],
+        // The right way round, typed lower-case — the codes are sent upper-cased.
+        ['usd', 'egp', '50', '1 USD = 50 EGP', '1 EGP = 0.02 USD'],
+    ])('reads %s→%s at %s both ways', async (from, to, rate, forward, inverse) => {
+        const wrapper = await typeRate(from, to, rate);
+
+        expect(equations(wrapper)).toEqual([forward, inverse]);
+        expect(wrapper.get('[data-testid="rates-meaning"]').text()).toContain('the other way');
+    });
+
+    it('writes the line in Arabic, with each equation left to right', async () => {
+        const wrapper = await typeRate('EGP', 'USD', '51', 'ar');
+
+        expect(equations(wrapper)).toEqual(['1 EGP = 51 USD', '1 USD = 0.01960784 EGP']);
+
+        const line = wrapper.get('[data-testid="rates-meaning"]').text();
+
+        expect(line).toContain('الاتجاه المعاكس');
+        expect(line).not.toContain('the other way');
+
+        // D-152: an equation never breaks between its number and its code
+        // (browser check, ar 375: «1» ended one line, «USD = 0.01960784 EGP» began the next).
+        const runs = wrapper.get('[data-testid="rates-meaning"]').findAll('bdi[dir="ltr"]');
+
+        expect(runs).toHaveLength(2);
+        expect(runs.every((run) => run.classes('whitespace-nowrap'))).toBe(true);
+    });
+
+    // No number, no line: nothing to read, and never a division by zero.
+    // 0.000000001 is above zero but nothing at D-68's eight places.
+    it.each(['', '0', '0.00', '0.000000001', 'abc', '5,1', '-5'])('draws no line for the rate %j', async (rate) => {
+        const wrapper = await typeRate('EGP', 'USD', rate);
+
+        expect(wrapper.find('[data-testid="rates-meaning"]').exists()).toBe(false);
+    });
+
+    it('draws no line until both codes are typed', async () => {
+        const wrapper = await typeRate('EGP', '', '51');
+
+        expect(wrapper.find('[data-testid="rates-meaning"]').exists()).toBe(false);
+    });
+});
+
 describe('the currency codes offered on the rate form', () => {
     it('offers the loaded codes to both fields', async () => {
         const { wrapper } = await mountCurrencies(SUPER_ADMIN, [CURRENCIES_OK, RATES_OK]);

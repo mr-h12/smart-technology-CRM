@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
+import { displayDecimals, displayInverseRate, displayPercent, displayQuantity } from '@/domain/displayDecimals';
 
 /**
  * D-110 (amending D-82 for screens, F-42 · A-26): a screen shows money in D-99's
@@ -62,5 +62,22 @@ describe('displayPercent', () => {
 
     it('passes null through', () => {
         expect(displayPercent(null)).toBeNull();
+    });
+});
+
+/**
+ * D-152 (U-3): the other direction of a typed rate, as `ExchangeRate::inverseOf()`
+ * stores it — the rate cut to `D-68`'s eight places, then 1 ÷ r cut to eight.
+ * The rate form's spec covers the readable and the refused inputs; these are the
+ * two branches it cannot reach.
+ */
+describe('displayInverseRate', () => {
+    it('cuts the typed rate to eight places before dividing, as the server does', () => {
+        expect(displayInverseRate('0.123456789')).toBe('8.10000066');
+    });
+
+    it('draws nothing when the inverse is nothing at eight places', () => {
+        expect(displayInverseRate('100000000')).toBe('0.00000001');
+        expect(displayInverseRate('200000000')).toBeNull();
     });
 });

@@ -59,6 +59,7 @@ import EmptyState from '@/components/states/EmptyState.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
+import { displayInverseRate, displayQuantity } from '@/domain/displayDecimals';
 import {
     listCurrencies,
     listFxRates,
@@ -216,6 +217,23 @@ const form = ref({ from: '', to: '', rate: '' });
 const recording = ref(false);
 const recorded = ref(false);
 const recordError = ref<string | null>(null);
+
+/**
+ * D-152 (U-3): what the typed rate means both ways before it is saved, read as
+ * D-115 reads it (1 `from` = r `to`) — a preview, never sent; the server decides.
+ * Null until both codes and a rate with an inverse at D-68's scale are typed.
+ */
+const meaning = computed(() => {
+    const from = form.value.from.trim().toUpperCase();
+    const to = form.value.to.trim().toUpperCase();
+    const rate = form.value.rate.trim();
+    const inverse = displayInverseRate(rate);
+
+    return from === '' || to === '' || inverse === null
+        ? null
+        : { from, to, rate: displayQuantity(rate), inverse };
+});
+
 const formErrors = ref<{ from: string | null; to: string | null; rate: string | null }>({
     from: null,
     to: null,
@@ -558,6 +576,19 @@ onMounted(async () => {
                 >
                     {{ recording ? t('currencies.rates.recording') : t('currencies.rates.record') }}
                 </button>
+
+                <!-- Each equation is its own left-to-right run (A-26), so Arabic
+                     does not draw "USD 51 = EGP 1". -->
+                <i18n-t
+                    v-if="meaning !== null"
+                    keypath="currencies.rates.meaning.line"
+                    tag="p"
+                    class="w-full text-[var(--color-text-muted)] text-pretty tabular-nums"
+                    data-testid="rates-meaning"
+                >
+                    <template #forward><bdi dir="ltr" class="whitespace-nowrap">{{ t('currencies.rates.meaning.equation', { from: meaning.from, rate: meaning.rate, to: meaning.to }) }}</bdi></template>
+                    <template #inverse><bdi dir="ltr" class="whitespace-nowrap">{{ t('currencies.rates.meaning.equation', { from: meaning.to, rate: meaning.inverse, to: meaning.from }) }}</bdi></template>
+                </i18n-t>
 
                 <p
                     v-if="recorded"

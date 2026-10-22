@@ -30,5 +30,30 @@ export function displayQuantity<T extends string | null | undefined>(value: T): 
     return typeof value === 'string' ? value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : value;
 }
 
+/**
+ * D-152 (U-3): the other direction of a typed rate, as `ExchangeRate::inverseOf()`
+ * stores it — the rate cut to `D-68`'s eight places (`ExchangeRate::of`), then
+ * 1 ÷ r cut to eight (`bcdiv('1', r, 8)`). `BigInt` on the digit string, never a
+ * float (`DB-07`). Null when the rate is not a plain decimal, is nothing at eight
+ * places, or its inverse is: a display preview only, the server still decides.
+ */
+export function displayInverseRate(rate: string): string | null {
+    if (!/^\d+(\.\d+)?$/.test(rate)) {
+        return null;
+    }
+
+    const [whole = '0', fraction = ''] = rate.split('.');
+    const scaled = BigInt(whole + fraction.padEnd(8, '0').slice(0, 8));
+    const inverse = scaled > 0n ? 10n ** 16n / scaled : 0n;
+
+    if (inverse === 0n) {
+        return null;
+    }
+
+    const digits = inverse.toString().padStart(9, '0');
+
+    return displayQuantity(`${digits.slice(0, -8)}.${digits.slice(-8)}`);
+}
+
 /** D-112: a percentage loses its trailing zeros the same way (`15.000` → `15`), on screen and in a pre-filled input. */
 export const displayPercent = displayQuantity;

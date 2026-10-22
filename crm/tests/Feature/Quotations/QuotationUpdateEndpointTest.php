@@ -9,6 +9,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Database\Seeders\RolePermissionSeeder;
+use DateTimeInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -302,6 +303,36 @@ final class QuotationUpdateEndpointTest extends TestCase
         self::assertSame(1, DB::table('quotation_items')->where('quotation_id', $id)->whereNull('deleted_at')->count());
     }
 
+    /**
+     * `D-152` (fix pass F.4, U-8) over `D-09`: a Draft's edit re-prices it at the
+     * moment of the edit — the rate effective now and the supplier price as it
+     * stands now — not at the ones its creation captured. Created at
+     * `USD→EGP = 50` on 10 EGP (0.200000 USD); an hour later the rate is 40 and
+     * the price 12, and the edit stores 12 ÷ 40 = 0.300000 (`D-115`'s division).
+     */
+    public function test_that_a_draft_edit_reprices_at_the_rate_and_supplier_price_of_the_edit(): void
+    {
+        $usdId = $this->currency('USD', '0.01', false, false);
+        $this->fxRate($usdId, $this->currencyId('EGP'), '50', now()->subDay());
+
+        [$id, $etag] = $this->quotation($this->deal(null), ['currency' => 'USD']);
+        self::assertSame(
+            ['unit_cost' => '10.000000', 'unit_cost_fx_rate_at_time' => '0.02000000', 'unit_cost_base' => '0.200000', 'unit_price' => '0.240000'],
+            $this->liveLineCosts($id),
+        );
+
+        $this->travel(1)->hours();
+        $this->fxRate($usdId, $this->currencyId('EGP'), '40', now()->subMinutes(30));
+        DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['unit_price' => '12']);
+
+        $this->edit($id, $etag, $this->payload(['currency' => 'USD']), RoleName::Manager)->assertStatus(200);
+
+        self::assertSame(
+            ['unit_cost' => '12.000000', 'unit_cost_fx_rate_at_time' => '0.02500000', 'unit_cost_base' => '0.300000', 'unit_price' => '0.360000'],
+            $this->liveLineCosts($id),
+        );
+    }
+
     /** §5.6 still warns on the edit, in `meta`, without blocking. */
     public function test_that_an_over_quantity_line_warns_on_edit(): void
     {
@@ -525,14 +556,15 @@ final class QuotationUpdateEndpointTest extends TestCase
      * Creates a quotation through Point 3.4's endpoint and reads its etag
      * through Point 3.5's: one line of 2 × 10 at 20 % margin, plus 5 delivery.
      *
+     * @param  array<string, mixed>  $overrides
      * @return array{string, string} id and etag
      */
-    private function quotation(string $dealId): array
+    private function quotation(string $dealId, array $overrides = []): array
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
-            ...$this->payload(),
+            ...$this->payload($overrides),
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);
@@ -558,6 +590,34 @@ final class QuotationUpdateEndpointTest extends TestCase
         ]);
 
         return $id;
+    }
+
+    private function fxRate(string $fromId, string $toId, string $rate, DateTimeInterface $effectiveFrom): void
+    {
+        DB::table('fx_rates')->insert([
+            'id' => Uuid::uuid4()->toString(),
+            'from_currency_id' => $fromId,
+            'to_currency_id' => $toId,
+            'rate' => $rate,
+            'effective_from' => $effectiveFrom,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /** @return array<string, mixed> the live line's stored cost snapshot and price */
+    private function liveLineCosts(string $quotationId): array
+    {
+        $line = DB::table('quotation_items')->where('quotation_id', $quotationId)->whereNull('deleted_at')
+            ->first(['unit_cost', 'unit_cost_fx_rate_at_time', 'unit_cost_base', 'unit_price']);
+        self::assertNotNull($line);
+
+        return [
+            'unit_cost' => $line->unit_cost,
+            'unit_cost_fx_rate_at_time' => $line->unit_cost_fx_rate_at_time,
+            'unit_cost_base' => $line->unit_cost_base,
+            'unit_price' => $line->unit_price,
+        ];
     }
 
     private function currencyId(string $code): string

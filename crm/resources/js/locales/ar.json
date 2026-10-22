@@ -443,6 +443,10 @@
             "record": "تسجيل السعر",
             "recording": "يجري التسجيل…",
             "recorded": "سُجِّل السعر.",
+            "meaning": {
+                "line": "هذا السعر يعني {forward}، وفي الاتجاه المعاكس {inverse}.",
+                "equation": "1 {from} = {rate} {to}"
+            },
             "field": {
                 "from": "من",
                 "to": "إلى",

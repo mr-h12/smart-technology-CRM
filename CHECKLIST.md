@@ -4854,9 +4854,10 @@ auditors read-only, the full suite last and alone, a seven-part report, and the 
       Arabic PDF; the money cells are not wrapped in `$ltr`), U-5 (the edit builder fills additional-item
       amounts with six places and quantities raw), U-7 (the rounding label's unit below 0.01).
       *(2026-10-21, #411 — «-0.40» LTR-isolated in the Arabic PDF; detail totals in `<bdi dir="ltr">` (A-26); the builder pre-fills `10`/`1500`, not `10.0000`/`1500.000000`; unit 0.001 labels «0.001», unit 1 stays «1.00»)*
-- [ ] **F.3** Cost and margin on the staff screens — U-4 (the «تكلفة الوحدة» column shows the supplier's
+- [x] **F.3** Cost and margin on the staff screens — U-4 (the «تكلفة الوحدة» column shows the supplier's
       raw price in the supplier's currency with no code; no `.vue` reads `unit_cost_base`), U-9
       (QT-2026-0004's effective margin 15% beside a price priced at 5%). The owner's call on U-4 first. Also (F.1's pricing review): the effective margin shown is the configured sum, not the one achieved after `D-142`'s rounding (cost 0.02 at 20% → priced 0.02, 0% achieved).
+      *(2026-10-22, #418 — `D-148`: cost shown is `unit_cost_base` + the quotation's code (QT-2026-0018: 16.61 USD, not 877.19); margin shown is the achieved one, null → «—» at zero cost (QT-2026-0004: 5%, not 15%); the builder's supplier price carries the offer's code; pricing and customer PDFs unchanged)*
 - [ ] **F.4** Exchange rates and re-pricing — U-3 (two reversed EGP→USD rows on dev priced QT-2026-0011
       and QT-2026-0014; the client PC unchecked; a guard), U-8 (editing a draft re-prices it at today's rate
       and supplier price, `D-09`). The client-PC fx query and the owner's answers first.

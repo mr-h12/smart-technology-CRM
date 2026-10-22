@@ -22,6 +22,7 @@ use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
 use App\Modules\Notifications\Infrastructure\DatabaseAlertInbox;
+use App\Modules\Notifications\Infrastructure\DatabaseAlertLedger;
 use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
 use App\Modules\Pdf\Infrastructure\DatabaseReportPdfGenerations;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
@@ -450,6 +451,10 @@ final class AuditEnforcementTest extends TestCase
             DatabaseAlertInbox::class => 'AUD-01 does not apply: marking an alert read changes only its reader\'s '
                     .'own display state (read_at) on a row addressed to them; no business record, no other person\'s '
                     .'view and no decision changes, and the alert itself is raised and cleared by the jobs that own it.',
+            // Module 16 · 2 (`D-153`): J-16 and the later alert jobs.
+            DatabaseAlertLedger::class => 'AUD-01 does not apply: alerts are derived from records already audited '
+                    .'when they were written (a quotation\'s status, owner and valid_until), raised and cleared on a '
+                    .'schedule with no actor; the row itself is the history — first and last raised, read and cleared moments.',
         ];
     }
 

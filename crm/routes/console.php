@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Dashboard\Presentation\RefreshDashboardAggregatesJob;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
+use App\Modules\Notifications\Presentation\RaiseQuotationExpiryAlertsJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
 use App\Modules\Reports\Presentation\GenerateMonthlyReportsJob;
@@ -97,6 +98,11 @@ Schedule::job(new GenerateMonthlyReportsJob, QueueName::Maintenance->value)->mon
 // on start. The archive age is the `limits.report_archive_months` setting, read inside the job.
 Schedule::job(new ArchiveOldReportsJob, QueueName::Maintenance->value)->daily();
 
+// J-16 quotation_expiry_alerts (§15, D-153, Module 16 · 2). J-01's shape and time,
+// onto `maintenance`, with its catch-up (`schedule:catch-up`), last on start so
+// J-01 has already expired what it should. The window is a setting, read inside the job.
+Schedule::job(new RaiseQuotationExpiryAlertsJob, QueueName::Maintenance->value)->daily();
+
 // J-09 refresh_dashboard_aggregates (§15, D-146, Module 14 · 2.1b), onto `maintenance`
 // (§15.1: aggregates): hourly over the days that changed, and in full nightly at
 // 00:30 UTC. No catch-up entry — §15 marks it "❌ recomputes": the next run does.
@@ -115,6 +121,7 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
         'J-06' => SubmitUnreviewedWeeklyReportsJob::class,
         'J-07' => GenerateMonthlyReportsJob::class,
         'J-08' => ArchiveOldReportsJob::class,
+        'J-16' => RaiseQuotationExpiryAlertsJob::class,
     ];
 
     foreach ($jobs as $code => $job) {

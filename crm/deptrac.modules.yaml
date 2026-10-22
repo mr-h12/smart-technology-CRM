@@ -82,6 +82,9 @@ deptrac:
             # Module 13 slice 6 (`D-126`): the weekly report's PO count.
             - type: classLike
               value: ^App\\Modules\\Quotations\\Domain\\Contracts\\PurchaseOrderCountsInterface$
+            # Module 16 · 2 (`D-153`): J-16's expiring sent quotations.
+            - type: classLike
+              value: ^App\\Modules\\Quotations\\Domain\\Contracts\\ExpiringQuotationsInterface$
     # `SupplierLookupInterface` is collected out by `SuppliersContract` below,
     # on exactly `Catalog`'s terms: a token in two layers is checked against both.
     - name: Suppliers
@@ -303,6 +306,9 @@ deptrac:
           value: ^App\\Modules\\Quotations\\Domain\\Listing\\PurchaseOrderRecord$
         - type: classLike
           value: ^App\\Modules\\Quotations\\Domain\\Contracts\\PurchaseOrderCountsInterface$
+        # Module 16 · 2 (`D-153`): J-16's expiring sent quotations, read by Notifications.
+        - type: classLike
+          value: ^App\\Modules\\Quotations\\Domain\\Contracts\\ExpiringQuotationsInterface$
 
     # SupplierQuotations' published price read, added 2026-09-11 with Module 7
     # Point 3.3 — §5.6 makes a customer quotation read one supplier line's
@@ -911,8 +917,16 @@ deptrac:
     # Module 16 · 1 (`D-153`): the alerts a person reads under the bell.
     Notifications:
       - Framework
-      # SharedContracts: the envelope, and `UtcAtom` for the alert's moments.
+      # SharedContracts: the envelope, `UtcAtom` for the alert's moments, and
+      # `SettingReader` for J-16's window (2).
       - SharedContracts
+      # 2 (J-16) reads, never writes, through each module's published contract:
+      # AdminContract: `CompanyToday`, the company's day the window starts on.
+      - AdminContract
+      # IdentityContract: `UserFactsInterface::activeRolesOf` / `teamLeadersOf`.
+      - IdentityContract
+      # QuotationsContract: `ExpiringQuotationsInterface::sentExpiringBetween`.
+      - QuotationsContract
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.
     Pdf:

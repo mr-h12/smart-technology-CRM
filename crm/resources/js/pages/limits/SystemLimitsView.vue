@@ -83,6 +83,8 @@ interface LimitRow {
 }
 
 const rows = ref<LimitRow[]>([]);
+/** How many limits have never been saved — the server's `null`, not an empty input. */
+const unconfigured = computed(() => rows.value.filter((row) => row.stored === null).length);
 const loading = ref(true);
 const denied = ref(false);
 /** A lang-file key, or null. */
@@ -209,7 +211,11 @@ onMounted(load);
              the limits block, whatever level the document gives it. -->
         <div class="flex flex-col gap-1">
             <h2 class="text-card-title" data-testid="limits-heading">{{ t('limits.title') }}</h2>
-            <p class="text-[var(--color-text-muted)] text-pretty">{{ t('limits.subtitle') }}</p>
+            <p class="text-[var(--color-text-muted)] text-pretty">
+                {{ t('limits.subtitle') }}
+                <!-- Counted, not written: "five of the seven" went false when Module 16 · 2 added an eighth. -->
+                <span v-if="unconfigured > 0" data-testid="limits-unconfigured">{{ t('limits.unconfigured', { count: unconfigured, total: rows.length }) }}</span>
+            </p>
         </div>
 
         <LoadingState v-if="loading" label-key="limits.loading" />

@@ -158,11 +158,12 @@ final class SystemLimitEndpointTest extends TestCase
         // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
         // adds the seventh, `OD-08`'s similarity threshold, on the owner's
         // decision of 2026-08-30 · `D-135` removes the daily report deadline, which
-        // leaves six · 7.4 adds `J-08`'s archive age (`D-127`), which makes seven.
+        // leaves six · 7.4 adds `J-08`'s archive age (`D-127`), which makes seven ·
+        // Module 16 · 2 adds `J-16`'s window (`D-153`), which makes eight.
         // The count is asserted first on purpose: a
         // limit added without a reader noticing is a field the screen will not
         // draw, and this line is what makes somebody notice.
-        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline, 7.4 added the archive age.');
+        self::assertCount(8, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline, 7.4 added the archive age, D-153 the expiry alert window.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);
@@ -223,9 +224,10 @@ final class SystemLimitEndpointTest extends TestCase
         }
 
         // Was 6 until the threshold was seeded; 7.4's archive age is unvalued too
-        // (the job reads 6 while it is unset, `D-127`), so 5. A count, so a limit
+        // (the job reads 6 while it is unset, `D-127`), so 5; Module 16 · 2's window is
+        // unvalued as well (J-16 reads 3, `D-153`), so 6. A count, so a limit
         // gaining a value cannot slip past this guard unremarked.
-        self::assertSame(5, $unvalued);
+        self::assertSame(6, $unvalued);
 
         $threshold = $limits[SystemLimit::CustomerSimilarityThreshold->value];
         self::assertIsArray($threshold);

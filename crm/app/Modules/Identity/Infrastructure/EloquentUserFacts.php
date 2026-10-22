@@ -80,6 +80,28 @@ final readonly class EloquentUserFacts implements UserFactsInterface
         return $roles;
     }
 
+    public function teamLeadersOf(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $leaders = [];
+        /** @var object{id: string, leader_id: string} $row */
+        foreach ($this->connection->table('users')
+            ->join('users as leaders', 'leaders.id', '=', 'users.team_leader_id')
+            ->whereNull('leaders.deleted_at')
+            ->where('leaders.is_hidden', false)
+            ->where('leaders.is_active', true)
+            ->whereIn('users.id', $userIds)
+            ->select('users.id', 'leaders.id as leader_id')
+            ->get() as $row) {
+            $leaders[(string) $row->id] = (string) $row->leader_id;
+        }
+
+        return $leaders;
+    }
+
     public function holdersOf(string $resource, string $action): array
     {
         $holders = [];

@@ -190,6 +190,20 @@ describe('SystemLimitsView', () => {
 
     // ── Module 16 · 2: the quotation expiry alert window (`J-16`, `D-153`) ──
 
+    /** The browser check (2026-10-22): the intro said "five of the seven" in words, and an eighth limit made it false. It counts now. */
+    it('counts the limits never configured instead of naming a number in its sentence', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        const view = render();
+        await flushPromises();
+
+        const intro = view.get('[data-testid="limits-unconfigured"]').text();
+        // LIMITS: eight, of which only the lockout has a value.
+        expect(intro).toContain('7');
+        expect(intro).toContain('8');
+        expect(en.limits.subtitle).not.toMatch(/seven|five/i);
+    });
+
     it('has the expiry alert window label and hint in both languages, Arabic in Arabic script', () => {
         const arabic = /[\u0600-\u06FF]/;
         for (const [messages, isArabic] of [[en, false], [ar, true]] as const) {
@@ -474,7 +488,8 @@ describe('SystemLimitsView', () => {
 
         const fields = view.findAll('[data-limit-key]');
 
-        expect(fields).toHaveLength(7);
+        // 8 since Module 16 · 2's `quotations.expiry_alert_days` (`D-153`).
+        expect(fields).toHaveLength(8);
 
         const hints: Record<string, string> = en.limits.hint;
 

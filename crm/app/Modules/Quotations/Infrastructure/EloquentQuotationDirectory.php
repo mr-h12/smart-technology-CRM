@@ -8,6 +8,7 @@ use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
+use App\Modules\Quotations\Domain\Contracts\ExpiringQuotationsInterface;
 use App\Modules\Quotations\Domain\Contracts\PurchaseOrderCountsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
@@ -67,7 +68,7 @@ use stdClass;
  * simultaneous creates serialise on one row rather than racing to the same
  * number and failing the `quotations_code_unique` index.
  */
-final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsInterface, QuotationDirectoryInterface
+final readonly class EloquentQuotationDirectory implements ExpiringQuotationsInterface, PurchaseOrderCountsInterface, QuotationDirectoryInterface
 {
     /** §4.7: "QT-2026-0001". */
     private const CODE_PREFIX = 'QT';
@@ -798,6 +799,26 @@ final readonly class EloquentQuotationDirectory implements PurchaseOrderCountsIn
         }
 
         $this->connection->table($table)->insert($insert);
+    }
+
+    public function sentExpiringBetween(string $from, string $to): array
+    {
+        /** @var list<object{id: string, code: string, valid_until: string, deal_id: string}> $rows */
+        $rows = $this->connection->table('quotations')->whereNull('deleted_at')
+            ->where('status', 'sent')
+            ->whereBetween('valid_until', [$from, $to])
+            ->orderBy('valid_until')->orderBy('code')
+            ->get(['id', 'code', 'valid_until', 'deal_id'])->all();
+
+        // The owner through Deals' contract: Quotations never reads `deals`.
+        $owners = $this->deals->ownersOf(array_values(array_unique(array_map(static fn (object $row): string => $row->deal_id, $rows))));
+
+        return array_map(static fn (object $row): array => [
+            'quotation_id' => $row->id,
+            'number' => $row->code,
+            'valid_until' => substr($row->valid_until, 0, 10),
+            'owner_id' => $owners[$row->deal_id] ?? null,
+        ], $rows);
     }
 
     public function liveApprovalCountsByOwner(): array

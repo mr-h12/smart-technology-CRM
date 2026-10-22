@@ -85,7 +85,9 @@ use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
 use App\Modules\Notifications\Domain\Contracts\AlertInboxInterface;
+use App\Modules\Notifications\Domain\Contracts\AlertLedgerInterface;
 use App\Modules\Notifications\Infrastructure\DatabaseAlertInbox;
+use App\Modules\Notifications\Infrastructure\DatabaseAlertLedger;
 use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
 use App\Modules\Pdf\Application\Access\ReportPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
@@ -101,6 +103,7 @@ use App\Modules\Pdf\Infrastructure\FilePdfAssets;
 use App\Modules\Pdf\Presentation\QueuePdfWhenQuotationSent;
 use App\Modules\Pdf\Presentation\QueuePdfWhenReportSubmitted;
 use App\Modules\Quotations\Application\Access\PurchaseOrderAttachmentPermission;
+use App\Modules\Quotations\Domain\Contracts\ExpiringQuotationsInterface;
 use App\Modules\Quotations\Domain\Contracts\PurchaseOrderCountsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
@@ -260,6 +263,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DashboardAggregatesInterface::class, DatabaseDashboardAggregates::class);
         // Module 16 · 1 (`D-153`): the alerts under the bell.
         $this->app->bind(AlertInboxInterface::class, DatabaseAlertInbox::class);
+        // Module 16 · 2: the jobs that raise and clear alerts.
+        $this->app->bind(AlertLedgerInterface::class, DatabaseAlertLedger::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 
@@ -418,6 +423,11 @@ class AppServiceProvider extends ServiceProvider
         // `D-126`: the weekly report's PO count, from the same adapter.
         $this->app->bind(
             PurchaseOrderCountsInterface::class,
+            fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
+        );
+        // Module 16 · 2 (`D-153`): J-16's expiring quotations, from the same adapter.
+        $this->app->bind(
+            ExpiringQuotationsInterface::class,
             fn (): QuotationDirectoryInterface => $this->app->make(QuotationDirectoryInterface::class),
         );
 

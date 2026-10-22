@@ -53,6 +53,11 @@ enum SystemLimit: string
      * Declared and unvalued like the others: the job reads 6 (§11.4) while it is unset.
      */
     case ReportArchiveMonths = 'limits.report_archive_months';
+    /**
+     * `J-16`'s window · `D-153` · Module 16 · 2: whole days, at least one. The key is
+     * the decision's own. Declared and unvalued: the job reads 3 while it is unset.
+     */
+    case QuotationExpiryAlertDays = 'quotations.expiry_alert_days';
 
     /** §13/6 "maximum file size" · `D-39` — "10 MB (configurable)". */
     case MaxFileSizeMb = 'limits.max_file_size_mb';
@@ -107,7 +112,7 @@ enum SystemLimit: string
     public function unit(): ?string
     {
         return match ($this) {
-            self::StaleDealDays => 'days',
+            self::StaleDealDays, self::QuotationExpiryAlertDays => 'days',
             self::QuotationApprovalSlaHours, self::WeeklyReviewWindowHours => 'hours',
             self::ReportArchiveMonths => 'months',
             self::MaxFileSizeMb => 'megabytes',

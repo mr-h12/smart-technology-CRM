@@ -443,6 +443,10 @@
             "record": "Record rate",
             "recording": "Recording…",
             "recorded": "Rate recorded.",
+            "meaning": {
+                "line": "This rate means {forward}, and the other way {inverse}.",
+                "equation": "1 {from} = {rate} {to}"
+            },
             "field": {
                 "from": "From",
                 "to": "To",

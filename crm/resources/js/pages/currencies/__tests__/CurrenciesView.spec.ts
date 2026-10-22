@@ -444,7 +444,7 @@ describe('recording a rate', () => {
     });
 });
 
-// Fix pass F.4, U-3 (`D-149`): a rate typed the wrong way round (EGP→USD 51,
+// Fix pass F.4, U-3 (`D-152`): a rate typed the wrong way round (EGP→USD 51,
 // where 1 EGP is about 0.02 USD) is visible before it is saved. The line reads
 // the typed number as `D-115` does — 1 `from` = r `to` — and states the other
 // direction as the server stores it: `ExchangeRate::inverseOf()`'s 1 ÷ r,

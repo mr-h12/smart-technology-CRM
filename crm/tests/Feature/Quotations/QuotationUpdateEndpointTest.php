@@ -304,7 +304,7 @@ final class QuotationUpdateEndpointTest extends TestCase
     }
 
     /**
-     * `D-149` (fix pass F.4, U-8) over `D-09`: a Draft's edit re-prices it at the
+     * `D-152` (fix pass F.4, U-8) over `D-09`: a Draft's edit re-prices it at the
      * moment of the edit — the rate effective now and the supplier price as it
      * stands now — not at the ones its creation captured. Created at
      * `USD→EGP = 50` on 10 EGP (0.200000 USD); an hour later the rate is 40 and

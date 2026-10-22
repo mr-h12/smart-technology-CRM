@@ -2014,6 +2014,16 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **The dashboard's net profit equals its gross profit** — *the owner's ruling, 2026-10-21 (`D-144`).*
       Net profit is §5.5's `final_profit`, and the saving it adds is recorded only by Module 11. Until
       then the figure is labelled as equal to gross profit.
+- [ ] **The documentation still describes the quotation pricing that `D-154`…`D-165` replace** — *revealed by the waste audit of the redesign's decision rows, 2026-10-22.*
+      The rows amend the decision log only. Still written the old way: §5.1 (`margin_percent` = quotation + line margin),
+      §5.2 (quotation `tax_percent`, the customer default), §5.6 (block on a missing supplier price, the over-quantity
+      warning), §3.6 (the Supplier Quotations permission table), §6.2 (default margin and tax % in the builder), §7.2
+      ("Per D-21: prices live here"), §10.3 (`D-36`'s drift warning), `Design_System_EN.md` §7.2, `OpenAPI_Contract_EN.md`
+      (`supplier_price_missing`, the over-quantity code) and `MVP_Build_Plan_EN.md` (the `D-106` and `D-63` criteria).
+      Each is amended by the redesign slice that changes that behaviour.
+- [ ] **The Arabic guides lag the English ones on tax and OD-01** — *revealed by the same audit, 2026-10-22.*
+      `arabic/CLAUDE_AR.md` and `arabic/AGENTS_AR.md` lack the discount-before-tax (`D-64`), additional-items (`D-62`)
+      and optional-rounding (`D-65`) lines, and still show OD-01 open with the «أيوه» assumption, which `D-62` closed.
 
 ## Agent guide revisions — owner-directed
 
